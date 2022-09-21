@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -21,7 +21,7 @@ namespace Unity.Entities.SourceGen.JobEntity
     [Generator]
     public class JobEntityGenerator : ISourceGenerator, ISourceGeneratorDiagnosable
     {
-        internal static readonly string GeneratorName = "JobEntity";
+        static readonly string GeneratorName = "JobEntity";
         public List<Diagnostic> Diagnostics { get; }
 
         public void Initialize(GeneratorInitializationContext context)
@@ -31,7 +31,10 @@ namespace Unity.Entities.SourceGen.JobEntity
 
         public void Execute(GeneratorExecutionContext context)
         {
+            if (!SourceGenHelpers.IsBuildTime && !SourceGenHelpers.ShouldRun(context))
+                return;
             SourceGenHelpers.Setup(context);
+
             var systemReceiver = (JobEntitySyntaxReceiver)context.SyntaxReceiver;
 
             try
@@ -46,7 +49,7 @@ namespace Unity.Entities.SourceGen.JobEntity
                     foreach (var candidate in candidates)
                     {
                         var jobEntityDescription = new JobEntityDescription(candidate, semanticModel, this);
-                        if (jobEntityDescription.Valid)
+                        if (!jobEntityDescription.Invalid)
                             originalToGeneratedPartial[candidate] = jobEntityDescription.Generate();
                     }
 
@@ -56,7 +59,7 @@ namespace Unity.Entities.SourceGen.JobEntity
 
                     var outputSource = TypeCreationHelpers.GenerateSourceTextForRootNodes(GeneratorName, context, syntaxTree, rootNodes);
                     context.AddSource(syntaxTree.GetGeneratedSourceFileName(GeneratorName), outputSource);
-                    OutputNewSourceToFile(context, syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly, GeneratorName), outputSource);
+                    SourceGenHelpers.OutputSourceToFile(context, syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly, GeneratorName), outputSource);
                 }
             }
             catch (Exception exception)
@@ -64,25 +67,7 @@ namespace Unity.Entities.SourceGen.JobEntity
                 if (exception is OperationCanceledException)
                     throw;
 
-                context.LogError("SGICE003", "IJobEntity Generator", exception.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
-            }
-        }
-
-        static void OutputNewSourceToFile(GeneratorExecutionContext generatorExecutionContext, string generatedSourceFilePath, SourceText sourceTextForNewClass)
-        {
-            if(!SourceGenHelpers.CanWriteToProjectPath)
-                return;
-
-            try
-            {
-                SourceGenHelpers.LogInfo($"Outputting generated source to file {generatedSourceFilePath}...");
-                File.WriteAllText(generatedSourceFilePath, sourceTextForNewClass.ToString());
-            }
-            catch (IOException ioException)
-            {
-                // Emit exception as info but don't block compilation or generate error to fail tests
-                generatorExecutionContext.LogInfo("SGICE005", "JobEntity Generator",
-                    ioException.ToString(), generatorExecutionContext.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
+                context.LogError("SGICE003", "IJobEntity Generator", exception.ToUnityPrintableString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
             }
         }
     }

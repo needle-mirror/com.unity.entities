@@ -4,6 +4,62 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
+    //@TODO: It s a bit annoying that the debug name of this system is longer than 64 characters and thus the name won't match when  a subclass of the test?
+    // Maybe we should use a different string storage for the system debug names?
+    partial class BumpChunkTypeVersionSystem : SystemBase
+    {
+        struct UpdateChunks : IJobParallelFor
+        {
+            public NativeArray<ArchetypeChunk> Chunks;
+            public ComponentTypeHandle<EcsTestData> EcsTestDataTypeHandle;
+
+            public void Execute(int chunkIndex)
+            {
+                var chunk = Chunks[chunkIndex];
+                var ecsTestData = chunk.GetNativeArray(EcsTestDataTypeHandle);
+                for (int i = 0; i < chunk.Count; i++)
+                {
+                    ecsTestData[i] = new EcsTestData {value = ecsTestData[i].value + 1};
+                }
+            }
+        }
+
+        EntityQuery m_Group;
+        private bool m_LastAllChanged;
+
+        protected override void OnCreate()
+        {
+            m_Group = GetEntityQuery(typeof(EcsTestData));
+            m_LastAllChanged = false;
+        }
+
+        protected override void OnUpdate()
+        {
+            var chunks = m_Group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var ecsTestDataType = GetComponentTypeHandle<EcsTestData>();
+            var updateChunksJob = new UpdateChunks
+            {
+                Chunks = chunks,
+                EcsTestDataTypeHandle = ecsTestDataType
+            };
+            var updateChunksJobHandle = updateChunksJob.Schedule(chunks.Length, 32, Dependency);
+            updateChunksJobHandle.Complete();
+
+            // LastSystemVersion bumped after update. Check for change
+            // needs to occur inside system update.
+            m_LastAllChanged = true;
+            for (int i = 0; i < chunks.Length; i++)
+            {
+                m_LastAllChanged &= chunks[i].DidChange(ecsTestDataType, LastSystemVersion);
+            }
+        }
+
+        public bool AllEcsTestDataChunksChanged()
+        {
+            return m_LastAllChanged;
+        }
+    }
+
     partial class ChangeVersionTests : ECSTestsFixture
     {
 #if !UNITY_DOTSRUNTIME
@@ -31,7 +87,7 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-        class BumpVersionSystem : ComponentSystem
+        partial class BumpVersionSystem : SystemBase
         {
             public EntityQuery m_Group;
 
@@ -58,66 +114,14 @@ namespace Unity.Entities.Tests
             }
         }
 
-        partial class BumpChunkTypeVersionSystem : SystemBase
-        {
-            struct UpdateChunks : IJobParallelFor
-            {
-                public NativeArray<ArchetypeChunk> Chunks;
-                public ComponentTypeHandle<EcsTestData> EcsTestDataTypeHandle;
 
-                public void Execute(int chunkIndex)
-                {
-                    var chunk = Chunks[chunkIndex];
-                    var ecsTestData = chunk.GetNativeArray(EcsTestDataTypeHandle);
-                    for (int i = 0; i < chunk.Count; i++)
-                    {
-                        ecsTestData[i] = new EcsTestData {value = ecsTestData[i].value + 1};
-                    }
-                }
-            }
-
-            EntityQuery m_Group;
-            private bool m_LastAllChanged;
-
-            protected override void OnCreate()
-            {
-                m_Group = GetEntityQuery(typeof(EcsTestData));
-                m_LastAllChanged = false;
-            }
-
-            protected override void OnUpdate()
-            {
-                var chunks = m_Group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
-                var ecsTestDataType = GetComponentTypeHandle<EcsTestData>();
-                var updateChunksJob = new UpdateChunks
-                {
-                    Chunks = chunks,
-                    EcsTestDataTypeHandle = ecsTestDataType
-                };
-                var updateChunksJobHandle = updateChunksJob.Schedule(chunks.Length, 32, Dependency);
-                updateChunksJobHandle.Complete();
-
-                // LastSystemVersion bumped after update. Check for change
-                // needs to occur inside system update.
-                m_LastAllChanged = true;
-                for (int i = 0; i < chunks.Length; i++)
-                {
-                    m_LastAllChanged &= chunks[i].DidChange(ecsTestDataType, LastSystemVersion);
-                }
-            }
-
-            public bool AllEcsTestDataChunksChanged()
-            {
-                return m_LastAllChanged;
-            }
-        }
 
         [Test]
         public void CHG_BumpValueChangesChunkTypeVersion()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var bumpChunkTypeVersionSystem = World.CreateSystem<BumpChunkTypeVersionSystem>();
+            var bumpChunkTypeVersionSystem = World.CreateSystemManaged<BumpChunkTypeVersionSystem>();
 
             bumpChunkTypeVersionSystem.Update();
             Assert.AreEqual(true, bumpChunkTypeVersionSystem.AllEcsTestDataChunksChanged());
@@ -127,10 +131,28 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [DotsRuntimeFixme("Name of ECSTestData not supported")]
+        public void GetLastWriterSystemName()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+
+            var bumpChunkTypeVersionSystem = World.CreateSystemManaged<BumpChunkTypeVersionSystem>();
+            bumpChunkTypeVersionSystem.Update();
+
+            var systemNotFound = EntityManager.EntityManagerDebug.GetLastWriterSystemName(m_Manager.GetChunk(entity), typeof(EcsTestData2));
+            Assert.AreEqual("Couldn't find the system that modified the chunk.", systemNotFound);
+
+            var componentMissing = EntityManager.EntityManagerDebug.GetLastWriterSystemName(m_Manager.GetChunk(entity), typeof(EcsTestData3));
+            Assert.AreEqual($"'{typeof(EcsTestData3)}' was not present on the chunk.", componentMissing);
+
+            var name = EntityManager.EntityManagerDebug.GetLastWriterSystemName(m_Manager.GetChunk(entity), typeof(EcsTestData));
+            Assert.AreEqual(TypeManager.GetSystemName(typeof(BumpChunkTypeVersionSystem)), name);
+        }
+        [Test]
         public void CHG_SystemVersionZeroWhenNotRun()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var system = World.CreateSystem<BumpVersionSystem>();
+            var system = World.CreateSystemManaged<BumpVersionSystem>();
             Assert.AreEqual(0, system.LastSystemVersion);
             system.Update();
             Assert.AreNotEqual(0, system.LastSystemVersion);
@@ -151,7 +173,7 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                using (var chunks = m_Query.CreateArchetypeChunkArray(Allocator.Temp))
+                using (var chunks = m_Query.ToArchetypeChunkArray(Allocator.Temp))
                 {
                     Assert.That(chunks.Length, Is.EqualTo(1));
                     DidChange = chunks[0].DidChange(m_ComponentTypeHandle, LastSystemVersion);
@@ -162,7 +184,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void Chunk_DidChange_ManagedSystemDetectsChange()
         {
-            var system = World.GetOrCreateSystem<ChunkDidChangeManagedSystem>();
+            var system = World.GetOrCreateSystemManaged<ChunkDidChangeManagedSystem>();
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
 
             system.Update();
@@ -205,7 +227,7 @@ namespace Unity.Entities.Tests
 
             public void OnUpdate(ref SystemState state)
             {
-                using (var chunks = m_Query.CreateArchetypeChunkArray(Allocator.Temp))
+                using (var chunks = m_Query.ToArchetypeChunkArray(Allocator.Temp))
                 {
                     Assert.That(chunks.Length, Is.EqualTo(1));
                     DidChange = chunks[0].DidChange(m_ComponentTypeHandle, state.LastSystemVersion);
@@ -214,44 +236,45 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void Chunk_DidChange_UnmanagedSystemDetectsChange()
+        public unsafe void Chunk_DidChange_UnmanagedSystemDetectsChange()
         {
             var system = World.GetOrCreateSystem<ChunkDidChangeUnmanagedSystem>();
+            ref var systemRef = ref World.Unmanaged.GetUnsafeSystemRef<ChunkDidChangeUnmanagedSystem>(system);
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
 
             system.Update(World.Unmanaged);
-            Assert.That(system.Struct.DidChange, Is.True);
+            Assert.That(systemRef.DidChange, Is.True);
 
             system.Update(World.Unmanaged);
-            Assert.That(system.Struct.DidChange, Is.False);
+            Assert.That(systemRef.DidChange, Is.False);
 
             system.Update(World.Unmanaged);
-            Assert.That(system.Struct.DidChange, Is.False);
+            Assert.That(systemRef.DidChange, Is.False);
 
             m_Manager.SetComponentData(entity, new EcsTestData { value = 1 });
 
             system.Update(World.Unmanaged);
-            Assert.That(system.Struct.DidChange, Is.True);
+            Assert.That(systemRef.DidChange, Is.True);
 
             system.Update(World.Unmanaged);
-            Assert.That(system.Struct.DidChange, Is.False);
+            Assert.That(systemRef.DidChange, Is.False);
 
             system.Update(World.Unmanaged);
-            Assert.That(system.Struct.DidChange, Is.False);
+            Assert.That(systemRef.DidChange, Is.False);
         }
 
         partial class DidChangeTestSystem : SystemBase
         {
             protected override void OnUpdate()
             {
-                var bfe = GetBufferFromEntity<EcsIntElement>(true);
-                var cdfe = GetComponentDataFromEntity<EcsTestData>(true);
+                var bfe = GetBufferLookup<EcsIntElement>(true);
+                var componentLookup = GetComponentLookup<EcsTestData>(true);
                 uint lastSysVersion = LastSystemVersion;
                 Entities
                     .WithAll<EcsTestData, EcsIntElement>()
                     .ForEach((Entity e, ref EcsTestData2 changed) =>
                     {
-                        changed.value0 = cdfe.DidChange(e, lastSysVersion) ? 1 : 0;
+                        changed.value0 = componentLookup.DidChange(e, lastSysVersion) ? 1 : 0;
                         changed.value1 = bfe.DidChange(e, lastSysVersion) ? 1 : 0;
                     }).Run();
             }
@@ -272,7 +295,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void ComponentDataFromEntity_DidChange_DetectsChanges()
+        public void ComponentLookup_DidChange_DetectsChanges()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsIntElement), typeof(EcsTestData2));
             int entityCount = 10;
@@ -283,8 +306,8 @@ namespace Unity.Entities.Tests
                     m_Manager.AddComponent<EcsTestTag>(entities[i]);
             }
 
-            var detectChangesSys = World.CreateSystem<DidChangeTestSystem>();
-            var changeEntitiesWithTagSys = World.CreateSystem<ChangeEntitiesWithTag>();
+            var detectChangesSys = World.CreateSystemManaged<DidChangeTestSystem>();
+            var changeEntitiesWithTagSys = World.CreateSystemManaged<ChangeEntitiesWithTag>();
 
             // First update: all elements "changed"
             detectChangesSys.Update();
@@ -311,7 +334,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void BufferFromEntity_DidChange_DetectsChanges()
+        public void BufferLookup_DidChange_DetectsChanges()
         {
             var archetype =
                 m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsIntElement), typeof(EcsTestData2));
@@ -323,8 +346,8 @@ namespace Unity.Entities.Tests
                     m_Manager.AddComponent<EcsTestTag>(entities[i]);
             }
 
-            var detectChangesSys = World.CreateSystem<DidChangeTestSystem>();
-            var changeEntitiesWithTagSys = World.CreateSystem<ChangeEntitiesWithTag>();
+            var detectChangesSys = World.CreateSystemManaged<DidChangeTestSystem>();
+            var changeEntitiesWithTagSys = World.CreateSystemManaged<ChangeEntitiesWithTag>();
 
             // First update: all elements "changed"
             detectChangesSys.Update();
@@ -355,7 +378,7 @@ namespace Unity.Entities.Tests
         public void CHG_SystemVersionJob()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var system = World.CreateSystem<BumpVersionSystemInJob>();
+            var system = World.CreateSystemManaged<BumpVersionSystemInJob>();
             Assert.AreEqual(0, system.LastSystemVersion);
             system.Update();
             Assert.AreNotEqual(0, system.LastSystemVersion);

@@ -4,24 +4,31 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
-    [ConverterVersion("sschoener", 1)]
     [AddComponentMenu("")]
-    public class TestComponentWithBlobAssetAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class TestComponentWithBlobAssetAuthoring : MonoBehaviour
     {
         public int Version;
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
-        {
-            var builder = new BlobBuilder(Allocator.Temp);
-            builder.ConstructRoot<int>() = Version;
-            dstManager.AddComponentData(entity, new Component
-            {
-                BlobAssetRef = builder.CreateBlobAssetReference<int>(Allocator.Persistent)
-            });
-        }
-
         public struct Component : IComponentData
         {
             public BlobAssetReference<int> BlobAssetRef;
+        }
+
+        class Baker : Baker<TestComponentWithBlobAssetAuthoring>
+        {
+            public override void Bake(TestComponentWithBlobAssetAuthoring authoring)
+            {
+                var builder = new BlobBuilder(Allocator.Temp);
+                builder.ConstructRoot<int>() = authoring.Version;
+                var blob = builder.CreateBlobAssetReference<int>(Allocator.Persistent);
+
+                AddBlobAsset(blob, out Hash128 hash);
+
+                AddComponent(new Component
+                {
+                    BlobAssetRef = blob
+                });
+                builder.Dispose();
+            }
         }
     }
 }

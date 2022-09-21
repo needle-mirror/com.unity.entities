@@ -22,7 +22,7 @@ using Unity.Runtime.IO;
 public partial class BlobTests : ECSTestsFixture
 {
 #if !UNITY_DOTSRUNTIME
-    BlobTestSystemEFE _blobTestSystemEFE => World.CreateSystem<BlobTestSystemEFE>();
+    BlobTestSystemEFE _blobTestSystemEFE => World.CreateSystemManaged<BlobTestSystemEFE>();
     partial class BlobTestSystemEFE : SystemBase
     {
         public JobHandle ValidateBlobData_Job(JobHandle inputDependency = default)
@@ -37,7 +37,7 @@ public partial class BlobTests : ECSTestsFixture
         protected override void OnUpdate() {}
     }
 
-    BlobTestSystemIJobEntity _blobTestSystemIJobEntity => World.CreateSystem<BlobTestSystemIJobEntity>();
+    BlobTestSystemIJobEntity _blobTestSystemIJobEntity => World.CreateSystemManaged<BlobTestSystemIJobEntity>();
     partial class BlobTestSystemIJobEntity : SystemBase
     {
         public JobHandle ValidateBlobInComponent(bool expectException = false, JobHandle inputDependency = default)

@@ -37,7 +37,7 @@ public class GameObjectExportGroup : ComponentSystemGroup {}
 /// for the system (default if left unspecified is GameObjectConversionGroup).
 /// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-public abstract partial class GameObjectConversionSystem : ComponentSystem
+public abstract partial class GameObjectConversionSystem : SystemBase
 {
     GameObjectConversionMappingSystem m_MappingSystem;
 
@@ -49,7 +49,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     {
         base.OnCreate();
 
-        m_MappingSystem = World.GetExistingSystem<GameObjectConversionMappingSystem>();
+        m_MappingSystem = World.GetExistingSystemManaged<GameObjectConversionMappingSystem>();
     }
 
 #if UNITY_EDITOR
@@ -119,9 +119,11 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// </summary>
     /// <param name="target">The GameObject that has a dependency.</param>
     /// <param name="dependsOn">The Object that the target depends on. This must be an asset.</param>
-    public void DeclareAssetDependency(GameObject target, UnityObject dependsOn) =>
+    public void DeclareAssetDependency(GameObject target, UnityObject dependsOn)
+    {
         m_MappingSystem.Dependencies.DependOnAsset(target, dependsOn);
-
+        m_MappingSystem.DeclareAssetDep(dependsOn);
+    }
     /// <summary>
     /// Declares that the conversion result of the target GameObject depends on another component. Any changes to the
     /// dependency should trigger a reconversion of the dependent component.
@@ -221,7 +223,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// </summary>
     /// <param name="uobject">The object to get the entities for.</param>
     /// <returns>An enumerator that returns the associated entities.</returns>
-    public MultiListEnumerator<Entity> GetEntities(UnityObject uobject) =>
+    internal MultiListEnumerator<Entity> GetEntities(UnityObject uobject) =>
         m_MappingSystem.GetEntities(uobject);
 
     /// <summary>
@@ -231,7 +233,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// </summary>
     /// <param name="component">The component whose GameObject to get the entities for.</param>
     /// <returns>An enumerator that returns the associated entities.</returns>
-    public MultiListEnumerator<Entity> GetEntities(Component component) =>
+    internal MultiListEnumerator<Entity> GetEntities(Component component) =>
         m_MappingSystem.GetEntities(component != null ? component.gameObject : null);
 
     public BlobAssetStore BlobAssetStore => m_MappingSystem.GetBlobAssetStore();

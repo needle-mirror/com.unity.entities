@@ -2,47 +2,55 @@
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.Hybrid.Tests;
+using Unity.Entities.Tests.Conversion;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
-    class MonoBehaviourComponentConversionSystem : GameObjectConversionSystem
+    class CompanionComponentsRuntimeTests_Baking : CompanionComponentTestFixture
     {
-        protected override void OnUpdate()
+        protected BakingSettings MakeDefaultBakingSettings() => new BakingSettings
         {
-            AddTypeToCompanionWhiteList(typeof(ConversionTestCompanionComponent));
-            Entities.ForEach((ConversionTestCompanionComponent component) =>
-            {
-                var entity = GetPrimaryEntity(component);
-                DstEntityManager.AddComponentObject(entity, component);
-            });
-        }
-    }
+            BakingFlags = BakingUtility.BakingFlags.AssignName
+        };
 
-    class CompanionComponentsRuntimeTests : CompanionComponentTestFixture
-    {
         [Test]
         public void CompanionComponent_TransformSync_OutOfOrder()
         {
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
+
             // Convert to create companions
-            for (int i = 0; i < 3; i++)
+            var gameObjects = new GameObject[3];
+            for (int i = 0; i < gameObjects.Length; i++)
             {
                 var gameObject = CreateGameObject();
                 gameObject.AddComponent<ConversionTestCompanionComponent>().SomeValue = 123;
-                GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>());
+                gameObjects[i] = gameObject;
             }
+
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultBakingSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            BakingUtility.BakeGameObjects(m_World, gameObjects, bakingSettings);
 
             // Verify we have created the correct number of companions
             var query = m_Manager.CreateEntityQuery(typeof(CompanionLink));
             Assert.AreEqual(3, query.CalculateEntityCount());
 
             var entities = query.ToEntityArray(Allocator.Persistent);
+#if !ENABLE_TRANSFORM_V1
+            m_World.EntityManager.SetComponentData(entities[0], new LocalToWorldTransform{Value=UniformScaleTransform.FromPosition(0.0f, 1, 0.0f)});
+            m_World.EntityManager.SetComponentData(entities[1], new LocalToWorldTransform{Value=UniformScaleTransform.FromPosition(0.0f, 2, 0.0f)});
+            m_World.EntityManager.SetComponentData(entities[2], new LocalToWorldTransform{Value=UniformScaleTransform.FromPosition(0.0f, 3, 0.0f)});
+#else
             m_World.EntityManager.SetComponentData(entities[0], new Translation{Value=new float3(0.0f, 1, 0.0f)});
             m_World.EntityManager.SetComponentData(entities[1], new Translation{Value=new float3(0.0f, 2, 0.0f)});
             m_World.EntityManager.SetComponentData(entities[2], new Translation{Value=new float3(0.0f, 3, 0.0f)});
+#endif
 
-            var companionGameObjectUpdateTransformSystem = m_World.GetExistingSystem<CompanionGameObjectUpdateTransformSystem>();
+            var companionGameObjectUpdateTransformSystem = m_World.GetExistingSystemManaged<CompanionGameObjectUpdateTransformSystem>();
 
             // Validate positions not moved
             for (int i = 0; i < 3; i++)
@@ -72,18 +80,29 @@ namespace Unity.Entities.Tests
         [Test]
         public void CompanionComponent_OnDisabledGameObject_IsConvertedAndDisabled()
         {
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
             var gameObject = CreateGameObject();
             gameObject.AddComponent<ConversionTestCompanionComponent>().SomeValue = 123;
             gameObject.SetActive(false);
-            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>());
-            var companionComponent = m_World.EntityManager.GetComponentObject<ConversionTestCompanionComponent>(entity);
+
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultBakingSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            BakingUtility.BakeGameObjects(m_World, new[] {gameObject}, bakingSettings);
+            var query = m_World.EntityManager.CreateEntityQuery(new EntityQueryDesc{ All = new ComponentType[]{typeof(ConversionTestCompanionComponent)}, Options = EntityQueryOptions.IncludeDisabledEntities});
+            var entities = query.ToEntityArray(Allocator.Temp);
+            Assert.AreEqual(1, entities.Length);
+
+            var companionComponent = m_World.EntityManager.GetComponentObject<ConversionTestCompanionComponent>(entities[0]);
             Assert.AreEqual(123, companionComponent.SomeValue);
 
             // give the hybrid component system a chance to activate this object, and check it did not in fact do it.
             m_World.Update();
 
-            var companion = m_World.EntityManager.GetComponentObject<CompanionLink>(entity);
+            var companion = m_World.EntityManager.GetComponentObject<CompanionLink>(entities[0]);
             Assert.IsFalse(companion.Companion.activeSelf);
+
+            entities.Dispose();
         }
     }
 }

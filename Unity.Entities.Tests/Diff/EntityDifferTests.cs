@@ -14,9 +14,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_NoChanges()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.AnyChanges);
                 }
@@ -30,7 +30,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetComponentData_WithFastForward()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData));
 
@@ -43,13 +43,13 @@ namespace Unity.Entities.Tests
                     EntityManagerDifferOptions.IncludeReverseChangeSet |
                     EntityManagerDifferOptions.FastForwardShadowWorld;
 
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     // Forward changes is all changes needed to go from the shadow state to the current state.
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(2, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
 
                     // Reverse changes is all changes needed to go from the current state back to the last shadow state. (i.e. Undo)
@@ -61,7 +61,7 @@ namespace Unity.Entities.Tests
                 }
 
                 // The inner shadow world was updated during the last call which means no new changes should be found.
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.AnyChanges);
                 }
@@ -74,7 +74,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetComponentData_WithoutFastForward()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData));
 
@@ -84,13 +84,13 @@ namespace Unity.Entities.Tests
                 const EntityManagerDifferOptions options = EntityManagerDifferOptions.IncludeForwardChangeSet |
                     EntityManagerDifferOptions.IncludeReverseChangeSet;
 
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     // ForwardChanges defines all operations needed to go from the shadow state to the current state.
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(2, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
 
                     // ReverseChanges defines all operations needed to go from the current state back to the last shadow state. (i.e. Undo)
@@ -102,12 +102,12 @@ namespace Unity.Entities.Tests
                 }
 
                 // Since we did not fast forward the inner shadow world. We should be able to generate the exact same changes again.
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(2, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
 
                     Assert.IsTrue(changes.HasReverseChangeSet);
@@ -122,7 +122,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetComponentData_IncrementalChanges()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData));
@@ -130,7 +130,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, entityGuid);
                 SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 9 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.AnyChanges);
                 }
@@ -141,7 +141,7 @@ namespace Unity.Entities.Tests
 
                 // The entityGuid value is the same so it should not be picked up during change tracking.
                 // We should only see the one data change.
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     // The ForwardChangeSet will contain a set value 10
                     Assert.IsTrue(changes.HasForwardChangeSet);
@@ -159,7 +159,7 @@ namespace Unity.Entities.Tests
                 }
 
                 SrcEntityManager.DestroyEntity(entity);
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.DestroyedEntityCount);
@@ -171,7 +171,7 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasReverseChangeSet);
                     Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(2, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(3, changes.ReverseChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
                 }
             }
@@ -180,23 +180,23 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetDefaultSharedComponentData_NoChanges()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestSharedComp));
                 SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
-                SrcEntityManager.SetSharedComponentData(entity, default(EcsTestSharedComp));
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                SrcEntityManager.SetSharedComponentManaged(entity, default(EcsTestSharedComp));
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(2, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetSharedComponents.Length);
                 }
 
-                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedComp { value = 1});
-                SrcEntityManager.SetSharedComponentData(entity, default(EcsTestSharedComp));
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                SrcEntityManager.SetSharedComponentManaged(entity, new EcsTestSharedComp { value = 1});
+                SrcEntityManager.SetSharedComponentManaged(entity, default(EcsTestSharedComp));
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.HasForwardChangeSet);
                 }
@@ -206,18 +206,18 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetSharedComponentData_IncrementalChanges()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestSharedComp));
 
                 SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
-                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedComp { value = 2 });
+                SrcEntityManager.SetSharedComponentManaged(entity, new EcsTestSharedComp { value = 2 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(2, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetSharedComponents.Length);
                 }
@@ -228,30 +228,30 @@ namespace Unity.Entities.Tests
         public unsafe void EntityDiffer_GetChanges_RefCounts_SharedComponents()
         {
             int RefCount1 = 0;
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestSharedCompWithRefCount));
 
                 SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
-                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedCompWithRefCount(&RefCount1));
+                SrcEntityManager.SetSharedComponentManaged(entity, new EcsTestSharedCompWithRefCount(&RefCount1));
 
                 Assert.AreEqual(1, RefCount1);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(2, RefCount1);
                 }
 
                 Assert.AreEqual(1, RefCount1);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(3, RefCount1);
                 }
 
                 Assert.AreEqual(2, RefCount1);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(2, RefCount1);
                 }
@@ -262,21 +262,21 @@ namespace Unity.Entities.Tests
 
                 Assert.AreEqual(1, RefCount1);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(1, RefCount1);
                 }
 
                 Assert.AreEqual(1, RefCount1);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.IncludeReverseChangeSet, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.IncludeReverseChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(2, RefCount1);
                 }
 
                 Assert.AreEqual(1, RefCount1);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(0, RefCount1);
                 }
@@ -285,33 +285,30 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        // TODO: remove UNITY_EDITOR conditional once https://unity3d.atlassian.net/browse/DOTS-3862 is fixed
+        // TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
         [DotsRuntimeFixme("Do not support EntityNames - DOTS-3862")]
         public void EntityDifferDetectsNameChanges()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData));
                 SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
                 SrcEntityManager.SetName(entity, "Old Name");
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                 }
 
                 SrcEntityManager.SetName(entity, "New Name");
 
-                // TODO: remove SetComponentData once https://unity3d.atlassian.net/browse/DOTS-4153 is fixed	
-                // Uncomment the following line to cause the test to pass	
-                SrcEntityManager.SetComponentData(entity, new EcsTestData(123));
-
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    Assert.IsTrue(changes.HasForwardChangeSet);
                     #if !DOTS_DISABLE_DEBUG_NAMES
+                    Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.NameChangedCount);
-                    #else 
+                    #else
+                    Assert.IsFalse(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.NameChangedCount);
                     #endif
                 }
@@ -323,7 +320,7 @@ namespace Unity.Entities.Tests
         [TestCase(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, TestName = nameof(EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID) + "_ReferentialEquality")]
         public void EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID(EntityManagerDifferOptions options)
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Setup two entities, entity1 and entity2, and have the entity2 refer to entity1.
                 var entity1 = SrcEntityManager.CreateEntity(typeof(EntityGuid));
@@ -338,7 +335,7 @@ namespace Unity.Entities.Tests
                 });
 
                 // apply the first changes, that's not what we're testing
-                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+                differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator);
                 // Destroy entity1 and recreate it.
                 SrcEntityManager.DestroyEntity(entity1);
                 entity1 = SrcEntityManager.CreateEntity(typeof(EntityGuid));
@@ -349,7 +346,7 @@ namespace Unity.Entities.Tests
                     value1 = entity1
                 });
 
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
                     if ((options & EntityManagerDifferOptions.UseReferentialEquality) != 0)
@@ -368,7 +365,7 @@ namespace Unity.Entities.Tests
                     }
                 }
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.HasForwardChangeSet);
                 }
@@ -411,7 +408,7 @@ namespace Unity.Entities.Tests
                 }
 
                 // apply the first changes, this is not what we're testing
-                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+                differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator);
 
                 for (int i = 0; i < entityCount / 2; i++)
                 {
@@ -426,7 +423,7 @@ namespace Unity.Entities.Tests
                     });
                 }
 
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     var ShadowEntityManager = differ.ShadowEntityManager;
 
@@ -504,8 +501,7 @@ namespace Unity.Entities.Tests
                 }
 
                 // apply the first changes, this is not what we're testing
-                var tempChanges = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.TempJob);
-                tempChanges.Dispose();
+                var tempChanges = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator);
 
                 // Destroy some entities and recreate them
                 for (int i = 0; i < entityCount; i++)
@@ -565,7 +561,7 @@ namespace Unity.Entities.Tests
                     entityNameArray1[i] = entity2Name;
                 }
 
-                using (var changes = differ.GetChanges(options, Allocator.TempJob))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     var ShadowEntityManager = differ.ShadowEntityManager;
 
@@ -590,7 +586,7 @@ namespace Unity.Entities.Tests
         [TestCase(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, TestName = nameof(EntityDiffer_GetChanges_EntityReferenceChange_WithDynamicBuffer_DependsOnGUID) + "_ReferentialEquality")]
         public void EntityDiffer_GetChanges_EntityReferenceChange_WithDynamicBuffer_DependsOnGUID(EntityManagerDifferOptions options)
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Setup three entities, entity1a, entity1b and entity2, and have the entity2 refer to the other two.
                 var entity1a = SrcEntityManager.CreateEntity(typeof(EntityGuid));
@@ -607,7 +603,7 @@ namespace Unity.Entities.Tests
                 buf.Add(new EcsComplexEntityRefElement {Entity = entity1b});
 
                 // apply the first changes, that's not what we're testing
-                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+                differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator);
                 // Destroy entity1b and recreate it.
                 SrcEntityManager.DestroyEntity(entity1b);
                 entity1b = SrcEntityManager.CreateEntity(typeof(EntityGuid));
@@ -615,7 +611,7 @@ namespace Unity.Entities.Tests
                 buf = SrcEntityManager.GetBuffer<EcsComplexEntityRefElement>(entity2);
                 buf[1] = new EcsComplexEntityRefElement {Entity = entity1b};
 
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
                     if ((options & EntityManagerDifferOptions.UseReferentialEquality) != 0)
@@ -635,7 +631,7 @@ namespace Unity.Entities.Tests
                     }
                 }
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.HasForwardChangeSet);
                 }
@@ -647,7 +643,7 @@ namespace Unity.Entities.Tests
         [TestCase(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, TestName = nameof(EntityDiffer_GetChanges_BlobAssetReferenceChange_DependsOnHash) + "_ReferentialEquality")]
         public void EntityDiffer_GetChanges_BlobAssetReferenceChange_DependsOnHash(EntityManagerDifferOptions options)
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             using (var blobAssetReference0 = BlobAssetReference<int>.Create(10))
             using (var blobAssetReference1 = BlobAssetReference<int>.Create(10))
             {
@@ -660,13 +656,13 @@ namespace Unity.Entities.Tests
                 });
 
                 // apply the first changes, that's not what we're testing
-                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+                differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator);
 
                 SrcEntityManager.SetComponentData(entity, new EcsTestDataBlobAssetRef
                 {
                     value = blobAssetReference1
                 });
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     if ((options & EntityManagerDifferOptions.UseReferentialEquality) != 0)
                     {
@@ -683,7 +679,7 @@ namespace Unity.Entities.Tests
                     }
                 }
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.HasForwardChangeSet);
                 }
@@ -695,7 +691,7 @@ namespace Unity.Entities.Tests
         [TestCase(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, TestName = nameof(EntityDiffer_GetChanges_BlobAssetReferenceChange_WithDynamicBuffer_DependsOnHash) + "_ReferentialEquality")]
         public void EntityDiffer_GetChanges_BlobAssetReferenceChange_WithDynamicBuffer_DependsOnHash(EntityManagerDifferOptions options)
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             using (var blobAssetReference0 = BlobAssetReference<int>.Create(10))
             using (var blobAssetReference1 = BlobAssetReference<int>.Create(10))
             {
@@ -707,11 +703,11 @@ namespace Unity.Entities.Tests
                 buf.Add(new EcsTestDataBlobAssetElement {blobElement = blobAssetReference1});
 
                 // apply the first changes, that's not what we're testing
-                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+                differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator);
 
                 buf = SrcEntityManager.GetBuffer<EcsTestDataBlobAssetElement>(entity);
                 buf[1] = new EcsTestDataBlobAssetElement { blobElement = blobAssetReference0};
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     if ((options & EntityManagerDifferOptions.UseReferentialEquality) != 0)
                     {
@@ -728,7 +724,7 @@ namespace Unity.Entities.Tests
                     }
                 }
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.HasForwardChangeSet);
                 }
@@ -739,61 +735,61 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void EntityDiffer_GetChanges_Clones_And_Disposes_ManagedComponents()
         {
-            int RefCount1 = 1;
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            var managedRefComponent = new EcsTestManagedCompWithRefCount();
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestManagedCompWithRefCount));
 
                 SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
-                SrcEntityManager.SetComponentData(entity, new EcsTestManagedCompWithRefCount(&RefCount1));
+                SrcEntityManager.SetComponentData(entity, managedRefComponent);
 
-                Assert.AreEqual(1, RefCount1);
+                Assert.AreEqual(1, managedRefComponent.RefCount);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    Assert.AreEqual(2, RefCount1);
+                    Assert.AreEqual(2, managedRefComponent.RefCount);
                 }
 
-                Assert.AreEqual(1, RefCount1);
+                Assert.AreEqual(1, managedRefComponent.RefCount);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    Assert.AreEqual(3, RefCount1);
+                    Assert.AreEqual(3, managedRefComponent.RefCount);
                 }
 
-                Assert.AreEqual(2, RefCount1);
+                Assert.AreEqual(2, managedRefComponent.RefCount);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    Assert.AreEqual(2, RefCount1);
+                    Assert.AreEqual(2, managedRefComponent.RefCount);
                 }
 
-                Assert.AreEqual(2, RefCount1);
+                Assert.AreEqual(2, managedRefComponent.RefCount);
 
                 SrcEntityManager.RemoveComponent<EcsTestManagedCompWithRefCount>(entity);
 
-                Assert.AreEqual(1, RefCount1);
+                Assert.AreEqual(1, managedRefComponent.RefCount);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    Assert.AreEqual(1, RefCount1);
+                    Assert.AreEqual(1, managedRefComponent.RefCount);
                 }
 
-                Assert.AreEqual(1, RefCount1);
+                Assert.AreEqual(1, managedRefComponent.RefCount);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.IncludeReverseChangeSet, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.IncludeReverseChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    Assert.AreEqual(2, RefCount1);
+                    Assert.AreEqual(2, managedRefComponent.RefCount);
                 }
 
-                Assert.AreEqual(1, RefCount1);
+                Assert.AreEqual(1, managedRefComponent.RefCount);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.FastForwardShadowWorld, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    Assert.AreEqual(0, RefCount1);
+                    Assert.AreEqual(0, managedRefComponent.RefCount);
                 }
             }
-            Assert.AreEqual(0, RefCount1);
+            Assert.AreEqual(0, managedRefComponent.RefCount);
         }
 
 #endif
@@ -801,11 +797,11 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_DuplicateEntityGuidThrows()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 void GetChanges()
                 {
-                    using (differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp)) {}
+                    using (differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator)) {}
                 }
 
                 var entityGuid0 = CreateEntityGuid();
@@ -841,38 +837,38 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void EntityDiffer_GetChanges_IgnoresSystemState()
+        public void EntityDiffer_GetChanges_IgnoresCleanup()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
                 SrcEntityManager.AddComponentData(entity, entityGuid);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp)) {}
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator)) {}
 
-                SrcEntityManager.AddComponentData(entity, new EcsState1 {Value = 9});
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                SrcEntityManager.AddComponentData(entity, new EcsCleanup1 {Value = 9});
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.AnyChanges);
                 }
 
-                SrcEntityManager.SetComponentData(entity, new EcsState1 {Value = 10});
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                SrcEntityManager.SetComponentData(entity, new EcsCleanup1 {Value = 10});
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.AnyChanges);
                 }
 
-                // NOTE: the system state component being copied to shadow world is not required by the public API.
+                // NOTE: the cleanup component being copied to shadow world is not required by the public API.
                 //       This is simply defining the expected internal behaviour.
-                Assert.AreEqual(10, differ.ShadowEntityManager.GetComponentData<EcsState1>(entity).Value);
+                Assert.AreEqual(10, differ.ShadowEntityManager.GetComponentData<EcsCleanup1>(entity).Value);
             }
         }
 
         [Test]
         public void EntityDiffer_AddingZeroSizeComponentToWholeChunk()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 for (int i = 0; i != 10; i++)
                 {
@@ -881,11 +877,11 @@ namespace Unity.Entities.Tests
                     SrcEntityManager.AddComponentData(entity, entityGuid);
                 }
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp)) {}
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator)) {}
 
-                SrcEntityManager.AddSharedComponentData(SrcEntityManager.UniversalQuery, new SharedData1(9));
+                SrcEntityManager.AddSharedComponentManaged(SrcEntityManager.UniversalQuery, new SharedData1(9));
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.AnyChanges);
                     Assert.AreEqual(10, changes.ForwardChangeSet.AddComponents.Length);
@@ -896,7 +892,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_LinkedEntityGroup_AdditionsAreDetected()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var aGuid = CreateEntityGuid();
                 var a = SrcEntityManager.CreateEntity();
@@ -907,12 +903,12 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.AddComponentData(b, bGuid);
                 SrcEntityManager.AddBuffer<LinkedEntityGroup>(b).Add(b);
 
-                using (differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.TempJob)) {}
+                using (differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator)) {}
 
                 SrcEntityManager.GetBuffer<LinkedEntityGroup>(a).Add(b);
                 SrcEntityManager.GetBuffer<LinkedEntityGroup>(b).Add(a);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.AnyChanges);
                     Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
@@ -929,7 +925,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetComponentData_WithFastForward_ManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData), typeof(EcsTestManagedComponent));
 
@@ -943,13 +939,13 @@ namespace Unity.Entities.Tests
                     EntityManagerDifferOptions.IncludeReverseChangeSet |
                     EntityManagerDifferOptions.FastForwardShadowWorld;
 
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     // Forward changes is all changes needed to go from the shadow state to the current state.
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
 
@@ -963,7 +959,7 @@ namespace Unity.Entities.Tests
                 }
 
                 // The inner shadow world was updated during the last call which means no new changes should be found.
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsFalse(changes.AnyChanges);
                 }
@@ -976,7 +972,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetComponentData_WithoutFastForward_ManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData), typeof(EcsTestManagedComponent));
 
@@ -987,13 +983,13 @@ namespace Unity.Entities.Tests
                 const EntityManagerDifferOptions options = EntityManagerDifferOptions.IncludeForwardChangeSet |
                     EntityManagerDifferOptions.IncludeReverseChangeSet;
 
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     // ForwardChanges defines all operations needed to go from the shadow state to the current state.
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
 
@@ -1007,12 +1003,12 @@ namespace Unity.Entities.Tests
                 }
 
                 // Since we did not fast forward the inner shadow world. We should be able to generate the exact same changes again.
-                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
 
@@ -1029,7 +1025,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetComponentData_IncrementalChanges_ManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData), typeof(EcsTestManagedComponent));
@@ -1038,7 +1034,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 9 });
                 SrcEntityManager.SetComponentData(entity, new EcsTestManagedComponent { value = "SomeString" });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.AnyChanges);
                 }
@@ -1050,7 +1046,7 @@ namespace Unity.Entities.Tests
 
                 // The entityGuid value is the same so it should not be picked up during change tracking.
                 // We should only see the two data changes.
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     // The ForwardChangeSet will contain a set value 10 and set value "SomeString"
                     Assert.IsTrue(changes.HasForwardChangeSet);
@@ -1071,7 +1067,7 @@ namespace Unity.Entities.Tests
 
                 SrcEntityManager.DestroyEntity(entity);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.DestroyedEntityCount);
@@ -1084,7 +1080,7 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasReverseChangeSet);
                     Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(4, changes.ReverseChangeSet.AddComponents.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
                 }
@@ -1094,7 +1090,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SetComponentData_WithManagedComponent_IsDetectedBy_GetChanges()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData), typeof(EcsTestManagedComponent));
@@ -1103,7 +1099,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 9 });
                 SrcEntityManager.SetComponentData(entity, new EcsTestManagedComponent { value = "SomeString" });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.AnyChanges);
                 }
@@ -1113,7 +1109,7 @@ namespace Unity.Entities.Tests
 
                 // The entityGuid value is the same so it should not be picked up during change tracking.
                 // We should only see the two data changes.
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     // The ForwardChangeSet will contain a set value 10 and set value "SomeString"
                     Assert.IsTrue(changes.HasForwardChangeSet);
@@ -1134,7 +1130,7 @@ namespace Unity.Entities.Tests
 
                 SrcEntityManager.DestroyEntity(entity);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.DestroyedEntityCount);
@@ -1147,7 +1143,7 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasReverseChangeSet);
                     Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(4, changes.ReverseChangeSet.AddComponents.Length); // +1 for Simulate
                     Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
                 }
@@ -1158,7 +1154,7 @@ namespace Unity.Entities.Tests
         [DotsRuntimeFixme] // Requires Unity.Properties support for cloning the managed components
         public void GetComponentData_WithManagedComponent_IsDetectedBy_GetChanges()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData), typeof(EcsTestManagedComponent));
@@ -1167,7 +1163,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 9 });
                 SrcEntityManager.SetComponentData(entity, new EcsTestManagedComponent { value = "SomeString" });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.AnyChanges);
                 }
@@ -1177,7 +1173,7 @@ namespace Unity.Entities.Tests
 
                 // The entityGuid value is the same so it should not be picked up during change tracking.
                 // We should only see the two data changes.
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     // The ForwardChangeSet will contain a set value 10 and set value "SomeString"
                     Assert.IsTrue(changes.HasForwardChangeSet);
@@ -1198,7 +1194,7 @@ namespace Unity.Entities.Tests
 
                 SrcEntityManager.DestroyEntity(entity);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.DestroyedEntityCount);
@@ -1211,7 +1207,7 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasReverseChangeSet);
                     Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(4, changes.ReverseChangeSet.AddComponents.Length); // +1 for Simulate
                     Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
                 }
@@ -1221,19 +1217,19 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_CreateEntityAndSetSharedComponentData_IncrementalChanges_ManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent));
 
                 SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
                 SrcEntityManager.SetComponentData(entity, new EcsTestManagedComponent { value = "SomeString" });
-                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedComp { value = 2 });
+                SrcEntityManager.SetSharedComponentManaged(entity, new EcsTestSharedComp { value = 2 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 for Simulate
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetSharedComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
@@ -1244,7 +1240,7 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void EntityDiffer_GetChanges_BlobAssets_SetComponent()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var blobAssetReference0 = BlobAssetReference<int>.Create(10);
 
@@ -1256,7 +1252,7 @@ namespace Unity.Entities.Tests
                     value = blobAssetReference0
                 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     var forward = changes.ForwardChangeSet;
@@ -1280,7 +1276,7 @@ namespace Unity.Entities.Tests
                     value = blobAssetReference1
                 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
 
@@ -1308,7 +1304,7 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void EntityDiffer_GetChanges_BlobAssets_SetComponent_SameContentHash()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var blobAssetReference0 = BlobAssetReference<int>.Create(10);
                 var blobAssetReference1 = BlobAssetReference<int>.Create(10);
@@ -1329,7 +1325,7 @@ namespace Unity.Entities.Tests
                     value = blobAssetReference1
                 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     var forward = changes.ForwardChangeSet;
@@ -1348,14 +1344,14 @@ namespace Unity.Entities.Tests
 
                 SrcEntityManager.DestroyEntity(entity1);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.That(changes.ForwardChangeSet.DestroyedBlobAssets.Length, Is.EqualTo(0));
                 }
 
                 SrcEntityManager.DestroyEntity(entity0);
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.That(changes.ForwardChangeSet.DestroyedBlobAssets.Length, Is.EqualTo(1));
                 }
@@ -1368,7 +1364,7 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void EntityDiffer_GetChanges_BlobAssets_SetComponent_SharedAsset()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var blobAssetReference = BlobAssetReference<int>.Create(10);
 
@@ -1381,7 +1377,7 @@ namespace Unity.Entities.Tests
                         SrcEntityManager.SetComponentData(entity, new EcsTestDataBlobAssetRef { value = blobAssetReference });
                     }
 
-                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                         Assert.IsTrue(changes.HasForwardChangeSet);
                         var forward = changes.ForwardChangeSet;
@@ -1401,12 +1397,12 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_BlobAssets_SetComponent_Null()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestDataBlobAssetRef));
                 SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     var forward = changes.ForwardChangeSet;
@@ -1421,7 +1417,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_BlobAssets_SetBuffer()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var blobAssetReferences = new NativeArray<BlobAssetReference<int>>(100, Allocator.Temp);
 
@@ -1441,7 +1437,7 @@ namespace Unity.Entities.Tests
                         buffer.Add(new EcsTestDataBlobAssetElement { blobElement = blobAssetReferences[i] });
                     }
 
-                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                         Assert.IsTrue(changes.HasForwardChangeSet);
                         var forward = changes.ForwardChangeSet;
@@ -1465,7 +1461,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GetChanges_BlobAssets_SetBuffer_MultipleEntities()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var blobAssetReferences = new NativeArray<BlobAssetReference<int>>(100, Allocator.Temp);
 
@@ -1490,7 +1486,7 @@ namespace Unity.Entities.Tests
 
                 try
                 {
-                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                         Assert.IsTrue(changes.HasForwardChangeSet);
                         var forward = changes.ForwardChangeSet;
@@ -1519,7 +1515,7 @@ namespace Unity.Entities.Tests
         [DotsRuntimeFixme]
         public unsafe void EntityDiffer_GetChanges_BlobAssets_SetComponent_TypeMemoryOrdering()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var blobAssetReferences = new NativeArray<BlobAssetReference<int>>(100, Allocator.Temp);
 
@@ -1589,7 +1585,7 @@ namespace Unity.Entities.Tests
         [DotsRuntimeFixme] // Requires Unity.Properties support
         public unsafe void EntityDiffer_GetChanges_BlobAssets_ManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var blobAssetReference0 = BlobAssetReference<int>.Create(10);
 
@@ -1601,7 +1597,7 @@ namespace Unity.Entities.Tests
                     Value = blobAssetReference0
                 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
 
@@ -1612,7 +1608,7 @@ namespace Unity.Entities.Tests
                     Assert.That(forward.BlobAssetData.Length, Is.EqualTo(sizeof(int)));
                     Assert.That(*(int*)forward.BlobAssetData.GetUnsafePtr(), Is.EqualTo(10));
                 }
-                
+
                 var blobAssetReference1 = BlobAssetReference<int>.Create(20);
 
                 SrcEntityManager.SetComponentData(entity, new ManagedComponentWithBlobAssetRef
@@ -1620,7 +1616,7 @@ namespace Unity.Entities.Tests
                     Value = blobAssetReference1
                 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
 
@@ -1648,19 +1644,19 @@ namespace Unity.Entities.Tests
         [DotsRuntimeFixme] // Requires Unity.Properties support
         public unsafe void EntityDiffer_GetChanges_BlobAssets_SharedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var blobAssetReference0 = BlobAssetReference<int>.Create(10);
 
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(SharedComponentWithBlobAssetRef));
 
                 SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
-                SrcEntityManager.SetSharedComponentData(entity, new SharedComponentWithBlobAssetRef
+                SrcEntityManager.SetSharedComponentManaged(entity, new SharedComponentWithBlobAssetRef
                 {
                     Value = blobAssetReference0
                 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
 
@@ -1679,12 +1675,12 @@ namespace Unity.Entities.Tests
                 var blobAssetReference1 = BlobAssetReference<int>.Create(20);
                 blobAssetReference0.Dispose();
 
-                SrcEntityManager.SetSharedComponentData(entity, new SharedComponentWithBlobAssetRef
+                SrcEntityManager.SetSharedComponentManaged(entity, new SharedComponentWithBlobAssetRef
                 {
                     Value = blobAssetReference1
                 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
 
@@ -1706,22 +1702,22 @@ namespace Unity.Entities.Tests
                 blobAssetReference1.Dispose();
             }
         }
-        
+
 #if !UNITY_DOTSRUNTIME
         class ManagedComponentWithScriptableObject: IComponentData
         {
             public ScriptableObjectWithBlobAssetRef Value;
         }
-        
+
         class ScriptableObjectWithBlobAssetRef : UnityEngine.ScriptableObject
         {
             public BlobAssetReference<int> Value;
         }
-        
+
         [Test]
         public void EntityDiffer_GetChanges_BlobAssets_ScriptableObject()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var scriptableObject = UnityEngine.ScriptableObject.CreateInstance<ScriptableObjectWithBlobAssetRef>();
                 scriptableObject.Value = BlobAssetReference<int>.Create(10);
@@ -1734,7 +1730,7 @@ namespace Unity.Entities.Tests
                     Value = scriptableObject
                 });
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
 
@@ -1745,7 +1741,7 @@ namespace Unity.Entities.Tests
                     Assert.That(forward.BlobAssetReferenceChanges.Length, Is.EqualTo(0));
                     Assert.That(forward.BlobAssetData.Length, Is.EqualTo(0));
                 }
-                
+
                 scriptableObject.Value.Dispose();
                 UnityEngine.Object.DestroyImmediate(scriptableObject);
             }
@@ -1757,19 +1753,19 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityDiffer_GatherLinkedEntityGroupChanges_DetectsSimpleChanges()
         {
-            var a = new EntityGuid(1, 0, 0);
-            var b = new EntityGuid(2, 0, 0);
-            var before = new NativeList<EntityGuid>(1, Allocator.TempJob);
-            var after = new NativeList<EntityGuid>(2, Allocator.TempJob);
-            var additions = new NativeList<LinkedEntityGroupChange>(16, Allocator.TempJob);
-            var removals = new NativeList<LinkedEntityGroupChange>(16, Allocator.TempJob);
+            var a = new EntityGuid(1, 0, 0, 0);
+            var b = new EntityGuid(2, 0, 0, 0);
+            var before = new NativeList<EntityGuid>(1, SrcWorld.UpdateAllocator.ToAllocator);
+            var after = new NativeList<EntityGuid>(2, SrcWorld.UpdateAllocator.ToAllocator);
+            var additions = new NativeList<LinkedEntityGroupChange>(16, SrcWorld.UpdateAllocator.ToAllocator);
+            var removals = new NativeList<LinkedEntityGroupChange>(16, SrcWorld.UpdateAllocator.ToAllocator);
             {
                 before.Add(a);
                 after.Add(a);
                 after.Add(b);
 
                 // detect an addition...
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, ref additions, ref removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, before.AsArray(), after.AsArray(), ref additions, ref removals);
                 Assert.AreEqual(0, removals.Length);
                 Assert.AreEqual(1, additions.Length);
                 Assert.AreEqual(b, additions[0].ChildEntityGuid);
@@ -1777,7 +1773,7 @@ namespace Unity.Entities.Tests
                 removals.Clear();
 
                 // ...or a removal in reverse.
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, ref additions, ref removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, after.AsArray(), before.AsArray(), ref additions, ref removals);
                 Assert.AreEqual(0, additions.Length);
                 Assert.AreEqual(1, removals.Length);
                 Assert.AreEqual(b, removals[0].ChildEntityGuid);
@@ -1788,14 +1784,14 @@ namespace Unity.Entities.Tests
                 after[0] = b;
                 after[1] = a;
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, ref additions, ref removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, before.AsArray(), after.AsArray(), ref additions, ref removals);
                 Assert.AreEqual(0, removals.Length);
                 Assert.AreEqual(1, additions.Length);
                 Assert.AreEqual(b, additions[0].ChildEntityGuid);
                 additions.Clear();
                 removals.Clear();
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, ref additions, ref removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, after.AsArray(), before.AsArray(), ref additions, ref removals);
                 Assert.AreEqual(0, additions.Length);
                 Assert.AreEqual(1, removals.Length);
                 Assert.AreEqual(b, removals[0].ChildEntityGuid);
@@ -1805,7 +1801,7 @@ namespace Unity.Entities.Tests
                 // and now with an empty first range
                 before.Clear();
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, ref additions, ref removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, before.AsArray(), after.AsArray(), ref additions, ref removals);
                 Assert.AreEqual(0, removals.Length);
                 Assert.AreEqual(2, additions.Length);
                 Assert.AreEqual(a, additions[0].ChildEntityGuid);
@@ -1813,39 +1809,34 @@ namespace Unity.Entities.Tests
                 additions.Clear();
                 removals.Clear();
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, ref additions, ref removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, after.AsArray(), before.AsArray(), ref additions, ref removals);
                 Assert.AreEqual(0, additions.Length);
                 Assert.AreEqual(2, removals.Length);
                 Assert.AreEqual(a, removals[0].ChildEntityGuid);
                 Assert.AreEqual(b, removals[1].ChildEntityGuid);
             }
-
-            removals.Dispose();
-            additions.Dispose();
-            after.Dispose();
-            before.Dispose();
         }
 
         [Test]
         public void EntityDiffer_GatherLinkedEntityGroupChanges_DetectsCombinedChanges()
         {
-            var a = new EntityGuid(1, 0, 0);
-            var b = new EntityGuid(2, 0, 0);
-            var c = new EntityGuid(3, 0, 0);
-            var additions = new NativeList<LinkedEntityGroupChange>(16, Allocator.TempJob);
-            var removals = new NativeList<LinkedEntityGroupChange>(16, Allocator.TempJob);
-            var before = new NativeList<EntityGuid>(1, Allocator.TempJob)
+            var a = new EntityGuid(1, 0, 0, 0);
+            var b = new EntityGuid(2, 0, 0, 0);
+            var c = new EntityGuid(3, 0, 0, 0);
+            var additions = new NativeList<LinkedEntityGroupChange>(16, SrcWorld.UpdateAllocator.ToAllocator);
+            var removals = new NativeList<LinkedEntityGroupChange>(16, SrcWorld.UpdateAllocator.ToAllocator);
+            var before = new NativeList<EntityGuid>(1, SrcWorld.UpdateAllocator.ToAllocator)
             {
                 a, b
             };
-            var after = new NativeList<EntityGuid>(2, Allocator.TempJob)
+            var after = new NativeList<EntityGuid>(2, SrcWorld.UpdateAllocator.ToAllocator)
             {
                 b, c
             };
             using (before)
             using (after)
             {
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, ref additions, ref removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, before.AsArray(), after.AsArray(), ref additions, ref removals);
                 Assert.AreEqual(1, removals.Length);
                 Assert.AreEqual(1, additions.Length);
                 Assert.AreEqual(c, additions[0].ChildEntityGuid);
@@ -1853,15 +1844,12 @@ namespace Unity.Entities.Tests
                 additions.Clear();
                 removals.Clear();
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, ref additions, ref removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, after.AsArray(), before.AsArray(), ref additions, ref removals);
                 Assert.AreEqual(1, additions.Length);
                 Assert.AreEqual(1, removals.Length);
                 Assert.AreEqual(a, additions[0].ChildEntityGuid);
                 Assert.AreEqual(c, removals[0].ChildEntityGuid);
             }
-
-            removals.Dispose();
-            additions.Dispose();
         }
 #endif // !UNITY_DOTSRUNTIME_IL2CPP
     }

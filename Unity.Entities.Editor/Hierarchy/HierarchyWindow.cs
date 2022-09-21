@@ -1,6 +1,8 @@
-﻿using Unity.Collections;
+using System;
+using Unity.Collections;
+using Unity.Editor.Bridge;
 using Unity.Profiling;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Scenes;
 using Unity.Serialization.Editor;
 using UnityEditor;
@@ -16,17 +18,16 @@ namespace Unity.Entities.Editor
         static readonly string k_FilterComponentType = L10n.Tr("Component type");
         static readonly string k_FilterComponentTypeTooltip = L10n.Tr("Filter entities that have the specified component type");
 
-        static readonly string k_WindowName = L10n.Tr("DOTS Hierarchy");
-        static readonly Vector2 k_MinWindowSize = new Vector2(200, 200); // Matches SceneHierarchy's min size
+        static readonly string k_WindowName = L10n.Tr("Entities Hierarchy");
+        static readonly Vector2 k_MinWindowSize = Constants.MinWindowSize;
+
+        static readonly HierarchyDecoratorCollection s_Decorators = new HierarchyDecoratorCollection();
+
+        internal static void AddDecorator(IHierarchyItemDecorator decorator) => s_Decorators.Add(decorator);
+        internal static void RemoveDecorator(IHierarchyItemDecorator decorator) => s_Decorators.Remove(decorator);
 
         Hierarchy m_Hierarchy;
         HierarchyElement m_HierarchyElement;
-
-        VisualElement m_Toolbar;
-        VisualElement m_NoWorldMessage;
-        VisualElement m_EnableLiveConversionMessage;
-
-        bool m_ContainsAnyWorld;
 
         /// <summary>
         /// Indicates if the window is visible or not. The window can be 'open' but docked as a tab.
@@ -42,9 +43,13 @@ namespace Unity.Entities.Editor
         /// The update version this request was made at.
         /// </summary>
         uint m_GlobalSelectionRequestUpdateVersion;
+        SearchElement m_SearchElement;
 
-        [MenuItem(Constants.MenuItems.HierarchyWindow, false, Constants.MenuItems.WindowPriority)]
+        [MenuItem(Constants.MenuItems.HierarchyWindow, false, Constants.MenuItems.HierarchyWindowPriority)]
         static void OpenWindow() => GetWindow<HierarchyWindow>();
+
+        public HierarchyWindow() : base(Analytics.Window.Hierarchy)
+        { }
 
         void OnEnable()
         {
@@ -54,40 +59,37 @@ namespace Unity.Entities.Editor
             Resources.Templates.DotsEditorCommon.AddStyles(rootVisualElement);
             Resources.AddCommonVariables(rootVisualElement);
 
+            m_DataModeHandler.dataModeChanged += OnCurrentDataModeChanged;
+
             // Initialize the data models
-            m_Hierarchy = new Hierarchy(Allocator.Persistent)
+            m_Hierarchy = new Hierarchy(Allocator.Persistent, m_DataModeHandler.dataMode)
             {
                 Configuration = UserSettings<HierarchySettings>.GetOrCreate(Constants.Settings.Hierarchy).Configuration,
                 State = SessionState<HierarchyState>.GetOrCreate($"{GetType().Name}.{nameof(HierarchyState)}")
             };
 
             // Initialize the view models.
-            m_Toolbar = CreateToolbar(rootVisualElement, m_Hierarchy);
+            CreateToolbar(rootVisualElement, m_Hierarchy);
             m_HierarchyElement = CreateHierarchyElement(rootVisualElement, m_Hierarchy);
-            m_NoWorldMessage = CreateNoWorldMessage(rootVisualElement);
-            m_EnableLiveConversionMessage = CreateEnableLiveConversionMessage(rootVisualElement);
+            m_HierarchyElement.SetDecorators(s_Decorators);
 
             Selection.selectionChanged += OnGlobalSelectionChanged;
-            LiveConversionConfigHelper.LiveConversionEnabledChanged += OnLiveConversionEnabledChanged;
-            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
-            World.WorldDestroyed += OnWorldDestroyed;
-
-            UpdateVisibility();
         }
 
         void OnDisable()
         {
             Selection.selectionChanged -= OnGlobalSelectionChanged;
-            LiveConversionConfigHelper.LiveConversionEnabledChanged -= OnLiveConversionEnabledChanged;
-            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
-            World.WorldDestroyed -= OnWorldDestroyed;
             m_Hierarchy.Dispose();
         }
 
         void OnBecameVisible()
         {
             m_IsVisible = true;
+            RequestGlobalSelectionRestoration();
+        }
 
+        void RequestGlobalSelectionRestoration()
+        {
             // Request the selection to be updated after the next update cycle.
             m_GlobalSelectionRequest = true;
             m_GlobalSelectionRequestUpdateVersion = m_Hierarchy?.UpdateVersion ?? 0;
@@ -96,6 +98,13 @@ namespace Unity.Entities.Editor
         void OnBecameInvisible()
         {
             m_IsVisible = false;
+        }
+
+        void OnCurrentDataModeChanged(DataMode mode)
+        {
+            RequestGlobalSelectionRestoration();
+            m_Hierarchy.SetDataMode(mode);
+            Analytics.SendEditorEvent(Analytics.Window.Hierarchy, Analytics.EventType.DataModeSwitch, mode.ToString());
         }
 
         HierarchyElement CreateHierarchyElement(VisualElement root, Hierarchy hierarchy)
@@ -114,56 +123,70 @@ namespace Unity.Entities.Editor
             leftSide.Add(CreateWorldSelector());
 
             AddSearchIcon(rightSide, UssClasses.DotsEditorCommon.SearchIcon);
-            var searchElement = AddSearchElement<HierarchyNodeHandle>(toolbar, UssClasses.DotsEditorCommon.SearchFieldContainer);
-            searchElement.RegisterSearchQueryHandler<HierarchyNodeHandle>(query =>
+            m_SearchElement = AddSearchElement<HierarchyNodeHandle>(toolbar, UssClasses.DotsEditorCommon.SearchFieldContainer);
+            m_SearchElement.RegisterSearchQueryHandler<HierarchyNodeHandle>(query =>
             {
                 hierarchy.SetSearchQuery(query.SearchString, query.Tokens);
             });
 
-            searchElement.AddSearchFilterPopupItem(Constants.EntityHierarchy.ComponentToken, k_FilterComponentType, k_FilterComponentTypeTooltip);
-            searchElement.EnableAutoComplete(ComponentTypeAutoComplete.Instance);
+            m_SearchElement.AddSearchFilterPopupItem(Constants.Hierarchy.ComponentToken, k_FilterComponentType, k_FilterComponentTypeTooltip);
+            m_SearchElement.EnableAutoComplete(ComponentTypeAutoComplete.Instance);
+
             root.Add(toolbar);
+
             return toolbar;
         }
 
-        VisualElement CreateEnableLiveConversionMessage(VisualElement root)
-        {
-            var element = new VisualElement { style = { flexGrow = 1 } };
-            Resources.Templates.EntityHierarchyEnableLiveConversionMessage.Clone(element);
-            element.Q<Button>().clicked += () => LiveConversionConfigHelper.LiveConversionEnabledInEditMode = true;
-            root.Add(element);
-            return element;
-        }
+        void OnGlobalSelectionChanged() => ApplyGlobalSelection(false);
 
-        VisualElement CreateNoWorldMessage(VisualElement root)
-        {
-            var message = new CenteredMessageElement { Message = NoWorldMessageContent };
-            root.Add(message);
-            message.Hide();
-            return message;
-        }
-
-        void OnGlobalSelectionChanged()
+        void ApplyGlobalSelection(bool allowReentry)
         {
             if (!m_IsVisible)
                 return;
 
-            if (!(Selection.activeContext is HierarchySelectionContext))
+            // If this is a re-entry, bail out
+            if (Selection.activeContext is HierarchySelectionContext && !allowReentry)
+                return;
+
+            switch (m_DataModeHandler.dataMode)
             {
-                SetSelection(Selection.activeObject);
+                case DataMode.Authoring:
+                case DataMode.Mixed:
+                {
+                    // In Authoring Mode or Mixed Mode, we are always interacting
+                    // with the active selection (Hybrid Object, GameObject, or Entity)
+                    SetSelection(Selection.activeObject);
+                    return;
+                }
+                case DataMode.Runtime:
+                {
+                    // In runtime, try real hard to show an Entity if available
+                    if (Selection.activeContext is EntitySelectionProxy proxy && proxy.Exists)
+                        SetSelection(proxy);
+                    else
+                        SetSelection(Selection.activeObject);
+                    return;
+                }
+                case DataMode.Disabled:
+                default:
+                {
+                    return;
+                }
             }
         }
 
-        void SetSelection(Object obj)
+        void SetSelection(UnityEngine.Object obj)
         {
             if (obj is EntitySelectionProxy selectedProxy && selectedProxy.World == m_Hierarchy.World)
             {
                 m_HierarchyElement.SetSelection(HierarchyNodeHandle.FromEntity(selectedProxy.Entity));
             }
-            else if (obj is GameObject gameObject && gameObject.GetComponent<SubScene>() != null)
+            else if (obj is GameObject gameObject)
             {
-                if (null != m_Hierarchy.World)
-                    m_HierarchyElement.SetSelection(HierarchyNodeHandle.FromSubScene(m_Hierarchy.World, gameObject.GetComponent<SubScene>()));
+                if (m_Hierarchy.World != null && gameObject.TryGetComponent<SubScene>(out var subScene))
+                    m_HierarchyElement.SetSelection(m_Hierarchy.GetSubSceneNodeHandle(subScene));
+                else
+                    m_HierarchyElement.SetSelection(HierarchyNodeHandle.FromGameObject(gameObject));
             }
             else
             {
@@ -185,7 +208,25 @@ namespace Unity.Entities.Editor
                     if (entity != Entity.Null)
                     {
                         var undoGroup = Undo.GetCurrentGroup();
-                        EntitySelectionProxy.SelectEntity(m_Hierarchy.World, entity);
+
+                        var world = m_Hierarchy.World;
+                        var authoringObject = world.EntityManager.Debug.GetAuthoringObjectForEntity(entity);
+
+                        if (authoringObject == null)
+                        {
+                            EntitySelectionProxy.SelectEntity(world, entity);
+                        }
+                        else
+                        {
+                            // Don't reselect yourself
+                            if (Selection.activeObject == authoringObject)
+                                return;
+
+                            var context = EntitySelectionProxy.CreateInstance(world, entity);
+                            // Selected entities should always try to show up in Runtime mode
+                            SelectionBridge.SetSelection(authoringObject, context, DataMode.Runtime);
+                        }
+
                         Undo.CollapseUndoOperations(undoGroup);
                     }
 
@@ -196,7 +237,7 @@ namespace Unity.Entities.Editor
                 {
                     var undoGroup = Undo.GetCurrentGroup();
                     var subScene = m_Hierarchy.GetUnityObject(handle) as SubScene;
-                    Selection.SetActiveObjectWithContext(subScene ? subScene.gameObject : null, HierarchySelectionContext.CreateInstance(handle));
+                    SelectionBridge.SetSelection(subScene ? subScene.gameObject : null, HierarchySelectionContext.CreateInstance(handle), DataMode.Disabled);
                     Undo.CollapseUndoOperations(undoGroup);
                     break;
                 }
@@ -204,44 +245,41 @@ namespace Unity.Entities.Editor
                 case NodeKind.Scene:
                 {
                     var undoGroup = Undo.GetCurrentGroup();
-                    Selection.SetActiveObjectWithContext(null, HierarchySelectionContext.CreateInstance(handle));
+                    SelectionBridge.SetSelection(null, HierarchySelectionContext.CreateInstance(handle), DataMode.Disabled);
+                    Undo.CollapseUndoOperations(undoGroup);
+                    break;
+                }
+
+                case NodeKind.GameObject:
+                {
+                    var undoGroup = Undo.GetCurrentGroup();
+                    var gameObject = m_Hierarchy.GetUnityObject(handle) as GameObject;
+
+                    // Don't reselect yourself
+                    if (Selection.activeObject == gameObject)
+                        return;
+
+                    var world = m_Hierarchy.World;
+                    EntitySelectionProxy context;
+
+                    if (world == null || !world.IsCreated)
+                        context = null;
+                    else
+                    {
+                        var primaryEntity = world.EntityManager.Debug.GetPrimaryEntityForAuthoringObject(gameObject);
+
+                        context = primaryEntity != Entity.Null && world.EntityManager.SafeExists(primaryEntity)
+                                    ? EntitySelectionProxy.CreateInstance(world, primaryEntity)
+                                    : null;
+                    }
+
+                    // Selected GameObjects should use whatever the current DataMode for the hierarchy is
+                    SelectionBridge.SetSelection(gameObject, context, m_DataModeHandler.dataMode);
+
                     Undo.CollapseUndoOperations(undoGroup);
                     break;
                 }
             }
-        }
-
-        void OnPlayModeStateChanged(PlayModeStateChange playModeStateChange)
-        {
-            UpdateVisibility();
-        }
-
-        void OnLiveConversionEnabledChanged()
-        {
-            UpdateVisibility();
-        }
-
-        void OnWorldDestroyed(World world)
-        {
-            if (SelectedWorld == world)
-                OnWorldSelected(null);
-        }
-
-        protected override void OnWorldsChanged(bool containsAnyWorld)
-        {
-            m_ContainsAnyWorld = containsAnyWorld;
-
-            // @FIXME This callback is invoked when adding the toolbar BEFORE we are done building the UI.
-            if (null != m_NoWorldMessage)
-                UpdateVisibility();
-        }
-
-        void UpdateVisibility()
-        {
-            m_NoWorldMessage.SetVisibility(!m_ContainsAnyWorld);
-            m_EnableLiveConversionMessage.SetVisibility(false);
-            m_HierarchyElement.SetVisibility(m_ContainsAnyWorld);
-            m_Toolbar.SetVisibility(m_ContainsAnyWorld);
         }
 
         protected override void OnWorldSelected(World world)
@@ -263,10 +301,47 @@ namespace Unity.Entities.Editor
                 // We have a deferred selection request. Wait until we have completed a full update cycle before attempting to select.
                 if (m_GlobalSelectionRequest && m_Hierarchy.UpdateVersion == m_GlobalSelectionRequestUpdateVersion + 1)
                 {
-                    SetSelection(Selection.activeObject);
+                    ApplyGlobalSelection(true);
                     m_GlobalSelectionRequest = false;
                 }
             }
         }
+
+        void OnGUI()
+        {
+            var evt = Event.current;
+
+            if (evt.type is not (EventType.ExecuteCommand or EventType.ValidateCommand))
+                return;
+
+            var execute = evt.type is EventType.ExecuteCommand;
+
+            switch (evt.commandName)
+            {
+                case EventCommandNamesBridge.Find:
+                    evt.Use();
+                    if (execute)
+                        m_SearchElement?.Q<TextField>().Focus();
+                    break;
+                case EventCommandNamesBridge.Delete:
+                case EventCommandNamesBridge.SoftDelete:
+                case EventCommandNamesBridge.Duplicate:
+                case EventCommandNamesBridge.Rename:
+                case EventCommandNamesBridge.Cut:
+                case EventCommandNamesBridge.Copy:
+                case EventCommandNamesBridge.Paste:
+                case EventCommandNamesBridge.SelectAll:
+                case EventCommandNamesBridge.DeselectAll:
+                case EventCommandNamesBridge.InvertSelection:
+                case EventCommandNamesBridge.SelectChildren:
+                case EventCommandNamesBridge.SelectPrefabRoot:
+                    evt.Use();
+                    break;
+            }
+
+            if (execute)
+                m_HierarchyElement?.HandleCommand(evt.commandName);
+        }
+
     }
 }

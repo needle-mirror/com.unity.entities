@@ -10,22 +10,24 @@ namespace Unity.Entities.Editor.Tests
         NativeList<Entity> m_DestroyedEntitiesQueue;
         EntityDiffer m_Differ;
 
+        protected World World => m_World;
+
         [SetUp]
         public void Setup()
         {
             m_World = new World("TestWorld");
-            m_CreatedEntitiesQueue = new NativeList<Entity>(Allocator.TempJob);
-            m_DestroyedEntitiesQueue = new NativeList<Entity>(Allocator.TempJob);
+            m_CreatedEntitiesQueue = new NativeList<Entity>(World.UpdateAllocator.ToAllocator);
+            m_DestroyedEntitiesQueue = new NativeList<Entity>(World.UpdateAllocator.ToAllocator);
             m_Differ = new EntityDiffer(m_World);
         }
 
         [TearDown]
         public void TearDown()
         {
-            m_World.Dispose();
             m_CreatedEntitiesQueue.Dispose();
             m_DestroyedEntitiesQueue.Dispose();
             m_Differ.Dispose();
+            m_World.Dispose();
         }
 
         [Test]
@@ -61,7 +63,7 @@ namespace Unity.Entities.Editor.Tests
         {
             var initialCapacity = m_World.EntityManager.EntityCapacity;
             var archetype = m_World.EntityManager.CreateArchetype(typeof(EcsTestData));
-            using (var entities = m_World.EntityManager.CreateEntity(archetype, initialCapacity + 1, Allocator.TempJob))
+            using (var entities = m_World.EntityManager.CreateEntity(archetype, initialCapacity + 1, World.UpdateAllocator.ToAllocator))
             {
                 Assert.That(m_World.EntityManager.EntityCapacity, Is.GreaterThan(initialCapacity));
 
@@ -213,9 +215,9 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDiffer_Test_BinarySearch1_NoFind()
         {
             var data = new Entities.EntityDiffer.PackedEntityGuidsCollection(10, Allocator.Temp);
-            data.List.Add(new EntityGuid(0, 0, 0));
+            data.List.Add(new EntityGuid(0, 0, 0, 0));
 
-            Assert.AreEqual(-1, data.BinarySearchRange(new EntityGuid(1, 0, 0), 0, data.List.Length, 0));
+            Assert.AreEqual(-1, data.BinarySearchRange(new EntityGuid(1, 0, 0, 0), 0, data.List.Length, 0));
 
             data.Dispose();
         }
@@ -224,9 +226,9 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDiffer_Test_BinarySearch1_FindFirst()
         {
             var data = new Entities.EntityDiffer.PackedEntityGuidsCollection(10, Allocator.Temp);
-            data.List.Add(new EntityGuid(0, 0, 0));
+            data.List.Add(new EntityGuid(0, 0, 0, 0));
 
-            Assert.AreEqual(0, data.BinarySearchRange(new EntityGuid(0, 0, 0), 0, data.List.Length, 0));
+            Assert.AreEqual(0, data.BinarySearchRange(new EntityGuid(0, 0, 0, 0), 0, data.List.Length, 0));
 
             data.Dispose();
         }
@@ -235,11 +237,11 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDiffer_Test_BinarySearch1_Search2()
         {
             var data = new Entities.EntityDiffer.PackedEntityGuidsCollection(10, Allocator.Temp);
-            data.List.Add(new EntityGuid(1, 0, 0));
-            data.List.Add(new EntityGuid(2, 0, 0));
-            data.List.Add(new EntityGuid(3, 0, 0));
+            data.List.Add(new EntityGuid(1, 0, 0, 0));
+            data.List.Add(new EntityGuid(2, 0, 0, 0));
+            data.List.Add(new EntityGuid(3, 0, 0, 0));
 
-            Assert.AreEqual(1, data.BinarySearchRange(new EntityGuid(2, 0, 0), 0, data.List.Length, 0));
+            Assert.AreEqual(1, data.BinarySearchRange(new EntityGuid(2, 0, 0, 0), 0, data.List.Length, 0));
 
             data.Dispose();
         }
@@ -248,14 +250,14 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDiffer_Test_BinarySearch1_Search4()
         {
             var data = new Entities.EntityDiffer.PackedEntityGuidsCollection(10, Allocator.Temp);
-            data.List.Add(new EntityGuid(1, 0, 0));
-            data.List.Add(new EntityGuid(2, 0, 0));
-            data.List.Add(new EntityGuid(3, 0, 0));
-            data.List.Add(new EntityGuid(4, 0, 0));
-            data.List.Add(new EntityGuid(5, 0, 0));
-            data.List.Add(new EntityGuid(6, 0, 0));
+            data.List.Add(new EntityGuid(1, 0, 0, 0));
+            data.List.Add(new EntityGuid(2, 0, 0, 0));
+            data.List.Add(new EntityGuid(3, 0, 0, 0));
+            data.List.Add(new EntityGuid(4, 0, 0, 0));
+            data.List.Add(new EntityGuid(5, 0, 0, 0));
+            data.List.Add(new EntityGuid(6, 0, 0, 0));
 
-            Assert.AreEqual(3, data.BinarySearchRange(new EntityGuid(4, 0, 0), 0, data.List.Length, 0));
+            Assert.AreEqual(3, data.BinarySearchRange(new EntityGuid(4, 0, 0, 0), 0, data.List.Length, 0));
 
             data.Dispose();
         }
@@ -264,10 +266,10 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDiffer_Test_BinarySearch2_Search()
         {
             var data = new Entities.EntityDiffer.PackedEntityGuidsCollection(10, Allocator.Temp);
-            data.List.Add(new EntityGuid(1, 0, 0));
-            data.List.Add(new EntityGuid(2, 0, 0));
+            data.List.Add(new EntityGuid(1, 0, 0, 0));
+            data.List.Add(new EntityGuid(2, 0, 0, 0));
 
-            Assert.AreEqual(0, data.BinarySearchRange(new EntityGuid(1, 0, 0), 0, data.List.Length, 2));
+            Assert.AreEqual(0, data.BinarySearchRange(new EntityGuid(1, 0, 0, 0), 0, data.List.Length, 2));
 
             data.Dispose();
         }
@@ -276,13 +278,13 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDiffer_Test_BinarySearch2_Search_BadHint()
         {
             var data = new Entities.EntityDiffer.PackedEntityGuidsCollection(10, Allocator.Temp);
-            data.List.Add(new EntityGuid(1, 0, 0));
-            data.List.Add(new EntityGuid(2, 0, 0));
-            data.List.Add(new EntityGuid(3, 0, 0));
-            data.List.Add(new EntityGuid(4, 0, 0));
-            data.List.Add(new EntityGuid(5, 0, 0));
+            data.List.Add(new EntityGuid(1, 0, 0, 0));
+            data.List.Add(new EntityGuid(2, 0, 0, 0));
+            data.List.Add(new EntityGuid(3, 0, 0, 0));
+            data.List.Add(new EntityGuid(4, 0, 0, 0));
+            data.List.Add(new EntityGuid(5, 0, 0, 0));
 
-            Assert.AreEqual(0, data.BinarySearchRange(new EntityGuid(1, 0, 0), 0, data.List.Length, 5));
+            Assert.AreEqual(0, data.BinarySearchRange(new EntityGuid(1, 0, 0, 0), 0, data.List.Length, 5));
 
             data.Dispose();
         }
@@ -291,13 +293,13 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDiffer_Test_BinarySearch2_Search_NoFind()
         {
             var data = new Entities.EntityDiffer.PackedEntityGuidsCollection(10, Allocator.Temp);
-            data.List.Add(new EntityGuid(1, 0, 0));
-            data.List.Add(new EntityGuid(2, 0, 0));
-            data.List.Add(new EntityGuid(3, 0, 0));
-            data.List.Add(new EntityGuid(4, 0, 0));
-            data.List.Add(new EntityGuid(5, 0, 0));
+            data.List.Add(new EntityGuid(1, 0, 0, 0));
+            data.List.Add(new EntityGuid(2, 0, 0, 0));
+            data.List.Add(new EntityGuid(3, 0, 0, 0));
+            data.List.Add(new EntityGuid(4, 0, 0, 0));
+            data.List.Add(new EntityGuid(5, 0, 0, 0));
 
-            Assert.AreEqual(-1, data.BinarySearchRange(new EntityGuid(7, 0, 0), 0, data.List.Length, 7));
+            Assert.AreEqual(-1, data.BinarySearchRange(new EntityGuid(7, 0, 0, 0), 0, data.List.Length, 7));
 
             data.Dispose();
         }
@@ -305,8 +307,8 @@ namespace Unity.Entities.Editor.Tests
         (Entity[] created, Entity[] destroyed) GetEntityQueryMatchDiff(EntityQuery query)
         {
             m_Differ.GetEntityQueryMatchDiffAsync(query, m_CreatedEntitiesQueue, m_DestroyedEntitiesQueue).Complete();
-            using (var created = m_CreatedEntitiesQueue.ToArray(Allocator.TempJob))
-            using (var destroyed = m_DestroyedEntitiesQueue.ToArray(Allocator.TempJob))
+            using (var created = m_CreatedEntitiesQueue.ToArray(World.UpdateAllocator.ToAllocator))
+            using (var destroyed = m_DestroyedEntitiesQueue.ToArray(World.UpdateAllocator.ToAllocator))
             {
                 return (created.ToArray(), destroyed.ToArray());
             }

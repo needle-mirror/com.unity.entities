@@ -103,7 +103,7 @@ namespace Unity.Entities
                 }
             }
 
-            entityManager.RemoveComponent<CompanionGameObjectActiveSystemState>(entities);
+            entityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(entities);
         }
     }
 }

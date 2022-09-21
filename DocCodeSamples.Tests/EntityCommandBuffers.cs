@@ -14,6 +14,7 @@ namespace Doc.CodeSamples.Tests
         public byte Value;
     }
 
+    [RequireMatchingQueriesForUpdate]
     partial class LifetimeSystem : SystemBase
     {
         EndSimulationEntityCommandBufferSystem m_EndSimulationEcbSystem;
@@ -22,7 +23,7 @@ namespace Doc.CodeSamples.Tests
             base.OnCreate();
             // Find the ECB system once and store it for later usage
             m_EndSimulationEcbSystem = World
-                .GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
+                .GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
         }
 
         protected override void OnUpdate()
@@ -64,6 +65,7 @@ namespace Doc.CodeSamples.Tests
         public Entity TargetEnt;
     }
 
+    [RequireMatchingQueriesForUpdate]
     partial class SingleThreadedSchedule_ECB : SystemBase
     {
         protected override void OnUpdate()
@@ -99,6 +101,7 @@ ecb.Dispose();
         }
     }
 
+    [RequireMatchingQueriesForUpdate]
     partial class MutliThreadedSchedule_ECB : SystemBase
     {
         protected override void OnUpdate()
@@ -158,7 +161,7 @@ ecb.Dispose();
 
 // Assume an EntityCommandBufferSystem exists named FooECBSystem.
 EntityCommandBufferSystem sys =
-        this.World.GetExistingSystem<FooECBSystem>();
+        this.World.GetExistingSystemManaged<FooECBSystem>();
 
 // Create a command buffer that will be played back
 // and disposed by MyECBSystem.
@@ -250,6 +253,45 @@ ecb.Dispose();
 public class MyECBSystem : EntityCommandBufferSystem {
     // This class is intentionally empty. There is generally no
     // reason to put any code in an EntityCommandBufferSystem.
+}
+#endregion
+
+#region ecb_addjobhandleforproducer
+public struct ProcessInfo: IComponentData { public float Value; }
+public struct ProcessCompleteTag : IComponentData {}
+
+public partial class AsyncProcessJobSystem : SystemBase
+{
+    public partial struct ProcessInBackgroundJob : IJobEntity
+    {
+        public EntityCommandBuffer.ParallelWriter ConcurrentCommands;
+
+        public void Execute(Entity entity, [ChunkIndexInQuery] int chunkIndex, in ProcessInfo info)
+        {
+            // ...hypothetical processing goes here...
+
+            // Remove ProcessInfo and add a ProcessCompleteTag...
+            ConcurrentCommands.RemoveComponent<ProcessInfo>(chunkIndex, entity);
+            ConcurrentCommands.AddComponent(chunkIndex, entity, new ProcessCompleteTag());
+        }
+    }
+
+    protected override void OnUpdate()
+    {
+        // Get a reference to the system that will play back
+        var ecbSystem = World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+        var ecb = ecbSystem.CreateCommandBuffer();
+
+        // Pass the command buffer to the writer job, using its ParallelWriter interface
+        var job = new ProcessInBackgroundJob
+        {
+            ConcurrentCommands = ecb.AsParallelWriter(),
+        };
+        Dependency = job.ScheduleParallel(Dependency);
+
+        // Register the writer job with the playback system as an input dependency
+        ecbSystem.AddJobHandleForProducer(Dependency);
+    }
 }
 #endregion
 }

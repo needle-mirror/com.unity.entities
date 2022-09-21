@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unity.Collections;
@@ -72,7 +72,7 @@ namespace Unity.Entities
                 return m_Level1[index].TypeHash[subIndex];
             }
 
-            public SystemState* Alloc(out ushort outHandle, out ushort outVersion, void* systemPtr, long typeHash)
+            public SystemState* Alloc(out ushort outHandle, out ushort outVersion, long typeHash)
             {
                 CheckFull();
 
@@ -104,24 +104,23 @@ namespace Unity.Entities
                 IncVersion(ref leaf.Version[subIndex]);
                 outVersion = leaf.Version[subIndex];
                 leaf.TypeHash[subIndex] = typeHash;
-                leaf.SystemPointer[subIndex] = (ulong)(IntPtr)systemPtr;
 
                 return resultPtr;
             }
 
-            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
             private void CheckFull()
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS|| UNITY_DOTS_DEBUG
                 if (0 == m_FreeBits)
                     throw new InvalidOperationException("out of system state slots; maximum is 4,096");
 #endif
             }
 
-            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
             private static void CheckSubIndex(int subIndex)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS|| UNITY_DOTS_DEBUG
                 if ((uint)subIndex > 63)
                     throw new InvalidOperationException("data structure corrupted");
 #endif
@@ -142,14 +141,13 @@ namespace Unity.Entities
 
                 leaf.FreeBits |= (1ul << subIndex);
                 IncVersion(ref leaf.Version[subIndex]);
-                leaf.SystemPointer[subIndex] = 0;
                 leaf.TypeHash[subIndex] = 0;
             }
 
-            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
             private static void CheckIsAllocated(ref StateAllocLevel1 leaf, int subIndex)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if ((leaf.FreeBits & (1ul << subIndex)) != 0)
                 {
                     throw new InvalidOperationException("slot is not allocated");
@@ -157,10 +155,10 @@ namespace Unity.Entities
 #endif
             }
 
-            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
             private static void CheckIndex(int index)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (index > 63)
                     throw new ArgumentException("bad index");
 #endif
@@ -194,8 +192,11 @@ namespace Unity.Entities
             public SystemState* States;
             public fixed ushort Version[64];
             public fixed long TypeHash[64];
-            // Contains the pointer to the actual system data, or null if it is a managed system.
-            public fixed ulong SystemPointer[64];
         }
+    }
+
+    internal struct SystemInstance : IComponentData
+    {
+        unsafe internal SystemState* state;
     }
 }

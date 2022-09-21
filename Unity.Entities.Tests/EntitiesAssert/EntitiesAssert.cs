@@ -239,6 +239,9 @@ namespace Unity.Entities.Tests
         public static EntityMatch Exact<T0, T1, T2, T3, T4, T5, T6>(params object[] matchData)
             => Match(MatchType.Exact, new[] { typeof(T0), typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5), typeof(T6) }, matchData);
 
+        public static EntityMatch Exact(IEnumerable<Type> types, IEnumerable<object> matchData)
+            => Match(MatchType.Exact, types, matchData);
+
         /// <summary>
         /// This is exactly like `Exact` except that it will match a subset of the components on an entity, and ignore any extras it finds.
         /// </summary>
@@ -261,18 +264,19 @@ namespace Unity.Entities.Tests
 
         enum MatchType { Exact, Partial }
 
-        static EntityMatch Match(MatchType matchType, Type[] componentTypes, object[] matchData)
+        static EntityMatch Match(MatchType matchType, IEnumerable<Type> componentTypes, IEnumerable<object> matchData)
         {
-            if (componentTypes == null || componentTypes.Any(t => t is null))
+            var componentTypeList = componentTypes.ToList();
+            var matchList = matchData.ToList();
+            if (componentTypes == null || componentTypeList.Any(t => t is null))
                 throw new ArgumentNullException(nameof(componentTypes), "Expected type cannot be null");
             if (matchData == null || matchData.Any(d => d is null))
                 throw new ArgumentNullException(nameof(matchData), "Expected type cannot be null");
 
             Entity? entity = null;
-            var componentTypeList = componentTypes.ToList();
             var componentDataList = new List<object>();
 
-            foreach (var data in matchData)
+            foreach (var data in matchList)
             {
                 switch (data)
                 {

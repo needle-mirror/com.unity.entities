@@ -1,6 +1,3 @@
-#if UNITY_DOTSRUNTIME
-using System;
-#endif
 using System;
 using NUnit.Framework;
 using Unity.Collections;
@@ -82,11 +79,11 @@ namespace Unity.Entities.Tests.Types
         [Test]
         public void ChunkComponentCount()
         {
-            var types = new ComponentTypes();
+            var types = new ComponentTypeSet();
             Assert.AreEqual(0, types.ChunkComponentCount);
-            types = new ComponentTypes(ComponentType.ChunkComponent<EcsTestData>(), typeof(EcsTestData2));
+            types = new ComponentTypeSet(ComponentType.ChunkComponent<EcsTestData>(), typeof(EcsTestData2));
             Assert.AreEqual(1, types.ChunkComponentCount);
-            types = new ComponentTypes(ComponentType.ChunkComponent<EcsTestData>(), ComponentType.ChunkComponent<EcsTestData2>());
+            types = new ComponentTypeSet(ComponentType.ChunkComponent<EcsTestData>(), ComponentType.ChunkComponent<EcsTestData2>());
             Assert.AreEqual(2, types.ChunkComponentCount);
         }
 
@@ -116,19 +113,19 @@ namespace Unity.Entities.Tests.Types
                 typeof(EcsTestTag9), typeof(EcsTestTag10), typeof(EcsTestTag11), typeof(EcsTestTag12),
                 typeof(EcsTestTag13), typeof(EcsTestTag14), typeof(EcsTestTag15), typeof(EcsTestTag16),
             };
-            Assert.Throws<ArgumentException>(() => { var componentTypes = new ComponentTypes(typesArray); });
+            Assert.Throws<ArgumentException>(() => { var componentTypes = new ComponentTypeSet(typesArray); });
         }
 
         [Test]
         public void DisallowDuplicateTypes()
         {
             #if UNITY_DOTSRUNTIME
-                    Assert.Throws<ArgumentException>(() => new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)));
-                    Assert.Throws<ArgumentException>(() => new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)));
+                    Assert.Throws<ArgumentException>(() => new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)));
+                    Assert.Throws<ArgumentException>(() => new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)));
             #else
-                    Assert.That(() => new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)), Throws.ArgumentException
+                    Assert.That(() => new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)), Throws.ArgumentException
                         .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"Unity.Entities.Tests.EcsTestData\""));
-                    Assert.That(() => new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)), Throws.ArgumentException
+                    Assert.That(() => new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)), Throws.ArgumentException
                         .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"Unity.Entities.Tests.EcsTestData\""));
             #endif
         }

@@ -8,14 +8,14 @@ using PointerType = UnityEngine.UIElements.PointerType;
 
 namespace Unity.Editor.Bridge
 {
-    public enum AlternatingRowBackground
+    enum AlternatingRowBackground
     {
         None,
         ContentOnly,
         All
     }
 
-    public class ListView : BindableElement, ISerializationCallbackReceiver
+    class ListView : BindableElement, ISerializationCallbackReceiver
     {
         public new class UxmlFactory : UxmlFactory<ListView, UxmlTraits> {}
 

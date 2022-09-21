@@ -29,7 +29,7 @@ namespace Unity.Entities.Tests
     }
 
     [BurstCompile]
-    class EntityManagerTests : ECSTestsFixture
+    partial class EntityManagerTests : ECSTestsFixture
     {
 #if !DOTS_DISABLE_DEBUG_NAMES
 
@@ -82,7 +82,7 @@ namespace Unity.Entities.Tests
             // EntityInChunk.IndexInChunk.  A catastrophic case was when IndexInChunk was larger than Chunk.Count.
             var types = new[] { ComponentType.ReadWrite<EcsTestData>()};
             var archetype = m_Manager.CreateArchetype(types);
-            var entities = new NativeArray<Entity>(2, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(2, World.UpdateAllocator.ToAllocator);
 
             // Create four entities so that we create two holes in the chunk when we add a new
             // component to two of them.
@@ -95,7 +95,6 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(IndexInChunkIsValid(checkEntity1));
             Assert.IsTrue(IndexInChunkIsValid(checkEntity2));
-            entities.Dispose();
         }
 
 #if !NET_DOTS
@@ -131,22 +130,22 @@ namespace Unity.Entities.Tests
         [Test]
         public void VersionIsConsistent()
         {
-            Assert.AreEqual(0, m_Manager.Version);
+            Assert.AreEqual(0, m_Manager.EntityOrderVersion);
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            Assert.AreEqual(1, m_Manager.Version);
+            Assert.AreEqual(1, m_Manager.EntityOrderVersion);
 
             m_Manager.AddComponentData(entity, new EcsTestData2(0));
-            Assert.AreEqual(3, m_Manager.Version);
+            Assert.AreEqual(3, m_Manager.EntityOrderVersion);
 
             m_Manager.SetComponentData(entity, new EcsTestData2(5));
-            Assert.AreEqual(3, m_Manager.Version); // Shouldn't change when just setting data
+            Assert.AreEqual(3, m_Manager.EntityOrderVersion); // Shouldn't change when just setting data
 
             m_Manager.RemoveComponent<EcsTestData2>(entity);
-            Assert.AreEqual(5, m_Manager.Version);
+            Assert.AreEqual(5, m_Manager.EntityOrderVersion);
 
             m_Manager.DestroyEntity(entity);
-            Assert.AreEqual(6, m_Manager.Version);
+            Assert.AreEqual(6, m_Manager.EntityOrderVersion);
         }
 
         [Test]
@@ -219,14 +218,14 @@ namespace Unity.Entities.Tests
 
             // Create two chunks in srcArchetype with different shared component values
             var ent0 = m_Manager.CreateEntity(srcArchetype);
-            m_Manager.SetSharedComponentData(ent0, new EcsTestSharedComp {value = 17});
+            m_Manager.SetSharedComponentManaged(ent0, new EcsTestSharedComp {value = 17});
             var ent1 = m_Manager.CreateEntity(srcArchetype);
-            m_Manager.SetSharedComponentData(ent1, new EcsTestSharedComp {value = 42});
+            m_Manager.SetSharedComponentManaged(ent1, new EcsTestSharedComp {value = 42});
 
             // move ent1's chunk to dstArchetype
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestTag), typeof(EcsTestSharedComp)))
             {
-                query.SetSharedComponentFilter(new EcsTestSharedComp {value = 42});
+                query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 42});
                 m_Manager.RemoveComponent<EcsTestTag>(query);
             }
             var archetypeChunk = m_Manager.GetChunk(ent1);
@@ -241,7 +240,7 @@ namespace Unity.Entities.Tests
             // If these asserts fail, it means ent1's chunk wasn't correctly added to dstArchetype's
             // FreeChunksBySharedComponents list (specifically, it was added under a hash of the wrong shared component
             // values), and a new chunk was created for ent2 instead.
-            m_Manager.SetSharedComponentData(ent2, new EcsTestSharedComp {value = 42});
+            m_Manager.SetSharedComponentManaged(ent2, new EcsTestSharedComp {value = 42});
             Assert.AreEqual(2, archetypeChunk.Count); // ent1's chunk should contain both entities
             Assert.AreEqual(archetypeChunk, m_Manager.GetChunk(ent2)); // ent1 and ent2 should have the same chunk
         }
@@ -257,7 +256,7 @@ namespace Unity.Entities.Tests
             var hash = new NativeParallelHashMap<Entity, bool>(count, Allocator.Temp);
 
             var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestComponentWithBool>());
-            using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
+            using (var chunks = cg.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator))
             {
                 var boolsType = m_Manager.GetComponentTypeHandle<EcsTestComponentWithBool>(false);
                 var entsType = m_Manager.GetEntityTypeHandle();
@@ -392,8 +391,8 @@ namespace Unity.Entities.Tests
                 var entity = entities[i];
                 var testDataEntity = m_Manager.GetComponentData<EcsTestDataEntity>(entity);
                 var testBuffer = m_Manager.GetBuffer<EcsIntElement>(entity);
-                Assert.AreEqual(testDataEntity.value1, entity);
-                Assert.AreEqual(testDataEntity.value0, testBuffer[0].Value);
+                FastAssert.AreEqual(testDataEntity.value1, entity);
+                FastAssert.AreEqual(testDataEntity.value0, testBuffer[0].Value);
             }
 
             entities0.Dispose();
@@ -401,8 +400,8 @@ namespace Unity.Entities.Tests
 
             for (int i = 0; i < entitiesToRemoveData.Length; i++)
             {
-                Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(entitiesToRemoveData[i]));
-                Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entitiesToRemoveData[i]));
+                FastAssert.IsFalse(m_Manager.HasComponent<EcsTestData>(entitiesToRemoveData[i]));
+                FastAssert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entitiesToRemoveData[i]));
             }
         }
 
@@ -604,7 +603,7 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity();
             m_Manager.CreateEntity();
 
-            var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob);
+            var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator);
             var data = new NativeArray<EcsTestData>(entities.Length, Allocator.Temp);
             for (int i = 0; i != data.Length; i++)
                 data[i] = new EcsTestData(entities[i].Index);
@@ -616,14 +615,13 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(4, entities.Length);
 
             data.Dispose();
-            entities.Dispose();
         }
 
         [Test]
         public void AddSharedComponentData_WithEntityQuery_ThatHasNoMatch_WillNotCorruptInternalState()
         {
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            m_Manager.AddSharedComponentData(entityQuery, new EcsTestSharedComp(1));
+            m_Manager.AddSharedComponentManaged(entityQuery, new EcsTestSharedComp(1));
             m_Manager.Debug.CheckInternalConsistency();
         }
 
@@ -631,7 +629,7 @@ namespace Unity.Entities.Tests
         public void SetSharedComponentData_WithEntityQuery_ThatHasNoMatch_WillNotCorruptInternalState()
         {
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            m_Manager.SetSharedComponentData(entityQuery, new EcsTestSharedComp(1));
+            m_Manager.SetSharedComponentManaged(entityQuery, new EcsTestSharedComp(1));
             m_Manager.Debug.CheckInternalConsistency();
         }
 
@@ -672,14 +670,14 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.UseMemoryInitPattern = true;
             m_ManagerDebug.MemoryInitPattern = kMemoryInitPattern;
 
-            NativeParallelHashSet<ulong> seenChunkBuffers = new NativeParallelHashSet<ulong>(8, Allocator.TempJob);
+            NativeParallelHashSet<ulong> seenChunkBuffers = new NativeParallelHashSet<ulong>(8, World.UpdateAllocator.ToAllocator);
             var dppArchetype = m_Manager.CreateArchetype(typeof(ComponentDataByteThen2PaddingBytes));
             var pdpArchetype = m_Manager.CreateArchetype(typeof(ComponentPaddingByteThenDataByteThenPaddingByte));
             Assert.AreEqual(dppArchetype.ChunkCapacity, pdpArchetype.ChunkCapacity);
 
             // Allocate entities to fill multiple chunks with components with known "bad" padding bytes
             var entityCount = dppArchetype.ChunkCapacity * 2;
-            var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, World.UpdateAllocator.ToAllocator);
             for (int i = 0; i < entityCount; ++i)
             {
                 var entity = m_Manager.CreateEntity(dppArchetype);
@@ -716,7 +714,7 @@ namespace Unity.Entities.Tests
             // Allocate a new archetype with the opposite stripping pattern
             // and ensure the chunk retrieved is a chunk we've seen already
             var newEntityCount = pdpArchetype.ChunkCapacity;
-            var newEntities = new NativeArray<Entity>(newEntityCount, Allocator.TempJob);
+            var newEntities = CollectionHelper.CreateNativeArray<Entity>(newEntityCount, World.UpdateAllocator.ToAllocator);
             for (int i = 0; i < newEntityCount; ++i)
             {
                 var entity = m_Manager.CreateEntity(pdpArchetype);
@@ -744,10 +742,6 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual((byte) entity.Index, pData[1]);
                 Assert.AreEqual((byte)0, pData[2]);
             }
-
-            newEntities.Dispose();
-            entities.Dispose();
-            seenChunkBuffers.Dispose();
         }
 
         [Test]
@@ -779,11 +773,7 @@ namespace Unity.Entities.Tests
             var entityManager = tempWorld.EntityManager;
             tempWorld.Dispose();
             Assert.That(() => entityManager.DestroyInstance(),
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<ObjectDisposedException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains("EntityManager"));
         }
 
@@ -798,28 +788,28 @@ namespace Unity.Entities.Tests
         [Test]
         public void VersionIsConsistent_ManagedComponents()
         {
-            Assert.AreEqual(0, m_Manager.Version);
+            Assert.AreEqual(0, m_Manager.EntityOrderVersion);
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            Assert.AreEqual(1, m_Manager.Version);
+            Assert.AreEqual(1, m_Manager.EntityOrderVersion);
 
             m_Manager.AddComponentData(entity, new EcsTestData2(0));
-            Assert.AreEqual(3, m_Manager.Version);
+            Assert.AreEqual(3, m_Manager.EntityOrderVersion);
 
             m_Manager.SetComponentData(entity, new EcsTestData2(5));
-            Assert.AreEqual(3, m_Manager.Version); // Shouldn't change when just setting data
+            Assert.AreEqual(3, m_Manager.EntityOrderVersion); // Shouldn't change when just setting data
 
             m_Manager.AddComponentData(entity, new EcsTestManagedComponent());
-            Assert.AreEqual(5, m_Manager.Version);
+            Assert.AreEqual(5, m_Manager.EntityOrderVersion);
 
             m_Manager.SetComponentData(entity, new EcsTestManagedComponent() { value = "new" });
-            Assert.AreEqual(5, m_Manager.Version); // Shouldn't change when just setting data
+            Assert.AreEqual(5, m_Manager.EntityOrderVersion); // Shouldn't change when just setting data
 
             m_Manager.RemoveComponent<EcsTestData2>(entity);
-            Assert.AreEqual(7, m_Manager.Version);
+            Assert.AreEqual(7, m_Manager.EntityOrderVersion);
 
             m_Manager.DestroyEntity(entity);
-            Assert.AreEqual(8, m_Manager.Version);
+            Assert.AreEqual(8, m_Manager.EntityOrderVersion);
         }
 
         [Test]
@@ -839,20 +829,43 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void ManagedComponent_DoubleAdd_NoDoubleDispose()
         {
-            // regression test for https://unity3d.atlassian.net/browse/DOTS-5122
+            // regression test for DOTS-5122
             var ent = m_Manager.CreateEntity();
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            int RefCount1 = 1;
-            var value = new EcsTestManagedCompWithRefCount(&RefCount1);
+            var value = new EcsTestManagedCompWithRefCount();
             ecb.AddComponent(ent, value);
             ecb.AddComponent(ent, value); // oops, accidental redundant add!
             ecb.Playback(m_Manager);
-            Assert.AreEqual(1, RefCount1); // without the double-dispose guard, this refcount would be zero here. That would be bad.
-            int RefCount2 = 1;
-            var newValue = new EcsTestManagedCompWithRefCount(&RefCount2);
+            Assert.AreEqual(1, value.RefCount); // without the double-dispose guard, this refcount would be zero here. That would be bad.
+            var newValue = new EcsTestManagedCompWithRefCount();
             m_Manager.SetComponentObject(ent, ComponentType.ReadWrite<EcsTestManagedCompWithRefCount>(), newValue);
-            Assert.AreEqual(0, RefCount1);
-            Assert.AreEqual(1, RefCount2);
+            Assert.AreEqual(0, value.RefCount);
+            Assert.AreEqual(1, newValue.RefCount);
+        }
+
+        [Test]
+        public void ManagedComponent_MoveComponent()
+        {
+            // regression test for DOTS-5122
+            var srcEnt = m_Manager.CreateEntity();
+            var dstEnt = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(srcEnt, new EcsTestManagedComponent
+            {
+                value = "Moved Entity"
+            });
+
+            //make sure the same entity performs a no-op
+            m_Manager.MoveComponent<EcsTestManagedComponent>(srcEnt,srcEnt);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent>(srcEnt));
+            Assert.AreEqual("Moved Entity",m_Manager.GetComponentData<EcsTestManagedComponent>(srcEnt).value);
+
+            m_Manager.MoveComponent<EcsTestManagedComponent>(srcEnt,dstEnt);
+
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent>(srcEnt));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent>(dstEnt));
+
+            Assert.AreEqual("Moved Entity",m_Manager.GetComponentData<EcsTestManagedComponent>(dstEnt).value);
+
         }
 
         [Test]
@@ -866,7 +879,7 @@ namespace Unity.Entities.Tests
             var hash = new NativeParallelHashMap<Entity, FixedString64Bytes>(count, Allocator.Temp);
 
             var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestManagedComponent>());
-            using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
+            using (var chunks = cg.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator))
             {
                 var ManagedComponentType = m_Manager.GetComponentTypeHandle<EcsTestManagedComponent>(false);
                 var entsType = m_Manager.GetEntityTypeHandle();
@@ -906,7 +919,7 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateEntity(archetype, array);
 
                 var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData4>());
-                using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
+                using (var chunks = cg.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator))
                 {
                     var managedComponentType = m_Manager.GetComponentTypeHandle<EcsTestManagedComponent>(false);
 
@@ -1242,7 +1255,7 @@ namespace Unity.Entities.Tests
             struct WriteWhenSignaledJob : IJob
             {
                 [ReadOnly]
-                public ComponentDataFromEntity<EcsTestData> TestData;
+                public ComponentLookup<EcsTestData> TestData;
 
                 [NativeDisableUnsafePtrRestriction]
                 public unsafe volatile int* Result;
@@ -1262,7 +1275,7 @@ namespace Unity.Entities.Tests
                 {
                     value = COMPONENT_DATA_VALUE
                 });
-                var testData = GetComponentDataFromEntity<EcsTestData>(true);
+                var testData = GetComponentLookup<EcsTestData>(true);
 
                 int JobResult = 0;
                 Dependency = new WriteWhenSignaledJob
@@ -1284,7 +1297,7 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void GetComponentDataRaw_SafetyRO()
         {
-            var system = World.CreateSystem<WriteSignalSystem>();
+            var system = World.CreateSystemManaged<WriteSignalSystem>();
             system.Update();
         }
 
@@ -1413,8 +1426,8 @@ namespace Unity.Entities.Tests
             var invoke = fp.Invoke;
 
             int size = 100;
-            var names = new NativeArray<FixedString64Bytes>(size, Allocator.TempJob);
-            var entities = new NativeArray<Entity>(size, Allocator.TempJob);
+            var names = CollectionHelper.CreateNativeArray<FixedString64Bytes>(size, World.UpdateAllocator.ToAllocator);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(size, World.UpdateAllocator.ToAllocator);
 
             for (int i = 0; i < size; i++)
             {
@@ -1428,11 +1441,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual("Entity " + i, m_Manager.GetName(entities[i]));
             }
-
-
-            names.Dispose();
-            entities.Dispose();
-
         }
 
         [Test]
@@ -1443,9 +1451,9 @@ namespace Unity.Entities.Tests
 
             int size = 100;
 
-            var entities = new NativeArray<Entity>(size, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(size, World.UpdateAllocator.ToAllocator);
 
-            using(var names = new NativeArray<FixedString64Bytes>(size,Allocator.TempJob))
+            using(var names = CollectionHelper.CreateNativeArray<FixedString64Bytes>(size,World.UpdateAllocator.ToAllocator))
             {
 
                 for (int i = 0; i < size; i++)
@@ -1461,8 +1469,6 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual("Entity " + i,names[i]);
                 }
             }
-
-            entities.Dispose();
         }
 
         [Test]
@@ -1485,7 +1491,7 @@ namespace Unity.Entities.Tests
                 var dstEM = dstWorld.EntityManager;
                 var entityD = dstEM.CreateEntity(typeof(EcsTestData));
                 dstEM.SetName(entityD, "D");
-                using (var remap = srcEM.CreateEntityRemapArray(Allocator.TempJob))
+                using (var remap = srcEM.CreateEntityRemapArray(World.UpdateAllocator.ToAllocator))
                 {
                     var dstQuery = dstEM.CreateEntityQuery(typeof(EcsTestData));
 
@@ -1498,7 +1504,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual("D", dstEM.GetName(entityD));
 
 
-                    using (var queriedEntities = dstQuery.ToEntityArray(Allocator.TempJob))
+                    using (var queriedEntities = dstQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         Assert.AreEqual(4, queriedEntities.Length);
 
@@ -1527,8 +1533,8 @@ namespace Unity.Entities.Tests
             m_Manager.SetName(entityB,"B");
             m_Manager.SetName(entityC,"C");
 
-            using(var srcEntities = new NativeArray<Entity>(new[] {entityA, entityB, entityC}, Allocator.TempJob))
-            using(var dstEntities = new NativeArray<Entity>(srcEntities.Length,Allocator.TempJob))
+            using(var srcEntities = CollectionHelper.CreateNativeArray<Entity>(new[] {entityA, entityB, entityC}, World.UpdateAllocator.ToAllocator))
+            using(var dstEntities = CollectionHelper.CreateNativeArray<Entity>(srcEntities.Length,World.UpdateAllocator.ToAllocator))
             {
 
                 //underlying function calls into EntityComponentStore.CopyName
@@ -1537,7 +1543,7 @@ namespace Unity.Entities.Tests
                 //make sure entities of interest are actually cloned in the manager
                 var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
-                using (var queriedEntities = query.ToEntityArray(Allocator.TempJob))
+                using (var queriedEntities = query.ToEntityArray(World.UpdateAllocator.ToAllocator))
                 {
 
                     //length sanity check
@@ -1558,6 +1564,132 @@ namespace Unity.Entities.Tests
                 }
 
             }
+        }
+
+        [Test]
+        public void GetAspect()
+        {
+            var entity0 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(entity0, new EcsTestData(42));
+            var aspect0 = m_Manager.GetAspect<EcsTestAspect0RW>(entity0);
+            Assert.IsTrue(aspect0.EcsTestData.IsValid, "the aspect could not build the RefRW of EcsTestAspect0.EcsTestData");
+            Assert.AreEqual(aspect0.EcsTestData.ValueRO.value, 42, "the component the RefRW of EcsTestAspect0.EcsTestData points to does not have the correct value");
+
+            aspect0.EcsTestData.ValueRW.value = 420;
+            var componentAfterWrite = m_Manager.GetComponentData<EcsTestData>(entity0);
+            Assert.AreEqual(componentAfterWrite.value, 420, "The written value from the aspect's RefRW did not overwrite the component data");
+        }
+
+        [Test]
+        public void GetAspectRO()
+        {
+            var entity0 = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(entity0, new EcsTestData(42));
+            var aspect0 = m_Manager.GetAspectRO<EcsTestAspect0RO>(entity0);
+            Assert.IsTrue(aspect0.EcsTestData.IsValid, "the aspect could not build the RefRO of EcsTestAspect0.EcsTestData");
+            Assert.AreEqual(aspect0.EcsTestData.ValueRO.value, 42, "the component the RefRO of EcsTestAspect0.EcsTestData points to does not have the correct value");
+        }
+
+        partial struct ScheduleEcsTestDataForWritingSystem : ISystem
+        {
+            struct Job : IJob
+            {
+                public ComponentTypeHandle<EcsTestData> handle;
+                public void Execute() {}
+            }
+
+            ComponentTypeHandle<EcsTestData> m_Handle;
+            public void OnCreate(ref SystemState state)
+                => m_Handle = state.GetComponentTypeHandle<EcsTestData>(); // Needs to be there for system to know which component dependencies were added.
+            public void OnDestroy(ref SystemState state) {}
+
+            public void OnUpdate(ref SystemState state)
+                => state.Dependency = new Job{handle = m_Handle}.Schedule(state.Dependency);
+        }
+
+        partial struct ScheduleEcsTestData2ForReadingSystem : ISystem
+        {
+            struct Job : IJob
+            {
+                [ReadOnly] public ComponentTypeHandle<EcsTestData2> handle;
+                public void Execute() {}
+            }
+
+            ComponentTypeHandle<EcsTestData2> m_Handle;
+            public void OnCreate(ref SystemState state)
+                => m_Handle = state.GetComponentTypeHandle<EcsTestData2>(true); // Needs to be there for system to know which component dependencies were added.
+            public void OnDestroy(ref SystemState state) {}
+
+            public void OnUpdate(ref SystemState state)
+                => state.Dependency = new Job{handle = m_Handle}.Schedule(state.Dependency);
+        }
+
+        [Test]
+        public void CompleteDependencyBeforeRO([Values] bool withComplete)
+        {
+            var e = m_Manager.CreateEntity(typeof(EcsTestData));
+            var dataFromEntity = m_Manager.GetComponentLookup<EcsTestData>(true);
+
+            // Creating a system will now complete the dependency since it creates and writes to the system entity,
+            // so create them both first before updating.
+            var scheduleEcsTestDataForWritingSystemRef = World.CreateSystem<ScheduleEcsTestDataForWritingSystem>();
+            var scheduleEcsTestData2ForReadingSystemRef = World.CreateSystem<ScheduleEcsTestData2ForReadingSystem>();
+            scheduleEcsTestDataForWritingSystemRef.Update(World.Unmanaged);
+            scheduleEcsTestData2ForReadingSystemRef.Update(World.Unmanaged);
+
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                var data = dataFromEntity[e];
+            });
+
+            if (withComplete)
+            {
+                m_Manager.CompleteDependencyBeforeRO<EcsTestData>();
+                var data = dataFromEntity[e];
+            }
+
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                dataFromEntity[e] = new EcsTestData();
+            });
+        }
+
+        [Test]
+        public void CompleteDependencyBeforeRW([Values] bool withComplete)
+        {
+            var e = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var data1FromEntity = m_Manager.GetComponentLookup<EcsTestData>(true);
+            var data2FromEntity = m_Manager.GetComponentLookup<EcsTestData2>(false);
+
+            // Creating a system will now complete the dependency since it creates and writes to the system entity,
+            // so create them both first before updating.
+            var scheduleEcsTestDataForWritingSystemRef = World.CreateSystem<ScheduleEcsTestDataForWritingSystem>();
+            var scheduleEcsTestData2ForReadingSystemRef = World.CreateSystem<ScheduleEcsTestData2ForReadingSystem>();
+            scheduleEcsTestDataForWritingSystemRef.Update(World.Unmanaged);
+            scheduleEcsTestData2ForReadingSystemRef.Update(World.Unmanaged);
+
+            // Can't read from EcsTestData as ScheduleEcsTestDataForWritingSystem is writing to it in a job
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                var data = data1FromEntity[e];
+            });
+            // Can't write to EcsTestData2 as ScheduleEcsTestData2ForReadingSystem is reading from it in a job
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                data2FromEntity[e] = new EcsTestData2();
+            });
+
+            if (withComplete)
+            {
+                m_Manager.CompleteDependencyBeforeRW<EcsTestData2>();
+                data2FromEntity[e] = new EcsTestData2();
+            }
+
+            // Should still not be allowed as CompleteDependencyBeforeRW should only have completed one system.
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                var data = data1FromEntity[e];
+            });
         }
 
 #endif // !DOTS_DISABLE_DEBUG_NAMES

@@ -13,52 +13,54 @@ using UnityEngine;
 
 namespace Unity.Scenes
 {
-    public class SceneBundleHandle
+    internal class SceneBundleHandle
     {
         private int _refCount;
         private AssetBundleCreateRequest _assetBundleCreateRequest;
+        private AssetBundleUnloadOperation _assetBundleUnloadOperation;
         private AssetBundle _assetBundle;
         private readonly string _bundlePath;
-
-        [Obsolete("UseAssetBundles will no longer be public. (RemovedAfter 2021-05-15)")]
-        public static bool UseAssetBundles
-        {
-            get
-            {
-#if UNITY_EDITOR
-                return false;
-#else
-                return true;
-#endif
-            }
-        }
 
         internal AssetBundle AssetBundle
         {
             get
             {
-                if (_assetBundle == null && _assetBundleCreateRequest != null)
+                if (_assetBundle == null)
                 {
-                    _assetBundle = _assetBundleCreateRequest.assetBundle;
-                    _assetBundleCreateRequest = null;
+                    if (_assetBundleUnloadOperation != null)
+                    {
+                        _assetBundleUnloadOperation.WaitForCompletion();
+                        LoadAssetBundle();
+                    }
+
+                    if (_assetBundleCreateRequest != null)
+                    {
+                        _assetBundle = _assetBundleCreateRequest.assetBundle;
+                        _assetBundleCreateRequest = null;
+                    }
                 }
 
                 return _assetBundle;
             }
         }
 
+        private void LoadAssetBundle()
+        {
+            _assetBundleCreateRequest = AssetBundle.LoadFromFileAsync(_bundlePath);
+            if (_assetBundleCreateRequest == null)
+                LogBundle($"Failed AssetBundle.LoadFromFileAsync {_bundlePath}");
+            else
+                LogBundle($"AssetBundle.LoadFromFileAsync {_bundlePath}");
+        }
+
         private SceneBundleHandle(string bundlePath)
         {
             _refCount = 0;
             _bundlePath = bundlePath;
-            _assetBundleCreateRequest = AssetBundle.LoadFromFileAsync(_bundlePath);
-            if (_assetBundleCreateRequest == null)
-                LogBundle($"Failed AssetBundle.LoadFromFileAsync {bundlePath}");
-            else
-                LogBundle($"AssetBundle.LoadFromFileAsync {bundlePath}");
+            LoadAssetBundle();
         }
 
-        internal bool IsReady()
+        private bool IsReady()
         {
             if (_assetBundleCreateRequest != null)
             {
@@ -68,6 +70,9 @@ namespace Unity.Scenes
                 _assetBundle = _assetBundleCreateRequest.assetBundle;
                 _assetBundleCreateRequest = null;
             }
+
+            if (_assetBundleUnloadOperation != null)
+                return false;
 
             return true;
         }
@@ -94,8 +99,19 @@ namespace Unity.Scenes
         {
             Interlocked.Increment(ref _refCount);
         }
+        /// <summary>
+        /// The bundles that are currently loaded or still in the process of loading.
+        /// </summary>
         private static readonly Dictionary<string, SceneBundleHandle> LoadedBundles = new Dictionary<string, SceneBundleHandle>();
-        private static readonly ConcurrentDictionary<string, SceneBundleHandle> UnloadingBundles = new ConcurrentDictionary<string, SceneBundleHandle>();
+        /// <summary>
+        /// The bundles that need to be unloaded.
+        /// </summary>
+        private static readonly ConcurrentDictionary<string, SceneBundleHandle> BundlesToUnload = new ConcurrentDictionary<string, SceneBundleHandle>();
+        private static int s_NumBundlesToUnload;
+        /// <summary>
+        /// The bundles we're currently unloading.
+        /// </summary>
+        private static readonly Dictionary<string, SceneBundleHandle> UnloadingBundlesInProcess = new Dictionary<string, SceneBundleHandle>();
         internal static SceneBundleHandle[] LoadSceneBundles(string mainBundlePath, NativeArray<Entities.Hash128> sharedBundles, bool blocking)
         {
             var hasMainBundle = !string.IsNullOrEmpty(mainBundlePath);
@@ -157,8 +173,14 @@ namespace Unity.Scenes
             if (!LoadedBundles.TryGetValue(bundlePath, out var assetBundleHandle))
             {
                 // Check if it's about to be unloaded
-                if (!UnloadingBundles.TryRemove(bundlePath, out assetBundleHandle))
-                    assetBundleHandle = new SceneBundleHandle(bundlePath);
+                if (!BundlesToUnload.TryRemove(bundlePath, out assetBundleHandle))
+                {
+                    // Check if it's already unloading
+                    if (!UnloadingBundlesInProcess.TryGetValue(bundlePath, out assetBundleHandle))
+                        assetBundleHandle = new SceneBundleHandle(bundlePath);
+                }
+                else
+                    Interlocked.Decrement(ref s_NumBundlesToUnload);
 
                 LoadedBundles[bundlePath] = assetBundleHandle;
             }
@@ -172,29 +194,60 @@ namespace Unity.Scenes
         {
             var bundlePath = sceneBundleHandle._bundlePath;
 
-            if (UnloadingBundles.ContainsKey(bundlePath))
+            if (UnloadingBundlesInProcess.ContainsKey(bundlePath))
+            {
+                if (!LoadedBundles.Remove(bundlePath))
+                    throw new InvalidOperationException($"Attempting to release a bundle is not contained within LoadedBundles! {bundlePath}");
+                return;
+            }
+
+            if (!BundlesToUnload.TryAdd(bundlePath, sceneBundleHandle))
                 throw new InvalidOperationException($"Attempting to release a bundle that is already unloading! {bundlePath}");
+            Interlocked.Increment(ref s_NumBundlesToUnload);
 
-            if (!LoadedBundles.ContainsKey(bundlePath))
+            if (!LoadedBundles.Remove(bundlePath))
                 throw new InvalidOperationException($"Attempting to release a bundle is not contained within LoadedBundles! {bundlePath}");
-
-            LoadedBundles.Remove(bundlePath);
-            UnloadingBundles[bundlePath] = sceneBundleHandle;
         }
 
+        private static readonly List<string> s_BundlesFinishedUnloading = new List<string>();
         internal static void ProcessUnloadingBundles()
         {
-            if (UnloadingBundles.IsEmpty)
-                return;
-            foreach (var sceneBundleHandle in UnloadingBundles)
+            foreach (var kvp in UnloadingBundlesInProcess) {
+                if (kvp.Value._assetBundleUnloadOperation.isDone)
+                    s_BundlesFinishedUnloading.Add(kvp.Key);
+            }
+
+            if (s_BundlesFinishedUnloading.Count > 0)
             {
-                if (sceneBundleHandle.Value.IsReady())
+                foreach (var path in s_BundlesFinishedUnloading)
                 {
-                    LogBundle($"Unload {sceneBundleHandle.Key}");
+                    UnloadingBundlesInProcess.Remove(path, out var handle);
+                    // It may happen that while we were unloading this bundle, someone else requested this to be loaded.
+                    // They will already have added it to the LoadedBundles dictionary
+                    handle._assetBundleUnloadOperation = null;
+                    if (handle._refCount > 0)
+                        handle.LoadAssetBundle();
+                }
+                s_BundlesFinishedUnloading.Clear();
+            }
 
-                    sceneBundleHandle.Value.AssetBundle?.Unload(true);
+            if (s_NumBundlesToUnload == 0)
+                return;
+            foreach (var kvp in BundlesToUnload)
+            {
+                SceneBundleHandle sceneBundleHandle = kvp.Value;
+                if (sceneBundleHandle.IsReady())
+                {
+                    LogBundle($"Unload {kvp.Value}");
 
-                    UnloadingBundles.TryRemove(sceneBundleHandle.Key, out _);
+                    if (sceneBundleHandle.AssetBundle != null)
+                    {
+                        sceneBundleHandle._assetBundleUnloadOperation = sceneBundleHandle.AssetBundle.UnloadAsync(true);
+                        UnloadingBundlesInProcess.Add(kvp.Key, kvp.Value);
+                    }
+
+                    if (BundlesToUnload.TryRemove(kvp.Key, out _))
+                        Interlocked.Decrement(ref s_NumBundlesToUnload);
                 }
             }
         }
@@ -212,7 +265,7 @@ namespace Unity.Scenes
 
         internal static int GetUnloadingCount()
         {
-            return UnloadingBundles.Count;
+            return BundlesToUnload.Count;
         }
     }
 }

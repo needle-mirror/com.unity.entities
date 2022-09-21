@@ -8,6 +8,7 @@ using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
@@ -103,11 +104,23 @@ namespace Unity.Entities.CodeGen
                     continue;
 
                 // Transfer any BurstCompile attribute from target function to the forwarding wrapper
-                var burstAttribute = targetMethod.CustomAttributes.FirstOrDefault(x => x.Constructor.DeclaringType.Name == nameof(BurstCompileAttribute));
+                Func<CustomAttribute, bool> isBurstAttribute = x => x.Constructor.DeclaringType.Name == nameof(BurstCompileAttribute);
+                var burstAttribute = targetMethod.CustomAttributes.FirstOrDefault(isBurstAttribute);
                 if (burstAttribute != null)
                 {
-                    methodDef.CustomAttributes.Add(new CustomAttribute(burstAttribute.Constructor, burstAttribute.GetBlob()));
-                    memo.m_BurstCompileBits |= 1 << i;
+                    if (!targetMethod.DeclaringType.CustomAttributes.Any(isBurstAttribute))
+                    {
+                        _diagnosticMessages.Add(UserError.MakeWarning("",
+                            $"[BurstCompile] was added to {targetMethod.DeclaringType.Name}.{targetMethod.Name} but not {targetMethod.DeclaringType.Name}! {targetMethod.DeclaringType.Name}.{targetMethod.Name} will not be bursted!",
+                            targetMethod,
+                            null));
+                    }
+                    else
+                    {
+                        methodDef.CustomAttributes.Add(new CustomAttribute(burstAttribute.Constructor,
+                            burstAttribute.GetBlob()));
+                        memo.m_BurstCompileBits |= 1 << i;
+                    }
                 }
 
 #if UNITY_DOTSRUNTIME

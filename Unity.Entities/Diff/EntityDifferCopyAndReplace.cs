@@ -58,7 +58,7 @@ namespace Unity.Entities
             //@TODO-opt: use a query that searches for all chunks that have chunk components on it
             //@TODO-opt: Move this into a job
             // Any chunk might have been recreated, so the ChunkHeader might be invalid
-            using (var allDstChunks = dstEntityQuery.CreateArchetypeChunkArray(Allocator.TempJob))
+            using (var allDstChunks = dstEntityQuery.ToArchetypeChunkArray(Allocator.TempJob))
             {
                 foreach (var chunk in allDstChunks)
                 {
@@ -228,8 +228,8 @@ namespace Unity.Entities
             var srcManagedComponentStore = srcAccess->ManagedComponentStore;
             var dstManagedComponentStore = dstAccess->ManagedComponentStore;
 
-            var dstSharedComponentIndicesRemapped = new NativeArray<int>(srcSharedComponentIndices, Allocator.TempJob);
-            dstManagedComponentStore.CopySharedComponents(srcManagedComponentStore, (int*)dstSharedComponentIndicesRemapped.GetUnsafeReadOnlyPtr(), dstSharedComponentIndicesRemapped.Length);
+            var dstSharedComponentIndicesRemapped = new NativeArray<int>(srcSharedComponentIndices.AsArray(), Allocator.TempJob);
+            dstAccess->CopySharedComponents(srcAccess, (int*) dstSharedComponentIndicesRemapped.GetUnsafeReadOnlyPtr(), dstSharedComponentIndicesRemapped.Length);
             s_CopySharedComponentsMarker.End();
 
             // clone chunks
@@ -239,7 +239,7 @@ namespace Unity.Entities
                 Chunks = chunks,
                 ClonedChunks = cloned,
                 DstEntityManager = dstEntityManager,
-                SrcSharedComponentIndices = srcSharedComponentIndices,
+                SrcSharedComponentIndices = srcSharedComponentIndices.AsArray(),
                 DstSharedComponentIndices = dstSharedComponentIndicesRemapped,
             }.Run();
 
@@ -261,6 +261,20 @@ namespace Unity.Entities
 
             dstSharedComponentIndicesRemapped.Dispose();
             copyJob.Complete();
+
+            // Copy enabled bits.
+            // Note that CloneEnabledBits() requires the dstChunk enabled bit hierarchical count to be correct as a precondition,
+            // which it is (zero) thanks to CreateNewChunks calling GetCleanChunkNoMetaChunk().
+            for (int i = 0; i < cloned.Length; i++)
+            {
+                var srcChunk = chunks[i].m_Chunk;
+                var dstChunk = cloned[i].m_Chunk;
+                ChunkDataUtility.CloneEnabledBits(srcChunk, 0, dstChunk, 0, srcChunk->Count);
+                Assertions.Assert.AreEqual(srcChunk->Count, dstChunk->Count);
+                // Can't do this until chunk count is up to date and padding bits are clear,
+                // which is implicitly the case at this point
+                ChunkDataUtility.UpdateChunkDisabledEntityCounts(dstChunk);
+            }
 
             s_CopyManagedComponentsMarker.Begin();
             for (int i = 0; i < cloned.Length; i++)
@@ -306,7 +320,7 @@ namespace Unity.Entities
 
             new PatchAndAddClonedChunks
             {
-                SrcChunks = chunks,
+                SrcChunks = chunks.AsArray(),
                 DstChunks = cloned,
                 SrcEntityComponentStore = srcAccess->EntityComponentStore,
                 DstEntityComponentStore = dstAccess->EntityComponentStore

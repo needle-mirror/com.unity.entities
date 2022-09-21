@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using Unity.Collections;
 using Unity.Transforms;
+using UnityEditor;
 
 namespace Unity.Entities.Editor.Tests
 {
@@ -14,7 +15,7 @@ namespace Unity.Entities.Editor.Tests
         public void SetUp()
         {
             m_World = new World("Hierarchy World");
-            m_Hierarchy = new Hierarchy(m_World, Allocator.Persistent)
+            m_Hierarchy = new Hierarchy(m_World, Allocator.Persistent, DataMode.Disabled)
             {
                 Configuration = new HierarchyConfiguration
                 {

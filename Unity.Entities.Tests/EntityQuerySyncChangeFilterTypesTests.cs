@@ -44,7 +44,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        SyncChangeFilterTypes_System _syncChangeFilterTypesSystem => World.GetOrCreateSystem<SyncChangeFilterTypes_System>();
+        SyncChangeFilterTypes_System _syncChangeFilterTypesSystem => World.GetOrCreateSystemManaged<SyncChangeFilterTypes_System>();
 
         bool completeJob1;
         bool completeJob2;
@@ -62,7 +62,7 @@ namespace Unity.Entities.Tests
         {
             base.Setup();
 
-            m_Manager.Debug.SetGlobalSystemVersion(10);
+            m_ManagerDebug.IncrementGlobalSystemVersion();
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), ComponentType.ChunkComponent<EcsTestData3>());
 
             job1 = _syncChangeFilterTypesSystem.SetEcsTestData1(default);
@@ -70,7 +70,7 @@ namespace Unity.Entities.Tests
 
             // These jobs wont actually set the change version so the query will not match any entities so no structural change is executed.
             // Otherwise BeforeStructuralChange will throw an InvalidOperationException when it calls CompleteAllJobs.
-            // We want to only check for the InvalidOperationException from SyncFilterTypes.
+            // We want to only check for the InvalidOperationException from SyncChunkFilterTypes.
             if (completeJob1)
                 job1.Complete();
 
@@ -79,7 +79,7 @@ namespace Unity.Entities.Tests
 
             _syncChangeFilterTypesSystem.EntityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
             _syncChangeFilterTypesSystem.EntityQuery.SetChangedVersionFilter(new ComponentType[] {ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()});
-            _syncChangeFilterTypesSystem.EntityQuery.SetChangedFilterRequiredVersion(10);
+            _syncChangeFilterTypesSystem.EntityQuery.SetChangedFilterRequiredVersion(m_Manager.GlobalSystemVersion);
         }
 
         public override void TearDown()
@@ -161,7 +161,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityManager_AddSharedComponentDataWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddSharedComponentData(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7)));
+            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddSharedComponentManaged(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7)));
         }
     }
 }

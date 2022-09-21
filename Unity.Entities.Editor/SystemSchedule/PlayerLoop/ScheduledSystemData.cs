@@ -1,14 +1,14 @@
 using System;
-using Unity.Properties.Editor;
+using Unity.Properties;
 using UnityEngine.Profiling;
 
 namespace Unity.Entities.Editor
 {
-    internal struct ScheduledSystemData
+    struct ScheduledSystemData
     {
         public readonly SystemCategory Category;
         public readonly int ParentIndex;
-        public readonly SystemHandleUntyped WorldSystemHandle;
+        public readonly SystemHandle WorldSystemHandle;
         public int ChildIndex;
         public int ChildCount;
 
@@ -26,7 +26,7 @@ namespace Unity.Entities.Editor
         public ScheduledSystemData(ComponentSystemBase m, int parentIndex) // managed systems
         {
             Managed = m;
-            WorldSystemHandle = default;
+            WorldSystemHandle = m.SystemHandle;
 
             Category = SystemUtils.GetSystemCategory(m);
 
@@ -45,7 +45,7 @@ namespace Unity.Entities.Editor
             Recorder = Recorder.Get($"{m.World?.Name ?? "none"} {FullName}");
         }
 
-        public unsafe ScheduledSystemData(SystemHandleUntyped u, World w, int parentIndex) // unmanaged systems
+        public unsafe ScheduledSystemData(SystemHandle u, World w, int parentIndex) // unmanaged systems
         {
             Managed = null;
             WorldSystemHandle = u;

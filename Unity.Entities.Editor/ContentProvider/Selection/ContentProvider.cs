@@ -1,4 +1,4 @@
-namespace Unity.Properties.UI
+namespace Unity.Platforms.UI
 {
     /// <summary>
     /// Inherit from this class to display arbitrary content in either an editor window or the inspector.

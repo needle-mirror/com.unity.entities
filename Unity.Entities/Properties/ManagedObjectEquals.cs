@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 #if !NET_DOTS
 using Unity.Properties;
-using Unity.Properties.Internal;
 #endif
 
 namespace Unity.Entities
@@ -66,7 +65,7 @@ namespace Unity.Entities
             if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                 return lhs.Equals(rhs);
 #endif
-            var properties = PropertyBagStore.GetPropertyBag(type);
+            var properties = PropertyBag.GetPropertyBag(type);
 
             if (null == properties)
                 throw new MissingPropertyBagException(type);
@@ -238,18 +237,18 @@ namespace Unity.Entities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         bool CompareEquality<TValue>(TValue lhs, TValue rhs)
         {
-            if (!RuntimeTypeInfoCache<TValue>.IsContainerType)
+            if (!TypeTraits<TValue>.IsContainer)
             {
                 return EqualityComparer<TValue>.Default.Equals(lhs, rhs);
             }
 
-            if (RuntimeTypeInfoCache<TValue>.CanBeNull)
+            if (TypeTraits<TValue>.CanBeNull)
             {
                 if (null == lhs) return null == rhs;
                 if (null == rhs) return false;
             }
 
-            if (!RuntimeTypeInfoCache<TValue>.IsValueType)
+            if (!TypeTraits<TValue>.IsValueType)
             {
                 if (ReferenceEquals(lhs, rhs))
                     return true;
@@ -264,7 +263,7 @@ namespace Unity.Entities
                 }
 #endif
                 // Boxed value types can be compared as-is using the default comparer (with boxing).
-                if (!RuntimeTypeInfoCache.IsContainerType(type))
+                if (!TypeTraits.IsContainer(type))
                 {
                     return EqualityComparer<TValue>.Default.Equals(lhs, rhs);
                 }
@@ -294,7 +293,7 @@ namespace Unity.Entities
             var dstContainer = m_Stack;
 
             m_Stack = rhs;
-            PropertyContainer.Visit(ref lhs, this, out _);
+            PropertyContainer.TryAccept(this, ref lhs, out _);
             m_Stack = dstContainer;
 
             return m_Equals;

@@ -1,13 +1,13 @@
 using System.Collections;
 using JetBrains.Annotations;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Serialization.Editor;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
     [UsedImplicitly]
-    class TabViewDrawer : PropertyDrawer<ITabContent[], TabViewAttribute>
+    class TabViewDrawer : PropertyInspector<ITabContent[], TabViewAttribute>
     {
         public override VisualElement Build()
         {
@@ -15,6 +15,9 @@ namespace Unity.Entities.Editor
             var tabs = new TabContent[Target.Length];
             var initializedTabs = new BitArray(tabs.Length);
             var state = SessionState<State>.GetOrCreate(DrawerAttribute.Id);
+
+            if ((uint)state.TabIndex >= Target.Length)
+                state.TabIndex = 0;
 
             for (var i = 0; i < Target.Length; i++)
             {
@@ -46,6 +49,9 @@ namespace Unity.Entities.Editor
 
             tabView.RegisterCallback((ChangeEvent<int> evt, (TabViewAttribute attribute, ITabContent[] tabs, TabContent[] tabContents, BitArray initializedTabs) args) =>
             {
+                if (evt.target.GetType() != typeof(TabView))
+                    return;
+
                 var tabIndex = evt.newValue;
                 SessionState<State>.GetOrCreate(args.attribute.Id).TabIndex = tabIndex;
 

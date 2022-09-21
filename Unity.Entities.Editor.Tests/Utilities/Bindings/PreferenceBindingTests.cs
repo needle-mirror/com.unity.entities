@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 namespace Unity.Entities.Editor.Tests
 {
     [TestFixture]
-    public class PreferenceBindingTests
+    class PreferenceBindingTests
     {
         abstract class AdvancedSettingsBinding<TValue> : PreferenceBinding<AdvancedSettings, TValue>
         {

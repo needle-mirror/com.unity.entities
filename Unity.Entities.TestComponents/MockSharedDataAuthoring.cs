@@ -4,16 +4,19 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [AddComponentMenu("")]
-    public class MockSharedDataAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class MockSharedDataAuthoring : MonoBehaviour
     {
         public int Value;
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+        class Baker : Baker<MockSharedDataAuthoring>
         {
-            dstManager.AddSharedComponentData(entity, new MockSharedData
+            public override void Bake(MockSharedDataAuthoring authoring)
             {
-                Value = Value
-            });
+                AddSharedComponent(new MockSharedData
+                {
+                    Value = authoring.Value
+                });
+            }
         }
     }
 

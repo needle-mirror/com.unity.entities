@@ -69,7 +69,7 @@ namespace Unity.Entities.Tests
             var access = m_Manager.GetCheckedEntityDataAccess();
 
             var entity = m_Manager.CreateEntity();
-            var types = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2));
+            var types = new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2));
 
             // Add component should be fine for existing entity.
             Assert.DoesNotThrow(() =>
@@ -90,7 +90,7 @@ namespace Unity.Entities.Tests
             var access = m_Manager.GetCheckedEntityDataAccess();
 
             var entity = m_Manager.CreateEntity();
-            var types = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2));
+            var types = new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2));
 
             // Add component should be invalid for Entity.Null.
             Assert.Throws<InvalidOperationException>(() =>
@@ -99,14 +99,14 @@ namespace Unity.Entities.Tests
             });
 
             // Add component should be invalid for Entity type.
-            types = new ComponentTypes(typeof(EcsTestData), ComponentType.ReadWrite<Entity>());
+            types = new ComponentTypeSet(typeof(EcsTestData), ComponentType.ReadWrite<Entity>());
             Assert.Throws<ArgumentException>(() =>
             {
                 access->EntityComponentStore->AssertCanAddComponents(entity, types);
             });
 
             // Add component should be invalid for adding one too many shared component.
-            types = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestSharedComp17));
+            types = new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestSharedComp17));
             entity = m_Manager.CreateEntity(
                 typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2), typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp4),
                 typeof(EcsTestSharedComp5), typeof(EcsTestSharedComp6), typeof(EcsTestSharedComp7), typeof(EcsTestSharedComp8),

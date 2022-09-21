@@ -6,19 +6,19 @@ namespace Unity.Entities.Streaming
 {
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.EntitySceneOptimizations)]
-    class OptimizationGroup : ComponentSystemGroup
+    internal class OptimizationGroup : ComponentSystemGroup
     {
     }
 
-    public static class EntitySceneOptimization
+    internal static class EntitySceneOptimization
     {
-        static void RemoveSystemState(EntityManager entityManager)
+        static void RemoveCleanupComponents(EntityManager entityManager)
         {
             foreach (var s in TypeManager.AllTypes)
             {
-                if (TypeManager.IsSystemStateComponent(s.TypeIndex))
+                if (TypeManager.IsCleanupComponent(s.TypeIndex))
                 {
-                    entityManager.RemoveComponent(entityManager.UniversalQuery, ComponentType.FromTypeIndex(s.TypeIndex));
+                    entityManager.RemoveComponent(entityManager.UniversalQueryWithSystems, ComponentType.FromTypeIndex(s.TypeIndex));
                 }
             }
         }
@@ -27,7 +27,7 @@ namespace Unity.Entities.Streaming
         {
             var entityManager = world.EntityManager;
 
-            var group = world.GetOrCreateSystem<OptimizationGroup>();
+            var group = world.GetOrCreateSystemManaged<OptimizationGroup>();
 
             foreach (var systemType in systemTypes)
                 AddSystemAndLogException(world, group, systemType);
@@ -43,14 +43,14 @@ namespace Unity.Entities.Streaming
             // But now we are sure that no more re-ordering will happen.
             group.Update();
 
-            RemoveSystemState(entityManager);
+            RemoveCleanupComponents(entityManager);
         }
 
-        static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)
+        internal static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)
         {
             try
             {
-                group.AddSystemToUpdateList(world.GetOrCreateSystem(type) as ComponentSystemBase);
+                group.AddSystemToUpdateList(world.GetOrCreateSystemManaged(type) as ComponentSystemBase);
             }
             catch (Exception e)
             {
@@ -58,6 +58,6 @@ namespace Unity.Entities.Streaming
             }
         }
 
-        public static void Optimize(World world) => OptimizeInternal(world, DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.EntitySceneOptimizations));
+        internal static void Optimize(World world) => OptimizeInternal(world, DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.EntitySceneOptimizations));
     }
 }

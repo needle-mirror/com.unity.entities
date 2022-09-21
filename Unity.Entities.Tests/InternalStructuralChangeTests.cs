@@ -28,12 +28,14 @@ namespace Unity.Entities.Tests
             {
                 access->AddComponentDuringStructuralChange(entities, typeof(EcsTestData));
             });
+            access->EndStructuralChanges(ref archetypeChanges);
+
             for (int i = 0; i < entities.Length; i++)
             {
+                Assert.IsTrue(m_Manager.HasComponent<Simulate>(entities[i]));
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entities[i]));
-                Assert.AreEqual(1, m_Manager.GetComponentCount(entities[i]));
+                Assert.AreEqual(2, m_Manager.GetComponentCount(entities[i])); // +1 for Simulate
             }
-            access->EndStructuralChanges(ref archetypeChanges);
         }
 
         [Test]
@@ -51,19 +53,18 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < entities.Length; i++)
             {
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entities[i]));
-                Assert.AreEqual(3, m_Manager.GetComponentCount(entities[i]));
+                Assert.AreEqual(4, m_Manager.GetComponentCount(entities[i])); // +1 for Simulate
             }
 
             // add component which the entities do NOT already have
             access->AddComponentDuringStructuralChange(entities, typeof(EcsTestData4));
+            access->EndStructuralChanges(ref archetypeChanges);
 
             for (int i = 0; i < entities.Length; i++)
             {
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData4>(entities[i]));
-                Assert.AreEqual(4, m_Manager.GetComponentCount(entities[i]));
+                Assert.AreEqual(5, m_Manager.GetComponentCount(entities[i])); // +1 for Simulate
             }
-
-            access->EndStructuralChanges(ref archetypeChanges);
         }
 
         [Test]
@@ -71,7 +72,7 @@ namespace Unity.Entities.Tests
         {
             var access = m_Manager.GetCheckedEntityDataAccess();
             var archetype = m_Manager.CreateArchetype();
-            var types = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2));
+            var types = new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2));
 
             var archetypeChanges = access->BeginStructuralChanges();
             var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(0, ref World.UpdateAllocator);
@@ -87,22 +88,21 @@ namespace Unity.Entities.Tests
             access->CreateEntityDuringStructuralChange(archetype, (Entity*)entities.GetUnsafePtr(), 3);
             // entities start with zero components
             access->AddMultipleComponentsDuringStructuralChange(entities, types);
+            access->EndStructuralChanges(ref archetypeChanges);
 
             for (int i = 0; i < entities.Length; i++)
             {
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entities[i]));
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entities[i]));
-                Assert.AreEqual(2, m_Manager.GetComponentCount(entities[i]));
+                Assert.AreEqual(3, m_Manager.GetComponentCount(entities[i])); // +1 for Simulate
             }
-
-            access->EndStructuralChanges(ref archetypeChanges);
         }
 
         [Test]
         public unsafe void AddMultipleComponentsDuringStructuralChange_NativeArray_AlreadyHasComponents()
         {
             var access = m_Manager.GetCheckedEntityDataAccess();
-            var types = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2));
+            var types = new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2));
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
 
             // call after CreateArchetype
@@ -118,21 +118,20 @@ namespace Unity.Entities.Tests
             {
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entities[i]));
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entities[i]));
-                Assert.AreEqual(3, m_Manager.GetComponentCount(entities[i]));
+                Assert.AreEqual(4, m_Manager.GetComponentCount(entities[i])); // +1 for Simulate
             }
 
             // add a component which the entities do NOT already have
-            types = new ComponentTypes(typeof(EcsTestData3), typeof(EcsTestData4));
+            types = new ComponentTypeSet(typeof(EcsTestData3), typeof(EcsTestData4));
             access->AddMultipleComponentsDuringStructuralChange(entities, types);
+            access->EndStructuralChanges(ref archetypeChanges);
 
             for (int i = 0; i < entities.Length; i++)
             {
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData3>(entities[i]));
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData4>(entities[i]));
-                Assert.AreEqual(4, m_Manager.GetComponentCount(entities[i]));
+                Assert.AreEqual(5, m_Manager.GetComponentCount(entities[i])); // +1 for Simulate
             }
-
-            access->EndStructuralChanges(ref archetypeChanges);
         }
     }
 }

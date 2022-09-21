@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using System;
 using System.Collections.Generic;
+using Unity.Burst.Intrinsics;
 using Unity.Jobs;
 
 #if !UNITY_PORTABLE_TEST_RUNNER
@@ -12,12 +13,12 @@ using System.Linq;
 
 // ******* COPY AND PASTE WARNING *************
 // NOTE: Duplicate tests (with only type differences)
-// - BufferElementDataTests.cs and BufferElementDataSystemStateTests.cs
+// - BufferElementDataTests.cs and CleanupBufferElementDataTests.cs
 // - Any change to this file should be reflected in the other file.
 // Changes between two files:
-// - s/BufferElementDataTests/BufferElementDataSystemStateTests/
-// - s/EcsIntElement/EcsIntStateElement/g
-// - s/IBufferElementData/ISystemStateBufferElementData/g
+// - s/BufferElementDataTests/CleanupBufferElementDataTests/
+// - s/EcsIntElement/EcsIntCleanupElement/g
+// - s/IBufferElementData/ICleanupBufferElementData/g
 // ******* COPY AND PASTE WARNING *************
 
 #pragma warning disable 0649
@@ -480,7 +481,7 @@ namespace Unity.Entities.Tests
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsIntElement));
 
-            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             var buffers = chunks[0].GetBufferAccessor(m_Manager.GetBufferTypeHandle<EcsIntElement>(false));
 
             Assert.AreEqual(2, buffers.Length);
@@ -500,14 +501,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void BufferFromEntityWorks()
+        public void BufferLookup_Works()
         {
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
             m_Manager.GetBuffer<EcsIntElement>(entityInt).CopyFrom(new EcsIntElement[] { 1, 2, 3 });
 
-            var intLookup = EmptySystem.GetBufferFromEntity<EcsIntElement>();
-            Assert.IsTrue(intLookup.HasComponent(entityInt));
-            Assert.IsFalse(intLookup.HasComponent(new Entity()));
+            var intLookup = EmptySystem.GetBufferLookup<EcsIntElement>();
+            Assert.IsTrue(intLookup.HasBuffer(entityInt));
+            Assert.IsFalse(intLookup.HasBuffer(new Entity()));
 
             Assert.AreEqual(2, intLookup[entityInt][1].Value);
         }
@@ -520,11 +521,7 @@ namespace Unity.Entities.Tests
             intArray.Add(12);
             m_Manager.DestroyEntity(entityInt);
 
-#if UNITY_2020_2_OR_NEWER
             Assert.Throws<ObjectDisposedException>(() =>
-#else
-            Assert.Throws<InvalidOperationException>(() =>
-#endif
             {
                 intArray.Add(123);
             });
@@ -537,11 +534,7 @@ namespace Unity.Entities.Tests
             var intArray = m_Manager.GetBuffer<EcsIntElement>(entityInt);
             m_Manager.DestroyEntity(entityInt);
 
-#if UNITY_2020_2_OR_NEWER
             Assert.Throws<ObjectDisposedException>(() =>
-#else
-            Assert.Throws<InvalidOperationException>(() =>
-#endif
             {
                 intArray.Add(123);
             });
@@ -551,15 +544,11 @@ namespace Unity.Entities.Tests
         public void UseAfterStructuralChangeThrows2()
         {
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var buffer = m_Manager.GetBufferFromEntity<EcsIntElement>();
+            var buffer = m_Manager.GetBufferLookup<EcsIntElement>();
             var array = buffer[entityInt];
             m_Manager.DestroyEntity(entityInt);
 
-#if UNITY_2020_2_OR_NEWER
             Assert.Throws<ObjectDisposedException>(() =>
-#else
-            Assert.Throws<InvalidOperationException>(() =>
-#endif
             {
                 array.Add(123);
             });
@@ -572,11 +561,7 @@ namespace Unity.Entities.Tests
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
             buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
             m_Manager.AddComponentData(entityInt, new EcsTestData() { value = 20 });
-#if UNITY_2020_2_OR_NEWER
             Assert.Throws<ObjectDisposedException>(() =>
-#else
-            Assert.Throws<InvalidOperationException>(() =>
-#endif
                 { buffer.Add(4); });
         }
 
@@ -584,7 +569,7 @@ namespace Unity.Entities.Tests
         public void WritingReadOnlyThrows()
         {
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var buffer = m_Manager.GetBufferFromEntity<EcsIntElement>(true);
+            var buffer = m_Manager.GetBufferLookup<EcsIntElement>(true);
             var array = buffer[entityInt];
             Assert.Throws<InvalidOperationException>(() =>
             {
@@ -692,20 +677,12 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, array[0].Value);
             Assert.AreEqual(1, array.Length);
             buffer.Add(2);
-#if UNITY_2020_2_OR_NEWER
             Assert.Throws<ObjectDisposedException>(() =>
-#else
-            Assert.Throws<InvalidOperationException>(() =>
-#endif
             {
                 int value = array[0].Value;
             });
 
-#if UNITY_2020_2_OR_NEWER
             Assert.Throws<ObjectDisposedException>(() =>
-#else
-            Assert.Throws<InvalidOperationException>(() =>
-#endif
             {
                 array[0] = 5;
             });
@@ -728,20 +705,12 @@ namespace Unity.Entities.Tests
 
             b0.Add(1);
 
-#if UNITY_2020_2_OR_NEWER
             Assert.Throws<ObjectDisposedException>(() =>
-#else
-            Assert.Throws<InvalidOperationException>(() =>
-#endif
             {
                 int value = a0[0].Value;
             });
 
-#if UNITY_2020_2_OR_NEWER
             Assert.Throws<ObjectDisposedException>(() =>
-#else
-            Assert.Throws<InvalidOperationException>(() =>
-#endif
             {
                 int value = a1[0].Value;
             });
@@ -785,8 +754,11 @@ namespace Unity.Entities.Tests
         {
             public BufferTypeHandle<EcsIntElement> Int;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 var intValue = chunk.GetBufferAccessor(Int)[0];
 
                 Assert.AreEqual(intValue.Length, 1);
@@ -815,18 +787,18 @@ namespace Unity.Entities.Tests
             for (int i = 0; i != 10; i++)
             {
                 var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-                m_Manager.AddSharedComponentData(original, new SharedData1(i));
+                m_Manager.AddSharedComponentManaged(original, new SharedData1(i));
                 var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
                 buffer.Add(5);
             }
 
-            var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
+            var query = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
             var job = new WriteJob
             {
                 Int = EmptySystem.GetBufferTypeHandle<EcsIntElement>()
             };
 
-            job.Schedule(group).Complete();
+            job.ScheduleParallel(query, default).Complete();
         }
 
         struct ReadOnlyJob : IJobChunk
@@ -834,8 +806,11 @@ namespace Unity.Entities.Tests
             [ReadOnly]
             public BufferTypeHandle<EcsIntElement> Int;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 var intValue = chunk.GetBufferAccessor(Int)[0];
 
                 // Reading buffer
@@ -859,18 +834,18 @@ namespace Unity.Entities.Tests
             for (int i = 0; i != 10; i++)
             {
                 var original = m_Manager.CreateEntity(typeof(EcsIntElement));
-                m_Manager.AddSharedComponentData(original, new SharedData1(i));
+                m_Manager.AddSharedComponentManaged(original, new SharedData1(i));
                 var buffer = m_Manager.GetBuffer<EcsIntElement>(original);
                 buffer.Add(5);
             }
 
-            var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
+            var query = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
             var job = new ReadOnlyJob
             {
                 Int = EmptySystem.GetBufferTypeHandle<EcsIntElement>(readOnlyType)
             };
 
-            job.Schedule(group).Complete();
+            job.ScheduleParallel(query, default).Complete();
         }
 
         [Test]

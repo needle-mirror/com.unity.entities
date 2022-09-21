@@ -7,7 +7,7 @@ namespace Unity.Entities
 {
     static partial class MemoryProfiler
     {
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         public readonly unsafe struct ArchetypeMemoryData : IEquatable<ArchetypeMemoryData>
         {
             public readonly ulong WorldSequenceNumber;
@@ -55,7 +55,7 @@ namespace Unity.Entities
                 return StableHash == other.StableHash;
             }
 
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Takes managed object")]
             public override bool Equals(object obj)
             {
                 return obj is ArchetypeMemoryData archetypeData ? Equals(archetypeData) : false;

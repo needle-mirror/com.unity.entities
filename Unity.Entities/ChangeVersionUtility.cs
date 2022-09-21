@@ -1,7 +1,17 @@
 namespace Unity.Entities
 {
+    /// <summary>
+    /// Utilities to manipulate version numbers
+    /// </summary>
     static public class ChangeVersionUtility
     {
+        /// <summary>
+        /// Test whether two version numbers indicate that a change has occurred.
+        /// </summary>
+        /// <param name="changeVersion">The newer/current version number</param>
+        /// <param name="requiredVersion">The previous version number.</param>
+        /// <returns>True if <paramref name="changeVersion"/> is greater than <paramref name="requiredVersion"/>,
+        /// or if <paramref name="requiredVersion"/> is zero.</returns>
         public static bool DidChange(uint changeVersion, uint requiredVersion)
         {
             // When a system runs for the first time, everything is considered changed.

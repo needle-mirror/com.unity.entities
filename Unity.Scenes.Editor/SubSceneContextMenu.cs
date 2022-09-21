@@ -356,7 +356,7 @@ namespace Unity.Scenes.Editor
                 throw new InvalidOperationException("Creating Sub Scene failed.");
 
             var scene = EditorSceneManager.OpenScene(dstPath, OpenSceneMode.Additive);
-            scene.isSubScene = true;
+            SubSceneInspectorUtility.SetSceneAsSubScene(scene);
 
             try
             {

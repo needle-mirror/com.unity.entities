@@ -116,7 +116,7 @@ namespace Unity.Entities
                 entityManager.SetComponentData(entity, new RetainBlobAssets { FramesToRetainBlobAssets = m_FramesToRetainBlobAssets});
                 entityManager.SetComponentData(entity, new RetainBlobAssetPtr { BlobAsset = blobAssets[i].Header });
 
-                // Entity lifetime will be bound to the SystemStateComponents we added above, we can safely call DestroyEntity(),
+                // Entity lifetime will be bound to the CleanupComponents we added above, we can safely call DestroyEntity(),
                 //  it will be actually destroyed when both components will be removed at cleanup.
                 entityManager.DestroyEntity(entity);
 

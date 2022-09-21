@@ -48,14 +48,14 @@ namespace Unity.Entities
                 m_WorldsData.Add(new WorldData(world));
             }
 
-            public void AddSystem(World world, ComponentSystemBase system)
+            public void AddSystem(Type systemType, in SystemHandle systemHandle)
             {
                 if (!m_Initialized || !m_LastProfilerEnabled || !Profiler.enabled)
                     return;
 
                 try
                 {
-                    m_SystemsData.Add(new SystemData(world, system));
+                    m_SystemsData.Add(new SystemData(systemType, systemHandle));
                 }
                 catch (InvalidOperationException)
                 {
@@ -132,9 +132,18 @@ namespace Unity.Entities
                             return false;
 
                         m_WorldsData.Add(new WorldData(world));
+                        using (var systems = world.Unmanaged.GetAllSystems(Allocator.Temp))
+                        {
+                            for (var systemIter = 0; systemIter < systems.Length; ++systemIter)
+                            {
+                                var system = systems[systemIter];
+                                var systemType = world.Unmanaged.GetTypeOfSystem(system);
+                                if (systemType == null)
+                                    continue;
 
-                        for (var systemIter = 0; systemIter < world.Systems.Count; ++systemIter)
-                            m_SystemsData.Add(new SystemData(world, world.Systems[systemIter]));
+                                m_SystemsData.Add(new SystemData(systemType, system));
+                            }
+                        }
 
                         using (var archetypes = new NativeList<EntityArchetype>(Allocator.Temp))
                         {

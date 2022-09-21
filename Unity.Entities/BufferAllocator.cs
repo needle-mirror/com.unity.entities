@@ -34,7 +34,7 @@ namespace Unity.Entities
         bool IsEmpty { get; }
     }
 
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     internal struct BufferAllocator : IBufferAllocator
     {
         BufferAllocatorHeap Allocator;

@@ -20,7 +20,7 @@ namespace Unity.Entities
         public struct DeferredSharedComponentChange
         {
             public EntityGuid EntityGuid;
-            public int TypeIndex;
+            public TypeIndex  TypeIndex;
             public int BeforeSharedComponentIndex;
             public int AfterSharedComponentIndex;
         }
@@ -28,12 +28,12 @@ namespace Unity.Entities
         public struct DeferredManagedComponentChange
         {
             public EntityGuid EntityGuid;
-            public int TypeIndex;
+            public TypeIndex  TypeIndex;
             public int AfterManagedComponentIndex;
             public int BeforeManagedComponentIndex;
         }
 
-        struct NameChangeSet : IDisposable
+        internal struct NameChangeSet : IDisposable
         {
             public readonly NativeArray<FixedString64Bytes> Names;
             public readonly NativeArray<EntityGuid> NameChangedEntityGuids;
@@ -41,8 +41,8 @@ namespace Unity.Entities
 
             public NameChangeSet(int length, Allocator allocator)
             {
-                Names = new NativeArray<FixedString64Bytes>(length, allocator);
-                NameChangedEntityGuids = new NativeArray<EntityGuid>(length, allocator);
+                Names = CollectionHelper.CreateNativeArray<FixedString64Bytes>(length, allocator);
+                NameChangedEntityGuids = CollectionHelper.CreateNativeArray<EntityGuid>(length, allocator);
                 NameChangedCount = 0;
             }
 
@@ -205,7 +205,7 @@ namespace Unity.Entities
                     if (r > 0)
                         max = middle - 1;
                     else
-                        min = middle + 1; 
+                        min = middle + 1;
                 }
 
                 return -1;
@@ -376,14 +376,14 @@ namespace Unity.Entities
             public PackedEntityGuidsCollection Entities;
             public PackedCollection<ComponentTypeHash> ComponentTypes;
 
-            void AddStableTypeHash(int typeIndex)
+            void AddStableTypeHash(TypeIndex typeIndex)
             {
                 var flags = ComponentTypeFlags.None;
 
-                if ((typeIndex & TypeManager.ChunkComponentTypeFlag) != 0)
+                if (typeIndex.IsChunkComponent)
                     flags |= ComponentTypeFlags.ChunkComponent;
 
-                var stableTypeHash = TypeInfo[typeIndex & TypeManager.ClearFlagsMask].StableTypeHash;
+                var stableTypeHash = TypeInfo[typeIndex.Index].StableTypeHash;
 
                 ComponentTypes.GetOrAdd(new ComponentTypeHash
                 {
@@ -412,7 +412,7 @@ namespace Unity.Entities
                         {
                             var afterTypeInArchetype = afterArchetype->Types[afterIndexInTypeArray];
 
-                            if (afterTypeInArchetype.IsSystemStateComponent)
+                            if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType)
                                 continue;
 
                             AddStableTypeHash(afterTypeInArchetype.TypeIndex);
@@ -447,7 +447,7 @@ namespace Unity.Entities
                         {
                             var afterTypeInArchetype = afterArchetype->Types[afterIndexInTypeArray];
 
-                            if (afterTypeInArchetype.IsSystemStateComponent || afterTypeInArchetype.IsChunkComponent)
+                            if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType || afterTypeInArchetype.IsChunkComponent)
                                 continue;
 
                             var typeIndex = afterTypeInArchetype.TypeIndex;
@@ -463,7 +463,7 @@ namespace Unity.Entities
                         {
                             var beforeComponentTypeInArchetype = beforeArchetype->Types[beforeTypeIndexInArchetype];
 
-                            if (beforeComponentTypeInArchetype.IsSystemStateComponent)
+                            if (beforeComponentTypeInArchetype.IsCleanupComponent || beforeComponentTypeInArchetype.IsBakeOnlyType)
                                 continue;
 
                             var beforeTypeIndex = beforeComponentTypeInArchetype.TypeIndex;
@@ -511,7 +511,7 @@ namespace Unity.Entities
                         {
                             var afterTypeInArchetype = afterArchetype->Types[afterIndexInTypeArray];
 
-                            if (afterTypeInArchetype.IsSystemStateComponent)
+                            if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType)
                                 continue;
 
                             AddComponentData(
@@ -530,7 +530,7 @@ namespace Unity.Entities
                     if (createdCount >= ComponentChangesBatchCount)
                         return;
 
-                    index = 0; 
+                    index = 0;
                 }
                 else
                 {
@@ -559,7 +559,7 @@ namespace Unity.Entities
                     {
                         var afterTypeInArchetype = afterArchetype->Types[afterIndexInTypeArray];
 
-                        if (afterTypeInArchetype.IsSystemStateComponent || afterTypeInArchetype.IsChunkComponent)
+                        if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType || afterTypeInArchetype.IsChunkComponent)
                         {
                             continue;
                         }
@@ -608,7 +608,7 @@ namespace Unity.Entities
                     {
                         var beforeComponentTypeInArchetype = beforeArchetype->Types[beforeTypeIndexInArchetype];
 
-                        if (beforeComponentTypeInArchetype.IsSystemStateComponent)
+                        if (beforeComponentTypeInArchetype.IsCleanupComponent || beforeComponentTypeInArchetype.IsBakeOnlyType)
                         {
                             continue;
                         }
@@ -693,14 +693,14 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex & TypeManager.ClearFlagsMask];
+                        var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex.Index];
                         AppendComponentData(packedComponent, elementPtr, typeInfo->ElementSize * length);
                         ExtractPatches(typeInfo, packedComponent, elementPtr, length);
                     }
                 }
                 else
                 {
-                    var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex & TypeManager.ClearFlagsMask];
+                    var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex.Index];
                     var sizeOf = afterArchetype->SizeOfs[afterIndexInTypeArray];
                     var ptr = ChunkDataUtility.GetChunkBuffer(afterChunk) + afterArchetype->Offsets[afterIndexInTypeArray] + afterEntityIndexInChunk * sizeOf;
                     AppendComponentData(packedComponent, ptr, sizeOf);
@@ -803,7 +803,7 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex & TypeManager.ClearFlagsMask];
+                        var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex.Index];
 
                         if (afterLength != beforeLength || !AreComponentsEqual(typeInfo, beforeElementPtr, afterElementPtr, afterLength))
                         {
@@ -827,7 +827,7 @@ namespace Unity.Entities
                         + afterArchetype->SizeOfs[afterIndexInTypeArray]
                         * afterEntityIndexInChunk;
 
-                    var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex & TypeManager.ClearFlagsMask];
+                    var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex.Index];
 
                     if (!AreComponentsEqual(typeInfo, beforeAddress, afterAddress, 1))
                     {
@@ -856,7 +856,7 @@ namespace Unity.Entities
             bool AreComponentsEqual(TypeManager.TypeInfo* typeInfo, byte* beforeAddress, byte* afterAddress, int elementCount)
             {
                 int elementSize = typeInfo->ElementSize;
-                if (!ReadData.UseReferentialEquivalence || typeInfo->EntityOffsetCount == 0 && typeInfo->BlobAssetRefOffsetCount == 0)
+                if (ReadData.UseReferentialEquivalence == 0 || typeInfo->EntityOffsetCount == 0 && typeInfo->BlobAssetRefOffsetCount == 0)
                 {
                     return UnsafeUtility.MemCmp(beforeAddress, afterAddress, elementCount * elementSize) == 0
                            && !BlobAssetHashesAreDifferent(typeInfo, beforeAddress, afterAddress, elementCount);
@@ -1094,7 +1094,7 @@ namespace Unity.Entities
                 CacheData.ComponentData.AddRange(ptr, sizeOf);
             }
 
-            void AddendSharedComponentData(EntityGuid entityGuid, int typeIndex, int afterSharedComponentIndex, int beforeSharedComponentIndex = -1)
+            void AddendSharedComponentData(EntityGuid entityGuid, TypeIndex typeIndex, int afterSharedComponentIndex, int beforeSharedComponentIndex = -1)
             {
                 CacheData.SharedComponentChanges.Add(new DeferredSharedComponentChange
                 {
@@ -1105,7 +1105,7 @@ namespace Unity.Entities
                 });
             }
 
-            void AppendManagedComponentData(EntityGuid entityGuid, int typeIndex, int afterManagedComponentIndex, int beforeManagedComponentIndex = -1)
+            void AppendManagedComponentData(EntityGuid entityGuid, TypeIndex typeIndex, int afterManagedComponentIndex, int beforeManagedComponentIndex = -1)
             {
                 CacheData.ManagedComponentChanges.Add(new DeferredManagedComponentChange
                 {
@@ -1116,14 +1116,14 @@ namespace Unity.Entities
                 });
             }
 
-            PackedComponent PackComponent(EntityGuid entityGuid, int typeIndex, int tableHint, int entryHint)
+            PackedComponent PackComponent(EntityGuid entityGuid, TypeIndex typeIndex, int tableHint, int entryHint)
             {
                 var flags = ComponentTypeFlags.None;
 
-                if ((typeIndex & TypeManager.ChunkComponentTypeFlag) != 0)
+                if (typeIndex.IsChunkComponent)
                     flags |= ComponentTypeFlags.ChunkComponent;
 
-                ulong stableTypeHash = ReadData.TypeInfo[typeIndex & TypeManager.ClearFlagsMask].StableTypeHash;
+                ulong stableTypeHash = ReadData.TypeInfo[typeIndex.Index].StableTypeHash;
 
                 var packedEntityIndex = ReadData.Entities.Get(entityGuid, tableHint, entryHint);
                 var packedTypeIndex = ReadData.ComponentTypes.Get(new ComponentTypeHash
@@ -1134,7 +1134,7 @@ namespace Unity.Entities
 
                 if (packedTypeIndex == -1)
                 {
-                    throw new Exception ($"ComponetTypes: Unable to find {stableTypeHash}:{flags}");
+                    throw new Exception ($"ComponentTypes: Unable to find {stableTypeHash}:{flags}");
                 }
 
                 return new PackedComponent
@@ -1150,7 +1150,7 @@ namespace Unity.Entities
                 throw new Exception("LinkedEntityGroup child is missing an EntityGuid component.");
             }
 
-            EntityGuid GetEntityGuid(EntityComponentStore* entityComponentStore, int entityGuidTypeIndex, Entity entity)
+            EntityGuid GetEntityGuid(EntityComponentStore* entityComponentStore, TypeIndex entityGuidTypeIndex, Entity entity)
             {
                 if (!entityComponentStore->TryGetComponent(entity, entityGuidTypeIndex, out var result))
                 {
@@ -1165,7 +1165,7 @@ namespace Unity.Entities
                 if (src.IsEmpty)
                     return;
 
-                dest.AddRange(src);
+                dest.AddRange(src.AsArray());
                 src.Clear();
             }
 
@@ -1201,8 +1201,8 @@ namespace Unity.Entities
         struct GatherComponentChangesReadOnlyData
         {
             // If these two variables are marked as [ReadOnly] they may endup being set to zero instead of correct value.
-            public int EntityGuidTypeIndex;
-            public int LinkedEntityGroupTypeIndex;
+            public TypeIndex EntityGuidTypeIndex;
+            public TypeIndex LinkedEntityGroupTypeIndex;
 
             [ReadOnly] [NativeDisableUnsafePtrRestriction] public TypeManager.TypeInfo* TypeInfo;
             [ReadOnly] [NativeDisableUnsafePtrRestriction] public TypeManager.EntityOffsetInfo* EntityOffsets;
@@ -1226,7 +1226,7 @@ namespace Unity.Entities
             /// will be considered different as well. This is often not desirable. For these cases, it is more apt to
             /// check that GUIDs and hashes match.
             /// </summary>
-            [ReadOnly] public bool UseReferentialEquivalence;
+            [ReadOnly] public byte UseReferentialEquivalence;
         }
 
         struct GatherComponentChangesWriteOnlyData
@@ -1330,7 +1330,7 @@ namespace Unity.Entities
 
                 AfterBlobAssetRemap = afterBlobAssetRemap,
                 BeforeBlobAssetRemap = beforeBlobAssetRemap,
-                UseReferentialEquivalence = useReferentialEquivalence,
+                UseReferentialEquivalence = (byte) (useReferentialEquivalence ? 1 : 0),
             };
         }
 
@@ -1417,9 +1417,12 @@ namespace Unity.Entities
                 componentChanges.ComponentTypes,
                 componentChanges.SharedComponentChanges,
                 componentChanges.BlobAssetReferenceChanges,
+                entityInChunkChanges.BeforeEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
                 entityInChunkChanges.AfterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
                 entityInChunkChanges.BeforeEntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore,
-                entityInChunkChanges.AfterEntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore);
+                entityInChunkChanges.AfterEntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore,
+                allocator,
+                out var unmanagedSharedComponentData);
 
             var managedComponentDataChanges = GetChangedManagedComponents(
                 componentChanges.Entities,
@@ -1438,6 +1441,7 @@ namespace Unity.Entities
                 entities.Add(entityInChunkChanges.DestroyedEntities[i].EntityGuid);
             }
 
+            s_GetEntityNamesProfilerMarker.Begin();
             var nameChanges = GetEntityNames(
                 entityInChunkChanges.CreatedEntities,
                 entityInChunkChanges.DestroyedEntities,
@@ -1445,6 +1449,7 @@ namespace Unity.Entities
                 entityInChunkChanges.AfterEntityManager,
                 entityInChunkChanges.BeforeEntityManager,
                 allocator);
+            s_GetEntityNamesProfilerMarker.End();
 
             // Allocate and copy in to the results buffers.
             var result = new EntityChangeSet
@@ -1464,6 +1469,7 @@ namespace Unity.Entities
                 componentChanges.BlobAssetReferenceChanges.ToArray(allocator),
                 managedComponentDataChanges,
                 sharedComponentDataChanges,
+                unmanagedSharedComponentData,
                 componentChanges.LinkedEntityGroupAdditions.ToArray(allocator),
                 componentChanges.LinkedEntityGroupRemovals.ToArray(allocator),
                 blobAssetChanges.CreatedBlobAssets.ToArray(allocator),
@@ -1480,17 +1486,22 @@ namespace Unity.Entities
             PackedCollection<ComponentTypeHash> packedStableTypeHashCollection,
             NativeList<DeferredSharedComponentChange> changes,
             NativeList<BlobAssetReferenceChange> blobAssetReferencePatches,
+            EntityComponentStore* beforeEntityComponentStore,
             EntityComponentStore* afterEntityComponentStore,
             ManagedComponentStore beforeManagedComponentStore,
-            ManagedComponentStore afterManagedComponentStore)
+            ManagedComponentStore afterManagedComponentStore,
+            Allocator allocator,
+            out UnsafeAppendBuffer unmanagedSharedComponentData)
         {
             if (changes.Length == 0)
             {
+                unmanagedSharedComponentData = default;
                 return s_EmptySetSharedComponentDiff;
             }
 
             s_GetChangedSharedComponentsProfilerMarker.Begin();
             var result = new List<PackedSharedComponentDataChange>();
+            unmanagedSharedComponentData = new UnsafeAppendBuffer(0, 8, allocator);
 
 #if !UNITY_DOTSRUNTIME
             var managedObjectPatches = new ManagedObjectPatches(afterEntityComponentStore);
@@ -1499,32 +1510,53 @@ namespace Unity.Entities
             for (var i = 0; i < changes.Length; i++)
             {
                 var change = changes[i];
+                ref readonly var typeInfo = ref TypeManager.GetTypeInfo(change.TypeIndex);
 
                 object afterValue = null;
+                void* afterValueAddr = null;
 
                 if (change.AfterSharedComponentIndex == 0 && change.BeforeSharedComponentIndex == 0)
                     continue;
 
                 if (change.AfterSharedComponentIndex != 0)
                 {
-                    afterValue = afterManagedComponentStore.GetSharedComponentDataBoxed(change.AfterSharedComponentIndex, change.TypeIndex);
+                    if (EntityComponentStore.IsUnmanagedSharedComponentIndex(change.AfterSharedComponentIndex))
+                    {
+                        afterValueAddr = afterEntityComponentStore->GetSharedComponentDataAddr_Unmanaged(change.AfterSharedComponentIndex, change.TypeIndex);
+                    }
+                    else
+                    {
+                        afterValue = afterManagedComponentStore.GetSharedComponentDataBoxed(change.AfterSharedComponentIndex, change.TypeIndex);
+                    }
                 }
 
-                if (change.BeforeSharedComponentIndex > -1 && change.AfterSharedComponentIndex != 0)
+                if (change.BeforeSharedComponentIndex != -1 && change.AfterSharedComponentIndex != 0)
                 {
-
-                    var beforeValue = beforeManagedComponentStore.GetSharedComponentDataBoxed(change.BeforeSharedComponentIndex, change.TypeIndex);
-
-                    if (TypeManager.Equals(beforeValue, afterValue, change.TypeIndex))
+                    object beforeValue;
+                    void* beforeValueAddr = null;
+                    if (EntityComponentStore.IsUnmanagedSharedComponentIndex(change.BeforeSharedComponentIndex))
                     {
-                        continue;
+                        beforeValueAddr = beforeEntityComponentStore->GetSharedComponentDataAddr_Unmanaged(change.BeforeSharedComponentIndex, change.TypeIndex);
+                        if (afterValueAddr != null &&
+                            TypeManager.EqualsWithBurst(beforeValueAddr, afterValueAddr, change.TypeIndex))
+                        {
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        beforeValue = beforeManagedComponentStore.GetSharedComponentDataBoxed(change.BeforeSharedComponentIndex, change.TypeIndex);
+                        if (TypeManager.Equals(beforeValue, afterValue, change.TypeIndex))
+                        {
+                            continue;
+                        }
                     }
                 }
 
                 var packedEntityIndex = packedEntityCollection.Get(change.EntityGuid, 0, 0);
                 var packedTypeIndex = packedStableTypeHashCollection.GetOrAdd(new ComponentTypeHash
                 {
-                    StableTypeHash = TypeManager.GetTypeInfo(change.TypeIndex).StableTypeHash
+                    StableTypeHash = typeInfo.StableTypeHash
                 });
 
                 var packedComponent = new PackedComponent
@@ -1533,18 +1565,33 @@ namespace Unity.Entities
                     PackedTypeIndex = packedTypeIndex
                 };
 
+                if (afterValueAddr != null)
+                    afterValue = TypeManager.ConstructComponentFromBuffer(change.TypeIndex, afterValueAddr);
                 (afterValue as IRefCounted)?.Retain();
+
 #if !UNITY_DOTSRUNTIME
                 // NOTE: Extracting entity patches from shared components is intentionally disabled here until a full solution is ready.
-                if (null != afterValue)
+                if (null != afterValue && (typeInfo.HasBlobAssetRefs || TypeManager.HasEntityReferences(change.TypeIndex)))
+                {
                     managedObjectPatches.ExtractPatches(ref afterValue, packedComponent, default, blobAssetReferencePatches);
+                }
 #endif
 
-                result.Add(new PackedSharedComponentDataChange
+                var packedSharedComponentDataChange = new PackedSharedComponentDataChange
                 {
                     Component = packedComponent,
-                    BoxedSharedValue = afterValue
-                });
+                    BoxedSharedValue = afterValueAddr != null ? null : afterValue,
+                    UnmanagedSharedValueDataOffsetWithManagedFlag = -1
+                };
+                if (afterValueAddr != null)
+                {
+                    packedSharedComponentDataChange.UnmanagedSharedValueDataOffsetWithManagedFlag = unmanagedSharedComponentData.Length;
+                    packedSharedComponentDataChange.UnmanagedSharedValueDataOffsetWithManagedFlag &=
+                        ~(PackedSharedComponentDataChange.kManagedFlag);
+
+                    unmanagedSharedComponentData.Add(afterValueAddr, typeInfo.TypeSize);
+                }
+                result.Add(packedSharedComponentDataChange);
             }
             s_GetChangedSharedComponentsProfilerMarker.End();
             return result.ToArray();
@@ -1613,7 +1660,7 @@ namespace Unity.Entities
                 afterValue = managedObjectClone.Clone(afterValue);
 
 #if !UNITY_DOTSRUNTIME
-                if (null != afterValue)
+                if (null != afterValue && (typeInfo.HasBlobAssetRefs || TypeManager.HasEntityReferences(change.TypeIndex)))
                     managedObjectPatches.ExtractPatches(ref afterValue, packedComponent, entityReferencePatches, blobAssetReferencePatches);
 #endif
 
@@ -1627,37 +1674,20 @@ namespace Unity.Entities
             return result.ToArray();
         }
 
-// TODO: remove UNITY_EDITOR conditional once https://unity3d.atlassian.net/browse/DOTS-3862 is fixed
+// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
 #if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
         [BurstCompile]
-        struct GetEntityNamesJob
+        struct GetEntityNamesJob : IJob
         {
-            delegate void BurstExecute(void* @this);
-            private static FunctionPointer<BurstExecute> _fPtr;
-            private static BurstExecute _cachedFptr;
-            [BurstCompile]
-            static void ExecuteForBurst(void* @this) => UnsafeUtility.AsRef<GetEntityNamesJob>(@this).Execute();
-
-            public int EntityGuidTypeIndex;
+            public TypeIndex EntityGuidTypeIndex;
             public NameChangeSet NameChanges;
-            public int* NameChangeCount;
             public NativeList<CreatedEntity> CreatedEntities;
             public NativeList<DestroyedEntity> DestroyedEntities;
             public NativeList<NameModifiedEntity> NameModifiedEntities;
             public UnsafeBitArray NameChangeBitsByEntity;
+            [NativeDisableUnsafePtrRestriction] public int* NameChangeCount;
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* AfterEntityComponentStore;
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* BeforeEntityComponentStore;
-
-            public void RunWithoutJobs()
-            {
-                if (!_fPtr.IsCreated)
-                {
-                    _fPtr = BurstCompiler.CompileFunctionPointer<BurstExecute>(ExecuteForBurst);
-                    _cachedFptr = _fPtr.Invoke;
-                }
-                var copy = this;
-                _cachedFptr(UnsafeUtility.AddressOf(ref copy));
-            }
 
             bool TryGetEntityGuid(EntityComponentStore* entityComponentStoreEntity, Entity entity, out EntityGuid entityGuid)
             {
@@ -1672,7 +1702,8 @@ namespace Unity.Entities
                 return false;
             }
 
-            void Execute()
+            [BurstCompile]
+            public void Execute()
             {
                 var namesPtr = (FixedString64Bytes*)NameChanges.Names.GetUnsafeReadOnlyPtr();
                 var entityGuidsPtr = (EntityGuid*)NameChanges.NameChangedEntityGuids.GetUnsafeReadOnlyPtr();
@@ -1752,7 +1783,8 @@ namespace Unity.Entities
         /// This method relies on the source buffers the entityGuids was built from. While this could technically be done
         /// while building the entityGuid set, it's a bit more isolated this way so we can remove it easily in the future.
         /// </remarks>
-        static NameChangeSet GetEntityNames(
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
+        internal static NameChangeSet GetEntityNames(
             NativeList<CreatedEntity> createdEntities,
             NativeList<DestroyedEntity> destroyedEntities,
             NativeList<NameModifiedEntity> nameModifiedEntities,
@@ -1760,11 +1792,9 @@ namespace Unity.Entities
             EntityManager beforeEntityManager,
             Allocator allocator)
         {
-            s_GetEntityNamesProfilerMarker.Begin();
-
             var length = createdEntities.Length + destroyedEntities.Length + nameModifiedEntities.Length;
 
-// TODO: remove UNITY_EDITOR conditional once https://unity3d.atlassian.net/browse/DOTS-3862 is fixed
+// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
 #if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
             var nameChangeBitsByEntity = afterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameChangeBitsByEntity;
             length += nameChangeBitsByEntity.CountBits(0, nameChangeBitsByEntity.Length);
@@ -1773,14 +1803,13 @@ namespace Unity.Entities
             // No entity name changes
             if (length == 0)
             {
-                s_GetEntityNamesProfilerMarker.End();
                 return new NameChangeSet(0, allocator);
             }
 
             var namesChanges = new NameChangeSet(length, allocator);
             int nameChangeCount = 0;
 
-// TODO: remove UNITY_EDITOR conditional once https://unity3d.atlassian.net/browse/DOTS-3862 is fixed
+// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
 #if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
             new GetEntityNamesJob
             {
@@ -1793,19 +1822,18 @@ namespace Unity.Entities
                 NameChangeBitsByEntity = nameChangeBitsByEntity,
                 AfterEntityComponentStore = afterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
                 BeforeEntityComponentStore = beforeEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore
-            }.RunWithoutJobs();
+            }.Run();
 #endif
             namesChanges.NameChangedCount = nameChangeCount;
 
-            s_GetEntityNamesProfilerMarker.End();
             return namesChanges;
         }
 
 #if !UNITY_DOTSRUNTIME
     class ManagedObjectPatches :
             PropertyVisitor,
-            Properties.Adapters.IVisit<Entity>,
-            Properties.Adapters.IVisit<BlobAssetReferenceData>
+            IVisitPropertyAdapter<Entity>,
+            IVisitPropertyAdapter<BlobAssetReferenceData>
         {
             readonly EntityComponentStore* m_EntityComponentStore;
 
@@ -1833,7 +1861,7 @@ namespace Unity.Entities
                 m_EntityReferencePatchId = 0;
                 m_BlobAssetReferencePatchId = 0;
 
-                PropertyContainer.Visit(ref value, this);
+                PropertyContainer.TryAccept(this, ref value, out _);
             }
 
             protected override void VisitProperty<TContainer, TValue>(Property<TContainer, TValue> property, ref TContainer container, ref TValue value)
@@ -1842,13 +1870,13 @@ namespace Unity.Entities
                 if (typeof(UnityEngine.Object).IsAssignableFrom(typeof(TValue)))
                     return;
 #endif
-                
+
                 base.VisitProperty(property, ref container, ref value);
             }
 
-            VisitStatus Properties.Adapters.IVisit<Entity>.Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
+            void IVisitPropertyAdapter<Entity>.Visit<TContainer>(in VisitContext<TContainer, Entity> context, ref TContainer container, ref Entity value)
             {
-                if (!m_EntityReferencePatches.IsCreated) return VisitStatus.Stop;
+                if (!m_EntityReferencePatches.IsCreated) return;
 
                 var entityGuid = default(EntityGuid);
 
@@ -1863,13 +1891,11 @@ namespace Unity.Entities
                     Offset = m_EntityReferencePatchId++,
                     Value = entityGuid
                 });
-
-                return VisitStatus.Stop;
             }
 
-            VisitStatus Properties.Adapters.IVisit<BlobAssetReferenceData>.Visit<TContainer>(Property<TContainer, BlobAssetReferenceData> property, ref TContainer container, ref BlobAssetReferenceData value)
+            void IVisitPropertyAdapter<BlobAssetReferenceData>.Visit<TContainer>(in VisitContext<TContainer, BlobAssetReferenceData> context, ref TContainer container, ref BlobAssetReferenceData value)
             {
-                if (!m_BlobAssetReferencePatches.IsCreated) return VisitStatus.Stop;
+                if (!m_BlobAssetReferencePatches.IsCreated) return;
 
                 var hash = default(ulong);
 
@@ -1884,8 +1910,6 @@ namespace Unity.Entities
                     Offset = m_BlobAssetReferencePatchId++,
                     Value = hash
                 });
-
-                return VisitStatus.Stop;
             }
         }
 #endif

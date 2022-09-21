@@ -2,7 +2,7 @@ using System;
 using Unity.Serialization.Json;
 using UnityEngine;
 
-namespace Unity.Properties.UI.Internal
+namespace Unity.Platforms.UI
 {
     [Serializable]
     class SerializableContent

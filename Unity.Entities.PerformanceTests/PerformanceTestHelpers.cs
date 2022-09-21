@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 
@@ -9,14 +9,14 @@ namespace Unity.Entities.PerformanceTests
         public static NativeArray<EntityArchetype> CreateUniqueArchetypes(
             EntityManager manager,
             int numUniqueArchetypes,
-            Allocator allocator = Allocator.TempJob,
+            Allocator allocator,
             params ComponentType[] commonComponentTypes)
         {
-            var archetypes = new NativeArray<EntityArchetype>(numUniqueArchetypes, allocator);
+            var archetypes = CollectionHelper.CreateNativeArray<EntityArchetype>(numUniqueArchetypes, allocator);
 
+            int typeCount = CollectionHelper.Log2Ceil(numUniqueArchetypes);
             for (int i = 0; i < numUniqueArchetypes; i++)
             {
-                int typeCount = CollectionHelper.Log2Ceil(i);
                 var typeList = new List<ComponentType>();
 
                 for (int typeIndex = 0; typeIndex < typeCount; typeIndex++)

@@ -1,8 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Collections;
 
@@ -13,25 +11,31 @@ namespace Unity.Entities.Editor.Tests
     {
         World m_World;
         HierarchyNodeStore m_HierarchyNodeStore;
+        SubSceneNodeMapping m_Mapping;
+
+        World World => m_World;
 
         [SetUp]
         public void SetUp()
         {
             m_World = new World(nameof(HierarchyNodeStoreTests));
-            m_HierarchyNodeStore = new HierarchyNodeStore(Allocator.Persistent);
+            m_Mapping = new SubSceneNodeMapping(Allocator.Persistent);
+            m_HierarchyNodeStore = new HierarchyNodeStore(m_Mapping, Allocator.Persistent);
         }
 
         [TearDown]
         public void TearDown()
         {
-            m_World.Dispose();
             m_HierarchyNodeStore.Dispose();
+            m_World.Dispose();
+            m_Mapping.Dispose();
         }
 
         [Test]
         public void RootAlwaysExists()
         {
-            using var hierarchy = new HierarchyNodeStore(Allocator.Temp);
+            using var mapping = new SubSceneNodeMapping(Allocator.Temp);
+            using var hierarchy = new HierarchyNodeStore(mapping, World.UpdateAllocator.ToAllocator);
             Assert.That(hierarchy.Exists(HierarchyNodeHandle.Root));
             Assert.That(hierarchy.GetNode(HierarchyNodeHandle.Root).GetDepth(), Is.EqualTo(-1));
             Assert.That(hierarchy.GetNode(HierarchyNodeHandle.Root).GetChildCount(), Is.EqualTo(0));
@@ -42,14 +46,14 @@ namespace Unity.Entities.Editor.Tests
         {
             Assert.That(m_HierarchyNodeStore.Exists(default), Is.False);
 
-            var node = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 1, 1));
+            var node = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1));
             Assert.That(m_HierarchyNodeStore.Exists(node.GetHandle()), Is.True);
         }
 
         [Test]
         public void Node_WhenHandlesDoesNotExist_ThrowArgumentException()
         {
-            var ex = Assert.Throws<ArgumentException>(() => new HierarchyNode(m_HierarchyNodeStore, new HierarchyNodeHandle(NodeKind.Entity, 1, 1)));
+            var ex = Assert.Throws<ArgumentException>(() => new HierarchyNode(m_HierarchyNodeStore, new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1)));
             Assert.That(ex.Message, Is.EqualTo($"Unable to create {nameof(HierarchyNodeHandle)}. The specified handle does not exist in the hierarchy."));
         }
 
@@ -58,7 +62,7 @@ namespace Unity.Entities.Editor.Tests
         {
             Assert.That(m_HierarchyNodeStore.Exists(default), Is.False);
 
-            var node = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 1, 1));
+            var node = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1));
             Assert.That(m_HierarchyNodeStore.Exists(node.GetHandle()), Is.True);
 
             m_HierarchyNodeStore.Clear();
@@ -76,7 +80,7 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void GetNode_WhenHandleIsUnknown_ThrowsInvalidOperationException()
         {
-            var handle = new HierarchyNodeHandle(NodeKind.Entity, 1, 1);
+            var handle = new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1);
             var ex = Assert.Throws<InvalidOperationException>(() => m_HierarchyNodeStore.GetNode(handle));
             Assert.That(ex.Message, Is.EqualTo($"The specified handle {handle} does not exist in the hierarchy."));
         }
@@ -91,7 +95,7 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void AddNode_WhenNodeAlreadyExists_ThrowsInvalidOperationException()
         {
-            var handle = new HierarchyNodeHandle(NodeKind.Entity, 1, 1);
+            var handle = new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1);
             Assert.DoesNotThrow(() => m_HierarchyNodeStore.AddNode(handle));
 
             var ex = Assert.Throws<InvalidOperationException>(() => m_HierarchyNodeStore.AddNode(handle));
@@ -101,8 +105,8 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void AddNode_WhenParentDoesNotExist_ThrowsInvalidOperationException()
         {
-            var parent = new HierarchyNodeHandle(NodeKind.Entity, 1, 1);
-            var handle = new HierarchyNodeHandle(NodeKind.Entity, 2, 1);
+            var parent = new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1);
+            var handle = new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1);
             var ex = Assert.Throws<InvalidOperationException>(() => m_HierarchyNodeStore.AddNode(handle, parent));
             Assert.That(ex.Message, Is.EqualTo($"The specified handle {parent} does not exist in the hierarchy."));
         }
@@ -166,7 +170,7 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void SetParent_WhenParentIsSameAsNode_ThrowsInvalidOperationException()
         {
-            var handle = new HierarchyNodeHandle(NodeKind.Entity, 1, 1);
+            var handle = new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1);
             m_HierarchyNodeStore.AddNode(handle);
             var ex = Assert.Throws<InvalidOperationException>(() => m_HierarchyNodeStore.SetParent(handle, handle));
             Assert.That(ex.Message, Is.EqualTo($"Trying to set the parent for {handle} as itself."));
@@ -175,8 +179,8 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void SetParent_WhenParentDoesNotExist_ThrowsInvalidOperationException()
         {
-            var handle = new HierarchyNodeHandle(NodeKind.Entity, 1, 1);
-            var parent = new HierarchyNodeHandle(NodeKind.Entity, 2, 1);
+            var handle = new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1);
+            var parent = new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1);
             m_HierarchyNodeStore.AddNode(handle);
             var ex = Assert.Throws<InvalidOperationException>(() => m_HierarchyNodeStore.SetParent(handle, parent));
             Assert.That(ex.Message, Is.EqualTo($"The specified {handle} does not exist in the hierarchy."));
@@ -185,8 +189,8 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void SetParent_WhenHandleDoesNotExist_ThrowsInvalidOperationException()
         {
-            var handle = new HierarchyNodeHandle(NodeKind.Entity, 1, 1);
-            var parent = new HierarchyNodeHandle(NodeKind.Entity, 2, 1);
+            var handle = new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1);
+            var parent = new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1);
             m_HierarchyNodeStore.AddNode(parent);
             var ex = Assert.Throws<InvalidOperationException>(() => m_HierarchyNodeStore.SetParent(handle, parent));
             Assert.That(ex.Message, Is.EqualTo($"The specified {handle} does not exist in the hierarchy."));
@@ -195,7 +199,7 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void GetChildren_WhenHandleDoesNotExist_ThrowsInvalidOperationException()
         {
-            var handle = new HierarchyNodeHandle(NodeKind.Entity, 1, 1);
+            var handle = new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1);
 
             {
                 var ex = Assert.Throws<InvalidOperationException>(() => m_HierarchyNodeStore.GetChildren(handle));
@@ -210,9 +214,9 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void GetChildren_ClearsExistingList()
         {
-            var a = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 1, 1));
-            var b = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 2, 1), a);
-            var c = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 3, 1), b);
+            var a = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1));
+            var b = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1), a);
+            var c = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 3, version: 1), b);
             var list = new List<HierarchyNode> { b, c };
 
             m_HierarchyNodeStore.GetChildren(m_HierarchyNodeStore.GetRoot(), list);
@@ -223,7 +227,7 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void SchedulePacking_WithNoNodes_DoesNotThrow()
         {
-            using (var packed = new HierarchyNodeStore.Immutable(Allocator.TempJob))
+            using (var packed = new HierarchyNodeStore.Immutable(World.UpdateAllocator.ToAllocator))
             {
                 m_HierarchyNodeStore.ExportImmutable(m_World, packed);
                 Assert.That(packed.Count, Is.EqualTo(1));
@@ -236,7 +240,7 @@ namespace Unity.Entities.Editor.Tests
             var handle = HierarchyNodeHandle.FromEntity(new Entity {Index = 1, Version = 1});
             m_HierarchyNodeStore.AddNode(handle);
 
-            using (var packed = new HierarchyNodeStore.Immutable(Allocator.TempJob))
+            using (var packed = new HierarchyNodeStore.Immutable(World.UpdateAllocator.ToAllocator))
             {
                 m_HierarchyNodeStore.ExportImmutable(m_World, packed);
                 var node = packed.GetNode(handle);
@@ -260,7 +264,7 @@ namespace Unity.Entities.Editor.Tests
             a.AddChild(c);
             c.AddChild(d);
 
-            using (var packed = new HierarchyNodeStore.Immutable(Allocator.TempJob))
+            using (var packed = new HierarchyNodeStore.Immutable(World.UpdateAllocator.ToAllocator))
             {
                 m_HierarchyNodeStore.ExportImmutable(m_World, packed);
                 Assert.That(packed.Count, Is.EqualTo(6));
@@ -275,50 +279,50 @@ namespace Unity.Entities.Editor.Tests
             using var buffer1 = new HierarchyNodeStore.Immutable(Allocator.Persistent);
             using var buffer2 = new HierarchyNodeStore.Immutable(Allocator.Persistent);
 
-            var a = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 4, 1));
-            var b = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 3, 1));
+            var a = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 4, version: 1));
+            var b = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 3, version: 1));
             a.SetParent(b);
 
             m_HierarchyNodeStore.ExportImmutable(m_World, buffer1, buffer2);
-            AssertImmutableIsSequenceEqualTo(buffer1, new[]
+            HierarchyTestHelpers.AssertImmutableIsSequenceEqualTo(buffer1, new[]
             {
                 "0",
-                "-3",
-                "--4"
+                "- 3",
+                "-- 4"
             });
 
-            var c = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 2, 1));
+            var c = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1));
             b.SetParent(c);
 
             m_HierarchyNodeStore.ExportImmutable(m_World, buffer2, buffer1);
-            AssertImmutableIsSequenceEqualTo(buffer2, new[]
+            HierarchyTestHelpers.AssertImmutableIsSequenceEqualTo(buffer2, new[]
             {
                 "0",
-                "-2",
-                "--3",
-                "---4"
+                "- 2",
+                "-- 3",
+                "--- 4"
             });
 
-            var d = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 1, 1));
+            var d = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1));
             c.SetParent(d);
 
             m_HierarchyNodeStore.ExportImmutable(m_World, buffer1, buffer2);
-            AssertImmutableIsSequenceEqualTo(buffer1, new[]
+            HierarchyTestHelpers.AssertImmutableIsSequenceEqualTo(buffer1, new[]
             {
                 "0",
-                "-1",
-                "--2",
-                "---3",
-                "----4"
+                "- 1",
+                "-- 2",
+                "--- 3",
+                "---- 4"
             });
         }
 
         [Test]
         public void Parenting_ViaStore()
         {
-            var parent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 1, 1));
-            var childA = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 2, 1));
-            var childB = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 3, 1));
+            var parent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1));
+            var childA = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1));
+            var childB = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 3, version: 1));
 
             Assert.That(m_HierarchyNodeStore.GetParent(parent), Is.EqualTo(HierarchyNodeHandle.Root));
             Assert.That(m_HierarchyNodeStore.GetParent(childA), Is.EqualTo(HierarchyNodeHandle.Root));
@@ -353,9 +357,9 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void Parenting_ViaNode()
         {
-            var parent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 1, 1));
-            var childA = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 2, 1));
-            var childB = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 3, 1));
+            var parent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1));
+            var childA = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1));
+            var childB = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 3, version: 1));
 
             Assert.That(parent.GetParent(), Is.EqualTo(m_HierarchyNodeStore.GetNode(HierarchyNodeHandle.Root)));
             Assert.That(childA.GetParent(), Is.EqualTo(m_HierarchyNodeStore.GetNode(HierarchyNodeHandle.Root)));
@@ -390,10 +394,10 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void Parenting_WhenRemoveParent_MovesChildrenToRoot()
         {
-            var grandparent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 1, 1));
-            var parent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 2, 1), grandparent);
-            var childA = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 3, 1), parent);
-            var childB = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 4, 1), parent);
+            var grandparent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1));
+            var parent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1), grandparent);
+            var childA = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 3, version: 1), parent);
+            var childB = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 4, version: 1), parent);
 
             Assert.That(childA.GetParent(), Is.EqualTo(parent));
             Assert.That(childB.GetParent(), Is.EqualTo(parent));
@@ -411,8 +415,8 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void Parenting_WhenAddingUnknownChildToNode_CreatesIt()
         {
-            var parent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 1, 1));
-            var childHandle = new HierarchyNodeHandle(NodeKind.Entity, 2, 1);
+            var parent = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1));
+            var childHandle = new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1);
 
             Assert.That(m_HierarchyNodeStore.Exists(childHandle), Is.False);
             Assert.DoesNotThrow(() => parent.AddChild(childHandle));
@@ -447,9 +451,9 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void Sorting_WhenRootSortingOrderChanged_SortingIsRespected()
         {
-            var a = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 1, 1));
-            var b = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 2, 1));
-            var c = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 3, 1));
+            var a = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 1, version: 1));
+            var b = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 2, version: 1));
+            var c = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, index: 3, version: 1));
 
             a.SetSortIndex(3);
             b.SetSortIndex(2);
@@ -466,37 +470,5 @@ namespace Unity.Entities.Editor.Tests
 
             Assert.That(m_HierarchyNodeStore.GetChildren(HierarchyNodeHandle.Root).SequenceEqual(new [] { a, c, b }));
         }
-
-        void AssertImmutableIsSequenceEqualTo(HierarchyNodeStore.Immutable buffer, string[] expectedNodes)
-        {
-            var nodesFromImmutable = new (int, int)[buffer.Count];
-            for (var i = 0; i < buffer.Count; i++)
-            {
-                var n = buffer.GetNode(i);
-                nodesFromImmutable[i] = (n.GetDepth() + 1, n.GetHandle().Index);
-            }
-
-            var nodesFromExpectation = new (int, int)[expectedNodes.Length];
-            for (var i = 0; i < expectedNodes.Length; i++)
-            {
-                var match = k_ExpectedNodePattern.Match(expectedNodes[i]);
-                nodesFromExpectation[i] = (match.Groups["depth"].Value.Length, int.Parse(match.Groups["id"].Value));
-            }
-
-            Assert.That(Enumerable.SequenceEqual(nodesFromImmutable, nodesFromExpectation), Is.True, () => $"Expected {Environment.NewLine}{Print(nodesFromExpectation)} but was {Environment.NewLine}{Print(nodesFromImmutable)}{Environment.NewLine}");
-
-            static string Print((int, int)[] nodes)
-            {
-                var sb = new StringBuilder();
-                foreach (var (depth, id) in nodes)
-                {
-                    sb.AppendLine($"{new string('-', depth)}{id}");
-                }
-
-                return sb.ToString();
-            }
-        }
-
-        static readonly Regex k_ExpectedNodePattern = new Regex(@"(?<depth>-*)(?<id>\d+)", RegexOptions.Compiled);
     }
 }

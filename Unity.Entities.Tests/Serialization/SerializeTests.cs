@@ -7,7 +7,9 @@ using Unity.Jobs;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Unity.Burst.Intrinsics;
 using Unity.Mathematics;
+using Assert = FastAssert;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -213,57 +215,57 @@ namespace Unity.Entities.Tests
                 using (var reader = new StreamBinaryReader(pfn))
                 using (var dsf = DotsSerialization.CreateReader(reader))
                 {
-                    Assert.That(dsf.RootNode.ChildrenCount, Is.EqualTo(2));
+                    Assert.AreEqual(dsf.RootNode.ChildrenCount, 2);
 
                     var curChild = default(DotsSerializationReader.NodeHandle);
                     while (dsf.RootNode.MoveToNextChild(ref curChild))
                     {
                         if (curChild.NodeTypeHash == TypeHash<NodeHeaderA>())
                         {
-                            Assert.That(curChild.AsNodeHeader.Id, Is.EqualTo(NodeId_A));
-                            Assert.That(curChild.NodeDotNetType, Is.EqualTo(typeof(NodeHeaderA)));
+                            Assert.AreEqual(curChild.AsNodeHeader.Id, NodeId_A);
+                            Assert.AreEqual(curChild.NodeDotNetType, typeof(NodeHeaderA));
 
                             ref var nodeA = ref curChild.As<NodeHeaderA>();
-                            Assert.That(nodeA.A, Is.EqualTo(1234));
-                            Assert.That(nodeA.B, Is.EqualTo(5678));
-                            Assert.That(nodeA.Header.NodeTypeHash, Is.EqualTo(TypeHash<NodeHeaderA>()));
-                            Assert.That(nodeA.Header.Size, Is.EqualTo(UnsafeUtility.SizeOf<NodeHeaderA>()));
-                            Assert.That(nodeA.Header.ChildrenCount, Is.EqualTo(3));
+                            Assert.AreEqual(nodeA.A, 1234);
+                            Assert.AreEqual(nodeA.B, 5678);
+                            Assert.AreEqual(nodeA.Header.NodeTypeHash, TypeHash<NodeHeaderA>());
+                            Assert.AreEqual(nodeA.Header.Size, UnsafeUtility.SizeOf<NodeHeaderA>());
+                            Assert.AreEqual(nodeA.Header.ChildrenCount, 3);
                         } else if (curChild.NodeTypeHash == TypeHash<NodeHeaderB>()) {
-                            Assert.That(curChild.AsNodeHeader.Id, Is.EqualTo(NodeId_B));
-                            Assert.That(curChild.NodeDotNetType, Is.EqualTo(typeof(NodeHeaderB)));
+                            Assert.AreEqual(curChild.AsNodeHeader.Id, NodeId_B);
+                            Assert.AreEqual(curChild.NodeDotNetType, typeof(NodeHeaderB));
 
                             ref var nodeB = ref curChild.As<NodeHeaderB>();
-                            Assert.That(nodeB.A, Is.EqualTo(1.1234f));
-                            Assert.That(nodeB.B, Is.EqualTo(1.5678f));
-                            Assert.That(nodeB.Header.NodeTypeHash, Is.EqualTo(TypeHash<NodeHeaderB>()));
-                            Assert.That(nodeB.Header.Size, Is.EqualTo(UnsafeUtility.SizeOf<NodeHeaderB>()));
-                            Assert.That(nodeB.Header.ChildrenCount, Is.EqualTo(2));
+                            Assert.AreEqual(nodeB.A, 1.1234f);
+                            Assert.AreEqual(nodeB.B, 1.5678f);
+                            Assert.AreEqual(nodeB.Header.NodeTypeHash, TypeHash<NodeHeaderB>());
+                            Assert.AreEqual(nodeB.Header.Size, UnsafeUtility.SizeOf<NodeHeaderB>());
+                            Assert.AreEqual(nodeB.Header.ChildrenCount, 2);
 
                             var counter = 0;
                             var nestedChild = default(DotsSerializationReader.NodeHandle);
                             while (curChild.MoveToNextChild( ref nestedChild))
                             {
-                                Assert.That(nestedChild.NodeTypeHash, Is.EqualTo(TypeHash<NodeHeaderA>()));
-                                Assert.That(nestedChild.NodeDotNetType, Is.EqualTo(typeof(NodeHeaderA)));
+                                Assert.AreEqual(nestedChild.NodeTypeHash, TypeHash<NodeHeaderA>());
+                                Assert.AreEqual(nestedChild.NodeDotNetType, typeof(NodeHeaderA));
 
                                 ref var childNode = ref nestedChild.As<NodeHeaderA>();
 
-                                Assert.That(childNode.Header.NodeTypeHash, Is.EqualTo(TypeHash<NodeHeaderA>()));
-                                Assert.That(childNode.Header.Size, Is.EqualTo(UnsafeUtility.SizeOf<NodeHeaderA>()));
+                                Assert.AreEqual(childNode.Header.NodeTypeHash,TypeHash<NodeHeaderA>());
+                                Assert.AreEqual(childNode.Header.Size, UnsafeUtility.SizeOf<NodeHeaderA>());
                                 if (counter == 0)
                                 {
-                                    Assert.That(childNode.Header.Id, Is.EqualTo(NodeId_BA1));
-                                    Assert.That(childNode.A, Is.EqualTo(1));
-                                    Assert.That(childNode.B, Is.EqualTo(2));
-                                    Assert.That(childNode.Header.ChildrenCount, Is.EqualTo(0));
+                                    Assert.AreEqual(childNode.Header.Id, NodeId_BA1);
+                                    Assert.AreEqual(childNode.A, 1);
+                                    Assert.AreEqual(childNode.B, 2);
+                                    Assert.AreEqual(childNode.Header.ChildrenCount, 0);
                                 }
                                 else
                                 {
-                                    Assert.That(childNode.Header.Id, Is.EqualTo(NodeId_BA2));
-                                    Assert.That(childNode.A, Is.EqualTo(3));
-                                    Assert.That(childNode.B, Is.EqualTo(4));
-                                    Assert.That(childNode.Header.ChildrenCount, Is.EqualTo(1));
+                                    Assert.AreEqual(childNode.Header.Id, NodeId_BA2);
+                                    Assert.AreEqual(childNode.A, 3);
+                                    Assert.AreEqual(childNode.B, 4);
+                                    Assert.AreEqual(childNode.Header.ChildrenCount, 1);
                                 }
 
                                 ++counter;
@@ -292,41 +294,41 @@ namespace Unity.Entities.Tests
                 {
                     // Find Node A from type
                     var nha = dsf.RootNode.FindNode<NodeHeaderA>();
-                    Assert.That(nha.IsValid, Is.True);
-                    Assert.That(nha.NodeDotNetType, Is.EqualTo(typeof(NodeHeaderA)));
+                    Assert.IsTrue(nha.IsValid);
+                    Assert.AreEqual(nha.NodeDotNetType, typeof(NodeHeaderA));
 
                     ref var nodeA = ref nha.As<NodeHeaderA>();
-                    Assert.That(nodeA.A, Is.EqualTo(1234));
-                    Assert.That(nodeA.B, Is.EqualTo(5678));
+                    Assert.AreEqual(nodeA.A, 1234);
+                    Assert.AreEqual(nodeA.B, 5678);
 
                     // Find Node AC1
                     var nhc = nha.FindNode(NodeId_AC1);
-                    Assert.That(nhc.IsValid, Is.True);
+                    Assert.IsTrue(nhc.IsValid);
                     ref var nodeC1 = ref nhc.As<NodeHeaderC>();
-                    Assert.That(nodeC1.Header.Id, Is.EqualTo(NodeId_AC1));
+                    Assert.AreEqual(nodeC1.Header.Id, NodeId_AC1);
 
                     // Find Node AC2
                     nhc = nha.FindNode(NodeId_AC2);
-                    Assert.That(nhc.IsValid, Is.True);
+                    Assert.IsTrue(nhc.IsValid);
                     ref var nodeC2 = ref nhc.As<NodeHeaderC>();
-                    Assert.That(nodeC2.Header.Id, Is.EqualTo(NodeId_AC2));
+                    Assert.AreEqual(nodeC2.Header.Id, NodeId_AC2);
 
                     // Find Node AC3
                     nhc = nha.FindNode(NodeId_AC3);
-                    Assert.That(nhc.IsValid, Is.True);
+                    Assert.IsTrue(nhc.IsValid);
                     ref var nodeC3 = ref nhc.As<NodeHeaderC>();
-                    Assert.That(nodeC3.Header.Id, Is.EqualTo(NodeId_AC3));
+                    Assert.AreEqual(nodeC3.Header.Id, NodeId_AC3);
 
                     // Attempt to find BA2CD but can't because there's not instance inside of A
                     var nhd = nha.FindNode(NodeId_BA2CD);
-                    Assert.That(nhd.IsValid, Is.False);
+                    Assert.IsFalse(nhd.IsValid);
 
                     // Attempt to find BA2CD but can't because of nested level too short
                     nhd = dsf.RootNode.FindNode(NodeId_BA2CD, 3);
-                    Assert.That(nhd.IsValid, Is.False);
+                    Assert.IsFalse(nhd.IsValid);
 
                     nhd = dsf.RootNode.FindNode(NodeId_BA2CD, 4);
-                    Assert.That(nhd.IsValid, Is.True);
+                    Assert.IsTrue(nhd.IsValid);
                 }
             }
             finally
@@ -372,20 +374,20 @@ namespace Unity.Entities.Tests
                     // Find Node A from type
                     var nha = dsf.RootNode.FindNode<NodeHeaderA>();
                     {
-                        Assert.That(nha.IsValid, Is.True);
-                        Assert.That(nha.NodeDotNetType, Is.EqualTo(typeof(NodeHeaderA)));
+                        Assert.IsTrue(nha.IsValid);
+                        Assert.AreEqual(nha.NodeDotNetType, typeof(NodeHeaderA));
 
-                        Assert.That(nha.HasMetadata, Is.True);
+                        Assert.IsTrue(nha.HasMetadata);
                         ref var metadata = ref nha.GetMetadata<BlobTestA>().Value;
-                        Assert.That(metadata.A, Is.EqualTo(1));
-                        Assert.That(metadata.B, Is.EqualTo(2));
-                        Assert.That(metadata.Values[0], Is.EqualTo(1));
-                        Assert.That(metadata.Values[1], Is.EqualTo(2));
-                        Assert.That(metadata.Values[2], Is.EqualTo(3));
+                        Assert.AreEqual(metadata.A, 1);
+                        Assert.AreEqual(metadata.B, 2);
+                        Assert.AreEqual(metadata.Values[0], 1);
+                        Assert.AreEqual(metadata.Values[1], 2);
+                        Assert.AreEqual(metadata.Values[2], 3);
 
                         ref var nodeA = ref nha.As<NodeHeaderA>();
-                        Assert.That(nodeA.A, Is.EqualTo(1234));
-                        Assert.That(nodeA.B, Is.EqualTo(5678));
+                        Assert.AreEqual(nodeA.A, 1234);
+                        Assert.AreEqual(nodeA.B, 5678);
                     }
 
                     // Find Node AC1
@@ -396,17 +398,17 @@ namespace Unity.Entities.Tests
                         id.Value.z = (uint)(i + 1);
 
                         var nhc = nha.FindNode(id);
-                        Assert.That(nhc.IsValid, Is.True);
+                        Assert.IsTrue(nhc.IsValid);
                         ref var nodeC1 = ref nhc.As<NodeHeaderC>();
-                        Assert.That(nodeC1.Header.Id, Is.EqualTo(id));
+                        Assert.AreEqual(nodeC1.Header.Id, id);
 
-                        Assert.That(nha.HasMetadata, Is.True);
+                        Assert.IsTrue(nha.HasMetadata);
                         ref var metadata = ref nhc.GetMetadata<BlobTestA>().Value;
-                        Assert.That(metadata.A, Is.EqualTo(i));
-                        Assert.That(metadata.B, Is.EqualTo(2));
-                        Assert.That(metadata.Values[0], Is.EqualTo(i));
-                        Assert.That(metadata.Values[1], Is.EqualTo(i));
-                        Assert.That(metadata.Values[2], Is.EqualTo(i));
+                        Assert.AreEqual(metadata.A, i);
+                        Assert.AreEqual(metadata.B, 2);
+                        Assert.AreEqual(metadata.Values[0], i);
+                        Assert.AreEqual(metadata.Values[1], i);
+                        Assert.AreEqual(metadata.Values[2], i);
                     }
                 }
             }
@@ -464,27 +466,27 @@ namespace Unity.Entities.Tests
                     // Find Node A from type
                     var nha = dsf.RootNode.FindNode<NodeHeaderA>();
                     {
-                        Assert.That(nha.IsValid, Is.True);
-                        Assert.That(nha.NodeDotNetType, Is.EqualTo(typeof(NodeHeaderA)));
+                        Assert.IsTrue(nha.IsValid);
+                        Assert.AreEqual(nha.NodeDotNetType, typeof(NodeHeaderA));
 
                         // Check data
                         var dataSize = nha.DataSize;
-                        Assert.That(dataSize, Is.EqualTo(nodeADataSize * sizeof(int)));
+                        Assert.AreEqual(dataSize, nodeADataSize * sizeof(int));
 
                         var data = new NativeArray<int>((int)dataSize/4, Allocator.Temp);
                         nha.ReadData((byte*)data.GetUnsafePtr());
 
                         for (int i = 0; i < data.Length; i++)
                         {
-                            Assert.That(data[i], Is.EqualTo(i));
+                            Assert.AreEqual(data[i], i);
                         }
 
                         data.Dispose();
 
                         // Check node
                         ref var nodeA = ref nha.As<NodeHeaderA>();
-                        Assert.That(nodeA.A, Is.EqualTo(1234));
-                        Assert.That(nodeA.B, Is.EqualTo(5678));
+                        Assert.AreEqual(nodeA.A, 1234);
+                        Assert.AreEqual(nodeA.B, 5678);
                     }
 
                     // Find Node AC1
@@ -493,21 +495,21 @@ namespace Unity.Entities.Tests
                     for (int i = 0; i < 3; i++)
                     {
                         var nhc = nha.FindNode(id);
-                        Assert.That(nhc.IsValid, Is.True);
+                        Assert.IsTrue(nhc.IsValid);
                         ref var nodeC1 = ref nhc.As<NodeHeaderC>();
-                        Assert.That(nodeC1.Header.Id, Is.EqualTo(id));
+                        Assert.AreEqual(nodeC1.Header.Id, id);
 
                         // Check data
                         var dataSize = nhc.DataSize;
-                        Assert.That(dataSize, Is.EqualTo(8*4));
+                        Assert.AreEqual(dataSize, 8*4);
 
                         var data = new NativeArray<int>(8, Allocator.Temp);
                         nhc.ReadData((byte*)data.GetUnsafePtr());
 
                         for (int j = 0; j < 4; j++)
                         {
-                            Assert.That(data[j], Is.EqualTo(j));
-                            Assert.That(data[j+4], Is.EqualTo(j));
+                            Assert.AreEqual(data[j], j);
+                            Assert.AreEqual(data[j+4], j);
                         }
 
                         data.Dispose();
@@ -614,7 +616,7 @@ namespace Unity.Entities.Tests
                 {
                     // Find Node AC1
                     var nhac1 = dsf.RootNode.FindNode(NodeId_AC1);
-                    Assert.That(nhac1.IsValid, Is.True);
+                    Assert.IsTrue(nhac1.IsValid);
 
                     // GetString can only be called during the lifetime of st, once the object is disposed the StringTable buffer will be freed
                     using (var st = dsf.OpenStringTableNode(nhac1))
@@ -623,10 +625,10 @@ namespace Unity.Entities.Tests
                         ref var nodeAC2 = ref nhac2.As<NodeHeaderC>();
 
                         var st1 = st.GetString((int)nodeAC2.B.x);
-                        Assert.That(st1, Is.EqualTo("ba2cst1"));
+                        Assert.AreEqual(st1, "ba2cst1");
 
                         var st2 = st.GetString((int)nodeAC2.B.y);
-                        Assert.That(st2, Is.EqualTo("ba2cst2"));
+                        Assert.AreEqual(st2, "ba2cst2");
                     }
                 }
             }
@@ -716,82 +718,83 @@ namespace Unity.Entities.Tests
             try
             {
                 // Check initial state
-                Assert.That(pa.IsDisposed, Is.EqualTo(false));
-                Assert.That(pa.Allocator, Is.EqualTo(Allocator.Persistent));
-                Assert.That(pa.CurrentGlobalOffset, Is.EqualTo(0));
-                Assert.That(pa.PageSize, Is.EqualTo(1024));
-                Assert.That(pa.Pages.Length, Is.EqualTo(1));
+                Assert.IsFalse(pa.IsDisposed);
+                if (pa.Allocator != Allocator.Persistent)
+                    Assert.AreEqual((object)pa.Allocator, Allocator.Persistent);
+                Assert.AreEqual(pa.CurrentGlobalOffset, 0);
+                Assert.AreEqual(pa.PageSize, 1024);
+                Assert.AreEqual(pa.Pages.Length, 1);
 
                 // Reserve in first page
                 var b = pa.Reserve(10);
-                Assert.That((IntPtr)b, Is.EqualTo((IntPtr)pa.Pages[0].Buffer));
-                Assert.That(10, Is.EqualTo(pa.Pages[0].FreeOffset));
-                Assert.That(10, Is.EqualTo(pa.CurrentGlobalOffset));
+                Assert.AreEqual((IntPtr)b, (IntPtr)pa.Pages[0].Buffer);
+                Assert.AreEqual(10, pa.Pages[0].FreeOffset);
+                Assert.AreEqual(10, pa.CurrentGlobalOffset);
 
                 // Can't fit in first page, has to be in a second one
                 b = pa.Reserve(1020);
-                Assert.That(2, Is.EqualTo(pa.Pages.Length));
-                Assert.That((IntPtr)b, Is.EqualTo((IntPtr)pa.Pages[1].Buffer));
-                Assert.That(10, Is.EqualTo(pa.Pages[0].FreeOffset));
-                Assert.That(1020, Is.EqualTo(pa.Pages[1].FreeOffset));
-                Assert.That(1030, Is.EqualTo(pa.CurrentGlobalOffset));
+                Assert.AreEqual(2, pa.Pages.Length);
+                Assert.AreEqual((IntPtr)b, (IntPtr)pa.Pages[1].Buffer);
+                Assert.AreEqual(10, pa.Pages[0].FreeOffset);
+                Assert.AreEqual(1020, pa.Pages[1].FreeOffset);
+                Assert.AreEqual(1030, pa.CurrentGlobalOffset);
 
                 // Fit in second page
                 b = pa.Reserve(4);
-                Assert.That(2, Is.EqualTo(pa.Pages.Length));
-                Assert.That((IntPtr)b, Is.EqualTo((IntPtr)(pa.Pages[1].Buffer + 1020)));
-                Assert.That(10, Is.EqualTo(pa.Pages[0].FreeOffset));
-                Assert.That(1024, Is.EqualTo(pa.Pages[1].FreeOffset));
-                Assert.That(1034, Is.EqualTo(pa.CurrentGlobalOffset));
+                Assert.AreEqual(2, pa.Pages.Length);
+                Assert.AreEqual((IntPtr)b, (IntPtr)(pa.Pages[1].Buffer + 1020));
+                Assert.AreEqual(10, pa.Pages[0].FreeOffset);
+                Assert.AreEqual(1024, pa.Pages[1].FreeOffset);
+                Assert.AreEqual(1034, pa.CurrentGlobalOffset);
 
                 // Fit in third page
                 b = pa.Reserve(20);
-                Assert.That(3, Is.EqualTo(pa.Pages.Length));
-                Assert.That((IntPtr)b, Is.EqualTo((IntPtr)pa.Pages[2].Buffer));
-                Assert.That(10, Is.EqualTo(pa.Pages[0].FreeOffset));
-                Assert.That(1024, Is.EqualTo(pa.Pages[1].FreeOffset));
-                Assert.That(20, Is.EqualTo(pa.Pages[2].FreeOffset));
-                Assert.That(1054, Is.EqualTo(pa.CurrentGlobalOffset));
+                Assert.AreEqual(3, pa.Pages.Length);
+                Assert.AreEqual((IntPtr)b, (IntPtr)pa.Pages[2].Buffer);
+                Assert.AreEqual(10, pa.Pages[0].FreeOffset);
+                Assert.AreEqual(1024, pa.Pages[1].FreeOffset);
+                Assert.AreEqual(20, pa.Pages[2].FreeOffset);
+                Assert.AreEqual(1054, pa.CurrentGlobalOffset);
 
                 // Dedicated fourth because reserved size is bigger than page's one
                 b = pa.Reserve(2000);
-                Assert.That(4, Is.EqualTo(pa.Pages.Length));
-                Assert.That((IntPtr)b, Is.EqualTo((IntPtr)pa.Pages[3].Buffer));
-                Assert.That(10, Is.EqualTo(pa.Pages[0].FreeOffset));
-                Assert.That(1024, Is.EqualTo(pa.Pages[1].FreeOffset));
-                Assert.That(20, Is.EqualTo(pa.Pages[2].FreeOffset));
-                Assert.That(2000, Is.EqualTo(pa.Pages[3].FreeOffset));
-                Assert.That(3054, Is.EqualTo(pa.CurrentGlobalOffset));
+                Assert.AreEqual(4, pa.Pages.Length);
+                Assert.AreEqual((IntPtr)b, (IntPtr)pa.Pages[3].Buffer);
+                Assert.AreEqual(10, pa.Pages[0].FreeOffset);
+                Assert.AreEqual(1024, pa.Pages[1].FreeOffset);
+                Assert.AreEqual(20, pa.Pages[2].FreeOffset);
+                Assert.AreEqual(2000, pa.Pages[3].FreeOffset);
+                Assert.AreEqual(3054, pa.CurrentGlobalOffset);
 
                 // Fifth, normal alloc
                 b = pa.Reserve(100);
-                Assert.That(5, Is.EqualTo(pa.Pages.Length));
-                Assert.That((IntPtr)b, Is.EqualTo((IntPtr)pa.Pages[4].Buffer));
-                Assert.That(10, Is.EqualTo(pa.Pages[0].FreeOffset));
-                Assert.That(1024, Is.EqualTo(pa.Pages[1].FreeOffset));
-                Assert.That(20, Is.EqualTo(pa.Pages[2].FreeOffset));
-                Assert.That(2000, Is.EqualTo(pa.Pages[3].FreeOffset));
-                Assert.That(100, Is.EqualTo(pa.Pages[4].FreeOffset));
-                Assert.That(3154, Is.EqualTo(pa.CurrentGlobalOffset));
+                Assert.AreEqual(5, pa.Pages.Length);
+                Assert.AreEqual((IntPtr)b, (IntPtr)pa.Pages[4].Buffer);
+                Assert.AreEqual(10, pa.Pages[0].FreeOffset);
+                Assert.AreEqual(1024, pa.Pages[1].FreeOffset);
+                Assert.AreEqual(20, pa.Pages[2].FreeOffset);
+                Assert.AreEqual(2000, pa.Pages[3].FreeOffset);
+                Assert.AreEqual(100, pa.Pages[4].FreeOffset);
+                Assert.AreEqual(3154, pa.CurrentGlobalOffset);
 
                 // Fifth, normal alloc
                 b = pa.Reserve(200);
-                Assert.That(5, Is.EqualTo(pa.Pages.Length));
-                Assert.That((IntPtr)b, Is.EqualTo((IntPtr)(pa.Pages[4].Buffer + 100)));
-                Assert.That(10, Is.EqualTo(pa.Pages[0].FreeOffset));
-                Assert.That(1024, Is.EqualTo(pa.Pages[1].FreeOffset));
-                Assert.That(20, Is.EqualTo(pa.Pages[2].FreeOffset));
-                Assert.That(2000, Is.EqualTo(pa.Pages[3].FreeOffset));
-                Assert.That(300, Is.EqualTo(pa.Pages[4].FreeOffset));
-                Assert.That(3354, Is.EqualTo(pa.CurrentGlobalOffset));
+                Assert.AreEqual(5, pa.Pages.Length);
+                Assert.AreEqual((IntPtr)b, (IntPtr)(pa.Pages[4].Buffer + 100));
+                Assert.AreEqual(10, pa.Pages[0].FreeOffset);
+                Assert.AreEqual(1024, pa.Pages[1].FreeOffset);
+                Assert.AreEqual(20, pa.Pages[2].FreeOffset);
+                Assert.AreEqual(2000, pa.Pages[3].FreeOffset);
+                Assert.AreEqual(300, pa.Pages[4].FreeOffset);
+                Assert.AreEqual(3354, pa.CurrentGlobalOffset);
             }
             finally
             {
                 // Dispose and check cleaned state
                 pa.Dispose();
-                Assert.That(pa.Pages.IsCreated, Is.EqualTo(false));
-                Assert.That(pa.Pages.Length, Is.EqualTo(0));
-                Assert.That(pa.IsDisposed, Is.EqualTo(true));
+                Assert.AreEqual(pa.Pages.IsCreated, false);
+                Assert.AreEqual(pa.Pages.Length, 0);
+                Assert.AreEqual(pa.IsDisposed, true);
             }
         }
     }
@@ -847,6 +850,33 @@ namespace Unity.Entities.Tests
         }
 
 #if UNITY_EDITOR
+        struct SetupDeserializationTestData : IJobChunk
+        {
+            public ComponentTypeHandle<EcsTestData> EcsTestData;
+            public ComponentTypeHandle<EcsTestData2> EcsTestData2;
+            public ComponentTypeHandle<EcsTestData3> EcsTestData3;
+            public ComponentTypeHandle<EcsTestData4> EcsTestData4;
+            public ComponentTypeHandle<EcsTestData5> EcsTestData5;
+            public void Execute(in ArchetypeChunk chunk, int chunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+                int i = chunkIndex * Chunk.kMaximumEntitiesPerChunk;
+                var testData = chunk.GetNativeArray(EcsTestData);
+                var testData2 = chunk.GetNativeArray(EcsTestData2);
+                var testData3 = chunk.GetNativeArray(EcsTestData3);
+                var testData4 = chunk.GetNativeArray(EcsTestData4);
+                var testData5 = chunk.GetNativeArray(EcsTestData5);
+                int n = chunk.ChunkEntityCount;
+                for (int e = 0; e < n; e++, i++)
+                {
+                    testData[e] = new EcsTestData(i);
+                    testData2[e] = new EcsTestData2(i);
+                    testData3[e] = new EcsTestData3(i);
+                    testData4[e] = new EcsTestData4(i);
+                    testData5[e] = new EcsTestData5(i);
+                }
+            }
+        }
+
         [Test]
         public void TestBigEntityCountDeserialization()
         {
@@ -859,15 +889,20 @@ namespace Unity.Entities.Tests
             var manager1 = world.EntityManager;
 
             var targetArchetype = manager1.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4), typeof(EcsTestData5));
-            var entities = manager1.CreateEntity(targetArchetype, entityCount, World.UpdateAllocator.ToAllocator);
+            manager1.CreateEntity(targetArchetype, entityCount, World.UpdateAllocator.ToAllocator);
 
-            for (int i = 0; i < entityCount; i++)
+            using (var query = manager1.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2),
+                       typeof(EcsTestData3),
+                       typeof(EcsTestData4), typeof(EcsTestData5)))
             {
-                manager1.SetComponentData(entities[i], new EcsTestData(i));
-                manager1.SetComponentData(entities[i], new EcsTestData2(i));
-                manager1.SetComponentData(entities[i], new EcsTestData3(i));
-                manager1.SetComponentData(entities[i], new EcsTestData4(i));
-                manager1.SetComponentData(entities[i], new EcsTestData5(i));
+                new SetupDeserializationTestData
+                {
+                    EcsTestData = manager1.GetComponentTypeHandle<EcsTestData>(false),
+                    EcsTestData2 = manager1.GetComponentTypeHandle<EcsTestData2>(false),
+                    EcsTestData3 = manager1.GetComponentTypeHandle<EcsTestData3>(false),
+                    EcsTestData4 = manager1.GetComponentTypeHandle<EcsTestData4>(false),
+                    EcsTestData5 = manager1.GetComponentTypeHandle<EcsTestData5>(false),
+                }.ScheduleParallel(query, default).Complete();
             }
 
             long _bigEntitiesFileSize;
@@ -997,7 +1032,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, group4.CalculateEntityCount());
 
                 var everythingGroup = entityManager.CreateEntityQuery(Array.Empty<ComponentType>());
-                var chunks = everythingGroup.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+                var chunks = everythingGroup.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
                 Assert.AreEqual(4, chunks.Length);
                 everythingGroup.Dispose();
 
@@ -1038,7 +1073,7 @@ namespace Unity.Entities.Tests
 
                 var buf1 = entityManager.GetBuffer<EcsIntElement>(new_e1);
                 Assert.AreEqual(3, buf1.Length);
-                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e1).GetUnsafeReadOnlyPtr(), (UIntPtr)buf1.GetUnsafeReadOnlyPtr());
+                Assert.AreNotEqual((ulong)m_Manager.GetBuffer<EcsIntElement>(e1).GetUnsafeReadOnlyPtr(), (ulong)buf1.GetUnsafeReadOnlyPtr());
 
                 for (int i = 0; i < 3; ++i)
                 {
@@ -1047,7 +1082,7 @@ namespace Unity.Entities.Tests
 
                 var buf3 = entityManager.GetBuffer<EcsIntElement>(new_e3);
                 Assert.AreEqual(10, buf3.Length);
-                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e3).GetUnsafeReadOnlyPtr(), (UIntPtr)buf3.GetUnsafeReadOnlyPtr());
+                Assert.AreNotEqual((ulong)m_Manager.GetBuffer<EcsIntElement>(e3).GetUnsafeReadOnlyPtr(), (ulong)buf3.GetUnsafeReadOnlyPtr());
 
                 for (int i = 0; i < 10; ++i)
                 {
@@ -1341,7 +1376,7 @@ namespace Unity.Entities.Tests
         {
             public object obj;
             public int hashcode;
-            public int typeIndex;
+            public TypeIndex typeIndex;
         }
 
         unsafe ExternalSharedComponentValue[] ExtractSharedComponentValues(int[] indices, EntityManager manager)
@@ -1351,7 +1386,7 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < indices.Length; ++i)
             {
                 object value = mcs.GetSharedComponentDataNonDefaultBoxed(indices[i]);
-                int typeIndex = TypeManager.GetTypeIndex(value.GetType());
+                var typeIndex = TypeManager.GetTypeIndex(value.GetType());
                 int hash = TypeManager.GetHashCode(value, typeIndex);
                 values[i] = new ExternalSharedComponentValue {obj = value, hashcode = hash, typeIndex = typeIndex};
             }
@@ -1398,7 +1433,7 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < entityCount; ++i)
             {
                 m_Manager.AddComponentData(entities[i], arrayComponent);
-                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp(i % 4));
+                m_Manager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp(i % 4));
             }
 
             var intComponents = new NativeArray<EcsTestDataBlobAssetRef>(entityCount / 5, Allocator.Temp);
@@ -1412,7 +1447,7 @@ namespace Unity.Entities.Tests
                 var intComponent = intComponents[i % intComponents.Length];
                 m_Manager.AddComponentData(entities[i], intComponent);
                 m_Manager.SetComponentData(entities[i], new EcsTestData2(intComponent.value.Value));
-                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp2(i % 3));
+                m_Manager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp2(i % 3));
 
                 m_Manager.AddBuffer<EcsTestDataBlobAssetElement>(entities[i]);
                 var buffer = m_Manager.GetBuffer<EcsTestDataBlobAssetElement>(entities[i]);
@@ -1464,7 +1499,7 @@ namespace Unity.Entities.Tests
             var ecs = access->EntityComponentStore;
             var mcs = access->ManagedComponentStore;
 
-            Assert.IsTrue(mcs.AllSharedComponentReferencesAreFromChunks(ecs));
+            Assert.IsTrue(access->AllSharedComponentReferencesAreFromChunks(ecs));
 
             try
             {
@@ -1654,7 +1689,7 @@ namespace Unity.Entities.Tests
             var ecs = access->EntityComponentStore;
             var mcs = access->ManagedComponentStore;
 
-            Assert.IsTrue(mcs.AllSharedComponentReferencesAreFromChunks(ecs));
+            Assert.IsTrue(access->AllSharedComponentReferencesAreFromChunks(ecs));
 
             try
             {
@@ -1862,7 +1897,6 @@ namespace Unity.Entities.Tests
                 );
             }
         }
-
 #endif
 
         [Test]
@@ -1886,19 +1920,86 @@ namespace Unity.Entities.Tests
 
             var deserializedWorld = new World("DeserializedChunksAreConsideredChangedOnlyOnce World 2");
             var deserializedManager = deserializedWorld.EntityManager;
-            var system = deserializedWorld.GetOrCreateSystem<TestEcsChangeSystem>();
 
+            var system = deserializedWorld.GetOrCreateSystemManaged<TestEcsChangeSystem>();
+            system.Update();
             Assert.AreEqual(0, system.NumChanged);
+            deserializedWorld.DestroySystemManaged(system);
 
             SerializeUtility.DeserializeWorld(deserializedManager.BeginExclusiveEntityTransaction(), reader);
             deserializedManager.EndExclusiveEntityTransaction();
             reader.Dispose();
 
+            system = deserializedWorld.GetOrCreateSystemManaged<TestEcsChangeSystem>();
             system.Update();
             Assert.AreEqual(1, system.NumChanged);
 
             system.Update();
             Assert.AreEqual(0, system.NumChanged);
+
+            deserializedWorld.Dispose();
+        }
+
+        [Test]
+        public void DeserializedWorldCantContainSystems()
+        {
+            TestBinaryReader CreateSerializedData()
+            {
+                var world = new World("DeserializedChunksAreConsideredChangedOnlyOnce World");
+                var manager = world.EntityManager;
+                var entity = manager.CreateEntity();
+                manager.AddComponentData(entity, new EcsTestData(42));
+
+                // owned by caller via reader
+                var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+                SerializeUtility.SerializeWorld(manager, writer, out var objRefs);
+                world.Dispose();
+                return new TestBinaryReader(writer);
+            }
+
+            var reader = CreateSerializedData();
+
+            var deserializedWorld = new World("DeserializedChunksAreConsideredChangedOnlyOnce World 2");
+            var deserializedManager = deserializedWorld.EntityManager;
+
+            var system = deserializedWorld.GetOrCreateSystemManaged<TestEcsChangeSystem>();
+            Assert.Throws<ArgumentException>(() => SerializeUtility.DeserializeWorld(deserializedManager.BeginExclusiveEntityTransaction(), reader));
+            deserializedManager.EndExclusiveEntityTransaction();
+            reader.Dispose();
+
+            deserializedWorld.Dispose();
+        }
+
+        [Test]
+        public void SerializedWorldDoesntSerializeSystemEntities()
+        {
+            TestBinaryReader CreateSerializedData()
+            {
+                var world = new World("DeserializedChunksAreConsideredChangedOnlyOnce World");
+                var manager = world.EntityManager;
+                var entity = manager.CreateEntity();
+                manager.AddComponentData(entity, new EcsTestData(42));
+
+                var system = world.GetOrCreateSystemManaged<TestEcsChangeSystem>();
+
+                // owned by caller via reader
+                var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+                SerializeUtility.SerializeWorld(manager, writer, out var objRefs);
+                world.Dispose();
+                return new TestBinaryReader(writer);
+            }
+
+            var reader = CreateSerializedData();
+
+            var deserializedWorld = new World("DeserializedChunksAreConsideredChangedOnlyOnce World 2");
+            var deserializedManager = deserializedWorld.EntityManager;
+
+            SerializeUtility.DeserializeWorld(deserializedManager.BeginExclusiveEntityTransaction(), reader);
+            deserializedManager.EndExclusiveEntityTransaction();
+            reader.Dispose();
+
+            Assert.IsTrue(deserializedManager.UniversalQuery.CalculateEntityCount() == 1);
+            Assert.IsTrue(deserializedManager.UniversalQueryWithSystems.CalculateEntityCount() == 1);
 
             deserializedWorld.Dispose();
         }
@@ -2306,8 +2407,8 @@ namespace Unity.Entities.Tests
 
                         var actualManagedComponent = entityManager.GetComponentData<ManagedComponentCustomClass>(e);
                         var myClass = actualManagedComponent.mClass;
-                        Assert.NotNull(actualManagedComponent);
-                        Assert.NotNull(myClass);
+                        Assert.IsNotNull(actualManagedComponent);
+                        Assert.IsNotNull(myClass);
                         int id = actualManagedComponent.mClass.GetId();
                         Assert.IsTrue(idSet.TryAdd(id, id));
                         Assert.IsTrue(myClass.mInt4.Equals(new uint4(id + 1)));
@@ -2485,13 +2586,13 @@ namespace Unity.Entities.Tests
         public void SerializeEntities_WithBlobAssetReferencesInSharedComponents()
         {
             Entity a = m_Manager.CreateEntity();
-            m_Manager.AddSharedComponentData(a, new EcsTestSharedCompBlobAssetRef
+            m_Manager.AddSharedComponentManaged(a, new EcsTestSharedCompBlobAssetRef
             {
                 value = BlobAssetReference<int>.Create(123)
             });
 
             Entity b = m_Manager.CreateEntity();
-            m_Manager.AddSharedComponentData(b, new EcsTestSharedCompBlobAssetRef
+            m_Manager.AddSharedComponentManaged(b, new EcsTestSharedCompBlobAssetRef
             {
                 value = BlobAssetReference<int>.Create(123)
             });
@@ -2531,11 +2632,11 @@ namespace Unity.Entities.Tests
 
                 Entity a = m_Manager.CreateEntity();
                 m_Manager.SetComponentData(entities[12], new EcsTestData(12345));
-                m_Manager.AddSharedComponentData(a, new EcsTestSharedCompEntity(entities[12]));
+                m_Manager.AddSharedComponentManaged(a, new EcsTestSharedCompEntity(entities[12]));
 
                 Entity b = m_Manager.CreateEntity();
                 m_Manager.SetComponentData(entities[17], new EcsTestData(23456));
-                m_Manager.AddSharedComponentData(b, new EcsTestSharedCompEntity(entities[17]));
+                m_Manager.AddSharedComponentManaged(b, new EcsTestSharedCompEntity(entities[17]));
 
                 entities[12] = Entity.Null;
                 entities[17] = Entity.Null;
@@ -2546,6 +2647,43 @@ namespace Unity.Entities.Tests
             {
                 Assert.Throws<ArgumentException>(() => SerializeUtility.SerializeWorld(m_Manager, writer));
             }
+        }
+
+        [TypeManager.TypeOverrides(true, false)]
+        public struct TypeOverridesSerializeInCorrectEntity : IComponentData
+        {
+            public Entity entity;
+        }
+
+        [TypeManager.TypeOverrides(false, true)]
+        public struct TypeOverridesSerializeInCorrectBlob : IComponentData
+        {
+            public BlobAssetReference<float> blobFloat;
+        }
+
+        [Test]
+        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently - missing UnsafeUtility.IsUnmanaged")]
+        public void TypeOverride_SerializeEntities_BlobOverrideThrows()
+        {
+            var blobArchetype = m_Manager.CreateArchetype(typeof(TypeOverridesSerializeInCorrectBlob));
+            m_Manager.CreateEntity(blobArchetype);
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            Assert.Throws<ArgumentException>((() => SerializeUtility.SerializeWorld(m_Manager, writer)));
+
+        }
+
+        //Validation code in SerializeUtility doesn't run in DOTS Runtime due to missing features in UnsafeUtility
+        [Test]
+        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently - missing UnsafeUtility.IsUnmanaged")]
+        public void TypeOverride_SerializeEntities_EntityOverrideThrows()
+        {
+            var entityreferenceArchetype = m_Manager.CreateArchetype(typeof(TypeOverridesSerializeInCorrectEntity));
+            m_Manager.CreateEntity(entityreferenceArchetype);
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            Assert.Throws<ArgumentException>((() => SerializeUtility.SerializeWorld(m_Manager, writer)));
+
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -2596,6 +2734,43 @@ namespace Unity.Entities.Tests
 
                 Assert.AreEqual(123 + 234, a + b);
             }
+        }
+
+        [TypeManager.TypeOverrides(true,false)]
+        public class TypeOverridesSerializeInCorrectEntity_Managed: IComponentData
+        {
+            public Entity entity;
+        }
+
+        [TypeManager.TypeOverrides(false,true)]
+        public class TypeOverridesSerializeInCorrectBlob_Managed : IComponentData
+        {
+            public BlobAssetReference<float> blobFloat;
+        }
+
+        [Test]
+        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently - missing UnsafeUtility.IsUnmanaged")]
+        public void TypeOverride_SerializeEntities_BlobOverrideThrows_ManagedComponent()
+        {
+            var blobArchetype = m_Manager.CreateArchetype(typeof(TypeOverridesSerializeInCorrectBlob_Managed));
+            m_Manager.CreateEntity(blobArchetype);
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            Assert.Throws<ArgumentException>((() => SerializeUtility.SerializeWorld(m_Manager, writer)));
+
+        }
+
+        //Validation code in SerializeUtility doesn't run in DOTS Runtime due to missing features in UnsafeUtility
+        [Test]
+        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently - missing UnsafeUtility.IsUnmanaged")]
+        public void TypeOverride_SerializeEntities_EntityOverrideThrows_ManagedComponent()
+        {
+            var entityreferenceArchetype = m_Manager.CreateArchetype(typeof(TypeOverridesSerializeInCorrectEntity_Managed));
+            m_Manager.CreateEntity(entityreferenceArchetype);
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            Assert.Throws<ArgumentException>((() => SerializeUtility.SerializeWorld(m_Manager, writer)));
+
         }
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
     }

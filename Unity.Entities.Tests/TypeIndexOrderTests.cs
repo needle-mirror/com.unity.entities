@@ -11,7 +11,7 @@ namespace Unity.Entities.Tests
             public int data;
         }
 
-        struct SystemState1 : ISystemStateComponentData
+        struct Cleanup1 : ICleanupComponentData
         {
             public byte data;
         }
@@ -21,7 +21,7 @@ namespace Unity.Entities.Tests
             public short data;
         }
 
-        struct SystemBuffer1 : ISystemStateBufferElementData
+        struct CleanupBuffer1 : ICleanupBufferElementData
         {
             public float data;
         }
@@ -29,7 +29,7 @@ namespace Unity.Entities.Tests
         struct Tag1 : IComponentData
         {}
 
-        struct SystemTag1 : ISystemStateComponentData
+        struct CleanupTag1 : ICleanupComponentData
         {}
 
         struct Shared1 : ISharedComponentData
@@ -37,7 +37,7 @@ namespace Unity.Entities.Tests
             public long data;
         }
 
-        struct SystemShared1 : ISystemStateSharedComponentData
+        struct CleanupShared1 : ICleanupSharedComponentData
         {
             public int data;
         }
@@ -47,7 +47,7 @@ namespace Unity.Entities.Tests
             public int data;
         }
 
-        struct SystemState2 : ISystemStateComponentData
+        struct CleanupState2 : ICleanupComponentData
         {
             public byte data;
         }
@@ -57,7 +57,7 @@ namespace Unity.Entities.Tests
             public short data;
         }
 
-        struct SystemBuffer2 : ISystemStateBufferElementData
+        struct CleanupBuffer2 : ICleanupBufferElementData
         {
             public float data;
         }
@@ -65,7 +65,7 @@ namespace Unity.Entities.Tests
         struct Tag2 : IComponentData
         {}
 
-        struct SystemTag2 : ISystemStateComponentData
+        struct CleanupTag2 : ICleanupComponentData
         {}
 
         struct Shared2 : ISharedComponentData
@@ -73,7 +73,7 @@ namespace Unity.Entities.Tests
             public long data;
         }
 
-        struct SystemShared2 : ISystemStateSharedComponentData
+        struct CleanupShared2 : ICleanupSharedComponentData
         {
             public int data;
         }
@@ -86,6 +86,17 @@ namespace Unity.Entities.Tests
             {
                 new ComponentTypeInArchetype(typeof(A)),
                 new ComponentTypeInArchetype(typeof(B))
+            };
+            CollectionAssert.AreEquivalent(expected, types);
+        }
+
+        void MatchesTypes<A, B, C>(params ComponentTypeInArchetype[] types)
+        {
+            var expected = new ComponentTypeInArchetype[]
+            {
+                new ComponentTypeInArchetype(typeof(A)),
+                new ComponentTypeInArchetype(typeof(B)),
+                new ComponentTypeInArchetype(typeof(C))
             };
             CollectionAssert.AreEquivalent(expected, types);
         }
@@ -116,23 +127,23 @@ namespace Unity.Entities.Tests
         public unsafe void TypesInArchetypeAreOrderedAsExpected()
         {
             var archetype = m_Manager.CreateArchetype(
-                typeof(ComponentData1), typeof(SystemState1), typeof(Buffer1), typeof(SystemBuffer1),
-                typeof(Tag1), typeof(SystemTag1), typeof(Shared1), typeof(SystemShared1),
-                chunk<ComponentData1>(), chunk<SystemState1>(), chunk<Buffer1>(), chunk<SystemBuffer1>(),
-                chunk<Tag1>(), chunk<SystemTag1>(),
+                typeof(ComponentData1), typeof(Cleanup1), typeof(Buffer1), typeof(CleanupBuffer1),
+                typeof(Tag1), typeof(CleanupTag1), typeof(Shared1), typeof(CleanupShared1),
+                chunk<ComponentData1>(), chunk<Cleanup1>(), chunk<Buffer1>(), chunk<CleanupBuffer1>(),
+                chunk<Tag1>(), chunk<CleanupTag1>(),
 
-                typeof(ComponentData2), typeof(SystemState2), typeof(Buffer2), typeof(SystemBuffer2),
-                typeof(Tag2), typeof(SystemTag2), typeof(Shared2), typeof(SystemShared2),
-                chunk<ComponentData2>(), chunk<SystemState2>(), chunk<Buffer2>(), chunk<SystemBuffer2>(),
-                chunk<Tag2>(), chunk<SystemTag2>());
+                typeof(ComponentData2), typeof(CleanupState2), typeof(Buffer2), typeof(CleanupBuffer2),
+                typeof(Tag2), typeof(CleanupTag2), typeof(Shared2), typeof(CleanupShared2),
+                chunk<ComponentData2>(), chunk<CleanupState2>(), chunk<Buffer2>(), chunk<CleanupBuffer2>(),
+                chunk<Tag2>(), chunk<CleanupTag2>());
 
 
-            Assert.AreEqual(29, archetype.Archetype->TypesCount);
+            Assert.AreEqual(30, archetype.Archetype->TypesCount); //+1 for Simulate
 
             var entityType = new ComponentTypeInArchetype(typeof(Entity));
 
-            //Expected order: Entity, ComponentData*, SystemState*, Buffer*, SystemBuffer*, Tag*, SystemTag*,
-            // Shared*, SystemShared*, ChunkComponentData* and ChunkTag*, ChunkSystemState* and ChunkSystemTag*,
+            //Expected order: Entity, ComponentData*, Cleanup*, Buffer*, SystemBuffer*, Tag*, SystemTag*,
+            // Shared*, SystemShared*, ChunkComponentData* and ChunkTag*, ChunkCleanup* and ChunkSystemTag*,
             // ChunkBuffer*, ChunkSystemBuffer*
 
             var t = archetype.Archetype->Types;
@@ -140,19 +151,19 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(entityType, t[0]);
 
             MatchesTypes<ComponentData1, ComponentData2>(t[1], t[2]);
-            MatchesTypes<SystemState1, SystemState2>(t[3], t[4]);
+            MatchesTypes<Cleanup1, CleanupState2>(t[3], t[4]);
             MatchesTypes<Buffer1, Buffer2>(t[5], t[6]);
-            MatchesTypes<SystemBuffer1, SystemBuffer2>(t[7], t[8]);
-            MatchesTypes<Tag1, Tag2>(t[9], t[10]);
-            MatchesTypes<SystemTag1, SystemTag2>(t[11], t[12]);
-            MatchesTypes<Shared1, Shared2>(t[13], t[14]);
-            MatchesTypes<SystemShared1, SystemShared2>(t[15], t[16]);
+            MatchesTypes<CleanupBuffer1, CleanupBuffer2>(t[7], t[8]);
+            MatchesTypes<Tag1, Tag2, Simulate>(t[9], t[10], t[11]);
+            MatchesTypes<CleanupTag1, CleanupTag2>(t[12], t[13]);
+            MatchesTypes<Shared1, Shared2>(t[14], t[15]);
+            MatchesTypes<CleanupShared1, CleanupShared2>(t[16], t[17]);
 
-            MatchesChunkTypes<ComponentData1, ComponentData2, Tag1, Tag2>(t[17], t[18], t[19], t[20]);
-            MatchesChunkTypes<SystemState1, SystemState2, SystemTag1, SystemTag2>(t[21], t[22], t[23], t[24]);
+            MatchesChunkTypes<ComponentData1, ComponentData2, Tag1, Tag2>(t[18], t[19], t[20], t[21]);
+            MatchesChunkTypes<Cleanup1, CleanupState2, CleanupTag1, CleanupTag2>(t[22], t[23], t[24], t[25]);
 
-            MatchesChunkTypes<Buffer1, Buffer2>(t[25], t[26]);
-            MatchesChunkTypes<SystemBuffer1, SystemBuffer2>(t[27], t[28]);
+            MatchesChunkTypes<Buffer1, Buffer2>(t[26], t[27]);
+            MatchesChunkTypes<CleanupBuffer1, CleanupBuffer2>(t[28], t[29]);
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -190,23 +201,23 @@ namespace Unity.Entities.Tests
         public unsafe void TypesInArchetypeAreOrderedAsExpected_ManagedComponents()
         {
             var archetype = m_Manager.CreateArchetype(
-                typeof(ComponentData1), typeof(SystemState1), typeof(Buffer1), typeof(SystemBuffer1),
-                typeof(Tag1), typeof(SystemTag1), typeof(Shared1), typeof(SystemShared1),
-                chunk<ComponentData1>(), chunk<SystemState1>(), chunk<Buffer1>(), chunk<SystemBuffer1>(),
-                chunk<Tag1>(), chunk<SystemTag1>(), typeof(ManagedComponentData1),
+                typeof(ComponentData1), typeof(Cleanup1), typeof(Buffer1), typeof(CleanupBuffer1),
+                typeof(Tag1), typeof(CleanupTag1), typeof(Shared1), typeof(CleanupShared1),
+                chunk<ComponentData1>(), chunk<Cleanup1>(), chunk<Buffer1>(), chunk<CleanupBuffer1>(),
+                chunk<Tag1>(), chunk<CleanupTag1>(), typeof(ManagedComponentData1),
 
-                typeof(ComponentData2), typeof(SystemState2), typeof(Buffer2), typeof(SystemBuffer2),
-                typeof(Tag2), typeof(SystemTag2), typeof(Shared2), typeof(SystemShared2),
-                chunk<ComponentData2>(), chunk<SystemState2>(), chunk<Buffer2>(), chunk<SystemBuffer2>(),
-                chunk<Tag2>(), chunk<SystemTag2>(), typeof(ManagedComponentData2));
+                typeof(ComponentData2), typeof(CleanupState2), typeof(Buffer2), typeof(CleanupBuffer2),
+                typeof(Tag2), typeof(CleanupTag2), typeof(Shared2), typeof(CleanupShared2),
+                chunk<ComponentData2>(), chunk<CleanupState2>(), chunk<Buffer2>(), chunk<CleanupBuffer2>(),
+                chunk<Tag2>(), chunk<CleanupTag2>(), typeof(ManagedComponentData2));
 
 
-            Assert.AreEqual(31, archetype.Archetype->TypesCount);
+            Assert.AreEqual(32, archetype.Archetype->TypesCount); // +1 for Simulate
 
             var entityType = new ComponentTypeInArchetype(typeof(Entity));
 
-            //Expected order: Entity, ComponentData*, SystemState*, Buffer*, SystemBuffer*, ManagedComponentData *, Tag*,
-            // SystemTag*, Shared*, SystemShared*, ChunkComponentData* and ChunkTag*, ChunkSystemState* and ChunkSystemTag*,
+            //Expected order: Entity, ComponentData*, Cleanup*, Buffer*, SystemBuffer*, ManagedComponentData *, Tag*,
+            // SystemTag*, Shared*, SystemShared*, ChunkComponentData* and ChunkTag*, ChunkCleanup* and ChunkSystemTag*,
             // ChunkBuffer*, ChunkSystemBuffer*
 
             var t = archetype.Archetype->Types;
@@ -214,21 +225,21 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(entityType, t[0]);
 
             MatchesTypes<ComponentData1, ComponentData2>(t[1], t[2]);
-            MatchesTypes<SystemState1, SystemState2>(t[3], t[4]);
+            MatchesTypes<Cleanup1, CleanupState2>(t[3], t[4]);
             MatchesTypes<Buffer1, Buffer2>(t[5], t[6]);
-            MatchesTypes<SystemBuffer1, SystemBuffer2>(t[7], t[8]);
+            MatchesTypes<CleanupBuffer1, CleanupBuffer2>(t[7], t[8]);
             MatchesTypes<ManagedComponentData1, ManagedComponentData2>(t[9], t[10]);
 
-            MatchesTypes<Tag1, Tag2>(t[11], t[12]);
-            MatchesTypes<SystemTag1, SystemTag2>(t[13], t[14]);
-            MatchesTypes<Shared1, Shared2>(t[15], t[16]);
-            MatchesTypes<SystemShared1, SystemShared2>(t[17], t[18]);
+            MatchesTypes<Tag1, Tag2, Simulate>(t[11], t[12], t[13]);
+            MatchesTypes<CleanupTag1, CleanupTag2>(t[14], t[15]);
+            MatchesTypes<Shared1, Shared2>(t[16], t[17]);
+            MatchesTypes<CleanupShared1, CleanupShared2>(t[18], t[19]);
 
-            MatchesChunkTypes<ComponentData1, ComponentData2, Tag1, Tag2>(t[19], t[20], t[21], t[22]);
-            MatchesChunkTypes<SystemState1, SystemState2, SystemTag1, SystemTag2>(t[23], t[24], t[25], t[26]);
+            MatchesChunkTypes<ComponentData1, ComponentData2, Tag1, Tag2>(t[20], t[21], t[22], t[23]);
+            MatchesChunkTypes<Cleanup1, CleanupState2, CleanupTag1, CleanupTag2>(t[24], t[25], t[26], t[27]);
 
-            MatchesChunkTypes<Buffer1, Buffer2>(t[27], t[28]);
-            MatchesChunkTypes<SystemBuffer1, SystemBuffer2>(t[29], t[30]);
+            MatchesChunkTypes<Buffer1, Buffer2>(t[28], t[29]);
+            MatchesChunkTypes<CleanupBuffer1, CleanupBuffer2>(t[30], t[31]);
         }
 
 #endif

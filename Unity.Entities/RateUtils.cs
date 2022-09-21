@@ -3,42 +3,88 @@ using System.ComponentModel;
 using System.Diagnostics;
 using Unity.Core;
 using Unity.Mathematics;
+using Unity.Collections;
 
 namespace Unity.Entities
 {
-    [Obsolete("This interface has been renamed to IRateManager (RemovedAfter DOTS 1.0)", true)]
+    /// <inheritdoc cref="IRateManager"/>
+    [Obsolete("This interface has been renamed to IRateManager (RemovedAFter Entities 1.0)", true)]
     public interface IFixedRateManager
     {
+        /// <inheritdoc cref="IRateManager.ShouldGroupUpdate"/>
         bool ShouldGroupUpdate(ComponentSystemGroup group);
+        /// <inheritdoc cref="IRateManager.Timestep"/>
         float Timestep { get; set; }
     }
+    /// <summary>
+    /// Interface to define custom behaviors for controlling when a <see cref="ComponentSystemGroup"/> should update,
+    /// and what timestep should be visible to the systems in that group. This allows the implementation of Unity's
+    /// traditional MonoBehaviour "FixedUpdate()" semantics within DOTS, as well as more advanced/flexible update schemes.
+    /// </summary>
     public interface IRateManager
     {
+        /// <summary>
+        /// Determines whether a system group should proceed with its update.
+        /// </summary>
+        /// <param name="group">The system group to check</param>
+        /// <returns>True if <paramref name="group"/> should update its member systems, or false if the group should skip its update.</returns>
         bool ShouldGroupUpdate(ComponentSystemGroup group);
+        /// <summary>
+        /// The timestep since the previous group update (in seconds).
+        /// </summary>
+        /// <remarks>
+        /// This value will be pushed to the delta time of <see cref="World.Time"/> for the duration of the group update. New
+        /// values will be clamped to the range [0.0001, 10.0].
+        /// </remarks>
         float Timestep { get; set; }
     }
 
+    /// <summary>
+    /// Contains some default <see cref="IRateManager"/> implementations to address the most common use cases.
+    /// </summary>
     public static class RateUtils
     {
         internal const float MinFixedDeltaTime = 0.0001f;
         internal const float MaxFixedDeltaTime = 10.0f;
 
-        public class FixedRateSimpleManager : IRateManager
+        /// <summary>
+        /// Implements a rate manager that updates the group exactly once per presentation frame, but uses a
+        /// constant timestep instead of the actual elapsed time since the previous frame.
+        /// </summary>
+        /// <remarks>With this rate manager, the simulation will always tick at a constant timestep per rendered
+        /// frame, even if the actual per-frame time is variable. This provides more consistent and more deterministic
+        /// performance, and avoids issues stemming from the occasional extremely long or short frame. However, animations
+        /// may start to appear jerky if the presentation time is consistently different from the fixed timestep. This mode
+        /// is best suited for applications that reliably run very close to the specified fixed timestep, and want the
+        /// extra consistency of a constant timestep instead of the usual slight variations.</remarks>
+        public unsafe class FixedRateSimpleManager : IRateManager
         {
             float m_FixedTimestep;
+            /// <inheritdoc cref="IRateManager.Timestep"/>
             public float Timestep
             {
                 get => m_FixedTimestep;
                 set => m_FixedTimestep = math.clamp(value, MinFixedDeltaTime, MaxFixedDeltaTime);
             }
+
             double m_LastFixedUpdateTime;
             bool m_DidPushTime;
 
+            /// <summary>
+            /// Double rewindable allocators to remember before pushing in rate group allocators.
+            /// </summary>
+            DoubleRewindableAllocators* m_OldGroupAllocators = null;
+
+            /// <summary>
+            /// Construct a new instance
+            /// </summary>
+            /// <param name="fixedDeltaTime">The constant fixed timestep to use during system group updates (in seconds)</param>
             public FixedRateSimpleManager(float fixedDeltaTime)
             {
                 Timestep = fixedDeltaTime;
             }
 
+            /// <inheritdoc cref="IRateManager.ShouldGroupUpdate"/>
             public bool ShouldGroupUpdate(ComponentSystemGroup group)
             {
                 // if this is true, means we're being called a second or later time in a loop
@@ -46,6 +92,10 @@ namespace Unity.Entities
                 {
                     group.World.PopTime();
                     m_DidPushTime = false;
+
+                    // Update the group allocators and restore the old one
+                    group.World.RestoreGroupAllocator(m_OldGroupAllocators);
+
                     return false;
                 }
 
@@ -56,21 +106,36 @@ namespace Unity.Entities
                 m_LastFixedUpdateTime += m_FixedTimestep;
 
                 m_DidPushTime = true;
+
+                m_OldGroupAllocators = group.World.CurrentGroupAllocators;
+                group.World.SetGroupAllocator(group.RateGroupAllocators);
                 return true;
             }
         }
 
-        public class FixedRateCatchUpManager : IRateManager
+        /// <summary>
+        /// Implements system update semantics similar to [UnityEngine.MonoBehaviour.FixedUpdate](https://docs.unity3d.com/ScriptReference/MonoBehaviour.FixedUpdate.html).
+        /// </summary>
+        /// <remarks>When this mode is enabled on a group, the group updates exactly once for each elapsed interval
+        /// of the fixed timestep.
+        ///
+        /// For example, assume a fixed timestep of 0.02 seconds. If the previous frame updated
+        /// at an elapsed time of 1.0 seconds, and the elapsed time for the current frame is now 1.05 seconds, then the
+        /// system group updates twice in a row: one with an elapsed simulation time of 1.02 seconds, and a second time
+        /// with an elapsed time of 1.04 seconds. In both cases, the delta time is reported as 0.02 seconds. If the
+        /// elapsed wall time for the next frame is 1.06 seconds, then the system group doesn't update at all for that
+        /// frame.
+        ///
+        /// This mode provides the strongest stability and determinism guarantees, and is best suited for systems implementing
+        /// physics or netcode logic. However, the systems in the group will update at an unreliable rate each frame, and
+        /// may not update at all if the actual elapsed time is small enough. The running time of systems in this group
+        /// must therefore be kept to a minimum. If the wall time needed to simulate a single group update exceeds the
+        /// fixed timestep interval, the group can end up even further behind than when it started, causing a negative
+        /// feedback loop.</remarks>
+        public unsafe class FixedRateCatchUpManager : IRateManager
         {
-            // TODO: move this to World
-            float m_MaximumDeltaTime;
-            public float MaximumDeltaTime
-            {
-                get => m_MaximumDeltaTime;
-                set => m_MaximumDeltaTime = math.max(value, m_FixedTimestep);
-            }
-
             float m_FixedTimestep;
+            /// <inheritdoc cref="IRateManager.Timestep"/>
             public float Timestep
             {
                 get => m_FixedTimestep;
@@ -85,11 +150,21 @@ namespace Unity.Entities
             bool m_DidPushTime;
             double m_MaxFinalElapsedTime;
 
+            /// <summary>
+            /// Double rewindable allocators to remember before pushing in rate group allocators.
+            /// </summary>
+            DoubleRewindableAllocators* m_OldGroupAllocators = null;
+
+            /// <summary>
+            /// Construct a new instance
+            /// </summary>
+            /// <param name="fixedDeltaTime">The constant fixed timestep to use during system group updates (in seconds)</param>
             public FixedRateCatchUpManager(float fixedDeltaTime)
             {
                 Timestep = fixedDeltaTime;
             }
 
+            /// <inheritdoc cref="IRateManager.ShouldGroupUpdate"/>
             public bool ShouldGroupUpdate(ComponentSystemGroup group)
             {
                 float worldMaximumDeltaTime = group.World.MaximumDeltaTime;
@@ -99,6 +174,7 @@ namespace Unity.Entities
                 if (m_DidPushTime)
                 {
                     group.World.PopTime();
+                    group.World.RestoreGroupAllocator(m_OldGroupAllocators);
                 }
                 else
                 {
@@ -129,6 +205,9 @@ namespace Unity.Entities
                     deltaTime: m_FixedTimestep));
 
                 m_DidPushTime = true;
+
+                m_OldGroupAllocators = group.World.CurrentGroupAllocators;
+                group.World.SetGroupAllocator(group.RateGroupAllocators);
                 return true;
             }
         }
@@ -136,7 +215,7 @@ namespace Unity.Entities
         /// <summary>
         /// A <see cref="IRateManager"/> implementation providing a variable update rate in milliseconds.
         /// </summary>
-        public class VariableRateManager : IRateManager
+        public unsafe class VariableRateManager : IRateManager
         {
             /// <summary>
             /// The minimum allowed update rate in Milliseconds
@@ -195,6 +274,11 @@ namespace Unity.Entities
             private float m_Timestep;
 
             /// <summary>
+            /// Double rewindable allocators to remember before pushing in rate group allocators.
+            /// </summary>
+            DoubleRewindableAllocators* m_OldGroupAllocators = null;
+
+            /// <summary>
             /// Construct a <see cref="VariableRateManager"/> with a given Millisecond update rate.
             /// </summary>
             /// <remarks>
@@ -234,6 +318,8 @@ namespace Unity.Entities
             /// Determines if the group should be updated this invoke.
             /// </summary>
             /// <remarks>The while loop happens once.</remarks>
+            /// <param name="group">The system group to check</param>
+            /// <returns>True if <paramref name="group"/> should update its member systems, or false if the group should skip its update.</returns>
             public bool ShouldGroupUpdate(ComponentSystemGroup @group)
             {
                 // We're going to use the internal ticks to ensure this works in worlds without time systems.
@@ -261,6 +347,7 @@ namespace Unity.Entities
                 {
                     @group.World.PopTime();
                     m_DidPushTime = false;
+                    group.World.RestoreGroupAllocator(m_OldGroupAllocators);
                 }
 
                 // We haven't elapsed enough ticks, thus false.
@@ -280,6 +367,9 @@ namespace Unity.Entities
                         elapsedTime: m_ElapsedTime,
                         deltaTime: m_Timestep));
                     m_DidPushTime = true;
+
+                    m_OldGroupAllocators = group.World.CurrentGroupAllocators;
+                    group.World.SetGroupAllocator(group.RateGroupAllocators);
                 }
 
                 // Reset tick count

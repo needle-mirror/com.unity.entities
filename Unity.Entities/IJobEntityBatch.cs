@@ -7,8 +7,8 @@ using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Profiling;
-using UnityEngine.Scripting;
 using System.Diagnostics;
+using Unity.Burst.Intrinsics;
 using Assert = UnityEngine.Assertions.Assert;
 
 namespace Unity.Entities
@@ -18,7 +18,7 @@ namespace Unity.Entities
     /// where each instance represents a contiguous batch of entities within a [chunk].
     ///
     /// [IJob]: xref:Unity.Jobs.IJob
-    /// [chunk]: xref:ecs-concepts#chunk
+    /// [chunk]: xref:concepts-archetypes#archetype-chunks
     /// </summary>
     /// <remarks>
     /// Schedule or run an IJobEntityBatch job inside the <see cref="SystemBase.OnUpdate"/> function of a
@@ -36,7 +36,7 @@ namespace Unity.Entities
     /// a single batch. The <see cref="ArchetypeChunk"/> object passed to the `Execute` function of your job struct provides access
     /// to the components of all the entities in the chunk.
     ///
-    /// Use <see cref="JobEntityBatchExtensions.ScheduleParallel{T}(T, EntityQuery, ScheduleGranularity.Entity, NativeArray&lt;Entity&gt;, JobHandle)"/>
+    /// Use <see cref="JobEntityBatchExtensions.ScheduleParallel{T}(T, EntityQuery, ScheduleGranularity, NativeArray{Entity}, JobHandle)"/>
     /// to force each batch to contain only a single entity. This allows multiple worker threads to process the entities
     /// within a chunk concurrently, which may lead to better load balancing if the number of entities to process is relatively
     /// small and the amount of work per entity is relatively high. As always, you should profile your job to find the
@@ -56,12 +56,13 @@ namespace Unity.Entities
     ///
     /// If you are looking for an interface which provides the firstEntityIndex parameter, <see cref="IJobEntityBatchWithIndex"/>
     ///
-    /// [Using IJobEntityBatch]: xref:ecs-ijobentitybatch
-    /// [chunks]: xref:ecs-concepts#chunk
+    /// [Using IJobEntityBatch]: xref:iterating-data-ijobentitybatch
+    /// [chunks]: xref:concepts-archetypes#archetype-chunks
     /// </remarks>
     /// <seealso cref="JobEntityBatchExtensions"/>
     /// <seealso cref="IJobEntityBatchWithIndex"/>
     [JobProducerType(typeof(JobEntityBatchExtensions.JobEntityBatchProducer<>))]
+    [Obsolete("This job type will be removed in Entities 1.0. Existing implementations should be migrated to IJobChunk. See the upgrade guide for details.")]
     public interface IJobEntityBatch
     {
         /// <summary>
@@ -70,7 +71,7 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>
         /// The chunks selected by the <see cref="EntityQuery"/> used to schedule the job are the input to your `Execute`
-        /// function. If you use <see cref="JobEntityBatchExtensions.ScheduleParallel{T}(T, EntityQuery, ScheduleGranularity.Entity, NativeArray&lt;Entity&gt;, JobHandle)"/>
+        /// function. If you use <see cref="JobEntityBatchExtensions.ScheduleParallel{T}(T, EntityQuery, ScheduleGranularity, NativeArray{Entity}, JobHandle)"/>
         /// to schedule the job, the entities in each matching chunk are distributed to worker threads individually,
         /// and the `Execute` function is called once for each batch (containing a single `Entity`). When you use one of the
         /// other scheduling or run methods, the `Execute` function is called once per matching chunk.
@@ -86,9 +87,10 @@ namespace Unity.Entities
 
     /// <summary>
     /// Describes how the entities that match an `EntityQuery` should be distributed when a job is scheduled to
-    /// run on multiple worker threads using `ScheduleParallel()`. In most cases, <see cref="ScheduleGranularity.Chunk"/>
+    /// run on multiple worker threads using `ScheduleParallel()`. In most cases, ScheduleGranularity.Chunk
     /// should be used.
     /// </summary>
+    [Obsolete("This feature will be removed; the previous default chunk-level granularity will be restored. For entity-level granularity, use IJobParallelFor. (RemovedAfter Entities 1.0)")]
     public enum ScheduleGranularity
     {
         /// <summary>
@@ -111,20 +113,14 @@ namespace Unity.Entities
     /// <summary>
     /// Extensions for scheduling and running <see cref="IJobEntityBatch"/> jobs.
     /// </summary>
+    [Obsolete("IJobEntityBatch is deprecated.")]
     public static class JobEntityBatchExtensions
     {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        [NativeContainer]
-        internal struct EntitySafetyHandle
-        {
-            internal AtomicSafetyHandle m_Safety;
-        }
-#endif
         internal struct JobEntityBatchWrapper<T> where T : struct
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 #pragma warning disable 414
-            [ReadOnly] public EntitySafetyHandle safety;
+            [ReadOnly] public EntityQuerySafetyHandles safety;
 #pragma warning restore
 #endif
             public T JobData;
@@ -142,23 +138,20 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// This method is only to be called by automatically generated setup code.
+        /// Gathers and caches reflection data for the internal job system's managed bindings. Unity is responsible for calling this method - don't call it yourself.
         /// </summary>
         /// <typeparam name="T"></typeparam>
+        /// <remarks>
+        /// When the Jobs package is included in the project, Unity generates code to call EarlyJobInit at startup. This allows Burst compiled code to schedule jobs because the reflection part of initialization, which is not compatible with burst compiler constraints, has already happened in EarlyJobInit.
+        ///
+        /// __Note__: While the Jobs package code generator handles this automatically for all closed job types, you must register those with generic arguments (like IJobEntityBatch&amp;lt;MyJobType&amp;lt;T&amp;gt;&amp;gt;) manually for each specialization with [[Unity.Jobs.RegisterGenericJobTypeAttribute]].
+        /// </remarks>
         public static void EarlyJobInit<T>()
             where T : struct, IJobEntityBatch
         {
             JobEntityBatchProducer<T>.Initialize();
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        private static void CheckReflectionDataCorrect(IntPtr reflectionData)
-        {
-            if (reflectionData == IntPtr.Zero)
-                throw new InvalidOperationException("Reflection data was not set up by a call to Initialize()");
-        }
-
-
         /// <summary>
         /// Adds an <see cref="IJobEntityBatch"/> instance to the job scheduler queue for sequential (non-parallel) execution.
         /// </summary>
@@ -218,6 +211,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The specific <see cref="IJobEntityBatch"/> implementation type.</typeparam>
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
+        [Obsolete("The limitToEntityArray feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAfter Entities 1.0)")]
         public static unsafe JobHandle Schedule<T>(
             this T jobData,
             EntityQuery query,
@@ -245,6 +239,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The specific <see cref="IJobEntityBatch"/> implementation type.</typeparam>
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
+        [Obsolete("The limitToEntityArray feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAFter Entities 1.0)")]
         public static unsafe JobHandle ScheduleByRef<T>(
             this ref T jobData,
             EntityQuery query,
@@ -278,18 +273,6 @@ namespace Unity.Entities
         {
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
         }
-        [Obsolete("The batchesPerChunk parameter has been replaced. Instead, use ScheduleGranularity.Chunk (the default) or ScheduleGranularity.Entity. (RemovedAfter 2021-08-10)")]
-        public static unsafe JobHandle ScheduleParallel<T>(
-            this T jobData,
-            EntityQuery query,
-            int batchesPerChunk,
-            JobHandle dependsOn = default(JobHandle))
-            where T : struct, IJobEntityBatch
-        {
-            if (batchesPerChunk == 1)
-                return ScheduleParallel(jobData, query, dependsOn);
-            return ScheduleParallel(jobData, query, ScheduleGranularity.Entity, default, dependsOn);
-        }
 
         /// <summary>
         /// Adds an <see cref="IJobEntityBatch"/> instance to the job scheduler queue for parallel execution.
@@ -313,18 +296,7 @@ namespace Unity.Entities
         {
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
         }
-        [Obsolete("The batchesPerChunk parameter has been replaced. Instead, use ScheduleGranularity.Chunk (the default) or ScheduleGranularity.Entity. (RemovedAfter 2021-08-10)")]
-        public static unsafe JobHandle ScheduleParallelByRef<T>(
-            this ref T jobData,
-            EntityQuery query,
-            int batchesPerChunk,
-            JobHandle dependsOn = default(JobHandle))
-            where T : struct, IJobEntityBatch
-        {
-            if (batchesPerChunk == 1)
-                return ScheduleParallelByRef(ref jobData, query, dependsOn);
-            return ScheduleParallelByRef(ref jobData, query, ScheduleGranularity.Entity, default, dependsOn);
-        }
+
 
         /// <summary>
         /// Adds an <see cref="IJobEntityBatch"/> instance to the job scheduler queue for parallel execution.
@@ -334,10 +306,10 @@ namespace Unity.Entities
         /// <param name="jobData">An <see cref="IJobEntityBatch"/> instance.</param>
         /// <param name="query">The query selecting chunks with the necessary components.</param>
         /// <param name="granularity">Specifies the the unit of work that will be processed by each worker thread.
-        /// If <see cref="ScheduleGranularity.Chunk"/> is passed (the safe default),
+        /// If `ScheduleGranularity.Chunk` is passed (the safe default),
         /// work is distributed at the level of whole chunks. This can lead to poor load balancing in cases where the
         /// number of chunks being processed is low (fewer than the number of available worker threads), and the cost to
-        /// process each entity is high. In these cases, pass <see cref="ScheduleGranularity.Entity"/>
+        /// process each entity is high. In these cases, pass ScheduleGranularity.Entity
         /// to distribute work at the level of individual entities.</param>
         /// <param name="limitToEntityArray">A list of entities to limit execution to. Only entities in the list will be
         /// processed. If limitToEntityArray.IsCreated is false (e.g. for a default-initialized array), this filtering
@@ -348,6 +320,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The specific <see cref="IJobEntityBatch"/> implementation type.</typeparam>
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
+        [Obsolete("The limitToEntityArray feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAFter Entities 1.0)")]
         public static unsafe JobHandle ScheduleParallel<T>(
             this T jobData,
             EntityQuery query,
@@ -359,18 +332,6 @@ namespace Unity.Entities
             if (granularity == ScheduleGranularity.Chunk && !limitToEntityArray.IsCreated)
                 return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, granularity, true, limitToEntityArray);
-        }
-        [Obsolete("This function now takes a ScheduleGranularity parameter. If in doubt, pass ScheduleGranularity.Chunk. (RemovedAfter 2021-08-10)")]
-        public static unsafe JobHandle ScheduleParallel<T>(
-            this T jobData,
-            EntityQuery query,
-            NativeArray<Entity> limitToEntityArray,
-            JobHandle dependsOn = default(JobHandle))
-            where T : struct, IJobEntityBatch
-        {
-            if (!limitToEntityArray.IsCreated)
-                return ScheduleParallel(jobData, query, dependsOn);
-            return ScheduleParallel(jobData, query, ScheduleGranularity.Chunk, limitToEntityArray, dependsOn);
         }
 
         /// <summary>
@@ -382,10 +343,10 @@ namespace Unity.Entities
         /// reference, which may be necessary for unusually large job structs.</param>
         /// <param name="query">The query selecting chunks with the necessary components.</param>
         /// <param name="granularity">Specifies the the unit of work that will be processed by each worker thread.
-        /// If <see cref="ScheduleGranularity.Chunk"/> is passed (the safe default),
+        /// If ScheduleGranularity.Chunk is passed (the safe default),
         /// work is distributed at the level of whole chunks. This can lead to poor load balancing in cases where the
         /// number of chunks being processed is low (fewer than the number of available worker threads), and the cost to
-        /// process each entity is high. In these cases, pass <see cref="ScheduleGranularity.Entity"/>
+        /// process each entity is high. In these cases, pass ScheduleGranularity.Entity
         /// to distribute work at the level of individual entities.</param>
         /// <param name="limitToEntityArray">A list of entities to limit execution to. Only entities in the list will be
         /// processed. If limitToEntityArray.IsCreated is false (e.g. for a default-initialized array), this filtering
@@ -396,6 +357,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The specific <see cref="IJobEntityBatch"/> implementation type.</typeparam>
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
+        [Obsolete("The limitToEntityArray feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAFter Entities 1.0)")]
         public static unsafe JobHandle ScheduleParallelByRef<T>(
             this ref T jobData,
             EntityQuery query,
@@ -408,18 +370,7 @@ namespace Unity.Entities
                 return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, granularity, true, limitToEntityArray);
         }
-        [Obsolete("This function now takes a ScheduleGranularity parameter. If in doubt, pass ScheduleGranularity.Chunk. (RemovedAfter 2021-08-10)")]
-        public static unsafe JobHandle ScheduleParallelByRef<T>(
-            this ref T jobData,
-            EntityQuery query,
-            NativeArray<Entity> limitToEntityArray,
-            JobHandle dependsOn = default(JobHandle))
-            where T : struct, IJobEntityBatch
-        {
-            if (!limitToEntityArray.IsCreated)
-                return ScheduleParallelByRef(ref jobData, query, dependsOn);
-            return ScheduleParallelByRef(ref jobData, query, ScheduleGranularity.Chunk, limitToEntityArray, dependsOn);
-        }
+
 
         /// <summary>
         /// Runs the job immediately on the current thread.
@@ -459,6 +410,7 @@ namespace Unity.Entities
         /// <param name="query">The query selecting chunks with the necessary components.</param>
         /// <param name="limitToEntityArray">A list of entities to limit execution to. Only entities in the list will be processed.</param>
         /// <typeparam name="T">The specific <see cref="IJobEntityBatch"/> implementation type.</typeparam>
+        [Obsolete("The limitToEntityArray feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAFter Entities 1.0)")]
         public static unsafe void Run<T>(this T jobData, EntityQuery query, NativeArray<Entity> limitToEntityArray)
             where T : struct, IJobEntityBatch
         {
@@ -477,6 +429,7 @@ namespace Unity.Entities
         /// <param name="query">The query selecting chunks with the necessary components.</param>
         /// <param name="limitToEntityArray">A list of entities to limit execution to. Only entities in the list will be processed.</param>
         /// <typeparam name="T">The specific <see cref="IJobEntityBatch"/> implementation type.</typeparam>
+        [Obsolete("The limitToEntityArray feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAFter Entities 1.0)")]
         public static unsafe void RunByRef<T>(this ref T jobData, EntityQuery query, NativeArray<Entity> limitToEntityArray)
             where T : struct, IJobEntityBatch
         {
@@ -485,74 +438,78 @@ namespace Unity.Entities
             ScheduleInternal(ref jobData, query, default(JobHandle), ScheduleMode.Run, ScheduleGranularity.Chunk, false, limitToEntityArray);
         }
 
-        public static void RunWithoutJobsInternal<T>(ref T jobData, ref ArchetypeChunkIterator chunkIterator)
+        internal static unsafe void RunWithoutJobsInternal<T>(ref T jobData, ref EntityQuery query)
             where T : struct, IJobEntityBatch
         {
-            var chunkCount = 0;
-            while (chunkIterator.MoveNext())
+            var queryImpl = query._GetImpl();
+            // Complete any running jobs that would affect which chunks/entities match the query.
+            // This sync may not be strictly necessary, if the caller doesn't care about filtering the query results.
+            // But if they DO care, and they forget this sync, they'll have an undetected race condition. So, let's play it safe.
+            queryImpl->SyncFilterTypes();
+
+            if (query.HasFilter() || queryImpl->_QueryData->DoesQueryRequireBatching != 0)
             {
-                var archetypeChunk = chunkIterator.CurrentArchetypeChunk;
-                jobData.Execute(archetypeChunk, chunkCount);
-                chunkCount++;
+                var chunkCache = query.GetCache(out _);
+                int chunkIndex = -1;
+                v128 chunkEnabledMask = default;
+                while (chunkCache.MoveNextChunk(ref chunkIndex, out var archetypeChunk, out _,
+                           out byte chunkRequiresBatching, ref chunkEnabledMask))
+                {
+                    if (chunkRequiresBatching == 0)
+                    {
+                        jobData.Execute(archetypeChunk, chunkIndex);
+                    }
+                    else
+                    {
+                        int batchIndex = 0;
+                        int batchStartIndex = 0;
+                        int batchEndIndex = 0;
+                        while (EnabledBitUtility.GetNextRange(ref chunkEnabledMask, ref batchStartIndex,
+                                   ref batchEndIndex))
+                        {
+                            archetypeChunk.m_BatchStartEntityIndex = batchStartIndex;
+                            archetypeChunk.m_BatchEntityCount = batchEndIndex - batchStartIndex;
+                            Assert.AreNotEqual(0, archetypeChunk.Count);
+                            jobData.Execute(archetypeChunk, batchIndex++);
+                            batchStartIndex = batchEndIndex;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Fast path for queries with no filtering and no batching
+                var cachedChunkList = queryImpl->_QueryData->GetMatchingChunkCache();
+                var chunkPtr = cachedChunkList.Ptr;
+                int chunkCount = cachedChunkList.Length;
+                ArchetypeChunk batch = new ArchetypeChunk(null, cachedChunkList.EntityComponentStore);
+                for (int batchIndex = 0; batchIndex < chunkCount; ++batchIndex)
+                {
+                    batch.m_Chunk = chunkPtr[batchIndex];
+                    Assert.AreNotEqual(0, batch.Count);
+                    jobData.Execute(batch, batchIndex);
+                }
             }
         }
-
-        unsafe internal static void RunWithoutJobsInternal<T>(ref T jobData, Chunk** chunks, int chunkCount, EntityComponentStore* store)
-            where T : struct, IJobEntityBatch
-        {
-            for (int i =0; i != chunkCount;i++)
-                jobData.Execute(new ArchetypeChunk(chunks[i], store), i);
-        }
-
 
         /// <summary>
         /// Runs the job without using the jobs API.
         /// </summary>
-        /// <param name="jobData">The job to execute.</param>
+        /// <param name="jobData">The job to execute. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
         /// <param name="query">The EntityQuery to run over.</param>
         /// <typeparam name="T">The specific IJobEntityBatch implementation type.</typeparam>
-        public static unsafe void RunWithoutJobs<T>(ref T jobData, EntityQuery query)
+        internal static unsafe void RunByRefWithoutJobs<T>(this ref T jobData, EntityQuery query)
             where T : struct, IJobEntityBatch
         {
-            if (query.HasFilter())
-            {
-                // Filtered queries still use the slower, ArchetypeChunkIterator path
-                var chunkIterator = query.GetArchetypeChunkIterator();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                var access = query._GetImpl()->_Access;
-                try
-                {
-                    access->DependencyManager->IsInForEachDisallowStructuralChange++;
-                    RunWithoutJobsInternal(ref jobData, ref chunkIterator);
-                }
-                finally
-                {
-                    access->DependencyManager->IsInForEachDisallowStructuralChange--;
-                }
-#else
-                RunWithoutJobsInternal(ref jobData, ref chunkIterator);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            var queryImpl = query._GetImpl();
+            queryImpl->_Access->DependencyManager->ForEachStructuralChange.BeginIsInForEach(queryImpl);
 #endif
-            }
-            else
-            {
-                // Unfiltered queries can use the cached matching chunk list
-                var impl = query._GetImpl();
-                var matching = impl->_QueryData->GetMatchingChunkCache();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                var access = query._GetImpl()->_Access;
-                try
-                {
-                    access->DependencyManager->IsInForEachDisallowStructuralChange++;
-                    RunWithoutJobsInternal(ref jobData, matching.Ptr, matching.Length, matching.EntityComponentStore);
-                }
-                finally
-                {
-                    access->DependencyManager->IsInForEachDisallowStructuralChange--;
-                }
-#else
-                RunWithoutJobsInternal(ref jobData, matching.Ptr, matching.Length, matching.EntityComponentStore);
+            RunWithoutJobsInternal(ref jobData, ref query);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            queryImpl->_Access->DependencyManager->ForEachStructuralChange.EndIsInForEach();
 #endif
-            }
         }
 
         /// <summary>
@@ -562,51 +519,60 @@ namespace Unity.Entities
         /// <param name="query">The EntityQuery to run over.</param>
         /// <param name="limitToEntityArray">A list of entities to limit execution to. Only entities in the list will be processed.</param>
         /// <typeparam name="T">The specific IJobEntityBatch implementation type.</typeparam>
-        unsafe public static void RunWithoutJobs<T>(ref T jobData, EntityQuery query, NativeArray<Entity> limitToEntityArray)
+        [Obsolete("The limitToEntityArray feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAFter Entities 1.0)")]
+        unsafe internal static void RunWithoutJobs<T>(this T jobData, EntityQuery query, NativeArray<Entity> limitToEntityArray)
             where T : struct, IJobEntityBatch
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var access = query._GetImpl()->_Access;
-            try
-            {
-                access->DependencyManager->IsInForEachDisallowStructuralChange++;
-                RunWithoutJobsInternal(ref jobData, ref query, (Entity*)limitToEntityArray.GetUnsafeReadOnlyPtr(), limitToEntityArray.Length);
-            }
-            finally
-            {
-                access->DependencyManager->IsInForEachDisallowStructuralChange--;
-            }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            var impl = query._GetImpl();
+            impl->_Access->DependencyManager->ForEachStructuralChange.BeginIsInForEach(impl);
+            RunWithoutJobsInternal(ref jobData, ref query, (Entity*)limitToEntityArray.GetUnsafeReadOnlyPtr(), limitToEntityArray.Length);
+            impl->_Access->DependencyManager->ForEachStructuralChange.EndIsInForEach();
 #else
             RunWithoutJobsInternal(ref jobData, ref query, (Entity*)limitToEntityArray.GetUnsafeReadOnlyPtr(), limitToEntityArray.Length);
 #endif
         }
 
-        public static unsafe void RunWithoutJobsInternal<T>(ref T jobData, ref EntityQuery query, IntPtr limitToEntityArrayPtr, int limitToEntityArrayLength)
+        /// <summary>
+        /// Runs the job without using the jobs API.
+        /// </summary>
+        /// <param name="jobData">The job to execute. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The EntityQuery to run over.</param>
+        /// <param name="limitToEntityArray">A list of entities to limit execution to. Only entities in the list will be processed.</param>
+        /// <typeparam name="T">The specific IJobEntityBatch implementation type.</typeparam>
+        [Obsolete("The limitToEntityArray feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAFter Entities 1.0)")]
+        unsafe internal static void RunByRefWithoutJobs<T>(this ref T jobData, EntityQuery query, NativeArray<Entity> limitToEntityArray)
             where T : struct, IJobEntityBatch
         {
-            RunWithoutJobsInternal(ref jobData, ref query, (Entity*)limitToEntityArrayPtr, limitToEntityArrayLength);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            var impl = query._GetImpl();
+            impl->_Access->DependencyManager->ForEachStructuralChange.BeginIsInForEach(impl);
+            RunWithoutJobsInternal(ref jobData, ref query, (Entity*)limitToEntityArray.GetUnsafeReadOnlyPtr(), limitToEntityArray.Length);
+            impl->_Access->DependencyManager->ForEachStructuralChange.EndIsInForEach();
+#else
+            RunWithoutJobsInternal(ref jobData, ref query, (Entity*)limitToEntityArray.GetUnsafeReadOnlyPtr(), limitToEntityArray.Length);
+#endif
         }
 
-        public static unsafe void RunWithoutJobsInternal<T>(ref T jobData, ref EntityQuery query, Entity* limitToEntityArray, int limitToEntityArrayLength)
+        // For now these are necessary/public because they are used by Entities.ForEach codegen,
+        // once that has been upgraded, this will be removed
+        internal static unsafe void RunWithoutJobsInternal<T>(ref T jobData, ref EntityQuery query, Entity* limitToEntityArray, int limitToEntityArrayLength)
             where T : struct, IJobEntityBatch
         {
-            var prebuiltBatchList = new UnsafeList<ArchetypeChunk>(0, Allocator.TempJob);
-            try
-            {
-                ChunkIterationUtility.FindFilteredBatchesForEntityArrayWithQuery(
-                    query._GetImpl(),
-                    limitToEntityArray, limitToEntityArrayLength,
-                    &prebuiltBatchList);
+            // TODO(DOTS-5666): this path does not support enableable components
+            if (query._GetImpl()->_QueryData->DoesQueryRequireBatching != 0)
+                throw new ArgumentException("EntityQuery objects with types that implement IEnableableComponent are not currently supported by this operation.");
+            using var prebuiltBatchList = new UnsafeList<ArchetypeChunk>(0, Allocator.TempJob);
+            ChunkIterationUtility.FindFilteredBatchesForEntityArrayWithQuery(
+                query._GetImpl(),
+                limitToEntityArray, limitToEntityArrayLength,
+                &prebuiltBatchList);
 
-                ArchetypeChunk* chunks = prebuiltBatchList.Ptr;
-                int chunkCounts = prebuiltBatchList.Length;
-                for (int i = 0; i != chunkCounts; i++)
-                    jobData.Execute(chunks[i], i);
-            }
-            finally
-            {
-                prebuiltBatchList.Dispose();
-            }
+            ArchetypeChunk* chunks = prebuiltBatchList.Ptr;
+            int chunkCounts = prebuiltBatchList.Length;
+            for (int i = 0; i != chunkCounts; i++)
+                jobData.Execute(chunks[i], i);
         }
 
         internal static unsafe JobHandle ScheduleInternal<T>(
@@ -625,11 +591,8 @@ namespace Unity.Entities
             JobEntityBatchWrapper<T> jobEntityBatchWrapper = new JobEntityBatchWrapper<T>
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                // All IJobEntityBatch jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
-                // jobs without any other safety handles are still running (haven't been synced).
-                safety = new EntitySafetyHandle {m_Safety = queryImpl->SafetyHandles->GetEntityManagerSafetyHandle()},
+                safety = new EntityQuerySafetyHandles(queryImpl),
 #endif
-
                 MatchingArchetypes = queryData->MatchingArchetypes,
                 CachedChunks = cachedChunks,
                 Filter = queryImpl->_Filter,
@@ -638,11 +601,11 @@ namespace Unity.Entities
                 IsParallel = isParallel ? 1 : 0,
 
                 UsePrebuiltBatchList = 0,
-                SkipSubChunkBatching = queryData->EnableableComponentsCountAll == 0 && queryData->EnableableComponentsCountNone == 0 ? 1 : 0
+                SkipSubChunkBatching = queryData->DoesQueryRequireBatching == 0 ? 1 : 0
             };
-
+            JobEntityBatchProducer<T>.Initialize();
             var reflectionData = JobEntityBatchProducer<T>.reflectionData.Data;
-            CheckReflectionDataCorrect(reflectionData);
+            CollectionHelper.CheckReflectionDataCorrect<T>(reflectionData);
 
             var scheduleParams = new JobsUtility.JobScheduleParameters(
                 UnsafeUtility.AddressOf(ref jobEntityBatchWrapper),
@@ -657,6 +620,7 @@ namespace Unity.Entities
             }
             else
             {
+                // TODO(DOTS-5740): pick a better innerloopBatchCount
                 result = JobsUtility.ScheduleParallelFor(ref scheduleParams, batchCount, 1);
             }
 
@@ -664,6 +628,7 @@ namespace Unity.Entities
         }
 
         // Slower variant that handles cases where the batch list needs to be pre-built on the main thread at schedule time.
+        [Obsolete("The limitToEntityArray feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAFter Entities 1.0)")]
         internal static unsafe JobHandle ScheduleInternal<T>(
             ref T jobData,
             EntityQuery query,
@@ -675,6 +640,9 @@ namespace Unity.Entities
             where T : struct, IJobEntityBatch
         {
             var queryImpl = query._GetImpl();
+            // TODO(DOTS-5666): this path does not support enableable components
+            if (queryImpl->_QueryData->DoesQueryRequireBatching != 0)
+                throw new ArgumentException("EntityQuery objects with types that implement IEnableableComponent are not currently supported by this operation.");
             var queryData = queryImpl->_QueryData;
 
             var cachedChunks = queryData->GetMatchingChunkCache();
@@ -703,7 +671,7 @@ namespace Unity.Entities
                     ChunkIterationUtility.FindBatchesForEntityArrayWithQuery(
                         access->EntityComponentStore,
                         queryData,
-                        queryImpl->_Filter.RequiresMatchesFilter || queryData->DoesQueryRequireBatching,
+                        queryImpl->_Filter.RequiresMatchesFilter || queryData->DoesQueryRequireBatching != 0,
                         (Entity*) limitToEntityArray.GetUnsafePtr(),
                         limitToEntityArray.Length,
                         &prebuiltBatchList,
@@ -715,7 +683,7 @@ namespace Unity.Entities
                     var mask = queryData->EntityQueryMask;
                     foreach (var entity in limitToEntityArray)
                     {
-                        if (!mask.Matches(entity))
+                        if (!mask.MatchesIgnoreFilter(entity))
                             continue;
                         var entityInChunk = ecs->GetEntityInChunk(entity);
                         var chunk = entityInChunk.Chunk;
@@ -739,39 +707,32 @@ namespace Unity.Entities
             }
             else
             {
+                Assert.AreEqual(ScheduleGranularity.Entity, granularity,
+                    "This code path should never be taken; the simpler ScheduleInternal() variant handles this case.");
+                // Construct a pre-build batch list, with one batch per entity.
+                // All filtering (both chunk- and entity-level) is still performed on worker threads at execution time.
+
                 for(int chunkIndex=0; chunkIndex<cachedChunks.Length; ++chunkIndex)
                 {
                     var chunk = cachedChunks.Ptr[chunkIndex];
 
                     Assert.AreNotEqual(0, chunk->Count);
-                    int matchingArchetypeIndex = -1;
-                    if (isFiltering)
-                    {
-                        matchingArchetypeIndex =
-                            EntityQueryManager.FindMatchingArchetypeIndexForArchetype(ref matchingArchetypes,
-                                chunk->Archetype);
-                    }
 
-                    if (granularity == ScheduleGranularity.Chunk)
+                    int matchingArchetypeIndex = matchingArchetypeIndex =
+                        EntityQueryManager.FindMatchingArchetypeIndexForArchetype(ref matchingArchetypes,
+                            chunk->Archetype);
+
+                    int chunkEntityCount = chunk->Count;
+                    for (int entityInChunk = 0; entityInChunk < chunkEntityCount; ++entityInChunk)
                     {
-                        Assert.IsTrue(false,
-                            "This code path should never be taken; the simpler ScheduleInternal() variant handles this case.");
-                    }
-                    else if (granularity == ScheduleGranularity.Entity)
-                    {
-                        int chunkEntityCount = chunk->Count;
-                        for (int entityInChunk = 0; entityInChunk < chunkEntityCount; ++entityInChunk)
+                        prebuiltBatchList.Add(new ArchetypeChunk
                         {
-                            prebuiltBatchList.Add(new ArchetypeChunk
-                            {
-                                m_Chunk = chunk,
-                                m_EntityComponentStore = ecs,
-                                m_BatchStartEntityIndex = entityInChunk,
-                                m_BatchEntityCount = 1,
-                            });
-                            if (isFiltering)
-                                perBatchMatchingArchetypeIndex.Add(matchingArchetypeIndex);
-                        }
+                            m_Chunk = chunk,
+                            m_EntityComponentStore = ecs,
+                            m_BatchStartEntityIndex = entityInChunk,
+                            m_BatchEntityCount = 1,
+                        });
+                        perBatchMatchingArchetypeIndex.Add(matchingArchetypeIndex);
                     }
                 }
             }
@@ -781,11 +742,8 @@ namespace Unity.Entities
             JobEntityBatchWrapper<T> jobEntityBatchWrapper = new JobEntityBatchWrapper<T>
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                // All IJobEntityBatch jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
-                // jobs without any other safety handles are still running (haven't been synced).
-                safety = new EntitySafetyHandle {m_Safety = queryImpl->SafetyHandles->GetEntityManagerSafetyHandle()},
+                safety = new EntityQuerySafetyHandles(queryImpl),
 #endif
-
                 MatchingArchetypes = queryData->MatchingArchetypes,
                 CachedChunks = cachedChunks,
                 Filter = queryImpl->_Filter,
@@ -798,9 +756,9 @@ namespace Unity.Entities
                 PrebuiltBatchList = prebuiltBatchList,
                 PrebuiltBatchListMatchingArchetypeIndices = perBatchMatchingArchetypeIndex
             };
-
+            JobEntityBatchProducer<T>.Initialize();
             var reflectionData = JobEntityBatchProducer<T>.reflectionData.Data;
-            CheckReflectionDataCorrect(reflectionData);
+            CollectionHelper.CheckReflectionDataCorrect<T>(reflectionData);
 
             var scheduleParams = new JobsUtility.JobScheduleParameters(
                 UnsafeUtility.AddressOf(ref jobEntityBatchWrapper),
@@ -829,10 +787,11 @@ namespace Unity.Entities
         {
             internal static readonly SharedStatic<IntPtr> reflectionData = SharedStatic<IntPtr>.GetOrCreate<JobEntityBatchProducer<T>>();
 
-            [Preserve]
+            [BurstDiscard]
             internal static void Initialize()
             {
-                reflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(JobEntityBatchWrapper<T>), typeof(T), (ExecuteJobFunction)Execute);
+                if (reflectionData.Data == IntPtr.Zero)
+                    reflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(JobEntityBatchWrapper<T>), typeof(T), (ExecuteJobFunction)Execute);
             }
 
             public delegate void ExecuteJobFunction(
@@ -852,21 +811,19 @@ namespace Unity.Entities
                 ExecuteInternal(ref jobWrapper, bufferRangePatchData, ref ranges, jobIndex);
             }
 
-            [SkipLocalsInit]
             internal unsafe static void ExecuteInternal(
                 ref JobEntityBatchWrapper<T> jobWrapper,
                 IntPtr bufferRangePatchData,
                 ref JobRanges ranges,
                 int jobIndex)
             {
+                var chunkCache = new UnsafeChunkCache(jobWrapper.Filter,
+                    jobWrapper.SkipSubChunkBatching == 0,
+                    jobWrapper.CachedChunks, jobWrapper.MatchingArchetypes.Ptr);
+
                 var chunks = jobWrapper.CachedChunks;
-                var ecs = chunks.EntityComponentStore;
                 var prebuiltBatches = (ArchetypeChunk*)jobWrapper.PrebuiltBatchList.Ptr;
 
-                // Preallocate
-                var stackAllocatedBatchList = stackalloc ArchetypeChunk[ChunkIterationUtility.kMaxBatchesPerChunk];
-
-                bool skipSubChunkBatching = jobWrapper.SkipSubChunkBatching == 1;
                 bool isParallel = jobWrapper.IsParallel == 1;
                 bool isFiltering = jobWrapper.Filter.RequiresMatchesFilter;
                 while (true)
@@ -893,6 +850,9 @@ namespace Unity.Entities
 
                             if (isFiltering && !batch.m_Chunk->MatchesFilter(jobWrapper.MatchingArchetypes.Ptr[jobWrapper.PrebuiltBatchListMatchingArchetypeIndices.Ptr[batchIndex]], ref jobWrapper.Filter))
                                 continue;
+                            // TODO(DOTS-5666): skip entities that fail the enabled-bits check.
+                            // We can't do this at schedule time for safety reasons (we don't want Schedule to have to
+                            // block on existing jobs in order to safely read the chunk's enabled bits).
 
                             Assert.AreNotEqual(0, batch.Count);
                             jobWrapper.JobData.Execute(batch, batchIndex);
@@ -900,48 +860,48 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        for (int batchIndex = beginBatchIndex; batchIndex < endBatchIndex; ++batchIndex)
+                        if (jobWrapper.SkipSubChunkBatching != 0 && !isFiltering)
                         {
-                            var chunkIndex = batchIndex;
-                            var chunk = chunks.Ptr[chunkIndex];
-                            var match = jobWrapper.MatchingArchetypes.Ptr[chunks.PerChunkMatchingArchetypeIndex->Ptr[chunkIndex]];
-
-                            if (isFiltering && !chunk->MatchesFilter(match, ref jobWrapper.Filter))
-                                continue;
-
-                            // If we can always take the fast path, just execute the chunk now
-                            if (skipSubChunkBatching)
+                            var chunkPtr = chunks.Ptr;
+                            ArchetypeChunk batch = new ArchetypeChunk(null, chunks.EntityComponentStore);
+                            for (int batchIndex = beginBatchIndex; batchIndex < endBatchIndex; ++batchIndex)
                             {
-                                var batch = new ArchetypeChunk(chunk, chunks.EntityComponentStore);
+                                batch.m_Chunk = chunkPtr[batchIndex];
                                 Assert.AreNotEqual(0, batch.Count);
                                 jobWrapper.JobData.Execute(batch, batchIndex);
-
-                                continue;
                             }
+                        }
+                        else
+                        {
+                            // Update chunkCache range
+                            chunkCache.Length = endBatchIndex;
+                            int chunkIndex = beginBatchIndex - 1;
 
-                            // If we can't always take the fast path, figure out if we can for this chunk
-                            var chunkShouldBatch = ChunkIterationUtility.DoesChunkRequireBatching(chunk, match, out var shouldSkipChunk);
-
-                            // Chunks are skipped if we know nothing inside will be processed
-                            if (shouldSkipChunk)
-                                continue;
-
-                            if (chunkShouldBatch)
+                            v128 chunkEnabledMask = default;
+                            while (chunkCache.MoveNextChunk(ref chunkIndex, out var archetypeChunk, out var chunkEntityCount,
+                                       out byte chunkRequiresBatching, ref chunkEnabledMask))
                             {
-                                ChunkIterationUtility.FindBatchesForChunk(chunk, match, ecs, stackAllocatedBatchList, out var batchCount);
-
-                                for (int i = 0; i < batchCount; ++i)
+                                if (chunkRequiresBatching == 0)
                                 {
-                                    var batch = stackAllocatedBatchList[i];
-                                    Assert.AreNotEqual(0, batch.Count);
-                                    jobWrapper.JobData.Execute(batch, i);
+                                    // TODO(DOTS-5401): chunkIndex is not a unique batch index
+                                    jobWrapper.JobData.Execute(archetypeChunk, chunkIndex);
                                 }
-                            }
-                            else
-                            {
-                                var batch = new ArchetypeChunk(chunk, chunks.EntityComponentStore);
-                                Assert.AreNotEqual(0, batch.Count);
-                                jobWrapper.JobData.Execute(batch, batchIndex);
+                                else
+                                {
+                                    // TODO(DOTS-5401): batchIndex is not a unique batch index
+                                    int batchIndex = 0;
+                                    int batchStartIndex = 0;
+                                    int batchEndIndex = 0;
+                                    while (EnabledBitUtility.GetNextRange(ref chunkEnabledMask, ref batchStartIndex,
+                                               ref batchEndIndex))
+                                    {
+                                        archetypeChunk.m_BatchStartEntityIndex = batchStartIndex;
+                                        archetypeChunk.m_BatchEntityCount = batchEndIndex - batchStartIndex;
+                                        Assert.AreNotEqual(0, archetypeChunk.Count);
+                                        jobWrapper.JobData.Execute(archetypeChunk, batchIndex++);
+                                        batchStartIndex = batchEndIndex;
+                                    }
+                                }
                             }
                         }
                     }
@@ -951,28 +911,6 @@ namespace Unity.Entities
                         break;
                 }
             }
-        }
-    }
-
-
-    // Burst-compatibility tests
-    [BurstCompile]
-    struct DummyJobEntityBatch : IJobEntityBatch
-    {
-        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
-        {
-        }
-    }
-    [BurstCompile]
-    static class DummyJobEntityBatchScheduler
-    {
-        // This thing *should* be Burst compatible but isn't due to UnsafeList.Dispose() using IJob that
-        // contains an access to a static IntPtr which is not burst compatible.
-        // It will become burst compatible as soon as we make UnsafeList.Dispose() use IJobBurstSchedulable.
-        [NotBurstCompatible]
-        public static void Schedule()
-        {
-            new DummyJobEntityBatch().Run(default(EntityQuery));
         }
     }
 }

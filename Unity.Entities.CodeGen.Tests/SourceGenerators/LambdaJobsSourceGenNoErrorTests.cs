@@ -1,4 +1,5 @@
 using System;
+using Mono.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.CodeGen.Tests;
@@ -8,6 +9,9 @@ using Unity.Jobs;
 
 namespace Unity.Entities.CodeGen.SourceGenerators.Tests
 {
+#if UNITY_2021_1_OR_NEWER
+    [Ignore("2021.1 no longer supports UnityEditor.Scripting.Compilers.CSharpLanguage which these tests rely on.")]
+#endif
     [TestFixture]
     public class LambdaJobsSourceGenNoErrorTests : SourceGenTests
     {
@@ -480,7 +484,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                 }
             }";
 
-            AssertProducesNoError(extensionMethodStubs + source, overrideDefaultUsings: Array.Empty<string>());
+            AssertProducesNoError(extensionMethodStubs + source, overrideDefaultUsings: ReadOnlyCollection<string>.Empty);
         }
 
         [Test]
@@ -637,6 +641,27 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
         }
 
         [Test]
+        public void NoError_EcbParameter_RunWithDeferredPlayback()
+        {
+            const string source = @"
+            public class TestEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            partial class EntityCommands_RunWithDeferredPlayback : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .WithDeferredPlaybackSystem<TestEntityCommandBufferSystem>()
+                        .ForEach((EntityCommandBuffer buffer) =>
+                        {
+                        }).Run();
+                }
+            }";
+
+            AssertProducesNoError(source, null, true);
+        }
+
+        [Test]
         public void NoError_TwoSystemsInSameFileName()
         {
             const string source1 =
@@ -661,5 +686,6 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
 
             AssertProducesNoError(null, true, ("Dir1/System.cs", source1), ("Dir2/System.cs", source2));
         }
+
     }
 }

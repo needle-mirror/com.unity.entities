@@ -2,17 +2,20 @@ using System;
 #if !NET_DOTS
 using System.Collections.Generic;
 using Unity.Properties;
-using Unity.Properties.Adapters;
-using Unity.Properties.Internal;
 #endif
 
 namespace Unity.Entities
 {
 #if !UNITY_DOTSRUNTIME
+    interface ITypedVisit<TValue>
+    {
+        void Visit<TContainer>(Property<TContainer, TValue> property, ref TContainer container, ref TValue value);
+    }
+
     unsafe class ManagedObjectRemap :
         IPropertyBagVisitor,
         IPropertyVisitor,
-        IVisit<Entity>
+        ITypedVisit<Entity>
     {
         /// <summary>
         /// Set used to track already visited references, in order to avoid infinite recursion.
@@ -42,7 +45,7 @@ namespace Unity.Entities
                 throw new ArgumentException("Cannot remap hybrid components", nameof(obj));
             }
 
-            var properties = PropertyBagStore.GetPropertyBag(type);
+            var properties = PropertyBag.GetPropertyBag(type);
 
             if (null == properties)
             {
@@ -116,10 +119,10 @@ namespace Unity.Entities
         {
             var value = property.GetValue(ref container);
 
-            if (RuntimeTypeInfoCache<TValue>.CanBeNull && null == value)
+            if (TypeTraits<TValue>.CanBeNull && null == value)
                 return;
 
-            if (!RuntimeTypeInfoCache<TValue>.IsValueType && typeof(string) != typeof(TValue))
+            if (!TypeTraits<TValue>.IsValueType && typeof(string) != typeof(TValue))
             {
                 if (m_References == null)
                     m_References = new HashSet<object>();
@@ -133,14 +136,17 @@ namespace Unity.Entities
                 return;
 #endif
 
-            if (this is IVisit<TValue> typed)
+            if (this is ITypedVisit<TValue> typed)
             {
                 typed.Visit(property, ref container, ref value);
                 property.SetValue(ref container, value);
                 return;
             }
 
-            property.Visit(this, ref value);
+            PropertyContainer.Accept(this, ref value);
+
+            if (!property.IsReadOnly && TypeTraits<TValue>.IsValueType)
+                property.SetValue(ref container, value);
         }
 
         /// <summary>
@@ -151,13 +157,16 @@ namespace Unity.Entities
         /// <param name="value">The entity value.</param>
         /// <typeparam name="TContainer">The container type.</typeparam>
         /// <returns>The status of the adapter visit.</returns>
-        VisitStatus IVisit<Entity>.Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
+        void ITypedVisit<Entity>.Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
         {
             value = null != m_Info
                 ? EntityRemapUtility.RemapEntity(m_Info, value)
                 : EntityRemapUtility.RemapEntityForPrefab(m_PrefabSrc, m_PrefabDst, m_PrefabCount, value);
+        }
 
-            return VisitStatus.Stop;
+        public void ClearGCRefs()
+        {
+            m_References?.Clear();
         }
     }
 #else
@@ -171,6 +180,11 @@ namespace Unity.Entities
         public void RemapEntityReferencesForPrefab(object obj, Entity* remapSrc, Entity* remapDst, int remapInfoCount)
         {
             // Not supported in DOTS Runtime.
+        }
+
+        public void ClearGCRefs()
+        {
+            //no-op, no references to clear
         }
     }
 #endif

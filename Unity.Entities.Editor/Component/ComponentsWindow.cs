@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Properties.Editor;
-using Unity.Properties.UI;
+using Unity.Properties;
+using Unity.Platforms.UI;
 using Unity.Serialization.Editor;
 using UnityEditor;
 using UnityEngine;
@@ -107,10 +107,15 @@ namespace Unity.Entities.Editor
 
         State m_State;
 
-        [MenuItem(Constants.MenuItems.ComponentsWindow, false, Constants.MenuItems.WindowPriority)]
+        [MenuItem(Constants.MenuItems.ComponentsWindow, false, Constants.MenuItems.ComponentsWindowPriority)]
         static void Open()
         {
             GetWindow<ComponentsWindow>();
+        }
+
+        protected void OnFocus()
+        {
+            Analytics.SendEditorEvent(Analytics.Window.Components, Analytics.EventType.WindowFocus);
         }
 
         static void CacheComponentsData()
@@ -167,7 +172,7 @@ namespace Unity.Entities.Editor
                 comp.UpdateTarget(m_FilteredTypes[i]);
             };
             m_ListView.itemsSource = m_FilteredTypes;
-            m_ListView.onSelectionChange += objects =>
+            m_ListView.selectionChanged += objects =>
             {
                 var componentTypeViewData = objects.OfType<ComponentTypeViewData>().FirstOrDefault();
                 if (componentTypeViewData.Type == null)
@@ -191,7 +196,7 @@ namespace Unity.Entities.Editor
                 m_FilteredTypes.Clear();
                 m_FilteredTypes.AddRange(handler.Apply(s_Types));
                 m_State.SearchString = handler.SearchString;
-                m_ListView.Refresh();
+                m_ListView.Rebuild();
                 SetSelection();
             });
             m_SearchElement.value = m_State.SearchString;

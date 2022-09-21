@@ -19,7 +19,13 @@ namespace Unity.Entities
     /// </remarks>
     public abstract unsafe partial class ComponentSystemBase
     {
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal SystemState* m_StatePtr;
+
+#if !NET_DOTS
+        // This property exists so that the SystemSate is visible in the .NET Debugger.
+        SystemState_ SystemState => SystemState_.FromPointer(m_StatePtr);
+#endif
 
         internal SystemState* CheckedState()
         {
@@ -31,6 +37,7 @@ namespace Unity.Entities
             return state;
         }
 
+
         /// <summary>
         /// Controls whether this system executes when its OnUpdate function is called.
         /// </summary>
@@ -38,6 +45,7 @@ namespace Unity.Entities
         /// <remarks>The Enabled property is intended for debugging so that you can easily turn on and off systems
         /// from the Entity Debugger window. A system with Enabled set to false will not update, even if its
         /// <see cref="ShouldRunSystem"/> function returns true.</remarks>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public bool Enabled { get => CheckedState()->Enabled; set => CheckedState()->Enabled = value; }
 
         /// <summary>
@@ -48,6 +56,7 @@ namespace Unity.Entities
         /// that you add to the system as a required query with <see cref="RequireForUpdate"/>.
         /// Implicit queries may be created lazily and not exist before a system has run for the first time.</remarks>
         /// <value>A read-only array of the cached <see cref="EntityQuery"/> objects.</value>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public EntityQuery[] EntityQueries => UnsafeListToRefArray(ref CheckedState()->EntityQueries);
 
         internal static EntityQuery[] UnsafeListToRefArray(ref UnsafeList<EntityQuery> objs)
@@ -65,6 +74,7 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>The system updates the component version numbers inside any <see cref="ArchetypeChunk"/> instances
         /// that this system accesses with write permissions to this value.</remarks>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public uint GlobalSystemVersion => EntityManager.GlobalSystemVersion;
 
         /// <summary>
@@ -89,64 +99,129 @@ namespace Unity.Entities
         /// that does contain changes.
         /// </remarks>
         /// <value>The <see cref="GlobalSystemVersion"/> the last time this system ran.</value>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public uint LastSystemVersion => CheckedState()->m_LastSystemVersion;
 
         /// <summary>
         /// The EntityManager object of the <see cref="World"/> in which this system exists.
         /// </summary>
         /// <value>The EntityManager for this system.</value>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public EntityManager EntityManager => CheckedState()->m_EntityManager;
 
         /// <summary>
         /// The World in which this system exists.
         /// </summary>
         /// <value>The World of this system.</value>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public World World => m_StatePtr != null ? (World)m_StatePtr->m_World.Target : null;
 
         /// <summary>
-        /// The SystemHandleUntyped of this system.
+        /// The SystemHandle of this system.
         /// </summary>
         /// <returns>
         /// If the system state is valid, the untyped system's handle, otherwise default.
         /// </returns>
-        public SystemHandleUntyped SystemHandleUntyped => m_StatePtr != null ? m_StatePtr->SystemHandleUntyped : default;
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        public SystemHandle SystemHandle => m_StatePtr != null ? m_StatePtr->SystemHandle : default;
+
+        /// <inheritdoc cref="SystemHandle"/>
+        [Obsolete("SystemHandleUntyped has been renamed to SystemHandle. (UnityUpgradable) -> SystemHandle", true)]
+        public SystemHandle SystemHandleUntyped => SystemHandle;
 
         /// <summary>
         /// The current Time data for this system's world.
         /// </summary>
+        [Obsolete("Time has been deprecated as duplicate. Use SystemAPI.Time or World.Time instead (RemovedAfter 2023-08-08)", true)]
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         public ref readonly TimeData Time => ref World.Time;
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        void CheckSystemState()
+        {
+            if (m_StatePtr == null)
+            {
+                throw new InvalidOperationException($"System state pointer is null.");
+            }
+        }
+
+        /// <summary>
+        /// Retrieve world update allocator from system state.
+        /// </summary>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        public Allocator WorldUpdateAllocator
+        {
+            get
+            {
+                CheckSystemState();
+                return m_StatePtr->WorldUpdateAllocator;
+            }
+        }
+
+        /// <summary>
+        /// Retrieve world rewindable allocator from system state.
+        /// </summary>
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        internal ref RewindableAllocator WorldRewindableAllocator
+        {
+            get
+            {
+                CheckSystemState();
+                return ref m_StatePtr->WorldRewindableAllocator;
+            }
+        }
 
         // ============
 
 
-        internal void CreateInstance(World world, SystemState* statePtr)
+        internal void CreateInstance(World world)
         {
-            m_StatePtr = statePtr;
+            ref var worldImpl = ref World.Unmanaged.GetImpl();
+            var previousSystemGlobalState = new WorldUnmanagedImpl.PreviousSystemGlobalState(ref worldImpl, m_StatePtr);
+
             OnBeforeCreateInternal(world);
             try
             {
+                // Bump global system version to mean that this system OnCreate begins
+                m_StatePtr->m_EntityComponentStore->IncrementGlobalSystemVersion(in m_StatePtr->m_Handle);
+
                 OnCreateForCompiler();
                 OnCreate();
+                previousSystemGlobalState.Restore(ref worldImpl, m_StatePtr);
+
+                // Bump global system version again to mean that this system OnCreate ends
+                m_StatePtr->m_EntityComponentStore->IncrementGlobalSystemVersion();
             }
             catch
             {
+                previousSystemGlobalState.Restore(ref worldImpl, m_StatePtr);
                 OnBeforeDestroyInternal();
                 OnAfterDestroyInternal();
                 throw;
             }
         }
 
+
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected internal virtual void OnCreateForCompiler()
         {
-            //do not remove, dots compiler will emit methods that implement this method.
+            //do not remove, source generators will emit methods that implement this method.
         }
 
         internal void DestroyInstance()
         {
-            OnBeforeDestroyInternal();
-            OnDestroy();
-            OnAfterDestroyInternal();
+            var previousSystemGlobalState = new WorldUnmanagedImpl.PreviousSystemGlobalState(ref World.Unmanaged.GetImpl(), m_StatePtr);
+
+            try
+            {
+                OnBeforeDestroyInternal();
+                OnDestroy();
+            }
+            finally
+            {
+                previousSystemGlobalState.Restore(ref World.Unmanaged.GetImpl(), m_StatePtr);
+                OnAfterDestroyInternal();
+            }
         }
 
         /// <summary>
@@ -179,8 +254,8 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>If the <see cref="EntityQuery"/> objects defined for a system do not match any existing entities
         /// then the system skips updating until a successful match is found. Likewise, if you set <see cref="Enabled"/>
-        /// to false, then the system stops running. In both cases, <see cref="OnStopRunning"/> is
-        /// called when a running system stops updating; OnStartRunning is called when it starts updating again.
+        /// to false, then the system stops running. In both cases, OnStopRunning is
+        /// called when a running system stops updating; <see cref="OnStartRunning"/> is called when it starts updating again.
         /// </remarks>
         protected virtual void OnStopRunning()
         {
@@ -217,21 +292,6 @@ namespace Unity.Entities
 
         // ===================
 
-        internal ComponentSystemBase GetSystemFromSystemID(World world, int systemID)
-        {
-            foreach (var system in world.Systems)
-            {
-                if (system == null) continue;
-
-                if (system.CheckedState()->m_SystemID == systemID)
-                {
-                    return system;
-                }
-            }
-
-            return null;
-        }
-
 
 #if ENABLE_PROFILER
         internal string GetProfilerMarkerName()
@@ -254,14 +314,35 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Reports whether any of this system's entity queries currently match any chunks. This function is used
+        /// Reports whether this system satisfies the criteria to update. This function is used
         /// internally to determine whether the system's OnUpdate function can be skipped.
         /// </summary>
-        /// <returns>True, if the queries in this system match existing entities or the system has the
-        /// <see cref="AlwaysUpdateSystemAttribute"/>.</returns>
-        /// <remarks>A system without any queries also returns true. Note that even if this function returns true,
-        /// other factors may prevent a system from updating. For example, a system will not be updated if its
-        /// <see cref="Enabled"/> property is false.</remarks>
+        /// <remarks>
+        /// <p>
+        /// By default, systems will invoke OnUpdate every frame.
+        /// </p>
+        /// <p>
+        /// If a system calls <see cref="M:Unity.Entities.ComponentSystemBase.RequireForUpdate``1"/>
+        /// or <see cref="M:Unity.Entities.ComponentSystemBase.RequireForUpdate(Unity.Entities.EntityQuery)"/>
+        /// in OnCreate, it will only update if all of its required components exist and
+        /// required queries match existing chunks. This check uses [IsEmptyIgnoreFilter], so the queries may
+        /// still be empty if they use filters or [Enableable Components].
+        /// </p>
+        /// <p>
+        /// If a system has the <see cref="RequireMatchingQueriesForUpdateAttribute"/> it will
+        /// update if any EntityQuery it uses match existing chunks. This check also uses [IsEmptyIgnoreFilter],
+        /// so all queries may still be empty if they use filters or [Enableable Components].
+        /// </p>
+        /// <p>
+        /// Note: Other factors might prevent a system from updating, even if this method returns
+        /// true. For example, a system will not be updated if its [Enabled] property is false.
+        /// </p>
+        ///
+        /// [IsEmptyIgnoreFilter]: xref:Unity.Entities.EntityQuery.IsEmptyIgnoreFilter
+        /// [Enableable Components]: xref:Unity.Entities.IEnableableComponent
+        /// [Enabled]: xref:Unity.Entities.ComponentSystemBase.Enabled
+        /// </remarks>
+        /// <returns>True if the system should be updated, or false if not.</returns>
         public bool ShouldRunSystem() => CheckedState()->ShouldRunSystem();
 
         internal virtual void OnBeforeCreateInternal(World world)
@@ -271,7 +352,7 @@ namespace Unity.Entities
         internal void OnAfterDestroyInternal()
         {
             var state = CheckedState();
-            World.Unmanaged.DestroyManagedSystem(state);
+            World.Unmanaged.DestroyManagedSystemState(state);
             m_StatePtr = null;
         }
 
@@ -282,7 +363,7 @@ namespace Unity.Entities
                 var query = (EntityQuery)queries[i].Target;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                query._GetImpl()->_DisallowDisposing = false;
+                query._GetImpl()->_DisallowDisposing = 0;
 #endif
                 query.Dispose();
                 queries[i].Free();
@@ -305,7 +386,7 @@ namespace Unity.Entities
             var state = CheckedState();
             var store = state->m_EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
 
-            store->IncrementGlobalSystemVersion();
+            store->IncrementGlobalSystemVersion(state->SystemHandle);
 
             ref var qs = ref state->EntityQueries;
             for (int i = 0; i < qs.Length; ++i)
@@ -322,7 +403,8 @@ namespace Unity.Entities
             // Store global system version before incrementing it again
             state->m_LastSystemVersion = store->GlobalSystemVersion;
 
-            store->IncrementGlobalSystemVersion();
+            // Passing 'default' to mean that we are no longer within an executing system
+            store->IncrementGlobalSystemVersion(default);
         }
 
         internal void CompleteDependencyInternal()
@@ -340,7 +422,7 @@ namespace Unity.Entities
         /// chunk.</returns>
         /// <remarks>Pass an <see cref="ComponentTypeHandle{T}"/> instance to a job that has access to chunk data,
         /// such as an <see cref="IJobChunk"/> job, to access that type of component inside the job.</remarks>
-        public ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : struct, IComponentData
+        public ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : unmanaged, IComponentData
         {
             return CheckedState()->GetComponentTypeHandle<T>(isReadOnly);
         }
@@ -369,7 +451,7 @@ namespace Unity.Entities
         /// <remarks>Pass a BufferTypeHandle instance to a job that has access to chunk data, such as an
         /// <see cref="IJobChunk"/> job, to access that type of buffer component inside the job.</remarks>
         public BufferTypeHandle<T> GetBufferTypeHandle<T>(bool isReadOnly = false)
-            where T : struct, IBufferElementData
+            where T : unmanaged, IBufferElementData
         {
             return CheckedState()->GetBufferTypeHandle<T>(isReadOnly);
         }
@@ -414,14 +496,21 @@ namespace Unity.Entities
         /// read-only whenever possible.</param>
         /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
         /// <returns>All component data of type T.</returns>
-        public ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
-            where T : struct, IComponentData
+        public ComponentLookup<T> GetComponentLookup<T>(bool isReadOnly = false)
+            where T : unmanaged, IComponentData
         {
-            return CheckedState()->GetComponentDataFromEntity<T>(isReadOnly);
+            return CheckedState()->GetComponentLookup<T>(isReadOnly);
+        }
+        /// <inheritdoc cref="GetComponentLookup{T}"/>
+        [Obsolete("This method has been renamed to GetComponentLookup. (RemovedAfter Entities 1.0) (UnityUpgradable) -> GetComponentLookup<T>(*)", false)]
+        public ComponentLookup<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
+            where T : unmanaged, IComponentData
+        {
+            return CheckedState()->GetComponentLookup<T>(isReadOnly);
         }
 
         /// <summary>
-        /// Gets a BufferFromEntity&lt;T&gt; object that can access a <seealso cref="DynamicBuffer{T}"/>.
+        /// Gets a BufferLookup&lt;T&gt; object that can access a <seealso cref="DynamicBuffer{T}"/>.
         /// </summary>
         /// <remarks>Assign the returned object to a field of your Job struct so that you can access the
         /// contents of the buffer in a Job.</remarks>
@@ -429,127 +518,302 @@ namespace Unity.Entities
         /// a read-only fashion whenever possible.</param>
         /// <typeparam name="T">The type of <see cref="IBufferElementData"/> stored in the buffer.</typeparam>
         /// <returns>An array-like object that provides access to buffers, indexed by <see cref="Entity"/>.</returns>
-        /// <seealso cref="ComponentDataFromEntity{T}"/>
-        public BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
+        /// <seealso cref="ComponentLookup{T}"/>
+        public BufferLookup<T> GetBufferLookup<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData
         {
-            return CheckedState()->GetBufferFromEntity<T>(isReadOnly);
+            return CheckedState()->GetBufferLookup<T>(isReadOnly);
+        }
+        /// <inheritdoc cref="GetBufferLookup{T}(bool)"/>
+        [Obsolete("This method has been renamed to GetBufferLookup. (RemovedAfter Entities 1.0) (UnityUpgradable) -> GetBufferLookup<T>(*)", false)]
+        public BufferLookup<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData
+        {
+            return CheckedState()->GetBufferLookup<T>(isReadOnly);
         }
 
         /// <summary>
-        /// Gets a StorageInfoFromEntity object that can access a <seealso cref="EntityStorageInfo"/>.
+        /// Gets a EntityStorageInfoLookup object that can access a <seealso cref="EntityStorageInfo"/>.
         /// </summary>
         /// <remarks>Assign the returned object to a field of your Job struct so that you can access the
         /// contents in a Job.</remarks>
         /// <returns>An dictionary-like object that provides access to information about how Entities are stored,
         /// indexed by <see cref="Entity"/>.</returns>
-        /// <seealso cref="StorageInfoFromEntity"/>
-        public StorageInfoFromEntity GetStorageInfoFromEntity()
+        /// <seealso cref="EntityStorageInfoLookup"/>
+        public EntityStorageInfoLookup GetEntityStorageInfoLookup()
         {
-            return CheckedState()->GetStorageInfoFromEntity();
+            return CheckedState()->GetEntityStorageInfoLookup();
+        }
+        /// <inheritdoc cref="GetEntityStorageInfoLookup"/>
+        [Obsolete("This method has been renamed to GetEntityStorageInfoLookup. (RemovedAfter Entities 1.0) (UnityUpgradable) -> GetEntityStorageInfoLookup(*)", false)]
+        public EntityStorageInfoLookup GetStorageInfoFromEntity()
+        {
+            return CheckedState()->GetEntityStorageInfoLookup();
         }
 
         /// <summary>
-        /// Adds a query that must return entities for the system to run. You can add multiple required queries to a
+        /// Adds a query that must match entities for the system to run. You can add multiple required queries to a
         /// system; all of them must match at least one entity for the system to run.
         /// </summary>
         /// <param name="query">A query that must match entities this frame in order for this system to run.</param>
-        /// <remarks>Any queries added through RequireforUpdate override all other queries cached by this system.
+        /// <remarks>Any queries added through RequireForUpdate override all other queries cached by this system.
         /// In other words, if any required query does not find matching entities, the update is skipped even
         /// if another query created for the system (either explicitly or implicitly) does match entities and
         /// vice versa.</remarks>
+        /// <seealso cref="M:Unity.Entities.ComponentSystemBase.ShouldRunSystem"/>
+        /// <seealso cref="M:Unity.Entities.ComponentSystemBase.RequireForUpdate``1"/>
+        /// <seealso cref="T:Unity.Entities.RequireMatchingQueriesForUpdateAttribute"/>
         public void RequireForUpdate(EntityQuery query)
         {
             CheckedState()->RequireForUpdate(query);
         }
 
         /// <summary>
-        /// Require that a specific singleton component exist for this system to run.
+        /// Provide a set of queries, one of which must match entities for the system to run.
         /// </summary>
-        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <param name="queries">A set of queries, one of which must match entities this frame in order for
+        /// this system to run.</param>
+        /// <remarks>
+        /// This method can only be called from a system's OnCreate method.
+        ///
+        /// You can call this method multiple times from the same system to add multiple sets of required
+        /// queries. Each set must have at least one query that matches an entity for the system to run.
+        ///
+        /// Any queries added through RequireAnyForUpdate and [RequireForUpdate] override all other queries
+        /// created by this system for the purposes of deciding whether to update. In other words, if any set
+        /// of required queries does not find matching entities, the update is skipped even if another query
+        /// created for the system (either explicitly or implicitly) does match entities and vice versa.
+        ///
+        /// [EntityQueries]: xref:Unity.Entities.EntityQuery
+        /// [enableable components]: xref:T:Unity.Entities.IEnableableComponent
+        /// </remarks>
+        /// <seealso cref="M:Unity.Entities.ComponentSystemBase.ShouldRunSystem"/>
+        /// <seealso cref="T:Unity.Entities.RequireMatchingQueriesForUpdateAttribute"/>
+        public void RequireAnyForUpdate(params EntityQuery[] queries)
+        {
+            fixed(EntityQuery* queriesPtr = queries)
+            {
+                CheckedState()->RequireAnyForUpdate(queriesPtr, queries.Length);
+            }
+        }
+
+        /// <summary>
+        /// Provide a set of queries, one of which must match entities for the system to run.
+        /// </summary>
+        /// <param name="queries">A set of queries, one of which must match entities this frame in order for
+        /// this system to run.</param>
+        /// <remarks>
+        /// This method can only be called from a system's OnCreate method.
+        ///
+        /// You can call this method multiple times from the same system to add multiple sets of required
+        /// queries. Each set must have at least one query that matches an entity for the system to run.
+        ///
+        /// Any queries added through RequireAnyForUpdate and [RequireForUpdate] override all other queries
+        /// created by this system for the purposes of deciding whether to update. In other words, if any set
+        /// of required queries does not find matching entities, the update is skipped even if another query
+        /// created for the system (either explicitly or implicitly) does match entities and vice versa.
+        ///
+        /// [EntityQueries]: xref:Unity.Entities.EntityQuery
+        /// [enableable components]: xref:T:Unity.Entities.IEnableableComponent
+        /// </remarks>
+        /// <seealso cref="M:Unity.Entities.ComponentSystemBase.ShouldRunSystem"/>
+        /// <seealso cref="T:Unity.Entities.RequireMatchingQueriesForUpdateAttribute"/>
+        public void RequireAnyForUpdate(NativeArray<EntityQuery> queries)
+        {
+            CheckedState()->RequireAnyForUpdate(queries);
+        }
+
+        /// <summary>
+        /// Require that a specific component exist for this system to run.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the component.</typeparam>
+        /// <remarks>Note that for components that implement <see cref="T:Unity.Entities.IEnableableComponent"/>
+        /// this method ignores whether the component is enabled or not, it only checks whether it exists.</remarks>
+        /// <seealso cref="M:Unity.Entities.ComponentSystemBase.ShouldRunSystem"/>
+        /// <seealso cref="M:Unity.Entities.ComponentSystemBase.RequireForUpdate(Unity.Entities.EntityQuery)"/>
+        /// <seealso cref="T:Unity.Entities.RequireMatchingQueriesForUpdateAttribute"/>
+        public void RequireForUpdate<T>()
+        {
+            CheckedState()->RequireForUpdate<T>();
+        }
+
+        /// <inheritdoc cref="RequireForUpdate{T}"/>
+        [Obsolete("RequireSingletonForUpdate has been renamed. Use RequireForUpdate<T>() instead. (RemovedAfter Entities 1.0) (UnityUpgradable) -> RequireForUpdate<T>()", true)]
         public void RequireSingletonForUpdate<T>()
         {
-            CheckedState()->RequireSingletonForUpdate<T>();
+            RequireForUpdate<T>();
         }
 
         /// <summary>
         /// Checks whether a singelton component of the specified type exists.
         /// </summary>
-        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
         /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>
         public bool HasSingleton<T>()
         {
-            return CheckedState()->HasSingleton<T>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            if (TypeManager.IsEnableable(typeIndex))
+                throw new InvalidOperationException(
+                    $"Can't call HasSingleton<{typeof(T)}>() with enableable component type {typeof(T)}.");
+#endif
+            var type = ComponentType.ReadOnly<T>();
+            var query = CheckedState()->GetSingletonEntityQueryInternal(type);
+            return query.CalculateEntityCount() == 1;
         }
 
         /// <summary>
         /// Gets the value of a singleton component.
         /// </summary>
-        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
         /// <returns>The component.</returns>
+        /// <seealso cref="ComponentSystemBase.GetSingletonRW{T}"/>
         /// <seealso cref="EntityQuery.GetSingleton{T}"/>
+        /// <seealso cref="EntityQuery.GetSingletonRW{T}"/>
         /// <remarks>
         /// For managed components, put 'this.' in front to use <see cref="ComponentSystemBaseManagedComponentExtensions.GetSingleton{T}"/>
         /// </remarks>
         public T GetSingleton<T>()
-            where T : struct, IComponentData
+            where T : unmanaged, IComponentData
         {
-            return CheckedState()->GetSingleton<T>();
+            var type = ComponentType.ReadOnly<T>();
+            var query = CheckedState()->GetSingletonEntityQueryInternal(type);
+            return query.GetSingleton<T>();
+        }
+
+        /// <summary>
+        /// Gets a reference to the singleton component, for read/write access.
+        /// </summary>
+        /// <remarks>
+        /// NOTE: this reference refers directly to the singleton's component memory.
+        /// Structural changes to the chunk where the singleton resides can invalidate this reference
+        /// and result in crashes or undefined behaviour if the reference is used after structural changes.
+        /// </remarks>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+        /// <returns>The component.</returns>
+        /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
+        /// <seealso cref="EntityQuery.GetSingleton{T}"/>
+        /// <seealso cref="EntityQuery.GetSingletonRW{T}"/>
+        /// <remarks>
+        /// For managed components, put 'this.' in front to use <see cref="ComponentSystemBaseManagedComponentExtensions.GetSingletonRW{T}"/>
+        /// </remarks>
+        public RefRW<T> GetSingletonRW<T>()
+            where T : unmanaged, IComponentData
+        {
+            var type = ComponentType.ReadWrite<T>();
+            var query = CheckedState()->GetSingletonEntityQueryInternal(type);
+            return query.GetSingletonRW<T>();
+        }
+
+        /// <summary>
+        /// Gets the value of a singleton buffer component.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IBufferElementData"/> subtype of the singleton component buffer element.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+        /// <param name="isReadOnly">True if the caller only requires read-only access to this data.</param>
+        /// <returns>The buffer.</returns>
+        /// <seealso cref="EntityQuery.GetSingleton{T}"/>
+        /// <remarks>
+        /// For managed components, put 'this.' in front to use <see cref="ComponentSystemBaseManagedComponentExtensions.GetSingleton{T}"/>
+        /// </remarks>
+        public DynamicBuffer<T> GetSingletonBuffer<T>(bool isReadOnly = false)
+            where T : unmanaged, IBufferElementData
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = CheckedState()->GetSingletonEntityQueryInternal(type);
+            return query.GetSingletonBuffer<T>(isReadOnly);
         }
 
         /// <summary>
         /// Gets the value of a singleton component, and returns whether or not a singleton component of the specified type exists in the <see cref="World"/>.
         /// </summary>
-        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
-        /// <typeparam name="value">The component. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</typeparam>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+        /// <param name="value">The component. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</param>
         /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
         public bool TryGetSingleton<T>(out T value)
-            where T : struct, IComponentData
+            where T : unmanaged, IComponentData
         {
-            return CheckedState()->TryGetSingleton<T>(out value);
+            var type = ComponentType.ReadOnly<T>();
+            var query = CheckedState()->GetSingletonEntityQueryInternal(type);
+
+            var hasSingleton = query.CalculateEntityCount() == 1;
+
+            value = hasSingleton ? query.GetSingleton<T>() : default;
+
+            return hasSingleton;
+        }
+
+        /// <summary>
+        /// Gets the value of a singleton buffer component, and returns whether or not a singleton buffer component of the specified type exists in the <see cref="World"/>.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IBufferElementData"/> subtype of the singleton buffer component.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+        /// <param name="value">The buffer. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</param>
+        /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
+        public bool TryGetSingletonBuffer<T>(out DynamicBuffer<T> value)
+            where T : unmanaged, IBufferElementData
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = CheckedState()->GetSingletonEntityQueryInternal(type);
+
+            var hasSingleton = query.CalculateEntityCount() == 1;
+
+            value = hasSingleton ? GetSingletonBuffer<T>() : default;
+
+            return hasSingleton;
         }
 
         /// <summary>
         /// Sets the value of a singleton component.
         /// </summary>
         /// <param name="value">A component containing the value to assign to the singleton.</param>
-        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
         /// <seealso cref="EntityQuery.SetSingleton{T}"/>
         /// <remarks>
         /// For managed components, put 'this.' in front to use <see cref="ComponentSystemBaseManagedComponentExtensions.SetSingleton{T}"/>
         /// </remarks>
         public void SetSingleton<T>(T value)
-            where T : struct, IComponentData
+            where T : unmanaged, IComponentData
         {
-            CheckedState()->SetSingleton<T>(value);
+            var type = ComponentType.ReadWrite<T>();
+            var query = CheckedState()->GetSingletonEntityQueryInternal(type);
+            query.SetSingleton(value);
         }
 
         /// <summary>
         /// Gets the Entity instance for a singleton.
         /// </summary>
-        /// <typeparam name="T">The Type of the singleton component.</typeparam>
+        /// <typeparam name="T">The Type of the singleton component.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
         /// <returns>The entity associated with the specified singleton component.</returns>
         /// <seealso cref="EntityQuery.GetSingletonEntity"/>
         public Entity GetSingletonEntity<T>()
         {
-            return CheckedState()->GetSingletonEntity<T>();
+            var type = ComponentType.ReadOnly<T>();
+            var query = CheckedState()->GetSingletonEntityQueryInternal(type);
+            return query.GetSingletonEntity();
         }
 
         /// <summary>
         /// Gets the singleton Entity, and returns whether or not a singleton <see cref="Entity"/> of the specified type exists in the <see cref="World"/>.
         /// </summary>
-        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
-        /// <typeparam name="value">The <see cref="Entity"/> associated with the specified singleton component.
-        ///  If a singleton of the specified types does not exist in the current <see cref="World"/>, this is set to Entity.Null</typeparam>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+        /// <param name="value">The <see cref="Entity"/> associated with the specified singleton component.
+        ///  If a singleton of the specified types does not exist in the current <see cref="World"/>, this is set to Entity.Null</param>
         /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
         public bool TryGetSingletonEntity<T>(out Entity value)
         {
-            return CheckedState()->TryGetSingletonEntity<T>(out value);
-        }
+            var type = ComponentType.ReadOnly<T>();
+            var query = CheckedState()->GetSingletonEntityQueryInternal(type);
+            var hasSingleton = query.CalculateEntityCount() == 1;
 
-        // Fast path for singletons
-        internal EntityQuery GetSingletonEntityQueryInternal(ComponentType type)
-        {
-            return CheckedState()->GetSingletonEntityQueryInternal(type);
+            value = hasSingleton ? query.GetSingletonEntity() : Entity.Null;
+
+            return hasSingleton;
         }
 
         internal EntityQuery GetEntityQueryInternal(ComponentType* componentTypes, int count)
@@ -612,7 +876,7 @@ namespace Unity.Entities
         /// if one exists; otherwise, the function creates a new query instance and caches it.</remarks>
         /// <returns>The new or cached query.</returns>
         /// <param name="builder">The description builder</param>
-        public EntityQuery GetEntityQuery(in EntityQueryDescBuilder builder)
+        public EntityQuery GetEntityQuery(in EntityQueryBuilder builder)
         {
             return CheckedState()->GetEntityQueryInternal(builder);
         }
@@ -656,31 +920,51 @@ namespace Unity.Entities
     }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
+    /// <summary>
+    /// Variants of <see cref="ComponentSystemBase"/> methods which support managed components.
+    /// </summary>
     public static unsafe class ComponentSystemBaseManagedComponentExtensions
     {
         /// <summary>
         /// Gets the value of a singleton component.
         /// </summary>
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <param name="sys">The system</param>
         /// <returns>The component.</returns>
         /// <seealso cref="EntityQuery.GetSingleton{T}"/>
         public static T GetSingleton<T>(this ComponentSystemBase sys) where T : class, IComponentData
         {
             var type = ComponentType.ReadOnly<T>();
-            var query = sys.GetSingletonEntityQueryInternal(type);
+            var query = sys.CheckedState()->GetSingletonEntityQueryInternal(type);
             return query.GetSingleton<T>();
+        }
+
+        /// <summary>
+        /// Gets the value of a singleton component, for read/write access.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <param name="sys">The system</param>
+        /// <returns>The component.</returns>
+        /// <seealso cref="EntityQuery.GetSingleton{T}"/>
+        /// <seealso cref="EntityQuery.GetSingletonRW{T}"/>
+        public static T GetSingletonRW<T>(this ComponentSystemBase sys) where T : class, IComponentData
+        {
+            var type = ComponentType.ReadWrite<T>();
+            var query = sys.CheckedState()->GetSingletonEntityQueryInternal(type);
+            return query.GetSingletonRW<T>();
         }
 
         /// <summary>
         /// Sets the value of a singleton component.
         /// </summary>
+        /// <param name="sys">The system</param>
         /// <param name="value">A component containing the value to assign to the singleton.</param>
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
         /// <seealso cref="EntityQuery.SetSingleton{T}"/>
         public static void SetSingleton<T>(this ComponentSystemBase sys, T value) where T : class, IComponentData
         {
             var type = ComponentType.ReadWrite<T>();
-            var query = sys.GetSingletonEntityQueryInternal(type);
+            var query = sys.CheckedState()->GetSingletonEntityQueryInternal(type);
             query.SetSingleton(value);
         }
     }

@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
@@ -24,6 +24,7 @@ namespace Unity.Entities.Editor
             {
                 evt.StopPropagation();
                 evt.PreventDefault();
+                Analytics.SendEditorEvent(Analytics.Window.Inspector, Analytics.EventType.RelationshipGoTo, Analytics.GoToComponentDestination);
                 ComponentsWindow.HighlightComponent(@this.m_Data.InComponentType);
                 ContentUtilities.ShowComponentInspectorContent(@this.m_Data.InComponentType);
             }, this);

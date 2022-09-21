@@ -2,9 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.PerformanceTesting;
 using Unity.Entities.Tests;
+using Unity.Entities.UniversalDelegates;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Random = Unity.Mathematics.Random;
 
@@ -12,7 +16,7 @@ namespace Unity.Entities.PerformanceTests
 {
     [TestFixture]
     [Category("Performance")]
-    public sealed class EntityQueryPerformanceTests : EntityPerformanceTestFixture
+    public partial class EntityQueryPerformanceTests : EntityPerformanceTestFixture
     {
         struct TestTag0 : IComponentData{}
         struct TestTag1 : IComponentData{}
@@ -116,7 +120,7 @@ namespace Unity.Entities.PerformanceTests
         struct TestTag99 : IComponentData{}
         struct TestTag100 : IComponentData{}
 
-        struct LargeComponent : IComponentData
+        struct LargeComponent0 : IComponentData
         {
             public int data0;
             public int data1;
@@ -129,6 +133,55 @@ namespace Unity.Entities.PerformanceTests
             public int data8;
             public int data9;
         }
+
+        //duplicate 40 byte data structures of the above for generating archetypes with data, similar to tag components
+        struct LargeComponent1 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent2 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent3 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent4 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent5 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent6 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent7 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent8 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent9 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent10 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent11 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent12 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent13 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+        struct LargeComponent14 : IComponentData{public int data0;public int data1; public int data2; public int data3;
+        public int data4; public int data5; public int data6; public int data7; public int data8; public int data9;}
+
+        Type[] LargeComponentTypes =
+        {
+            typeof(LargeComponent0),
+            typeof(LargeComponent1),
+            typeof(LargeComponent2),
+            typeof(LargeComponent3),
+            typeof(LargeComponent4),
+            typeof(LargeComponent5),
+            typeof(LargeComponent6),
+            typeof(LargeComponent7),
+            typeof(LargeComponent8),
+            typeof(LargeComponent9),
+            typeof(LargeComponent10),
+            typeof(LargeComponent11),
+            typeof(LargeComponent12),
+            typeof(LargeComponent13),
+            typeof(LargeComponent14)
+        };
 
         Type[] TagTypes =
         {
@@ -238,8 +291,8 @@ namespace Unity.Entities.PerformanceTests
         //not an actually useful function. Used to do work on largeComponent to prevent "Never assigned to" error
         private void dummyWorkLargeComponentData()
         {
-            var entity  = m_Manager.CreateEntity(typeof(LargeComponent));
-            var component = m_Manager.GetComponentData<LargeComponent>(entity);
+            var entity  = m_Manager.CreateEntity(typeof(LargeComponent0));
+            var component = m_Manager.GetComponentData<LargeComponent0>(entity);
 
             //work done purely so I do not throw a "never assigned to" error on LargeComponent
             component.data0 = entity.Index;
@@ -257,18 +310,22 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.SetComponentData(entity,component);
         }
 
-        NativeArray<EntityArchetype> CreateUniqueArchetypes(int size, EnabledBitsMode enabledBitsMode, params ComponentType[] extraTypes)
+        NativeArray<EntityArchetype> CreateUniqueLargeArchetypes(int size, EnabledBitsMode enabledBitsMode, params ComponentType[] extraTypes)
         {
-            var archetypes = new NativeArray<EntityArchetype>(size, Allocator.TempJob);
+            var archetypes = CollectionHelper.CreateNativeArray<EntityArchetype>(size, World.UpdateAllocator.ToAllocator);
 
+
+            if (size > math.pow(2, LargeComponentTypes.Length))
+                throw new ArgumentException("Exceeded supported number of archetypes. Please add more LargeComponent data to LargeComponentsTypes");
+
+            var typeCount = CollectionHelper.Log2Ceil(size);
             for (int i = 0; i < size; i++)
             {
-                var typeCount = CollectionHelper.Log2Ceil(i);
                 var typeList = new List<ComponentType>();
                 for (int typeIndex = 0; typeIndex < typeCount; typeIndex++)
                 {
                     if ((i & (1 << typeIndex)) != 0)
-                        typeList.Add(TagTypes[typeIndex]);
+                        typeList.Add(LargeComponentTypes[typeIndex]);
                 }
 
                 typeList.Add(typeof(EcsTestData));
@@ -286,6 +343,134 @@ namespace Unity.Entities.PerformanceTests
             return archetypes;
         }
 
+        NativeArray<EntityArchetype> CreateUniqueTagArchetypes(int size, EnabledBitsMode enabledBitsMode,
+            params ComponentType[] extraTypes)
+        {
+            var usualTypes = new List<ComponentType>();
+            usualTypes.Add(typeof(EcsTestData));
+            usualTypes.Add(typeof(EcsTestSharedComp));
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+            {
+                usualTypes.Add(typeof(EcsTestDataEnableable));
+            }
+
+            return CreateUniqueTagArchetypes(size, extraTypes.Concat(usualTypes).ToArray());
+        }
+
+        NativeArray<EntityArchetype> CreateUniqueTagArchetypes(int size, params ComponentType[] extraTypes)
+        {
+            var archetypes = CollectionHelper.CreateNativeArray<EntityArchetype>(size, World.UpdateAllocator.ToAllocator);
+
+            var typeCount = CollectionHelper.Log2Ceil(size);
+            for (int i = 0; i < size; i++)
+            {
+                var typeList = new List<ComponentType>();
+                for (int typeIndex = 0; typeIndex < typeCount; typeIndex++)
+                {
+                    if ((i & (1 << typeIndex)) != 0)
+                        typeList.Add(TagTypes[typeIndex]);
+                }
+
+                foreach (var extra in extraTypes)
+                    typeList.Add(extra);
+
+                var types = typeList.ToArray();
+                archetypes[i] = m_Manager.CreateArchetype(types);
+            }
+
+            return archetypes;
+        }
+
+        static ulong GetNextNumberWithEqualBinaryWeight(ulong lastNumber)
+        {
+            ulong a = lastNumber;
+            ulong c = a & (0 - a);
+            ulong b = a + c;
+            ulong d = (a ^ b) >> 2;
+            ulong e = (d / c) | b;
+            return e;
+        }
+
+        // !!!Warning!!!: Don't use these archetypes for anything except other than CreateEntityQuery/GetEntityQuery
+        // performance tests! They contain fake tag types that don't exist in the TypeManager and will explode if
+        // anything asks the TypeManager about them.
+        NativeArray<NativeArray<ComponentType>> CreateUniqueFakeTagArchetypes(int numArchetypes, params ComponentType[] extraTypes)
+        {
+            var allocator = World.UpdateAllocator.ToAllocator;
+            var archetypes = CollectionHelper.CreateNativeArray<NativeArray<ComponentType>>(numArchetypes, allocator);
+
+            var numTypesInTypeManager = TypeManager.GetTypeCount();
+            var fakeTypeIndex = numTypesInTypeManager;
+
+            for (int archetypeIndex = 0; archetypeIndex < numArchetypes; archetypeIndex++, fakeTypeIndex++)
+            {
+                var fakeType = new ComponentType
+                {
+                    AccessModeType = ComponentType.AccessMode.ReadWrite,
+                    TypeIndex = new TypeIndex { Value = fakeTypeIndex | TypeManager.HasNoEntityReferencesFlag | TypeManager.ZeroSizeInChunkTypeFlag }
+                };
+                var typeList = CollectionHelper.CreateNativeArray<ComponentType>(1 + extraTypes.Length, allocator);
+                int componentIndex = 0;
+                typeList[componentIndex++] = fakeType;
+
+                foreach(var extra in extraTypes)
+                    typeList[componentIndex++] = extra;
+
+                archetypes[archetypeIndex] = typeList;
+            }
+
+            return archetypes;
+        }
+
+        NativeArray<NativeArray<ComponentType>> CreateUniqueTagCombinations(int numArchetypes, int componentsPerArchetype, params ComponentType[] extraTypes)
+        {
+            Assert.IsTrue(componentsPerArchetype < 64, "CreateUniqueTagCombinations cannot handle more than 63 components per archetype");
+
+            if (componentsPerArchetype == 1 && numArchetypes > 64)
+            {
+                // Not enough bits in ulong or entries in TagTypes? Just fake some component types!
+                return CreateUniqueFakeTagArchetypes(numArchetypes, extraTypes);
+            }
+
+            var allocator = World.UpdateAllocator.ToAllocator;
+            var archetypes = CollectionHelper.CreateNativeArray<NativeArray<ComponentType>>(numArchetypes, allocator);
+
+            // componentMask should always have N bits set.
+            ulong componentMask = (1ul << componentsPerArchetype) - 1ul;
+            for (int archetypeIndex = 0; archetypeIndex < numArchetypes; archetypeIndex++)
+            {
+                var typeList = CollectionHelper.CreateNativeArray<ComponentType>(componentsPerArchetype + extraTypes.Length, allocator);
+
+                ulong mask = componentMask;
+                int possibleTagIndex = 0;
+                int componentIndex = 0;
+                // Add all the types matching the mask to the typelist
+                while (mask != 0)
+                {
+                    if (possibleTagIndex >= TagTypes.Length)
+                    {
+                        throw new ArgumentException($"Insufficient TagTypes to CreateUniqueTagCombinations with {numArchetypes} combinations of {componentsPerArchetype} components");
+                    }
+                    if ((mask & 1ul) != 0)
+                    {
+                        typeList[componentIndex++] = TagTypes[possibleTagIndex];
+                    }
+
+                    possibleTagIndex++;
+                    mask >>= 1;
+                }
+
+                foreach(var extra in extraTypes)
+                    typeList[componentIndex++] = extra;
+
+                archetypes[archetypeIndex] = typeList;
+
+                componentMask = GetNextNumberWithEqualBinaryWeight(componentMask);
+            }
+
+            return archetypes;
+        }
+
         public enum EnabledBitsMode
         {
             NoEnableableComponents,
@@ -295,36 +480,219 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [Test, Performance]
-        public void EntityQuery_IsEmptyIgnoreFilter_N_Archetypes_SparseMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
+        public void EntityQuery_Matches([Values] bool enableChunkFilter,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.ManyComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        {
+            int entityCount = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp),
+                (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                    ? typeof(EcsTestData)
+                    : typeof(EcsTestDataEnableable));
+
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestSharedComp>();
+            if (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestData>();
+            else
+                queryBuilder.WithAll<EcsTestDataEnableable>();
+            using var query = m_Manager.CreateEntityQuery(queryBuilder);
+            if (enableChunkFilter)
+                query.SetSharedComponentFilter(new EcsTestSharedComp());
+
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            Measure.Method(
+                    () =>
+                    {
+                        int matchCount = 0;
+                        for(int i=0; i<entityCount; ++i)
+                            matchCount += query.Matches(entities[i]) ? 1 : 0;
+                        Assert.AreEqual(entityCount, matchCount);
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup(new SampleGroup($"Matches_{entityCount}x", SampleUnit.Microsecond))
+                .Run();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_MatchesIgnoreFilter([Values] bool enableChunkFilter,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.ManyComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        {
+            int entityCount = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp),
+                (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                    ? typeof(EcsTestData)
+                    : typeof(EcsTestDataEnableable));
+
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestSharedComp>();
+            if (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestData>();
+            else
+                queryBuilder.WithAll<EcsTestDataEnableable>();
+            using var query = m_Manager.CreateEntityQuery(queryBuilder);
+            if (enableChunkFilter)
+                query.SetSharedComponentFilter(new EcsTestSharedComp());
+
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            Measure.Method(
+                    () =>
+                    {
+                        int matchCount = 0;
+                        for(int i=0; i<entityCount; ++i)
+                            matchCount += query.MatchesIgnoreFilter(entities[i]) ? 1 : 0;
+                        Assert.AreEqual(entityCount, matchCount);
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup(new SampleGroup($"MatchesIgnoreFilter_{entityCount}x", SampleUnit.Microsecond))
+                .Run();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_IsEmpty_N_Chunks([Values(1, 100)] int archetypeCount, [Values(1, 100)] int chunkCount, [Values] bool resultEmpty,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.ManyComponentsDisabled)] EnabledBitsMode enabledBitsMode)
         {
             // This measures the cost of EntityQueries filtering a large number of archetypes it matches
-            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
+            using var archetypes = CreateUniqueLargeArchetypes(archetypeCount, enabledBitsMode);
             var lastArchetype = archetypes[archetypes.Length - 1];
-            var ent = m_Manager.CreateEntity(lastArchetype);
+            var ent = default(Entity);
+            if (!resultEmpty)
+            {
+                ent = m_Manager.CreateEntity(lastArchetype);
+                m_Manager.AddSharedComponentManaged(ent, new EcsTestSharedComp { value = 42 });
+            }
+
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+            {
+                for (int i = 0; i < archetypeCount; i++)
+                {
+                    using var entities = m_Manager.CreateEntity(archetypes[i],
+                        archetypes[i].ChunkCapacity * chunkCount, World.UpdateAllocator.ToAllocator);
+                    foreach (var e in entities)
+                        m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e, false);
+                }
+            }
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(),ComponentType.ReadWrite<EcsTestSharedComp>())
+                : m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestDataEnableable>(),ComponentType.ReadWrite<EcsTestSharedComp>());
+            Measure.Method(
+                    () =>
+                    {
+                        bool result = resultEmpty;
+                        for(int i=0; i<100; ++i)
+                            result = result && query.IsEmpty;
+                        Assert.AreEqual(resultEmpty, result);
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("IsEmpty WithoutFilter 100x", SampleUnit.Microsecond))
+                .Run();
+
+            query.AddSharedComponentFilterManaged(new EcsTestSharedComp { value = 42 });
+            Measure.Method(
+                    () =>
+                    {
+                        bool result = resultEmpty;
+                        for(int i=0; i<100; ++i)
+                            result = result && query.IsEmpty;
+                        Assert.AreEqual(resultEmpty, result);
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("IsEmpty WithFilter 100x", SampleUnit.Microsecond))
+                .Run();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_IsEmpty_N_Archetypes([Values(1, 100, 10000)] int archetypeCount, [Values] bool resultEmpty,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.ManyComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        {
+            // This measures the cost of EntityQueries filtering a large number of archetypes it matches
+            using var archetypes = CreateUniqueTagArchetypes(archetypeCount, enabledBitsMode);
+            var lastArchetype = archetypes[archetypes.Length - 1];
+            var ent = default(Entity);
+            if (!resultEmpty)
+            {
+                ent = m_Manager.CreateEntity(lastArchetype);
+                m_Manager.AddSharedComponentManaged(ent, new EcsTestSharedComp { value = 42 });
+            }
+
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+            {
+                for (int i = 0; i < archetypeCount; i++)
+                {
+                    var e = m_Manager.CreateEntity(archetypes[i]);
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e, false);
+                }
+            }
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(),ComponentType.ReadWrite<EcsTestSharedComp>())
+                : m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestDataEnableable>(),ComponentType.ReadWrite<EcsTestSharedComp>());
+            Measure.Method(
+                    () =>
+                    {
+                        bool result = resultEmpty;
+                        for(int i=0; i<100; ++i)
+                            result = result && query.IsEmpty;
+                        Assert.AreEqual(resultEmpty, result);
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("IsEmpty WithoutFilter 100x", SampleUnit.Microsecond))
+                .Run();
+
+            query.AddSharedComponentFilterManaged(new EcsTestSharedComp { value = 42 });
+            Measure.Method(
+                    () =>
+                    {
+                        bool result = resultEmpty;
+                        for(int i=0; i<100; ++i)
+                            result = result && query.IsEmpty;
+                        Assert.AreEqual(resultEmpty, result);
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("IsEmpty WithFilter 100x", SampleUnit.Microsecond))
+                .Run();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_IsEmptyIgnoreFilter_N_Archetypes_SparseMatch([Values(1, 100, 10000)] int archetypeCount, [Values] bool resultEmpty)
+        {
+            // This measures the cost of EntityQueries filtering a large number of archetypes it matches
+            var archetypes = CreateUniqueTagArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
+            var lastArchetype = archetypes[archetypes.Length - 1];
+
+            if(!resultEmpty)
+                m_Manager.CreateEntity(lastArchetype);
 
             var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 
             Measure.Method(
                 () =>
                 {
+                    //give some extra work that won't be optimized out.
+                    bool lastResult = true;
                     // To get a useful metric
                     for (int i = 0; i < 1000; i++)
                     {
                         var r = query.IsEmptyIgnoreFilter;
+                        lastResult = r;
                     }
                 })
                 .WarmupCount(1)
                 .MeasurementCount(100)
-                .SampleGroup("IsEmptyIgnoreFilter")
+                .SampleGroup("IsEmptyIgnoreFilter (1000x)")
                 .Run();
 
             archetypes.Dispose();
         }
 
         [Test, Performance]
-        public void EntityQuery_GetSingletonEntity_N_Archetypes_SparseMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
+        public void EntityQuery_GetSingletonEntity_N_Archetypes_SparseMatch([Values(1, 100, 10000)] int archetypeCount)
         {
-            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
+            var archetypes = CreateUniqueTagArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
             var lastArchetype = archetypes[archetypes.Length - 1];
             var singleton = m_Manager.CreateEntity(lastArchetype);
 
@@ -342,49 +710,77 @@ namespace Unity.Entities.PerformanceTests
                     })
                 .WarmupCount(1)
                 .MeasurementCount(100)
-                .SampleGroup("GetSingletonEntity")
+                .SampleGroup("GetSingletonEntity (1000x)")
                 .Run();
 
             archetypes.Dispose();
         }
 
         [Test, Performance]
-        public void EntityQuery_GetSingleton_N_Archetypes_SparseMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
+        public void EntityQuery_GetSingleton_N_Archetypes_SparseMatch([Values(1, 100, 10000)] int archetypeCount)
         {
-            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
+            using var archetypes = CreateUniqueTagArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
             var lastArchetype = archetypes[archetypes.Length - 1];
             var singleton = m_Manager.CreateEntity(lastArchetype);
             m_Manager.SetComponentData(singleton, new EcsTestData {value=42});
 
-            var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+            using var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 
             Measure.Method(
                     () =>
                     {
                         // To get a useful metric
+                        int sum = 0;
                         for (int i = 0; i < 1000; i++)
                         {
-                            var val = query.GetSingleton<EcsTestData>().value;
-                            Assert.AreEqual(42, val);
+                            sum += query.GetSingleton<EcsTestData>().value;
                         }
+                        Assert.AreEqual(42*1000, sum);
                     })
                 .WarmupCount(1)
                 .MeasurementCount(100)
-                .SampleGroup("GetSingleton")
+                .SampleGroup("GetSingleton (1000x)")
                 .Run();
-
-            archetypes.Dispose();
         }
 
         [Test, Performance]
-        public void EntityQuery_SetSingleton_N_Archetypes_SparseMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
+        public void EntityQuery_GetSingletonBuffer_N_Archetypes_SparseMatch([Values(1, 100, 10000)] int archetypeCount)
         {
-            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
+            using var archetypes = CreateUniqueTagArchetypes(archetypeCount,
+                EnabledBitsMode.NoEnableableComponents, typeof(EcsIntElement));
+            var lastArchetype = archetypes[archetypes.Length - 1];
+            var singleton = m_Manager.CreateEntity(lastArchetype);
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(singleton);
+            buffer.Add(new EcsIntElement { Value = 17 });
+
+            using var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+
+            Measure.Method(
+                    () =>
+                    {
+                        // To get a useful metric
+                        int sum = 0;
+                        for (int i = 0; i < 1000; i++)
+                        {
+                            sum += query.GetSingletonBuffer<EcsIntElement>(true).Length;
+                        }
+                        Assert.AreEqual(1000, sum);
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup("GetSingletonBuffer (1000x)")
+                .Run();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_SetSingleton_N_Archetypes_SparseMatch([Values(1, 100, 10000)] int archetypeCount)
+        {
+            using var archetypes = CreateUniqueTagArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
             var lastArchetype = archetypes[archetypes.Length - 1];
             var singleton = m_Manager.CreateEntity(lastArchetype);
             m_Manager.SetComponentData(singleton, new EcsTestData {value=42});
 
-            var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+            using var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 
             Measure.Method(
                     () =>
@@ -398,10 +794,8 @@ namespace Unity.Entities.PerformanceTests
                     })
                 .WarmupCount(1)
                 .MeasurementCount(100)
-                .SampleGroup("SetSingleton")
+                .SampleGroup("SetSingleton (1000x)")
                 .Run();
-
-            archetypes.Dispose();
         }
 
         unsafe ComponentType[] CreateRandomMatchingQueryTypes(NativeArray<EntityArchetype> archetypes)
@@ -413,9 +807,10 @@ namespace Unity.Entities.PerformanceTests
             {
                 if (random.NextBool())
                 {
-                    for (int typeIndex = 0; typeIndex < archetypes[i].Archetype->TypesCount; typeIndex++)
+                    // Start from 1, since Types[0] is always Entity
+                    for (int typeIndex = 1; typeIndex < archetypes[i].Archetype->TypesCount; typeIndex++)
                     {
-                        typeSet.Add(archetypes[i].Archetype->Types[0].ToComponentType());
+                        typeSet.Add(archetypes[i].Archetype->Types[typeIndex].ToComponentType());
                     }
                 }
             }
@@ -424,99 +819,586 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [Test, Performance]
-        public void EntityQuery_IsEmptyIgnoreFilter_N_Archetypes_RandomMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
+        public void EntityQuery_IsEmptyIgnoreFilter_N_Archetypes_RandomMatch([Values(1, 100, 10000)] int archetypeCount, [Values] bool resultEmpty)
         {
             // This measures the cost of EntityQueries filtering a large number of archetypes it matches
-            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
+            using var archetypes = CreateUniqueTagArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
             var lastArchetype = archetypes[archetypes.Length - 1];
-            m_Manager.CreateEntity(lastArchetype);
 
-            var query = m_Manager.CreateEntityQuery(CreateRandomMatchingQueryTypes(archetypes));
+            if(resultEmpty)
+                m_Manager.CreateEntity(lastArchetype);
+
+            using var query = m_Manager.CreateEntityQuery(CreateRandomMatchingQueryTypes(archetypes));
 
             Measure.Method(
                 () =>
                 {
+                    //give some extra work that won't be optimized out.
+                    bool lastResult = true;
                     // To get a useful metric
                     for (int i = 0; i < 1000; i++)
                     {
                         var r = query.IsEmptyIgnoreFilter;
+                        lastResult = r;
                     }
                 })
                 .WarmupCount(1)
                 .MeasurementCount(100)
-                .SampleGroup("IsEmptyIgnoreFilter")
+                .SampleGroup("IsEmptyIgnoreFilter (1000x)")
                 .Run();
+        }
 
-            archetypes.Dispose();
+        // Query Performance Test Helpers ----
+
+        private static List<ComponentType[]> CreateComponentTypesListFromArchetypes(NativeArray<NativeArray<ComponentType>> archetypes)
+        {
+            var queryTypes = new List<ComponentType[]>();
+            foreach (var archetype in archetypes)
+            {
+                queryTypes.Add(archetype.ToArray());
+            }
+
+            return queryTypes;
+        }
+
+        private static List<EntityQueryDesc> CreateEntityQueryDescsFromArchetypes(NativeArray<NativeArray<ComponentType>> archetypes)
+        {
+            var queryTypes = new List<EntityQueryDesc>();
+            foreach (var archetype in archetypes)
+            {
+                queryTypes.Add(new EntityQueryDesc { All = archetype.ToArray() });
+            }
+
+            return queryTypes;
+        }
+
+        private static unsafe EntityQueryBuilder CreateEntityQueryBuilderFromArchetype(NativeArray<ComponentType> types)
+        {
+            var builder = new EntityQueryBuilder(Allocator.Temp, (ComponentType*)types.GetUnsafeReadOnlyPtr(), types.Length);
+            return builder;
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        partial struct QueryISystem : ISystem
+        {
+            [BurstDiscard]
+            static void VerifyBurstCompiled()
+            {
+                Assert.Fail("QueryISystem is expected to be BurstCompiled and it isn't.");
+            }
+            public void OnCreate(ref SystemState state) { }
+            public void OnDestroy(ref SystemState state) { }
+            public void OnUpdate(ref SystemState state) { }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public static void GetQueries(ref SystemState state, ref NativeArray<NativeArray<ComponentType>> queries)
+            {
+                VerifyBurstCompiled();
+                for (int i = 0; i < queries.Length; i++)
+                {
+                    var builder = CreateEntityQueryBuilderFromArchetype(queries[i]);
+                    var query = state.GetEntityQuery(builder);
+                }
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public static void CreateQueries(ref SystemState state, ref NativeArray<NativeArray<ComponentType>> queries)
+            {
+                VerifyBurstCompiled();
+                for (int i = 0; i < queries.Length; i++)
+                {
+                    var builder = CreateEntityQueryBuilderFromArchetype(queries[i]);
+                    var query = state.GetEntityQuery(builder);
+                }
+            }
+        }
+
+        // Query Creation ------
+
+        [Test, Performance]
+        public void EntityQuery_CreateEntityQuery_ComponentTypeArray_UniqueArchetypes(
+            [Values(1, 100, 1000)] int queryCount, [Values(1,2,16)] int componentsPerQuery)
+        {
+            using var archetypes = CreateUniqueTagCombinations(queryCount, componentsPerQuery);
+            var queryTypes = CreateComponentTypesListFromArchetypes(archetypes);
+
+            Measure.Method(
+                    () =>
+                    {
+                        for (int i = 0; i < queryCount; i++)
+                        {
+                            var query = m_Manager.CreateEntityQuery(queryTypes[i]);
+                        }
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                // Create and destroy the World (and EntityManager) each measurement, so we know it's not caching query data
+                .SetUp(Setup)
+                .CleanUp(TearDown)
+                .SampleGroup("CreateEntityQuery")
+                .Run();
         }
 
         [Test, Performance]
-        public void CalculateEntityCount_N_Archetypes_M_ChunksPerArchetype([Values(1, 10, 100)] int archetypeCount, [Values(1, 10, 100)] int chunkCount,
-            [Values] EnabledBitsMode enabledBitsMode)
+        public void EntityQuery_CreateEntityQuery_EntityQueryDesc_UniqueArchetypes(
+                [Values(1, 100, 1000)] int queryCount, [Values(1,2,16)] int componentsPerQuery)
         {
-            var archetypes = CreateUniqueArchetypes(archetypeCount, enabledBitsMode);
+            using var archetypes = CreateUniqueTagCombinations(queryCount, componentsPerQuery);
+            var queryDescs = CreateEntityQueryDescsFromArchetypes(archetypes);
+
+            Measure.Method(
+                    () =>
+                    {
+                        for (int i = 0; i < queryCount; i++)
+                        {
+                            var query = m_Manager.CreateEntityQuery(queryDescs[i]);
+                        }
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                // Create and destroy the World (and EntityManager) each measurement, so we know it's not caching query data
+                .SetUp(Setup)
+                .CleanUp(TearDown)
+                .SampleGroup("CreateEntityQuery")
+                .Run();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_CreateEntityQuery_EntityQueryBuilder_UniqueArchetypes(
+                [Values(1, 100, 1000)] int queryCount, [Values(1,2,16)] int componentsPerQuery)
+        {
+            using var archetypes = CreateUniqueTagCombinations(queryCount, componentsPerQuery);
+
+            Measure.Method(
+                    () =>
+                    {
+                        for (int i = 0; i < queryCount; i++)
+                        {
+                            var queryBuilder = CreateEntityQueryBuilderFromArchetype(archetypes[i]);
+                            var query = m_Manager.CreateEntityQuery(queryBuilder);
+                        }
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                // Create and destroy the World (and EntityManager) each measurement, so we know it's not caching query data
+                .SetUp(Setup)
+                .CleanUp(TearDown)
+                .SampleGroup("CreateEntityQuery")
+                .Run();
+        }
+
+        [Test, Performance]
+        public unsafe void EntityQuery_CreateEntityQuery_EntityQueryBuilder_Burst_UniqueArchetypes(
+            [Values(1, 100, 1000)] int queryCount, [Values(1,2,16)] int componentsPerQuery)
+        {
+            var archetypes = CreateUniqueTagCombinations(queryCount, componentsPerQuery);
+
+            SystemState* state = null;
+
+            Measure.Method(
+                    () =>
+                    {
+                        QueryISystem.CreateQueries(ref *state, ref archetypes);
+                    })
+                // Warmup count ensures methods are burst-compiled before test. Setup recreates World so it should have
+                // no queries cached.
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                // Create and destroy the World (and EntityManager) each measurement, so we know it's not caching query data
+                .SetUp(() =>
+                {
+                    Setup();
+                    var handle = m_World.GetOrCreateSystem<QueryISystem>();
+                    state = m_World.Unmanaged.ResolveSystemState(handle);
+                })
+                .CleanUp(() =>
+                {
+                    state = null;
+                    TearDown();
+                })
+                .SampleGroup("CreateEntityQuery")
+                .Run();
+        }
+
+        // Query Caching ----
+
+        [Test, Performance]
+        public void EntityQuery_GetEntityQuery_ComponentTypeArray_UniqueArchetypes(
+            [Values(1, 10, 100)] int queryCount, [Values(1,2,16)] int componentsPerQuery)
+        {
+            using var archetypes = CreateUniqueTagCombinations(queryCount, componentsPerQuery);
+            var queryTypes = CreateComponentTypesListFromArchetypes(archetypes);
+
+            var system = m_World.CreateSystemManaged<EmptySystem>();
+
+            Measure.Method(
+                    () =>
+                    {
+                        for (int i = 0; i < queryCount; i++)
+                        {
+                            var query = system.GetEntityQuery(queryTypes[i]);
+                        }
+                    })
+                // Warm up to create the queries in the first place.
+                // This test should time how long it takes to retrieve the cached query.
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup("GetEntityQuery")
+                .Run();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_GetEntityQuery_EntityQueryDesc_UniqueArchetypes(
+            [Values(1, 10, 100)] int queryCount, [Values(1,2,16)] int componentsPerQuery)
+        {
+            using var archetypes = CreateUniqueTagCombinations(queryCount, componentsPerQuery);
+            var queryDescs = CreateEntityQueryDescsFromArchetypes(archetypes);
+
+            var system = m_World.CreateSystemManaged<EmptySystem>();
+
+            Measure.Method(
+                    () =>
+                    {
+                        for (int i = 0; i < queryCount; i++)
+                        {
+                            var query = system.GetEntityQuery(queryDescs[i]);
+                        }
+                    })
+                // Warm up to create the queries in the first place.
+                // This test should time how long it takes to retrieve the cached query.
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup("GetEntityQuery")
+                .Run();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_GetEntityQuery_EntityQueryBuilder_UniqueArchetypes(
+                [Values(1, 10, 100)] int queryCount, [Values(1,2,16)] int componentsPerQuery)
+        {
+            using var archetypes = CreateUniqueTagCombinations(queryCount, componentsPerQuery);
+
+            var system = m_World.CreateSystemManaged<EmptySystem>();
+
+            Measure.Method(
+                    () =>
+                    {
+                        for (int i = 0; i < queryCount; i++)
+                        {
+                            var queryBuilder = CreateEntityQueryBuilderFromArchetype(archetypes[i]);
+                            var query = system.GetEntityQuery(queryBuilder);
+                        }
+                    })
+                // Warm up to create the queries in the first place.
+                // This test should time how long it takes to retrieve the cached query.
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup("GetEntityQuery")
+                .Run();
+        }
+
+        [Test, Performance]
+        public unsafe void EntityQuery_GetEntityQuery_EntityQueryBuilder_Burst_UniqueArchetypes(
+                [Values(1, 10, 100)] int queryCount, [Values(1,2,16)] int componentsPerQuery)
+        {
+            var archetypes = CreateUniqueTagCombinations(queryCount, componentsPerQuery);
+
+            SystemState* state = null;
+
+            Measure.Method(
+                    () =>
+                    {
+                        QueryISystem.GetQueries(ref *state, ref archetypes);
+                    })
+                // Warm up to create the queries in the first place.
+                // This test should time how long it takes to retrieve the cached query.
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup("GetEntityQuery")
+                .SetUp(() =>
+                {
+                    Setup();
+                    var handle = m_World.GetOrCreateSystem<QueryISystem>();
+                    state = m_World.Unmanaged.ResolveSystemState(handle);
+                    // Get the queries one first to create them, so we're only timing cache access
+                    QueryISystem.GetQueries(ref *state, ref archetypes);
+                })
+                .CleanUp(() =>
+                {
+                    state = null;
+                    TearDown();
+                })
+                .Run();
+        }
+
+        //-----------
+
+        [Test, Performance]
+        public void CalculateEntityCount_N_Archetypes_M_ChunksPerArchetype([Values(1, 100)] int archetypeCount, [Values(1, 100)] int chunkCount,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.ManyComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        {
+            using var archetypes = CreateUniqueTagArchetypes(archetypeCount, enabledBitsMode, typeof(EcsTestData2));
+            int expectedEntityCount = 0;
+            int expectedFilteredEntityCount = archetypeCount;
+            int expectedUnfilteredEntityCount = 0;
             for (int i = 0; i < archetypes.Length; ++i)
             {
                 int chunkCapacity = archetypes[i].ChunkCapacity;
                 using var entities = new NativeArray<Entity>( chunkCapacity * chunkCount, Allocator.Temp);
                 m_Manager.CreateEntity(archetypes[i], entities);
-                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled)
+                expectedEntityCount += entities.Length;
+                expectedUnfilteredEntityCount += entities.Length;
+                if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled)
                 {
-                    for (int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex)
+                    for (int entityIndex=0; entityIndex < entities.Length; entityIndex += 2)
                     {
-                        m_Manager.SetComponentEnabled<EcsTestDataEnableable>(
-                            entities[chunkIndex * chunkCapacity + chunkCapacity / 2], false);
+                        m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[entityIndex], false);
+                        expectedEntityCount -= 1;
                     }
                 }
-                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled)
+                // One enabled entity in each archetype should match the shared component filter
+                m_Manager.SetSharedComponentManaged(entities[1], new EcsTestSharedComp(archetypeCount));
+            }
+
+            // Create extra empty archetypes to make sure we're not wasting time searching them.
+            using var emptyArchetypes = CreateUniqueTagArchetypes(1000, enabledBitsMode, typeof(EcsTestData2), typeof(EcsTestData3));
+
+            using var query = enabledBitsMode == EnabledBitsMode.NoEnableableComponents
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+
+            Measure.Method(
+                    () =>
+                    {
+                        int sum = 0;
+                        for(int i=0; i<100; ++i)
+                            sum += query.CalculateEntityCountWithoutFiltering();
+                        Assert.AreEqual(100*expectedUnfilteredEntityCount, sum);
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("CalculateEntityCountWithoutFiltering 100x", SampleUnit.Microsecond))
+                .Run();
+
+            Measure.Method(
+                () =>
+                {
+                    int sum = 0;
+                    for(int i=0; i<100; ++i)
+                        sum += query.CalculateEntityCount();
+                    Assert.AreEqual(100*expectedEntityCount, sum);
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("CalculateEntityCount 100x", SampleUnit.Microsecond))
+                .Run();
+
+            // Add a shared component filter for a second test
+            query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = archetypeCount});
+
+            Measure.Method(
+                () =>
+                {
+                    int sum = 0;
+                    for(int i=0; i<100; ++i)
+                        sum += query.CalculateEntityCount();
+                    Assert.AreEqual(100*expectedFilteredEntityCount, sum);
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("CalculateEntityCount 100x with Filtering", SampleUnit.Microsecond))
+                .Run();
+        }
+
+        [Test, Performance]
+        public void CalculateChunkCount_N_Archetypes_M_ChunksPerArchetype([Values(1, 100)] int archetypeCount, [Values(1, 100)] int chunkCount,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.ManyComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        {
+            using var archetypes = CreateUniqueTagArchetypes(archetypeCount, enabledBitsMode, typeof(EcsTestData2));
+            for (int i = 0; i < archetypes.Length; ++i)
+            {
+                int chunkCapacity = archetypes[i].ChunkCapacity;
+                using var entities = new NativeArray<Entity>( chunkCapacity * chunkCount, Allocator.Temp);
+                m_Manager.CreateEntity(archetypes[i], entities);
+                if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled)
                 {
                     for (int entityIndex=0; entityIndex < entities.Length; entityIndex += 2)
                     {
                         m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[entityIndex], false);
                     }
                 }
+                // One enabled entity in each archetype should match the shared component filter
+                m_Manager.SetSharedComponentManaged(entities[1], new EcsTestSharedComp(archetypeCount));
             }
+            int expectedChunkCount = archetypes.Length * (chunkCount+1);
+            int expectedFilteredChunkCount = archetypes.Length * 1;
 
-            var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestSharedComp>());
+            // Create extra empty archetypes, to make sure we're not wasting time searching them.
+            using var emptyArchetypes = CreateUniqueTagArchetypes(1000, enabledBitsMode,
+                typeof(EcsTestData2), typeof(EcsTestData3));
+
+            using var query = enabledBitsMode == EnabledBitsMode.NoEnableableComponents
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+
+            int sum = 0;
+            Measure.Method(
+                    () =>
+                    {
+                        for(int i=0; i<100; ++i)
+                            sum += query.CalculateChunkCountWithoutFiltering();
+                    })
+                .WarmupCount(1)
+                .CleanUp(
+                    () =>
+                    {
+                        FastAssert.AreEqual(100*expectedChunkCount, sum);
+                        sum = 0;
+                    })
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("CalculateChunkCountWithoutFiltering 100x", SampleUnit.Microsecond))
+                .Run();
 
             Measure.Method(
                 () =>
                 {
-                    query.CalculateEntityCount();
+                    for(int i=0; i<100; ++i)
+                        sum += query.CalculateChunkCount();
                 })
+                .CleanUp(
+                    () =>
+                    {
+                        FastAssert.AreEqual(100*expectedChunkCount, sum);
+                        sum = 0;
+                    })
                 .WarmupCount(1)
-                .MeasurementCount(100)
-                .SampleGroup("CalculateEntityCount")
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("CalculateChunkCount 100x", SampleUnit.Microsecond))
                 .Run();
 
-            query.SetSharedComponentFilter(new EcsTestSharedComp {value = archetypeCount + chunkCount});
+            // Add a shared component filter for a second test
+            query.SetSharedComponentFilter(new EcsTestSharedComp {value = archetypeCount});
 
             Measure.Method(
                 () =>
                 {
-                    query.CalculateEntityCount();
+                    int sum = 0;
+                    for(int i=0; i<100; ++i)
+                        sum += query.CalculateChunkCount();
+                    Assert.AreEqual(100*expectedFilteredChunkCount, sum);
                 })
                 .WarmupCount(1)
-                .MeasurementCount(100)
-                .SampleGroup("CalculateEntityCount with Filtering")
+                .MeasurementCount(10)
+                .SampleGroup(new SampleGroup("CalculateChunkCount 100x with Filtering", SampleUnit.Microsecond))
                 .Run();
+        }
 
-            using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+        [Test,Performance]
+        public void ToArchetypeChunkArray_Performance([Values(1, 100, 1000)] int archetypeCount, [Values] bool enableChunkFilter,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.NoComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        {
+            int chunksPerArchetype = 10;
+            using var archetypes = CreateUniqueTagArchetypes(archetypeCount,
+                enabledBitsMode, typeof(EcsTestData2));
+            var sharedCompValue = new EcsTestSharedComp(17);
+            for (int i = 0; i < archetypes.Length; ++i)
             {
-                m_Manager.DestroyEntity(entities);
+                int chunkCapacity = archetypes[i].ChunkCapacity;
+                using var entities = new NativeArray<Entity>( chunkCapacity * chunksPerArchetype, Allocator.Temp);
+                m_Manager.CreateEntity(archetypes[i], entities);
+                // One enabled entity in each archetype should match the shared component filter
+                m_Manager.SetSharedComponentManaged(entities[1], sharedCompValue);
             }
-            archetypes.Dispose();
-            query.Dispose();
+
+            // Create extra empty archetypes to make sure we're not wasting time searching them.
+            using var emptyArchetypes = CreateUniqueTagArchetypes(1000,
+                enabledBitsMode, typeof(EcsTestData2), typeof(EcsTestData3));
+
+            using var query = enabledBitsMode == EnabledBitsMode.NoEnableableComponents
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData2), typeof(EcsTestSharedComp))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestData2), typeof(EcsTestSharedComp),
+                    typeof(EcsTestDataEnableable));
+            if (enableChunkFilter)
+                query.SetSharedComponentFilterManaged(sharedCompValue);
+            using var expectedList = query.ToArchetypeChunkListAsync(Allocator.Persistent, out var gatherJobHandle);
+            gatherJobHandle.Complete();
+            var expectedChunks = expectedList.AsArray().ToArray();
+
+            var result =  default(NativeArray<ArchetypeChunk>);
+            Measure.Method(
+                    () =>
+                    {
+                        result = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+                    })
+
+                .CleanUp( () =>
+                {
+                    CollectionAssert.AreEqual(expectedChunks, result.ToArray());
+                    result.Dispose();
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup("ToArchetypeChunkArray")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+        }
+
+        [Test,Performance]
+        public void ToArchetypeChunkListAsync_Performance([Values(1, 100, 1000)] int archetypeCount, [Values] bool enableChunkFilter,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.NoComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        {
+            int chunksPerArchetype = 10;
+            using var archetypes = CreateUniqueTagArchetypes(archetypeCount,
+                enabledBitsMode, typeof(EcsTestData2));
+            var sharedCompValue = new EcsTestSharedComp(17);
+            for (int i = 0; i < archetypes.Length; ++i)
+            {
+                int chunkCapacity = archetypes[i].ChunkCapacity;
+                using var entities = new NativeArray<Entity>( chunkCapacity * chunksPerArchetype, Allocator.Temp);
+                m_Manager.CreateEntity(archetypes[i], entities);
+                // One enabled entity in each archetype should match the shared component filter
+                m_Manager.SetSharedComponentManaged(entities[1], sharedCompValue);
+            }
+
+            // Create extra archetypes to make sure we're not wasting time searching them.
+            using var emptyArchetypes = CreateUniqueTagArchetypes(1000,
+                    enabledBitsMode, typeof(EcsTestData2), typeof(EcsTestData3));
+
+            using var query = enabledBitsMode == EnabledBitsMode.NoEnableableComponents
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData2), typeof(EcsTestSharedComp))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestData2), typeof(EcsTestSharedComp),
+                    typeof(EcsTestDataEnableable));
+            if (enableChunkFilter)
+                query.SetSharedComponentFilterManaged(sharedCompValue);
+            var expectedChunks = query.ToArchetypeChunkArray(Allocator.Temp).ToArray();
+
+            var result =  default(NativeList<ArchetypeChunk>);
+            Measure.Method(
+                    () =>
+                    {
+                        result = query.ToArchetypeChunkListAsync(World.UpdateAllocator.ToAllocator, out var jobHandle);
+                        jobHandle.Complete();
+                    })
+
+                .CleanUp( () =>
+                {
+                    CollectionAssert.AreEqual(expectedChunks, result.AsArray().ToArray());
+                    result.Dispose();
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup("ToArchetypeChunkListAsync")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
         }
 
         private void CreateArchetypesAndEntities(int entityCount, EnabledBitsMode enabledBitsMode, bool unique, params ComponentType[] extraTypes)
         {
-            NativeArray<EntityArchetype> archetypes;
             NativeArray<Entity> entities = CollectionHelper.CreateNativeArray<Entity>(entityCount,
                 m_World.UpdateAllocator.ToAllocator);
             if (unique)
             {
-                archetypes = CreateUniqueArchetypes(entityCount, enabledBitsMode, extraTypes);
+                using var archetypes = CreateUniqueTagArchetypes(entityCount, enabledBitsMode, extraTypes);
                 for (int entIter = 0; entIter < entityCount; entIter++)
                 {
                     entities[entIter] = m_Manager.CreateEntity(archetypes[entIter]);
@@ -526,7 +1408,7 @@ namespace Unity.Entities.PerformanceTests
             }
             else
             {
-                archetypes = CreateUniqueArchetypes(1, enabledBitsMode, extraTypes);
+                using var archetypes = CreateUniqueTagArchetypes(1, enabledBitsMode, extraTypes);
                 m_Manager.CreateEntity(archetypes[0], entities);
                 for (int entIter = 0; entIter < entityCount; entIter++)
                 {
@@ -537,132 +1419,140 @@ namespace Unity.Entities.PerformanceTests
                 }
             }
             entities.Dispose();
-            archetypes.Dispose();
         }
 
         private void ToEntityArray_Performance(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
         {
             CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
 
-            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp),
+                    typeof(EcsTestDataEnableable));
 
+            int expectedCount = query.CalculateEntityCount();
             var result =  default(NativeArray<Entity>);
             Measure.Method(
                     () =>
                     {
-                        result = query.ToEntityArray(Allocator.TempJob);
+                        result = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
                     })
 
                     .CleanUp( () =>
                     {
-                        Assert.AreEqual(entityCount, result.Length);
+                        Assert.AreEqual(expectedCount, result.Length);
                         result.Dispose();
+                        World.UpdateAllocator.Rewind();
                     })
                 .SampleGroup("ToEntityArray")
                 .WarmupCount(1) // make sure we're not timing job compilation on the first run
                 .MeasurementCount(100)
                 .Run();
-
-            query.Dispose();
         }
 
         private void ToComponentDataArray_Performance_SmallComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
         {
             CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
 
-            EntityQuery query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite(typeof(EcsTestData)));
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable), typeof(EcsTestData));
 
+            int expectedCount = query.CalculateEntityCount();
             var result =  default(NativeArray<EcsTestData>);
 
             Measure.Method(
-                    () => { result = query.ToComponentDataArray<EcsTestData>(Allocator.TempJob); })
+                    () => {
+                        result = query.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
+                    })
                 .CleanUp(() =>
                 {
-                    Assert.AreEqual(entityCount, result.Length);
+                    Assert.AreEqual(expectedCount, result.Length);
                     result.Dispose();
+                    World.UpdateAllocator.Rewind();
                 })
                 .SampleGroup("ToComponentDataArray")
                 .WarmupCount(1) // make sure we're not timing job compilation on the first run
                 .MeasurementCount(100)
                 .Run();
-
-            query.Dispose();
         }
 
         private void ToComponentDataArray_Performance_LargeComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
         {
-            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique, typeof(LargeComponent));
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique, typeof(LargeComponent0));
 
-            EntityQuery query = default;
-            query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly(typeof(LargeComponent)));
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(LargeComponent0))
+                : m_Manager.CreateEntityQuery(typeof(LargeComponent0), typeof(EcsTestDataEnableable));
 
-            var result =  default(NativeArray<LargeComponent>);
+            int expectedCount = query.CalculateEntityCount();
+            var result =  default(NativeArray<LargeComponent0>);
 
             Measure.Method(
-                    () => {result = query.ToComponentDataArray<LargeComponent>(Allocator.TempJob); })
+                    () => {
+                        result = query.ToComponentDataArray<LargeComponent0>(World.UpdateAllocator.ToAllocator);
+                    })
                 .CleanUp(() =>
                 {
-                    Assert.AreEqual(entityCount, result.Length);
+                    Assert.AreEqual(expectedCount, result.Length);
                     result.Dispose();
+                    World.UpdateAllocator.Rewind();
                 })
                 .SampleGroup("ToComponentDataArray")
                 .WarmupCount(1) // make sure we're not timing job compilation on the first run
                 .MeasurementCount(100)
                 .Run();
-
-            query.Dispose();
         }
 
         private void CopyFromComponentDataArray_Performance_SmallComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
         {
             CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
 
-            EntityQuery query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite(typeof(EcsTestData)));
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestDataEnableable));
 
-            var result =  query.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
-            Assert.AreEqual(entityCount, result.Length);
-
-            Measure.Method(
-                    () => { query.CopyFromComponentDataArray(result); })
-                .SampleGroup("ToComponentDataArray")
-                .WarmupCount(1) // make sure we're not timing job compilation on the first run
-                .MeasurementCount(100)
-                .Run();
-
-            result.Dispose();
-            query.Dispose();
-        }
-
-        private void CopyFromComponentDataArray_Performance_LargeComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
-        {
-            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique, typeof(LargeComponent));
-
-            EntityQuery query = default;
-            query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly(typeof(LargeComponent)));
-
-            var result =  query.ToComponentDataArray<LargeComponent>(Allocator.TempJob);
-            Assert.AreEqual(entityCount, result.Length);
+            using var result =  query.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             Measure.Method(
-                    () => { query.CopyFromComponentDataArray(result); })
+                    () => {
+                        query.CopyFromComponentDataArray(result);
+                    })
                 .SampleGroup("CopyFromComponentDataArray")
                 .WarmupCount(1) // make sure we're not timing job compilation on the first run
                 .MeasurementCount(100)
                 .Run();
+        }
 
-            result.Dispose();
-            query.Dispose();
+        private void CopyFromComponentDataArray_Performance_LargeComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
+        {
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique, typeof(LargeComponent0));
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(LargeComponent0))
+                : m_Manager.CreateEntityQuery(typeof(LargeComponent0), typeof(EcsTestDataEnableable));
+
+            using var result =  query.ToComponentDataArray<LargeComponent0>(World.UpdateAllocator.ToAllocator);
+
+            Measure.Method(
+                    () => {
+                        query.CopyFromComponentDataArray(result);
+                    })
+                .SampleGroup("CopyFromComponentDataArray")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
         }
 
         [Test, Performance]
-        public void ToEntityArray_Performance_Same([Values(1,100,1000,10000,1000000)] int entityCount,
+        public void ToEntityArray_Performance_Same([Values(1,1000,100000)] int entityCount,
             [Values] EnabledBitsMode enabledBitsMode)
         {
             ToEntityArray_Performance(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
-        public void ToEntityArray_Performance_Unique([Values(1,10,100,1000,10000)] int entityCount,
+        public void ToEntityArray_Performance_Unique([Values(1,1000,10000)] int entityCount,
             [Values] EnabledBitsMode enabledBitsMode)
         {
             ToEntityArray_Performance(entityCount, enabledBitsMode, true);
@@ -670,59 +1560,535 @@ namespace Unity.Entities.PerformanceTests
 
         [Test, Performance]
         public void ToComponentDataArray_Performance_Same_SmallComponent(
-            [Values(1,100,1000,10000,1000000)] int entityCount, [Values] EnabledBitsMode enabledBitsMode)
+            [Values(1,1000,100000)] int entityCount, [Values] EnabledBitsMode enabledBitsMode)
         {
             ToComponentDataArray_Performance_SmallComponent(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
         public void ToComponentDataArray_Performance_Same_LargeComponent(
-            [Values(1,100,1000,10000,1000000)] int entityCount, [Values] EnabledBitsMode enabledBitsMode)
+            [Values(1,1000,100000)] int entityCount, [Values] EnabledBitsMode enabledBitsMode)
         {
             ToComponentDataArray_Performance_LargeComponent(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
-        public void ToComponentDataArray_Performance_Unique_SmallComponent([Values(1,10,100,1000,10000)] int entityCount,
+        public void ToComponentDataArray_Performance_Unique_SmallComponent([Values(1,1000,10000)] int entityCount,
             [Values] EnabledBitsMode enabledBitsMode)
         {
             ToComponentDataArray_Performance_SmallComponent(entityCount, enabledBitsMode, true);
         }
 
         [Test, Performance]
-        public void ToComponentDataArray_Performance_Unique_LargeComponent([Values(1,10,100,1000,10000)] int entityCount,
+        public void ToComponentDataArray_Performance_Unique_LargeComponent([Values(1,1000,10000)] int entityCount,
             [Values] EnabledBitsMode enabledBitsMode)
         {
             ToComponentDataArray_Performance_LargeComponent(entityCount, enabledBitsMode, true);
         }
 
         [Test, Performance]
-        public void CopyFromComponentDataArray_Performance_Same_SmallComponent([Values(1,100,1000,10000,1000000)] int entityCount,
+        public void CopyFromComponentDataArray_Performance_Same_SmallComponent([Values(1,1000,100000)] int entityCount,
             [Values] EnabledBitsMode enabledBitsMode)
         {
             CopyFromComponentDataArray_Performance_SmallComponent(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
-        public void CopyFromComponentDataArray_Performance_Same_LargeComponent([Values(1,100,1000,10000,1000000)] int entityCount,
+        public void CopyFromComponentDataArray_Performance_Same_LargeComponent([Values(1,10000,100000)] int entityCount,
             [Values] EnabledBitsMode enabledBitsMode)
         {
             CopyFromComponentDataArray_Performance_LargeComponent(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
-        public void CopyFromComponentDataArray_Performance_Unique_SmallComponent([Values(1,10,100,1000,10000)] int entityCount,
+        public void CopyFromComponentDataArray_Performance_Unique_SmallComponent([Values(1,1000,10000)] int entityCount,
             [Values] EnabledBitsMode enabledBitsMode)
         {
             CopyFromComponentDataArray_Performance_SmallComponent(entityCount, enabledBitsMode, true);
         }
 
         [Test, Performance]
-        public void CopyFromComponentDataArray_Performance_Unique_LargeComponent([Values(1,10,100,1000,10000)] int entityCount,
+        public void CopyFromComponentDataArray_Performance_Unique_LargeComponent([Values(1,1000,10000)] int entityCount,
             [Values] EnabledBitsMode enabledBitsMode)
         {
             CopyFromComponentDataArray_Performance_LargeComponent(entityCount, enabledBitsMode, true);
         }
 
+        private void ToEntityListAsync_Performance(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
+        {
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp),
+                    typeof(EcsTestDataEnableable));
+
+            int expectedCount = query.CalculateEntityCount();
+            var result =  default(NativeList<Entity>);
+            Measure.Method(
+                    () =>
+                    {
+                        result = query.ToEntityListAsync(World.UpdateAllocator.ToAllocator, out var jobHandle);
+                        jobHandle.Complete();
+                    })
+
+                    .CleanUp( () =>
+                    {
+                        Assert.AreEqual(expectedCount, result.Length);
+                        result.Dispose();
+                        World.UpdateAllocator.Rewind();
+                    })
+                .SampleGroup("ToEntityListAsync")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+        }
+
+        private void ToComponentDataListAsync_Performance_SmallComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
+        {
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable), typeof(EcsTestData));
+
+            int expectedCount = query.CalculateEntityCount();
+            var result =  default(NativeList<EcsTestData>);
+
+            Measure.Method(
+                    () => {
+                        result = query.ToComponentDataListAsync<EcsTestData>(World.UpdateAllocator.ToAllocator,
+                            out var jobHandle);
+                        jobHandle.Complete();
+                    })
+                .CleanUp(() =>
+                {
+                    Assert.AreEqual(expectedCount, result.Length);
+                    result.Dispose();
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup("ToComponentDataListAsync")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+        }
+
+        private void ToComponentDataListAsync_Performance_LargeComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
+        {
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique, typeof(LargeComponent0));
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(LargeComponent0))
+                : m_Manager.CreateEntityQuery(typeof(LargeComponent0), typeof(EcsTestDataEnableable));
+
+            int expectedCount = query.CalculateEntityCount();
+            var result =  default(NativeList<LargeComponent0>);
+
+            Measure.Method(
+                    () => {
+                        result = query.ToComponentDataListAsync<LargeComponent0>(World.UpdateAllocator.ToAllocator, out var jobHandle);
+                        jobHandle.Complete();
+                    })
+                .CleanUp(() =>
+                {
+                    Assert.AreEqual(expectedCount, result.Length);
+                    result.Dispose();
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup("ToComponentDataListAsync")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+        }
+
+        private void CopyFromComponentDataListAsync_Performance_SmallComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
+        {
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+
+            using var result =  query.ToComponentDataListAsync<EcsTestData>(World.UpdateAllocator.ToAllocator, out var gatherJobHandle);
+            gatherJobHandle.Complete();
+
+            Measure.Method(
+                    () => {
+                        query.CopyFromComponentDataListAsync(result, out var jobHandle);
+                        jobHandle.Complete();
+                    })
+                .SampleGroup("CopyFromComponentDataListAsync")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+        }
+
+        private void CopyFromComponentDataListAsync_Performance_LargeComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
+        {
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique, typeof(LargeComponent0));
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(LargeComponent0))
+                : m_Manager.CreateEntityQuery(typeof(LargeComponent0), typeof(EcsTestDataEnableable));
+
+            using var result =  query.ToComponentDataListAsync<LargeComponent0>(World.UpdateAllocator.ToAllocator, out var gatherJobHandle);
+            gatherJobHandle.Complete();
+
+            Measure.Method(
+                    () => {
+                        query.CopyFromComponentDataListAsync(result, out var jobHandle);
+                        jobHandle.Complete();
+                    })
+                .SampleGroup("CopyFromComponentDataListAsync")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+        }
+
+        [Test, Performance]
+        public void ToEntityListAsync_Performance_Same([Values(1,1000,100000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
+        {
+            ToEntityListAsync_Performance(entityCount, enabledBitsMode, false);
+        }
+
+        [Test, Performance]
+        public void ToEntityListAsync_Performance_Unique([Values(1,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
+        {
+            ToEntityListAsync_Performance(entityCount, enabledBitsMode, true);
+        }
+
+        [Test, Performance]
+        public void ToComponentDataListAsync_Performance_Same_SmallComponent(
+            [Values(1,1000,100000)] int entityCount, [Values] EnabledBitsMode enabledBitsMode)
+        {
+            ToComponentDataListAsync_Performance_SmallComponent(entityCount, enabledBitsMode, false);
+        }
+
+        [Test, Performance]
+        public void ToComponentDataListAsync_Performance_Same_LargeComponent(
+            [Values(1,1000,100000)] int entityCount, [Values] EnabledBitsMode enabledBitsMode)
+        {
+            ToComponentDataListAsync_Performance_LargeComponent(entityCount, enabledBitsMode, false);
+        }
+
+        [Test, Performance]
+        public void ToComponentDataListAsync_Performance_Unique_SmallComponent([Values(1,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
+        {
+            ToComponentDataListAsync_Performance_SmallComponent(entityCount, enabledBitsMode, true);
+        }
+
+        [Test, Performance]
+        public void ToComponentDataListAsync_Performance_Unique_LargeComponent([Values(1,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
+        {
+            ToComponentDataListAsync_Performance_LargeComponent(entityCount, enabledBitsMode, true);
+        }
+
+        [Test, Performance]
+        public void CopyFromComponentDataListAsync_Performance_Same_SmallComponent([Values(1,1000,100000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
+        {
+            CopyFromComponentDataListAsync_Performance_SmallComponent(entityCount, enabledBitsMode, false);
+        }
+
+        [Test, Performance]
+        public void CopyFromComponentDataListAsync_Performance_Same_LargeComponent([Values(1,1000,100000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
+        {
+            CopyFromComponentDataListAsync_Performance_LargeComponent(entityCount, enabledBitsMode, false);
+        }
+
+        [Test, Performance]
+        public void CopyFromComponentDataListAsync_Performance_Unique_SmallComponent([Values(1,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
+        {
+            CopyFromComponentDataListAsync_Performance_SmallComponent(entityCount, enabledBitsMode, true);
+        }
+
+        [Test, Performance]
+        public void CopyFromComponentDataListAsync_Performance_Unique_LargeComponent([Values(1,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
+        {
+            CopyFromComponentDataListAsync_Performance_LargeComponent(entityCount, enabledBitsMode, true);
+        }
+
+        [Obsolete("The function this test exercises is obsolete.")]
+        private void ToEntityArray_WithEntitySoup_Performance(int entityCount, EnabledBitsMode enabledBitsMode, bool unique, bool enableQueryFilter)
+        {
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp),
+                    typeof(EcsTestDataEnableable));
+            if (enableQueryFilter)
+                query.SetSharedComponentFilterManaged<EcsTestSharedComp>(default);
+
+            using var allEntities = query.ToEntityArray(Allocator.Temp);
+
+            var result =  default(NativeArray<Entity>);
+            Measure.Method(
+                    () =>
+                    {
+                        result = query.ToEntityArray(allEntities, World.UpdateAllocator.ToAllocator);
+                    })
+
+                .CleanUp( () =>
+                {
+                    CollectionAssert.AreEqual(allEntities.ToArray(), result.ToArray());
+                    result.Dispose();
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup("ToEntityArray")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(10)
+                .Run();
+        }
+
+        [Test, Performance]
+        [Obsolete("The function this test exercises is obsolete.")]
+        public void ToEntityArray_WithEntitySoup_Performance_Same([Values(1,1000,10000)] int entityCount,
+            [Values(EnabledBitsMode.NoEnableableComponents)] EnabledBitsMode enabledBitsMode)
+        {
+            ToEntityArray_WithEntitySoup_Performance(entityCount, enabledBitsMode, false, false);
+        }
+
+        [Test, Performance]
+        [Obsolete("The function this test exercises is obsolete.")]
+        public void ToEntityArray_WithEntitySoup_WithFilter_Performance_Unique([Values(1,1000,10000)] int entityCount,
+            [Values(EnabledBitsMode.NoEnableableComponents)] EnabledBitsMode enabledBitsMode)
+        {
+            ToEntityArray_WithEntitySoup_Performance(entityCount, enabledBitsMode, true, true);
+        }
+
+
+
+        [BurstCompile]
+        partial struct AsyncGatherScatterSystem : ISystem
+        {
+            // Disables all but every 3rd entity
+            [BurstCompile]
+            partial struct DisableJob : IJobEntity
+            {
+                [NativeDisableParallelForRestriction] public ComponentLookup<EcsTestDataEnableable> Lookup;
+                void Execute(Entity e)
+                {
+                    int val = Lookup[e].value;
+                    if ((val % 3) != 0)
+                    {
+                        Lookup.SetComponentEnabled(e, false);
+                    }
+                }
+            }
+
+            // Negates every value in the provided array
+            [BurstCompile]
+            struct ProcessJob : IJob
+            {
+                public NativeArray<EcsTestDataEnableable> ValuesArray;
+                public void Execute()
+                {
+                    int valueCount = ValuesArray.Length;
+                    for (int i = 0; i < valueCount; ++i)
+                    {
+                        int x = ValuesArray[i].value;
+                        ValuesArray[i] = new EcsTestDataEnableable(-x);
+                    }
+                }
+            }
+
+            private EntityQuery _query;
+            private ComponentLookup<EcsTestDataEnableable> _lookup;
+            private int _expectedValueCount;
+
+            public void OnCreate(ref SystemState state)
+            {
+                _query = state.GetEntityQuery(typeof(EcsTestDataEnableable));
+                _lookup = state.GetComponentLookup<EcsTestDataEnableable>(false);
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                _lookup.Update(ref state);
+                // Schedule job that disables entities
+                var disableJob = new DisableJob { Lookup = _lookup };
+                var disableJobHandle = disableJob.ScheduleByRef(_query, state.Dependency);
+                // Extract component values. Must explicitly depend on disableJobHandle, since it was scheduled within the same system.
+                var valueList = _query.ToComponentDataListAsync<EcsTestDataEnableable>(
+                    state.WorldUpdateAllocator, disableJobHandle,
+                    out var gatherJobHandle);
+                // Process gathered values
+                var processJob = new ProcessJob { ValuesArray = valueList.AsDeferredJobArray() };
+                var processJobHandle = processJob.Schedule(gatherJobHandle);
+                // Scatter processed values back to entities
+                _query.CopyFromComponentDataListAsync(valueList, processJobHandle, out var scatterJobHandle);
+
+                scatterJobHandle.Complete();
+                Assert.AreEqual(_query.CalculateEntityCount(), valueList.Length);
+                state.Dependency = default;
+            }
+        }
+
+        [Test, Performance]
+        public void AsyncGatherScatter_Integration_Performance()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+            int entityCount = 1000;
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.Persistent);
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+            var sysHandle = m_World.CreateSystem<AsyncGatherScatterSystem>();
+            Measure.Method(() =>
+                {
+                    sysHandle.Update(m_World.Unmanaged);
+                })
+                .SetUp(() =>
+                {
+                    // reset and re-enable all entities
+                    for (int i = 0; i < entityCount; ++i)
+                    {
+                        m_Manager.SetComponentData(entities[i], new EcsTestDataEnableable(i));
+                        m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], true);
+                    }
+                })
+                .CleanUp(() =>
+                {
+                    for (int i = 0; i < entityCount; ++i)
+                    {
+                        bool expectedEnabled = ((i % 3) == 0);
+                        bool actualEnabled = m_Manager.IsComponentEnabled<EcsTestDataEnableable>(entities[i]);
+                        Assert.AreEqual(expectedEnabled, actualEnabled, $"Entity {i} mismatch in enabled state");
+
+                        int expectedValue = expectedEnabled ? -i : i;
+                        int actualValue = m_Manager.GetComponentData<EcsTestDataEnableable>(entities[i]).value;
+                        Assert.AreEqual(expectedValue, actualValue, $"Entity {i} value mismatch");
+                    }
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup("Integration")
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+        }
+
+        [Test, Performance]
+        public void CalculateFilteredChunkIndexArray_Performance([Values] bool unique, [Values] bool enableChunkFilter,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.FewComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        {
+            int entityCount = 10000;
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
+
+            // Create extra archetypes that match the query but don't have any chunks
+            using var emptyArchetypes = CreateUniqueTagArchetypes(1000, enabledBitsMode,
+                typeof(EcsTestFloatData));
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp),
+                    typeof(EcsTestDataEnableable));
+            if (enableChunkFilter)
+                query.SetSharedComponentFilter(default(EcsTestSharedComp));
+
+            int expectedChunkCount = query.CalculateChunkCount();
+            var resultArray = default(NativeArray<int>);
+            Measure.Method(
+                    () =>
+                    {
+                        resultArray = query.CalculateFilteredChunkIndexArray(World.UpdateAllocator.ToAllocator);
+                    })
+
+                .CleanUp( () =>
+                {
+                    Assert.AreEqual(expectedChunkCount, resultArray.Length);
+                    resultArray.Dispose();
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup(new SampleGroup("CalculateFilteredChunkIndexArray", SampleUnit.Microsecond))
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+
+            Measure.Method(
+                    () =>
+                    {
+                        resultArray = query.CalculateFilteredChunkIndexArrayAsync(World.UpdateAllocator.ToAllocator, default,
+                            out var jobHandle);
+                        jobHandle.Complete();
+                    })
+
+                .CleanUp( () =>
+                {
+                    Assert.AreEqual(expectedChunkCount, resultArray.Length);
+                    resultArray.Dispose();
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup(new SampleGroup("CalculateFilteredChunkIndexArrayAsync", SampleUnit.Microsecond))
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+        }
+
+        [Test, Performance]
+        public void CalculateBaseEntityIndexArray_Performance([Values] bool unique, [Values] bool enableChunkFilter,
+            [Values(EnabledBitsMode.NoEnableableComponents, EnabledBitsMode.FewComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        {
+            int entityCount = 10000;
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
+
+            // Create extra archetypes that match the query but don't have any chunks
+            using var emptyArchetypes = CreateUniqueTagArchetypes(1000, enabledBitsMode,
+                typeof(EcsTestFloatData));
+
+            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
+                ? m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp))
+                : m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp),
+                    typeof(EcsTestDataEnableable));
+            if (enableChunkFilter)
+                query.SetSharedComponentFilter(default(EcsTestSharedComp));
+
+            int expectedChunkCount = query.CalculateChunkCount();
+            var resultArray = default(NativeArray<int>);
+            Measure.Method(
+                    () =>
+                    {
+                        resultArray = query.CalculateBaseEntityIndexArray(World.UpdateAllocator.ToAllocator);
+                    })
+
+                .CleanUp( () =>
+                {
+                    Assert.AreEqual(expectedChunkCount, resultArray.Length);
+                    resultArray.Dispose();
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup(new SampleGroup("CalculateBaseEntityIndexArray", SampleUnit.Microsecond))
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+
+            Measure.Method(
+                    () =>
+                    {
+                        resultArray = query.CalculateBaseEntityIndexArrayAsync(World.UpdateAllocator.ToAllocator, default,
+                            out var jobHandle);
+                        jobHandle.Complete();
+                    })
+
+                .CleanUp( () =>
+                {
+                    Assert.AreEqual(expectedChunkCount, resultArray.Length);
+                    resultArray.Dispose();
+                    World.UpdateAllocator.Rewind();
+                })
+                .SampleGroup(new SampleGroup("CalculateBaseEntityIndexArrayAsync", SampleUnit.Microsecond))
+                .WarmupCount(1) // make sure we're not timing job compilation on the first run
+                .MeasurementCount(100)
+                .Run();
+        }
     }
 }

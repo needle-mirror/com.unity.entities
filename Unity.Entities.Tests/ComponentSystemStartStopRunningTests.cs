@@ -7,7 +7,8 @@ namespace Unity.Entities.Tests
 {
     class ComponentSystemStartStopRunningTests : ECSTestsFixture
     {
-        class TestSystem : ComponentSystem
+        [RequireMatchingQueriesForUpdate]
+        partial class TestSystem : SystemBase
         {
             public EntityQuery m_TestGroup;
 
@@ -69,12 +70,8 @@ namespace Unity.Entities.Tests
         public override void Setup()
         {
             base.Setup();
-            system = World.GetOrCreateSystem<TestSystem>();
+            system = World.GetOrCreateSystemManaged<TestSystem>();
             ShouldRunSystem(true);
-
-#if UNITY_DOTSRUNTIME
-            LogAssert.ExpectReset();
-#endif
         }
 
         public override void TearDown()
@@ -86,7 +83,7 @@ namespace Unity.Entities.Tests
             }
             if (system != null)
             {
-                World.DestroySystem(system);
+                World.DestroySystemManaged(system);
                 system = null;
             }
 
@@ -272,7 +269,7 @@ namespace Unity.Entities.Tests
             system.Update();
 
             LogAssert.Expect(LogType.Log, TestSystem.OnStopRunningString);
-            World.DestroySystem(system);
+            World.DestroySystemManaged(system);
             system = null;
 
             LogAssert.NoUnexpectedReceived();
@@ -284,7 +281,7 @@ namespace Unity.Entities.Tests
             system.Enabled = false;
             system.Update();
 
-            World.DestroySystem(system);
+            World.DestroySystemManaged(system);
             system = null;
 
             LogAssert.NoUnexpectedReceived();

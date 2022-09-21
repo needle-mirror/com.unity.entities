@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Unity.Entities.SourceGen.SystemGeneratorCommon
 {
@@ -7,7 +7,9 @@ namespace Unity.Entities.SourceGen.SystemGeneratorCommon
     {
         Default = 0,
         IncludePrefab = 1,
-        IncludeDisabled = 2,
+        IncludeDisabledEntities = 2,
         FilterWriteGroup = 4,
+        IgnoreComponentEnabledState = 8,
+        IncludeSystems = 16,
     }
 }

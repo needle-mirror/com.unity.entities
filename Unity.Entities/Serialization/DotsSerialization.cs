@@ -157,25 +157,26 @@ namespace Unity.Entities.Serialization
     /// <summary>
     /// Writer class, instances are retrieved through <see cref="DotsSerialization.CreateWriter"/>
     /// </summary>
-    internal class DotsSerializationWriter : IDisposable
+    internal unsafe class DotsSerializationWriter : IDisposable
     {
         public void Dispose()
         {
-            if (!_headerWritten)
+            if (_headerWritten == 0)
             {
                 WriteHeader();
-                _headerWritten = true;
+                _headerWritten = 1;
             }
 
-            if (_isDisposed)
+            if (_isDisposed == 1)
             {
                 return;
             }
 
+            Memory.Unmanaged.Free(_rootNodeHeader, Allocator.Persistent);
             _metadataSection.Dispose();
             _nodesAllocation.Dispose();
             _nodesStack.Dispose();
-            _isDisposed = true;
+            _isDisposed = 1;
         }
 
         public unsafe void WriteHeader()
@@ -410,7 +411,7 @@ namespace Unity.Entities.Serialization
             /// <param name="blobAssetReference">BlobAsset storing the metadata to set</param>
             /// <typeparam name="TB">BlobAsset type</typeparam>
             /// <returns>true if the call succeeded, false if the metadata was already set for this node.</returns>
-            public bool SetMetadata<TB>(BlobAssetReference<TB> blobAssetReference) where TB : struct
+            public bool SetMetadata<TB>(BlobAssetReference<TB> blobAssetReference) where TB : unmanaged
             {
                 return _owner.SetNodeMetadata(this, blobAssetReference);
             }
@@ -476,7 +477,7 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private unsafe bool SetNodeMetadata<T, TB>(NodeHandle<T> nodeHandle, BlobAssetReference<TB> blobAssetReference) where T : unmanaged, IComponentData where TB : struct
+        private unsafe bool SetNodeMetadata<T, TB>(NodeHandle<T> nodeHandle, BlobAssetReference<TB> blobAssetReference) where T : unmanaged, IComponentData where TB : unmanaged
         {
             ref var header = ref nodeHandle.AsNodeHeader;
             if (header.MetadataStartingOffset != -1)
@@ -577,10 +578,10 @@ namespace Unity.Entities.Serialization
         private DotsSerialization.FileHeader _header;
         private readonly PagedAllocation _nodesAllocation;
         private UnsafeList<byte> _metadataSection;
-        private bool _isDisposed;
-        private bool _headerWritten;
+        private byte _isDisposed;
+        private byte _headerWritten;
         private int _trackedNodeCounter;
-        private DotsSerialization.NodeHeader _rootNodeHeader;
+        private DotsSerialization.NodeHeader* _rootNodeHeader;
         private NodeHandle<DotsSerialization.NodeHeader> _rootNode;
         private readonly Dictionary<IntPtr, IntPtr> _currentLastChildOffset;
         private UnsafeList<IntPtr> _nodesStack;
@@ -596,8 +597,11 @@ namespace Unity.Entities.Serialization
             _trackedNodeCounter = 0;
             _trackedSegmentDataWriteByNode = new Dictionary<IntPtr, int>();
 
-            _rootNodeHeader = new DotsSerialization.NodeHeader { NodeTypeHash = DotsSerialization.RootNodeHash };
-            var rootAddr = (byte*)UnsafeUtility.AddressOf(ref _rootNodeHeader);
+            _rootNodeHeader = (DotsSerialization.NodeHeader*) Memory.Unmanaged.Allocate(sizeof(DotsSerialization.NodeHeader), 16, Allocator.Persistent);
+            UnsafeUtility.MemClear(_rootNodeHeader, sizeof(DotsSerialization.NodeHeader));
+            _rootNodeHeader->NodeTypeHash = DotsSerialization.RootNodeHash;
+
+            var rootAddr = (byte*)_rootNodeHeader;
             _rootNode = new NodeHandle<DotsSerialization.NodeHeader>(this, rootAddr);
             _currentLastChildOffset.Add((IntPtr)rootAddr, IntPtr.Zero);
             _nodesStack = new UnsafeList<IntPtr>(16, Allocator.Persistent);

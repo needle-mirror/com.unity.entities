@@ -2,13 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using Unity.Burst;
+using System.Linq;
+using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
-using Unity.Mathematics;
-using UnityEngine.Assertions;
+using Unity.Profiling;
 
 namespace Unity.Entities
 {
@@ -68,9 +67,19 @@ namespace Unity.Entities
         Streaming  = 1 << 7,
 
         /// <summary>
-        /// <see cref="World"/> Enable world update allocator to free individual block.
+        /// Server <see cref="Live"/> <see cref="World"/> running in the Player.
         /// </summary>
-        EnableBlockFree = 1 << 8,
+        GameServer = 1 << 8 | Live,
+
+        /// <summary>
+        /// Client <see cref="Live"/> <see cref="World"/> running in the Player.
+        /// </summary>
+        GameClient = 1 << 9 | Live,
+
+        /// <summary>
+        /// Thin client <see cref="Live"/> <see cref="World"/> running in the Player.
+        /// </summary>
+        GameThinClient = 1 << 10 | Live,
     }
 
     /// <summary>
@@ -80,31 +89,41 @@ namespace Unity.Entities
     /// </summary>
     public interface ICustomBootstrap
     {
-        // Returns true if the bootstrap has performed initialization.
-        // Returns false if default world initialization should be performed.
+        /// <summary>
+        /// Called during default world initialization to give the application a chance to set up additional worlds beyond
+        /// (or instead of) the default world, and to perform additional one-time initialization before any worlds are created.
+        /// </summary>
+        /// <param name="defaultWorldName">The name of the default <see cref="World"/> that will be created</param>
+        /// <returns>true if the bootstrap has performed initialization, or false if default world initialization should be performed.</returns>
         bool Initialize(string defaultWorldName);
     }
 
+    /// <summary>
+    /// Encapsulates a set of entities, component data, and systems.
+    /// </summary>
+    /// <remarks>Multiple Worlds may exist concurrently in the same application, but they are isolated from each other;
+    /// an <see cref="EntityQuery"/> will only match entities in the World that created the query, a World's <see cref="EntityManager"/> can only
+    /// process entities from the same World, etc.</remarks>
     [DebuggerDisplay("{Name} - {Flags} (#{SequenceNumber})")]
     [DebuggerTypeProxy(typeof(WorldDebugView))]
     public unsafe partial class World : IDisposable
     {
         internal static readonly List<World> s_AllWorlds = new List<World>();
 
+        /// <summary>
+        /// Reference to the default World
+        /// </summary>
         public static World DefaultGameObjectInjectionWorld { get; set; }
 
-        Dictionary<Type, ComponentSystemBase> m_SystemLookup = new Dictionary<Type, ComponentSystemBase>();
+        internal Dictionary<Type, ComponentSystemBase> m_SystemLookup = new Dictionary<Type, ComponentSystemBase>();
+
+        /// <summary>
+        /// List of all Worlds that currently exist in the application
+        /// </summary>
         public static NoAllocReadOnlyCollection<World> All { get; } = new NoAllocReadOnlyCollection<World>(s_AllWorlds);
 
-        /// <summary>
-        /// Event invoked after world has been fully constructed.
-        /// </summary>
-        internal static event Action<World> WorldCreated;
-
-        /// <summary>
-        /// Event invoked before world is disposed.
-        /// </summary>
-        internal static event Action<World> WorldDestroyed;
+        /// <inheritdoc cref="WorldUnmanaged.NextSequenceNumber"/>
+        public static ulong NextSequenceNumber => WorldUnmanaged.NextSequenceNumber.Data;
 
         /// <summary>
         /// Event invoked after system has been fully constructed.
@@ -117,7 +136,13 @@ namespace Unity.Entities
         internal static event Action<World, ComponentSystemBase> SystemDestroyed;
 
         List<ComponentSystemBase> m_Systems = new List<ComponentSystemBase>();
+        /// <summary>
+        /// List of all managed systems in this World
+        /// </summary>
         public NoAllocReadOnlyCollection<ComponentSystemBase> Systems { get; }
+
+        static ProfilerMarker s_NewWorldMarker = new ProfilerMarker("new World()");
+        static ProfilerMarker s_DisposeWorldMarker = new ProfilerMarker("World Dispose()");
 
         private WorldUnmanaged m_Unmanaged;
 
@@ -127,25 +152,43 @@ namespace Unity.Entities
         /// </summary>
         public WorldUnmanaged Unmanaged => m_Unmanaged;
 
+        /// <inheritdoc cref="WorldUnmanaged.Flags"/>
         public WorldFlags Flags => m_Unmanaged.Flags;
 
+        /// <inheritdoc cref="WorldUnmanaged.Name"/>
         public string Name { get; }
 
+        /// <summary>
+        /// Returns the name of the World
+        /// </summary>
+        /// <returns>The World's name</returns>
         public override string ToString()
         {
             return Name;
         }
 
+        /// <inheritdoc cref="WorldUnmanaged.Version"/>
         public int Version => m_Unmanaged.Version;
 
+        /// <inheritdoc cref="WorldUnmanaged.EntityManager"/>
         public EntityManager EntityManager => m_Unmanaged.EntityManager;
 
-        public bool IsCreated => m_Systems != null;
+        /// <inheritdoc cref="WorldUnmanaged.IsCreated"/>
+        public bool IsCreated => m_Unmanaged.IsCreated;
 
+        /// <inheritdoc cref="WorldUnmanaged.SequenceNumber"/>
         public ulong SequenceNumber => m_Unmanaged.SequenceNumber;
 
-        public ref TimeData Time => ref m_Unmanaged.CurrentTime;
+        /// <inheritdoc cref="WorldUnmanaged.Time"/>
+        public ref TimeData Time => ref m_Unmanaged.Time;
 
+        public bool UpdateAllocatorEnableBlockFree
+        {
+            get => m_Unmanaged.UpdateAllocatorEnableBlockFree;
+            set => m_Unmanaged.UpdateAllocatorEnableBlockFree = value;
+        }
+
+        /// <inheritdoc cref="WorldUnmanaged.MaximumDeltaTime"/>
         public float MaximumDeltaTime
         {
             get => m_Unmanaged.MaximumDeltaTime;
@@ -154,6 +197,11 @@ namespace Unity.Entities
 
         private EntityQuery m_TimeSingletonQuery;
 
+        /// <summary>
+        /// Construct a new World instance
+        /// </summary>
+        /// <param name="name">The name to assign to the new World</param>
+        /// <param name="flags">The flags to assign to the new World</param>
         public World(string name, WorldFlags flags = WorldFlags.Simulation)
         {
             Name = name;
@@ -162,6 +210,12 @@ namespace Unity.Entities
             Init(flags, Allocator.Persistent);
         }
 
+        /// <summary>
+        /// Construct a new World instance
+        /// </summary>
+        /// <param name="name">The name to assign to the new World</param>
+        /// <param name="flags">The flags to assign to the new World</param>
+        /// <param name="backingAllocatorHandle">The allocator to use for any of the world's internal memory allocations</param>
         public World(string name, WorldFlags flags, AllocatorManager.AllocatorHandle backingAllocatorHandle)
         {
             Name = name;
@@ -172,6 +226,8 @@ namespace Unity.Entities
 
         void Init(WorldFlags flags, AllocatorManager.AllocatorHandle backingAllocatorHandle)
         {
+            s_NewWorldMarker.Begin();
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             SystemState.InitSystemIdCell();
 #endif
@@ -184,49 +240,88 @@ namespace Unity.Entities
                 ComponentType.ReadWrite<WorldTimeQueue>());
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordWorldCreated(in m_Unmanaged);
+            if (EntitiesJournaling.Enabled)
+            {
+                EntitiesJournaling.AddRecord(
+                    recordType: EntitiesJournaling.RecordType.WorldCreated,
+                    worldSequenceNumber: SequenceNumber,
+                    executingSystem: m_Unmanaged.ExecutingSystem,
+                    entities: null,
+                    entityCount: 0);
+
+                EntitiesJournaling.OnWorldCreated(this);
+            }
 #endif
 
-            WorldCreated?.Invoke(this);
+            s_NewWorldMarker.End();
         }
 
+        /// <summary>
+        /// Dispose of a World instance
+        /// </summary>
+        /// <exception cref="ArgumentException">Thrown if the World has already been disposed, or if one of the World's systems is still executing.</exception>
         public void Dispose()
         {
             if (!IsCreated)
                 throw new ArgumentException("The World has already been Disposed.");
+
+            if (Unmanaged.ExecutingSystem != SystemHandle.Null)
+                throw new ArgumentException("The World can not be disposed while a system in that world is executing " + Unmanaged.ExecutingSystem.m_WorldSeqNo);
+
+            s_DisposeWorldMarker.Begin();
+
             // Debug.LogError("Dispose World "+ Name + " - " + GetHashCode());
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordWorldDestroyed(in m_Unmanaged);
+            if (EntitiesJournaling.Enabled)
+            {
+                EntitiesJournaling.AddRecord(
+                    recordType: EntitiesJournaling.RecordType.WorldDestroyed,
+                    worldSequenceNumber: SequenceNumber,
+                    executingSystem: m_Unmanaged.ExecutingSystem,
+                    entities: null,
+                    entityCount: 0);
+            }
 #endif
-
-            WorldDestroyed?.Invoke(this);
 
             m_Unmanaged.EntityManager.PreDisposeCheck();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_Unmanaged.DisallowGetSystem();
-#endif
+
+            if(m_ExternalAPIState != null)
+                m_Unmanaged.DestroyManagedSystemState(m_ExternalAPIState);
+            m_ExternalAPIState = null;
+
             // We don't want any jobs making changes to this world as we are disposing it.
             // This could be particularly bad if we are destroying blobs referenced by Components as a job attempts to access them.
             EntityManager.ExclusiveEntityTransactionDependency.Complete();
             EntityManager.EndExclusiveEntityTransaction();
-            EntityManager.CompleteAllJobs();
+            EntityManager.CompleteAllTrackedJobs();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_Unmanaged.AllowGetSystem = true;
+#endif
 
             DestroyAllSystemsAndLogException();
-            m_Unmanaged.DestroyAllUnmanagedSystemsAndLogException();
-
-            s_AllWorlds.Remove(this);
-
-            m_SystemLookup.Clear();
             m_SystemLookup = null;
+            m_Systems = null;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_Unmanaged.AllowGetSystem = false;
+#endif
+
+            m_TimeSingletonQuery.Dispose();
+            s_AllWorlds.Remove(this);
 
             if (DefaultGameObjectInjectionWorld == this)
                 DefaultGameObjectInjectionWorld = null;
 
             m_Unmanaged.Dispose();
+
+            s_DisposeWorldMarker.End();
         }
 
+        /// <summary>
+        /// Destroys all existing Worlds
+        /// </summary>
         public static void DisposeAllWorlds()
         {
             while (s_AllWorlds.Count != 0)
@@ -237,26 +332,44 @@ namespace Unity.Entities
 
         // Time management
 
+        /// <summary>
+        /// Singleton instance of the <see cref="WorldTime"/> component. This data is generally accessed through <see cref="World.Time"/>.
+        /// </summary>
         protected Entity TimeSingleton
         {
             get
             {
                 if (m_TimeSingletonQuery.IsEmptyIgnoreFilter)
                 {
-                    var entity = EntityManager.CreateEntity(typeof(WorldTime), typeof(WorldTimeQueue));
-                    EntityManager.SetName(entity , "WorldTime");
+                    var timeTypes = stackalloc ComponentType[2];
+                    timeTypes[0] = ComponentType.ReadWrite<WorldTime>();
+                    timeTypes[1] = ComponentType.ReadWrite<WorldTimeQueue>();
+                    var entity = EntityManager.CreateEntity(EntityManager.CreateArchetype(timeTypes, 2));
+                    EntityManager.SetName(entity, "WorldTime");
                 }
 
                 return m_TimeSingletonQuery.GetSingletonEntity();
             }
         }
 
+        /// <summary>
+        /// Assigns a new value to the World's current time.
+        /// </summary>
+        /// <param name="newTimeData">The new time to assign for this World</param>
         public void SetTime(TimeData newTimeData)
         {
             EntityManager.SetComponentData(TimeSingleton, new WorldTime() {Time = newTimeData});
             this.Time = newTimeData;
         }
 
+        /// <summary>
+        /// Push a new temporary time value to the World's current time
+        /// </summary>
+        /// <remarks>This is generally used to temporarily override the time for a world for the duration of a single
+        /// <see cref="ComponentSystemGroup"/> update, when using fixed-timestep semantics. The original time can
+        /// subsequently be restored with <see cref="PopTime"/>.</remarks>
+        /// <param name="newTimeData">The temporary TimeData.</param>
+        /// <seealso cref="PopTime"/>
         public void PushTime(TimeData newTimeData)
         {
             var queue = EntityManager.GetBuffer<WorldTimeQueue>(TimeSingleton);
@@ -264,6 +377,10 @@ namespace Unity.Entities
             SetTime(newTimeData);
         }
 
+        /// <summary>
+        /// Restore the previous World time, after pushing a temporary time value with <see cref="PushTime"/>
+        /// </summary>
+        /// <seealso cref="PushTime"/>
         public void PopTime()
         {
             var queue = EntityManager.GetBuffer<WorldTimeQueue>(TimeSingleton);
@@ -297,8 +414,7 @@ namespace Unity.Entities
 
         ComponentSystemBase GetExistingSystemInternal(Type type)
         {
-            ComponentSystemBase system;
-            if (m_SystemLookup.TryGetValue(type, out system))
+            if (m_SystemLookup.TryGetValue(type, out var system))
                 return system;
 
             return null;
@@ -318,21 +434,29 @@ namespace Unity.Entities
         void AddSystem_Add_Internal(ComponentSystemBase system)
         {
             m_Systems.Add(system);
-            AddTypeLookupInternal(system.GetType(), system);
+            var systemType = system.GetType();
+
+            system.m_StatePtr = m_Unmanaged.AllocateSystemStateForManagedSystem(this, system);
+
+            AddTypeLookupInternal(systemType, system);
+
+            UnityEngine.Assertions.Assert.AreEqual(system,
+                (ComponentSystemBase)
+                m_Unmanaged.ResolveSystemState(system.SystemHandle)->m_ManagedSystem
+                    .Target);
+
+            m_Unmanaged.GetImpl().sysHandlesInCreationOrder.Add(new PerWorldSystemInfo
+            {
+                handle = system.SystemHandle,
+                systemTypeIndex = TypeManager.GetSystemTypeIndex(systemType)
+            });
         }
 
         void AddSystem_OnCreate_Internal(ComponentSystemBase system)
         {
             try
             {
-                unsafe
-                {
-                    var statePtr = m_Unmanaged.AllocateSystemStateForManagedSystem(this, system);
-                    system.CreateInstance(this, statePtr);
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    EntitiesJournaling.RecordSystemAdded(in m_Unmanaged, &statePtr->m_Handle);
-#endif
-                }
+                system.CreateInstance(this);
             }
             catch
             {
@@ -341,35 +465,58 @@ namespace Unity.Entities
             }
             m_Unmanaged.BumpVersion();
 
+#if ENABLE_PROFILER
+            EntitiesProfiler.OnSystemCreated(system.GetType(), system.SystemHandle);
+#endif
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            EntitiesJournaling.OnSystemCreated(system.GetType(), system.SystemHandle);
+#endif
+
             SystemCreated?.Invoke(this, system);
         }
 
         void RemoveSystemInternal(ComponentSystemBase system)
         {
+            ref var list = ref Unmanaged.GetImpl().sysHandlesInCreationOrder;
+            int toremove = -1;
+            for (int i = 0; i < list.Length; i++)
+            {
+                if (list[i].handle == system.SystemHandle)
+                {
+                    toremove = i;
+                    break;
+                }
+            }
+
+            if (toremove != -1)
+            {
+                list.RemoveAt(toremove);
+            }
+
             if (!m_Systems.Remove(system))
                 throw new ArgumentException($"System does not exist in the world");
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            unsafe
-            {
-                var statePtr = system.m_StatePtr;
-                EntitiesJournaling.RecordSystemRemoved(in m_Unmanaged, statePtr != null ? &statePtr->m_Handle : null);
-            }
-#endif
 
             m_Unmanaged.BumpVersion();
 
             var type = system.GetType();
             while (type != typeof(ComponentSystemBase))
             {
-                if (m_SystemLookup[type] == system)
+                var haskey = m_SystemLookup.TryGetValue(type, out var lookedUpSystem);
+                if (haskey && lookedUpSystem == system)
                 {
                     m_SystemLookup.Remove(type);
 
                     foreach (var otherSystem in m_Systems)
                         // Equivalent to otherSystem.isSubClassOf(type) but compatible with NET_DOTS
-                        if (type != otherSystem.GetType() && type.IsAssignableFrom(otherSystem.GetType()))
-                            AddTypeLookupInternal(otherSystem.GetType(), otherSystem);
+                    {
+                        var otherSystemType = otherSystem.GetType();
+
+                        if (type != otherSystemType && type.IsAssignableFrom(otherSystemType))
+                        {
+                            AddTypeLookupInternal(otherSystemType, otherSystem);
+                            break;
+                        }
+                    }
                 }
 
                 type = type.BaseType;
@@ -377,31 +524,127 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        void CheckGetOrCreateSystem()
+        internal void CheckGetOrCreateSystem()
         {
             if (!IsCreated)
-            {
-                throw new ArgumentException("The World has already been Disposed.");
-            }
+                throw new ObjectDisposedException("The World has already been Disposed.");
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (!m_Unmanaged.AllowGetSystem)
-            {
                 throw new ArgumentException("You are not allowed to get or create more systems during destruction of a system.");
-            }
 #endif
         }
 
         // Public system management
 
-        public T GetOrCreateSystem<T>() where T : ComponentSystemBase
+        /// <summary>
+        /// Retrieve the handle for the instance of a system of type <typeparamref name="T"/> from the current World. If the system
+        /// does not exist in this World, it will first be created.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <returns>The handle for the instance of system type <typeparamref name="T"/> in this World. If the system
+        /// does not exist in this World, it will first be created.</returns>
+        public SystemHandle GetOrCreateSystem<T>() where T : ComponentSystemBase
         {
             CheckGetOrCreateSystem();
 
-            var system = GetExistingSystemInternal(typeof(T));
-            return (T)(system ?? CreateSystemInternal(typeof(T)));
+            var type = typeof(T);
+            var system = GetExistingSystemInternal(type);
+            return system == null ? CreateSystemInternal(type).SystemHandle : system.SystemHandle;
         }
 
-        public ComponentSystemBase GetOrCreateSystem(Type type)
+        /// <summary>
+        /// Retrieve the instance of a system of type <typeparamref name="T"/> from the current World. If the system
+        /// does not exist in this World, it will first be created.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        ///
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="GetOrCreateSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        /// </remarks>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <returns>The instance of system type <typeparamref name="T"/> in this World. If the system
+        /// does not exist in this World, it will first be created.</returns>
+        public T GetOrCreateSystemManaged<T>() where T : ComponentSystemBase
+        => (T)GetOrCreateSystemManaged(typeof(T));
+
+        /// <summary>
+        /// Retrieve the handle for the instance of a system of type <paramref name="type"/> from the current World. If the system
+        /// does not exist in this World, it will first be created.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="type">The system type</param>
+        /// <returns>The handle for the instance of system type <paramref name="type"/> in this World. If the system
+        /// does not exist in this World, it will first be created.</returns>
+        public SystemHandle GetOrCreateSystem(Type type)
+        {
+            CheckGetOrCreateSystem();
+
+            if (typeof(ComponentSystemBase).IsAssignableFrom(type))
+            {
+                var system = GetExistingSystemInternal(type);
+                return system == null ? CreateSystemInternal(type).SystemHandle : system.SystemHandle;
+            }
+
+            return Unmanaged.GetOrCreateUnmanagedSystem(type);
+        }
+
+        /// <summary>
+        /// Retrieve the instance of a system of type <paramref name="type"/> from the current World. If the system
+        /// does not exist in this World, it will first be created.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        ///
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="GetOrCreateSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        /// </remarks>
+        /// <param name="type">The system type</param>
+        /// <returns>The instance of system type <paramref name="type"/> in this World. If the system
+        /// does not exist in this World, it will first be created.</returns>
+        public ComponentSystemBase GetOrCreateSystemManaged(Type type)
         {
             CheckGetOrCreateSystem();
 
@@ -409,21 +652,148 @@ namespace Unity.Entities
             return system ?? CreateSystemInternal(type);
         }
 
-        public T CreateSystem<T>() where T : ComponentSystemBase, new()
+        /// <summary>
+        /// Create and return a handle to an instance of a system of type <typeparamref name="T"/> in this World.
+        /// </summary>
+        /// <remarks>
+        /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
+        ///
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <returns>A handle to the new instance of system type <typeparamref name="T"/> in this World.</returns>
+        public SystemHandle CreateSystem<T>() where T : ComponentSystemBase, new()
         {
             CheckGetOrCreateSystem();
-
-            return (T)CreateSystemInternal(typeof(T));
+            return CreateSystemInternal(typeof(T)).SystemHandle;
         }
 
-        public ComponentSystemBase CreateSystem(Type type)
+        /// <summary>
+        /// Create and return an instance of a system of type <typeparamref name="T"/> in this World.
+        /// </summary>
+        /// <remarks>
+        /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
+        ///
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        ///
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="CreateSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        ///
+        /// </remarks>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <returns>The new instance of system type <typeparamref name="T"/> in this World.</returns>
+        public T CreateSystemManaged<T>() where T : ComponentSystemBase, new()
+            => (T)CreateSystemManaged(typeof(T));
+
+        /// <summary>
+        /// Create and return a handle to an instance of a system of type <paramref name="type"/> in this World.
+        /// </summary>
+        /// <remarks>
+        /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
+        ///
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="type">The system type</param>
+        /// <returns>A handle to the new instance of system type <paramref name="type"/> in this World.</returns>
+        public SystemHandle CreateSystem(Type type)
         {
             CheckGetOrCreateSystem();
 
+            if (typeof(ComponentSystemBase).IsAssignableFrom(type))
+                return CreateSystemInternal(type).SystemHandle;
+
+            return Unmanaged.GetOrCreateUnmanagedSystem(type);
+        }
+
+        /// <summary>
+        /// Create and return an instance of a system of type <paramref name="type"/> in this World.
+        /// </summary>
+        /// <remarks>
+        /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
+        ///
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        ///
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="CreateSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        /// </remarks>
+        /// <param name="type">The system type</param>
+        /// <returns>The new instance of system type <paramref name="type"/> in this World.</returns>
+        public ComponentSystemBase CreateSystemManaged(Type type)
+        {
+            CheckGetOrCreateSystem();
             return CreateSystemInternal(type);
         }
 
+        /// <inheritdoc cref="AddSystemManaged{T}(T)"/>
+        [Obsolete("(UnityUpgradable) -> AddSystemManaged<T>(*)", true)]
         public T AddSystem<T>(T system) where T : ComponentSystemBase
+            => AddSystemManaged(system);
+
+        /// <summary>
+        /// Adds an existing system instance to this World
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before adding the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        ///
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="CreateSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        /// </remarks>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <param name="system">The existing system instance to add</param>
+        /// <returns>The input <paramref name="system"/></returns>
+        /// <exception cref="Exception">Thrown if a system of type <typeparamref name="T"/> already exists in this World</exception>
+        public T AddSystemManaged<T>(T system) where T : ComponentSystemBase
         {
             CheckGetOrCreateSystem();
             if (GetExistingSystemInternal(system.GetType()) != null)
@@ -431,69 +801,234 @@ namespace Unity.Entities
 
             AddSystem_Add_Internal(system);
             AddSystem_OnCreate_Internal(system);
-            return system;
+            return (T)system;
         }
 
-        public T GetExistingSystem<T>() where T : ComponentSystemBase
+        /// <summary>
+        /// Return a handle to an existing instance of a system of type <typeparamref name="T"/> in this World.
+        /// </summary>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <returns>A handle to the existing instance of system type <typeparamref name="T"/> in this World. If no such instance exists, the method returns default.</returns>
+        public SystemHandle GetExistingSystem<T>() where T : ComponentSystemBase
+            => GetExistingSystem(typeof(T));
+
+        /// <summary>
+        /// Return an existing instance of a system of type <typeparamref name="T"/> in this World.
+        /// </summary>
+        /// <remarks>
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="GetExistingSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        /// </remarks>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <returns>The existing instance of system type <typeparamref name="T"/> in this World. If no such instance exists, the method returns null.</returns>
+        public T GetExistingSystemManaged<T>() where T : ComponentSystemBase
+            => (T)GetExistingSystemManaged(typeof(T));
+
+        /// <summary>
+        /// Return a handle to an existing instance of a system of type <paramref name="type"/> in this World.
+        /// </summary>
+        /// <param name="type">The system type</param>
+        /// <returns>A handle to the existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns default.</returns>
+        public SystemHandle GetExistingSystem(Type type)
         {
             CheckGetOrCreateSystem();
 
-            return (T)GetExistingSystemInternal(typeof(T));
+            if (typeof(ComponentSystemBase).IsAssignableFrom(type))
+            {
+                var system = GetExistingSystemInternal(type);
+                return system == null ? default : system.SystemHandle;
+            }
+
+            return Unmanaged.GetExistingUnmanagedSystem(type);
         }
 
-        public ComponentSystemBase GetExistingSystem(Type type)
+        /// <summary>
+        /// Return an existing instance of a system of type <paramref name="type"/> in this World.
+        /// </summary>
+        /// <remarks>
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="GetExistingSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        /// </remarks>
+        /// <param name="type">The system type</param>
+        /// <returns>The existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns null.</returns>
+        public ComponentSystemBase GetExistingSystemManaged(Type type)
         {
             CheckGetOrCreateSystem();
-
             return GetExistingSystemInternal(type);
         }
 
-        public void DestroySystem(ComponentSystemBase system)
+        /// <summary>
+        /// Destroys one of the World's existing system instances.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before destroying the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="sysHandle">The system to destroy. Must be an existing instance in this World.</param>
+        /// <exception cref="ArgumentException">Thrown if any of the World's systems are currently executing.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the system handle is invalid or does not belong to this world.</exception>
+        public void DestroySystem(SystemHandle sysHandle)
         {
             CheckGetOrCreateSystem();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Unmanaged.ExecutingSystem != default)
+                throw new ArgumentException("A system can not be disposed while another system in that world is executing");
+#endif
+
+            var sysState = Unmanaged.ResolveSystemStateChecked(sysHandle);
+            if (sysState != null && sysState->m_ManagedSystem.IsAllocated)
+            {
+                DestroySystemManaged(sysState->ManagedSystem);
+                return;
+            }
+
+            Unmanaged.DestroyUnmanagedSystem(sysHandle);
+        }
+
+        /// <summary>
+        /// Destroys one of the World's existing system instances.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before destroying the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="system">The system to destroy. Must be an existing instance in this World.</param>
+        /// <exception cref="ArgumentException">Thrown if any of the World's systems are currently executing.</exception>
+        public void DestroySystemManaged(ComponentSystemBase system)
+        {
+            CheckGetOrCreateSystem();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Unmanaged.ExecutingSystem != default)
+                throw new ArgumentException("A system can not be disposed while another system in that world is executing");
+#endif
 
             SystemDestroyed?.Invoke(this, system);
             RemoveSystemInternal(system);
             system.DestroyInstance();
         }
 
+        /// <summary>
+        /// Destroy all system instances in the World. Any errors encountered during individual system destruction will be logged to the console.
+        /// </summary>
+        /// <exception cref="ArgumentException">Thrown if any of the World's systems are currently executing.</exception>
         public void DestroyAllSystemsAndLogException()
         {
-            if (m_Systems == null)
+            if (!IsCreated)
                 return;
+
+            if (Unmanaged.ExecutingSystem != default)
+                throw new ArgumentException($"{nameof(DestroyAllSystemsAndLogException)} while another system is running on the same world is not allowed.");
 
             // Systems are destroyed in reverse order from construction, in three phases:
             // 1. Stop all systems from running (if they weren't already stopped), to ensure OnStopRunning() is called.
             // 2. Call each system's OnDestroy() method
             // 3. Actually destroy each system
-            for (int i = m_Systems.Count - 1; i >= 0; --i)
+            var sysHandlesInCreationOrder = Unmanaged.GetImpl().sysHandlesInCreationOrder;
+            for (int i = sysHandlesInCreationOrder.Length - 1; i >= 0; i--)
             {
+                var system = sysHandlesInCreationOrder[i].handle;
+                var state = Unmanaged.ResolveSystemState(system);
+                if (state == null) continue;
+                if (state->m_ManagedSystem.IsAllocated)
+                {
+                    try
+                    {
+                        SystemDestroyed?.Invoke(this, m_Systems[i]);
+                        state->ManagedSystem.OnBeforeDestroyInternal();
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e);
+                    }
+                }
+                else
+                {
+                    //TODO: call journaling for unmanaged systems, and clean up action callback stuff for that
+                    if (state->PreviouslyEnabled &&
+                        (TypeManager.GetSystemTypeFlags(sysHandlesInCreationOrder[i].systemTypeIndex) &
+                         TypeManager.SystemTypeInfo.kIsSystemISystemStartStopFlag) !=
+                        0)
+                    {
+                        SystemBaseRegistry.CallOnStopRunning(state);
+                    }
+                }
+
+            }
+
+            for (int i = sysHandlesInCreationOrder.Length - 1; i >= 0; --i)
+            {
+                var system = sysHandlesInCreationOrder[i].handle;
+
                 try
                 {
-                    SystemDestroyed?.Invoke(this, m_Systems[i]);
-                    m_Systems[i].OnBeforeDestroyInternal();
+                    var state = Unmanaged.ResolveSystemState(system);
+
+                    if (state == null) continue;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    var prevAllow = m_Unmanaged.AllowGetSystem;
+                    m_Unmanaged.AllowGetSystem = false;
+#endif
+                    if (state->m_ManagedSystem.IsAllocated)
+                    {
+                        state->ManagedSystem.OnDestroy_Internal();
+                    }
+                    else
+                    {
+                        SystemBaseRegistry.CallOnDestroy(state);
+                    }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    m_Unmanaged.AllowGetSystem = prevAllow;
+#endif
                 }
                 catch (Exception e)
                 {
                     Debug.LogException(e);
                 }
             }
-            for (int i = m_Systems.Count - 1; i >= 0; --i)
+            for (int i = sysHandlesInCreationOrder.Length - 1; i >= 0; --i)
             {
+                var system = sysHandlesInCreationOrder[i].handle;
+
                 try
                 {
-                    m_Systems[i].OnDestroy_Internal();
-                }
-                catch (Exception e)
-                {
-                    Debug.LogException(e);
-                }
-            }
-            for (int i = m_Systems.Count - 1; i >= 0; --i)
-            {
-                try
-                {
-                    m_Systems[i].OnAfterDestroyInternal();
+                    var state = Unmanaged.ResolveSystemState(system);
+                    if (state == null) continue;
+                    if (state->m_ManagedSystem.IsAllocated)
+                        state->ManagedSystem.OnAfterDestroyInternal();
+                    else
+                    {
+                        ref var impl = ref m_Unmanaged.GetImpl();
+                        impl.InvalidateSystemHandle(system);
+                        impl.FreeSlotWithoutOnDestroy(system.m_Handle, state);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -501,79 +1036,204 @@ namespace Unity.Entities
                 }
             }
             m_Systems.Clear();
-            m_Systems = null;
+            Unmanaged.GetImpl().sysHandlesInCreationOrder.Clear();
+            m_SystemLookup.Clear();
         }
 
-        internal ComponentSystemBase[] GetOrCreateSystemsAndLogException(IEnumerable<Type> types, int typesCount)
+        /// <summary>
+        /// For the systems from the list of types which are not already created yet in the current world,
+        /// create systems in the order they are passed in, NOT checking createafter/createbefore validity.
+        /// </summary>
+        /// <remarks>
+        /// If errors are encountered either when creating the system or when calling OnCreate, a default
+        /// SystemHandle will be returned for that system.
+        /// </remarks>
+        /// <param name="types">The system types to create</param>
+        /// <param name="typesCount">The number of elements in the <paramref name="types"/> enumeration</param>
+        /// <param name="allocator">The allocator to use to allocate the output system list</param>
+        /// <returns>A list of system instances</returns>
+        internal NativeList<SystemHandle> GetOrCreateSystemsAndLogException(
+            IEnumerable<Type> types,
+            int typesCount,
+            AllocatorManager.AllocatorHandle allocator)
         {
             CheckGetOrCreateSystem();
 
-            var toInitSystems = new ComponentSystemBase[typesCount];
-            // start before 0 as we increment at the top of the loop to avoid
-            // special cases for the various early outs in the loop below
-            var i = -1;
-            foreach(var type in types)
+            //don't enumerate twice
+            var typesArray = types.ToArray();
+
+            var sysHandlesToReturn = new NativeList<SystemHandle>(typesCount, allocator);
+
+            var startIndex = sysHandlesToReturn.Length;
+            var actuallyAddedTypesList = new List<Type>();
+
+            foreach (var type in typesArray)
             {
-                i++;
+                var handle = SystemHandle.Null;
+
                 try
                 {
-                    if (GetExistingSystemInternal(type) != null)
-                        continue;
+                    if (typeof(ISystem).IsAssignableFrom(type))
+                    {
+                        handle = m_Unmanaged.GetExistingUnmanagedSystem(type);
+                        if (handle != default)
+                        {
+                            continue;
+                        }
 
-                    var system = AllocateSystemInternal(type);
-                    if (system == null)
-                        continue;
+                        handle = Unmanaged.CreateUnmanagedSystem(this, type, false);
+                        actuallyAddedTypesList.Add(type);
+                    }
+                    else
+                    {
+                        var system = GetExistingSystemInternal(type);
+                        if (system != null)
+                        {
+                            handle = system.SystemHandle;
+                            continue;
+                        }
 
-                    toInitSystems[i] = system;
-                    AddSystem_Add_Internal(system);
+                        system = AllocateSystemInternal(type);
+                        if (system == null)
+                        {
+                            continue;
+                        }
+
+                        AddSystem_Add_Internal(system);
+                        handle = system.SystemHandle;
+                        actuallyAddedTypesList.Add(type);
+
+                        UnityEngine.Assertions.Assert.AreEqual(
+                            (ComponentSystemBase)system,
+                            (ComponentSystemBase)
+                            m_Unmanaged.ResolveSystemState(system.SystemHandle)->m_ManagedSystem
+                                .Target);
+
+                    }
                 }
                 catch (Exception exc)
                 {
                     Debug.LogException(exc);
                 }
-            }
-
-            for (i = 0; i != typesCount; i++)
-            {
-                if (toInitSystems[i] != null)
+                finally
                 {
-                    try
+                    sysHandlesToReturn.Add(handle);
+                    if (actuallyAddedTypesList.Count < sysHandlesToReturn.Length)
+                        actuallyAddedTypesList.Add(null);
+                }
+            }
+            for (int i = startIndex; i != startIndex + actuallyAddedTypesList.Count; i++)
+            {
+                try
+                {
+                    var type = actuallyAddedTypesList[i-startIndex];
+                    if (type == null) continue;
+
+                    if (typeof(ISystem).IsAssignableFrom(type))
                     {
-                        AddSystem_OnCreate_Internal(toInitSystems[i]);
+                        var handle = m_Unmanaged.GetExistingUnmanagedSystem(type);
+                        var systemState = m_Unmanaged.ResolveSystemState(handle);
+                        if (systemState != null)
+                            m_Unmanaged.GetImplPtr()->CallSystemOnCreateWithCleanup(systemState);
                     }
-                    catch (Exception exc)
+                    else
                     {
-                        Debug.LogException(exc);
+                        CheckGetOrCreateSystem();
+                        m_SystemLookup.TryGetValue(type, out var system);
+
+                        AddSystem_OnCreate_Internal(system);
                     }
+                }
+                catch (Exception exc)
+                {
+                    sysHandlesToReturn[i - startIndex] = default;
+                    Debug.LogException(exc);
                 }
             }
 
-            i = 0;
-            foreach (var type in types)
-            {
-                toInitSystems[i] = GetExistingSystemInternal(type);
-                i++;
-            }
-
-            return toInitSystems;
+            return sysHandlesToReturn;
         }
 
-        public ComponentSystemBase[] GetOrCreateSystemsAndLogException(Type[] types)
+        /// <summary>
+        /// Creates systems from the list of types which aren't already created in the current world.
+        /// </summary>
+        /// <remarks>
+        /// This function creates systems in the order they are passed in, and ignores <see cref="CreateBeforeAttribute"/>
+        /// and <see cref="CreateAfterAttribute"/> validity.
+        /// If errors are encountered either when creating the system or when calling OnCreate, a default
+        /// <see cref="SystemHandle"/> will be returned for that system.
+        ///
+        /// **Important:** This function creates a sync point if any systems are created, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the systems, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="types">The system types to create, in the order in which they should be created.</param>
+        /// <param name="allocator">The allocator to use to allocate the output system list</param>
+        /// <returns>A list of system instances</returns>
+        public NativeList<SystemHandle> GetOrCreateSystemsAndLogException(Type[] types, AllocatorManager.AllocatorHandle allocator)
         {
-            return GetOrCreateSystemsAndLogException(types, types.Length);
+            return GetOrCreateSystemsAndLogException(types, types.Length, allocator);
         }
 
+        /// <summary>
+        /// Set this property to true to abort a world update after the next system update.
+        /// </summary>
         public bool QuitUpdate { get; set; }
 
+        /// <inheritdoc cref="WorldUnmanaged.UpdateAllocator"/>
         public ref RewindableAllocator UpdateAllocator => ref Unmanaged.UpdateAllocator;
 
+        /// <summary>
+        /// Retrieve current double rewindable allocator for this World.
+        /// </summary>
+        internal DoubleRewindableAllocators* CurrentGroupAllocators => m_Unmanaged.GetImpl().DoubleUpdateAllocators;
+
+        /// <summary>
+        /// Push group allocator into a stack.
+        /// </summary>
+        /// <remarks>System groups use the group allocator to rewind memory at a different rate from the world update.
+        /// To do this, use the rate manager's ShouldGroupUpdate(), when pushing time into world. You can also set the group
+        /// allocator to replace the world's update allocator. When popping time out of the world, you can rewind the allocator,
+        /// and if not world owned update the allocator, and then restore the old allocator back.</remarks>
+        /// <param name="newGroupAllocators">The group allocator to push into a stack.</param>
+        public void SetGroupAllocator(DoubleRewindableAllocators* newGroupAllocators)
+        {
+            m_Unmanaged.GetImpl().SetGroupAllocator(newGroupAllocators);
+        }
+
+        /// <summary>
+        /// Pop group allocator out of the stack.
+        /// </summary>
+        /// <remarks>System group can make use of group allocator to rewind memory at a different rate from the world update.
+        /// User can achieve this in rate manager's ShouldGroupUpdate(), when pushing time into world, user also set group
+        /// allocator to replace world update allocator. When popping time out of the world, user rewinds the allocator
+        /// if not world owned update allocator and then restore the old allocator back.</remarks>
+        /// <param name="oldGroupAllocators">The group allocator to pop from the stack.</param>
+        public void RestoreGroupAllocator(DoubleRewindableAllocators* oldGroupAllocators)
+        {
+            m_Unmanaged.GetImpl().RestoreGroupAllocator(oldGroupAllocators);
+        }
+
+        /// <summary>
+        /// Update the World's default system groups.
+        /// </summary>
+        /// <remarks>The system group update order is:
+        /// 1. <see cref="InitializationSystemGroup"/>
+        /// 2. <see cref="SimulationSystemGroup"/>
+        /// 3. <see cref="PresentationSystemGroup"/>
+        ///
+        /// Generally this is not necessary within the context of a UnityEngine application; instead, use
+        /// <see cref="ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop"/> to insert these system groups into the
+        /// UnityEngine player loop, where they'll be interleaved with existing UnityEngine updates.</remarks>
         public void Update()
         {
-            GetExistingSystem<InitializationSystemGroup>()?.Update();
-            GetExistingSystem<SimulationSystemGroup>()?.Update();
-            GetExistingSystem<PresentationSystemGroup>()?.Update();
+            m_Unmanaged.GetImpl().m_WorldAllocatorHelper.Allocator.Update(); // frees were deferred, do them now
+            GetExistingSystemManaged<InitializationSystemGroup>()?.Update();
+            GetExistingSystemManaged<SimulationSystemGroup>()?.Update();
+            GetExistingSystemManaged<PresentationSystemGroup>()?.Update();
 
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.IsTrue(EntityManager.GetBuffer<WorldTimeQueue>(TimeSingleton).Length == 0, "PushTime without matching PopTime");
         #endif
         }
@@ -581,18 +1241,39 @@ namespace Unity.Entities
         /// <summary>
         /// Read only collection that doesn't generate garbage when used in a foreach.
         /// </summary>
+        /// <typeparam name="T">The list element type</typeparam>
         public struct NoAllocReadOnlyCollection<T> : IEnumerable<T>
         {
             readonly List<T> m_Source;
 
+            /// <summary>
+            /// Construct a new instance
+            /// </summary>
+            /// <param name="source">The source list</param>
             public NoAllocReadOnlyCollection(List<T> source) => m_Source = source;
 
+            /// <summary>
+            /// The number of list elements
+            /// </summary>
             public int Count => m_Source.Count;
 
+            /// <summary>
+            /// Look up a list element by index
+            /// </summary>
+            /// <param name="index">The list index to look up</param>
             public T this[int index] => m_Source[index];
 
+            /// <summary>
+            /// Get an enumerator interface to the list
+            /// </summary>
+            /// <returns>A list enumerator</returns>
             public List<T>.Enumerator GetEnumerator() => m_Source.GetEnumerator();
 
+            /// <summary>
+            /// Check if the list contains a specific element
+            /// </summary>
+            /// <param name="item">The itme to search for</param>
+            /// <returns>True if the element is found in the list, or false if not.</returns>
             public bool Contains(T item) => m_Source.Contains(item);
 
             IEnumerator<T> IEnumerable<T>.GetEnumerator()
@@ -601,60 +1282,160 @@ namespace Unity.Entities
                 => throw new NotSupportedException($"To avoid boxing, do not cast {nameof(NoAllocReadOnlyCollection<T>)} to IEnumerable.");
         }
 
-        internal static unsafe SystemState* FindSystemStateForId(int systemId)
+        internal static unsafe SystemState* FindSystemStateForChangeVersion(EntityComponentStore* componentStore, uint changeVersion)
         {
             foreach (var world in World.All)
             {
-                foreach (var system in world.Systems)
+                if (world.EntityManager.GetUncheckedEntityDataAccess()->EntityComponentStore == componentStore)
                 {
-                    if (system == null) continue;
-
-                    var statePtr = system.CheckedState();
-                    if (statePtr->m_SystemID == systemId)
-                        return statePtr;
-                }
-
-                var allUnmanaged_ = world.Unmanaged.GetAllUnmanagedSystemStates(Allocator.Temp);
-                using (var allUnmanaged = allUnmanaged_)
-                {
-                    for (int i = 0; i < allUnmanaged.Length; ++i)
+                    if (changeVersion == componentStore->GlobalSystemVersion)
                     {
-                        var state = (SystemState*) allUnmanaged[i];
-                        if (state->m_SystemID == systemId)
-                            return state;
+                        var systemState = world.m_Unmanaged.ResolveSystemState(world.m_Unmanaged.ExecutingSystem);
+                        if (systemState != null)
+                            return systemState;
+                    }
+
+                    foreach (var system in world.Systems)
+                    {
+                        if (system == null) continue;
+
+                        var statePtr = system.CheckedState();
+                        if (statePtr->m_LastSystemVersion == changeVersion)
+                            return statePtr;
+
                     }
                 }
             }
 
             return null;
         }
+
+        /// <returns>Null if not found.</returns>
+        internal static SystemState* FindSystemStateForId(int systemId)
+        {
+            foreach (var world in All)
+            {
+                var state = world.Unmanaged.TryGetSystemStateForId(systemId);
+                if (state != null)
+                    return state;
+            }
+            return null;
+        }
+
+
+        /// <summary>
+        /// This stub system is used to create instances of aspects
+        /// when no SystemState is available (outside dot runtime).
+        /// It is used by EntityManager.GetAspect and EntityManager.GetAspectRO
+        /// which will be called from the editor.
+        /// </summary>
+        [DisableAutoCreation]
+        class SystemStub : ComponentSystemBase
+        {
+            public override void Update()
+                => throw new System.NotImplementedException();
+        }
+        [NativeDisableUnsafePtrRestriction]
+        SystemState* m_ExternalAPIState = null;
+
+        [ExcludeFromBurstCompatTesting("accesses managed stub system")]
+        internal SystemState* ExternalAPIState
+        {
+            get
+            {
+                if (m_ExternalAPIState == null)
+                    m_ExternalAPIState = Unmanaged.
+                        AllocateSystemStateForManagedSystem
+                            (this, new SystemStub());
+                return m_ExternalAPIState;
+            }
+        }
+
     }
 
+    /// <summary>
+    /// Variants of World methods that support unmanaged systems (<see cref="ISystem"/>s)
+    /// </summary>
     public static class WorldExtensions
     {
-        public static SystemRef<T> AddSystem<T>(this World self) where T : unmanaged, ISystem
+        /// <summary>
+        /// Create and return a handle for an instance of a system of type <typeparamref name="T"/> in this World.
+        /// </summary>
+        /// <remarks>
+        /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
+        ///
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="self">The World</param>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <returns>The new system instance's handle of system type <typeparamref name="T"/> in this World.</returns>
+        public static SystemHandle CreateSystem<T>(this World self) where T : unmanaged, ISystem
         {
             return self.Unmanaged.CreateUnmanagedSystem<T>(self, true);
         }
 
-        public static SystemRef<T> GetExistingSystem<T>(this World self) where T : unmanaged, ISystem
+        /// <summary>
+        /// Return an existing handle for an instance of a system of type <typeparamref name="T"/> in this World.
+        /// </summary>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <param name="self">The World</param>
+        /// <returns>The existing system instance's handle of system type <typeparamref name="T"/> in this World. If no such instance exists, the method returns SystemHandle.Null.</returns>
+        public static SystemHandle GetExistingSystem<T>(this World self) where T : unmanaged, ISystem
         {
             return self.Unmanaged.GetExistingUnmanagedSystem<T>();
         }
 
-        public static SystemRef<T> GetOrCreateSystem<T>(this World self) where T : unmanaged, ISystem
+        /// <summary>
+        /// Retrieve the handle for an instance of a system of type <typeparamref name="T"/> from the current World. If the system
+        /// does not exist in this World, it will first be created.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <param name="self">The World</param>
+        /// <returns>The instance's handle of system type <typeparamref name="T"/> in this World. If the system
+        /// does not exist in this World, it will first be created.</returns>
+        public static SystemHandle GetOrCreateSystem<T>(this World self) where T : unmanaged, ISystem
         {
-            return self.Unmanaged.GetOrCreateUnmanagedSystem<T>(self);
+            return self.Unmanaged.GetOrCreateUnmanagedSystem<T>();
         }
 
-        public static SystemHandleUntyped GetOrCreateUnmanagedSystem(this World self, Type unmanagedType)
+        /// <inheritdoc cref="World.GetOrCreateSystem(Type)"/>
+        [Obsolete("Use World.GetOrCreateSystem instead")]
+        public static SystemHandle GetOrCreateSystem(World self, Type unmanagedType)
         {
-            return self.Unmanaged.GetOrCreateUnmanagedSystem(self, unmanagedType);
+            return self.GetOrCreateSystem(unmanagedType);
         }
-
-        public static void DestroyUnmanagedSystem(this World self, SystemHandleUntyped sysHandle)
+        /// <inheritdoc cref="World.DestroySystem(SystemHandle)"/>
+        [Obsolete("Use World.DestroySystem instead")]
+        public static void DestroySystem(World self, SystemHandle sysHandle)
         {
-            self.Unmanaged.DestroyUnmanagedSystem(sysHandle);
+            self.DestroySystem(sysHandle);
+        }
+        /// <inheritdoc cref="World.CreateSystem{T}"/>
+        [Obsolete("Use World.CreateSystem instead")]
+        public static SystemHandle AddSystem<T>(this World self) where T : unmanaged, ISystem
+        {
+            return CreateSystem<T>(self);
+        }
+        /// <inheritdoc cref="World.GetOrCreateSystem"/>
+        [Obsolete("Use World.GetOrCreateSystem instead")]
+        public static SystemHandle GetOrCreateUnmanagedSystem(this World self, Type unmanagedType)
+        {
+            return GetOrCreateSystem(self, unmanagedType);
+        }
+        /// <inheritdoc cref="World.DestroySystem"/>
+        [Obsolete("Use World.DestroySystem instead")]
+        public static void DestroyUnmanagedSystem(this World self, SystemHandle sysHandle)
+        {
+            DestroySystem(self, sysHandle);
         }
     }
 }

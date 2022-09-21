@@ -6,7 +6,7 @@ namespace Unity.Entities
 {
     partial class EntitiesProfiler
     {
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         [StructLayout(LayoutKind.Explicit, Size = 1008)]
         public unsafe struct FixedComponentTypeDataList
         {
@@ -23,7 +23,6 @@ namespace Unity.Entities
 
             public int Capacity => k_BufferSize / s_ComponentTypeDataSize;
 
-            [NotBurstCompatible]
             public ComponentTypeData this[int index]
             {
                 get

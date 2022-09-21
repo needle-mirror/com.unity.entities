@@ -6,15 +6,18 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Properties;
+using Unity.Scenes;
+using UnityEditor;
+using UnityEditor.SceneManagement;
 
 namespace Unity.Entities.Editor
 {
     [GeneratePropertyBag]
-    public class HierarchyNodesState
+    class HierarchyNodesState
     {
         [CreateProperty] internal HashSet<HierarchyNodeHandle> Expanded = new HashSet<HierarchyNodeHandle>();
     }
-    
+
     /// <summary>
     /// The <see cref="HierarchyNodes"/> class represents a virtualized list over the linearly packed hierarchy. It provides linear access to all 'expanded/visible' nodes.
     /// This can be used directly by a 'ListView' for the virtualization.
@@ -55,6 +58,7 @@ namespace Unity.Entities.Editor
         int m_ChangeVersion;
 
         bool m_Rebuild;
+        DataMode m_CurrentMode;
 
         /// <summary>
         /// Returns the number of 'visible' nodes. This is the virtualized count.
@@ -221,7 +225,7 @@ namespace Unity.Entities.Editor
                     break;
                 }
             }
-            
+
             // Update both the serialized state and the acceleration structure.
             m_Rebuild = true;
         }
@@ -234,12 +238,12 @@ namespace Unity.Entities.Editor
         {
             if (handle.Kind == NodeKind.Root || !m_ImmutableNodes.IsCreated || m_ImmutableNodes.ChangeVersion != m_ImmutableNodeChangeVersion)
                 return;
-            
+
             var index = m_ImmutableNodes.IndexOf(handle);
 
             if (index == -1)
                 return;
-            
+
             var node = m_ImmutableNodes[index];
 
             var rebuild = false;
@@ -250,12 +254,12 @@ namespace Unity.Entities.Editor
 
                 if (index <= 1)
                     break;
-                
+
                 node = m_ImmutableNodes[index];
                 rebuild |= !IsExpanded(node.Handle);
                 SetExpanded(node.Handle, true);
             }
-            
+
             // Update both the serialized state and the acceleration structure.
             if (rebuild)
             {
@@ -289,18 +293,24 @@ namespace Unity.Entities.Editor
             m_Filter = query;
             m_Rebuild = true;
         }
-        
+
+        internal void SetDataMode(DataMode mode)
+        {
+            m_CurrentMode = mode;
+            m_Rebuild = true;
+        }
+
         /// <summary>
-        /// Updates the <see cref="HierarchyNodes"/> to the latest packed data. This method will early out if no work is needed and can be called 
+        /// Updates the <see cref="HierarchyNodes"/> to the latest packed data. This method will early out if no work is needed and can be called
         /// </summary>
         /// <remarks>
         /// @TODO convert this to an enumerator which can be time-sliced.
         /// </remarks>
-        internal void Refresh(HierarchyNodeStore.Immutable immutable)
+        internal unsafe void Refresh(HierarchyNodeStore.Immutable immutable, World world, SubSceneNodeMapping subSceneNodeMapping)
         {
             if (immutable.ChangeVersion == 0)
                 return;
-            
+
             if (null != m_Filter)
             {
                 // Filtering is applied. We should be showing all nodes which match the specified filter. This ignores the expanded states.
@@ -309,6 +319,7 @@ namespace Unity.Entities.Editor
                 //  1) The packed nodes are newer than our current node version.
                 //  2) Our underlying node store has be repacked.
                 //  3) The search filter has changed.
+                //  4) The data mode changed.
                 if (m_ImmutableNodeChangeVersion != immutable.ChangeVersion || m_Rebuild)
                 {
                     m_ImmutableNodes = immutable;
@@ -317,7 +328,7 @@ namespace Unity.Entities.Editor
                     m_ChangeVersion++;
 
                     using var mask = m_Filter.Apply(m_ImmutableNodes, Allocator.TempJob);
-                    
+
                     new BuildFilteredNodes
                     {
                         Hierarchy = m_ImmutableNodes,
@@ -335,6 +346,7 @@ namespace Unity.Entities.Editor
                 //  1) The packed nodes are newer than our current node version.
                 //  2) Our underlying node store has be repacked.
                 //  3) The expanded/collapsed state has changed for one or more nodes.
+                //  4) The data mode changed.
                 if (m_ImmutableNodeChangeVersion != immutable.ChangeVersion || m_Rebuild)
                 {
                     m_ImmutableNodes = immutable;
@@ -342,28 +354,52 @@ namespace Unity.Entities.Editor
                     m_Rebuild = false;
                     m_ChangeVersion++;
 
+                    using var subSceneStateMap = BuildSubSceneStateMap(m_ImmutableNodes, subSceneNodeMapping, world, AllocatorManager.TempJob);
+
                     new BuildExpandedNodes
                     {
                         Hierarchy = m_ImmutableNodes,
                         Expanded = m_ExpandedHashSet,
+                        SubSceneStateMap = subSceneStateMap,
                         Nodes = m_Nodes,
-                        IndexByNode = m_IndexByNode
+                        IndexByNode = m_IndexByNode,
+                        DataMode = m_CurrentMode,
+                        IsPlayMode = EditorApplication.isPlaying,
+                        IsPrefabStage = PrefabStageUtility.GetCurrentPrefabStage() != null,
+                        EntityGuid = typeof(EntityGuid),
+                        Prefab = typeof(Prefab),
+                        DataAccess = world != null ? world.EntityManager.GetCheckedEntityDataAccess() : null
                     }.Run();
                 }
             }
         }
 
         [BurstCompile]
-        struct BuildExpandedNodes : IJob
+        internal unsafe struct BuildExpandedNodes : IJob
         {
+            const int k_MaxNestedSubScenes = 8;
+
             [ReadOnly] public HierarchyNodeStore.Immutable Hierarchy;
             [ReadOnly] public NativeParallelHashSet<HierarchyNodeHandle> Expanded;
+            [ReadOnly] public NativeParallelHashMap<HierarchyNodeHandle,bool> SubSceneStateMap;
             
+            public DataMode DataMode;
+            public bool IsPlayMode;
+            public bool IsPrefabStage;
+
             public NativeList<int> Nodes;
             public NativeList<int> IndexByNode;
+            public ComponentType EntityGuid;
+            public ComponentType Prefab;
+            [NativeDisableUnsafePtrRestriction] public EntityDataAccess* DataAccess;
 
             public void Execute()
             {
+                var inSubScene = false;
+                SubSceneInfo currentSubScene = default;
+
+                UnsafeParallelHashMap<int, bool> rootGameObjectsInSubScene = DataMode is DataMode.Mixed ? new UnsafeParallelHashMap<int, bool>(32, AllocatorManager.Temp) : default;
+
                 // Skip the root.
                 var count = Hierarchy.Count;
                 var readIndex = 1;
@@ -379,21 +415,34 @@ namespace Unity.Entities.Editor
                 {
                     var node = Hierarchy[readIndex];
 
-                    // Hide empty Unity scene nodes. These are not useful in an ECS context.
-                    // NOTE: This should be moved elsewhere when gameObject support is introduced.
-                    if (node.Handle.Kind == NodeKind.Scene && node.ChildCount == 0)
+                    if (inSubScene)
                     {
-                        readIndex += node.NextSiblingOffset; 
+                        if (readIndex > currentSubScene.SubSceneEndIndex)
+                            inSubScene = false;
+                    }
+
+                    if (node.Handle.Kind is NodeKind.SubScene or NodeKind.DynamicSubScene)
+                    {
+                        inSubScene = true;
+
+                        currentSubScene = new SubSceneInfo { SubSceneEndIndex = readIndex + node.NextSiblingOffset - 1, IsOpened = SubSceneStateMap[node.Handle], SubSceneNodeDepth = node.Depth };
+                        if (DataMode is DataMode.Mixed && currentSubScene.IsOpened)
+                            CreateSubSceneGameObjectCache(readIndex, currentSubScene, ref rootGameObjectsInSubScene);
+                    }
+
+                    if (!ShouldIncludeNode(node, inSubScene, currentSubScene, rootGameObjectsInSubScene))
+                    {
+                        readIndex += node.NextSiblingOffset;
                         continue;
                     }
 
-                    // Write the node index. 
+                    // Write the node index.
                     Nodes[writeIndex] = readIndex;
                     IndexByNode[readIndex] = writeIndex;
 
                     // Skip children if the node is not expanded; otherwise continue to the next node
                     if (node.ChildCount != 0 && !IsExpanded(node.Handle))
-                        readIndex += node.NextSiblingOffset; 
+                        readIndex += node.NextSiblingOffset;
                     else
                         readIndex++;
 
@@ -401,6 +450,77 @@ namespace Unity.Entities.Editor
                 }
 
                 Nodes.Length = writeIndex;
+                if (rootGameObjectsInSubScene.IsCreated) rootGameObjectsInSubScene.Dispose();
+            }
+
+            void CreateSubSceneGameObjectCache(int currentReadIndex, SubSceneInfo subSceneInfo, ref UnsafeParallelHashMap<int,bool> rootGameObjectsInSubScene)
+            {
+                rootGameObjectsInSubScene.Clear();
+                for (var readIndex = currentReadIndex+1; readIndex <= subSceneInfo.SubSceneEndIndex; )
+                {
+                    var node = Hierarchy[readIndex];
+                    if (node.Handle.Kind is NodeKind.GameObject)
+                    {
+                        rootGameObjectsInSubScene.TryAdd(node.Handle.Index, false);
+                        readIndex++;
+                        continue;
+                    }
+
+                    readIndex += node.NextSiblingOffset;
+                }
+            }
+
+            struct SubSceneInfo
+            {
+                public int SubSceneEndIndex;
+                public bool IsOpened;
+                public int SubSceneNodeDepth;
+            }
+
+            bool ShouldIncludeNode(HierarchyImmutableNodeData node, bool inSubScene, SubSceneInfo subSceneInfo, UnsafeParallelHashMap<int, bool> rootGameObjectCache)
+            {
+                if (IsPrefabStage && (node.Flags & HierarchyNodeFlags.IsPrefabStage) == 0)
+                    return false;
+
+                // Include any node that's under a visible node in a subScene
+                // Include any node outside of a subScene that's under a visible node
+                if (!inSubScene && node.Depth > 1
+                    || inSubScene && node.Depth > subSceneInfo.SubSceneNodeDepth + 1)
+                    return true;
+
+                // Specific case for subScene content in mixed mode
+                if (inSubScene && DataMode is DataMode.Mixed)
+                {
+                    if (node.Handle.Kind is NodeKind.GameObject)
+                        return true;
+
+                    if (node.Handle.Kind is NodeKind.Entity)
+                    {
+                        if (!subSceneInfo.IsOpened)
+                            return true;
+
+                        var entity = node.Handle.ToEntity();
+                        // if the entity doesn't exist anymore `HasComponent` will return false.
+                        // hide prefab entities
+                        if (DataAccess->HasComponent(entity, Prefab))
+                            return false;
+                        if (!DataAccess->HasComponent(entity, EntityGuid))
+                            return true;
+
+                        var entityGuid = *(EntityGuid*)DataAccess->EntityComponentStore->GetComponentDataWithTypeRO(entity, EntityGuid.TypeIndex);
+                        return !rootGameObjectCache.ContainsKey(entityGuid.OriginatingId);
+                    }
+                }
+
+                if (node.Handle.Kind is NodeKind.Entity)
+                    return DataMode is DataMode.Runtime or DataMode.Mixed || inSubScene && !subSceneInfo.IsOpened;
+
+                if (node.Handle.Kind is NodeKind.GameObject)
+                    // show root GO always except in Playmode + Authoring
+                    // show GO in subScenes except in Runtime
+                    return node.Depth <= 1 && (!IsPlayMode || DataMode is not DataMode.Authoring) || inSubScene && DataMode is not DataMode.Runtime;
+
+                return true;
             }
 
             bool IsExpanded(HierarchyNodeHandle handle)
@@ -423,10 +543,10 @@ namespace Unity.Entities.Editor
         {
             [ReadOnly] public HierarchyNodeStore.Immutable Hierarchy;
             [ReadOnly] public NativeBitArray Filter;
-            
+
             public NativeList<int> Nodes;
             public NativeList<int> IndexByNode;
-            
+
             public void Execute()
             {
                 // Skip the root.
@@ -438,12 +558,12 @@ namespace Unity.Entities.Editor
 
                 for (var i = 0; i < IndexByNode.Length; i++)
                     IndexByNode[i] = -1;
-                
+
                 for (; readIndex < Hierarchy.Count; readIndex++)
                 {
-                    if (!Filter.IsSet(readIndex)) 
+                    if (!Filter.IsSet(readIndex))
                         continue;
-                    
+
                     IndexByNode[readIndex] = writeIndex;
                     Nodes[writeIndex] = readIndex;
 
@@ -453,7 +573,72 @@ namespace Unity.Entities.Editor
                 Nodes.Length = writeIndex;
             }
         }
-        
+
+        NativeParallelHashMap<HierarchyNodeHandle, bool> BuildSubSceneStateMap(HierarchyNodeStore.Immutable immutable, SubSceneNodeMapping subSceneNodeMapping, World world, AllocatorManager.AllocatorHandle allocator)
+        {
+            if (null == world)
+                return new NativeParallelHashMap<HierarchyNodeHandle, bool>(1, allocator);
+            using var subSceneNodesIndices = new NativeArray<int>(subSceneNodeMapping.SubSceneCount, allocator.ToAllocator);
+            new FilterSubSceneNodes()
+            {
+                Nodes = immutable,
+                SubSceneNodes = subSceneNodesIndices
+            }.Run();
+
+            var map = new NativeParallelHashMap<HierarchyNodeHandle, bool>(subSceneNodesIndices.Length, allocator);
+            //ensure scenesystem exists
+            world.Unmanaged.GetOrCreateUnmanagedSystem<SceneSystem>();
+
+            for (var i = 0; i < subSceneNodesIndices.Length; i++)
+            {
+                var subSceneNodeIndex = subSceneNodesIndices[i];
+                if (subSceneNodeIndex == -1)
+                    continue;
+                var subSceneNode = immutable[subSceneNodeIndex].Handle;
+                var sceneEntity = SceneSystem.GetSceneEntity(world.Unmanaged, subSceneNodeMapping.GetSceneHashFromNode(subSceneNode));
+                map.Add(subSceneNode, sceneEntity != Entity.Null && world.EntityManager.GetComponentObject<SubScene>(sceneEntity).IsLoaded);
+            }
+
+            return map;
+        }
+
+        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+        struct FilterSubSceneNodes : IJob
+        {
+            [ReadOnly] public HierarchyNodeStore.Immutable Nodes;
+            [WriteOnly] public NativeArray<int> SubSceneNodes;
+
+            public void Execute()
+            {
+                var subSceneNodesCount = 0;
+                for (var i = 0; i < Nodes.CountHierarchicalNodes; )
+                {
+                    var node = Nodes[i];
+
+                    switch (node.Handle.Kind)
+                    {
+                        // we know a subscene can't be under an entity so skip to next sibling
+                        case NodeKind.Entity:
+                            i += node.NextSiblingOffset;
+                            break;
+                        // we don't support nested subscenes yet, skip to next sibling
+                        case NodeKind.SubScene:
+                            SubSceneNodes[subSceneNodesCount++] = i;
+                            i += node.NextSiblingOffset;
+                            break;
+                        default:
+                            i++;
+                            break;
+                    }
+                }
+
+                for (var i = subSceneNodesCount; i < SubSceneNodes.Length; i++)
+                {
+                    SubSceneNodes[i] = -1;
+                }
+            }
+        }
+
         bool ICollection.IsSynchronized => throw new NotImplementedException();
         bool IList.IsFixedSize => throw new NotImplementedException();
         bool IList.IsReadOnly => throw new NotImplementedException();

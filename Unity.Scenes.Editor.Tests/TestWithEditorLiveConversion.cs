@@ -1,7 +1,11 @@
-﻿using System;
+﻿// These tests failing in playmode but not in edit mode is rare, so for local iteration this can make sense to disable
+#define ENABLE_PLAYMODE_LIVECONVERSION_TESTS
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using NUnit.Framework;
 using Unity.Entities;
 using Unity.Entities.Hybrid.Tests;
 using UnityEditor;
@@ -16,7 +20,8 @@ namespace Unity.Scenes.Editor.Tests
         [SerializeField] public TestWithTempAssets Assets;
         [SerializeField] public TestWithCustomDefaultGameObjectInjectionWorld DefaultWorld;
         [SerializeField] public TestWithSubScenes SubSceneTest;
-        [SerializeField] public TestWithLiveConversion LiveConversionTest;
+        [SerializeField] public TestLiveConversionSettings LiveConversionTest;
+        [SerializeField] public bool IsBakingEnabled;
 
         [SerializeField] EnterPlayModeOptions m_enterPlayModeOptions;
         [SerializeField] bool m_useEnterPlayerModeOptions;
@@ -35,7 +40,7 @@ namespace Unity.Scenes.Editor.Tests
             Assets.SetUp();
             DefaultWorld.Setup();
             SubSceneTest.Setup();
-            LiveConversionTest.Setup();
+            LiveConversionTest.Setup(IsBakingEnabled);
             m_enterPlayModeOptions = EditorSettings.enterPlayModeOptions;
             m_useEnterPlayerModeOptions = EditorSettings.enterPlayModeOptionsEnabled;
 
@@ -65,7 +70,7 @@ namespace Unity.Scenes.Editor.Tests
             World.DefaultGameObjectInjectionWorld = null;
         }
 
-        public void OpenAllSubScenes() => SubSceneInspectorUtility.EditScene(SubScene.AllSubScenes.ToArray());
+        public void OpenAllSubScenes() => SubSceneUtility.EditScene(SubScene.AllSubScenes.ToArray());
 
         public Scene CreateTmpScene() => SubSceneTestsHelper.CreateScene(Assets.GetNextPath() + ".unity");
 
@@ -94,8 +99,10 @@ namespace Unity.Scenes.Editor.Tests
 
         public IEditModeTestYieldInstruction GetEnterPlayMode(Mode playmode)
         {
+            #if ENABLE_PLAYMODE_LIVECONVERSION_TESTS
             if (playmode == Mode.Play)
                 return new EnterPlayMode();
+            #endif
             // ensure that the editor world is initialized
             var world = GetLiveConversionWorld(playmode);
             world.Update();
@@ -110,8 +117,29 @@ namespace Unity.Scenes.Editor.Tests
 
         public enum Mode
         {
+            #if ENABLE_PLAYMODE_LIVECONVERSION_TESTS
             Play,
+            #endif
             Edit
+        }
+
+        public static IEnumerable TestCases
+        {
+            get
+            {
+                {
+                    var tc = new TestCaseData(TestWithEditorLiveConversion.Mode.Edit) {HasExpectedResult = true};
+                    yield return tc;
+                }
+
+#if ENABLE_PLAYMODE_LIVECONVERSION_TESTS
+                {
+                    var tc = new TestCaseData(TestWithEditorLiveConversion.Mode.Play);
+                    tc.HasExpectedResult = true;
+                    yield return tc;
+                }
+#endif
+            }
         }
     }
 }

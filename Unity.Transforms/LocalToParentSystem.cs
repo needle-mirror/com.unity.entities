@@ -1,32 +1,43 @@
 using System;
+using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 
+#if !ENABLE_TRANSFORM_V1
+#else
+
 namespace Unity.Transforms
 {
     [BurstCompile]
+    [RequireMatchingQueriesForUpdate]
     public partial struct LocalToParentSystem : ISystem
     {
         private EntityQuery m_RootsQuery;
         private EntityQueryMask m_LocalToWorldWriteGroupMask;
+        private ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandleRO;
+        private BufferTypeHandle<Child> ChildTypeHandleRO;
+        private BufferLookup<Child> _childLookupRo;
+        private ComponentLookup<LocalToParent> LocalToParentFromEntityRO;
+        private ComponentLookup<LocalToWorld> LocalToWorldFromEntityRW;
 
         // LocalToWorld = Parent.LocalToWorld * LocalToParent
         [BurstCompile]
-        struct UpdateHierarchy : IJobEntityBatch
+        struct UpdateHierarchy : IJobChunk
         {
             [ReadOnly] public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandle;
             [ReadOnly] public BufferTypeHandle<Child> ChildTypeHandle;
-            [ReadOnly] public BufferFromEntity<Child> ChildFromEntity;
-            [ReadOnly] public ComponentDataFromEntity<LocalToParent> LocalToParentFromEntity;
+            [ReadOnly] public BufferLookup<Child> ChildLookup;
+            [ReadOnly] public ComponentLookup<LocalToParent> LocalToParentFromEntity;
             [ReadOnly] public EntityQueryMask LocalToWorldWriteGroupMask;
             public uint LastSystemVersion;
 
             [NativeDisableContainerSafetyRestriction]
-            public ComponentDataFromEntity<LocalToWorld> LocalToWorldFromEntity;
+            public ComponentLookup<LocalToWorld> LocalToWorldFromEntity;
 
             void ChildLocalToWorld(float4x4 parentLocalToWorld, Entity entity, bool updateChildrenTransform)
             {
@@ -34,7 +45,7 @@ namespace Unity.Transforms
 
                 float4x4 localToWorldMatrix;
 
-                if (updateChildrenTransform && LocalToWorldWriteGroupMask.Matches(entity))
+                if (updateChildrenTransform && LocalToWorldWriteGroupMask.MatchesIgnoreFilter(entity))
                 {
                     var localToParent = LocalToParentFromEntity[entity];
                     localToWorldMatrix = math.mul(parentLocalToWorld, localToParent.Value);
@@ -46,29 +57,31 @@ namespace Unity.Transforms
                     updateChildrenTransform = updateChildrenTransform || LocalToWorldFromEntity.DidChange(entity, LastSystemVersion);
                 }
 
-                if (ChildFromEntity.HasComponent(entity))
+                if (ChildLookup.HasBuffer(entity))
                 {
-                    var children = ChildFromEntity[entity];
-                    for (int i = 0; i < children.Length; i++)
+                    var children = ChildLookup[entity];
+                    for (int i = 0, childCount = children.Length; i < childCount; i++)
                     {
                         ChildLocalToWorld(localToWorldMatrix, children[i].Value, updateChildrenTransform);
                     }
                 }
             }
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                bool updateChildrenTransform =
-                    batchInChunk.DidChange<LocalToWorld>(LocalToWorldTypeHandle, LastSystemVersion) ||
-                    batchInChunk.DidChange<Child>(ChildTypeHandle, LastSystemVersion);
+                Assert.IsFalse(useEnabledMask);
 
-                var chunkLocalToWorld = batchInChunk.GetNativeArray(LocalToWorldTypeHandle);
-                var chunkChildren = batchInChunk.GetBufferAccessor(ChildTypeHandle);
-                for (int i = 0; i < batchInChunk.Count; i++)
+                bool updateChildrenTransform =
+                    chunk.DidChange<LocalToWorld>(LocalToWorldTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange<Child>(ChildTypeHandle, LastSystemVersion);
+
+                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldTypeHandle);
+                var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
+                for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
                 {
                     var localToWorldMatrix = chunkLocalToWorld[i].Value;
                     var children = chunkChildren[i];
-                    for (int j = 0; j < children.Length; j++)
+                    for (int j = 0, childCount = children.Length; j < childCount; j++)
                     {
                         ChildLocalToWorld(localToWorldMatrix, children[j].Value, updateChildrenTransform);
                     }
@@ -76,34 +89,26 @@ namespace Unity.Transforms
             }
         }
 
-        //burst disabled pending burstable entityquerydesc
-        //[BurstCompile]
+        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            m_RootsQuery = state.GetEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]
-                {
-                    ComponentType.ReadOnly<LocalToWorld>(),
-                    ComponentType.ReadOnly<Child>()
-                },
-                None = new ComponentType[]
-                {
-                    typeof(Parent)
-                },
-                Options = EntityQueryOptions.FilterWriteGroup
-            });
+            var builder = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<LocalToWorld, Child>()
+                .WithNone<Parent>()
+                .WithOptions(EntityQueryOptions.FilterWriteGroup);
+            m_RootsQuery = state.GetEntityQuery(builder);
 
-            m_LocalToWorldWriteGroupMask = state.EntityManager.GetEntityQueryMask(state.GetEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]
-                {
-                    typeof(LocalToWorld),
-                    ComponentType.ReadOnly<LocalToParent>(),
-                    ComponentType.ReadOnly<Parent>()
-                },
-                Options = EntityQueryOptions.FilterWriteGroup
-            }));
+            var builder2 = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<LocalToWorld>()
+                .WithAll<LocalToParent, Parent>()
+                .WithOptions(EntityQueryOptions.FilterWriteGroup);
+            m_LocalToWorldWriteGroupMask = state.GetEntityQuery(builder2).GetEntityQueryMask();
+
+            LocalToWorldTypeHandleRO = state.GetComponentTypeHandle<LocalToWorld>(true);
+            ChildTypeHandleRO = state.GetBufferTypeHandle<Child>(true);
+            _childLookupRo = state.GetBufferLookup<Child>(true);
+            LocalToParentFromEntityRO = state.GetComponentLookup<LocalToParent>(true);
+            LocalToWorldFromEntityRW = state.GetComponentLookup<LocalToWorld>();
         }
 
         [BurstCompile]
@@ -111,25 +116,22 @@ namespace Unity.Transforms
         {
         }
 
-        //disabling burst in dotsrt until burstable scheduling works
-#if !UNITY_DOTSRUNTIME
         [BurstCompile]
-#endif
         public void OnUpdate(ref SystemState state)
         {
-            var localToWorldType = state.GetComponentTypeHandle<LocalToWorld>(true);
-            var childType = state.GetBufferTypeHandle<Child>(true);
-            var childFromEntity = state.GetBufferFromEntity<Child>(true);
-            var localToParentFromEntity = state.GetComponentDataFromEntity<LocalToParent>(true);
-            var localToWorldFromEntity = state.GetComponentDataFromEntity<LocalToWorld>();
+            LocalToWorldTypeHandleRO.Update(ref state);
+            ChildTypeHandleRO.Update(ref state);
+            _childLookupRo.Update(ref state);
+            LocalToParentFromEntityRO.Update(ref state);
+            LocalToWorldFromEntityRW.Update(ref state);
 
             var updateHierarchyJob = new UpdateHierarchy
             {
-                LocalToWorldTypeHandle = localToWorldType,
-                ChildTypeHandle = childType,
-                ChildFromEntity = childFromEntity,
-                LocalToParentFromEntity = localToParentFromEntity,
-                LocalToWorldFromEntity = localToWorldFromEntity,
+                LocalToWorldTypeHandle = LocalToWorldTypeHandleRO,
+                ChildTypeHandle = ChildTypeHandleRO,
+                ChildLookup = _childLookupRo,
+                LocalToParentFromEntity = LocalToParentFromEntityRO,
+                LocalToWorldFromEntity = LocalToWorldFromEntityRW,
                 LocalToWorldWriteGroupMask = m_LocalToWorldWriteGroupMask,
                 LastSystemVersion = state.LastSystemVersion
             };
@@ -137,3 +139,5 @@ namespace Unity.Transforms
         }
     }
 }
+
+#endif

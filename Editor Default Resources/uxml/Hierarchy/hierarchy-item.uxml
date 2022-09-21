@@ -8,6 +8,7 @@
         <ui:VisualElement name="Column 2" class="hierarchy-item__column-2">
             <ui:VisualElement name="Ping Source GameObject Button" class="hierarchy-item__ping-gameobject-button" tooltip="Ping source game object in hierarchy"/>
             <ui:VisualElement name="System Button" class="hierarchy-item__system-button"/>
+            <ui:VisualElement class="hierarchy-item__prefab-stage-button" />
         </ui:VisualElement>
     </ui:VisualElement>
 </UXML>

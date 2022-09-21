@@ -1,8 +1,8 @@
 ﻿
 using Unity.Build;
 
-namespace Unity.Entities
+namespace Unity.Entities.Editor
 {
-    internal class EnableEntityNames : IBuildComponent
+    class EnableEntityNames : IBuildComponent
     {}
 }

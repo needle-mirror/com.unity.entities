@@ -1,5 +1,6 @@
 {
     "name": "Unity.Scenes",
+    "rootNamespace": "",
     "references": [
         "Unity.Burst",
         "Unity.Entities",
@@ -8,9 +9,9 @@
         "Unity.Collections",
         "Unity.Properties",
         "Unity.Properties.Reflection",
-        "Unity.Transforms"
+        "Unity.Transforms",
+        "Unity.Entities.Build"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
@@ -20,5 +21,12 @@
     ],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": []
+    "versionDefines": [
+        {
+            "name": "Unity",
+            "expression": "2022.1.0",
+            "define": "UNITY_2022_1_OR_NEWER"
+        }
+    ],
+    "noEngineReferences": false
 }

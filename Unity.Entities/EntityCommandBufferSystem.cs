@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -10,6 +11,31 @@ using Unity.Jobs;
 
 namespace Unity.Entities
 {
+    /// <summary>
+    /// Interface for use with EntityCommandBufferSystems to store the list of pending buffers,
+    /// which can be accessed from a bursted ISystem. You should implement a singleton with this interface
+    /// every time you inherit from EntityCommandBufferSystem.
+    /// </summary>
+    public interface IECBSingleton
+    {
+        /// <summary>
+        /// Sets the list of command buffers to play back when this system updates.
+        /// </summary>
+        /// <remarks> 
+        /// This method is only intended for internal use, but must be in the public API due to language
+        /// restrictions. Command buffers created with `CreateCommandBuffer` are automatically added to
+        /// the system's list of pending buffers to play back.
+        /// </remarks>
+        /// <param name="buffers">The list of buffers to play back. This list replaces any existing pending command buffers on this system.</param>
+        public void SetPendingBufferList(ref UnsafeList<EntityCommandBuffer> buffers);
+
+        /// <summary>
+        /// Set the allocator that command buffers created with this singleton should be allocated with.
+        /// </summary>
+        /// <param name="allocatorIn">The allocator to use</param>
+        public void SetAllocator(Allocator allocatorIn);
+    }
+
     /// <summary>
     /// A system that provides <seealso cref="EntityCommandBuffer"/> objects for other systems.
     /// </summary>
@@ -23,7 +49,7 @@ namespace Unity.Entities
     /// system's dependency list with <see cref="AddJobHandleForProducer"/>.
     ///
     /// If you write to a command buffer from a Job that runs in
-    /// parallel (and this includes both <see cref="IJobForEach{T0}"/> and <see cref="IJobChunk"/>), you must use the
+    /// parallel (and this includes both <see cref="IJobEntity"/> and <see cref="IJobChunk"/>), you must use the
     /// concurrent version of the command buffer (<seealso cref="EntityCommandBuffer.AsParallelWriter"/>).
     ///
     /// Executing the commands in an EntityCommandBuffer invokes the corresponding functions of the
@@ -46,18 +72,19 @@ namespace Unity.Entities
     /// your own logic. Typically, you create an EntityCommandBufferSystem subclass to create a named buffer system
     /// for other systems to use and update it at an appropriate place in a custom <see cref="ComponentSystemGroup"/>
     /// setup.</remarks>
-    public unsafe abstract class EntityCommandBufferSystem : ComponentSystem
+    ///
+    public abstract unsafe partial class EntityCommandBufferSystem : SystemBase
     {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        List<EntityCommandBuffer> m_PendingBuffers;
-        internal List<EntityCommandBuffer> PendingBuffers => m_PendingBuffers;
-#else
-        NativeList<EntityCommandBuffer> m_PendingBuffers;
-        internal NativeList<EntityCommandBuffer> PendingBuffers
+        /// <summary>
+        /// List of command buffers that this system has allocated, which are played back and disposed of when the system updates.
+        /// </summary>
+        protected UnsafeList<EntityCommandBuffer>* m_PendingBuffers;
+        internal AllocatorHelper<RewindableAllocator> m_EntityCommandBufferAllocator;
+
+        internal ref UnsafeList<EntityCommandBuffer> PendingBuffers
         {
-            get { return m_PendingBuffers; }
+            get { return ref *m_PendingBuffers; }
         }
-#endif
 
         JobHandle m_ProducerHandle;
 
@@ -72,77 +99,34 @@ namespace Unity.Entities
         /// Job as a dependency of this system by calling <see cref="AddJobHandleForProducer"/>. The dependency ensures
         /// that the buffer system waits for the Job to complete before executing the command buffer.
         ///
-        /// If you write to a command buffer from a parallel Job, such as <see cref="IJobForEach{T0}"/> or
+        /// If you write to a command buffer from a parallel Job, such as <see cref="IJobEntity"/> or
         /// <see cref="IJobChunk"/>, you must use the concurrent version of the command buffer, provided by
         /// <see cref="EntityCommandBuffer.ParallelWriter"/>.
         /// </remarks>
         /// <returns>A command buffer that will be executed by this system.</returns>
         public EntityCommandBuffer CreateCommandBuffer()
         {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob, -1, PlaybackPolicy.SinglePlayback);
-            var world = World.Unmanaged;
-            var state = world.ResolveSystemState(world.ExecutingSystem);
-            cmds.SystemID = state != null ? state->m_SystemID : 0;
-            cmds.OriginSystemHandle = state != null ? state->m_Handle : default;
-
-            m_PendingBuffers.Add(cmds);
-
-            return cmds;
+            return CreateCommandBuffer(ref PendingBuffers, m_EntityCommandBufferAllocator.Allocator.Handle.ToAllocator, World.Unmanaged);
         }
 
         /// <summary>
         /// Adds the specified JobHandle to this system's list of dependencies.
         /// </summary>
         /// <remarks>
-        /// When you write to a command buffer from a Job, you must add the <see cref="JobHandle"/> of that Job to this buffer
-        /// system's dependency list by calling this function. Otherwise, the buffer system could execute the commands
-        /// currently in the command buffer while the writing Job is still in progress.
+        /// When you write to an <see cref="EntityCommandBuffer"/> from a Job, you must add the <see cref="JobHandle"/> of that Job to this
+        /// <see cref="EntityCommandBufferSystem"/>'s input dependencies by calling this function. Otherwise, this system
+        /// could attempt to execute the command buffer contents while the writing Job is still running, causing a race condition.
         /// </remarks>
         /// <param name="producerJob">The JobHandle of a Job which this buffer system should wait for before playing back its
         /// pending command buffers.</param>
         /// <example>
-        /// The following example illustrates how to use one of the default <see cref="EntityCommandBuffer"/> systems.
+        /// The following example illustrates how to use one of the default <see cref="EntityCommandBufferSystem"/>s.
         /// The code selects all entities that have one custom component, in this case, `AsyncProcessInfo`, and
-        /// processes each entity in the `Execute()` function of an <see cref="IJobForEachWithEntity{T0}"/> Job (the
-        /// actual process is not shown since that part of the example is hypothetical). After processing, the Job
-        /// uses an EntityCommandBuffer to remove the `ProcessInfo` component and add an `ProcessCompleteTag`
+        /// processes each entity in the `Execute()` function of an <see cref="IJobEntity"/> Job. After processing, the Job
+        /// uses a <see cref="EntityCommandBuffer"/> to remove the `ProcessInfo` component and add a `ProcessCompleteTag`
         /// component. Another system could use the `ProcessCompleteTag` to find entities that represent the end
         /// results of the process.
-        /// <code>
-        /// public struct ProcessInfo: IComponentData{ public float Value; }
-        /// public struct ProcessCompleteTag : IComponentData{}
-        ///
-        /// public partial class AsyncProcessJobSystem : SystemBase
-        /// {
-        ///     [BurstCompile]
-        ///     public struct ProcessInBackgroundJob : IJobForEachWithEntity&lt;ProcessInfo&gt;
-        ///     {
-        ///         [ReadOnly]
-        ///         public EntityCommandBuffer.ParallelWriter ConcurrentCommands;
-        ///
-        ///         public void Execute(Entity entity, int index, [ReadOnly] ref ProcessInfo info)
-        ///         {
-        ///             // Process based on the ProcessInfo component,
-        ///             // then remove ProcessInfo and add a ProcessCompleteTag...
-        ///
-        ///             ConcurrentCommands.RemoveComponent&lt;ProcessInfo&gt;(index, entity);
-        ///             ConcurrentCommands.AddComponent(index, entity, new ProcessCompleteTag());
-        ///         }
-        ///     }
-        ///
-        ///     protected override void OnUpdate()
-        ///     {
-        ///         var job = new ProcessInBackgroundJob();
-        ///
-        ///         var ecbSystem =
-        ///             World.GetOrCreateSystem&lt;EndSimulationEntityCommandBufferSystem&gt;();
-        ///         job.ConcurrentCommands = ecbSystem.CreateCommandBuffer().AsParallelWriter();
-        ///
-        ///         Dependency = job.Schedule(this, Dependency);
-        ///         ecbSystem.AddJobHandleForProducer(Dependency);
-        ///     }
-        /// }
-        /// </code>
+        /// <code source="../DocCodeSamples.Tests/EntityCommandBuffers.cs" region="ecb_addjobhandleforproducer" title="AddJobHandleForProducer Example" language="csharp"/>
         /// </example>
         public void AddJobHandleForProducer(JobHandle producerJob)
         {
@@ -158,11 +142,9 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_PendingBuffers = new List<EntityCommandBuffer>();
-#else
-            m_PendingBuffers = new NativeList<EntityCommandBuffer>(Allocator.Persistent);
-#endif
+            m_EntityCommandBufferAllocator = new AllocatorHelper<RewindableAllocator>(Allocator.Persistent);
+            m_EntityCommandBufferAllocator.Allocator.Initialize(16 * 1024);
+            m_PendingBuffers = UnsafeList<EntityCommandBuffer>.Create(1, Allocator.Persistent);
         }
 
         /// <summary>
@@ -173,11 +155,13 @@ namespace Unity.Entities
         protected override void OnDestroy()
         {
             FlushPendingBuffers(false);
-            m_PendingBuffers.Clear();
+            PendingBuffers.Clear();
 
-#if !ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_PendingBuffers.Dispose();
-#endif
+            m_PendingBuffers->Dispose();
+
+            AllocatorManager.Free(Allocator.Persistent, m_PendingBuffers);
+            m_EntityCommandBufferAllocator.Allocator.Dispose();
+            m_EntityCommandBufferAllocator.Dispose();
 
             base.OnDestroy();
         }
@@ -190,20 +174,16 @@ namespace Unity.Entities
         protected override void OnUpdate()
         {
             FlushPendingBuffers(true);
-            m_PendingBuffers.Clear();
+            PendingBuffers.Clear();
         }
 
         internal void FlushPendingBuffers(bool playBack)
         {
+            CompleteDependency();
             m_ProducerHandle.Complete();
             m_ProducerHandle = new JobHandle();
 
-            int length;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            length = m_PendingBuffers.Count;
-#else
-            length = m_PendingBuffers.Length;
-#endif
+            int length = PendingBuffers.Length;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             List<string> playbackErrorLog = null;
@@ -211,7 +191,7 @@ namespace Unity.Entities
 #endif
             for (int i = 0; i < length; ++i)
             {
-                var buffer = m_PendingBuffers[i];
+                var buffer = PendingBuffers[i];
                 if (!buffer.IsCreated)
                 {
                     continue;
@@ -221,16 +201,20 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     try
                     {
-                        var system = GetSystemFromSystemID(World, buffer.SystemID);
-                        var systemName = system != null ? TypeManager.GetSystemName(system.GetType()) : "Unknown";
-                        Profiler.BeginSample(systemName);
+#if ENABLE_PROFILER
+                        var system = World.Unmanaged.TryGetSystemStateForId(buffer.SystemID); // System is likely to be in our world.
+                        if (system == null) system = World.FindSystemStateForId(buffer.SystemID);
+                        if (system != null) system->m_ProfilerMarker.Begin();
                         buffer.Playback(EntityManager);
-                        Profiler.EndSample();
+                        if (system != null) system->m_ProfilerMarker.End();
+#else
+                        buffer.Playback(EntityManager);
+#endif
                     }
                     catch (Exception e)
                     {
-                        var system = GetSystemFromSystemID(World, buffer.SystemID);
-                        var systemType = system != null ? system.GetType().ToString() : "Unknown";
+                        var system = World.FindSystemStateForId(buffer.SystemID);
+                        var systemType = system != null ? system->DebugName.ToString() : "Unknown";
                         var error = $"{e.Message}\nEntityCommandBuffer was recorded in {systemType} and played back in {GetType()}.\n" + e.StackTrace;
                         if (playbackErrorLog == null)
                         {
@@ -258,8 +242,8 @@ namespace Unity.Entities
                 }
                 catch (Exception e)
                 {
-                    var system = GetSystemFromSystemID(World, buffer.SystemID);
-                    var systemType = system != null ? system.GetType().ToString() : "Unknown";
+                    var system = World.FindSystemStateForId(buffer.SystemID);
+                    var systemType = system != null ? system->DebugName.ToString() : "Unknown";
                     var error = $"{e.Message}\nEntityCommandBuffer was recorded in {systemType} and disposed in {GetType()}.\n" + e.StackTrace;
                     if (playbackErrorLog == null)
                     {
@@ -270,7 +254,7 @@ namespace Unity.Entities
 #else
                 buffer.Dispose();
 #endif
-                m_PendingBuffers[i] = buffer;
+                PendingBuffers[i] = buffer;
             }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -291,9 +275,67 @@ namespace Unity.Entities
                 }
 #endif
 
-                throw new System.ArgumentException(exceptionMessage.ToString());
+                throw new ArgumentException(exceptionMessage.ToString());
             }
 #endif
+
+            m_EntityCommandBufferAllocator.Allocator.Rewind();
+        }
+
+        /// <summary>
+        /// Creates a command buffer, sets it up, and appends it to a list of command buffers.
+        /// </summary>
+        /// <param name="pendingBuffers">The list of command buffers to append to</param>
+        /// <param name="allocator">The allocator to allocate from, when building the command buffer</param>
+        /// <param name="world">The world that this command buffer buffers changes for</param>
+        /// <returns>Returns the command buffer</returns>
+        public static unsafe EntityCommandBuffer CreateCommandBuffer(
+            ref UnsafeList<EntityCommandBuffer> pendingBuffers,
+            Allocator allocator,
+            WorldUnmanaged world)
+        {
+            var cmds = new EntityCommandBuffer(allocator, PlaybackPolicy.SinglePlayback);
+            var state = world.ResolveSystemState(world.ExecutingSystem);
+            cmds.SystemID = state != null ? state->m_SystemID : 0;
+            cmds.OriginSystemHandle = state != null ? state->m_Handle : default;
+
+            pendingBuffers.Add(cmds);
+
+            return cmds;
+        }
+
+        /// <summary>
+        /// Creates a command buffer that allocates from a World's Update Allocator, sets it up,
+        /// and appends it to a list of command buffers.
+        /// </summary>
+        /// <param name="pendingBuffers">The list of command buffers to append to</param>
+        /// <param name="world">The world that this command buffer buffers changes for</param>
+        /// <returns>Returns the command buffer</returns>
+        public static unsafe EntityCommandBuffer CreateCommandBuffer(
+            ref UnsafeList<EntityCommandBuffer> pendingBuffers,
+            WorldUnmanaged world)
+        {
+            return CreateCommandBuffer(ref pendingBuffers, world.UpdateAllocator.Handle.ToAllocator, world);
+        }
+    }
+
+    public static class ECBExtensionMethods
+    {
+        public static void RegisterSingleton<T>(
+            this EntityCommandBufferSystem system,
+            ref UnsafeList<EntityCommandBuffer> pendingBuffers,
+            WorldUnmanaged world,
+            string entityName = default)
+            where T : unmanaged, IECBSingleton, IComponentData
+        {
+            var e = world.EntityManager.CreateEntity(ComponentType.ReadWrite<T>());
+            if (!string.IsNullOrWhiteSpace(entityName))
+                world.EntityManager.SetName(e, entityName);
+
+            ref var s = ref system.GetSingletonRW<T>().ValueRW;
+
+            s.SetPendingBufferList(ref pendingBuffers);
+            s.SetAllocator(system.m_EntityCommandBufferAllocator.Allocator.ToAllocator);
         }
     }
 }

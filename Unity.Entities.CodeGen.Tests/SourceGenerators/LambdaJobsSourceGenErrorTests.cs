@@ -1,21 +1,21 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.CodeGen.Tests;
-using Unity.Entities.CodeGen.Tests.SourceGenerationTests;
 using Unity.Entities.CodeGen.Tests.TestTypes;
 using Unity.Entities.Tests;
 using Unity.Jobs;
 
 namespace Unity.Entities.CodeGen.SourceGenerators.Tests
 {
+#if UNITY_2021_1_OR_NEWER
+    [Ignore("2021.1 no longer supports UnityEditor.Scripting.Compilers.CSharpLanguage which these tests rely on.")]
+#endif
     [TestFixture]
     public class LambdaJobsSourceGenErrorTests : SourceGenTests
     {
         protected override Type[] DefaultCompilationReferenceTypes { get; } =
-    {
+        {
             typeof(SystemBase),
             typeof(JobHandle),
             typeof(Burst.BurstCompileAttribute),
@@ -223,7 +223,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                     }
                 }";
 
-            AssertProducesError(source, "DC0004");
+            AssertProducesError(source, "DC0004", new []{"Lambda expression captures a non-value type"},"this keyword");
         }
 
         [Test] // This should use DC0001 but we don't have a good way to do that with source generators yet
@@ -243,7 +243,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                     }
                 }";
 
-            AssertProducesError(source, "DC0004"/*, "field"*/);
+            AssertProducesError(source, "DC0004", "Lambda expression captures a non-value type", "this keyword");
         }
 
         [Test]
@@ -255,11 +255,125 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                     protected override void OnUpdate()
                     {
                         int version = 0;
-                        Entities.ForEach((ref Translation t) => { version = EntityManager.Version; }).Run();
+                        Entities.ForEach((ref Translation t) => { version = EntityManager.EntityOrderVersion; }).Run();
                     }
                 }";
 
-            AssertProducesError(source, "DC0004" /*, "get_EntityManager"*/);
+            AssertProducesError(source, "DC0004", "Lambda expression captures a non-value type");
+        }
+
+        [Test]
+        public void DC0004_InvokeThisMethodInForEach()
+        {
+            const string source = @"
+                partial class Test : SystemBase
+                {
+                    public void SomeMethod(){}
+
+                    protected override void OnUpdate()
+                    {
+                        Entities.ForEach((in Translation t) => SomeMethod()).Run();
+                    }
+                }";
+
+            AssertProducesError(source, "DC0004","this keyword", "captures a non-value type", "a member method");
+        }
+
+        [Test]
+        public void DC0004_InvokeThisMethodInWithCode()
+        {
+            const string source = @"
+                partial class Test : SystemBase
+                {
+                    public void SomeMethod(){}
+
+                    protected override void OnUpdate()
+                    {
+                        Job.WithCode(() => SomeMethod()).Run();
+                    }
+                }";
+
+            AssertProducesError(source, "DC0004","this keyword", "captures a non-value type", "a member method");
+        }
+
+        [Test]
+        public void DC0004_InvokeThisPropertyInForEach()
+        {
+            const string source = @"
+                partial class Test : SystemBase
+                {
+                    public bool SomeProp{get;set;}
+
+                    protected override void OnUpdate()
+                    {
+                        Entities.ForEach((ref Translation t) =>
+                        {
+                            var val = !SomeProp;
+                        }).Run();
+                    }
+                }";
+
+            AssertProducesError(source, "DC0004","this keyword", "captures a non-value type", "property");
+        }
+
+        [Test]
+        public void DC0004_InvokeThisFieldInWithCode()
+        {
+            const string source = @"
+                partial class Test : SystemBase
+                {
+                    public bool SomeProp{get;set;}
+
+                    protected override void OnUpdate()
+                    {
+                        Job.WithCode(() =>
+                        {
+                            var val = !SomeProp;
+                        }).Run();
+                    }
+                }";
+
+            AssertProducesError(source, "DC0004","this keyword", "captures a non-value type", "property");
+        }
+
+        [Test]
+        public void DC0004_InvokeThisFieldInForEach()
+        {
+            const string source = @"
+                partial class Test : SystemBase
+                {
+                    public bool SomeField = false;
+
+                    protected override void OnUpdate()
+                    {
+                        Entities.ForEach((ref Translation t) =>
+                        {
+                            var val = !SomeField;
+                        }).Run();
+                    }
+                }";
+
+            AssertProducesError(source, "DC0004","this keyword", "captures a non-value type","field");
+        }
+
+        [Test]
+        public void DC0004_InvokeThisPropertyInWithCode()
+        {
+            const string source = @"
+                partial class Test : SystemBase
+                {
+                    public bool SomeField = false;
+
+                    protected override void OnUpdate()
+                    {
+                        Job.WithCode(() =>
+                        {
+                            var val = !SomeField;
+                        }).Run();
+                    }
+                }";
+
+            AssertProducesError(source, "DC0004","this keyword", "captures a non-value type","field");
         }
 
         [Test]
@@ -608,7 +722,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
         }
 
         [Test]
-        public void DC0026_WithAllWithSharedFilterTest()
+        public void SGQC002_WithAllWithSharedFilterTest()
         {
             const string source = @"
             partial class WithAllWithSharedFilter : SystemBase
@@ -625,7 +739,28 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                 }
             }";
 
-            AssertProducesError(source, "DC0026", "MySharedComponentData");
+            AssertProducesError(source, "SGQC002", "MySharedComponentData");
+        }
+
+        [Test]
+        public void SGQC003_WithNoneWithSharedFilterTest()
+        {
+            const string source = @"
+            partial class WithAllWithSharedFilter : SystemBase
+            {
+                struct MySharedComponentData : ISharedComponentData { public int Value; }
+
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .WithAny<MySharedComponentData>()
+                        .WithSharedComponentFilter(new MySharedComponentData() { Value = 3 })
+                        .ForEach((in Boid translation) => {})
+                        .Schedule();
+                }
+            }";
+
+        AssertProducesError(source, "SGQC003", "MySharedComponentData");
         }
 
         [Test]
@@ -896,9 +1031,6 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
 
             AssertProducesError(source, "DC0037", "myVar");
         }
-
-
-
 
         [Test]
         public void DC0043_InvalidJobNamesThrow_InvalidJobNameWithSpaces()
@@ -1176,7 +1308,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
         }
 
         [Test]
-        public void DC0052_WithNoneWithInvalidTypeTest()
+        public void SGQC001_WithNoneWithInvalidTypeTest()
         {
             const string source = @"
             partial class WithNoneWithInvalidType : SystemBase
@@ -1193,7 +1325,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                 }
             }";
 
-            AssertProducesError(source, "DC0052", "ANonIComponentDataClass");
+            AssertProducesError(source, "SGQC001", "ANonIComponentDataClass");
         }
 
         [Test]
@@ -1251,7 +1383,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
         }
 
         [Test]
-        public void DC0056_InvalidWithNoneComponentGeneratesError_Test_WithNone_WithAll()
+        public void SGQC004_InvalidWithNoneComponentGeneratesError_Test_WithNone_WithAll()
         {
             const string source = @"
             partial class InvalidWithNoneInWithAllComponentGeneratesError_System : SystemBase
@@ -1262,11 +1394,11 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                 }
             }";
 
-            AssertProducesError(source, "DC0056", nameof(LambdaJobQueryConstructionMethods.WithNone), nameof(LambdaJobQueryConstructionMethods.WithAll));
+            AssertProducesError(source, "SGQC004", nameof(LambdaJobQueryConstructionMethods.WithNone), nameof(LambdaJobQueryConstructionMethods.WithAll));
         }
 
         [Test]
-        public void DC0056_InvalidWithNoneComponentGeneratesError_Test_WithNone_WithAny()
+        public void SGQC004_InvalidWithNoneComponentGeneratesError_Test_WithNone_WithAny()
         {
             const string source = @"
             partial class InvalidWithNoneInWithAnyComponentGeneratesError_System : SystemBase
@@ -1277,26 +1409,27 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                 }
             }";
 
-            AssertProducesError(source, "DC0056", nameof(LambdaJobQueryConstructionMethods.WithNone), nameof(LambdaJobQueryConstructionMethods.WithAny));
+            AssertProducesError(source, "SGQC004", nameof(LambdaJobQueryConstructionMethods.WithNone), nameof(LambdaJobQueryConstructionMethods.WithAny));
         }
 
         [Test]
-        public void DC0056_InvalidWithNoneComponentGeneratesError_Test_WithNone_LambdaParameter()
+        public void SGQC004_InvalidWithNoneComponentGeneratesError_Test_WithNone_LambdaParameter()
         {
             const string source = @"
             partial class InvalidWithNoneInLambdaParamComponentGeneratesError_System : SystemBase
             {
                 protected override void OnUpdate()
                 {
-                    Entities.WithNone<Translation>().ForEach((ref Translation translation) => { }).Run();
+                    Entities.WithNone<Unity.Entities.CodeGen.Tests.Translation>()
+                        .ForEach((ref Unity.Entities.CodeGen.Tests.Translation translation) => { }).Run();
                 }
             }";
 
-            AssertProducesError(source, "DC0056", nameof(LambdaJobQueryConstructionMethods.WithNone), "lambda parameter");
+            AssertProducesError(source, "SGQC004", nameof(LambdaJobQueryConstructionMethods.WithNone), "lambda parameter");
         }
 
         [Test]
-        public void DC0056_InvalidWithAnyComponentGeneratesError_Test_WithAny_WithAll()
+        public void SGQC004_InvalidWithAnyComponentGeneratesError_Test_WithAny_WithAll()
         {
             const string source = @"
             partial class InvalidWithAnyInWithAllComponentGeneratesError_System : SystemBase
@@ -1307,11 +1440,11 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                 }
             }";
 
-            AssertProducesError(source, "DC0056", nameof(LambdaJobQueryConstructionMethods.WithAny), nameof(LambdaJobQueryConstructionMethods.WithAll));
+            AssertProducesError(source, "SGQC004", nameof(LambdaJobQueryConstructionMethods.WithAny), nameof(LambdaJobQueryConstructionMethods.WithAll));
         }
 
         [Test]
-        public void DC0056_InvalidWithAnyComponentGeneratesError_Test_WithAny_LambdaParameter()
+        public void SGQC004_InvalidWithAnyComponentGeneratesError_Test_WithAny_LambdaParameter()
         {
             const string source = @"
             partial class InvalidWithAnyInLambdaParamComponentGeneratesError_System : SystemBase
@@ -1322,7 +1455,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                 }
             }";
 
-            AssertProducesError(source, "DC0056", nameof(LambdaJobQueryConstructionMethods.WithAny), "lambda parameter");
+            AssertProducesError(source, "SGQC004", nameof(LambdaJobQueryConstructionMethods.WithAny), "lambda parameter");
         }
 
         [Test]
@@ -1351,14 +1484,30 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                     Entities.ForEach((ref Translation translation) => {}).Schedule();
                 }
             }";
-            AssertProducesError(source, "DC0058", "EntitiesForEachNotInPartialClass");
+            AssertProducesError(source, "DC0058", "All SystemBase-derived");
         }
 
         [Test]
-        public void DC0059_GetComponentDataFromEntityWithMethodAsParam_ProducesError()
+        public void DC0058_EntitiesForEachNotInPartialStruct()
         {
             const string source = @"
-            partial class GetComponentDataFromEntityWithMethodAsParam : SystemBase
+            struct EntitiesForEachNotInPartialClass : ISystem
+            {
+                public void OnUpdate(ref SystemState state)
+                {
+                    state.Entities.ForEach((ref Translation translation) => {}).Schedule();
+                }
+                public void OnCreate(ref SystemState state){}
+                public void OnDestroy(ref SystemState state){}
+            }";
+            AssertProducesError(source, "DC0058", "All ISystem-derived");
+        }
+
+        [Test]
+        public void DC0059_GetComponentLookupWithMethodAsParam_ProducesError()
+        {
+            const string source = @"
+            partial class GetComponentLookupWithMethodAsParam : SystemBase
             {
                 static bool MethodThatReturnsBool() => false;
                 protected override void OnUpdate()
@@ -1366,42 +1515,42 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                     Entities
                         .ForEach((Entity entity, in Translation tde) =>
                         {
-                            GetComponentDataFromEntity<Velocity>(MethodThatReturnsBool());
+                            GetComponentLookup<Velocity>(MethodThatReturnsBool());
                         }).Run();
                 }
             }";
-            AssertProducesError(source, "DC0059", "GetComponentDataFromEntity");
+            AssertProducesError(source, "DC0059", "GetComponentLookup");
         }
 
         [Test]
-        public void DC0059_GetComponentDataFromEntityWithVarAsParam_ProducesError()
+        public void DC0059_GetComponentLookupWithVarAsParam_ProducesError()
         {
             const string source = @"
-            partial class GetComponentDataFromEntityWithVarAsParam : SystemBase
+            partial class GetComponentLookupWithVarAsParam : SystemBase
             {
                 protected override void OnUpdate()
                 {
                     var localBool = false;
-                    Entities.ForEach((Entity entity, in Translation tde) => { GetComponentDataFromEntity<Velocity>(localBool); }).Run();
+                    Entities.ForEach((Entity entity, in Translation tde) => { GetComponentLookup<Velocity>(localBool); }).Run();
                 }
             }";
-            AssertProducesError(source, "DC0059", "GetComponentDataFromEntity");
+            AssertProducesError(source, "DC0059", "GetComponentLookup");
         }
 
         [Test]
-        public void DC0059_GetComponentDataFromEntityWithArgAsParam_ProducesError()
+        public void DC0059_GetComponentLookupWithArgAsParam_ProducesError()
         {
             const string source = @"
-            partial class GetComponentDataFromEntityWithArgAsParam : SystemBase
+            partial class GetComponentLookupWithArgAsParam : SystemBase
             {
                 protected override void OnUpdate() {}
                 void Test(bool argBool)
                 {
-                    Entities.ForEach((Entity entity, in Translation tde) => { GetComponentDataFromEntity<Velocity>(argBool); }).Run();
+                    Entities.ForEach((Entity entity, in Translation tde) => { GetComponentLookup<Velocity>(argBool); }).Run();
                 }
             }";
 
-            AssertProducesError(source, "DC0059", "GetComponentDataFromEntity");
+            AssertProducesError(source, "DC0059", "GetComponentLookup");
         }
 
         [Test]
@@ -1417,7 +1566,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
             }";
 
             Type[] compilationReferenceTypes = { typeof(SystemBase), typeof(JobHandle), typeof(EcsTestData), typeof(ReadOnlyAttribute), typeof(Translation) };
-            AssertProducesError(source, "DC0060", new[] { "Test" }, compilationReferenceTypes);
+            AssertProducesError(source, "DC0060", new[] {"Test"},Array.Empty<string>(), compilationReferenceTypes);
         }
 
         [Test]
@@ -1456,20 +1605,20 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
         }
 
         [Test]
-        public void DC0063_GetComponentDataFromEntityInScheduleParallel()
+        public void DC0063_GetComponentLookupInScheduleParallel()
         {
             const string source = @"
-            partial class GetComponentDataFromEntityInScheduleParallel : SystemBase
+            partial class GetComponentLookupInScheduleParallel : SystemBase
             {
                 protected override void OnUpdate()
                 {
                     Entities.ForEach((Entity entity) => {
-                        var cdfe = GetComponentDataFromEntity<EcsTestData>(false);
+                        var lookup = GetComponentLookup<EcsTestData>(false);
                     }).ScheduleParallel();
                 }
             }";
 
-            AssertProducesError(source, "DC0063", new[] { "GetComponentDataFromEntity", "EcsTestData" });
+            AssertProducesError(source, "DC0063", new[] { "GetComponentLookup", "EcsTestData" });
         }
 
         [Test]
@@ -1513,7 +1662,6 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
             const string source = @"
             partial class TestWithScheduleGranularity : SystemBase
             {
-
                 protected override void OnUpdate()
                 {
                     Entities
@@ -1525,6 +1673,207 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
             }";
 
             AssertProducesError(source, "DC0073");
+        }
+
+        [Test]
+        public void DC0074_EcbParameter_MissingPlaybackInstructions()
+        {
+            const string source = @"
+            partial class MissingPlaybackInstructions : SystemBase
+            {
+
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .ForEach((EntityCommandBuffer buffer) =>
+                        {
+                        }).Schedule();
+                }
+            }";
+
+            AssertProducesError(source, "DC0074");
+        }
+
+        [Test]
+        public void DC0075_EcbParameter_ConflictingPlaybackInstructions()
+        {
+            const string source = @"
+            public class TestEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            partial class ConflictingPlaybackInstructions : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .WithImmediatePlayback()
+                        .WithDeferredPlaybackSystem<TestEntityCommandBufferSystem>()
+                        .ForEach((EntityCommandBuffer buffer) =>
+                        {
+                        }).Run();
+                }
+            }";
+
+            AssertProducesError(source, "DC0075");
+        }
+
+        [Test]
+        public void DC0076_EcbParameter_UsedMoreThanOnce()
+        {
+            const string source = @"
+            public class TestEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            partial class EntityCommandsUsedMoreThanOnce : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .WithImmediatePlayback()
+                        .ForEach((EntityCommandBuffer buffer1, EntityCommandBuffer buffer2) =>
+                        {
+                        }).Run();
+                }
+            }";
+
+            AssertProducesError(source, "DC0076");
+        }
+
+        [Test]
+        public void DC0077_EcbParameter_ImmediatePlayback_WithScheduling()
+        {
+            const string source = @"
+            public class TestEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            partial class ImmediatePlayback_WithScheduling : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .WithImmediatePlayback()
+                        .ForEach((EntityCommandBuffer buffer) =>
+                        {
+                        }).Schedule();
+                }
+            }";
+
+            AssertProducesError(source, "DC0077");
+        }
+
+        [Test]
+        public void DC0078_EcbParameter_MoreThanOnePlaybackSystemsSpecified()
+        {
+            const string source = @"
+            public class MyEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            public class YourEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            partial class MoreThanOnePlaybackSystemsSpecified : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .WithDeferredPlaybackSystem<MyEntityCommandBufferSystem>()
+                        .WithDeferredPlaybackSystem<YourEntityCommandBufferSystem>()
+                        .ForEach((EntityCommandBuffer buffer) =>
+                        {
+                        }).Run();
+                }
+            }";
+
+            AssertProducesError(source, "DC0078");
+        }
+
+        [Test]
+        public void DC0079_EcbParameter_UnsupportedEcbMethodUsed()
+        {
+            const string source = @"
+            public class TestEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            partial class UnsupportedEcbMethodUsed : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .WithDeferredPlaybackSystem<TestEntityCommandBufferSystem>()
+                        .ForEach((EntityCommandBuffer buffer) =>
+                        {
+                            buffer.Playback(EntityManager);
+                        }).Schedule();
+                }
+            }";
+
+            AssertProducesError(source, "DC0079");
+        }
+
+        [Test]
+        public void DC0080_EcbParameter_MethodExpectingEntityQuery_NotOnMainThread()
+        {
+            const string source = @"
+            public class TestEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            public struct MyTag : IComponentData { }
+
+            partial class MethodExpectingEntityQuery : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    var entityQuery = EntityManager.CreateEntityQuery(typeof(MyTag));
+
+                    Entities
+                        .WithDeferredPlaybackSystem<TestEntityCommandBufferSystem>()
+                        .ForEach((EntityCommandBuffer buffer) =>
+                        {
+                            buffer.RemoveComponentForEntityQuery<MyTag>(entityQuery);
+                        }).Schedule();
+                }
+            }";
+
+            AssertProducesError(source, "DC0080");
+        }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void DC0080_EcbParameter_MethodExpectingComponentDataClass_NotOnMainThread()
+        {
+            const string source = @"
+            public class TestEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            public class MyComponentDataClass : IComponentData { }
+
+            partial class MethodExpectingComponentDataClass : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .WithDeferredPlaybackSystem<TestEntityCommandBufferSystem>()
+                        .ForEach((Entity e, EntityCommandBuffer buffer) =>
+                        {
+                            buffer.AddComponent<MyComponentDataClass>(e);
+                        }).Schedule();
+                }
+            }";
+
+            AssertProducesError(source, "DC0080");
+        }
+#endif
+        [Test]
+        public void DC0081_EcbParallelWriterParameter()
+        {
+            const string source = @"
+            public class TestEntityCommandBufferSystem : EntityCommandBufferSystem { }
+
+            partial class EcbParallelWriterParameter : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    Entities
+                        .WithDeferredPlaybackSystem<TestEntityCommandBufferSystem>()
+                        .ForEach((EntityCommandBuffer.ParallelWriter parallelWriter) =>
+                        {
+                        }).Schedule();
+                }
+            }";
+
+            AssertProducesError(source, "DC0081");
         }
     }
 }

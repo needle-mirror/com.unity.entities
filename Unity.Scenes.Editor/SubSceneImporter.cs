@@ -1,22 +1,23 @@
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.Serialization;
 using Unity.Build;
 using Unity.Build.DotsRuntime;
 using Unity.Core.Compression;
+using Unity.Entities.Build;
 using UnityEditor;
 using UnityEditor.Build.Content;
 using UnityEditor.SceneManagement;
 using UnityEditor.AssetImporters;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(105, "extDontMatter")]
+    [ScriptedImporter(115, "extDontMatter")]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {
@@ -74,7 +75,7 @@ namespace Unity.Scenes.Editor
                 if (objRefs == null)
                     continue;
 
-                var path = ctx.GetResultPath($"{sectionIndex}.{EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesAssetDependencyGUIDs)}");
+                var path = ctx.GetOutputArtifactFilePath($"{sectionIndex}.{EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesAssetDependencyGUIDs)}");
                 var assetDependencyGUIDs = ReferencedUnityObjectsToGUIDs(objRefs, ctx);
 
                 using (var writer = new StreamBinaryWriter(path))
@@ -89,11 +90,120 @@ namespace Unity.Scenes.Editor
 
         static unsafe void WriteGlobalUsageArtifact(BuildUsageTagGlobal globalUsage, AssetImportContext ctx)
         {
-            var path = ctx.GetResultPath(EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesGlobalUsage));
+            var path = ctx.GetOutputArtifactFilePath(EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesGlobalUsage));
             using (var writer = new StreamBinaryWriter(path))
             {
                 writer.WriteBytes(&globalUsage, sizeof(BuildUsageTagGlobal));
             }
+        }
+
+        void ImportBaking(AssetImportContext ctx, Scene scene, SceneWithBuildConfigurationGUIDs sceneWithBuildConfiguration, DotsPlayerSettings settingsAsset, BuildConfiguration buildConfig, GameObject prefab)
+        {
+            // Grab the used lighting and fog values from the scenes lighting & render settings.
+            // If autobake is enabled, this function will iterate through objects to predict the outcome.
+            var globalUsage = ContentBuildInterface.GetGlobalUsageFromActiveScene(ctx.selectedBuildTarget);
+
+            var flags = BakingUtility.BakingFlags.AddEntityGUID |
+                        BakingUtility.BakingFlags.AssignName | BakingUtility.BakingFlags.GameViewLiveConversion;
+            var settings = new BakingSettings(flags, default)
+            {
+                SceneGUID = sceneWithBuildConfiguration.SceneGUID,
+                DotsSettings = settingsAsset,
+                BuildConfiguration = buildConfig,
+                IsBuiltInBuildsEnabled = sceneWithBuildConfiguration.IsBuiltInBuildsEnabled
+            };
+            settings.ExtraSystems.AddRange(DotsPlayerSettings.AdditionalBakingSystemsTemp);
+
+            if (!sceneWithBuildConfiguration.IsBuildingForEditor)
+                settings.BakingFlags |= BakingUtility.BakingFlags.IsBuildingForPlayer;
+
+            settings.PrefabRoot = prefab;
+            settings.AssetImportContext = ctx;
+            settings.FilterFlags = WorldSystemFilterFlags.BakingSystem;
+
+            WriteEntitySceneSettings writeEntitySettings = new WriteEntitySceneSettings();
+            writeEntitySettings.isBakingEnabled = true;
+            //Dots runtime builds will still use build config
+            if (buildConfig != null)
+            {
+                if (buildConfig.TryGetComponent<DotsRuntimeRootAssembly>(out var rootAssembly))
+                {
+                    writeEntitySettings.Codec = Codec.LZ4;
+                    writeEntitySettings.IsDotsRuntime = true;
+                    writeEntitySettings.BuildAssemblyCache = new BuildAssemblyCache()
+                    {
+                        BaseAssemblies = rootAssembly.RootAssembly.asset,
+                        PlatformName = EditorUserBuildSettings.activeBuildTarget.ToString()
+                    };
+                    settings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
+
+                    //Updating the root asmdef references or its references should re-trigger conversion
+                    ctx.DependsOnArtifact(AssetDatabase.GetAssetPath(rootAssembly.RootAssembly.asset));
+                    foreach (var assemblyPath in writeEntitySettings.BuildAssemblyCache.AssembliesPath)
+                    {
+                        ctx.DependsOnArtifact(assemblyPath);
+                    }
+                }
+            }
+
+            var sectionRefObjs = new List<ReferencedUnityObjects>();
+            var sectionData = EditorEntityScenes.BakeAndWriteEntityScene(scene, settings, sectionRefObjs, writeEntitySettings);
+
+            WriteAssetDependencyGUIDs(sectionRefObjs, sectionData, ctx);
+            WriteGlobalUsageArtifact(globalUsage, ctx);
+
+            foreach (var objRefs in sectionRefObjs)
+                DestroyImmediate(objRefs);
+        }
+
+        void ImportConversion(AssetImportContext ctx, Scene scene, SceneWithBuildConfigurationGUIDs sceneWithBuildConfiguration, BuildConfiguration config, GameObject prefab)
+        {
+            // Grab the used lighting and fog values from the scenes lighting & render settings.
+            // If autobake is enabled, this function will iterate through objects to predict the outcome.
+            var globalUsage = ContentBuildInterface.GetGlobalUsageFromActiveScene(ctx.selectedBuildTarget);
+            var settings = new GameObjectConversionSettings();
+
+            settings.SceneGUID = sceneWithBuildConfiguration.SceneGUID;
+            if (!sceneWithBuildConfiguration.IsBuildingForEditor)
+                settings.ConversionFlags |= GameObjectConversionUtility.ConversionFlags.IsBuildingForPlayer;
+
+            settings.PrefabRoot = prefab;
+            settings.BuildConfiguration = config;
+            settings.AssetImportContext = ctx;
+            settings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
+
+            WriteEntitySceneSettings writeEntitySettings = new WriteEntitySceneSettings();
+            writeEntitySettings.isBakingEnabled = false;
+            if (config != null && config.TryGetComponent<DotsRuntimeBuildProfile>(out var profile))
+            {
+                if (config.TryGetComponent<DotsRuntimeRootAssembly>(out var rootAssembly))
+                {
+                    writeEntitySettings.Codec = Codec.LZ4;
+                    writeEntitySettings.IsDotsRuntime = true;
+                    writeEntitySettings.BuildAssemblyCache = new BuildAssemblyCache()
+                    {
+                        BaseAssemblies = rootAssembly.RootAssembly.asset,
+                        PlatformName = profile.Target.UnityPlatformName
+                    };
+                    settings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
+
+                    //Updating the root asmdef references or its references should re-trigger conversion
+                    ctx.DependsOnArtifact(AssetDatabase.GetAssetPath(rootAssembly.RootAssembly.asset));
+                    foreach (var assemblyPath in writeEntitySettings.BuildAssemblyCache.AssembliesPath)
+                    {
+                        ctx.DependsOnArtifact(assemblyPath);
+                    }
+                }
+            }
+
+            var sectionRefObjs = new List<ReferencedUnityObjects>();
+            var sectionData = EditorEntityScenes.ConvertAndWriteEntityScene(scene, settings, sectionRefObjs, writeEntitySettings);
+
+            WriteAssetDependencyGUIDs(sectionRefObjs, sectionData, ctx);
+            WriteGlobalUsageArtifact(globalUsage, ctx);
+
+            foreach (var objRefs in sectionRefObjs)
+                DestroyImmediate(objRefs);
         }
 
         public override void OnImportAsset(AssetImportContext ctx)
@@ -106,8 +216,14 @@ namespace Unity.Scenes.Editor
                 EditorEntityScenes.AddEntityBinaryFileDependencies(ctx, sceneWithBuildConfiguration.BuildConfiguration);
                 EditorEntityScenes.DependOnSceneGameObjects(sceneWithBuildConfiguration.SceneGUID, ctx);
 
-                var config = BuildConfiguration.LoadAsset(sceneWithBuildConfiguration.BuildConfiguration);
-
+                BuildConfiguration buildConfig = BuildConfiguration.LoadAsset(sceneWithBuildConfiguration.BuildConfiguration);
+                DotsPlayerSettings settingsAsset = null;
+                // If we failed to load a BuildConfiguration asset, let's try to load a DotsPlayerSettings one
+                if (buildConfig == null)
+                {
+                    var path = AssetDatabase.GUIDToAssetPath(sceneWithBuildConfiguration.BuildConfiguration.ToString());
+                    settingsAsset =  AssetDatabase.LoadAssetAtPath<DotsPlayerSettings>(path);
+                }
                 var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneWithBuildConfiguration.SceneGUID);
 
                 UnityEngine.SceneManagement.Scene scene;
@@ -128,51 +244,15 @@ namespace Unity.Scenes.Editor
                 try
                 {
                     EditorSceneManager.SetActiveScene(scene);
-                    // Grab the used lighting and fog values from the scenes lighting & render settings.
-                    // If autobake is enabled, this function will iterate through objects to predict the outcome.
-                    var globalUsage = ContentBuildInterface.GetGlobalUsageFromActiveScene(ctx.selectedBuildTarget);
-                    var settings = new GameObjectConversionSettings();
 
-                    settings.SceneGUID = sceneWithBuildConfiguration.SceneGUID;
-                    if (!sceneWithBuildConfiguration.IsBuildingForEditor)
-                        settings.ConversionFlags |= GameObjectConversionUtility.ConversionFlags.IsBuildingForPlayer;
-
-                    settings.PrefabRoot = prefab;
-                    settings.BuildConfiguration = config;
-                    settings.AssetImportContext = ctx;
-                    settings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
-
-                    WriteEntitySceneSettings writeEntitySettings = new WriteEntitySceneSettings();
-                    if (config != null && config.TryGetComponent<DotsRuntimeBuildProfile>(out var profile))
+                    if (sceneWithBuildConfiguration.IsBakingEnabled)
                     {
-                        if (config.TryGetComponent<DotsRuntimeRootAssembly>(out var rootAssembly))
-                        {
-                            writeEntitySettings.Codec = Codec.LZ4;
-                            writeEntitySettings.IsDotsRuntime = true;
-                            writeEntitySettings.BuildAssemblyCache = new BuildAssemblyCache()
-                            {
-                                BaseAssemblies = rootAssembly.RootAssembly.asset,
-                                PlatformName = profile.Target.UnityPlatformName
-                            };
-                            settings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
-
-                            //Updating the root asmdef references or its references should re-trigger conversion
-                            ctx.DependsOnArtifact(AssetDatabase.GetAssetPath(rootAssembly.RootAssembly.asset));
-                            foreach (var assemblyPath in writeEntitySettings.BuildAssemblyCache.AssembliesPath)
-                            {
-                                ctx.DependsOnArtifact(assemblyPath);
-                            }
-                        }
+                        ImportBaking(ctx, scene, sceneWithBuildConfiguration, settingsAsset, buildConfig, prefab);
                     }
-
-                    var sectionRefObjs = new List<ReferencedUnityObjects>();
-                    var sectionData = EditorEntityScenes.ConvertAndWriteEntityScene(scene, settings, sectionRefObjs, writeEntitySettings);
-
-                    WriteAssetDependencyGUIDs(sectionRefObjs, sectionData, ctx);
-                    WriteGlobalUsageArtifact(globalUsage, ctx);
-
-                    foreach (var objRefs in sectionRefObjs)
-                        DestroyImmediate(objRefs);
+                    else
+                    {
+                        ImportConversion(ctx, scene, sceneWithBuildConfiguration, buildConfig, prefab);
+                    }
                 }
                 finally
                 {

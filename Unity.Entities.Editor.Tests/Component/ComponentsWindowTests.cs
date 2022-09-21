@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Linq;
 using NUnit.Framework;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -21,7 +21,7 @@ namespace Unity.Entities.Editor.Tests
 #pragma warning disable 649
         }
 
-        struct TestSharedComponent : ISharedComponentData
+        internal struct TestSharedComponent : ISharedComponentData
         {
 #pragma warning disable 649
             public int value;
@@ -33,7 +33,7 @@ namespace Unity.Entities.Editor.Tests
         }
 
         #if !UNITY_DISABLE_MANAGED_COMPONENTS
-        class TestManagedComponent : IComponentData
+        internal class TestManagedComponent : IComponentData
         {
 #pragma warning disable 649
             public float value;

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Unity.Editor.Bridge
 {
-    internal class EditorStyleUSSBridge
+    class EditorStyleUSSBridge
     {
         public static GUIStyle FromUSS(string ussStyleRuleName, string ussInPlaceStyleOverride = null, GUISkin srcSkin = null)
         {

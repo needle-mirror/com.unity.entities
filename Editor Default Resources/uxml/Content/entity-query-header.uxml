@@ -1,4 +1,4 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" properties="Unity.Properties.UI" editor-extension-mode="False">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" platforms="Unity.Platforms.UI" editor-extension-mode="False">
     <ui:VisualElement name="container" class="entity-query__header__container">
         <ui:VisualElement class="entity-query__header__icon" />
         <ui:VisualElement class="entity-query__header__titles">

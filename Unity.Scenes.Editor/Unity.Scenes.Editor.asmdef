@@ -12,7 +12,9 @@
         "Unity.Scenes",
         "Unity.ScriptableBuildPipeline.Editor",
         "Unity.Serialization",
-        "Unity.Build.DotsRuntime"
+        "Unity.Build.DotsRuntime",
+        "Unity.Entities.Build",
+        "Unity.Build.Classic.Private"
     ],
     "includePlatforms": [
         "Editor"

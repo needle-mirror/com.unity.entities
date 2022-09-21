@@ -14,8 +14,8 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            _incremental = World.GetExistingSystem<IncrementalChangesSystem>();
-            _mapping = World.GetExistingSystem<GameObjectConversionMappingSystem>();
+            _incremental = World.GetExistingSystemManaged<IncrementalChangesSystem>();
+            _mapping = World.GetExistingSystemManaged<GameObjectConversionMappingSystem>();
         }
 
         protected override void OnUpdate()

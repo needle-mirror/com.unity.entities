@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unity.Assertions;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -12,7 +14,6 @@ namespace Unity.Entities
         private Chunk** p;
         public int Capacity { get; private set; } // maximum number of chunks that can be tracked before Grow() must be called
         public int Count { get; private set; } // number of chunks currently tracked [0..Capacity]
-        private int ChunkEntityCapacity; // capacity of each chunk, in entities
 
         readonly int SharedComponentCount;
         readonly int ComponentCount; // including shared components
@@ -27,12 +28,13 @@ namespace Unity.Entities
         ulong ChangeVersionSize  => (ulong)(sizeof(uint) * ComponentCount * Capacity);
         ulong EntityCountSize => (ulong)(sizeof(int) * Capacity);
         ulong SharedComponentValuesSize => (ulong)(sizeof(int) * SharedComponentCount * Capacity);
-        ulong ComponentEnabledBitsSizePerComponentInChunk => (ulong)(((ChunkEntityCapacity + 63) / 64) * sizeof(ulong)); // size of bits for ONE component in a chunk
-        ulong ComponentEnabledBitsSizeTotalPerChunk => ComponentEnabledBitsSizePerComponentInChunk * (ulong)ComponentCount; // size of bits for ALL components in a chunk
+        const ulong ComponentEnabledBitsSizePerComponentInChunk = (2 * sizeof(ulong)); // size of bits for ONE component in a chunk
+        ulong PaddingForEnabledBitAlignmentSize => 16 - ((ChunkPtrSize + ChangeVersionSize + EntityCountSize + SharedComponentValuesSize) % 16); // enabled bits must be 16-byte aligned
+        public ulong ComponentEnabledBitsSizeTotalPerChunk => ComponentEnabledBitsSizePerComponentInChunk * (ulong)ComponentCount; // size of bits for ALL components in a chunk
         ulong ComponentEnabledBitsSize => ComponentEnabledBitsSizeTotalPerChunk * (ulong)Capacity; // size of bits for ALL components of ALL chunks
-        ulong ComponentEnabledBitsHierarchicalDataSizePerChunk => (ulong)(sizeof(int) * ComponentCount); // size of enabled bits hierarchical data for ONE chunk
+        public ulong ComponentEnabledBitsHierarchicalDataSizePerChunk => (ulong)(sizeof(int) * ComponentCount); // size of enabled bits hierarchical data for ONE chunk
         ulong ComponentEnabledBitsHierarchicalDataSize => (ComponentEnabledBitsHierarchicalDataSizePerChunk * (ulong) Capacity); // size of enabled bits hierarchical data for ALL chunks
-        ulong BufferSize => ChunkPtrSize + ChangeVersionSize + EntityCountSize + SharedComponentValuesSize + ComponentEnabledBitsSize + ComponentEnabledBitsHierarchicalDataSize;
+        ulong BufferSize => ChunkPtrSize + ChangeVersionSize + EntityCountSize + SharedComponentValuesSize + PaddingForEnabledBitAlignmentSize + ComponentEnabledBitsSize + ComponentEnabledBitsHierarchicalDataSize;
 
         // ChangeVersions[ComponentCount * Capacity]
         //   - Order version is ChangeVersion[0] which is ChangeVersion[Entity]
@@ -50,7 +52,7 @@ namespace Unity.Entities
         //    chunk1: type0 type1 type2 ...
         // Each type's bits are rounded up to a multiple of 64 bits, so that we can create an UnsafeBitArray of a single
         // type within a single chunk.
-        byte* ComponentEnabledBits => (byte*)(((ulong)SharedComponentValues) + SharedComponentValuesSize);
+        v128* ComponentEnabledBits => (v128*)(((ulong)SharedComponentValues) + SharedComponentValuesSize + PaddingForEnabledBitAlignmentSize);
 
         // Starts with single int32 for # of disabled components in entire archetype
         // ComponentEnabledBitsHierarchicalData[ComponentCount * Capacity]
@@ -59,21 +61,16 @@ namespace Unity.Entities
         //    chunk1: type0 type1 type2 ...
         int* ComponentEnabledBitsHierarchicalData => (int*)(((ulong)ComponentEnabledBits) + ComponentEnabledBitsSize);
 
-        public ArchetypeChunkData(int componentCount, int sharedComponentCount, int chunkEntityCapacity)
+        public ArchetypeChunkData(int componentCount, int sharedComponentCount)
         {
             p = null;
             Capacity = 0;
             Count = 0;
-            ChunkEntityCapacity = chunkEntityCapacity;
             SharedComponentCount = sharedComponentCount;
             ComponentCount = componentCount;
         }
 
-        public Chunk* this[int index]
-        {
-            get { return p[index]; }
-        }
-
+        public Chunk* this[int index] => p[index];
 
         public void Grow(int nextCapacity)
         {
@@ -83,9 +80,10 @@ namespace Unity.Entities
             ulong nextChangeVersionSize  = (ulong)(sizeof(uint) * ComponentCount * nextCapacity);
             ulong nextEntityCountSize = (ulong)(sizeof(int) * nextCapacity);
             ulong nextSharedComponentValuesSize = (ulong)(sizeof(int) * SharedComponentCount * nextCapacity);
+            ulong paddingForEnabledBitAlignmentSize = 16 - ((nextChunkPtrSize + nextChangeVersionSize + nextEntityCountSize + nextSharedComponentValuesSize) % 16); // enabled bits must be 16-byte aligned
             ulong nextComponentEnabledBitsSize = ComponentEnabledBitsSizeTotalPerChunk * (ulong)nextCapacity;
             ulong nextComponentEnabledBitsHierarchicalDataSize = ComponentEnabledBitsHierarchicalDataSizePerChunk * (ulong) nextCapacity;
-            ulong nextBufferSize = nextChunkPtrSize + nextChangeVersionSize + nextEntityCountSize + nextSharedComponentValuesSize + nextComponentEnabledBitsSize + nextComponentEnabledBitsHierarchicalDataSize;
+            ulong nextBufferSize = nextChunkPtrSize + nextChangeVersionSize + nextEntityCountSize + nextSharedComponentValuesSize + paddingForEnabledBitAlignmentSize + nextComponentEnabledBitsSize + nextComponentEnabledBitsHierarchicalDataSize;
             ulong nextBufferPtr = (ulong)Memory.Unmanaged.Allocate((long)nextBufferSize, 16, Allocator.Persistent);
 
             Chunk** nextChunkData = (Chunk**)nextBufferPtr;
@@ -96,6 +94,8 @@ namespace Unity.Entities
             nextBufferPtr += nextEntityCountSize;
             int* nextSharedComponentValues = (int*)nextBufferPtr;
             nextBufferPtr += nextSharedComponentValuesSize;
+            nextBufferPtr += paddingForEnabledBitAlignmentSize;
+            Assert.AreEqual(0ul, nextBufferPtr & 0xF);
             byte* nextComponentEnabledBitsValues = (byte*)nextBufferPtr;
             nextBufferPtr += nextComponentEnabledBitsSize;
             int* nextComponentEnabledBitsHierarchicalDataValues = (int*)nextBufferPtr;
@@ -107,7 +107,7 @@ namespace Unity.Entities
             uint* prevChangeVersions = ChangeVersions;
             int* prevEntityCount = EntityCount;
             int* prevSharedComponentValues = SharedComponentValues;
-            byte* prevComponentEnabledBitsValues = ComponentEnabledBits;
+            v128* prevComponentEnabledBitsValues = ComponentEnabledBits;
             int* prevComponentEnabledBitsHierarchicalDataValues = ComponentEnabledBitsHierarchicalData;
 
             UnsafeUtility.MemCpy(nextChunkData, prevChunkData, (sizeof(Chunk*) * prevCount));
@@ -168,20 +168,35 @@ namespace Unity.Entities
         {
             Assert.IsTrue(chunkIndex >= 0 && chunkIndex < Capacity);
 
-            var bits = ComponentEnabledBits
-                       + (ComponentEnabledBitsSizeTotalPerChunk * (ulong) chunkIndex);
+            var bits = ComponentEnabledBits + (ComponentCount * chunkIndex);
             return new UnsafeBitArray(bits, (int)ComponentEnabledBitsSizeTotalPerChunk);
         }
 
+        // Returns the bits for all types within a single chunk. Each type's bits are a v128.
+        public v128* GetComponentEnabledMaskArrayForChunk(int chunkIndex)
+        {
+            Assert.IsTrue(chunkIndex >= 0 && chunkIndex < Capacity);
+            var bits = ComponentEnabledBits + (ComponentCount * chunkIndex);
+            return (v128*)bits;
+        }
+        public int GetComponentEnabledBitsSizePerChunk()
+        {
+            return (int)ComponentEnabledBitsSizeTotalPerChunk;
+        }
+
         // Returns the bits for a single type in a single chunk. Array count will be padded to a multiple of 64 entities.
-        public UnsafeBitArray GetComponentEnabledArrayForTypeInChunk(int typeIndexInArchetype, int chunkIndex)
+        public UnsafeBitArray GetEnabledArrayForTypeInChunk(int typeIndexInArchetype, int chunkIndex)
         {
             Assert.IsTrue(typeIndexInArchetype >= 0);
 
-            var bits = ComponentEnabledBits
-                       + (ComponentEnabledBitsSizeTotalPerChunk * (ulong)chunkIndex)
-                       + (ComponentEnabledBitsSizePerComponentInChunk * (ulong) typeIndexInArchetype);
+            var bits = ComponentEnabledBits + (ComponentCount * chunkIndex) + typeIndexInArchetype;
             return new UnsafeBitArray(bits, (int)ComponentEnabledBitsSizePerComponentInChunk);
+        }
+        public v128* GetComponentEnabledMaskArrayForTypeInChunk(int typeIndexInArchetype, int chunkIndex)
+        {
+            Assert.IsTrue(typeIndexInArchetype >= 0);
+
+            return ComponentEnabledBits + (ComponentCount * chunkIndex) + typeIndexInArchetype;
         }
 
         public UnsafeBitArray GetComponentEnabledArrayForArchetype()
@@ -192,7 +207,7 @@ namespace Unity.Entities
 
         public UnsafeBitArray GetComponentEnabledArrayForArchetypeAndChunkOffset(int chunkOffset)
         {
-            var bits = ComponentEnabledBits + ComponentEnabledBitsSizeTotalPerChunk * (ulong)chunkOffset;
+            var bits = ComponentEnabledBits + (ComponentCount * chunkOffset);
             return new UnsafeBitArray(bits, (int)ComponentEnabledBitsSizeTotalPerChunk * (Count - chunkOffset));
         }
 
@@ -204,11 +219,17 @@ namespace Unity.Entities
 
         public void SetEnabledBitsAndHierarchicalData(int chunkIndex, byte* componentEnabledBitValues, int* perComponentDisabledBitCount)
         {
-            var bits = ComponentEnabledBits + ComponentEnabledBitsSizeTotalPerChunk * (ulong)chunkIndex;
+            var bits = ComponentEnabledBits + (ComponentCount * chunkIndex);
             UnsafeUtility.MemCpy(bits, componentEnabledBitValues, (long)ComponentEnabledBitsSizeTotalPerChunk);
 
             var typeArrayForChunk = ComponentEnabledBitsHierarchicalData + chunkIndex * ComponentCount;
             UnsafeUtility.MemCpy(typeArrayForChunk, perComponentDisabledBitCount, (long)ComponentEnabledBitsHierarchicalDataSizePerChunk);
+        }
+
+        public int* GetChunkDisabledCounts(int chunkIndex)
+        {
+            Assert.IsTrue(chunkIndex >= 0 && chunkIndex < Capacity);
+            return ComponentEnabledBitsHierarchicalData + chunkIndex * ComponentCount;
         }
 
         public int GetChunkDisabledCountForType(int typeIndexInArchetype, int chunkIndex)
@@ -222,7 +243,7 @@ namespace Unity.Entities
 
         public byte* GetPointerToComponentEnabledArrayForArchetype()
         {
-            return ComponentEnabledBits;
+            return (byte*)ComponentEnabledBits;
         }
 
         public int* GetPointerToChunkDisabledCountForArchetype()
@@ -237,6 +258,15 @@ namespace Unity.Entities
 
             var typeArrayForChunk = ComponentEnabledBitsHierarchicalData + chunkIndex * ComponentCount;
             return typeArrayForChunk + typeIndexInArchetype;
+        }
+
+        public void SetChunkDisabledCountForType(int typeIndexInArchetype, int chunkIndex, int value)
+        {
+            Assert.IsTrue(chunkIndex >= 0 && chunkIndex < Capacity);
+            Assert.IsTrue(typeIndexInArchetype >= 0);
+
+            var typeArrayForChunk = ComponentEnabledBitsHierarchicalData + chunkIndex * ComponentCount;
+            typeArrayForChunk[typeIndexInArchetype] = value;
         }
 
         public void AdjustChunkDisabledCountForType(int typeIndexInArchetype, int chunkIndex, int value)
@@ -285,6 +315,7 @@ namespace Unity.Entities
             SetChangeVersion(0, chunkIndex, changeVersion);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int* GetChunkEntityCountArray()
         {
             return EntityCount;
@@ -297,6 +328,7 @@ namespace Unity.Entities
 
         public void SetChunkEntityCount(int chunkIndex, int count)
         {
+            // Note: this is generally not safe to call in isolation, as it may leave the chunk's enabled bits in an invalid state.
             EntityCount[chunkIndex] = count;
         }
 
@@ -346,6 +378,14 @@ namespace Unity.Entities
             // On *chunk order* change, no versions changed, just moved to new location.
             for (int i = 0; i < ComponentCount; i++)
                 ChangeVersions[(i * Capacity) + chunkIndex] = ChangeVersions[(i * Capacity) + Count];
+
+            // Move the last chunk's enabled bits data to the new location, and clear the old data
+            v128* srcEnabledBits = GetComponentEnabledMaskArrayForChunk(Count);
+            v128* dstEnabledBits = GetComponentEnabledMaskArrayForChunk(chunkIndex);
+            UnsafeUtility.MemCpy(dstEnabledBits, srcEnabledBits, (long)ComponentEnabledBitsSizeTotalPerChunk);
+            int* srcDisabledCounts = GetChunkDisabledCounts(Count);
+            int* dstDisabledCounts = GetChunkDisabledCounts(chunkIndex);
+            UnsafeUtility.MemCpy(dstDisabledCounts, srcDisabledCounts, (long)ComponentEnabledBitsHierarchicalDataSizePerChunk);
 
             EntityCount[chunkIndex] = EntityCount[Count];
         }

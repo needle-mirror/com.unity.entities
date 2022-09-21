@@ -1,10 +1,10 @@
 using System;
-using Unity.Properties.Editor;
+using Unity.Properties;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Unity.Properties.UI.Internal
+namespace Unity.Platforms.UI
 {
     sealed class ContentWindow : EditorWindow
     {

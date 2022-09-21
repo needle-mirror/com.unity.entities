@@ -1,5 +1,5 @@
 using JetBrains.Annotations;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Properties;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -92,7 +92,7 @@ namespace Unity.Entities.Editor
     }
 
     [UsedImplicitly]
-    class SystemContentInspector : Inspector<SystemContentProvider>
+    class SystemContentInspector : PropertyInspector<SystemContentProvider>
     {
         public override VisualElement Build()
         {

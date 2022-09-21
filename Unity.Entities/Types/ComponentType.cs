@@ -1,51 +1,128 @@
 using System;
 using System.ComponentModel;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    public struct ExcludeComponent<T>
+    /// <summary>
+    /// A struct to define a component including how it's accessed and what type of component it is
+    /// </summary>
+    [GenerateTestsForBurstCompatibility]
+    public partial struct ComponentType : IEquatable<ComponentType>, IComparable<ComponentType>
     {
-    }
-
-    public partial struct ComponentType : IEquatable<ComponentType>
-    {
+        /// <summary>
+        /// The access of the component type
+        /// </summary>
         public enum AccessMode
         {
+            /// <summary>
+            /// Access to read and write to the component type
+            /// </summary>
             ReadWrite,
+            /// <summary>
+            /// Access to only read the component type
+            /// </summary>
             ReadOnly,
+            /// <summary>
+            /// Excludes the component type when used in a query
+            /// </summary>
             Exclude
         }
 
-        public int TypeIndex;
+        /// <summary>
+        /// A unique index of the component type
+        /// </summary>
+        public TypeIndex TypeIndex;
+        /// <summary>
+        /// The way the component type will be accessed
+        /// </summary>
         public AccessMode AccessModeType;
+        /// <summary>
+        /// True if the component type is a <see cref="IBufferElementData"/>
+        /// </summary>
+        public bool IsBuffer => TypeIndex.IsBuffer;
+        /// <summary>
+        /// True if the component type is a <see cref="ICleanupComponentData"/>
+        /// </summary>
+        [Obsolete("IsSystemStateComponent has been renamed to IsCleanupComponent. IsSystemStateComponent will be removed in a future package release. (UnityUpgradable) -> IsCleanupComponent", false)]
+        public bool IsSystemStateComponent => TypeIndex.IsCleanupComponent;
+        /// <summary>
+        /// True if the component type is a <see cref="ICleanupComponentData"/>
+        /// </summary>
+        public bool IsCleanupComponent => TypeIndex.IsCleanupComponent;
+        /// <summary>
+        /// True if the component type is a <see cref="ICleanupSharedComponentData"/>
+        /// </summary>
+        [Obsolete("IsSystemStateSharedComponent has been renamed to IsCleanupSharedComponent. IsSystemStateSharedComponent will be removed in a future package release. (UnityUpgradable) -> IsCleanupSharedComponent", false)]
+        public bool IsSystemStateSharedComponent => TypeIndex.IsCleanupSharedComponent;
+        /// <summary>
+        /// True if the component type is a <see cref="ICleanupSharedComponentData"/>
+        /// </summary>
+        public bool IsCleanupSharedComponent => TypeIndex.IsCleanupSharedComponent;
+        /// <summary>
+        /// True if the component type is a <see cref="ISharedComponentData"/>
+        /// </summary>
+        public bool IsSharedComponent => TypeIndex.IsSharedComponentType;
+        /// <summary>
+        /// True if the component type is a managed component
+        /// </summary>
+        public bool IsManagedComponent => TypeIndex.IsManagedComponent;
+        /// <summary>
+        /// True if the component type does not contain actual fields or data
+        /// </summary>
+        public bool IsZeroSized => TypeIndex.IsZeroSized;
+        /// <summary>
+        /// True if the component type is flagged as a chunk component type
+        /// </summary>
+        public bool IsChunkComponent => TypeIndex.IsChunkComponent;
+        /// <summary>
+        /// True if the component type is a <see cref="IEnableableComponent"/>
+        /// </summary>
+        public bool IsEnableable => TypeIndex.IsEnableable;
+        /// <summary>
+        /// True if any of the fields in the component type are type <see cref="Entity"/>
+        /// </summary>
+        public bool HasEntityReferences => TypeIndex.HasEntityReferences;
 
-        public bool IsBuffer => (TypeIndex & TypeManager.BufferComponentTypeFlag) != 0;
-        public bool IsSystemStateComponent => (TypeIndex & TypeManager.SystemStateTypeFlag) != 0;
-        public bool IsSystemStateSharedComponent => (TypeIndex & TypeManager.SystemStateSharedComponentTypeFlag) == TypeManager.SystemStateSharedComponentTypeFlag;
-        public bool IsSharedComponent => (TypeIndex & TypeManager.SharedComponentTypeFlag) != 0;
-        public bool IsManagedComponent => TypeManager.IsManagedComponent(TypeIndex);
-        public bool IsZeroSized => (TypeIndex & TypeManager.ZeroSizeInChunkTypeFlag) != 0;
-        public bool IsChunkComponent => (TypeIndex & TypeManager.ChunkComponentTypeFlag) != 0;
-        internal bool IsEnableable => (TypeIndex & TypeManager.EnableableComponentFlag) != 0;
-        public bool HasEntityReferences => (TypeIndex & TypeManager.HasNoEntityReferencesFlag) == 0;
-
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.ReadWrite"/> based on the generic type T.
+        /// </summary>
+        /// <typeparam name="T">The type</typeparam>
+        /// <returns>The component type</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(Entity) })]
         public static ComponentType ReadWrite<T>()
         {
             return FromTypeIndex(TypeManager.GetTypeIndex<T>());
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.ReadWrite"/> based on the type.
+        /// </summary>
+        /// <param name="type">The type</param>
+        /// <returns>The component type</returns>
+        [ExcludeFromBurstCompatTesting("Takes a managed Type")]
         public static ComponentType ReadWrite(Type type)
         {
             return FromTypeIndex(TypeManager.GetTypeIndex(type));
         }
 
-        public static ComponentType ReadWrite(int typeIndex)
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.ReadWrite"/> based on the typeIndex.
+        /// </summary>
+        /// <param name="typeIndex">The index</param>
+        /// <returns>The component type</returns>
+        public static ComponentType ReadWrite(TypeIndex typeIndex)
         {
             return FromTypeIndex(typeIndex);
         }
 
-        public static ComponentType FromTypeIndex(int typeIndex)
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.ReadWrite"/> based on the typeIndex
+        /// </summary>
+        /// <param name="typeIndex">The index</param>
+        /// <returns>The component type</returns>
+        public static ComponentType FromTypeIndex(TypeIndex typeIndex)
         {
             ComponentType type;
             type.TypeIndex = typeIndex;
@@ -53,6 +130,12 @@ namespace Unity.Entities
             return type;
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.ReadOnly"/> based on the type.
+        /// </summary>
+        /// <param name="type">The type</param>
+        /// <returns>The component type</returns>
+        [ExcludeFromBurstCompatTesting("Takes a managed Type")]
         public static ComponentType ReadOnly(Type type)
         {
             ComponentType t = FromTypeIndex(TypeManager.GetTypeIndex(type));
@@ -60,13 +143,24 @@ namespace Unity.Entities
             return t;
         }
 
-        public static ComponentType ReadOnly(int typeIndex)
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.ReadOnly"/> based on the typeIndex.
+        /// </summary>
+        /// <param name="typeIndex">The index</param>
+        /// <returns>The component type</returns>
+        public static ComponentType ReadOnly(TypeIndex typeIndex)
         {
             ComponentType t = FromTypeIndex(typeIndex);
             t.AccessModeType = AccessMode.ReadOnly;
             return t;
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.ReadOnly"/> based on the generic type T.
+        /// </summary>
+        /// <typeparam name="T">The type</typeparam>
+        /// <returns>The component type</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(Entity) })]
         public static ComponentType ReadOnly<T>()
         {
             ComponentType t = ReadWrite<T>();
@@ -74,75 +168,151 @@ namespace Unity.Entities
             return t;
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> that is a chunk component with <see cref="AccessMode.ReadWrite"/> based on the type.
+        /// </summary>
+        /// <param name="type">The type</param>
+        /// <returns>The chunk component type</returns>
+        [ExcludeFromBurstCompatTesting("Takes a managed Type")]
         public static ComponentType ChunkComponent(Type type)
         {
             var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex(type));
             return FromTypeIndex(typeIndex);
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> that is a chunk component with <see cref="AccessMode.ReadWrite"/> based on the type.
+        /// </summary>
+        /// <typeparam name="T">The type</typeparam>
+        /// <returns>The chunk component type</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(Entity) })]
         public static ComponentType ChunkComponent<T>()
         {
             var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex<T>());
             return FromTypeIndex(typeIndex);
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> that is a chunk component with <see cref="AccessMode.ReadOnly"/> based on the type.
+        /// </summary>
+        /// <typeparam name="T">The type</typeparam>
+        /// <returns>The chunk component type</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(Entity) })]
         public static ComponentType ChunkComponentReadOnly<T>()
         {
             var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex<T>());
             return ReadOnly(typeIndex);
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> that is a chunk component with <see cref="AccessMode.ReadOnly"/> based on the type.
+        /// </summary>
+        /// <param name="type">The type</param>
+        /// <returns>The chunk component type</returns>
+        [ExcludeFromBurstCompatTesting("Takes a managed Type")]
         public static ComponentType ChunkComponentReadOnly(Type type)
         {
             var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex(type));
             return ReadOnly(typeIndex);
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> that is a chunk component with <see cref="AccessMode.Exclude"/> based on the type.
+        /// </summary>
+        /// <typeparam name="T">The type</typeparam>
+        /// <returns>The chunk component type</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(Entity) })]
         public static ComponentType ChunkComponentExclude<T>()
         {
             var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex<T>());
             return Exclude(typeIndex);
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> that is a chunk component with <see cref="AccessMode.Exclude"/> based on the type.
+        /// </summary>
+        /// <param name="type">The type</param>
+        /// <returns>The chunk component type</returns>
+        [ExcludeFromBurstCompatTesting("Takes a managed Type")]
         public static ComponentType ChunkComponentExclude(Type type)
         {
             var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex(type));
             return Exclude(typeIndex);
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.Exclude"/> based on the type.
+        /// </summary>
+        /// <param name="type">The type</param>
+        /// <returns>The component type</returns>
+        [ExcludeFromBurstCompatTesting("Takes a managed Type")]
         public static ComponentType Exclude(Type type)
         {
             return Exclude(TypeManager.GetTypeIndex(type));
         }
 
-        public static ComponentType Exclude(int typeIndex)
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.Exclude"/> based on the typeIndex.
+        /// </summary>
+        /// <param name="typeIndex">The index</param>
+        /// <returns>The component type</returns>
+        public static ComponentType Exclude(TypeIndex typeIndex)
         {
             ComponentType t = FromTypeIndex(typeIndex);
             t.AccessModeType = AccessMode.Exclude;
             return t;
         }
 
+        /// <summary>
+        /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.Exclude"/> based on the generic type T.
+        /// </summary>
+        /// <typeparam name="T">The type</typeparam>
+        /// <returns>The component type</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(Entity) })]
         public static ComponentType Exclude<T>()
         {
             return Exclude(TypeManager.GetTypeIndex<T>());
         }
 
+        /// <summary>
+        /// Create a component type
+        /// </summary>
+        /// <param name="type">The type</param>
+        /// <param name="accessModeType">The <see cref="AccessMode"/> of the component type. <see cref="AccessMode.ReadWrite"/> by default.</param>
+        [ExcludeFromBurstCompatTesting("Takes a managed Type")]
         public ComponentType(Type type, AccessMode accessModeType = AccessMode.ReadWrite)
         {
             TypeIndex = TypeManager.GetTypeIndex(type);
             AccessModeType = accessModeType;
         }
 
+        /// <summary>
+        /// Gets the managed <see cref="Type"/> based on the component's <see cref="TypeIndex"/>.
+        /// </summary>
+        /// <returns>The managed type</returns>
+        [ExcludeFromBurstCompatTesting("Returns a managed Type")]
         public Type GetManagedType()
         {
             return TypeManager.GetType(TypeIndex);
         }
 
+        /// <summary>
+        /// Creates a new component type based on the type passed in
+        /// </summary>
+        /// <param name="type">The managed type</param>
+        /// <returns>The new <see cref="ComponentType"/> with <see cref="AccessMode.ReadWrite"/></returns>
+        [ExcludeFromBurstCompatTesting("Takes a managed Type")]
         public static implicit operator ComponentType(Type type)
         {
             return new ComponentType(type, AccessMode.ReadWrite);
         }
 
+        /// <summary>
+        /// Evaluates if one component type is less than the the other first by <see cref="TypeIndex"/>, then by <see cref="AccessMode"/>.
+        /// </summary>
+        /// <param name="lhs">The left-hand side</param>
+        /// <param name="rhs">The right-hand side</param>
+        /// <returns>True if the left-hand side's <see cref="TypeIndex"/> is less than the right-hand side's. If the type indices match, the <see cref="AccessModeType"/> is used.</returns>
         public static bool operator<(ComponentType lhs, ComponentType rhs)
         {
             if (lhs.TypeIndex == rhs.TypeIndex)
@@ -151,16 +321,34 @@ namespace Unity.Entities
             return lhs.TypeIndex < rhs.TypeIndex;
         }
 
+        /// <summary>
+        /// Evaluates if one component type is greater than the the other.
+        /// </summary>
+        /// <param name="lhs">The left-hand side</param>
+        /// <param name="rhs">The right-hand side</param>
+        /// <returns>True if the left-hand side is greater than the right-hand side</returns>
         public static bool operator>(ComponentType lhs, ComponentType rhs)
         {
             return rhs < lhs;
         }
 
+        /// <summary>
+        /// Evaluates if two component types are equal based on <see cref="TypeIndex"/> and <see cref="AccessModeType"/>.
+        /// </summary>
+        /// <param name="lhs">The left-hand side</param>
+        /// <param name="rhs">The right-hand side</param>
+        /// <returns>Returns true if both their type indices are equal and their access modes are equal.</returns>
         public static bool operator==(ComponentType lhs, ComponentType rhs)
         {
             return lhs.TypeIndex == rhs.TypeIndex && lhs.AccessModeType == rhs.AccessModeType;
         }
 
+        /// <summary>
+        /// Evaluates if two component types are not equal based on <see cref="TypeIndex"/> and <see cref="AccessModeType"/>.
+        /// </summary>
+        /// <param name="lhs">The left-hand side</param>
+        /// <param name="rhs">The right-hand side</param>
+        /// <returns>Returns true if their type indices are not equal or their access modes are not equal.</returns>
         public static bool operator!=(ComponentType lhs, ComponentType rhs)
         {
             return lhs.TypeIndex != rhs.TypeIndex || lhs.AccessModeType != rhs.AccessModeType;
@@ -177,40 +365,139 @@ namespace Unity.Entities
             return true;
         }
 
-        [NotBurstCompatible]
-        public override string ToString()
+        /// <summary>
+        /// Combine multiple array of component type into one. Duplicate types are removed.
+        /// It will allocate an array containing all component type.
+        /// Useful for creating queries during initialization of systems.
+        /// </summary>
+        /// <param name="componentTypes"></param>
+        /// <returns></returns>
+        [ExcludeFromBurstCompatTesting("Takes a managed array")]
+        unsafe public static ComponentType[] Combine(params ComponentType[][] componentTypes)
         {
-            if (TypeIndex == 0)
-                return "None";
+            int count = 0;
+            for (int i = 0; i != componentTypes.Length; i++)
+                count += componentTypes[i].Length;
 
-            var info = TypeManager.GetTypeInfo(TypeIndex);
-            FixedString512Bytes ns = default;
-            ns.Append(info.DebugTypeName);
+            var output = new ComponentType[count];
+            int o = 0;
+            for (int i = 0; i != componentTypes.Length; i++)
+            {
+                for (int k = 0; k < componentTypes[i].Length; ++k)
+                    output[o+k] = componentTypes[i][k];
+                o += componentTypes[i].Length;
+            }
 
-            if (IsBuffer)
-                ns.Append(" [Buffer]");
-            if (AccessModeType == AccessMode.Exclude)
-                ns.Append(" [Exclude]");
-            if (AccessModeType == AccessMode.ReadOnly)
-                ns.Append(" [ReadOnly]");
+            fixed (ComponentType* types = output)
+            {
+                NativeSortExtension.Sort(types, output.Length);
+            }
 
-            return ns.ToString();
+            if (count != 0)
+            {
+                o = 0;
+                for (int i = 1; i < count;i++ )
+                {
+                    if (output[o].TypeIndex != output[i].TypeIndex)
+                    {
+                        o++;
+                        output[o] = output[i];
+                    }
+                    else if (output[i].AccessModeType == AccessMode.Exclude && output[o].AccessModeType != AccessMode.Exclude)
+                    {
+                        throw new ArgumentException($"ComponentType.Combine {output[o]} and {output[i]} are conflicting.");
+                    }
+                }
+                o++;
 
+                if (o != count)
+                    Array.Resize(ref output, o);
+            }
+
+
+            return output;
         }
 
+        /// <summary>
+        /// Returns a managed string of the component type
+        /// </summary>
+        /// <returns>A string of the component type</returns>
+        [ExcludeFromBurstCompatTesting("Returns managed string")]
+        public override string ToString()
+        {
+            return ToFixedString().ToString();
+        }
+
+        static readonly FixedString32Bytes kMsg_None = "None";
+        static readonly FixedString32Bytes kMsg_Space_Buffer = " [Buffer]";
+        static readonly FixedString32Bytes kMsg_Space_Exclude = " [Exclude]";
+        static readonly FixedString32Bytes kMsg_Space_Readonly = " [ReadOnly]";
+
+        /// <summary>
+        /// Returns a fixed string of the component type
+        /// </summary>
+        /// <returns>A <see cref="FixedString128Bytes"/> of the component type</returns>
+        [GenerateTestsForBurstCompatibility]
+        public FixedString128Bytes ToFixedString()
+        {
+            if (TypeIndex == TypeIndex.Null)
+                return kMsg_None;
+
+            var fs = new FixedString128Bytes();
+            fs.Append(TypeManager.GetTypeInfo(TypeIndex).DebugTypeName);
+
+            if (IsBuffer)
+                fs.Append(kMsg_Space_Buffer);
+            if (AccessModeType == AccessMode.Exclude)
+                fs.Append(kMsg_Space_Exclude);
+            if (AccessModeType == AccessMode.ReadOnly)
+                fs.Append(kMsg_Space_Readonly);
+
+            return fs;
+        }
+
+        /// <summary>
+        /// Checks if this component type has the same <see cref="TypeIndex"/> as the other component type.
+        /// </summary>
+        /// <param name="other">The other component type to compare to</param>
+        /// <returns>True if the <see cref="TypeIndex"/> of both are equal</returns>
         public bool Equals(ComponentType other)
         {
             return TypeIndex == other.TypeIndex;
         }
 
+        /// <summary>
+        /// Returns the sort order this component type compared to another
+        /// </summary>
+        /// <param name="other">The other component type</param>
+        /// <returns>The sort order</returns>
+		[GenerateTestsForBurstCompatibility]
+        public int CompareTo(ComponentType other)
+        {
+            if (TypeIndex != other.TypeIndex)
+                return TypeIndex.CompareTo(other.TypeIndex);
+            else
+                return ((int)AccessModeType).CompareTo((int)other.AccessModeType);
+        }
+
+        /// <summary>
+        /// Checks to see if an object is equal to this component type.
+        /// </summary>
+        /// <param name="obj">The object to check</param>
+        /// <returns>True if the object is a <see cref="ComponentType"/> and the object equals this component type</returns>
+        [ExcludeFromBurstCompatTesting("Takes managed object")]
         public override bool Equals(object obj)
         {
             return obj is ComponentType && (ComponentType)obj == this;
         }
 
+        /// <summary>
+        /// Gets the hash code for this component type
+        /// </summary>
+        /// <returns>The hash code as an int</returns>
         public override int GetHashCode()
         {
-            return (TypeIndex * 5813);
+            return TypeIndex.GetHashCode();
         }
     }
 }

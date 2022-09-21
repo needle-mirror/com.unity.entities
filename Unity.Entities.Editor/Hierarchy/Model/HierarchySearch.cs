@@ -12,10 +12,11 @@ namespace Unity.Entities.Editor
     /// </summary>
     class HierarchySearch : IDisposable
     {
-        struct EntityQueryCache : IDisposable, IEquatable<EntityQueryDesc>
+        struct EntityQueryCache : IDisposable
         {
             EntityQueryDesc m_Desc;
             EntityQuery m_Query;
+            World m_OriginatingWorld;
 
             public EntityQuery EntityQuery => m_Query;
 
@@ -23,30 +24,32 @@ namespace Unity.Entities.Editor
             {
                 m_Desc = desc;
                 m_Query = entityManager.CreateEntityQuery(desc);
+                m_OriginatingWorld = entityManager.World;
             }
 
             public void Dispose()
             {
-                if (null != m_Desc)
+                if (null != m_Desc && m_OriginatingWorld.IsCreated)
                     m_Query.Dispose();
 
                 m_Desc = null;
+                m_OriginatingWorld = null;
             }
-            
-            public bool Equals(EntityQueryDesc other) 
-                => Equals(m_Desc, other);
+
+            public bool Equals(EntityQueryDesc other, World world)
+                => m_OriginatingWorld != null && world.SequenceNumber == m_OriginatingWorld.SequenceNumber && Equals(m_Desc, other);
         }
-        
+
         /// <summary>
         /// The underlying hierarchy.
         /// </summary>
         readonly HierarchyNameStore m_HierarchyNameStore;
 
         /// <summary>
-        /// A persisted bitmask cache over the <see cref="EntityNameStorage"/>. 
+        /// A persisted bitmask cache over the <see cref="EntityNameStorage"/>.
         /// </summary>
         NativeBitArray m_EntityNameStorageMask;
-        
+
         /// <summary>
         /// The world this search operates on.
         /// </summary>
@@ -56,9 +59,9 @@ namespace Unity.Entities.Editor
         /// A cached version of the <see cref="EntityQuery"/> to avoid constructing it each time.
         /// </summary>
         EntityQueryCache m_EntityQueryCache;
-        
+
         /// <summary>
-        /// If true; unnamed nodes are skipped during name filtering. 
+        /// If true; unnamed nodes are skipped during name filtering.
         /// </summary>
         public bool ExcludeUnnamedNodes { get; set; }
 
@@ -73,7 +76,7 @@ namespace Unity.Entities.Editor
             m_EntityNameStorageMask.Dispose();
             m_EntityQueryCache.Dispose();
         }
-        
+
         public void SetWorld(World world)
         {
             m_World = world;
@@ -89,7 +92,7 @@ namespace Unity.Entities.Editor
         {
             if (index == -1)
                 return;
-            
+
             new FilterByIndex
             {
                 Index = index,
@@ -107,24 +110,20 @@ namespace Unity.Entities.Editor
                 NodeMatchesMask = mask,
             }.Run();
         }
-        
+
         internal void ApplyEntityQueryFilter(HierarchyNodeStore.Immutable nodes, EntityQueryDesc queryDesc, NativeBitArray mask)
         {
             if (null == queryDesc)
                 return;
-            
-            if (!m_EntityQueryCache.Equals(queryDesc))
+
+            if (!m_EntityQueryCache.Equals(queryDesc, m_World))
             {
                 m_EntityQueryCache.Dispose();
                 m_EntityQueryCache = new EntityQueryCache(m_World.EntityManager, queryDesc);
             }
-            
-            new FilterByEntityQuery
-            {
-                Nodes = nodes,
-                EntityQueryMask = m_World.EntityManager.GetEntityQueryMask(m_EntityQueryCache.EntityQuery),
-                NodeMatchesMask = mask,
-            }.Run();
+
+            // TODO(DOTS-6706): if m_EntityQueryCache.EntityQuery references enableable components, this GetEntityQueryMask() call will throw.
+            FilterByEntityQuery(ref mask, nodes, m_EntityQueryCache.EntityQuery.GetEntityQueryMask());
         }
 
         /// <summary>
@@ -139,11 +138,11 @@ namespace Unity.Entities.Editor
             {
                 if (tokens.Length == 0)
                     return;
-                
+
 #if !DOTS_DISABLE_DEBUG_NAMES
                 // Reset all bits to true. The job will remove any unmatched entries.
                 m_EntityNameStorageMask.SetBits(0, true, m_EntityNameStorageMask.Length);
-                
+
                 new BuildEntityNameStoragePatternCacheLowerInvariant<FixedString64Bytes>
                 {
                     EntityNameStorageMask = m_EntityNameStorageMask,
@@ -180,7 +179,37 @@ namespace Unity.Entities.Editor
                 NodeMatchesMask = mask
             }.Run();
         }
-        
+
+        internal void ApplyPrefabStageFilter(HierarchyNodeStore.Immutable nodes, NativeBitArray mask)
+        {
+            new FilterByPrefabStage
+            {
+                Nodes = nodes,
+                NodeMatchesMask = mask
+            }.Run();
+        }
+
+        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+        struct FilterByPrefabStage : IJob
+        {
+            [ReadOnly] public HierarchyNodeStore.Immutable Nodes;
+            [ReadOnly] public int Index;
+
+            public NativeBitArray NodeMatchesMask;
+
+            public void Execute()
+            {
+                for (var index = 0; index < Nodes.Count; index++)
+                {
+                    if (!NodeMatchesMask.IsSet(index))
+                        continue;
+
+                    if ((Nodes[index].Flags & HierarchyNodeFlags.IsPrefabStage) == 0)
+                        NodeMatchesMask.Set(index, false);
+                }
+            }
+        }
+
         [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
         struct FilterByIndex : IJob
         {
@@ -208,7 +237,7 @@ namespace Unity.Entities.Editor
                 }
             }
         }
-        
+
         [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
         struct FilterByKind : IJob
         {
@@ -231,33 +260,26 @@ namespace Unity.Entities.Editor
                 }
             }
         }
-        
+
         [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
-        struct FilterByEntityQuery : IJob
+        static void FilterByEntityQuery(ref NativeBitArray nodeMatchesMask, in HierarchyNodeStore.Immutable nodes, EntityQueryMask queryMask)
         {
-            [ReadOnly] public HierarchyNodeStore.Immutable Nodes;
-            [ReadOnly] public EntityQueryMask EntityQueryMask;
-
-            public NativeBitArray NodeMatchesMask;
-
-            public void Execute()
+            for (var index = 0; index < nodes.Count; index++)
             {
-                for (var index = 0; index < Nodes.Count; index++)
-                {
-                    if (!NodeMatchesMask.IsSet(index))
-                        continue;
-                    
-                    var handle = Nodes[index].Handle;
+                if (!nodeMatchesMask.IsSet(index))
+                    continue;
 
-                    if (handle.Kind != NodeKind.Entity)
-                    {
-                        NodeMatchesMask.Set(index, false);
-                        continue;
-                    }
-                    
-                    if (!EntityQueryMask.Matches(handle.ToEntity()))
-                        NodeMatchesMask.Set(index, false);
+                var handle = nodes[index].Handle;
+
+                if (handle.Kind != NodeKind.Entity)
+                {
+                    nodeMatchesMask.Set(index, false);
+                    continue;
                 }
+
+                // It's okay that this mask ignores filtering, since we still want to show matching entities with relevant components disabled.
+                if (!queryMask.MatchesIgnoreFilter(handle.ToEntity()))
+                    nodeMatchesMask.Set(index, false);
             }
         }
 
@@ -300,12 +322,12 @@ namespace Unity.Entities.Editor
             [ReadOnly] public HierarchyNodeStore.Immutable Nodes;
             [ReadOnly] public NativeList<TPattern> Tokens;
             [ReadOnly] public bool ExcludeUnnamedNodes;
-            
+
 #if !DOTS_DISABLE_DEBUG_NAMES
             [ReadOnly] public NativeBitArray EntityNameStorageMask;
             [NativeDisableUnsafePtrRestriction] public EntityName* NameByEntity;
 #endif
-            
+
             [ReadOnly] public NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> NameByHandleLowerInvariant;
 
             public NativeBitArray NodeMatchesMask;
@@ -329,13 +351,13 @@ namespace Unity.Entities.Editor
                             continue;
                         }
 #endif
-                        
+
                         if (ExcludeUnnamedNodes)
                         {
                             NodeMatchesMask.Set(index, false);
                             continue;
                         }
-                        
+
                         // Slow path, we need to check the entity name directly
                         FixedString64Bytes name = default;
                         HierarchyNameStore.Formatting.FormatEntityLowerInvariant(handle, ref name);
@@ -356,7 +378,7 @@ namespace Unity.Entities.Editor
                                 NodeMatchesMask.Set(index, false);
                                 continue;
                             }
-                            
+
                             HierarchyNameStore.Formatting.FormatHandleLowerInvariant(handle, ref name);
                         }
 

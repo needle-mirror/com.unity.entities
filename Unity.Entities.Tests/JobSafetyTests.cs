@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
@@ -12,7 +13,7 @@ namespace Unity.Entities.Tests
         struct TestIncrementJob : IJob
         {
             public NativeArray<Entity> entities;
-            public ComponentDataFromEntity<EcsTestData> data;
+            public ComponentLookup<EcsTestData> data;
             public void Execute()
             {
                 for (int i = 0; i != entities.Length; i++)
@@ -29,13 +30,13 @@ namespace Unity.Entities.Tests
         [Test]
         public void ComponentAccessAfterScheduledJobThrows()
         {
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
-            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
+            job.entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            job.data = m_Manager.GetComponentLookup<EcsTestData>();
 
             Assert.AreEqual(42, job.data[job.entities[0]].value);
 
@@ -56,98 +57,82 @@ namespace Unity.Entities.Tests
         // - JobsDebugger support for static safety IDs (added in 2020.1)
         // - Asserting throws
 #if !UNITY_DOTSRUNTIME
-        struct UseComponentDataFromEntity : IJob
+        struct UseComponentLookup : IJob
         {
-            public ComponentDataFromEntity<EcsTestData> data;
+            public ComponentLookup<EcsTestData> data;
             public void Execute()
             {
             }
         }
 
         [Test,DotsRuntimeFixme]
-        public void ComponentDataFromEntity_UseAfterStructuralChange_ThrowsCustomErrorMessage()
+        public void ComponentLookup_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            var testDatas = m_Manager.GetComponentDataFromEntity<EcsTestData>();
+            var testDatas = m_Manager.GetComponentLookup<EcsTestData>();
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentDataFromEntity
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentLookup
 
             Assert.That(() => { var f = testDatas[entity].value; },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<ObjectDisposedException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
-                        "ComponentDataFromEntity<Unity.Entities.Tests.EcsTestData> which has been invalidated by a structural change"));
+                        "ComponentLookup<Unity.Entities.Tests.EcsTestData> which has been invalidated by a structural change"));
         }
 
         [Test,DotsRuntimeFixme]
-        public void ComponentDataFromEntity_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
+        public void ComponentLookup_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            var testDatas = m_Manager.GetComponentDataFromEntity<EcsTestData>();
+            var testDatas = m_Manager.GetComponentLookup<EcsTestData>();
 
-            var job = new UseComponentDataFromEntity();
+            var job = new UseComponentLookup();
             job.data = testDatas;
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentDataFromEntity
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentLookup
 
             Assert.That(() => { job.Schedule().Complete(); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<InvalidOperationException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
-                        "ComponentDataFromEntity<Unity.Entities.Tests.EcsTestData> UseComponentDataFromEntity.data which has been invalidated by a structural change."));
+                        "ComponentLookup<Unity.Entities.Tests.EcsTestData> UseComponentLookup.data which has been invalidated by a structural change."));
         }
 
-        struct UseBufferFromEntity : IJob
+        struct UseBufferLookup : IJob
         {
-            public BufferFromEntity<EcsIntElement> data;
+            public BufferLookup<EcsIntElement> data;
             public void Execute()
             {
             }
         }
 
         [Test,DotsRuntimeFixme]
-        public void BufferFromEntity_UseAfterStructuralChange_ThrowsCustomErrorMessage()
+        public void BufferLookup_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var testDatas = m_Manager.GetBufferFromEntity<EcsIntElement>();
+            var testDatas = m_Manager.GetBufferLookup<EcsIntElement>();
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferFromEntity
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferLookup
 
             Assert.That(() => { var f = testDatas[entity]; },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<ObjectDisposedException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
-                        "BufferFromEntity<Unity.Entities.Tests.EcsIntElement> which has been invalidated by a structural change."));
+                        "BufferLookup<Unity.Entities.Tests.EcsIntElement> which has been invalidated by a structural change."));
         }
 
         [Test,DotsRuntimeFixme]
-        public void BufferFromEntity_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
+        public void BufferLookup_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var testDatas = m_Manager.GetBufferFromEntity<EcsIntElement>();
+            var testDatas = m_Manager.GetBufferLookup<EcsIntElement>();
 
-            var job = new UseBufferFromEntity();
+            var job = new UseBufferLookup();
             job.data = testDatas;
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferFromEntity
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferLookup
 
             Assert.That(() => { job.Schedule().Complete(); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<InvalidOperationException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
-                        "BufferFromEntity<Unity.Entities.Tests.EcsIntElement> UseBufferFromEntity.data which has been invalidated by a structural change."));
+                        "BufferLookup<Unity.Entities.Tests.EcsIntElement> UseBufferLookup.data which has been invalidated by a structural change."));
         }
 
 #endif
@@ -156,15 +141,31 @@ namespace Unity.Entities.Tests
         public void GetComponentCompletesJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
-            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
-            group.AddDependency(job.Schedule());
+            job.entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            job.data = m_Manager.GetComponentLookup<EcsTestData>();
+            query.AddDependency(job.Schedule());
 
             // Implicit Wait for job, returns value after job has completed.
             Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestData>(entity).value);
+        }
+
+        [Test]
+        public void ChunkEntityArrayIsImmutable()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            var chunk = m_Manager.GetChunk(entity);
+
+            var array = chunk.GetNativeArray(m_Manager.GetEntityTypeHandle());
+            Assert.Throws<InvalidOperationException>(() => { array[0] = Entity.Null; });
+            // Dispose appears to get ignored
+            array.Dispose();
+
+            // Make sure nothing was mutated or disposed...
+            array = chunk.GetNativeArray(m_Manager.GetEntityTypeHandle());
+            Assert.AreEqual(entity ,array[0]);
         }
 
         [Test]
@@ -172,16 +173,16 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             /*var entity2 =*/ m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
-            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
-            group.AddDependency(job.Schedule());
+            job.entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            job.data = m_Manager.GetComponentLookup<EcsTestData>();
+            query.AddDependency(job.Schedule());
 
             m_Manager.DestroyEntity(entity);
 
-            var componentData = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
+            var componentData = query.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             // @TODO: This is maybe a little bit dodgy way of determining if the job has been completed...
             //        Probably should expose api to inspector job debugger state...
@@ -198,7 +199,7 @@ namespace Unity.Entities.Tests
                 // holding on SharedComponentData making checks fail
                 while (World.Systems.Count > 0)
                 {
-                    World.DestroySystem(World.Systems[0]);
+                    World.DestroySystemManaged(World.Systems[0]);
                 }
 
                 m_ManagerDebug.CheckInternalConsistency();
@@ -216,18 +217,15 @@ namespace Unity.Entities.Tests
         public void EntityManagerDestructionDetectsUnregisteredJob()
         {
 #if !NET_DOTS
-#if UNITY_DOTSRUNTIME
-            LogAssert.ExpectReset();
-#endif
             LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("job is still running"));
 #endif
 
             /*var entity =*/ m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
-            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
+            job.entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            job.data = m_Manager.GetComponentLookup<EcsTestData>();
             var jobHandle = job.Schedule();
 
             // This should detect the unregistered running job & emit the expected error message
@@ -245,11 +243,11 @@ namespace Unity.Entities.Tests
         public void DestroyEntityDetectsUnregisteredJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
-            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
+            job.entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            job.data = m_Manager.GetComponentLookup<EcsTestData>();
             var fence = job.Schedule();
 
             Assert.Throws<System.InvalidOperationException>(() => { m_Manager.DestroyEntity(entity); });
@@ -261,11 +259,11 @@ namespace Unity.Entities.Tests
         public void GetComponentDetectsUnregisteredJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
-            job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
+            job.entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            job.data = m_Manager.GetComponentLookup<EcsTestData>();
             var jobHandle = job.Schedule();
 
             Assert.Throws<System.InvalidOperationException>(() => { m_Manager.GetComponentData<EcsTestData>(entity); });
@@ -276,14 +274,14 @@ namespace Unity.Entities.Tests
         struct EntityOnlyDependencyJob : IJobChunk
         {
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
             }
         }
 
         struct NoDependenciesJob : IJobChunk
         {
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
             }
         }
@@ -294,12 +292,12 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
-                var group = GetEntityQuery(new ComponentType[] {});
+                var query = GetEntityQuery(new ComponentType[] {});
                 var job = new EntityOnlyDependencyJob
                 {
                     EntityTypeHandle = EntityManager.GetEntityTypeHandle()
                 };
-                Dependency = JobHandle = job.Schedule(group, Dependency);
+                Dependency = JobHandle = job.ScheduleParallel(query, Dependency);
             }
         }
 
@@ -309,10 +307,10 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
-                var group = GetEntityQuery(new ComponentType[] {});
+                var query = GetEntityQuery(new ComponentType[] {});
                 var job = new NoDependenciesJob {};
 
-                Dependency = JobHandle = job.Schedule(group, Dependency);
+                Dependency = JobHandle = job.ScheduleParallel(query, Dependency);
             }
         }
 
@@ -329,18 +327,18 @@ namespace Unity.Entities.Tests
         [Test]
         public void StructuralChangeCompletesEntityOnlyDependencyJob()
         {
-            var system = World.GetOrCreateSystem<EntityOnlyDependencySystem>();
+            var system = World.GetOrCreateSystemManaged<EntityOnlyDependencySystem>();
             system.Update();
-            World.GetOrCreateSystem<DestroyAllEntitiesSystem>().Update();
+            World.GetOrCreateSystemManaged<DestroyAllEntitiesSystem>().Update();
             Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(system.JobHandle, new JobHandle()));
         }
 
         [Test]
         public void StructuralChangeCompletesNoComponentDependenciesJob()
         {
-            var system = World.GetOrCreateSystem<NoComponentDependenciesSystem>();
+            var system = World.GetOrCreateSystemManaged<NoComponentDependenciesSystem>();
             system.Update();
-            World.GetOrCreateSystem<DestroyAllEntitiesSystem>().Update();
+            World.GetOrCreateSystemManaged<DestroyAllEntitiesSystem>().Update();
             Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(system.JobHandle, new JobHandle()));
         }
 
@@ -349,8 +347,8 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype);
-            var group = EmptySystem.GetEntityQuery(typeof(EcsTestData));
-            var handle = new NoDependenciesJob().Schedule(group);
+            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
+            var handle = new NoDependenciesJob().ScheduleParallel(query, default);
             Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(entity));
             handle.Complete();
         }
@@ -360,24 +358,24 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype);
-            var group = EmptySystem.GetEntityQuery(typeof(EcsTestData));
-            var handle = new EntityOnlyDependencyJob {EntityTypeHandle = m_Manager.GetEntityTypeHandle()}.Schedule(group);
+            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
+            var handle = new EntityOnlyDependencyJob {EntityTypeHandle = m_Manager.GetEntityTypeHandle()}.ScheduleParallel(query, default);
             Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(entity));
             handle.Complete();
         }
 
         partial class SharedComponentSystem : SystemBase
         {
-            EntityQuery group;
+            EntityQuery query;
             protected override void OnCreate()
             {
-                group = GetEntityQuery(ComponentType.ReadOnly<EcsTestSharedComp>());
+                query = GetEntityQuery(ComponentType.ReadOnly<EcsTestSharedComp>());
             }
 
             struct SharedComponentJobChunk : IJobChunk
             {
                 [ReadOnly] public SharedComponentTypeHandle<EcsTestSharedComp> EcsTestSharedCompTypeHandle;
-                public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+                public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
                 {
                 }
             }
@@ -387,7 +385,7 @@ namespace Unity.Entities.Tests
                 Dependency = new SharedComponentJobChunk
                 {
                     EcsTestSharedCompTypeHandle = GetSharedComponentTypeHandle<EcsTestSharedComp>()
-                }.Schedule(group, Dependency);
+                }.ScheduleParallel(query, Dependency);
             }
         }
 
@@ -397,7 +395,7 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var entity = m_Manager.CreateEntity(archetype);
 
-            var sharedComponentSystem = World.CreateSystem<SharedComponentSystem>();
+            var sharedComponentSystem = World.CreateSystemManaged<SharedComponentSystem>();
 
             sharedComponentSystem.Update();
             // DestroyEntity should sync the job and not cause any safety error
@@ -405,23 +403,16 @@ namespace Unity.Entities.Tests
         }
 
 #if !UNITY_DOTSRUNTIME
-        struct BufferSafetyJobA : IJobEntityBatchWithIndex
+        partial struct BufferSafetyJobA : IJobEntity
         {
-            public BufferTypeHandle<EcsIntElement> BufferTypeHandleRO;
-
             public NativeArray<int> MyArray;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in DynamicBuffer<EcsIntElement> buffer)
             {
-                var accessor = chunk.GetBufferAccessor(BufferTypeHandleRO);
-                for (int bufferIndex = 0; bufferIndex < chunk.Count; ++bufferIndex)
+                MyArray[0] = new EcsIntElement
                 {
-                    var buffer = accessor[bufferIndex];
-                    MyArray[0] = new EcsIntElement
-                    {
-                        Value = buffer[0].Value + buffer[1].Value + buffer[2].Value,
-                    };
-                }
+                    Value = buffer[0].Value + buffer[1].Value + buffer[2].Value,
+                };
             }
         }
 
@@ -431,36 +422,29 @@ namespace Unity.Entities.Tests
             public NativeArray<Entity> Entities;
 
             [ReadOnly]
-            public BufferFromEntity<EcsIntElement> BuffersFromEntity;
+            public BufferLookup<EcsIntElement> BuffersLookup;
 
             public void Execute(int index)
             {
-                var buffer = BuffersFromEntity[Entities[index]];
+                var buffer = BuffersLookup[Entities[index]];
                 var total = buffer[3].Value;
             }
         }
 
-        struct BufferSafetyJobC : IJobEntityBatchWithIndex
+        partial struct BufferSafetyJobC : IJobEntity
         {
             [ReadOnly]
-            public EntityTypeHandle EntityTypeHandle;
-
-            [ReadOnly]
-            public BufferFromEntity<EcsIntElement> BufferFromEntityRO;
+            public BufferLookup<EcsIntElement> BufferLookupRo;
 
             public NativeArray<int> MyArray;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(Entity entity)
             {
-                var entities = chunk.GetNativeArray(EntityTypeHandle);
-                for (int entityIndex = 0; entityIndex < chunk.Count; ++entityIndex)
+                var buffer = BufferLookupRo[entity];
+                MyArray[0] = new EcsIntElement
                 {
-                    var buffer = BufferFromEntityRO[entities[entityIndex]];
-                    MyArray[0] = new EcsIntElement
-                    {
-                        Value = buffer[0].Value + buffer[1].Value + buffer[2].Value,
-                    };
-                }
+                    Value = buffer[0].Value + buffer[1].Value + buffer[2].Value,
+                };
             }
         }
 
@@ -475,56 +459,89 @@ namespace Unity.Entities.Tests
             buffer.Add(new EcsIntElement { Value = 0 });
         }
 
+        partial class TwoJobsDynamicBufferTestSystem : SystemBase
+        {
+            EntityQuery _query;
+            BufferLookup<EcsIntElement> _bfe;
+            protected override void OnCreate()
+            {
+                _query = GetEntityQuery(typeof(EcsIntElement));
+                _bfe = GetBufferLookup<EcsIntElement>(true);
+            }
+
+            protected override void OnUpdate()
+            {
+                var jobA = new BufferSafetyJobA{MyArray = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator) };
+                var jobAHandle = jobA.Schedule(_query, default(JobHandle));
+
+                var jobB = new BufferSafetyJobB
+                {
+                    Entities = _query.ToEntityArray(World.UpdateAllocator.ToAllocator),
+                    BuffersLookup = _bfe,
+                };
+                var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, default(JobHandle));
+                jobBHandle.Complete();
+                jobAHandle.Complete();
+            }
+        }
+
+
         [Test]
         public void TwoJobsUsingDynamicBuffersDontCauseSafetySystemFalsePositiveErrors()
         {
             SetupDynamicBufferJobTestEnvironment();
+            var sys = World.CreateSystemManaged<TwoJobsDynamicBufferTestSystem>();
+            sys.Update();
+        }
 
-            var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
-
-            var jobA = new BufferSafetyJobA{BufferTypeHandleRO = m_Manager.GetBufferTypeHandle<EcsIntElement>(true),
-                                            MyArray = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator) };
-            var jobAHandle = jobA.Schedule(query, default(JobHandle));
-
-            var jobB = new BufferSafetyJobB
+        partial class TwoJobsDynamicBufferROTestSystem : SystemBase
+        {
+            EntityQuery _query;
+            BufferLookup<EcsIntElement> _bfe;
+            protected override void OnCreate()
             {
-                Entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator),
-                BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(true)
-            };
-            var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, default(JobHandle));
-            jobBHandle.Complete();
-            jobAHandle.Complete();
+                _query = GetEntityQuery(typeof(EcsIntElement));
+                _bfe = GetBufferLookup<EcsIntElement>(true);
+            }
+
+            protected override void OnUpdate()
+            {
+                _bfe.Update(this);
+                var jobA = new BufferSafetyJobC
+                {
+                    BufferLookupRo = _bfe,
+                    MyArray = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator)
+                };
+                var jobAHandle = jobA.Schedule(_query, default(JobHandle));
+
+                var jobB = new BufferSafetyJobB
+                {
+                    Entities = _query.ToEntityArray(World.UpdateAllocator.ToAllocator),
+                    BuffersLookup = _bfe,
+                };
+                var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, default(JobHandle));
+
+                jobAHandle.Complete();
+                jobBHandle.Complete();
+            }
         }
 
         [Test]
-        public void TwoJobsUsingReadOnlyDynamicBuffersCanRunInParallel_BufferFromEntity()
+        public void TwoJobsUsingReadOnlyDynamicBuffersCanRunInParallel_BufferLookup()
         {
             SetupDynamicBufferJobTestEnvironment();
-
-            var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
-
-            var jobA = new BufferSafetyJobC{EntityTypeHandle = m_Manager.GetEntityTypeHandle(), BufferFromEntityRO = m_Manager.GetBufferFromEntity<EcsIntElement>(true),
-                                            MyArray = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator) };
-            var jobAHandle = jobA.Schedule(query, default(JobHandle));
-
-            var jobB = new BufferSafetyJobB
-            {
-                Entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator),
-                BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(true)
-            };
-            var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, default(JobHandle));
-
-            jobAHandle.Complete();
-            jobBHandle.Complete();
+            var sys = World.CreateSystemManaged<TwoJobsDynamicBufferROTestSystem>();
+            sys.Update();
         }
+
         partial struct BufferSafetyJob_TwoReadOnly : IJobEntity
         {
             [ReadOnly]
-            public BufferFromEntity<EcsIntElement> BuffersFromEntity;
+            public BufferLookup<EcsIntElement> BuffersLookup;
 
             public void Execute(Entity e, in DynamicBuffer<EcsIntElement> bufferA)
             {
-                var bufferB = BuffersFromEntity[e];
+                var bufferB = BuffersLookup[e];
 
                 var totalA = bufferA[0] + bufferA[1] + bufferA[2];
                 var totalB = bufferB[0] + bufferB[1] + bufferB[2];
@@ -533,11 +550,11 @@ namespace Unity.Entities.Tests
 
         partial struct BufferSafetyJob_OneRead_OneWrite : IJobEntity
         {
-            public BufferFromEntity<EcsIntElement> BuffersFromEntity;
+            public BufferLookup<EcsIntElement> BuffersLookup;
 
             public void Execute(Entity e, in DynamicBuffer<EcsIntElement> bufferA)
             {
-                var bufferB = BuffersFromEntity[e];
+                var bufferB = BuffersLookup[e];
 
                 var totalA = bufferA[0] + bufferA[1] + bufferA[2];
                 var totalB = bufferB[0] + bufferB[1] + bufferB[2];
@@ -564,7 +581,7 @@ namespace Unity.Entities.Tests
             {
                 var job = new BufferSafetyJob_TwoReadOnly
                 {
-                    BuffersFromEntity = GetBufferFromEntity<EcsIntElement>(true)
+                    BuffersLookup = GetBufferLookup<EcsIntElement>(true)
                 };
                 job.Run();
             }
@@ -573,7 +590,7 @@ namespace Unity.Entities.Tests
             {
                 var job = new BufferSafetyJob_OneRead_OneWrite
                 {
-                    BuffersFromEntity = GetBufferFromEntity<EcsIntElement>(false)
+                    BuffersLookup = GetBufferLookup<EcsIntElement>(false)
                 };
                 job.Run();
             }
@@ -581,7 +598,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() { }
         }
 
-        TestSystem _testSystem => World.GetOrCreateSystem<TestSystem>();
+        TestSystem _testSystem => World.GetOrCreateSystemManaged<TestSystem>();
 
         [Test]
         public void SingleJobUsingSameReadOnlyDynamicBuffer()
@@ -629,10 +646,10 @@ namespace Unity.Entities.Tests
         public void DynamicBuffer_UnsafeReadOnlyPtr_DoesntThrowWhenReadOnly()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var sys = World.CreateSystem<DynamicBufferReadOnlySystem>();
+            var sys = World.CreateSystemManaged<DynamicBufferReadOnlySystem>();
             sys.Update();
             m_Manager.DestroyEntity(ent);
-            World.DestroySystem(sys);
+            World.DestroySystemManaged(sys);
         }
     }
 }

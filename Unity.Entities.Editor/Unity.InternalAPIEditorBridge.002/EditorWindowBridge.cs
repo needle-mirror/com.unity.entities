@@ -1,13 +1,27 @@
-﻿using UnityEditor;
+﻿using System;
+using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Editor.Bridge
 {
     static class EditorWindowBridge
     {
+        public static event Action<UnityEditor.Editor, GameObject> FinishedDefaultHeaderGUIForGameObjectInspector;
+
         public static void ClearPersistentViewData(EditorWindow window) => window.ClearPersistentViewData();
 
         public static T[] GetEditorWindowInstances<T>() where T : EditorWindow => Resources.FindObjectsOfTypeAll<T>();
+
+        static EditorWindowBridge()
+        {
+            UnityEditor.Editor.finishedDefaultHeaderGUI += editor =>
+            {
+                // Only pass the event if we are inspecting the default inspector
+                // for GameObjects and if its main target is valid.
+                if (editor is GameObjectInspector && editor.target is GameObject target)
+                    FinishedDefaultHeaderGUIForGameObjectInspector?.Invoke(editor, target);
+            };
+        }
 
         public static DockArea GetDockArea(this EditorWindow @this)
         {

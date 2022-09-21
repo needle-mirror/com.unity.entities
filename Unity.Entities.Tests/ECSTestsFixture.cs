@@ -1,6 +1,9 @@
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs.LowLevel.Unsafe;
+using Assert = FastAssert;
+using Unity.Burst;
 #if !UNITY_DOTSRUNTIME
 using UnityEngine.LowLevel;
 #endif
@@ -10,35 +13,6 @@ using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Tests
 {
-#if NET_DOTS
-    public class EmptySystem : ComponentSystem
-    {
-        protected override void OnUpdate()
-        {
-        }
-
-        public new EntityQuery GetEntityQuery(params EntityQueryDesc[] queriesDesc)
-        {
-            return base.GetEntityQuery(queriesDesc);
-        }
-
-        public new EntityQuery GetEntityQuery(params ComponentType[] componentTypes)
-        {
-            return base.GetEntityQuery(componentTypes);
-        }
-
-        public new EntityQuery GetEntityQuery(NativeArray<ComponentType> componentTypes)
-        {
-            return base.GetEntityQuery(componentTypes);
-        }
-
-        public unsafe new BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
-        {
-            CheckedState()->AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
-            return EntityManager.GetBufferFromEntity<T>(isReadOnly);
-        }
-    }
-#else
     public partial class EmptySystem : SystemBase
     {
         protected override void OnUpdate() {}
@@ -59,8 +33,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-#endif
-
+    [BurstCompile(CompileSynchronously = true)]
     public class ECSTestsCommonBase
     {
         [SetUp]
@@ -68,6 +41,7 @@ namespace Unity.Entities.Tests
         {
 #if UNITY_DOTSRUNTIME
             Unity.Runtime.TempMemoryScope.EnterScope();
+            UnityEngine.TestTools.LogAssert.ExpectReset();
 #endif
         }
 
@@ -78,6 +52,21 @@ namespace Unity.Entities.Tests
             Unity.Runtime.TempMemoryScope.ExitScope();
 #endif
         }
+
+        [BurstDiscard]
+        static public void TestBurstCompiled(ref bool falseIfNot)
+        {
+            falseIfNot = false;
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        static public bool IsBurstEnabled()
+        {
+            bool burstCompiled = true;
+            TestBurstCompiled(ref burstCompiled);
+            return burstCompiled;
+        }
+
     }
 
     public abstract class ECSTestsFixture : ECSTestsCommonBase
@@ -106,6 +95,7 @@ namespace Unity.Entities.Tests
 
             m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
             World = World.DefaultGameObjectInjectionWorld = new World("Test World");
+            World.UpdateAllocatorEnableBlockFree = true;
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
 
@@ -113,8 +103,14 @@ namespace Unity.Entities.Tests
             // force it enabled for all tests, and restore the original value at teardown.
             JobsDebuggerWasEnabled = JobsUtility.JobDebuggerEnabled;
             JobsUtility.JobDebuggerEnabled = true;
+
 #if !UNITY_DOTSRUNTIME
             JobsUtility.ClearSystemIds();
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            // In case entities journaling is initialized, clear it
+            EntitiesJournaling.Clear();
 #endif
         }
 
@@ -127,7 +123,7 @@ namespace Unity.Entities.Tests
                 // holding on SharedComponentData making checks fail
                 while (World.Systems.Count > 0)
                 {
-                    World.DestroySystem(World.Systems[0]);
+                    World.DestroySystemManaged(World.Systems[0]);
                 }
 
                 m_ManagerDebug.CheckInternalConsistency();
@@ -141,6 +137,7 @@ namespace Unity.Entities.Tests
             }
 
             JobsUtility.JobDebuggerEnabled = JobsDebuggerWasEnabled;
+
 #if !UNITY_DOTSRUNTIME
             JobsUtility.ClearSystemIds();
 #endif
@@ -220,7 +217,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(version, chunk.GetOrderVersion());
         }
 
-        public void AssetHasBufferChangeVersion<T>(Entity e, uint version) where T : struct, IBufferElementData
+        public void AssetHasBufferChangeVersion<T>(Entity e, uint version) where T : unmanaged, IBufferElementData
         {
             var type = m_Manager.GetBufferTypeHandle<T>(true);
             var chunk = m_Manager.GetChunk(e);
@@ -229,7 +226,7 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(chunk.DidChange(type, version - 1));
         }
 
-        public void AssetHasSharedChangeVersion<T>(Entity e, uint version) where T : struct, ISharedComponentData
+        public void AssetHasSharedChangeVersion<T>(Entity e, uint version) where T : unmanaged, ISharedComponentData
         {
             var type = m_Manager.GetSharedComponentTypeHandle<T>();
             var chunk = m_Manager.GetChunk(e);
@@ -238,23 +235,16 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(chunk.DidChange(type, version - 1));
         }
 
-        class EntityForEachSystem : ComponentSystem
+        partial class EntityForEachSystem : SystemBase
         {
             protected override void OnUpdate() {}
-        }
-        protected EntityQueryBuilder Entities
-        {
-            get
-            {
-                return new EntityQueryBuilder(World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<EntityForEachSystem>());
-            }
         }
 
         public EmptySystem EmptySystem
         {
             get
             {
-                return World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<EmptySystem>();
+                return World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<EmptySystem>();
             }
         }
     }

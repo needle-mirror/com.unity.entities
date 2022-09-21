@@ -36,8 +36,7 @@ namespace Unity.Scenes.Editor
             EntitySceneBuildUtility.PrepareEntityBinaryArtifacts(buildTargetGUID, subSceneGuids, artifactKeys);
 
             // Put in component to pass data further along in build
-            binaryFiles.SceneGUIDs = artifactKeys.Keys.ToArray();
-            binaryFiles.ArtifactKeys = artifactKeys.Values.ToArray();
+            binaryFiles.Add(artifactKeys.Keys, artifactKeys.Values);
         }
 
         public override void RegisterAdditionalFilesToDeploy(Action<string, string> registerAdditionalFileToDeploy)

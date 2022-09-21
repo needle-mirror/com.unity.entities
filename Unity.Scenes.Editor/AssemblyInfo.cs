@@ -9,3 +9,8 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Samples.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Runtime.Build")]
+[assembly: InternalsVisibleTo("Unity.Environment.Tests")]
+[assembly: InternalsVisibleTo("EnvTestProject.Tests.Editor")]
+[assembly: InternalsVisibleTo("Unity.Scenes.PlayerTests")]
+[assembly: InternalsVisibleTo("Unity.Entities.Baking.PerformanceTests")]
+[assembly: InternalsVisibleTo("Unity.Environment.Baking")]

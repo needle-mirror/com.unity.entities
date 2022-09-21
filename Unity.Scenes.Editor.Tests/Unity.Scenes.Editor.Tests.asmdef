@@ -15,7 +15,8 @@
         "Unity.Build",
         "Unity.Build.Classic",
         "Unity.Collections",
-        "Unity.Transforms"
+        "Unity.Transforms",
+        "Unity.Entities.Build"
     ],
     "includePlatforms": [
         "Editor"

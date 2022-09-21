@@ -11,6 +11,7 @@
         "Unity.Scenes.Editor",
         "Unity.Entities.Hybrid",
         "Unity.Mathematics",
+        "Unity.Mathematics.Extensions",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.Entities.Hybrid.Tests",

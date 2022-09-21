@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -13,16 +13,16 @@ namespace Unity.Entities
     /// ATTENTION: This is future public API.
     /// </summary>
     [BurstCompile]
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     internal struct DependencyTracker : IDisposable
     {
-        UnsafeParallelMultiHashMap<int, int> _dependentsByInstanceId;
-        UnsafeParallelMultiHashMap<int, int> _dependenciesByInstanceId;
+        UnsafeMultiHashMap<int, int> _dependentsByInstanceId;
+        UnsafeMultiHashMap<int, int> _dependenciesByInstanceId;
 
         internal DependencyTracker(Allocator allocator)
         {
-            _dependentsByInstanceId = new UnsafeParallelMultiHashMap<int, int>(0, allocator);
-            _dependenciesByInstanceId = new UnsafeParallelMultiHashMap<int, int>(0, allocator);
+            _dependentsByInstanceId = new UnsafeMultiHashMap<int, int>(0, allocator);
+            _dependenciesByInstanceId = new UnsafeMultiHashMap<int, int>(0, allocator);
         }
 
         public void Dispose()
@@ -45,7 +45,6 @@ namespace Unity.Entities
             }
         }
 
-        [NotBurstCompatible]
         internal void AddDependency(int dependentId, int dependsOnId)
         {
             _dependentsByInstanceId.Add(dependsOnId, dependentId);
@@ -75,7 +74,7 @@ namespace Unity.Entities
         public bool HasDependents(int instanceId) => _dependentsByInstanceId.ContainsKey(instanceId);
 
         internal NativeArray<int> GetAllDependencies(Allocator allocator) => _dependentsByInstanceId.GetKeyArray(allocator);
-        internal UnsafeParallelMultiHashMap<int, int>.Enumerator GetAllDependents(int instanceId) => _dependentsByInstanceId.GetValuesForKey(instanceId);
+        internal UnsafeMultiHashMap<int, int>.Enumerator GetAllDependents(int instanceId) => _dependentsByInstanceId.GetValuesForKey(instanceId);
         internal bool HasDependencies() => !_dependentsByInstanceId.IsEmpty;
         internal bool HasDependencies(int instanceId) => _dependentsByInstanceId.ContainsKey(instanceId);
 

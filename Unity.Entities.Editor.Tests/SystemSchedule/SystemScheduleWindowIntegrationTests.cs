@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections;
 using NUnit.Framework;
 using System.IO;
 using System.Linq;
-using Unity.Properties.UI;
+using Unity.Entities.Conversion;
+using Unity.Platforms.UI;
 using Unity.Scenes;
 using Unity.Scenes.Editor;
 using UnityEditor;
@@ -42,16 +43,10 @@ namespace Unity.Entities.Editor.Tests
         {
             if (!EditorApplication.isPlaying)
             {
-                string path;
-                do
-                {
-                    path = Path.GetRandomFileName();
-                } while (AssetDatabase.IsValidFolder(Path.Combine(k_AssetsFolderRoot, path)));
+                m_PreviousLiveConversionState = LiveConversionEditorSettings.LiveConversionEnabled;
+                LiveConversionEditorSettings.LiveConversionEnabled = true;
 
-                m_PreviousLiveConversionState = SubSceneInspectorUtility.LiveConversionEnabled;
-                SubSceneInspectorUtility.LiveConversionEnabled = true;
-
-                var guid = AssetDatabase.CreateFolder(k_AssetsFolderRoot, path);
+                var guid = AssetDatabase.CreateFolder(k_AssetsFolderRoot, nameof(SystemScheduleWindowIntegrationTests));
                 m_TestAssetsDirectory = AssetDatabase.GUIDToAssetPath(guid);
 
                 m_Scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
@@ -80,7 +75,7 @@ namespace Unity.Entities.Editor.Tests
             SceneWithBuildConfigurationGUIDs.ClearBuildSettingsCache();
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
 
-            SubSceneInspectorUtility.LiveConversionEnabled = m_PreviousLiveConversionState;
+            LiveConversionEditorSettings.LiveConversionEnabled = m_PreviousLiveConversionState;
         }
 
         [SetUp]
@@ -98,22 +93,22 @@ namespace Unity.Entities.Editor.Tests
         {
             m_DefaultWorld = World.DefaultGameObjectInjectionWorld;
 
-            m_TestSystemGroup = m_DefaultWorld.GetOrCreateSystem<SystemScheduleTestGroup>();
-            m_TestSystem1 = m_DefaultWorld.GetOrCreateSystem<SystemScheduleTestSystem1>();
-            m_TestSystem2 = m_DefaultWorld.GetOrCreateSystem<SystemScheduleTestSystem2>();
+            m_TestSystemGroup = m_DefaultWorld.GetOrCreateSystemManaged<SystemScheduleTestGroup>();
+            m_TestSystem1 = m_DefaultWorld.GetOrCreateSystemManaged<SystemScheduleTestSystem1>();
+            m_TestSystem2 = m_DefaultWorld.GetOrCreateSystemManaged<SystemScheduleTestSystem2>();
 
             if (m_TestSystemGroup != null)
             {
-                m_DefaultWorld.GetOrCreateSystem<SimulationSystemGroup>().RemoveSystemFromUpdateList(m_TestSystemGroup);
-                m_DefaultWorld.GetOrCreateSystem<SimulationSystemGroup>().SortSystems();
-                m_DefaultWorld.DestroySystem(m_TestSystemGroup);
+                m_DefaultWorld.GetOrCreateSystemManaged<SimulationSystemGroup>().RemoveSystemFromUpdateList(m_TestSystemGroup);
+                m_DefaultWorld.GetOrCreateSystemManaged<SimulationSystemGroup>().SortSystems();
+                m_DefaultWorld.DestroySystemManaged(m_TestSystemGroup);
             }
 
             if (m_TestSystem1 != null)
-                m_DefaultWorld.DestroySystem(m_TestSystem1);
+                m_DefaultWorld.DestroySystemManaged(m_TestSystem1);
 
             if (m_TestSystem2 != null)
-                m_DefaultWorld.DestroySystem(m_TestSystem2);
+                m_DefaultWorld.DestroySystemManaged(m_TestSystem2);
 
             if (!EditorApplication.isPlaying)
                 SystemScheduleTestUtilities.DestroySystemsWindow(m_SystemScheduleWindow);
@@ -126,14 +121,14 @@ namespace Unity.Entities.Editor.Tests
 
         void CreateTestSystems(World world)
         {
-            m_TestSystemGroup = world.GetOrCreateSystem<SystemScheduleTestGroup>();
-            m_TestSystem1 = world.GetOrCreateSystem<SystemScheduleTestSystem1>();
-            m_TestSystem2 = world.GetOrCreateSystem<SystemScheduleTestSystem2>();
+            m_TestSystemGroup = world.GetOrCreateSystemManaged<SystemScheduleTestGroup>();
+            m_TestSystem1 = world.GetOrCreateSystemManaged<SystemScheduleTestSystem1>();
+            m_TestSystem2 = world.GetOrCreateSystemManaged<SystemScheduleTestSystem2>();
             m_TestSystemGroup.AddSystemToUpdateList(m_TestSystem1);
             m_TestSystemGroup.AddSystemToUpdateList(m_TestSystem2);
             m_TestSystemGroup.SortSystems();
-            world.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_TestSystemGroup);
-            world.GetOrCreateSystem<SimulationSystemGroup>().SortSystems();
+            world.GetOrCreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(m_TestSystemGroup);
+            world.GetOrCreateSystemManaged<SimulationSystemGroup>().SortSystems();
 
             if (m_SystemScheduleWindow != null)
                 m_SystemScheduleWindow.SelectedWorld = world;
@@ -197,11 +192,11 @@ namespace Unity.Entities.Editor.Tests
         public void SystemScheduleWindow_WorldVersionChange()
         {
             var previousWorldVersion = m_DefaultWorld.Version;
-            m_DefaultWorld.DestroySystem(m_TestSystem1);
+            m_DefaultWorld.DestroySystemManaged(m_TestSystem1);
             Assert.That(m_DefaultWorld.Version, Is.Not.EqualTo(previousWorldVersion));
 
             previousWorldVersion = m_DefaultWorld.Version;
-            m_DefaultWorld.GetOrCreateSystem<SystemScheduleTestSystem1>();
+            m_DefaultWorld.GetOrCreateSystemManaged<SystemScheduleTestSystem1>();
             Assert.That(m_DefaultWorld.Version, Is.Not.EqualTo(previousWorldVersion));
         }
 
@@ -323,9 +318,9 @@ namespace Unity.Entities.Editor.Tests
             var oldSystemCount = m_SystemScheduleWindow.rootVisualElement.Q<SystemTreeView>().m_SystemTreeView.items.Count();
 
             var testWorld = new World(k_SystemScheduleTestWorld);
-            var managedSystem = testWorld.GetOrCreateSystem<SystemScheduleTestSystem>();
+            var managedSystem = testWorld.GetOrCreateSystemManaged<SystemScheduleTestSystem>();
 
-            var simulationSystemGroup = World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<SimulationSystemGroup>();
+            var simulationSystemGroup = World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             simulationSystemGroup.AddSystemToUpdateList(managedSystem);
             simulationSystemGroup.SortSystems();
 
@@ -337,7 +332,7 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(oldSystemCount, Is.EqualTo(newSystemCount));
 
             if (managedSystem != null)
-                World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<SimulationSystemGroup>().RemoveSystemFromUpdateList(managedSystem);
+                World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SimulationSystemGroup>().RemoveSystemFromUpdateList(managedSystem);
 
             if (testWorld.IsCreated)
                 testWorld.Dispose();

@@ -31,7 +31,11 @@ namespace Unity.Entities.Editor
             // If the target of the player loop system is the wrapper type, we will parse this as a `ComponentSystemBase`.
             if (null != playerLoopSystem.updateDelegate && playerLoopSystem.updateDelegate.Target is SystemWrapper wrapper)
             {
-                AddSystem(new SystemProxy(wrapper.System, WorldProxyManager.GetWorldProxyForGivenWorld(wrapper.System.World)), parent);
+                var systemWorld = wrapper.System.World;
+                if (systemWorld is not {IsCreated: true})
+                    return;
+
+                AddSystem(new SystemProxy(wrapper.System, WorldProxyManager.GetWorldProxyForGivenWorld(systemWorld)), parent);
                 return;
             }
 

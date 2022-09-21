@@ -46,7 +46,7 @@ namespace Unity.Entities.PerformanceTests
 
         };
 
-        // TODO(https://unity3d.atlassian.net/browse/DOTS-4654): these systems use .WithoutBurst() until Burst compilation speed improves.
+        // TODO(DOTS-4654): these systems use .WithoutBurst() until Burst compilation speed improves.
 <#
         for (int i = 0; i < 1000; ++i)
         {#>        <#=System("SchedulesEmptyJobSystem", i, true)#><#

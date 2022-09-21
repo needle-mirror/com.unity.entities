@@ -280,7 +280,7 @@ namespace Unity.Entities.CodeGen
                     // https://sharplab.io/#v2:EYLgxg9gTgpgtADwGwBYA0AXEBLANmgExAGoAfAAQCYBGAWAChyBmAAipYGEWBvBl/lgFEAdhmxiYAZyGjx2KSwC8LYTADuMsRMkAKAJQBuPgOP9mbFCwCy+nqYH8AbgEMoLMM4AO1JSyZH6BwdeQKCwlzcPT0pff3sw/hEteUkAOgAxaEFnMAALHR1YADNrLwAVPBgWMVwYNBZsYRYAGQgPXDKIAHVoXAIWXAw1PSUAPjtQhISIgbbnXB9lKOoAqamZ3DncGKWvSlW1/gBfPVSAJQBXYX0A+ISkuSkMrJz8wpgSq3LK6sr6xpaW06PSgfQGQxGinGIUO4Vcs3ai3cXhWdzCJ3OVxuaJYR3sePoBIY5kkGCgFzAGFKngqtR4BJJZIpVNa7WBvX63CJjFYpPJlJYACkIMAGDCBOZyJZLtcRlyGNzJTEHtoxfZzAQYLUAObODBVKUsAAiWpguv170+3zpAFtrXUGk1WfN2aD+oNhgczKxhcAWJkoNk8joTTq9VVNbg9PZxWFyAB2FTqIUi7GTXEKoA
                     i =>
                     {
-                        if (i.IsLoadFieldOrLoadFieldAddress() && ((FieldReference) i.Operand).FieldType.IsDisplayClass())
+                        if (i.IsLoadFieldOrLoadFieldAddress() && ((FieldReference) i.Operand).FieldType.IsDisplayClassCandidate())
                             return DelegateProducingPatternInstructionMatchResult.MatchAndRepeatThisInstruction;
                         return DelegateProducingPatternInstructionMatchResult.TryNextPatternInstruction;
                     },
@@ -400,46 +400,6 @@ namespace Unity.Entities.CodeGen
                 foreach (var used in FindUsedInstanceMethodsOnSameType(usedMethodResolved, foundSoFar))
                     yield return used;
             }
-        }
-
-        public static bool AllDelegatesAreGuaranteedNotToOutliveMethodFor(MethodDefinition methodToAnalyze)
-        {
-            //in order to make lambda jobs be able to not allocate GC memory, we want to change the DisplayClass that stores the variables from a class to a struct.
-            //This is only safe if the only delegates that are used in the methods are the ones for lambda jobs, because we know that those will not leak.  If any other
-            //delegates are used, we cannot guarantee this, and we will keep the displayclass as a class, which results in a heap allocation for every invocation of the method.
-
-            foreach (var instruction in methodToAnalyze.Body.Instructions)
-            {
-                //we'll find all occurrences of delegates by scanning all constructor invocations.
-                if (instruction.OpCode != OpCodes.Newobj)
-                    continue;
-                var mr = (MethodReference) instruction.Operand;
-
-                //to avoid a potentially expensive resolve, we'll first try to rule out this instruction as delegate creating by doing some pattern checks:
-
-                //all delegate creation constructors take two arguments.
-                if (mr.Parameters.Count != 2)
-                    continue;
-
-                if (mr.DeclaringType.Name == nameof(LambdaJobChunkDescriptionConstructionMethods.JobChunkDelegate) && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaJobChunkDescriptionConstructionMethods))
-                    continue;
-
-                if (mr.DeclaringType.Name == nameof(LambdaSingleJobDescriptionConstructionMethods.WithCodeAction) && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaSingleJobDescriptionConstructionMethods))
-                    continue;
-
-                //ok, it walks like a delegate constructor invocation, let's see if it talks like one:
-                var constructedType = mr.DeclaringType.Resolve();
-
-                if (constructedType.BaseType.Name != nameof(MulticastDelegate))
-                    continue;
-
-                if (constructedType.CustomAttributes.Any(c => c.Constructor.DeclaringType.Name == nameof(EntitiesForEachCompatibleAttribute)))
-                    continue;
-
-                    return false;
-            }
-
-            return true;
         }
 
         public static void PatchDisplayClassToBeAStruct(TypeDefinition displayClass)

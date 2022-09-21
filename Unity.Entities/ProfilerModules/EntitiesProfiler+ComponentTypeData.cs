@@ -4,7 +4,7 @@ namespace Unity.Entities
 {
     partial class EntitiesProfiler
     {
-        [StructLayout(LayoutKind.Explicit, Size = 9)]
+        [StructLayout(LayoutKind.Explicit, Size = 16)]
         public readonly struct ComponentTypeData
         {
             [FieldOffset(0)] public readonly ulong StableTypeHash;
@@ -16,10 +16,10 @@ namespace Unity.Entities
                 Flags = flags;
             }
 
-            public int GetTypeIndex()
+            public TypeIndex GetTypeIndex()
             {
                 var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(StableTypeHash);
-                if (typeIndex <= 0)
+                if (typeIndex == TypeIndex.Null)
                     return typeIndex;
 
                 if ((Flags & ComponentTypeFlags.ChunkComponent) != 0)

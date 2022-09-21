@@ -4,7 +4,7 @@ using System.Linq;
 using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine.UIElements;
 
@@ -41,7 +41,7 @@ namespace Unity.Entities.Editor
     }
 
     [UsedImplicitly]
-    class EntityQueryDisplayInspector : Inspector<EntityQueryDisplay>
+    class EntityQueryDisplayInspector : PropertyInspector<EntityQueryDisplay>
     {
         int m_LastHash;
         SearchElement m_EntitiesSearchElement;
@@ -88,7 +88,8 @@ namespace Unity.Entities.Editor
             else
             {
                 header.AddToClassList(UssClasses.Content.Query.EntityQuery.ComponentQuery);
-                var componentType = Target.Content.Query.GetEntityQueryDesc().All[0].GetManagedType();
+                var types = Target.Content.Query.GetQueryTypes();
+                var componentType = types.Length > 0 ? types[0].GetManagedType() : typeof(Entity);
                 header.Q<Label>(className: UssClasses.Content.Query.EntityQuery.HeaderMainTitle).text = componentType.Name;
                 header.Q<Label>(className: UssClasses.Content.Query.EntityQuery.HeaderSubTitle).text = L10n.Tr("Component Query");
                 header.Query(className: UssClasses.Content.Query.EntityQuery.HeaderGoTo).ForEach(v => v.RegisterCallback<MouseDownEvent>((evt) =>
@@ -131,14 +132,18 @@ namespace Unity.Entities.Editor
             m_EntitiesSearchElement.AddSearchFilterProperty("id", new PropertyPath("InstanceId"));
             m_EntitiesSearchElement.AddSearchFilterPopupItem("id", "Instance Id");
             entitiesSearchContainer.Add(m_EntitiesSearchElement);
+#if UNITY_2022_2_OR_NEWER
+            m_EntitiesListView = new ListView { fixedItemHeight = 18, showAlternatingRowBackgrounds = AlternatingRowBackground.None, selectionType = SelectionType.Single };
+#else
             m_EntitiesListView = new ListView { itemHeight = 18, showAlternatingRowBackgrounds = AlternatingRowBackground.None, selectionType = SelectionType.Single };
+#endif
             m_EntitiesListView.AddToClassList(UssClasses.Content.Query.EntityQuery.ListView);
 
             m_EntitiesSearchElement.RegisterSearchQueryHandler<EntityViewData>(search =>
             {
                 Target.FilteredEntities.Clear();
                 Target.FilteredEntities.AddRange(search.Apply(Target.SourceEntities));
-                m_EntitiesListView.Refresh();
+                m_EntitiesListView.Rebuild();
                 UpdateEntitiesEmptyMessagesVisibility();
             });
 
@@ -149,7 +154,7 @@ namespace Unity.Entities.Editor
                     entityView.Update(Target.FilteredEntities[i]);
             };
             m_EntitiesListView.itemsSource = Target.FilteredEntities;
-            m_EntitiesListView.onSelectionChange += objects =>
+            m_EntitiesListView.selectionChanged += objects =>
             {
                 if(!objects.Any())
                     return;
@@ -170,7 +175,7 @@ namespace Unity.Entities.Editor
             {
                 Target.FilteredComponents.Clear();
                 Target.FilteredComponents.AddRange(search.Apply(Target.SourceComponents));
-                m_ComponentsListView.Refresh();
+                m_ComponentsListView.Rebuild();
 
                 UpdateComponentsEmptyMessagesVisibility();
             });
@@ -180,7 +185,11 @@ namespace Unity.Entities.Editor
             m_ComponentTab.Add(m_NoComponentResultMessage);
             m_ComponentTab.Add(m_UniversalQueryMessage);
 
+#if UNITY_2022_2_OR_NEWER
+            m_ComponentsListView = new ListView { fixedItemHeight = 18, showAlternatingRowBackgrounds = AlternatingRowBackground.None, selectionType = SelectionType.Single };
+#else
             m_ComponentsListView = new ListView { itemHeight = 18, showAlternatingRowBackgrounds = AlternatingRowBackground.None, selectionType = SelectionType.Single };
+#endif
             m_ComponentsListView.AddToClassList(UssClasses.Content.Query.EntityQuery.ListView);
             m_ComponentsListView.makeItem += () =>
             {
@@ -194,7 +203,7 @@ namespace Unity.Entities.Editor
                     cv.Update(Target.FilteredComponents[i]);
             };
             m_ComponentsListView.itemsSource = Target.FilteredComponents;
-            m_ComponentsListView.onSelectionChange += objects =>
+            m_ComponentsListView.selectionChanged += objects =>
             {
                 if(!objects.Any())
                     return;
@@ -269,7 +278,7 @@ namespace Unity.Entities.Editor
             }
 
             m_EntitiesSearchElement.Search();
-            m_EntitiesListView.Refresh();
+            m_EntitiesListView.Rebuild();
             m_EntitiesListView.ForceUpdateBindings();
 
             UpdateEntitiesEmptyMessagesVisibility();

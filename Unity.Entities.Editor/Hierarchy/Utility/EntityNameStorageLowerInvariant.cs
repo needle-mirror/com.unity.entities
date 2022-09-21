@@ -9,7 +9,7 @@ namespace Unity.Entities.Editor
     /// <summary>
     /// A partial clone of the <see cref="EntityNameStorage"/> which stores case invariant versions.
     /// </summary>
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     unsafe struct EntityNameStorageLowerInvariant : IDisposable
     {
         struct Data
@@ -38,7 +38,7 @@ namespace Unity.Entities.Editor
             m_Buffer = null;
         }
                 
-        [BurstCompatible(GenericTypeArguments = new [] { typeof(FixedString64Bytes) })]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new [] { typeof(FixedString64Bytes) })]
         public void GetFixedString<T>(int index, ref T temp)
             where T : IUTF8Bytes, INativeList<byte>
         {

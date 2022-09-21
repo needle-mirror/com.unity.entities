@@ -1,5 +1,4 @@
 using System;
-using UnityEditor;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
@@ -9,10 +8,8 @@ namespace Unity.Entities.Editor
     /// </summary>
     class VisualElementTemplate
     {
-        readonly string m_Name;
         readonly Lazy<VisualTreeAsset> m_Template;
-        readonly Lazy<StyleSheet> m_StyleSheet;
-        readonly Lazy<StyleSheet> m_StyleSheetVariant;
+        readonly StyleSheetWithVariant m_StyleSheet;
 
         /// <summary>
         /// Construct a new VisualElementTemplate.
@@ -20,10 +17,8 @@ namespace Unity.Entities.Editor
         /// <param name="name">The name of the uxml asset, without extension.</param>
         public VisualElementTemplate(string name)
         {
-            m_Name = name;
             m_Template = new Lazy<VisualTreeAsset>(() => EditorResources.Load<VisualTreeAsset>($"uxml/{name}.uxml", true));
-            m_StyleSheet = new Lazy<StyleSheet>(() => EditorResources.Load<StyleSheet>($"uss/{name}.uss", false));
-            m_StyleSheetVariant = new Lazy<StyleSheet>(() => EditorResources.Load<StyleSheet>($"uss/{name}_{(EditorGUIUtility.isProSkin ? "dark" : "light")}.uss", false));
+            m_StyleSheet = new StyleSheetWithVariant(name);
         }
 
         /// <summary>
@@ -33,10 +28,8 @@ namespace Unity.Entities.Editor
         /// <param name="name">The name of the uxml asset, without extension.</param>
         public VisualElementTemplate(string packageId, string name)
         {
-            m_Name = name;
             m_Template = new Lazy<VisualTreeAsset>(() => EditorResources.Load<VisualTreeAsset>(packageId, $"uxml/{name}.uxml", true));
-            m_StyleSheet = new Lazy<StyleSheet>(() => EditorResources.Load<StyleSheet>(packageId, $"uss/{name}.uss", false));
-            m_StyleSheetVariant = new Lazy<StyleSheet>(() => EditorResources.Load<StyleSheet>(packageId, $"uss/{name}_{(EditorGUIUtility.isProSkin ? "dark" : "light")}.uss", false));
+            m_StyleSheet = new StyleSheetWithVariant(packageId, name);
         }
 
         /// <summary>
@@ -57,14 +50,7 @@ namespace Unity.Entities.Editor
         /// <param name="element">The visual element to add styles to.</param>
         public void AddStyles(VisualElement element)
         {
-            if (m_StyleSheet.Value != null)
-            {
-                element.styleSheets.Add(m_StyleSheet.Value);
-                element.AddToClassList(m_Name.Substring(m_Name.LastIndexOf('/') + 1));
-            }
-
-            if (m_StyleSheetVariant.Value != null)
-                element.styleSheets.Add(m_StyleSheetVariant.Value);
+            m_StyleSheet.AddStyles(element);
         }
 
         /// <summary>
@@ -73,14 +59,7 @@ namespace Unity.Entities.Editor
         /// <param name="element">The visual element to remove styles from.</param>
         public void RemoveStyles(VisualElement element)
         {
-            if (m_StyleSheet.Value != null)
-            {
-                element.styleSheets.Remove(m_StyleSheet.Value);
-                element.RemoveFromClassList(m_Name);
-            }
-
-            if (m_StyleSheetVariant.Value != null)
-                element.styleSheets.Remove(m_StyleSheetVariant.Value);
+            m_StyleSheet.RemoveStyles(element);
         }
 
         VisualElement CloneTemplate(VisualElement element)

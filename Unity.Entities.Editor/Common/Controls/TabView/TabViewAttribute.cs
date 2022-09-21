@@ -1,4 +1,4 @@
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 
 namespace Unity.Entities.Editor
 {

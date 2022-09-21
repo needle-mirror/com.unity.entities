@@ -6,9 +6,45 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using UnityEngine.Assertions;
 #endif
+using Unity.Collections;
 
 namespace Unity.Entities
 {
+    /// <summary>
+    /// Produces a stable type hash for a Type based on its layout in memory and how that memory should be interpreted.
+    /// </summary>
+    /// <remarks>
+    /// You can rename field members and this hash isn't affected. However, if a field's type changes,
+    /// this hash changes, because the interpretation of the underlying memory will have contextually changed.
+    ///
+    /// The purpose of the stable type hash is to provide a version linking serialized component data to its runtime
+    /// representation.
+    /// 
+    /// As such, the type hash has a few requirements:
+    ///    - **R0:** TypeHashes apply only to types that Unity.Entities serializes. The internals of a UnityEngine.Object reference
+    ///      contained in a component mustn't have an effect on the type hash. You can safely change the internals of the
+    ///      UnityEngine.Object reference because they're serialized outside of Unity.Entities.
+    ///    - **R1:** Types with the same data layout but are different types should have different hashes.
+    ///    - **R2:** If a type's data layout changes, so should the type hash. This includes:
+    ///      - A nested field's data layout changes (for example, a new member added)
+    ///      - FieldOffsets, explicit size, or pack alignment are changed
+    ///      - Different types of the same width swap places (for example if a uint swaps with an int)
+    ///      - **Note:** Unity can't detect if fields of the same type swap (for example, mInt1 swaps with mInt2) This is a semantic
+    ///        difference which you should increase your component [TypeVersion(1)] attribute. You shouldn't
+    ///        try to hash field names to handle this, because you can't control all field names.
+    ///        Also, field names have no effect serialization and doesn't affect hashes.
+    ///    - **R3:** You should version the hash in case the semantics of a type change, but the data layout is unchanged
+    ///    - **R4:** DOTS Runtime relies on hashes generated from the Editor (used in serialized data) and hashes generated
+    ///      during compilation. These hashes must match. This rule exists because of the following:
+    ///      - Tiny swaps out assemblies for 'tiny' versions, which means you should avoid any hashing using the AssemblyName
+    ///        or handle it specially for the known swapped assemblies.
+    ///        - This means you should avoid Type.AssemblyQualifiedName in hashes, but as well, closed-form
+    ///          generic types include the assembly qualified name for GenericArguments in Type.FullName which
+    ///          causes issues. For example, `typeof(ComponentWithGeneric.GenericField).FullName ==
+    ///          Unity.Entities.ComponentWithGeneric.GenericField`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]`
+    ///      - System.Reflection and Mono.Cecil provide different Type names (they use a different format).
+    ///        Generating hashes from System.Reflection to match hashes using Mono.Cecil must account for this difference.
+    /// </remarks>
     public class TypeHash
     {
         // http://www.isthe.com/chongo/src/fnv/hash_64a.c
@@ -16,6 +52,11 @@ namespace Unity.Entities
         const ulong kFNV1A64OffsetBasis = 14695981039346656037;
         const ulong kFNV1A64Prime = 1099511628211;
 
+        /// <summary>
+        /// Generates a FNV1A64 hash.
+        /// </summary>
+        /// <param name="text">Text to hash.</param>
+        /// <returns>Hash of input string.</returns>
         public static ulong FNV1A64(string text)
         {
             ulong result = kFNV1A64OffsetBasis;
@@ -27,6 +68,30 @@ namespace Unity.Entities
             return result;
         }
 
+        /// <summary>
+        /// Generates a FNV1A64 hash.
+        /// </summary>
+        /// <param name="text">Text to hash.</param>
+        /// <typeparam name="T">Unmanaged IUTF8 type.</typeparam>
+        /// <returns>Hash of input string.</returns>
+        public static ulong FNV1A64<T>(T text)
+            where T : unmanaged, INativeList<byte>, IUTF8Bytes
+        {
+            ulong result = kFNV1A64OffsetBasis;
+            for(int i = 0; i <text.Length; ++i)
+            {
+                var c = text[i];
+                result = kFNV1A64Prime * (result ^ (byte)(c & 255));
+                result = kFNV1A64Prime * (result ^ (byte)(c >> 8));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Generates a FNV1A64 hash.
+        /// </summary>
+        /// <param name="val">Value to hash.</param>
+        /// <returns>Hash of input.</returns>
         public static ulong FNV1A64(int val)
         {
             ulong result = kFNV1A64OffsetBasis;
@@ -41,6 +106,12 @@ namespace Unity.Entities
             return result;
         }
 
+        /// <summary>
+        /// Combines a FNV1A64 hash with a value.
+        /// </summary>
+        /// <param name="hash">Input Hash.</param>
+        /// <param name="value">Value to add to the hash.</param>
+        /// <returns>A combined FNV1A64 hash.</returns>
         public static ulong CombineFNV1A64(ulong hash, ulong value)
         {
             hash ^= value;
@@ -161,40 +232,35 @@ namespace Unity.Entities
             return hash;
         }
 
-        // Our StableTypeHashes purpose is to provide a version linking serialized component data to its runtime representation
-        // As such the type hash has a few requirements:
-        // R0 - TypeHashes apply to types serialized by Unity.Entities. The internals of a UnityEngine.Object reference
-        //      contained in a component must not have an effect on the type hash as the internals of the
-        //      UnityEngine.Object reference are fine to change safely since they are serialized outside of Unity.Entities
-        // R1 - Types with the same data layout, but are still different types, should have different hashes
-        // R2 - If a type's data layout changes, so should the type hash. This includes:
-        //      - Nested field's data layout changes (e.g. new member added)
-        //      - FieldOffsets, explicit size, or pack alignment are changed
-        //      - Different types of the same width swap places (e.g. uint <-> int)
-        //      - NOTE: we cannot detect if fields of the same type swap (e.g. mInt1 <-> mInt2) This would be a semantic
-        //        difference which the user should increase their component [TypeVersion(1)] attribute. We explicitly do
-        //        not want to try to handle this case by hashing field names, as users do not control all field names,
-        //        and field names have no effect on how we serialize and should not effect our hashes.
-        // R3 - The hash should be user versioned should the semantics of a type change, but the data layout is unchanged
-        // R4 - DOTS Runtime will rely on hashes generated from the editor (used in serialized data) and hashes generated
-        //      during compilation. These hashes must match. This rule exists due to the non-obvious gotchas:
-        //      - DOTS Runtime will swap out assemblies for 'tiny' versions, this means any hashing using the AssemblyName
-        //        should be avoided or handled specially for the known swapped assemblies.
-        //        - Of course this means Type.AssemblyQualifiedName should be avoided in hashes, but as well, closed-form
-        //          generic types will include the assembly qualified name for GenericArguments in Type.FullName which will
-        //          cause issues. e.g. typeof(ComponentWithGeneric.GenericField).FullName ==
-        //          Unity.Entities.ComponentWithGeneric.GenericField`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]
-        //      - System.Reflection and Mono.Cecil will provide different Type names (they use a different format).
-        //        Generating hashes from System.Reflection and to match hashes using Mono.Cecil must account for this difference
-        public static ulong CalculateStableTypeHash(Type type, IEnumerable<CustomAttributeData> customAttributes = null)
+
+
+
+        /// <summary>
+        /// Calculates a stable type hash for the input type.
+        /// </summary>
+        /// <param name="type">Type to hash.</param>
+        /// <param name="customAttributes">Custom attributes for the provided type (if any).</param>
+        /// <param name="hashCache">Cache for Types and their hashes. Used for quicker lookups when hashing.</param>
+        /// <returns>StableTypeHash for the input type.</returns>
+        public static ulong CalculateStableTypeHash(Type type, IEnumerable<CustomAttributeData> customAttributes = null, Dictionary<Type, ulong> hashCache = null)
         {
             ulong versionHash = HashVersionAttribute(type, customAttributes);
-            ulong typeHash = HashType(type, new Dictionary<Type, ulong>());
+
+            if (hashCache == null)
+                hashCache = new Dictionary<Type, ulong>();
+            ulong typeHash = HashType(type, hashCache);
 
             return CombineFNV1A64(versionHash, typeHash);
         }
 
-        public static ulong CalculateMemoryOrdering(Type type, out bool hasCustomMemoryOrder)
+        /// <summary>
+        /// Calculates a MemoryOrdering for the input type.
+        /// </summary>
+        /// <param name="type">Type to inspect.</param>
+        /// <param name="hasCustomMemoryOrder">Out param; set to true if the memory order has been explicitly overriden for the input type.</param>
+        /// <param name="hashCache">Cache for Types and their hashes. Used for quicker lookups when hashing.</param>
+        /// <returns>MemoryOrdering for the input type.</returns>
+        public static ulong CalculateMemoryOrdering(Type type, out bool hasCustomMemoryOrder, Dictionary<Type, ulong> hashCache = null)
         {
             hasCustomMemoryOrder = false;
 
@@ -218,7 +284,7 @@ namespace Unity.Entities
                 }
             }
 
-            return CalculateStableTypeHash(type, customAttributes);
+            return CalculateStableTypeHash(type, customAttributes, hashCache);
         }
 #endif
     }

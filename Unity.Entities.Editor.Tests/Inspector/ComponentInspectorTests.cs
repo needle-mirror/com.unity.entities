@@ -1,6 +1,11 @@
-﻿using System.Linq;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Platforms.UI;
+using Unity.Transforms;
+using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Tests
 {
@@ -29,8 +34,8 @@ namespace Unity.Entities.Editor.Tests
         public void OneTimeSetUp()
         {
             m_World = new World("ComponentInspectorTestWorld");
-            m_ComponentInspectorTestSystem = m_World.GetOrCreateSystem<ComponentInspectorTestSystem>();
-            m_World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_ComponentInspectorTestSystem);
+            m_ComponentInspectorTestSystem = m_World.GetOrCreateSystemManaged<ComponentInspectorTestSystem>();
+            m_World.GetOrCreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(m_ComponentInspectorTestSystem);
         }
 
         [OneTimeTearDown]
@@ -55,7 +60,7 @@ namespace Unity.Entities.Editor.Tests
         public void ComponentInspector_RelationshipsTab_MatchingEntities()
         {
             var archetype = m_World.EntityManager.CreateArchetype(typeof(SystemScheduleTestData1), typeof(SystemScheduleTestData2));
-            using var entities = m_World.EntityManager.CreateEntity(archetype, 6, Allocator.TempJob);
+            using var entities = m_World.EntityManager.CreateEntity(archetype, 6, m_World.UpdateAllocator.ToAllocator);
 #if !DOTS_DISABLE_DEBUG_NAMES
             m_World.EntityManager.SetName(entities[0], "ComponentInspectorEntity0");
 #endif

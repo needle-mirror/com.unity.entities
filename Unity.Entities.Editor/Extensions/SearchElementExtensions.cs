@@ -1,13 +1,12 @@
 using System;
-using Unity.Properties.UI;
 
 namespace Unity.Entities.Editor
 {
     static class SearchElementExtensions
     {
-        public static void AddSearchFilterCallbackWithPopupItem<TData, TFilter>(this SearchElement searchElement, string token, Func<TData, TFilter> getSearchDataFunc, string filterText, string filterTooltip = "", string[] supportedOperatorTypes = null)
+        public static void AddSearchFilterCallbackWithPopupItem<TData, TFilter>(this SearchElement searchElement, string token, Func<TData, TFilter> getSearchDataFunc, string filterText, string filterTooltip = "", SearchFilterOptions searchFilterOptions = default)
         {
-            searchElement.AddSearchFilterCallback(token, getSearchDataFunc, supportedOperatorTypes);
+            searchElement.AddSearchFilterCallback(token, getSearchDataFunc, searchFilterOptions);
             searchElement.AddSearchFilterPopupItem(token, filterText, filterTooltip);
         }
     }

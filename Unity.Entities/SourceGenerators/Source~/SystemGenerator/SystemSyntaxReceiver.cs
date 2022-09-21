@@ -5,9 +5,11 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
+using Unity.Entities.SourceGen.IdiomaticCSharpForEach;
 using Unity.Entities.SourceGen.JobEntity;
 using Unity.Entities.SourceGen.LambdaJobs;
-using Unity.Entities.SourceGen.Sample;
+using Unity.Entities.SourceGen.SystemAPIQueryBuilder;
+using Unity.Entities.SourceGen.SystemCodegenContext;
 using Unity.Entities.SourceGen.SystemGeneratorCommon;
 
 namespace Unity.Entities.SourceGen.SystemGenerator
@@ -15,53 +17,65 @@ namespace Unity.Entities.SourceGen.SystemGenerator
     public class SystemSyntaxReceiver : ISyntaxReceiver
     {
         internal HashSet<TypeDeclarationSyntax> SystemBaseDerivedTypesWithoutPartialKeyword = new HashSet<TypeDeclarationSyntax>();
+        internal HashSet<TypeDeclarationSyntax> ISystemDefinedAsClass = new HashSet<TypeDeclarationSyntax>();
         readonly CancellationToken _cancelationToken;
 
-        internal List<ISystemModule> SystemModules { get; }
+        internal IReadOnlyCollection<ISystemModule> SystemModules { get; }
 
         public SystemSyntaxReceiver(CancellationToken cancellationToken)
         {
             _cancelationToken = cancellationToken;
-            SystemModules = new List<ISystemModule>
+            SystemModules = new ISystemModule[]
             {
                 new LambdaJobsModule(),
                 new JobEntityModule(),
-                new SampleModule()
+                new EntityQueryModule(),
+                new IdiomaticCSharpForEachModule(),
+                new SystemContextSystemModule(),
+                new SystemAPIQueryBuilderModule()
             };
         }
 
         public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
         {
-            foreach (var module in SystemModules)
+            if (IsValidSystemType(syntaxNode))
             {
-                _cancelationToken.ThrowIfCancellationRequested();
-                module.OnReceiveSyntaxNode(syntaxNode);
+                foreach (var module in SystemModules)
+                {
+                    _cancelationToken.ThrowIfCancellationRequested();
+                    module.OnReceiveSyntaxNode(syntaxNode);
+                }
             }
 
             _cancelationToken.ThrowIfCancellationRequested();
-            CheckForSystemWithoutPartial(syntaxNode);
         }
 
-        void CheckForSystemWithoutPartial(SyntaxNode syntaxNode)
+        bool IsValidSystemType(SyntaxNode syntaxNode)
         {
-            switch (syntaxNode)
+            if (syntaxNode is ClassDeclarationSyntax classDeclarationSyntax)
             {
-                case ClassDeclarationSyntax classDeclarationSyntax:
+                if (classDeclarationSyntax.BaseList == null)
+                    return false;
+
+                if (BaseListContains(classDeclarationSyntax, "SystemBase") && !classDeclarationSyntax.HasModifier(SyntaxKind.PartialKeyword))
                 {
-                    if (classDeclarationSyntax.BaseList == null)
-                    {
-                        break;
-                    }
+                    SystemBaseDerivedTypesWithoutPartialKeyword.Add(classDeclarationSyntax);
+                    return false;
+                }
 
-                    var isDerivedFromSystemBase = classDeclarationSyntax.BaseList.Types.Any(t => t.Type.ToString().Split('.').Last() == "SystemBase");
-                    if (isDerivedFromSystemBase && !classDeclarationSyntax.HasModifier(SyntaxKind.PartialKeyword))
-                    {
-                        SystemBaseDerivedTypesWithoutPartialKeyword.Add(classDeclarationSyntax);
-                    }
-
-                    break;
+                if (BaseListContains(classDeclarationSyntax, "ISystem"))
+                {
+                    ISystemDefinedAsClass.Add(classDeclarationSyntax);
+                    return false;
                 }
             }
+
+            return true;
+        }
+
+        static bool BaseListContains(ClassDeclarationSyntax classDeclarationSyntax, string typeOrInterfaceName)
+        {
+            return classDeclarationSyntax.BaseList.Types.Any(t => t.Type.ToString().Split('.').Last() == typeOrInterfaceName);
         }
     }
 }

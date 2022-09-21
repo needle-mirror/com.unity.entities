@@ -85,7 +85,7 @@ namespace Unity.Entities
 
     [BurstCompile]
     struct SegmentSort<T> : IJobParallelFor
-        where T : struct, IComparable<T>
+        where T : unmanaged, IComparable<T>
     {
         [NativeDisableParallelForRestriction] public NativeArray<IndexedValue<T>> Data;
         public int SegmentWidth;
@@ -101,7 +101,7 @@ namespace Unity.Entities
 
     [BurstCompile]
     unsafe struct SegmentSortMerge<T> : IJob
-        where T : struct, IComparable<T>
+        where T : unmanaged, IComparable<T>
     {
         [ReadOnly]
         public NativeArray<IndexedValue<T>> IndexedSourceBuffer;
@@ -283,6 +283,8 @@ namespace Unity.Entities
 
     /// <summary>
     ///     Merge sort index list referencing NativeArray values.
+    /// </summary>
+    /// <remarks>
     ///     Provide list of shared values, indices to shared values, and lists of source i
     ///     value indices with identical shared value.
     ///     As an example:
@@ -293,8 +295,7 @@ namespace Unity.Entities
     ///     Shared values: [A,B,C] (not stored in this structure)
     ///     Sorted indices: [0,1,2,7,3,4,8,5,6] (using these indices to look up values in the source array would give you [A,A,A,A,B,B,B,C,C])
     ///     Shared value start offsets (into sorted indices): [0,4,7]
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// </remarks>
     public struct NativeArraySharedInt : IDisposable
     {
         [ReadOnly] private readonly NativeArray<int> m_SourceBuffer;
@@ -316,15 +317,23 @@ namespace Unity.Entities
         /// </summary>
         public NativeArray<int> SourceBuffer => m_SourceBuffer;
 
+        /// <summary>
+        /// Construct a NativeArraySharedInt struct from a NativeArray
+        /// </summary>
+        /// <param name="sourceBuffer">Original source values.</param>
+        /// <param name="allocator">The NativeArray allocation type.</param>
         public NativeArraySharedInt(NativeArray<int> sourceBuffer, Allocator allocator)
         {
             m_SourceBuffer = sourceBuffer;
-            m_SourceIndexBySortedSourceIndex = new NativeArray<int>(sourceBuffer.Length, allocator);
+            m_SourceIndexBySortedSourceIndex = CollectionHelper.CreateNativeArray<int>(sourceBuffer.Length, allocator);
             m_SortedSourceIndexBySharedIndex = new NativeList<int>(allocator);
             m_SharedIndexCountsBySharedIndex = new NativeList<int>(allocator);
-            m_SharedIndicesBySourceIndex = new NativeArray<int>(sourceBuffer.Length, allocator);
+            m_SharedIndicesBySourceIndex = CollectionHelper.CreateNativeArray<int>(sourceBuffer.Length, allocator);
         }
 
+        /// <summary>
+        /// Dispose this NativeArraySharedInt struct
+        /// </summary>
         public void Dispose()
         {
             m_SourceIndexBySortedSourceIndex.Dispose();
@@ -444,7 +453,7 @@ namespace Unity.Entities
         ///     Shared value counts: [4,3,2] (number of occurrences of a shared value)
         /// </summary>
         /// <returns>Count NativeArray where each element refers to the number of occurrences of each shared value.</returns>
-        public unsafe NativeArray<int> GetSharedValueIndexCountArray() => m_SharedIndexCountsBySharedIndex;
+        public unsafe NativeArray<int> GetSharedValueIndexCountArray() => m_SharedIndexCountsBySharedIndex.AsArray();
 
         /// <summary>
         ///     Array of indices into source NativeArray which share the same shared value

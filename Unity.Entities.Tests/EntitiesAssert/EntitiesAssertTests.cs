@@ -78,6 +78,7 @@ namespace Unity.Entities.Tests
         public void ContainsOnly_WithEmptyEntity()
         {
             var entity = m_Manager.CreateEntity();
+            m_Manager.RemoveComponent<Simulate>(entity);
 
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Any(entity)));
@@ -131,6 +132,8 @@ namespace Unity.Entities.Tests
         {
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData));
             var entity2 = m_Manager.CreateEntity();
+            m_Manager.RemoveComponent<Simulate>(entity1);
+            m_Manager.RemoveComponent<Simulate>(entity2);
 
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.Contains(m_Manager, EntityMatch.Any(entity1)));
@@ -144,6 +147,7 @@ namespace Unity.Entities.Tests
         public void ContainsOnly_WithParamTypeComparison()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            m_Manager.RemoveComponent<Simulate>(entity);
 
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(typeof(EcsTestData2), entity, typeof(EcsTestData))));
@@ -160,6 +164,7 @@ namespace Unity.Entities.Tests
         public void ContainsOnly_WithDataComparison()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            m_Manager.RemoveComponent<Simulate>(entity);
             m_Manager.SetComponentData(entity, new EcsTestData2(5));
 
             Assert.DoesNotThrow(() =>
@@ -186,6 +191,7 @@ namespace Unity.Entities.Tests
         public void ContainsOnly_WithBufferElementData()
         {
             var entity = m_Manager.CreateEntity();
+            m_Manager.RemoveComponent<Simulate>(entity);
             var buffer = m_Manager.AddBuffer<EcsIntElement>(entity);
             buffer.Add(1);
             buffer.Add(5);

@@ -1,27 +1,33 @@
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
 using System.Linq;
 using NUnit.Framework;
-
+using Unity.Entities.Serialization;
 using Unity.Entities.Tests.Conversion;
 using Unity.Scenes;
 
 namespace Unity.Entities.Tests
 {
-    class CompanionComponentSerializeTests : ConversionTestFixtureBase
+    class CompanionComponentSerializeTests_Baking : BakingTestFixture
     {
         [Test]
         public void CompanionComponentSerialize()
         {
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
+
             var root = CreateGameObject();
             var values = new[] { 123, 234, 345 };
 
             foreach (var value in values)
             {
-                var gameObject = CreateGameObject().ParentTo(root);
+                var gameObject = CreateGameObject();
+                gameObject.transform.parent = root.transform;
                 gameObject.AddComponent<ConversionTestCompanionComponent>().SomeValue = value;
             }
 
-            GameObjectConversionUtility.ConvertGameObjectHierarchy(root, MakeDefaultSettings().WithExtraSystem<CompanionComponentConversionTests.MonoBehaviourComponentConversionSystem>());
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            BakingUtility.BakeGameObjects(World, new[] {root}, bakingSettings);
 
             var world = new World("temp");
 

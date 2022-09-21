@@ -1,10 +1,12 @@
 ﻿using NUnit.Framework;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Tests
@@ -57,14 +59,17 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(m_CompletionBox, Is.Not.Null);
         }
 
-        [Test]
-        public void AutoComplete_ShowCompletionBox()
+        [UnityTest]
+        public IEnumerator AutoComplete_ShowCompletionBox()
         {
             m_TextField.Focus();
             m_TextField.Q(TextField.textInputUssName).Focus();
 
             m_TextField.SetValueWithoutNotify("Bon Hello");
             m_TextField.SelectRange(3, 3);
+
+            yield return null;
+
             m_Window.SendEvent(new Event
             {
                 keyCode = KeyCode.Space,
@@ -85,14 +90,17 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(m_CompletionBox.style.display.value, Is.EqualTo(DisplayStyle.None));
         }
 
-        [Test]
-        public void AutoComplete_CompletesToken()
+        [UnityTest]
+        public IEnumerator AutoComplete_CompletesToken()
         {
             m_TextField.Focus();
             m_TextField.Q(TextField.textInputUssName).Focus();
 
             m_TextField.SetValueWithoutNotify("Hello Wor 42");
             m_TextField.SelectRange(9, 9);
+
+            yield return null;
+
             m_Window.SendEvent(new Event
             {
                 type = EventType.KeyDown,

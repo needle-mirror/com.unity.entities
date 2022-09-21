@@ -13,8 +13,10 @@ namespace Unity.Entities.PerformanceTests
         protected partial class TestComponentSystem : SystemBase
         {
             readonly int k_Count = 100000;
-            EntityQuery m_Query;
-            EntityQuery m_QueryWithFilter;
+            EntityQuery m_Query, m_QueryWithFilter;
+            EntityQuery m_EnableableQuery, m_EnableableQueryWithFilter;
+            EntityQuery m_BufferQuery, m_BufferQueryWithFilter;
+            EntityQuery m_EnableableBufferQuery, m_EnableableBufferQueryWithFilter;
 
             protected override void OnUpdate()
             {
@@ -23,18 +25,25 @@ namespace Unity.Entities.PerformanceTests
             protected override void OnCreate()
             {
                 base.OnCreate();
+
                 m_Query = EntityManager.CreateEntityQuery(typeof(EcsTestFloatData));
                 m_QueryWithFilter = EntityManager.CreateEntityQuery(typeof(EcsTestFloatData), typeof(EcsTestSharedComp));
-                m_QueryWithFilter.SetSharedComponentFilter(new EcsTestSharedComp(1));
+                m_QueryWithFilter.SetSharedComponentFilterManaged(new EcsTestSharedComp(1));
+
+                m_BufferQuery = EntityManager.CreateEntityQuery(typeof(EcsIntElement));
+                m_BufferQueryWithFilter = EntityManager.CreateEntityQuery(typeof(EcsIntElement), typeof(EcsTestSharedComp));
+                m_BufferQueryWithFilter.SetSharedComponentFilterManaged(new EcsTestSharedComp(1));
             }
 
             public void ClearQueries()
             {
                 m_Query.Dispose();
                 m_QueryWithFilter.Dispose();
+                m_BufferQuery.Dispose();
+                m_BufferQueryWithFilter.Dispose();
             }
 
-            public void GetSingletonTest(SingletonAccessPerformanceTests.AccessType accessType)
+            public void GetSingletonTest(SingletonAccessPerformanceTests.AccessType accessType, float expectedValue)
             {
                 float accumulate = 0.0f;
                 switch (accessType)
@@ -52,37 +61,88 @@ namespace Unity.Entities.PerformanceTests
                             accumulate += m_QueryWithFilter.GetSingleton<EcsTestFloatData>().Value;
                         break;
                 }
+                Assert.AreEqual(k_Count * expectedValue, accumulate);
             }
 
-            public void GetSingletonEntityTest(SingletonAccessPerformanceTests.AccessType accessType)
+            public void GetSingletonRWTest(SingletonAccessPerformanceTests.AccessType accessType, float expectedValue)
             {
-                Entity entity;
-
+                float accumulate = 0.0f;
                 switch (accessType)
                 {
                     case SingletonAccessPerformanceTests.AccessType.ThroughSystem:
                         for (int i = 0; i < k_Count; i++)
-                            entity = GetSingletonEntity<EcsTestFloatData>();
+                            accumulate += GetSingletonRW<EcsTestFloatData>().ValueRW.Value; 
                         break;
                     case SingletonAccessPerformanceTests.AccessType.ThroughQuery:
                         for (int i = 0; i < k_Count; i++)
-                            entity = m_Query.GetSingletonEntity();
+                            accumulate += m_Query.GetSingletonRW<EcsTestFloatData>().ValueRW.Value;
                         break;
                     case SingletonAccessPerformanceTests.AccessType.ThroughQueryWithFilter:
                         for (int i = 0; i < k_Count; i++)
-                            entity = m_QueryWithFilter.GetSingletonEntity();
+                            accumulate += m_QueryWithFilter.GetSingletonRW<EcsTestFloatData>().ValueRW.Value;
                         break;
                 }
+                Assert.AreEqual(k_Count * expectedValue, accumulate);
+            }
 
-                for (int i = 0; i < k_Count; i++)
-                    entity = GetSingletonEntity<EcsTestFloatData>();
+            public void GetSingletonBufferTest(SingletonAccessPerformanceTests.AccessType accessType, int expectedLength)
+            {
+                int accumulate = 0;
+                switch (accessType)
+                {
+                    case SingletonAccessPerformanceTests.AccessType.ThroughSystem:
+                        for (int i = 0; i < k_Count; i++)
+                            accumulate += GetSingletonBuffer<EcsIntElement>().Length;
+                        break;
+                    case SingletonAccessPerformanceTests.AccessType.ThroughQuery:
+                        for (int i = 0; i < k_Count; i++)
+                            accumulate += m_BufferQuery.GetSingletonBuffer<EcsIntElement>().Length;
+                        break;
+                    case SingletonAccessPerformanceTests.AccessType.ThroughQueryWithFilter:
+                        for (int i = 0; i < k_Count; i++)
+                            accumulate += m_BufferQueryWithFilter.GetSingletonBuffer<EcsIntElement>().Length;
+                        break;
+                }
+                Assert.AreEqual(k_Count * expectedLength, accumulate);
+            }
+
+            public void GetSingletonEntityTest(SingletonAccessPerformanceTests.AccessType accessType, int expectedVersion)
+            {
+                Entity entity;
+                int accumulate = 0;
+                switch (accessType)
+                {
+                    case SingletonAccessPerformanceTests.AccessType.ThroughSystem:
+                        for (int i = 0; i < k_Count; i++)
+                        {
+                            entity = GetSingletonEntity<EcsTestFloatData>();
+                            accumulate += entity.Version;
+                        }
+                        break;
+                    case SingletonAccessPerformanceTests.AccessType.ThroughQuery:
+                        for (int i = 0; i < k_Count; i++)
+                        {
+                            entity = m_Query.GetSingletonEntity();
+                            accumulate += entity.Version;
+                        }
+                        break;
+                    case SingletonAccessPerformanceTests.AccessType.ThroughQueryWithFilter:
+                        for (int i = 0; i < k_Count; i++)
+                        {
+                            entity = m_QueryWithFilter.GetSingletonEntity();
+                            accumulate += entity.Version;
+                        }
+                        break;
+                }
+                Assert.AreEqual(k_Count * expectedVersion, accumulate);
             }
 
             public void HasSingletonTest()
             {
-                float accumulate = 0.0f;
+                int accumulate = 0;
                 for (int i = 0; i < k_Count; i++)
-                    accumulate += HasSingleton<EcsTestFloatData>() ? 1.0f : 0.0f;
+                    accumulate += HasSingleton<EcsTestFloatData>() ? 1 : 0;
+                Assert.AreEqual(k_Count, accumulate);
             }
 
             public void SetSingletonTest(SingletonAccessPerformanceTests.AccessType accessType)
@@ -103,9 +163,9 @@ namespace Unity.Entities.PerformanceTests
                         break;
                 }
             }
-        }
 
-        protected TestComponentSystem TestSystem => World.GetOrCreateSystem<TestComponentSystem>();
+        }
+        protected TestComponentSystem TestSystem => World.GetOrCreateSystemManaged<TestComponentSystem>();
     }
 
     [Category("Performance")]
@@ -125,8 +185,17 @@ namespace Unity.Entities.PerformanceTests
         {
             base.Setup();
 
-            m_Entity = m_Manager.CreateEntity(typeof(EcsTestFloatData), typeof(EcsTestSharedComp));
-            m_Manager.SetSharedComponentData(m_Entity, new EcsTestSharedComp(1));
+            m_Entity = m_Manager.CreateEntity(typeof(EcsTestFloatData),
+                typeof(EcsIntElement), typeof(EcsTestDataEnableable),
+                typeof(EcsIntElementEnableable), typeof(EcsTestSharedComp));
+            m_Manager.SetComponentData(m_Entity, new EcsTestFloatData { Value = 17 });
+            m_Manager.SetComponentData(m_Entity, new EcsTestDataEnableable { value = 23 });
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(m_Entity);
+            buffer.Add(new EcsIntElement { Value = 37 });
+            var buffer2 = m_Manager.GetBuffer<EcsIntElementEnableable>(m_Entity);
+            buffer2.Add(new EcsIntElementEnableable { Value = 42 });
+            buffer2.Add(new EcsIntElementEnableable { Value = 56 });
+            m_Manager.SetSharedComponentManaged(m_Entity, new EcsTestSharedComp(1));
         }
 
         [TearDown]
@@ -141,19 +210,43 @@ namespace Unity.Entities.PerformanceTests
         [Category("Performance")]
         public void GetSingleton([Values] AccessType accessType)
         {
+            float expectedValue = m_Manager.GetComponentData<EcsTestFloatData>(m_Entity).Value;
             Measure.Method(() =>
             {
-                TestSystem.GetSingletonTest(accessType);
+                TestSystem.GetSingletonTest(accessType, expectedValue);
             }).WarmupCount(5).MeasurementCount(100).SampleGroup("SingletonAccess").Run();
+        }
+
+        [Test, Performance]
+        [Category("Performance")]
+        public void GetSingletonRW([Values] AccessType accessType)
+        {
+            float expectedValue = m_Manager.GetComponentData<EcsTestFloatData>(m_Entity).Value;
+            Measure.Method(() =>
+            {
+                TestSystem.GetSingletonRWTest(accessType, expectedValue);
+            }).WarmupCount(5).MeasurementCount(100).SampleGroup("SingletonAccess").Run();
+        }
+
+        [Test, Performance]
+        [Category("Performance")]
+        public void GetSingletonBuffer([Values] AccessType accessType)
+        {
+            int expectedLength = m_Manager.GetBuffer<EcsIntElement>(m_Entity).Length;
+            Measure.Method(() =>
+            {
+                TestSystem.GetSingletonBufferTest(accessType, expectedLength);
+            }).WarmupCount(5).MeasurementCount(100).SampleGroup("SingletonBufferAccess").Run();
         }
 
         [Test, Performance]
         [Category("Performance")]
         public void GetSingletonEntity([Values] AccessType accessType)
         {
+            int expectedVersion = m_Entity.Version;
             Measure.Method(() =>
             {
-                TestSystem.GetSingletonEntityTest(accessType);
+                TestSystem.GetSingletonEntityTest(accessType, expectedVersion);
             }).WarmupCount(5).MeasurementCount(100).SampleGroup("SingletonAccess").Run();
         }
 

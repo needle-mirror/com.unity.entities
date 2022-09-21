@@ -4,6 +4,9 @@ using Unity.Burst;
 
 namespace Unity.Entities.CodeGen.SourceGenerators.Tests
 {
+#if UNITY_2021_1_OR_NEWER
+    [Ignore("2021.1 no longer supports UnityEditor.Scripting.Compilers.CSharpLanguage which these tests rely on.")]
+#endif
     [TestFixture]
     public class SystemBaseErrorTests : SourceGenTests
     {

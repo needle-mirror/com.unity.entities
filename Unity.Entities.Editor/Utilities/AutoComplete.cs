@@ -59,8 +59,8 @@ namespace Unity.Entities.Editor
             else
                 OnAttachToPanel(null);
 
-            m_TextInput.RegisterCallback<KeyDownEvent>(OnInputKeyDown);
-            m_TextInput.RegisterCallback<KeyUpEvent>(OnInputKeyUp);
+            m_TextField.RegisterCallback<KeyDownEvent>(OnInputKeyDown);
+            m_TextField.RegisterCallback<KeyUpEvent>(OnInputKeyUp);
             m_TextField.RegisterCallback<FocusOutEvent>(OnFocusOut);
             m_CompletionContainer.RegisterCallback<FocusOutEvent>(OnFocusOut);
             m_TextField.RegisterValueChangedCallback(OnValueChanged);
@@ -177,7 +177,7 @@ namespace Unity.Entities.Editor
                 return;
             }
 
-            m_CompletionListView.Refresh();
+            m_CompletionListView.Rebuild();
             m_CompletionListView.selectedIndex = 0;
             AdjustCompletionContainerSizeAndPosition();
             m_CompletionContainer.BringToFront();
@@ -218,8 +218,8 @@ namespace Unity.Entities.Editor
             m_Root.Remove(m_CompletionListView);
             k_Container.RemoveStyles(m_Root);
 
-            m_TextInput.UnregisterCallback<KeyDownEvent>(OnInputKeyDown);
-            m_TextInput.UnregisterCallback<KeyUpEvent>(OnInputKeyUp);
+            m_TextField.UnregisterCallback<KeyDownEvent>(OnInputKeyDown);
+            m_TextField.UnregisterCallback<KeyUpEvent>(OnInputKeyUp);
             m_TextField.UnregisterCallback<FocusOutEvent>(OnFocusOut);
             m_CompletionContainer.UnregisterCallback<FocusOutEvent>(OnFocusOut);
             m_TextField.UnregisterValueChangedCallback(OnValueChanged);

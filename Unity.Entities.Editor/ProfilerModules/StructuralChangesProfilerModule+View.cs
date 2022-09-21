@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Editor.Bridge;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 using static Unity.Entities.StructuralChangesProfiler;
+using TreeView = Unity.Editor.Bridge.TreeView;
 
 namespace Unity.Entities.Editor
 {
@@ -18,10 +19,11 @@ namespace Unity.Entities.Editor
             static readonly string s_All = L10n.Tr("All");
             static readonly string s_Cost = L10n.Tr("Cost (ms)");
             static readonly string s_Count = L10n.Tr("Count");
-            static readonly string s_CreateEntity = L10n.Tr("Create Entity");
-            static readonly string s_DestroyEntity = L10n.Tr("Destroy Entity");
-            static readonly string s_AddComponent = L10n.Tr("Add Component");
-            static readonly string s_RemoveComponent = L10n.Tr("Remove Component");
+            static readonly string s_CreateEntity = L10n.Tr(k_CreateEntityCounterName);
+            static readonly string s_DestroyEntity = L10n.Tr(k_DestroyEntityCounterName);
+            static readonly string s_AddComponent = L10n.Tr(k_AddComponentCounterName);
+            static readonly string s_RemoveComponent = L10n.Tr(k_RemoveComponentCounterName);
+            static readonly string s_SetSharedComponent = L10n.Tr(k_SetSharedComponentCounterName);
 
             static readonly VisualElementTemplate s_WindowTemplate = PackageResources.LoadTemplate("ProfilerModules/structural-changes-profiler-window");
             static readonly VisualElementTemplate s_TreeViewItemTemplate = PackageResources.LoadTemplate("ProfilerModules/structural-changes-profiler-tree-view-item");
@@ -106,8 +108,8 @@ namespace Unity.Entities.Editor
                 {
                     var itemData = (StructuralChangesProfilerTreeViewItem)item;
                     element.Q<Label>("column1").text = itemData.displayName;
-                    element.Q<Label>("column2").text = NsToMsString(itemData.totalElapsedNanoseconds);
-                    element.Q<Label>("column3").text = CountToString(itemData.totalCount);
+                    element.Q<Label>("column2").text = FormattingUtility.NsToMsString(itemData.totalElapsedNanoseconds);
+                    element.Q<Label>("column3").text = FormattingUtility.CountToString(itemData.totalCount);
                 };
                 m_TreeView.selectionType = SelectionType.Single;
 
@@ -125,6 +127,7 @@ namespace Unity.Entities.Editor
                 var destroyEntityItem = new StructuralChangesProfilerTreeViewItem { id = itemId++, displayName = s_DestroyEntity };
                 var addComponentItem = new StructuralChangesProfilerTreeViewItem { id = itemId++, displayName = s_AddComponent };
                 var removeComponentItem = new StructuralChangesProfilerTreeViewItem { id = itemId++, displayName = s_RemoveComponent };
+                var setSharedComponentItem = new StructuralChangesProfilerTreeViewItem { id = itemId++, displayName = s_SetSharedComponent };
 
                 foreach (var data in m_StructuralChangesDataFiltered)
                 {
@@ -142,6 +145,9 @@ namespace Unity.Entities.Editor
                             break;
                         case StructuralChangeType.RemoveComponent:
                             eventItem = removeComponentItem;
+                            break;
+                        case StructuralChangeType.SetSharedComponent:
+                            eventItem = setSharedComponentItem;
                             break;
                         default:
                             throw new NotImplementedException(data.Type.ToString());
@@ -179,6 +185,8 @@ namespace Unity.Entities.Editor
                     rootItem.AddChild(addComponentItem);
                 if (removeComponentItem.hasChildren)
                     rootItem.AddChild(removeComponentItem);
+                if (setSharedComponentItem.hasChildren)
+                    rootItem.AddChild(setSharedComponentItem);
 
                 AddLeafCountRecursive(rootItem);
 

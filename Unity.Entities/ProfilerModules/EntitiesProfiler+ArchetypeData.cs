@@ -10,7 +10,7 @@ namespace Unity.Entities
         /// Struct used to store per archetype information.
         /// The total size is 1024 bytes, which leaves enough room to store up to 111 component types.
         /// </summary>
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         [StructLayout(LayoutKind.Explicit, Size = 1024)]
         public unsafe struct ArchetypeData : IEquatable<ArchetypeData>
         {
@@ -46,7 +46,7 @@ namespace Unity.Entities
                 return StableHash == other.StableHash;
             }
 
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Takes managed object")]
             public override bool Equals(object obj)
             {
                 return obj is ArchetypeData archetypeData ? Equals(archetypeData) : false;

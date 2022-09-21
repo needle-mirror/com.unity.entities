@@ -67,12 +67,15 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Returns an array of FieldInfos for the passed in Type, if that type was had field information generated via
-        /// the [GenerateComponentFieldInfo] attribute. See that attribute for more details on usage.
-        /// This function can be called recursively using Types from the returned NativeArray's FieldInfo element's FieldType property.
+        /// Gets an array of FieldInfo for a given type, if it has field information 
+        /// generated via the <see cref="GenerateComponentFieldInfo"/> attribute.
         /// </summary>
-        /// <param name="type"></param>
-        /// <returns>NativeArray of FieldInfo</returns>
+        /// <remarks>
+        /// You can use the Types from the returned NativeArray's FieldInfo element's 
+        /// FieldType property to call this method recursively.
+        /// </remarks>
+        /// <param name="type">The type to get FieldInfo for.</param>
+        /// <returns>Returns a NativeArray of FieldInfo.</returns>
         public static NativeArray<FieldInfo> GetFieldInfos(Type type)
         {
             if (!s_TypeToFieldInfosMap.TryGetValue(type, out var lookup))

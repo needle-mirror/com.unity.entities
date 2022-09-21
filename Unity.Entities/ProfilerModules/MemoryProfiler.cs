@@ -49,6 +49,11 @@ namespace Unity.Entities
         internal const string k_AllocatedMemoryCounterName = "Allocated Memory";
         internal const string k_UnusedMemoryCounterName = "Unused Memory";
 
+#if UNITY_DOTSRUNTIME
+        public static bool Enabled => Profiler.enabled;
+#else
+        public static bool Enabled => Profiler.enabled && Profiler.IsCategoryEnabled(Category);
+#endif
         public static Guid Guid { get; private set; }
         public static ProfilerCategory Category { get; private set; }
         public static BytesCounter AllocatedBytesCounter { get; private set; }
@@ -57,7 +62,6 @@ namespace Unity.Entities
         static bool s_Initialized;
         static UnsafeList<ArchetypeMemoryData> s_ArchetypeMemoryData;
 
-        [NotBurstCompatible]
         public static void Initialize()
         {
             if (s_Initialized)
@@ -71,7 +75,6 @@ namespace Unity.Entities
             s_Initialized = true;
         }
 
-        [NotBurstCompatible]
         public static void Shutdown()
         {
             if (!s_Initialized)
@@ -81,10 +84,9 @@ namespace Unity.Entities
             s_Initialized = false;
         }
 
-        [NotBurstCompatible]
         public static void Update()
         {
-            if (!s_Initialized || !Profiler.enabled)
+            if (!s_Initialized || !Enabled)
                 return;
 
             for (var i = 0; i < World.All.Count; ++i)

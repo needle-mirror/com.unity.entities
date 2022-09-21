@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Editor.Bridge;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine.UIElements;
 using ListView = Unity.Editor.Bridge.ListView;
+using TreeView = Unity.Editor.Bridge.TreeView;
 
 namespace Unity.Entities.Editor
 {

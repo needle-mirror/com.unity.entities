@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -14,6 +15,8 @@ namespace Unity.Entities
 {
     internal unsafe partial struct EntityComponentStore
     {
+        const string k_JournalingDisabledMsg = "Entities Journaling may be able to help determine more information. Please enable Entities Journaling for a more helpful error message.";
+
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
@@ -184,7 +187,7 @@ namespace Unity.Entities
             //Assert.AreEqual(entityCountByEntities, entityCountByFreeList);
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public static void AssertAllEntitiesCopied(EntityComponentStore* lhs, EntityComponentStore* rhs)
         {
             Assert.IsTrue(rhs->EntitiesCapacity >= lhs->EntitiesCapacity);
@@ -220,11 +223,11 @@ namespace Unity.Entities
             if (count < 1)
                 throw new ArgumentException($"Invalid component count");
 
-            // NOTE: LookUpCache / ComponentDataFromEntity uses short for the IndexInArchetype cache
+            // NOTE: LookUpCache / ComponentLookup uses short for the IndexInArchetype cache
             if (count >= short.MaxValue)
                 throw new ArgumentException($"Archetypes can have a maximum of {short.MaxValue} components.");
 
-            if (types[0].TypeIndex == 0)
+            if (types[0].TypeIndex == TypeIndex.Null)
                 throw new ArgumentException($"Component type may not be null");
             if (types[0].TypeIndex != m_EntityType)
                 throw new ArgumentException($"The Entity ID must always be the first component");
@@ -315,9 +318,16 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertEntityHasComponent(Entity entity, int componentType)
+        public void AssertEntityHasComponent(Entity entity, TypeIndex componentType)
         {
             AssertEntityHasComponent(entity, ComponentType.FromTypeIndex(componentType));
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        public void AssertComponentIsUnmanaged(TypeIndex componentTypeIndex)
+        {
+            if (TypeManager.IsManagedType(componentTypeIndex))
+                throw new ArgumentException($"Component type is managed. Can not get pointer to data");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -338,12 +348,12 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponents(Archetype* archetype, ComponentTypes componentTypes)
+        public void AssertCanAddComponents(Archetype* archetype, ComponentTypeSet componentTypeSet)
         {
             int totalComponentInstanceSize = 0;
-            for (int i = 0; i < componentTypes.Length; i++)
+            for (int i = 0; i < componentTypeSet.Length; i++)
             {
-                var type = componentTypes.GetComponentType(i);
+                var type = componentTypeSet.GetComponentType(i);
 
                 if (type == m_EntityComponentType)
                     throw new ArgumentException("Cannot add Entity as a component.");
@@ -352,24 +362,24 @@ namespace Unity.Entities
                 totalComponentInstanceSize += GetComponentArraySize(componentTypeInfo.SizeInChunk, 1);
             }
 
-            int numSharedComponents = componentTypes.m_masks.SharedComponents;
+            int numSharedComponents = componentTypeSet.m_masks.SharedComponents;
             if (numSharedComponents + archetype->NumSharedComponents > kMaxSharedComponentCount)
-                throw new InvalidOperationException($"Cannot add more than {kMaxSharedComponentCount} SharedComponent's to a single Archetype. Attempting to add types {AggregateComponentTypes(componentTypes)}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
+                throw new InvalidOperationException($"Cannot add more than {kMaxSharedComponentCount} SharedComponent's to a single Archetype. Attempting to add types {AggregateComponentTypes(componentTypeSet)}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
 
             var archetypeInstanceSize = archetype->InstanceSizeWithOverhead + totalComponentInstanceSize;
             var chunkDataSize = Chunk.GetChunkBufferSize();
             if (archetypeInstanceSize > chunkDataSize)
-                throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead} bytes. Attempting to add multiple components ({AggregateComponentTypes(componentTypes)}) with a combined size {totalComponentInstanceSize} bytes. Maximum chunk size {chunkDataSize}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
+                throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead} bytes. Attempting to add multiple components ({AggregateComponentTypes(componentTypeSet)}) with a combined size {totalComponentInstanceSize} bytes. Maximum chunk size {chunkDataSize}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
         }
 
-        static string AggregateComponentTypes(ComponentTypes componentTypes)
+        static string AggregateComponentTypes(ComponentTypeSet componentTypeSet)
         {
-            var allTypes = $"{componentTypes.Length}: ";
-            for (var i = 0; i < componentTypes.Length; i++)
+            var allTypes = $"{componentTypeSet.Length}: ";
+            for (var i = 0; i < componentTypeSet.Length; i++)
             {
-                var type = componentTypes.GetComponentType(i);
+                var type = componentTypeSet.GetComponentType(i);
                 allTypes += $"'{type}'";
-                if (i < componentTypes.Length - 1) allTypes += ", ";
+                if (i < componentTypeSet.Length - 1) allTypes += ", ";
             }
             return allTypes;
         }
@@ -391,7 +401,7 @@ namespace Unity.Entities
             var allTypes = $"{componentTypeCount}: ";
             for (var i = 0; i < componentTypeCount; i++)
             {
-                var type = ((int*)componentTypes)[i];
+                var type = componentTypes[i].TypeIndex;
                 allTypes += $"'{TypeManager.GetType(type)}'";
                 if (i < componentTypeCount - 1) allTypes += ", ";
             }
@@ -408,7 +418,7 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponent(Entity entity, int componentType)
+        public void AssertCanAddComponent(Entity entity, TypeIndex componentType)
         {
             AssertCanAddComponent(entity, ComponentType.FromTypeIndex(componentType));
         }
@@ -423,13 +433,13 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponents(UnsafeMatchingArchetypePtrList archetypeList, ComponentTypes componentTypes)
+        public void AssertCanAddComponents(UnsafeMatchingArchetypePtrList archetypeList, ComponentTypeSet componentTypeSet)
         {
             int newShared = 0;
             int totalNewComponentSize = 0;
-            for (int i = 0; i < componentTypes.Length; i++)
+            for (int i = 0; i < componentTypeSet.Length; i++)
             {
-                var componentType = componentTypes.GetComponentType(i);
+                var componentType = componentTypeSet.GetComponentType(i);
                 if (componentType == m_EntityComponentType)
                     throw new ArgumentException("Cannot add Entity as a component.");
                 if (componentType.IsSharedComponent)
@@ -443,28 +453,28 @@ namespace Unity.Entities
             {
                 var archetype = ptrs[i]->Archetype;
                 if ((archetype->NumSharedComponents + newShared) > kMaxSharedComponentCount)
-                    throw new InvalidOperationException($"Cannot add more than {kMaxSharedComponentCount} SharedComponent's to a single Archetype. Attempting to add types {AggregateComponentTypes(componentTypes)}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
+                    throw new InvalidOperationException($"Cannot add more than {kMaxSharedComponentCount} SharedComponent's to a single Archetype. Attempting to add types {AggregateComponentTypes(componentTypeSet)}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
                 if ((archetype->InstanceSizeWithOverhead + totalNewComponentSize) > Chunk.GetChunkBufferSize())
-                    throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead} bytes. Attempting to add components {AggregateComponentTypes(componentTypes)} with total size {totalNewComponentSize} bytes. Maximum chunk size {Chunk.GetChunkBufferSize()}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
+                    throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead} bytes. Attempting to add components {AggregateComponentTypes(componentTypeSet)} with total size {totalNewComponentSize} bytes. Maximum chunk size {Chunk.GetChunkBufferSize()}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
             }
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponents(Entity entity, ComponentTypes types)
+        public void AssertCanAddComponents(Entity entity, ComponentTypeSet typeSet)
         {
             if (!Exists(entity))
                 throw new InvalidOperationException("The entity does not exist."  + AppendDestroyedEntityRecordError(entity));
 
-            AssertCanAddComponents(GetArchetype(entity), types);
+            AssertCanAddComponents(GetArchetype(entity), typeSet);
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponents(NativeArray<Entity> entities, ComponentTypes types)
+        public void AssertCanAddComponents(NativeArray<Entity> entities, ComponentTypeSet typeSet)
         {
             for (int i = 0; i < entities.Length; ++i)
             {
                 var entity = entities[i];
-                AssertCanAddComponents(entity, types);
+                AssertCanAddComponents(entity, typeSet);
             }
         }
 
@@ -502,10 +512,10 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanRemoveComponents(ComponentTypes types)
+        public void AssertCanRemoveComponents(ComponentTypeSet typeSet)
         {
-            for (int i = 0; i < types.Length; ++i)
-                AssertCanRemoveComponent(ComponentType.FromTypeIndex(types.GetTypeIndex(i)));
+            for (int i = 0; i < typeSet.Length; ++i)
+                AssertCanRemoveComponent(ComponentType.FromTypeIndex(typeSet.GetTypeIndex(i)));
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -585,15 +595,15 @@ namespace Unity.Entities
 
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public static void AssertArchetypeDoesNotRemoveSystemStateComponents(Archetype* src, Archetype* dst)
+        public static void AssertArchetypeDoesNotRemoveCleanupComponents(Archetype* src, Archetype* dst)
         {
             int o = 0;
             int n = 0;
 
             for (; o < src->TypesCount && n < dst->TypesCount;)
             {
-                int srcType = src->Types[o].TypeIndex;
-                int dstType = dst->Types[n].TypeIndex;
+                var srcType = src->Types[o].TypeIndex;
+                var dstType = dst->Types[n].TypeIndex;
                 if (srcType == dstType)
                 {
                     o++;
@@ -601,9 +611,9 @@ namespace Unity.Entities
                 }
                 else if (dstType > srcType)
                 {
-                    if (src->Types[o].IsSystemStateComponent)
+                    if (src->Types[o].IsCleanupComponent)
                         throw new System.ArgumentException(
-                            $"SystemState components may not be removed via SetArchetype: {src->Types[o]}");
+                            $"Cleanup components may not be removed via SetArchetype: {src->Types[o]}");
                     o++;
                 }
                 else
@@ -612,8 +622,8 @@ namespace Unity.Entities
 
             for (; o < src->TypesCount; o++)
             {
-                if (src->Types[o].IsSystemStateComponent)
-                    throw new System.ArgumentException($"SystemState components may not be removed via SetArchetype: {src->Types[o]}");
+                if (src->Types[o].IsCleanupComponent)
+                    throw new System.ArgumentException($"Cleanup components may not be removed via SetArchetype: {src->Types[o]}");
             }
         }
 
@@ -660,7 +670,7 @@ namespace Unity.Entities
                     var archetype = GetArchetype(entityPtr[i]);
                     if (archetype->InstantiateArchetype == null)
                         throw new ArgumentException(
-                            $"The srcEntity's LinkedEntityGroup references an entity that has already been destroyed. (Entity at index {i} on the LinkedEntityGroup. Only system state components are left on the entity)");
+                            $"The srcEntity's LinkedEntityGroup references an entity that has already been destroyed. (Entity at index {i} on the LinkedEntityGroup. Only cleanup components are left on the entity)");
                 }
             }
             else
@@ -671,7 +681,7 @@ namespace Unity.Entities
                 var srcArchetype = GetArchetype(srcEntity);
                 if (srcArchetype->InstantiateArchetype == null)
                     throw new ArgumentException(
-                        "srcEntity is not instantiable because it has already been destroyed. (Only system state components are left on it)");
+                        "srcEntity is not instantiable because it has already been destroyed. (Only cleanup components are left on it)");
             }
         }
 
@@ -687,7 +697,7 @@ namespace Unity.Entities
                 var archetype = GetArchetype(srcEntity[i]);
                 if ((removePrefab ? archetype->InstantiateArchetype : archetype->CopyArchetype) == null)
                     throw new ArgumentException(
-                        $"The srcEntity[{i}] references an entity that has already been destroyed. (Only system state components are left on the entity)");
+                        $"The srcEntity[{i}] references an entity that has already been destroyed. (Only cleanup components are left on the entity)");
             }
         }
 
@@ -717,7 +727,7 @@ namespace Unity.Entities
         public static void AssertValidArchetype(EntityComponentStore* queryStore, EntityArchetype archetype)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (archetype._DebugComponentStore != queryStore)
+            if (archetype.Archetype == null || archetype.Archetype->EntityComponentStore != queryStore)
             {
                 if (archetype.Valid)
                     throw new System.ArgumentException("The EntityArchetype has not been allocated");
@@ -737,20 +747,13 @@ namespace Unity.Entities
                 for (int enableableTypeIndex = 0; enableableTypeIndex < archetype->EnableableTypesCount; ++enableableTypeIndex)
                 {
                     var typeIndexInArchetype = archetype->EnableableTypeIndexInArchetype[enableableTypeIndex];
-                    var bits = archetype->Chunks.GetComponentEnabledArrayForTypeInChunk(typeIndexInArchetype, chunkIndex);
 
-                    // check all entities in the chunk not in use
-                    var currentEntityIndex = chunk->Count;
-                    while (currentEntityIndex < chunk->Capacity)
-                    {
-                        Assert.AreEqual(0ul, bits.GetBits(currentEntityIndex, math.min(64, chunk->Capacity - currentEntityIndex)));
-                        currentEntityIndex += 64;
-                    }
-
-                    // check padding bits at the end of the chunk
-                    var numPaddingBits = 64 - (chunk->Capacity % 64);
-                    if(numPaddingBits != 64)
-                        Assert.AreEqual(0ul, bits.GetBits(chunk->Capacity, numPaddingBits));
+                    v128 mask = *archetype->Chunks.GetComponentEnabledMaskArrayForTypeInChunk(typeIndexInArchetype, chunkIndex);
+                    var paddingBits = EnabledBitUtility.ShiftRight(mask, chunk->Count);
+                    int enabledCount = EnabledBitUtility.countbits(paddingBits);
+                    if (enabledCount != 0)
+                        Assert.AreEqual(0, enabledCount,
+                        $"enabled bits padding check failed: chunk={chunkIndex} type={typeIndexInArchetype} mask={mask.ULong1:X16}:{mask.ULong0:X16} entityCount={chunk->Count} archetype={*archetype}");
                 }
             }
         }
@@ -765,11 +768,12 @@ namespace Unity.Entities
                 for (int enableableTypeIndex = 0; enableableTypeIndex < archetype->EnableableTypesCount; ++enableableTypeIndex)
                 {
                     var typeIndexInArchetype = archetype->EnableableTypeIndexInArchetype[enableableTypeIndex];
-                    var bits = archetype->Chunks.GetComponentEnabledArrayForTypeInChunk(typeIndexInArchetype, chunkIndex);
-
-                    var actualBitsDisabledCount = chunk->Count - bits.CountBits(0, chunk->Count);
-                    var storedBitsDisabledCount = archetype->Chunks.GetChunkDisabledCountForType(typeIndexInArchetype, chunkIndex);
-                    Assert.AreEqual(actualBitsDisabledCount, storedBitsDisabledCount);
+                    v128 mask = *archetype->Chunks.GetComponentEnabledMaskArrayForTypeInChunk(typeIndexInArchetype, chunkIndex);
+                    int storedDisabledCount = archetype->Chunks.GetChunkDisabledCountForType(typeIndexInArchetype, chunkIndex);
+                    int actualDisabledCount = chunk->Count - EnabledBitUtility.countbits(mask);
+                    if (actualDisabledCount != storedDisabledCount)
+                        Assert.AreEqual(actualDisabledCount, storedDisabledCount,
+                        $"enabled bits hierarchical mismatch: chunk={chunkIndex} type={typeIndexInArchetype} mask={mask.ULong1:X16}:{mask.ULong0:X16} entityCount={chunk->Count} storedCount={storedDisabledCount} archetype={*archetype}");
                 }
             }
         }
@@ -779,15 +783,15 @@ namespace Unity.Entities
         // ----------------------------------------------------------------------------------------------------------
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        internal void AssertNotZeroSizedComponent(int typeIndex)
+        internal void AssertNotZeroSizedComponent(TypeIndex typeIndex)
         {
-            if (TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
+            if (typeIndex.IsZeroSized)
                 throw new System.ArgumentException(
                     "This operation can not be called with a zero sized component.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        internal static void AssertComponentSizeMatches(int typeIndex, int size)
+        internal static void AssertComponentSizeMatches(TypeIndex typeIndex, int size)
         {
             if (TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size)
                 throw new System.ArgumentException(
@@ -795,9 +799,9 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        internal static void AssertComponentEnableable(int typeIndex)
+        internal static void AssertComponentEnableable(TypeIndex typeIndex)
         {
-            if (!TypeManager.IsEnableable(typeIndex))
+            if (!typeIndex.IsEnableable)
                 throw new System.ArgumentException(
                     "Component Enabled Bits APIs (SetComponentEnabled, IsComponentEnabled, etc) can not be called with a component type that does not implement IEnableableComponent");
         }
@@ -806,20 +810,26 @@ namespace Unity.Entities
         {
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (!EntitiesJournaling.Enabled)
-            {
-                return " EntitiesJournaling may be able to help determine more information. Please enable EntitiesJournaling for a more helpful error message.";
-            }
+                return " " + k_JournalingDisabledMsg;
 
             // We want the most recent record view that is a DestroyEntity with this entity to report back to the user
-            var recordViews = EntitiesJournaling.GetRecords().Reverse().WithRecordType(EntitiesJournaling.RecordType.DestroyEntity).WithEntity(e).ToArray();
+            var records = EntitiesJournaling.GetRecords(EntitiesJournaling.Ordering.Descending)
+                .WithRecordType(EntitiesJournaling.RecordType.DestroyEntity)
+                .WithEntity(e);
 
-            if (recordViews.Length > 0)
+            foreach (var record in records)
             {
-                var recordingSystemMessage = recordViews[0].OriginSystem.Handle == default
-                    ? ""
-                    : $" This command was requested from {recordViews[0].OriginSystem.Type}.";
-                return
-                    $" Entity ({e.Index}:{e.Version}) was previously destroyed by {recordViews[0].ExecutingSystem.Type}." + recordingSystemMessage;
+                var executingSystemName = record.ExecutingSystem.Name;
+                var executingSystemMessage = string.Empty;
+                if (!string.IsNullOrEmpty(executingSystemName))
+                    executingSystemMessage += $" by system {executingSystemName}";
+
+                var originSystemName = record.OriginSystem.Name;
+                var originSystemMessage = string.Empty;
+                if (!string.IsNullOrEmpty(originSystemName))
+                    originSystemMessage = $" This command was requested from system {originSystemName}.";
+
+                return $" {e} was previously destroyed{executingSystemMessage} in world {record.World.Name}." + originSystemMessage;
             }
 #endif
             return default;
@@ -829,29 +839,29 @@ namespace Unity.Entities
         {
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (!EntitiesJournaling.Enabled)
-            {
-                return " EntitiesJournaling may be able to help determine more information. Please enable EntitiesJournaling for a more helpful error message.";
-            }
+                return " " + k_JournalingDisabledMsg;
 
-            // We want the most recent record view that is a RemoveComponent with this entity to report back to the user
-            var recordViews = EntitiesJournaling.GetRecords().Reverse().WithRecordType(EntitiesJournaling.RecordType.RemoveComponent).WithEntity(e).ToArray();
+            // We want the most recent record view that is a RemoveComponent with this entity and component type to report back to the user
+            var records = EntitiesJournaling.GetRecords(EntitiesJournaling.Ordering.Descending)
+                .WithRecordType(EntitiesJournaling.RecordType.RemoveComponent)
+                .WithComponentType(type)
+                .WithEntity(e);
 
-            for (var i = 0; i < recordViews.Length; i++)
+            foreach (var record in records)
             {
-                for (var j = 0; j < recordViews[i].ComponentTypes.Length; j++)
-                {
-                    if (recordViews[i].ComponentTypes[j] == type)
-                    {
-                        var recordingSystemMessage = recordViews[i].OriginSystem.Handle == default
-                            ? ""
-                            : $" This command was requested from {recordViews[i].OriginSystem.Type}.";
-                        return
-                            $" Component {recordViews[i].ComponentTypes[j]} was removed from entity ({e.Index}:{e.Version}) previously by {recordViews[i].ExecutingSystem.Type}." + recordingSystemMessage;
-                    }
-                }
+                var executingSystemName = record.ExecutingSystem.Name;
+                var executingSystemMessage = string.Empty;
+                if (!string.IsNullOrEmpty(executingSystemName))
+                    executingSystemMessage += $" by system {executingSystemName}";
+
+                var originSystemName = record.OriginSystem.Name;
+                var originSystemMessage = string.Empty;
+                if (!string.IsNullOrEmpty(originSystemName))
+                    originSystemMessage = $" This command was requested from system {originSystemName}.";
+
+                return $" Component {type} was removed from {e} previously{executingSystemMessage} in world {record.World.Name}." + originSystemMessage;
             }
 #endif
-
             return default;
         }
     }

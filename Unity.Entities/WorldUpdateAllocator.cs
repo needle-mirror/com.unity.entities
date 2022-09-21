@@ -9,19 +9,33 @@ using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 namespace Unity.Entities
-{    
+{
     // ReSharper disable once InconsistentNaming
     [UpdateInGroup(typeof(InitializationSystemGroup))]
+    // Netcode systems use a fixed time update and need a specialized version of the reset system
+    [WorldSystemFilter(WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.Editor)]
     public struct WorldUpdateAllocatorResetSystem : ISystem
     {
+        /// <summary>
+        /// Initializes this world update allocator reset system for rewinding memories of the world update allocator.
+        /// </summary>
+        /// <param name="state">Reference to the SystemState of the system.</param>
         public void OnCreate(ref SystemState state)
         {
         }
 
+        /// <summary>
+        /// Destroys this world update allocator reset system.
+        /// </summary>
+        /// <param name="state">The SystemState of the system.</param>
         public void OnDestroy(ref SystemState state)
         {
         }
 
+        /// <summary>
+        /// Executes world update allocator reset system to rewind memories of the world update allocator.
+        /// </summary>
+        /// <param name="state">The SystemState of the system.</param>
         public void OnUpdate(ref SystemState state)
         {
             state.m_WorldUnmanaged.ResetUpdateAllocator();

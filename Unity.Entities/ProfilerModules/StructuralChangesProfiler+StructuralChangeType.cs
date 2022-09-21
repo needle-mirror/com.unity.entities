@@ -9,6 +9,7 @@ namespace Unity.Entities
             DestroyEntity,
             AddComponent,
             RemoveComponent,
+            SetSharedComponent
         }
     }
 }

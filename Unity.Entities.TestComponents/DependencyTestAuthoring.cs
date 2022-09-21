@@ -4,27 +4,27 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [AddComponentMenu("")]
-    [ConverterVersion("sschoener", 1)]
-    public class DependencyTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class DependencyTestAuthoring : MonoBehaviour
     {
         public GameObject GameObject;
         public UnityEngine.Object Asset;
         public Material Material;
         public Texture Texture;
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+        class Baker : Baker<DependencyTestAuthoring>
         {
-            conversionSystem.DeclareAssetDependency(gameObject, Asset);
-            conversionSystem.DeclareAssetDependency(gameObject, Texture);
-            conversionSystem.DeclareAssetDependency(gameObject, Material);
-            conversionSystem.DeclareDependency(gameObject, GameObject);
-            dstManager.AddComponentData(entity, new ConversionDependencyData
+            public override void Bake(DependencyTestAuthoring authoring)
             {
-                MaterialColor = Material != null ? Material.color : default,
-                HasMaterial = Material != null,
-                TextureFilterMode = Texture != null ? Texture.filterMode : default,
-                HasTexture = Texture != null
-            });
+                DependsOn(authoring.Asset);
+                DependsOn(authoring.GameObject);
+                AddComponent(new ConversionDependencyData
+                {
+                    MaterialColor = DependsOn(authoring.Material) != null ? authoring.Material.color : default,
+                    HasMaterial = DependsOn(authoring.Material) != null,
+                    TextureFilterMode = DependsOn(authoring.Texture) != null ? authoring.Texture.filterMode : default,
+                    HasTexture = DependsOn(authoring.Texture) != null
+                });
+            }
         }
     }
 

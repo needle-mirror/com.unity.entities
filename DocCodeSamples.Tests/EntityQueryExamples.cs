@@ -17,62 +17,141 @@ namespace Doc.CodeSamples.Tests
     public struct Melee : IComponentData {}
     public struct Ranger : IComponentData {}
     public struct Player : IComponentData {}
-    public struct Position : IComponentData { public float3 Value; }
-    public struct RotationQuaternion : IComponentData { public quaternion Value; }
+    public struct ObjectPosition : IComponentData { public float3 Value; }
+    public struct ObjectVelocity : IComponentData { public float3 Value; }
+    public struct ObjectUniformScale : IComponentData { public float Value; }
+    public struct ObjectNonUniformScale : IComponentData { public float3 Value; }
+    public struct ObjectCompositeScale : IComponentData { public float3 Value; }
+    public struct ObjectRotation : IComponentData { public quaternion Value; }
+    public struct ObjectRotationSpeed : IComponentData { public float RadiansPerSecond; }
     public struct Displacement : IComponentData { public float3 Value; }
+    public struct Friction : IComponentData { public float Value; }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class EntityQueryExamples : SystemBase
     {
         void queryFromList()
         {
             #region query-from-list
 
-            EntityQuery query = GetEntityQuery(typeof(Rotation),
-                ComponentType.ReadOnly<RotationSpeed>());
+            EntityQuery query = GetEntityQuery(typeof(ObjectRotation),
+                ComponentType.ReadOnly<ObjectRotationSpeed>());
             #endregion
         }
 
         void queryFromDescription()
         {
-            #region query-from-description
-
-            EntityQueryDesc description = new EntityQueryDesc
             {
-                None = new ComponentType[]
-                {
-                    typeof(Static)
-                },
-                All = new ComponentType[]
-                {
-                    typeof(Rotation),
-                    ComponentType.ReadOnly<RotationSpeed>()
-                }
-            };
-            EntityQuery query = GetEntityQuery(description);
+                #region query-from-description
 
-            #endregion
+                EntityQueryDesc description = new EntityQueryDesc
+                {
+                    None = new ComponentType[]
+                    {
+                        typeof(Static)
+                    },
+                    All = new ComponentType[]
+                    {
+                        typeof(ObjectRotation),
+                        ComponentType.ReadOnly<ObjectRotationSpeed>()
+                    }
+                };
+                EntityQuery query = GetEntityQuery(description);
+
+                #endregion
+            }
+
+            {
+                #region query-from-builder
+
+                EntityQuery query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<ObjectRotation>()
+                    .WithAll<ObjectRotationSpeed>()
+                    .WithNone<Static>()
+                    .Build(this);
+
+                #endregion
+            }
         }
 
         protected override void OnCreate()
         {
-            #region query-description
-
-            EntityQueryDesc description = new EntityQueryDesc
             {
-                Any = new ComponentType[] { typeof(Melee), typeof(Ranger) },
-                None = new ComponentType[] { typeof(Player) },
-                All = new ComponentType[] { typeof(Position), typeof(Rotation) }
-            };
+                #region query-description
 
-            #endregion
-            var query = GetEntityQuery(description);
-            Entity entity = Entity.Null;
-            #region entity-query-mask
+                EntityQueryDesc description = new EntityQueryDesc
+                {
+                    Any = new ComponentType[] { typeof(Melee), typeof(Ranger) },
+                    None = new ComponentType[] { typeof(Player) },
+                    All = new ComponentType[] { typeof(ObjectPosition), typeof(ObjectRotation) }
+                };
 
-            var mask = EntityManager.GetEntityQueryMask(query);
-            bool doesMatch = mask.Matches(entity);
+                #endregion
+                var query = GetEntityQuery(description);
+            }
+            {
+                #region query-builder-chained-withall
 
-            #endregion
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<ObjectPosition, ObjectVelocity>()
+                    .WithAll<ObjectRotation, ObjectRotationSpeed>()
+                    .Build(this);
+
+                #endregion
+            }
+            {
+                #region query-builder-chained-withallrw
+
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<Friction>()
+                    .WithAllRW<ObjectPosition, ObjectVelocity>()
+                    .WithAllRW<ObjectRotation, ObjectRotationSpeed>()
+                    .Build(this);
+
+                #endregion
+            }
+            {
+                #region query-builder-chained-withany
+
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<ObjectPosition>()
+                    .WithAny<ObjectUniformScale, ObjectNonUniformScale>()
+                    .WithAny<ObjectCompositeScale>()
+                    .Build(this);
+
+                #endregion
+            }
+            {
+                #region query-builder-chained-withanyrw
+
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<ObjectPosition>()
+                    .WithAnyRW<ObjectUniformScale, ObjectNonUniformScale>()
+                    .WithAnyRW<ObjectCompositeScale>()
+                    .Build(this);
+
+                #endregion
+            }
+            {
+                #region query-builder
+
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<ObjectPosition, ObjectRotation>()
+                    .WithAny<Melee, Ranger>()
+                    .WithNone<Player>()
+                    .Build(this);
+
+                #endregion
+
+                Entity entity = Entity.Null;
+
+                #region entity-query-mask
+
+                var mask = query.GetEntityQueryMask();
+                bool doesArchetypeMatch = mask.MatchesIgnoreFilter(entity);
+
+                #endregion
+            }
         }
 
         protected override void OnUpdate()
@@ -96,40 +175,52 @@ namespace Doc.CodeSamples.Tests
         void ManualExamples1()
         {
             {
-            #region define-query
-
-            EntityQuery query
-                = GetEntityQuery(typeof(RotationQuaternion),
-                                 ComponentType.ReadOnly<RotationSpeed>());
-            #endregion
+                #region define-query
+                EntityQuery query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<ObjectRotation>()
+                    .WithAll<ObjectRotationSpeed>()
+                    .Build(this);
+                #endregion
             }
             {
                 #region query-desc
+                EntityQuery query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<ObjectRotation>()
+                    .WithAll<ObjectRotationSpeed>()
+                    .WithNone<Static>()
+                    .Build(this);
+                #endregion
+            }
+            {
+                #region query-builder-manual
 
-                var queryDescription = new EntityQueryDesc
-                {
-                    None = new ComponentType[] { typeof(Static) },
-                    All = new ComponentType[]{ typeof(RotationQuaternion),
-                                           ComponentType.ReadOnly<RotationSpeed>() }
-                };
-                EntityQuery query = GetEntityQuery(queryDescription);
+                EntityQuery query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<ObjectRotation>()
+                    .WithAll<ObjectRotationSpeed>()
+                    .WithNone<Static>()
+                    .Build(this);
+
                 #endregion
             }
             {
                 #region combine-query
+                EntityQuery query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<ObjectRotation>()
+                    // Start a new query description
+                    .AddAdditionalQuery()
+                    .WithAllRW<ObjectRotationSpeed>()
+                    .Build(this);
+                #endregion
+            }
 
-                var desc1 = new EntityQueryDesc
-                {
-                    All = new ComponentType[] { typeof(RotationQuaternion) }
-                };
+            {
+                #region combine-query-builder
 
-                var desc2 = new EntityQueryDesc
-                {
-                    All = new ComponentType[] { typeof(RotationSpeed) }
-                };
-
-                EntityQuery query
-                    = GetEntityQuery(new EntityQueryDesc[] { desc1, desc2 });
+                EntityQuery query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<Parent>().WithNone<Child>()
+                    .AddAdditionalQuery()
+                    .WithAll<Child>().WithNone<Parent>()
+                    .Build(this);
 
                 #endregion
             }
@@ -137,25 +228,24 @@ namespace Doc.CodeSamples.Tests
     }
     #region query-writegroup
 
-    public struct C1 : IComponentData { }
+    public struct CharacterComponent : IComponentData { }
 
-    [WriteGroup(typeof(C1))]
-    public struct C2 : IComponentData { }
+    [WriteGroup(typeof(CharacterComponent))]
+    public struct LuigiComponent : IComponentData { }
 
-    [WriteGroup(typeof(C1))]
-    public struct C3 : IComponentData { }
+    [WriteGroup(typeof(CharacterComponent))]
+    public struct MarioComponent : IComponentData { }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class ECSSystem : SystemBase
     {
         protected override void OnCreate()
         {
-            var queryDescription = new EntityQueryDesc
-            {
-                All = new ComponentType[] { ComponentType.ReadWrite<C1>(),
-                                            ComponentType.ReadOnly<C3>() },
-                Options = EntityQueryOptions.FilterWriteGroup
-            };
-            var query = GetEntityQuery(queryDescription);
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<CharacterComponent>()
+                .WithAll<MarioComponent>()
+                .WithOptions(EntityQueryOptions.FilterWriteGroup)
+                .Build(this);
         }
 
         protected override void OnUpdate()
@@ -167,18 +257,19 @@ namespace Doc.CodeSamples.Tests
 
     #region get-query
 
+    [RequireMatchingQueriesForUpdate]
     public partial class RotationSpeedSys : SystemBase
     {
         private EntityQuery query;
 
         protected override void OnUpdate()
         {
-            float deltaTime = Time.DeltaTime;
+            float deltaTime = SystemAPI.Time.DeltaTime;
 
             Entities
                 .WithStoreEntityQueryInField(ref query)
                 .ForEach(
-                (ref RotationQuaternion rotation, in RotationSpeed speed) => {
+                (ref ObjectRotation rotation, in ObjectRotationSpeed speed) => {
                     rotation.Value
                         = math.mul(
                             math.normalize(rotation.Value),
@@ -193,14 +284,15 @@ namespace Doc.CodeSamples.Tests
 
     #region get-query-ijobchunk
 
+    [RequireMatchingQueriesForUpdate]
     public partial class RotationSystem : SystemBase
     {
         private EntityQuery query;
 
         protected override void OnCreate()
         {
-            query = GetEntityQuery(typeof(RotationQuaternion),
-                   ComponentType.ReadOnly<RotationSpeed>());
+            query = GetEntityQuery(typeof(ObjectRotation),
+                   ComponentType.ReadOnly<ObjectRotationSpeed>());
         }
 
         protected override void OnUpdate()
@@ -216,15 +308,17 @@ namespace Doc.CodeSamples.Tests
         public int Group;
     }
 
+    [RequireMatchingQueriesForUpdate]
     partial class ImpulseSystem : SystemBase
     {
         EntityQuery query;
 
         protected override void OnCreate()
         {
-            query = GetEntityQuery(typeof(Position),
-                typeof(Displacement),
-                typeof(SharedGrouping));
+            query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<ObjectPosition>()
+                .WithAll<Displacement, SharedGrouping>()
+                .Build(this);
         }
 
         protected override void OnUpdate()
@@ -232,19 +326,19 @@ namespace Doc.CodeSamples.Tests
             // Only iterate over entities that have the SharedGrouping data set to 1
             query.SetSharedComponentFilter(new SharedGrouping { Group = 1 });
 
-            var positions = query.ToComponentDataArray<Position>(Allocator.Temp);
+            var positions = query.ToComponentDataArray<ObjectPosition>(Allocator.Temp);
             var displacements = query.ToComponentDataArray<Displacement>(Allocator.Temp);
 
             for (int i = 0; i < positions.Length; i++)
-                positions[i] =
-                    new Position
-                    {
-                        Value = positions[i].Value + displacements[i].Value
-                    };
+                positions[i] = new ObjectPosition
+                {
+                    Value = positions[i].Value + displacements[i].Value
+                };
         }
     }
 
     #endregion
+    [RequireMatchingQueriesForUpdate]
     partial class UpdateSystem : SystemBase
     {
         #region change-filter
@@ -253,9 +347,11 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnCreate()
         {
-            query = GetEntityQuery(typeof(LocalToWorld),
-                    ComponentType.ReadOnly<Translation>());
-            query.SetChangedVersionFilter(typeof(Translation));
+            query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<LocalToWorld>()
+                .WithAll<ObjectPosition>()
+                .Build(this);
+            query.SetChangedVersionFilter(typeof(ObjectPosition));
 
         }
         #endregion

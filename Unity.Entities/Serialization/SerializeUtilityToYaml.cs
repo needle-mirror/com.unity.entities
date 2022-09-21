@@ -180,8 +180,8 @@ namespace Unity.Entities.Serialization
                             .WriteKeyValue(nameof(EntityArchetype.ChunkCapacity), a->ChunkCapacity);
 
                         var props = new List<string>();
-                        if (a->SystemStateCleanupComplete)     props.Add(nameof(Archetype.SystemStateCleanupComplete));
-                        if (a->SystemStateCleanupNeeded)       props.Add(nameof(Archetype.SystemStateCleanupNeeded));
+                        if (a->CleanupComplete)     props.Add(nameof(Archetype.CleanupComplete));
+                        if (a->CleanupNeeded)       props.Add(nameof(Archetype.CleanupNeeded));
                         if (a->Disabled)                       props.Add(nameof(Archetype.Disabled));
                         if (a->Prefab)                         props.Add(nameof(Archetype.Prefab));
                         if (a->HasChunkComponents)             props.Add(nameof(Archetype.HasChunkComponents));
@@ -200,7 +200,8 @@ namespace Unity.Entities.Serialization
             if (dumpChunkRawData)
             {
                 UnsafeUtility.MemCpy(tempChunk, initialChunk, Chunk.kChunkSize);
-
+                tempChunk->ChunkstoreIndex = 0;
+                
                 byte* tempChunkBuffer = tempChunk->Buffer;
 
                 BufferHeader.PatchAfterCloningChunk(tempChunk);
@@ -284,8 +285,8 @@ namespace Unity.Entities.Serialization
                         {
                             writer.WriteInlineMap("info", new[]
                             {
-                                new KeyValuePair<object, object>(nameof(Type), componentType.Name),
-                                new KeyValuePair<object, object>(nameof(TypeManager.TypeInfo.SizeInChunk), componentTypeInfo.SizeInChunk)
+                                new System.Collections.Generic.KeyValuePair<object, object>(nameof(System.Type), componentType.Name),
+                                new System.Collections.Generic.KeyValuePair<object, object>(nameof(TypeManager.TypeInfo.SizeInChunk), componentTypeInfo.SizeInChunk)
                             });
 
                             using (writer.WriteCollection("Entities"))
@@ -404,7 +405,7 @@ namespace Unity.Entities.Serialization
 
         static void WriteEntity(YamlWriter writer, string name, Entity entity)
         {
-            writer.WriteInlineMap(name, new[] { new KeyValuePair<object, object>("index", entity.Index), new KeyValuePair<object, object>("version", entity.Version) });
+            writer.WriteInlineMap(name, new[] { new System.Collections.Generic.KeyValuePair<object, object>("index", entity.Index), new System.Collections.Generic.KeyValuePair<object, object>("version", entity.Version) });
         }
 
         #endregion

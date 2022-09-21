@@ -9,13 +9,13 @@ namespace Unity.Entities.Tests
         //@TODO: Test number of created / destroyed chunk counts to be what is expected (for perf)
         //@TODO: Handle chunk component versions. It seems likely that they can currently go out of sync between two worlds so systems might not pick up a change. (Currently doesn't work)
         //@TODO: Test for blob data (Manually tested)
-        //@TODO: Test that Copy&Replace doesn't modify, add or remove system state components. But also don't change chunk layout. (Currently doesn't work)
+        //@TODO: Test that Copy&Replace doesn't modify, add or remove cleanu components. But also don't change chunk layout. (Currently doesn't work)
 
         unsafe void CreateTestData(out Entity entity, out Entity metaEntity, int value, int componentChunkValue)
         {
             entity = SrcEntityManager.CreateEntity();
             SrcEntityManager.AddComponentData(entity, new EcsTestData(value));
-            SrcEntityManager.AddSharedComponentData(entity, new EcsTestSharedComp(6));
+            SrcEntityManager.AddSharedComponent(entity, new EcsTestSharedComp(6));
             SrcEntityManager.AddChunkComponentData(SrcEntityManager.UniversalQuery, new EcsTestData2(7));
 
             metaEntity = SrcEntityManager.GetChunk(entity).m_Chunk->metaChunkEntity;
@@ -26,13 +26,31 @@ namespace Unity.Entities.Tests
         unsafe void TestValues(Entity entity, Entity  metaEntity, int componentDataValue, int componentChunkValue)
         {
             Assert.AreEqual(componentDataValue, DstEntityManager.GetComponentData<EcsTestData>(entity).value);
-            Assert.AreEqual(6, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+            Assert.AreEqual(6, DstEntityManager.GetSharedComponent<EcsTestSharedComp>(entity).value);
             Assert.AreEqual(componentChunkValue, DstEntityManager.GetChunkComponentData<EcsTestData2>(entity).value0);
 
             Assert.AreEqual(metaEntity, DstEntityManager.GetChunk(entity).m_Chunk->metaChunkEntity);
 
             SrcEntityManager.Debug.CheckInternalConsistency();
             DstEntityManager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void ReplaceWithEnabledBits()
+        {
+            var srcArchetype = SrcEntityManager.CreateArchetype(typeof(EcsTestDataEnableable));
+            using var srcEntities = SrcEntityManager.CreateEntity(srcArchetype, 2, SrcWorld.UpdateAllocator.ToAllocator);
+            SrcEntityManager.SetComponentData(srcEntities[0], new EcsTestDataEnableable { value = 17 });
+            SrcEntityManager.SetComponentData(srcEntities[1], new EcsTestDataEnableable { value = 23 });
+            SrcEntityManager.SetComponentEnabled<EcsTestDataEnableable>(srcEntities[0], false);
+
+            DstEntityManager.CopyAndReplaceEntitiesFrom(SrcEntityManager);
+
+            using var dstEntities = DstEntityManager.UniversalQuery.ToEntityArray(DstWorld.UpdateAllocator.ToAllocator);
+            Assert.IsFalse(DstEntityManager.IsComponentEnabled<EcsTestDataEnableable>(dstEntities[0]));
+            Assert.AreEqual(17, DstEntityManager.GetComponentData<EcsTestDataEnableable>(dstEntities[0]).value);
+            Assert.IsTrue(DstEntityManager.IsComponentEnabled<EcsTestDataEnableable>(dstEntities[1]));
+            Assert.AreEqual(23, DstEntityManager.GetComponentData<EcsTestDataEnableable>(dstEntities[1]).value);
         }
 
         [Test]

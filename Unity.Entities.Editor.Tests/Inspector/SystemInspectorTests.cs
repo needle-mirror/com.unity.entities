@@ -33,13 +33,13 @@ namespace Unity.Entities.Editor.Tests
         public void OneTimeSetUp()
         {
             m_World = new World("SystemInspectorTestWorld");
-            m_SystemInspectorTestSystem = m_World.GetOrCreateSystem<SystemInspectorTestSystem>();
-            m_SystemInspectorTestSystem1 = m_World.GetOrCreateSystem<SystemScheduleTestSystem1>();
-            m_SystemInspectorTestSystem2 = m_World.GetOrCreateSystem<SystemScheduleTestSystem2>();
+            m_SystemInspectorTestSystem = m_World.GetOrCreateSystemManaged<SystemInspectorTestSystem>();
+            m_SystemInspectorTestSystem1 = m_World.GetOrCreateSystemManaged<SystemScheduleTestSystem1>();
+            m_SystemInspectorTestSystem2 = m_World.GetOrCreateSystemManaged<SystemScheduleTestSystem2>();
 
-            m_World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_SystemInspectorTestSystem1);
-            m_World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_SystemInspectorTestSystem2);
-            m_World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_SystemInspectorTestSystem);
+            m_World.GetOrCreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(m_SystemInspectorTestSystem1);
+            m_World.GetOrCreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(m_SystemInspectorTestSystem2);
+            m_World.GetOrCreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(m_SystemInspectorTestSystem);
 
             m_WorldProxyManager = new WorldProxyManager();
             m_WorldProxyManager.CreateWorldProxiesForAllWorlds();

@@ -1,6 +1,9 @@
 using System;
 using Unity.Entities;
 
+#if !ENABLE_TRANSFORM_V1
+#else
+
 namespace Unity.Transforms
 {
     [Serializable]
@@ -13,3 +16,5 @@ namespace Unity.Transforms
         public float Value;
     }
 }
+
+#endif

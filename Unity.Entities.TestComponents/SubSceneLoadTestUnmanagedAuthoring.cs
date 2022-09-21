@@ -6,28 +6,29 @@ using UnityEngine;
 namespace Unity.Scenes.Editor.Tests
 {
     [AddComponentMenu("")]
-    [ConverterVersion("unity", 2)]
-    public class SubSceneLoadTestUnmanagedAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class SubSceneLoadTestUnmanagedAuthoring : MonoBehaviour
     {
         public GameObject Entity;
         public int Int;
+    }
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+    public struct SubSceneLoadTestUnmanagedComponent : IComponentData
+    {
+        public int Int;
+        public BlobAssetReference<SubSceneLoadTestBlobAsset> BlobAsset;
+        public Entity Entity;
+    }
+
+    public class SubSceneLoadTestUnmanagedBaker : Baker<SubSceneLoadTestUnmanagedAuthoring>
+    {
+        public override void Bake(SubSceneLoadTestUnmanagedAuthoring authoring)
         {
-            var e = conversionSystem.GetPrimaryEntity(Entity);
-            dstManager.AddComponentData(entity, new Component
+            AddComponent(new SubSceneLoadTestUnmanagedComponent()
             {
-                Entity = conversionSystem.GetPrimaryEntity(Entity),
-                Int = Int,
-                BlobAsset = SubSceneLoadTestBlobAsset.Make(Int, Int + 1, gameObject.name, SubSceneLoadTestBlobAsset.MakeStrings(1))
+                Entity = GetEntity(),
+                Int = authoring.Int,
+                BlobAsset = SubSceneLoadTestBlobAsset.Make(authoring.Int, authoring.Int + 1, authoring.gameObject.name, SubSceneLoadTestBlobAsset.MakeStrings(1))
             });
-        }
-
-        public struct Component : IComponentData
-        {
-            public int Int;
-            public BlobAssetReference<SubSceneLoadTestBlobAsset> BlobAsset;
-            public Entity Entity;
         }
     }
 }

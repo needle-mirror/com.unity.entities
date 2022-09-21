@@ -5,11 +5,11 @@ namespace Unity.Editor.Controls
 {
     internal class PaginationField
     {
-        private int m_Count = 0;
+        int m_Count = 0;
 
-        private static GUIStyle s_ToolbarButtonStyle;
-        private const float k_ButtonSize = 20.0f;
-        private const float k_PageSize = 50.0f;
+        static GUIStyle s_ToolbarButtonStyle;
+        const float k_ButtonSize = 20.0f;
+        const float k_PageSize = 50.0f;
 
         public int ItemsPerPage { get; set; }
 
@@ -19,7 +19,7 @@ namespace Unity.Editor.Controls
             set => m_Page = Mathf.Clamp(value, 0, LastPage);
         }
 
-        private int m_Page;
+        int m_Page;
 
         public int Count
         {
@@ -170,7 +170,7 @@ namespace Unity.Editor.Controls
             }
         }
 
-        private static void InitStyles()
+        static void InitStyles()
         {
             if (null == s_ToolbarButtonStyle)
             {

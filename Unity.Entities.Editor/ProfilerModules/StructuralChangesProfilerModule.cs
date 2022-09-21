@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Profiling;
@@ -39,6 +38,7 @@ namespace Unity.Entities.Editor
 
             protected override VisualElement CreateView()
             {
+                Analytics.SendEditorEvent(Analytics.Window.Profiler, Analytics.EventType.ProfilerModuleCreate, Analytics.StructuralChangesProfilerModuleName);
                 return m_View.Create();
             }
 
@@ -76,6 +76,7 @@ namespace Unity.Entities.Editor
             new ProfilerCounterDescriptor(k_DestroyEntityCounterName, k_CategoryName),
             new ProfilerCounterDescriptor(k_AddComponentCounterName, k_CategoryName),
             new ProfilerCounterDescriptor(k_RemoveComponentCounterName, k_CategoryName),
+            new ProfilerCounterDescriptor(k_SetSharedComponentCounterName, k_CategoryName),
         };
 
         public StructuralChangesProfilerModule() :
@@ -98,7 +99,8 @@ namespace Unity.Entities.Editor
             k_CreateEntityCounterName,
             k_DestroyEntityCounterName,
             k_AddComponentCounterName,
-            k_RemoveComponentCounterName
+            k_RemoveComponentCounterName,
+            k_SetSharedComponentCounterName,
         };
 
         public StructuralChangesProfilerModule()
@@ -191,20 +193,6 @@ namespace Unity.Entities.Editor
                 if (frame.GetFrameMetaDataCount(StructuralChangesProfiler.Guid, 0) > 0)
                     yield return frame;
             }
-        }
-
-        static string NsToMsString(long nanoseconds)
-        {
-            if (nanoseconds >= 1e3)
-                return (nanoseconds * 1e-6).ToString("F3", CultureInfo.InvariantCulture);
-            else if (nanoseconds > 0)
-                return "<0.001";
-            return "-";
-        }
-
-        static string CountToString(int value)
-        {
-            return value.ToString("N0", CultureInfo.InvariantCulture);
         }
     }
 }

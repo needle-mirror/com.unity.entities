@@ -75,6 +75,9 @@ namespace Unity.Entities
     [Flags]
     public enum EntityManagerDifferOptions
     {
+        /// <summary>
+        /// Shortcut for "no options required".
+        /// </summary>
         None = 0,
 
         /// <summary>
@@ -149,7 +152,9 @@ namespace Unity.Entities
     /// </remarks>
     unsafe partial class EntityDiffer
     {
-        static Profiling.ProfilerMarker s_GetChangesProfilerMarker = new Profiling.ProfilerMarker("GetChanges");
+        static string s_GetChangesProfilerMarkerStr = "GetChanges";
+
+        static Profiling.ProfilerMarker s_GetChangesProfilerMarker = new Profiling.ProfilerMarker(s_GetChangesProfilerMarkerStr);
         static Profiling.ProfilerMarker s_CreateEntityChangeSetProfilerMarker = new Profiling.ProfilerMarker(nameof(CreateEntityChangeSet));
         static Profiling.ProfilerMarker s_GetEntityNamesProfilerMarker = new Profiling.ProfilerMarker(nameof(GetEntityNames));
         static Profiling.ProfilerMarker s_GetChangedManagedComponentsProfilerMarker = new Profiling.ProfilerMarker(nameof(GetChangedManagedComponents));
@@ -158,6 +163,13 @@ namespace Unity.Entities
         static Profiling.ProfilerMarker s_DestroyChunksProfilerMarker = new Profiling.ProfilerMarker(nameof(DestroyChunks));
         static Profiling.ProfilerMarker s_CloneAndAddChunksProfilerMarker = new Profiling.ProfilerMarker(nameof(CloneAndAddChunks));
         static Profiling.ProfilerMarker s_GetBlobAssetsWithDistinctHash = new Profiling.ProfilerMarker(nameof(GetBlobAssetsWithDistinctHash));
+
+        internal static string[] CollectImportantProfilerMarkerStrings()
+        {
+            return new string [] {
+                s_GetChangesProfilerMarkerStr
+            };
+        }
 
         /// <summary>
         /// CachedComponentChanges are used to not reallocate the data between each GetChanges call as this can cause big
@@ -207,15 +219,16 @@ namespace Unity.Entities
                 if (options == EntityManagerDifferOptions.None)
                     return changes;
 
-                srcEntityManager.CompleteAllJobs();
-                dstEntityManager.CompleteAllJobs();
+                srcEntityManager.CompleteAllTrackedJobs();
+                dstEntityManager.CompleteAllTrackedJobs();
 
                 var srcEntityQuery = srcEntityManager.CreateEntityQuery(entityQueryDesc);
                 var dstEntityQuery = dstEntityManager.CreateEntityQuery(entityQueryDesc);
+                int maxSrcChunkCount = srcEntityQuery.CalculateChunkCountWithoutFiltering();
 
                 // Gather a set of a chunks to consider for diffing in both the src and dst worlds.
-                using (var srcChunks = srcEntityQuery.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var srcChunksJob))
-                using (var dstChunks = dstEntityQuery.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var dstChunksJob))
+                using (var srcChunks = srcEntityQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out var srcChunksJob))
+                using (var dstChunks = dstEntityQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out var dstChunksJob))
                 {
                     JobHandle clearMissingReferencesJob = default;
 
@@ -235,6 +248,7 @@ namespace Unity.Entities
                     using (var archetypeChunkChanges = GetArchetypeChunkChanges(
                         srcChunks: srcChunks,
                         dstChunks: dstChunks,
+                        maxSrcChunkCount,
                         allocator: Allocator.TempJob,
                         jobHandle: out var archetypeChunkChangesJob,
                         dependsOn: archetypeChunkChangesJobDependencies))
@@ -252,8 +266,9 @@ namespace Unity.Entities
                             archetypeChunkChanges.DestroyedDstChunks, Allocator.TempJob,
                             jobHandle: out var dstEntitiesJob))
                         using (var srcBlobAssetsWithDistinctHash = GetBlobAssetsWithDistinctHash(
+                            srcEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
                             srcEntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore,
-                            srcChunks, Allocator.TempJob))
+                            srcChunks.AsArray(), Allocator.TempJob))
                         using (var dstBlobAssetsWithDistinctHash = blobAssetCache.BlobAssetBatch->ToNativeList(Allocator.TempJob))
                         {
                             var duplicateEntityGuids = default(NativeList<DuplicateEntityGuid>);
@@ -374,7 +389,7 @@ namespace Unity.Entities
                                         jobs.Add(dstEntitiesJob);
                                     }
 
-                                    jobHandle = JobHandle.CombineDependencies(jobs);
+                                    jobHandle = JobHandle.CombineDependencies(jobs.AsArray());
                                 }
 
                                 jobHandle.Complete();
@@ -396,11 +411,11 @@ namespace Unity.Entities
                             }
                             finally
                             {
-                                if (duplicateEntityGuids.IsCreated) duplicateEntityGuids.Dispose(); 
+                                if (duplicateEntityGuids.IsCreated) duplicateEntityGuids.Dispose();
                                 if (forwardEntityChanges.IsCreated) forwardEntityChanges.Dispose();
                                 if (reverseEntityChanges.IsCreated) reverseEntityChanges.Dispose();
                                 if (forwardBlobAssetChanges.IsCreated) forwardBlobAssetChanges.Dispose();
-                                if (reverseBlobAssetChanges.IsCreated) reverseBlobAssetChanges.Dispose(); 
+                                if (reverseBlobAssetChanges.IsCreated) reverseBlobAssetChanges.Dispose();
                             }
                         }
                     }
@@ -413,12 +428,13 @@ namespace Unity.Entities
         internal static void PrecomputeBlobAssetCache(EntityManager entityManager, EntityQueryDesc entityQueryDesc, BlobAssetCache blobAssetCache)
         {
             CheckEntityGuidComponent(entityQueryDesc);
-            entityManager.CompleteAllJobs();
+            entityManager.CompleteAllTrackedJobs();
             var srcEntityQuery = entityManager.CreateEntityQuery(entityQueryDesc);
             // Gather a set of a chunks to consider for diffing in both the src and dst worlds.
-            using (var srcChunks = srcEntityQuery.CreateArchetypeChunkArray(Allocator.TempJob))
+            using (var srcChunks = srcEntityQuery.ToArchetypeChunkArray(Allocator.TempJob))
             {
                 using (var srcBlobAssetsWithDistinctHash = GetBlobAssetsWithDistinctHash(
+                    entityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
                     entityManager.GetCheckedEntityDataAccess()->ManagedComponentStore,
                     srcChunks, Allocator.TempJob))
                 using (var dstBlobAssets = new NativeList<BlobAssetPtr>(Allocator.TempJob))

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Unity.Entities;
+using Unity.Entities.Conversion;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -20,6 +21,9 @@ namespace Unity.Scenes.Editor
 
         SceneAsset[] m_PreviousSceneAssets;
         private SubScene[] _selectedSubscenes;
+
+        bool m_RunningConversionLogCheck = false;
+        bool m_ConversionLogCheckResult = false;
 
         private void OnEnable()
         {
@@ -76,7 +80,7 @@ namespace Unity.Scenes.Editor
                             {
                                 // Make loaded scene a Sub Scene. Only needs to be done once,
                                 // since even with multi-editing, user can only have assigned one Scene.
-                                scene.isSubScene = true;
+                                SubSceneInspectorUtility.SetSceneAsSubScene(scene);
                             }
                             else
                             {
@@ -298,7 +302,7 @@ namespace Unity.Scenes.Editor
                     {
                         if (GUI.Button(buttonRect, Content.OpenLabel))
                         {
-                            SubSceneInspectorUtility.EditScene(scene.SubScene);
+                            SubSceneUtility.EditScene(scene.SubScene);
                         }
                     }
                 }
@@ -392,10 +396,11 @@ namespace Unity.Scenes.Editor
                 EditorGUILayout.HelpBox($"SubScenes can not have child game objects. Close the scene and delete the child game objects.", MessageType.Warning, true);
             }
 
+
             if (targets.Length == 1)
             {
                 GUILayout.Space(EditorGUIUtility.singleLineHeight);
-                if (CheckConversionLog(subScene))
+                if (m_ConversionLogCheckResult)
                 {
                     GUILayout.Label("Importing...");
                     Repaint();
@@ -408,6 +413,16 @@ namespace Unity.Scenes.Editor
                     GUILayout.Label("Conversion Log", EditorStyles.boldLabel);
                     GUILayout.TextArea(m_ConversionLog);
                 }
+            }
+
+            if (!m_RunningConversionLogCheck)
+            {
+                m_RunningConversionLogCheck = true;
+                EditorApplication.delayCall += () =>
+                {
+                    m_ConversionLogCheckResult = CheckConversionLog(subScene);
+                    m_RunningConversionLogCheck = false;
+                };
             }
         }
 
@@ -431,15 +446,17 @@ namespace Unity.Scenes.Editor
             SubSceneInspectorUtility.DrawSubsceneBounds(scene);
         }
 
-        static bool IsSubsceneImported(SubScene subScene)
+        static unsafe bool IsSubsceneImported(SubScene subScene)
         {
             foreach (var world in World.All)
             {
                 var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                if (sceneSystem is null)
+                var statePtr = world.Unmanaged.ResolveSystemState(sceneSystem);
+                if (statePtr == null)
                     continue;
 
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, true, ImportMode.NoImport);
+                var buildConfigGuid = world.EntityManager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID;
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildConfigGuid, true, LiveConversionSettings.IsBakingEnabled, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.NoImport);
                 if (!hash.IsValid)
                     return false;
             }
@@ -447,29 +464,31 @@ namespace Unity.Scenes.Editor
             return true;
         }
 
-        bool CheckConversionLog(SubScene subScene)
+        unsafe bool CheckConversionLog(SubScene subScene)
         {
             var pendingWork = false;
 
             foreach (var world in World.All)
             {
                 var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                if (sceneSystem is null)
+                var statePtr = world.Unmanaged.ResolveSystemState(sceneSystem);
+                if (statePtr == null)
                     continue;
 
-                if (!m_ConversionLogLoaded.TryGetValue(sceneSystem.BuildConfigurationGUID, out var loaded))
-                    m_ConversionLogLoaded.Add(sceneSystem.BuildConfigurationGUID, false);
+                var buildConfigGuid = world.EntityManager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID;
+                if (!m_ConversionLogLoaded.TryGetValue(buildConfigGuid, out var loaded))
+                    m_ConversionLogLoaded.Add(buildConfigGuid, false);
                 else if (loaded)
                     continue;
 
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, true, ImportMode.Asynchronous);
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildConfigGuid, true, LiveConversionSettings.IsBakingEnabled, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Asynchronous);
                 if (!hash.IsValid)
                 {
                     pendingWork = true;
                     continue;
                 }
 
-                m_ConversionLogLoaded[sceneSystem.BuildConfigurationGUID] = true;
+                m_ConversionLogLoaded[buildConfigGuid] = true;
 
                 AssetDatabaseCompatibility.GetArtifactPaths(hash, out var paths);
                 var logPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesConversionLog);

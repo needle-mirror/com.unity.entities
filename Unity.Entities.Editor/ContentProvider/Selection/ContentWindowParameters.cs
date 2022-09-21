@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace Unity.Properties.UI
+namespace Unity.Platforms.UI
 {
     /// <summary>
     /// Custom parameters to use when a <see cref="ContentProvider"/> is displayed in a window.

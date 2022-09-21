@@ -13,7 +13,7 @@ namespace Unity.Entities.Tests
         [SetUp]
         public void Setup()
         {
-            m_Store = new BlobAssetStore();
+            m_Store = new BlobAssetStore(128);
         }
 
         [TearDown]
@@ -37,23 +37,23 @@ namespace Unity.Entities.Tests
             var k1 = FromInt(a1.Value);
             var k2 = FromFloat(a2.Value);
 
-            Assert.IsTrue(m_Store.TryAdd(k0, a0));
-            Assert.IsFalse(m_Store.TryAdd(k0, a0));
-            Assert.IsTrue(m_Store.TryGet<int>(k0, out var ra0));
+            Assert.IsTrue(m_Store.TryAdd(k0, ref a0));
+            Assert.IsFalse(m_Store.TryAdd(k0, ref a0));
+            Assert.IsTrue(m_Store.TryGetTest<int>(k0, out var ra0));
             Assert.AreEqual(0, ra0.Value);
             Assert.AreEqual(0, m_Store.CacheMiss);
             Assert.AreEqual(1, m_Store.CacheHit);
 
-            Assert.IsFalse(m_Store.TryGet<int>(k1, out var ra1));
-            Assert.IsTrue(m_Store.TryAdd(k1, a1));
-            Assert.IsTrue(m_Store.TryGet<int>(k1, out ra1));
+            Assert.IsFalse(m_Store.TryGetTest<int>(k1, out var ra1));
+            Assert.IsTrue(m_Store.TryAdd(k1, ref a1));
+            Assert.IsTrue(m_Store.TryGetTest<int>(k1, out ra1));
             Assert.AreEqual(1, ra1.Value);
             Assert.AreEqual(1, m_Store.CacheMiss);
             Assert.AreEqual(2, m_Store.CacheHit);
 
-            Assert.IsFalse(m_Store.TryGet<float>(k2, out var ra2));
-            Assert.IsTrue(m_Store.TryAdd(k2, a2));
-            Assert.IsTrue(m_Store.TryGet(k2, out ra2));
+            Assert.IsFalse(m_Store.TryGetTest<float>(k2, out var ra2));
+            Assert.IsTrue(m_Store.TryAdd(k2, ref a2));
+            Assert.IsTrue(m_Store.TryGetTest(k2, out ra2));
             Assert.AreEqual(2.0f, ra2.Value);
             Assert.AreEqual(2, m_Store.CacheMiss);
             Assert.AreEqual(3, m_Store.CacheHit);
@@ -67,8 +67,8 @@ namespace Unity.Entities.Tests
 
             var k = FromInt(a0.Value);
 
-            Assert.IsTrue(m_Store.TryAdd(k, a0));
-            Assert.IsTrue(m_Store.TryAdd(k, a1));
+            Assert.IsTrue(m_Store.TryAdd(k, ref a0));
+            Assert.IsTrue(m_Store.TryAdd(k, ref a1));
 
             m_Store.TryGet<int>(k, out var ra0);
             m_Store.TryGet<byte>(k, out var ra1);
@@ -88,10 +88,10 @@ namespace Unity.Entities.Tests
             var k1 = FromInt(a1.Value);
             var k2 = FromFloat(a2.Value);
 
-            Assert.IsTrue(m_Store.TryAdd(k0, a0));
+            Assert.IsTrue(m_Store.TryAdd(k0, ref a0));
             Assert.IsTrue(m_Store.TryGet<int>(k0, out var ra0));
 
-            Assert.IsTrue(m_Store.TryAdd(k1, a1));
+            Assert.IsTrue(m_Store.TryAdd(k1, ref a1));
             Assert.IsTrue(m_Store.TryGet<int>(k1, out var ra1));
 
             m_Store.ResetCache(true);
@@ -102,7 +102,7 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Store.TryGet(k0, out ra0));
             Assert.IsFalse(m_Store.TryGet(k0, out ra1));
 
-            Assert.IsTrue(m_Store.TryAdd(k2, a2));
+            Assert.IsTrue(m_Store.TryAdd(k2, ref a2));
             Assert.IsTrue(m_Store.TryGet<float>(k2, out var ra2));
         }
 
@@ -115,8 +115,8 @@ namespace Unity.Entities.Tests
             var k0 = FromInt(a0.Value);
             var k1 = FromInt(a1.Value);
 
-            Assert.IsTrue(m_Store.TryAdd(k0, a0));
-            Assert.IsTrue(m_Store.TryAdd(k1, a1));
+            Assert.IsTrue(m_Store.TryAdd(k0, ref a0));
+            Assert.IsTrue(m_Store.TryAdd(k1, ref a1));
 
             m_Store.ResetCache(false);
 
@@ -125,23 +125,105 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddUniqueBlobAsset()
+        public void TestTryAddWithContentHash()
         {
             var a0 = BlobAssetReference<int>.Create(0);
             var a0Duplicate = BlobAssetReference<int>.Create(0);
             var a1 = BlobAssetReference<int>.Create(1);
             var a0Float = BlobAssetReference<float>.Create(0);
 
-            Assert.IsTrue(m_Store.AddUniqueBlobAsset(ref a0));
-            Assert.IsFalse(m_Store.AddUniqueBlobAsset(ref a0Duplicate));
-            Assert.IsTrue(m_Store.AddUniqueBlobAsset(ref a1));
-            Assert.IsTrue(m_Store.AddUniqueBlobAsset(ref a0Float));
+            Assert.IsTrue(m_Store.TryAdd(ref a0));
+            Assert.IsFalse(m_Store.TryAdd(ref a0Duplicate));
+            Assert.IsTrue(m_Store.TryAdd(ref a1));
+            Assert.IsTrue(m_Store.TryAdd(ref a0Float));
 
             Assert.AreEqual(0, a0.Value);
             Assert.AreEqual(0, a0Duplicate.Value);
             Assert.AreEqual(1, a1.Value);
             Assert.AreEqual(0.0F, a0Float.Value);
         }
+
+        [Test]
+        public void TestTryAddRefCountingWithDefaultHash()
+        {
+            var a = BlobAssetReference<int>.Create(0);
+            var aDuplicate = BlobAssetReference<int>.Create(0);
+
+            // Add 2 identical blob assets with default content hash
+            Assert.IsTrue(m_Store.TryAdd(ref a, out Hash128 hash0));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(hash0));
+
+            Assert.IsFalse(m_Store.TryAdd(ref aDuplicate, out Hash128 hash0Duplicate));
+            Assert.AreEqual(hash0, hash0Duplicate);
+            Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter<int>(hash0));
+
+            Assert.AreEqual(0, a.Value);
+            Assert.AreEqual(0, aDuplicate.Value);
+
+            // Remove the blob assets with default content hash
+            Assert.IsFalse(m_Store.Remove<int>(hash0, true));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(hash0));
+
+            Assert.IsTrue(m_Store.Remove<int>(hash0, true));
+            Assert.AreEqual(0, m_Store.GetBlobAssetRefCounter<int>(hash0));
+        }
+
+        [Test]
+        public void TestTryAddRefCountingWithCustomHash()
+        {
+            var a = BlobAssetReference<int>.Create(1);
+            var aDuplicate = BlobAssetReference<int>.Create(1);
+
+            // Add 2 identical blob assets with custom hash
+            var k = FromInt(a.Value);
+
+            Assert.IsTrue(m_Store.TryAdd(k, ref a));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(k));
+
+            Assert.IsFalse(m_Store.TryAdd(k, ref aDuplicate));
+            Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter<int>(k));
+
+            Assert.AreEqual(1, a.Value);
+            Assert.AreEqual(1, aDuplicate.Value);
+
+            // Remove the blob assets with custom hash
+            Assert.IsFalse(m_Store.Remove<int>(k, true));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(k));
+
+            Assert.IsTrue(m_Store.Remove<int>(k, true));
+            Assert.AreEqual(0, m_Store.GetBlobAssetRefCounter<int>(k));
+        }
+
+        [Test]
+        public void TestTryGetRefCounting()
+        {
+            var a0 = BlobAssetReference<int>.Create(0);
+
+            // Add 1 identical blob assets with default content hash
+            Assert.IsTrue(m_Store.TryAdd(ref a0, out Hash128 hash0));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(hash0));
+
+            // Use TryGet to get an extra refCount on the blob asset
+            Assert.IsTrue(m_Store.TryGet<int>(hash0, out var a0Duplicate));
+            Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter<int>(hash0));
+
+            Assert.AreEqual(0, a0.Value);
+            Assert.AreEqual(0, a0Duplicate.Value);
+        }
+
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [Test]
+        public void BlobValidationChecks()
+        {
+            var blobBuilder = new BlobBuilder(Allocator.Temp);
+            blobBuilder.ConstructRoot<int>() = 5;
+            var tempBlob = blobBuilder.CreateBlobAssetReference<int>(Allocator.Temp);
+            var nullBlob = default(BlobAssetReference<int>);
+
+            Assert.Throws<ArgumentException>(() => m_Store.TryAdd(ref tempBlob));
+            Assert.Throws<InvalidOperationException>(() => m_Store.TryAdd(ref nullBlob));
+        }
+        #endif
 
         [Test]
         public void BlobPerOwnerTest()
@@ -197,6 +279,7 @@ namespace Unity.Entities.Tests
                 context.AssociateBlobAssetWithUnityObject(k1, go1);
                 context.AssociateBlobAssetWithUnityObject(k2, go1);
 
+
                 // Check the BlobAsset are retrieved correctly
                 var replayIndex = 0;
                 context.GetBlobAsset(processList[replayIndex++], out var res);
@@ -233,11 +316,11 @@ namespace Unity.Entities.Tests
             hashes.Dispose();
 
             // 2, 1, 2, 0, 1 as expected RefCounter for k0...4
-            Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter(k0));
-            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter(k1));
-            Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter(k2));
-            Assert.AreEqual(0, m_Store.GetBlobAssetRefCounter(k3));
-            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter(k4));
+            Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter<int>(k0));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(k1));
+            Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter<int>(k2));
+            Assert.AreEqual(0, m_Store.GetBlobAssetRefCounter<int>(k3));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(k4));
 
             // Associate k1, k2, k3 with GO0 and k3, k4 with GO1
             using (var context = new BlobAssetComputationContext<int, int>(m_Store, 16, Allocator.Temp))
@@ -303,11 +386,11 @@ namespace Unity.Entities.Tests
             hashes.Dispose();
 
             // 0, 1, 1, 2, 1 as expected RefCounter for k0...4
-            Assert.AreEqual(0, m_Store.GetBlobAssetRefCounter(k0));
-            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter(k1));
-            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter(k2));
-            Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter(k3));
-            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter(k4));
+            Assert.AreEqual(0, m_Store.GetBlobAssetRefCounter<int>(k0));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(k1));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(k2));
+            Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter<int>(k3));
+            Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(k4));
 
             // BlobAsset of k0 is not used by any UnityObject anymore, is should have been removed from the store
             Assert.IsFalse(m_Store.Contains<int>(k0));

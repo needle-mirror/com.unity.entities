@@ -106,12 +106,12 @@ namespace Unity.Entities.CodeGen.Cloner
             }
         }
 
-        // Check both field and variable usages
+        // Check both field and variable usages for display classes
         static HashSet<TypeDefinition> GetAllDisplayClassUsagesInMethod(MethodDefinition method)
         {
             var displayClassesUsedInMethod = new HashSet<TypeDefinition>();
 
-            foreach (var local in method.Body.Variables.Where(local => local.VariableType.IsDisplayClass()))
+            foreach (var local in method.Body.Variables.Where(local => local.VariableType.IsDisplayClassCandidate()))
                 displayClassesUsedInMethod.Add(local.VariableType.Resolve());
 
             foreach (var instruction in method.Body.Instructions)
@@ -119,13 +119,13 @@ namespace Unity.Entities.CodeGen.Cloner
                 if (instruction.IsLoadField() || instruction.IsLoadStaticField())
                 {
                     var fieldOperand = (FieldReference)instruction.Operand;
-                    if (fieldOperand.FieldType.IsDisplayClass())
+                    if (fieldOperand.FieldType.IsDisplayClassCandidate())
                         displayClassesUsedInMethod.Add(fieldOperand.FieldType.Resolve());
                 }
                 else if (instruction.OpCode == OpCodes.Newobj)
                 {
                     var methodOperand = (MethodReference)instruction.Operand;
-                    if (methodOperand.DeclaringType.IsDisplayClass())
+                    if (methodOperand.DeclaringType.IsDisplayClassCandidate())
                         displayClassesUsedInMethod.Add(method.DeclaringType.Resolve());
                 }
             }

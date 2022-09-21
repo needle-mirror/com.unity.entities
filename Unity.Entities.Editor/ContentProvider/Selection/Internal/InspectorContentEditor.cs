@@ -1,8 +1,8 @@
-using Unity.Properties.UI.Internal;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine.UIElements;
 
-namespace Unity.Properties.UI
+namespace Unity.Platforms.UI
 {
     [CustomEditor(typeof(InspectorContent), false)]
     class InspectorContentEditor : UnityEditor.Editor
@@ -61,7 +61,6 @@ namespace Unity.Properties.UI
 
             m_Root = new BindableElement();
             m_Root.Add(content);
-            content.style.height = 1200;
             m_Root.binding = new UpdateBinding
             {
                 DisplayContent = DisplayContent,

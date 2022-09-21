@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Properties.Editor;
+using Unity.Properties;
 using UnityEditor;
 
 namespace Unity.Entities.Editor
@@ -32,11 +32,7 @@ namespace Unity.Entities.Editor
         {
             if (!s_ComponentsDisplayNames.TryGetValue(typeName, out var displayName))
             {
-                s_ComponentsDisplayNames[typeName] = displayName = ObjectNames.NicifyVariableName(typeName.Replace("<", "[").Replace(">", "]"))
-                    .Replace("_", " | ")
-                    .Replace(".", " | ")
-                    .Replace("[", "<")
-                    .Replace("]", ">");
+                s_ComponentsDisplayNames[typeName] = displayName = ContentUtilities.NicifyTypeName(typeName);
             }
 
             return displayName;

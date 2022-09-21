@@ -3,15 +3,9 @@ using Unity.Serialization;
 
 namespace Unity.Entities.Editor
 {
-    [DOTSEditorPreferencesSetting(k_SectionName)]
+    [DOTSEditorPreferencesSetting(Constants.Settings.Journaling)]
     class EntitiesJournalingSettings : ISetting
     {
-#if !DISABLE_ENTITIES_JOURNALING
-        const string k_SectionName = "Entities Journaling";
-#else
-        const string k_SectionName = "Entities Journaling (disabled via define)";
-#endif
-
         [CreateProperty, DontSerialize]
         public bool Enabled
         {
@@ -40,6 +34,18 @@ namespace Unity.Entities.Editor
 #endif
         }
 
+        [CreateProperty, DontSerialize]
+        public bool PostProcess
+        {
+#if !DISABLE_ENTITIES_JOURNALING
+            get => EntitiesJournaling.Preferences.PostProcess;
+            set => EntitiesJournaling.Preferences.PostProcess = value;
+#else
+            get => false;
+            set { }
+#endif
+        }
+
         public void OnSettingChanged(PropertyPath path)
         {
         }
@@ -47,7 +53,7 @@ namespace Unity.Entities.Editor
 
 
 #if DISABLE_ENTITIES_JOURNALING
-    class EntitiesJournalingSettingsInspector : Unity.Properties.UI.Inspector<EntitiesJournalingSettings>
+    class EntitiesJournalingSettingsInspector : Unity.Platforms.UI.Inspector<EntitiesJournalingSettings>
     {
         public override UnityEngine.UIElements.VisualElement Build()
         {

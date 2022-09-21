@@ -27,16 +27,16 @@ namespace Unity.Entities.Tests
             const EntityManagerDifferOptions options = EntityManagerDifferOptions.IncludeForwardChangeSet |
                 EntityManagerDifferOptions.FastForwardShadowWorld;
 
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Create Root Prefab entity with a Guid component
                 var srcPrefabRoot = SrcEntityManager.CreateEntity(typeof(HierarchyComponent), typeof(Prefab), typeof(LinkedEntityGroup));
                 SrcEntityManager.AddComponentData(srcPrefabRoot, srcPrefabRootGuid);
                 SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcPrefabRoot).Add(srcPrefabRoot);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
-                using (var changes = differ.GetChanges(options, Allocator.TempJob))
+                using (var changes = differ.GetChanges(options, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     EntityPatcher.ApplyChangeSet(DstEntityManager, changes.ForwardChangeSet);
                 }
@@ -62,7 +62,7 @@ namespace Unity.Entities.Tests
 
                 // Synchronize worlds, we now should have 10 instances in the world along with a level0 for each
                 // and hierarchy matching the relationships create
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 for (var i = 0; i != dstInstanceRoots.Length; i++)
                 {
@@ -90,7 +90,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(srcLevel1Prefab, new HierarchyComponent {Parent = srcLevel0Prefab, Child = Entity.Null});
 
                 // Synchronize worlds, we now should have 10 instances of level 1 linked to their matching level 0
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 for (var i = 0; i != dstInstanceRoots.Length; i++)
                 {
@@ -116,7 +116,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(srcLevel0Prefab, new HierarchyComponent {Parent = srcPrefabRoot, Child = Entity.Null});
 
                 // Synchronize worlds, destination world should no longer have instances of level 1
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 for (var i = 0; i != dstInstanceRoots.Length; i++)
                 {
@@ -139,7 +139,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(srcLevel0Prefab, new HierarchyComponent {Parent = srcPrefabRoot, Child = srcLevel1Prefab});
                 SrcEntityManager.SetComponentData(srcLevel1Prefab, new HierarchyComponent {Parent = srcLevel0Prefab, Child = Entity.Null});
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 for (var i = 0; i != dstInstanceRoots.Length; i++)
                 {

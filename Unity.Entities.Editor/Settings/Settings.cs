@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine.UIElements;
 
@@ -125,6 +125,7 @@ namespace Unity.Entities.Editor
         public override void OnActivate(string searchContext, VisualElement rootElement)
         {
             var window = s_WindowTemplate.Clone(rootElement);
+            window.Q<ScrollView>("scrollView").horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             window.Q<Label>("title").text = Title;
 
             var settings = window.Q("settings");

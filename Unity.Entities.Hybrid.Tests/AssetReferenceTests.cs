@@ -27,10 +27,10 @@ namespace Unity.Entities.Tests
         {
             var e = m_Manager.CreateEntity();
             var sharedComponent = new SharedComponentWithAssetReference {Target = new TextAsset()};
-            m_Manager.AddSharedComponentData(e, sharedComponent);
+            m_Manager.AddSharedComponentManaged(e, sharedComponent);
             sharedComponent.Target = null;
             EditorUtility.UnloadUnusedAssetsImmediate();
-            Assert.IsFalse(m_Manager.GetSharedComponentData<SharedComponentWithAssetReference>(e).Target == null);
+            Assert.IsFalse(m_Manager.GetSharedComponentManaged<SharedComponentWithAssetReference>(e).Target == null);
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

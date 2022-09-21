@@ -9,6 +9,23 @@ namespace Unity.Entities.Tests
         NativeArray<int> Source;
         NativeArraySharedInt SharedValues;
 
+        AllocatorHelper<RewindableAllocator> m_AllocatorHelper;
+        protected ref RewindableAllocator RwdAllocator => ref m_AllocatorHelper.Allocator;
+
+        [OneTimeSetUp]
+        public virtual void OneTimeSetUp()
+        {
+            m_AllocatorHelper = new AllocatorHelper<RewindableAllocator>(Allocator.Persistent);
+            m_AllocatorHelper.Allocator.Initialize(128 * 1024, true);
+        }
+
+        [OneTimeTearDown]
+        public virtual void OneTimeTearDown()
+        {
+            m_AllocatorHelper.Allocator.Dispose();
+            m_AllocatorHelper.Dispose();
+        }
+
         [TearDown]
         public void Cleanup()
         {
@@ -17,28 +34,33 @@ namespace Unity.Entities.Tests
                 SharedValues.Dispose();
                 Source.Dispose();
             }
+
+            RwdAllocator.Rewind();
+            // This is test only behavior for determinism.  Rewind twice such that all
+            // tests start with an allocator containing only one memory block.
+            RwdAllocator.Rewind();
         }
 
         void PrepareReverseHalf(int count)
         {
-            Source = new NativeArray<int>(count, Allocator.TempJob);
+            Source = CollectionHelper.CreateNativeArray<int>(count, RwdAllocator.ToAllocator);
             for (int i = 0; i < count; i++)
             {
                 Source[i] = count - (i / 2);
             }
-            SharedValues = new NativeArraySharedInt(Source, Allocator.TempJob);
+            SharedValues = new NativeArraySharedInt(Source, RwdAllocator.ToAllocator);
             var sharedValuesJobHandle = SharedValues.Schedule(default(JobHandle));
             sharedValuesJobHandle.Complete();
         }
 
         void PrepareAllSame(int count)
         {
-            Source = new NativeArray<int>(count, Allocator.TempJob);
+            Source = CollectionHelper.CreateNativeArray<int>(count, RwdAllocator.ToAllocator);
             for (int i = 0; i < count; i++)
             {
                 Source[i] = 71;
             }
-            SharedValues = new NativeArraySharedInt(Source, Allocator.TempJob);
+            SharedValues = new NativeArraySharedInt(Source, RwdAllocator.ToAllocator);
             var sharedValuesJobHandle = SharedValues.Schedule(default(JobHandle));
             sharedValuesJobHandle.Complete();
         }
@@ -148,12 +170,12 @@ namespace Unity.Entities.Tests
         public void NASV_FoundAllSharedValues()
         {
             int count = 1024 + 1023;
-            var source = new NativeArray<int>(count, Allocator.TempJob);
+            var source = CollectionHelper.CreateNativeArray<int>(count, RwdAllocator.ToAllocator);
             for (int i = 0; i < count; i++)
             {
                 source[i] = i % 4;
             }
-            var sharedValues = new NativeArraySharedInt(source, Allocator.TempJob);
+            var sharedValues = new NativeArraySharedInt(source, RwdAllocator.ToAllocator);
             var sharedValuesJobHandle = sharedValues.Schedule(default(JobHandle));
             sharedValuesJobHandle.Complete();
 
@@ -165,9 +187,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, source[sharedIndexArray[2]]);
             Assert.AreEqual(3, source[sharedIndexArray[3]]);
             Assert.AreEqual(4, sharedValueCount);
-
-            sharedValues.Dispose();
-            source.Dispose();
         }
     }
 }

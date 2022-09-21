@@ -7,7 +7,7 @@ namespace Unity.Entities
 {
     partial class EntitiesProfiler
     {
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         [StructLayout(LayoutKind.Sequential)]
         public readonly struct WorldData : IEquatable<WorldData>
         {
@@ -16,10 +16,10 @@ namespace Unity.Entities
 
             public ulong SequenceNumber => m_SequenceNumber;
 
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Returns managed string")]
             public string Name => m_Name.ToString();
 
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Takes managed World")]
             public WorldData(World world)
             {
                 m_SequenceNumber = world.SequenceNumber;
@@ -31,7 +31,7 @@ namespace Unity.Entities
                 return m_SequenceNumber == other.m_SequenceNumber;
             }
 
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Takes managed object")]
             public override bool Equals(object obj)
             {
                 return obj is WorldData worldData ? Equals(worldData) : false;

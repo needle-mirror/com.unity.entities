@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
@@ -18,6 +18,7 @@ namespace Unity.Entities.Editor
             {
                 evt.StopPropagation();
                 evt.PreventDefault();
+                Analytics.SendEditorEvent(Analytics.Window.Inspector, Analytics.EventType.RelationshipGoTo, Analytics.GoToSystemDestination);
                 SystemScheduleWindow.HighlightSystem(@this.Data.SystemProxy);
                 ContentUtilities.ShowSystemInspectorContent(@this.Data.SystemProxy);
             }, this);

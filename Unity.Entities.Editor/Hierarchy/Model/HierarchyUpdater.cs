@@ -2,6 +2,8 @@
 using System.Collections;
 using System.IO;
 using Unity.Collections;
+using Unity.Editor.Bridge;
+using UnityEditor.SceneManagement;
 
 namespace Unity.Entities.Editor
 {
@@ -10,10 +12,12 @@ namespace Unity.Entities.Editor
         public enum UpdateStep
         {
             Start,
-            GetGameObjectChanges,
             GetEntityChanges,
-            IntegrateGameObjectChanges,
+            GetGameObjectChanges,
+            GetPrefabStageChanges,
             IntegrateEntityChanges,
+            IntegrateGameObjectChanges,
+            IntegratePrefabStageChanges,
             ExportImmutable,
             End
         }
@@ -21,12 +25,18 @@ namespace Unity.Entities.Editor
         readonly HierarchyNodeStore m_HierarchyNodeStore;
         readonly HierarchyNodeImmutableStore m_HierarchyNodeImmutableStore;
         readonly HierarchyNameStore m_HierarchyNameStore;
+        readonly HierarchyNodes m_HierarchyNodes;
 
         readonly Allocator m_Allocator;
 
         World m_World;
+
+        HierarchyEntityChangeTracker.OperationModeType m_HierarchyEntityChangeTrackerOperationMode;
+
         HierarchyEntityChangeTracker m_HierarchyEntityChangeTracker;
         HierarchyGameObjectChangeTracker m_HierarchyGameObjectChangeTracker;
+        HierarchyPrefabStageChangeTracker m_HierarchyPrefabStageChangeTracker;
+
         UpdateStep m_Step;
 
         uint m_Version;
@@ -42,6 +52,11 @@ namespace Unity.Entities.Editor
         readonly HierarchyGameObjectChanges m_HierarchyGameObjectChanges;
 
         /// <summary>
+        /// Re-usable data structure to store results from the <see cref="HierarchyGameObjectChangeTracker"/>.
+        /// </summary>
+        readonly HierarchyPrefabStageChanges m_HierarchyPrefabStageChanges;
+
+        /// <summary>
         /// A nested 'Enumerator' used to handle the implementation details of integrating entity changes over several ticks.
         /// </summary>
         HierarchyNodeStore.IntegrateEntityChangesEnumerator m_IntegrateEntityChangesEnumerator;
@@ -55,6 +70,11 @@ namespace Unity.Entities.Editor
         /// A shared state object used to drive the <see cref="m_ExportImmutableEnumerator"/>.
         /// </summary>
         HierarchyNodeStore.ExportImmutableState m_ExportImmutableState;
+
+        /// <summary>
+        /// The current prefab stage (can be null).
+        /// </summary>
+        PrefabStage m_PrefabStage;
 
         public int EntityChangeIntegrationBatchSize { get; set; } = 1000;
         public int ExportImmutableBatchSize { get; set; } = 1000;
@@ -83,10 +103,12 @@ namespace Unity.Entities.Editor
 
                 switch (m_Step)
                 {
-                    case UpdateStep.GetGameObjectChanges:
                     case UpdateStep.Start:
                     case UpdateStep.GetEntityChanges:
+                    case UpdateStep.GetGameObjectChanges:
+                    case UpdateStep.GetPrefabStageChanges:
                     case UpdateStep.IntegrateGameObjectChanges:
+                    case UpdateStep.IntegratePrefabStageChanges:
                         return 0f;
                     case UpdateStep.IntegrateEntityChanges:
                         return m_IntegrateEntityChangesEnumerator.Progress * kEntityChangeProgress;
@@ -102,20 +124,20 @@ namespace Unity.Entities.Editor
 
         public object Current => null;
 
-        public HierarchyUpdater(HierarchyNodeStore hierarchyNodeStore, HierarchyNodeImmutableStore hierarchyNodeImmutableStore, Allocator allocator)
-            : this(hierarchyNodeStore, hierarchyNodeImmutableStore, null, allocator)
-        {
-        }
-
-        public HierarchyUpdater(HierarchyNodeStore hierarchyNodeStore, HierarchyNodeImmutableStore hierarchyNodeImmutableStore, HierarchyNameStore hierarchyNameStore, Allocator allocator)
+        public HierarchyUpdater(HierarchyNodeStore hierarchyNodeStore, HierarchyNodeImmutableStore hierarchyNodeImmutableStore, HierarchyNameStore hierarchyNameStore, HierarchyNodes hierarchyNodes, Allocator allocator)
         {
             m_HierarchyNodeStore = hierarchyNodeStore;
             m_HierarchyNodeImmutableStore = hierarchyNodeImmutableStore;
             m_HierarchyNameStore = hierarchyNameStore;
+            m_HierarchyNodes = hierarchyNodes;
             m_Allocator = allocator;
             m_HierarchyEntityChanges = new HierarchyEntityChanges(allocator);
             m_HierarchyGameObjectChanges = new HierarchyGameObjectChanges(allocator);
+            m_HierarchyPrefabStageChanges = new HierarchyPrefabStageChanges(allocator);
             m_ExportImmutableState = new HierarchyNodeStore.ExportImmutableState(allocator);
+
+            m_HierarchyGameObjectChangeTracker = new HierarchyGameObjectChangeTracker(m_Allocator);
+            m_HierarchyPrefabStageChangeTracker = new HierarchyPrefabStageChangeTracker(m_Allocator);
 
             SetState(UpdateStep.Start);
         }
@@ -127,9 +149,11 @@ namespace Unity.Entities.Editor
             m_ExportImmutableState.Dispose();
             m_HierarchyEntityChangeTracker?.Dispose();
             m_HierarchyGameObjectChangeTracker?.Dispose();
+            m_HierarchyPrefabStageChangeTracker?.Dispose();
 
             m_HierarchyEntityChangeTracker = null;
             m_HierarchyGameObjectChangeTracker = null;
+            m_HierarchyPrefabStageChangeTracker = null;
         }
 
         public void SetWorld(World world)
@@ -140,26 +164,31 @@ namespace Unity.Entities.Editor
             m_World = world;
 
             m_HierarchyEntityChangeTracker?.Dispose();
-            m_HierarchyGameObjectChangeTracker?.Dispose();
 
-            if (null != world)
-            {
-                // Re-initialize a new change tracker for the specified world.
-                m_HierarchyEntityChangeTracker = new HierarchyEntityChangeTracker(m_World, m_Allocator);
-                m_HierarchyGameObjectChangeTracker = new HierarchyGameObjectChangeTracker(m_Allocator);
-            }
-            else
-            {
-                m_HierarchyEntityChangeTracker = null;
-                m_HierarchyGameObjectChangeTracker = null;
-            }
+            m_HierarchyEntityChangeTracker = null != world
+                ? new HierarchyEntityChangeTracker(m_World, m_Allocator) { OperationMode = m_HierarchyEntityChangeTrackerOperationMode }
+                : null;
 
             Reset();
+        }
+        
+        public void ClearGameObjectTrackers()
+        {
+            m_HierarchyGameObjectChangeTracker.Clear();
+            m_HierarchyPrefabStageChangeTracker.Clear();
+        }
+
+        public void SetEntityChangeTrackerMode(HierarchyEntityChangeTracker.OperationModeType mode)
+        {
+            m_HierarchyEntityChangeTrackerOperationMode = mode;
+
+            if (null != m_HierarchyEntityChangeTracker)
+                m_HierarchyEntityChangeTracker.OperationMode = mode;
         }
 
         /// <summary>
         /// This method is invoked when entering a new state and should be used to initialize any
-        /// state specific variables. The state itself will not be run until the next frame. 
+        /// state specific variables. The state itself will not be run until the next frame.
         /// </summary>
         /// <param name="state">The state to switch to.</param>
         void SetState(UpdateStep state)
@@ -170,6 +199,16 @@ namespace Unity.Entities.Editor
 
                 switch (state)
                 {
+                    case UpdateStep.GetEntityChanges:
+                    {
+                        if (null == m_HierarchyEntityChangeTracker)
+                        {
+                            state = UpdateStep.GetGameObjectChanges;
+                            continue;
+                        }
+
+                        break;
+                    }
                     case UpdateStep.IntegrateEntityChanges:
                     {
                         if (m_HierarchyEntityChanges.HasChanges())
@@ -179,8 +218,19 @@ namespace Unity.Entities.Editor
                         }
                         else
                         {
+                            state = UpdateStep.IntegrateGameObjectChanges;
+                            continue;
+                        }
+
+                        break;
+                    }
+
+                    case UpdateStep.IntegrateGameObjectChanges:
+                    {
+                        if (!m_HierarchyGameObjectChanges.HasChanges())
+                        {
                             // No changes to integrate move on to linear packing.
-                            state = UpdateStep.ExportImmutable;
+                            state = UpdateStep.IntegratePrefabStageChanges;
                             continue;
                         }
 
@@ -219,20 +269,10 @@ namespace Unity.Entities.Editor
 
         public bool MoveNext()
         {
-            if (null == m_World)
-                return false;
-
             switch (m_Step)
             {
                 case UpdateStep.Start:
                 {
-                    SetState(UpdateStep.GetGameObjectChanges);
-                    return true;
-                }
-
-                case UpdateStep.GetGameObjectChanges:
-                {
-                    m_HierarchyGameObjectChangeTracker.GetChanges(m_HierarchyGameObjectChanges);
                     SetState(UpdateStep.GetEntityChanges);
                     return true;
                 }
@@ -240,6 +280,28 @@ namespace Unity.Entities.Editor
                 case UpdateStep.GetEntityChanges:
                 {
                     m_HierarchyEntityChangeTracker.GetChanges(m_HierarchyEntityChanges);
+                    SetState(UpdateStep.GetGameObjectChanges);
+                    return true;
+                }
+                case UpdateStep.GetGameObjectChanges:
+                {
+                    m_HierarchyGameObjectChangeTracker.GetChanges(m_HierarchyGameObjectChanges);
+                    SetState(UpdateStep.GetPrefabStageChanges);
+                    return true;
+                }
+                case UpdateStep.GetPrefabStageChanges:
+                {
+                    m_HierarchyPrefabStageChangeTracker.GetChanges(m_HierarchyPrefabStageChanges);
+                    SetState(UpdateStep.IntegrateEntityChanges);
+                    return true;
+                }
+                case UpdateStep.IntegrateEntityChanges:
+                {
+                    if (m_IntegrateEntityChangesEnumerator.MoveNext())
+                        return true;
+
+                    m_IntegrateEntityChangesEnumerator = default;
+                    m_HierarchyNameStore?.IntegrateEntityChanges(m_HierarchyEntityChanges);
                     SetState(UpdateStep.IntegrateGameObjectChanges);
                     return true;
                 }
@@ -248,17 +310,22 @@ namespace Unity.Entities.Editor
                 {
                     m_HierarchyNodeStore.IntegrateGameObjectChanges(m_HierarchyGameObjectChanges);
                     m_HierarchyNameStore?.IntegrateGameObjectChanges(m_HierarchyGameObjectChanges);
-                    SetState(UpdateStep.IntegrateEntityChanges);
+                    SetState(UpdateStep.IntegratePrefabStageChanges);
                     return true;
                 }
 
-                case UpdateStep.IntegrateEntityChanges:
+                case UpdateStep.IntegratePrefabStageChanges:
                 {
-                    if (m_IntegrateEntityChangesEnumerator.MoveNext())
-                        return true;
+                    m_HierarchyNodeStore.IntegratePrefabStageChanges(m_HierarchyPrefabStageChanges);
 
-                    m_IntegrateEntityChangesEnumerator = default;
-                    m_HierarchyNameStore?.IntegrateEntityChanges(m_HierarchyEntityChanges);
+                    // @FIXME This is a bit hackish. We don't really want to be manipulating the _future state_ of the hierarchy.
+                    // i.e. `m_HierarchyNodes` represents a view over the packed set which has not even been been built yet.
+                    // In practice the expanded state is simply a hashset and there is no risk in adding new elements. We should still find a better solution.
+                    foreach (var change in m_HierarchyPrefabStageChanges.GameObjectChangeTrackerEvents)
+                        if (change.EventType == GameObjectChangeTrackerEventType.CreatedOrChanged)
+                            m_HierarchyNodes.SetExpanded(HierarchyNodeHandle.FromGameObject(change.InstanceId), true);
+
+                    m_HierarchyNameStore?.IntegratePrefabStageChanges(m_HierarchyPrefabStageChanges);
                     SetState(UpdateStep.ExportImmutable);
                     return true;
                 }

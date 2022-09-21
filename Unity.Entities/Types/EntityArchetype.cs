@@ -32,9 +32,11 @@ namespace Unity.Entities
     public unsafe struct EntityArchetype : IEquatable<EntityArchetype>
     {
         [NativeDisableUnsafePtrRestriction] internal Archetype* Archetype;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-        [NativeDisableUnsafePtrRestriction] internal EntityComponentStore* _DebugComponentStore;
-#endif
+
+        internal EntityArchetype(Archetype* archetype)
+        {
+            Archetype = archetype;
+        }
 
         /// <summary>
         /// Reports whether this EntityArchetype instance references a non-null archetype.
@@ -96,6 +98,19 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Construct a string representation of this archetype, for logging or debugging.
+        /// </summary>
+        /// <returns>A string representation of this archetype.</returns>
+        public override string ToString()
+        {
+#if !NET_DOTS
+            return EntityManager.EntityManagerDebug.GetArchetypeDebugString(Archetype);
+#else
+            return String.Empty;
+#endif
+        }
+
+        /// <summary>
         /// Gets the types of the components making up this archetype.
         /// </summary>
         /// <remarks>The set of component types in an archetype cannot change; adding components to an entity or
@@ -129,7 +144,7 @@ namespace Unity.Entities
         /// <param name="removedTypesCount">How many types were put into the removedTypes buffer</param>
         public static void CalculateDifference(
             EntityArchetype before, EntityArchetype after,
-            int* addedTypes, out int addedTypesCount, int* removedTypes, out int removedTypesCount)
+            TypeIndex* addedTypes, out int addedTypesCount, TypeIndex* removedTypes, out int removedTypesCount)
         {
             int b = 1;
             int a = 1;
@@ -211,7 +226,7 @@ namespace Unity.Entities
         /// </summary>
         /// <value>True, if the archetype is a disabled archetype.</value>
         public bool Disabled => Archetype->Disabled;
-        
+
         /// <summary>
         /// Retrieve the stable hash for this EntityArchetype.
         /// </summary>

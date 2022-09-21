@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Build;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -11,8 +12,14 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
+    [InitializeOnLoad]
     internal static class SubSceneInspectorUtility
     {
+        static SubSceneInspectorUtility()
+        {
+            Unsupported.SetUsingAuthoringScenes(true);
+        }
+
         public static Transform GetUncleanHierarchyObject(SubScene[] subscenes)
         {
             foreach (var scene in subscenes)
@@ -70,17 +77,18 @@ namespace Unity.Scenes.Editor
             public int NumSubSceneSectionsLoaded;
         }
 
-        static NativeArray<Entity> GetActiveWorldSections(World world, Hash128 sceneGUID)
+        static unsafe NativeArray<Entity> GetActiveWorldSections(World world, Hash128 sceneGUID)
         {
             if (world == null || !world.IsCreated) return default;
 
             var sceneSystem = world.GetExistingSystem<SceneSystem>();
-            if (sceneSystem == null)
+            var statePtr = world.Unmanaged.ResolveSystemState(sceneSystem);
+            if (statePtr == null)
                 return default;
 
             var entities = world.EntityManager;
 
-            var sceneEntity = sceneSystem.GetSceneEntity(sceneGUID);
+            var sceneEntity = SceneSystem.GetSceneEntity(world.Unmanaged, sceneGUID);
 
             if (!entities.HasComponent<ResolvedSectionEntity>(sceneEntity))
                 return default;
@@ -88,9 +96,9 @@ namespace Unity.Scenes.Editor
             return entities.GetBuffer<ResolvedSectionEntity>(sceneEntity).Reinterpret<Entity>().AsNativeArray();
         }
 
-        public static LoadableScene[] GetLoadableScenes(SubScene[] scenes)
+        public static SubSceneInspectorUtility.LoadableScene[] GetLoadableScenes(SubScene[] scenes)
         {
-            var loadables = new List<LoadableScene>();
+            var loadables = new List<SubSceneInspectorUtility.LoadableScene>();
             DefaultWorldInitialization.DefaultLazyEditModeInitialize(); // workaround for occasional null World at this point
             var world = World.DefaultGameObjectInjectionWorld;
             var entityManager = world.EntityManager;
@@ -115,7 +123,7 @@ namespace Unity.Scenes.Editor
                         if (sectionIndex == 0)
                             section0IsLoaded = isLoaded;
 
-                        loadables.Add(new LoadableScene
+                        loadables.Add(new SubSceneInspectorUtility.LoadableScene
                         {
                             Scene = section,
                             Name = name,
@@ -141,16 +149,18 @@ namespace Unity.Scenes.Editor
             return loadables.ToArray();
         }
 
-        public static void ForceReimport(params SubScene[] scenes)
+        public static unsafe void ForceReimport(params SubScene[] scenes)
         {
             bool needRefresh = false;
             foreach (var world in World.All)
             {
                 var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                if (sceneSystem != null)
+                var statePtr = world.Unmanaged.ResolveSystemState(sceneSystem);
+                if (statePtr != null)
                 {
+                    var buildConfigGuid = world.EntityManager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID;
                     foreach (var scene in scenes)
-                        needRefresh |= SceneWithBuildConfigurationGUIDs.Dirty(scene.SceneGUID, sceneSystem.BuildConfigurationGUID);
+                        needRefresh |= SceneWithBuildConfigurationGUIDs.Dirty(scene.SceneGUID, buildConfigGuid);
                 }
             }
             if (needRefresh)
@@ -165,20 +175,9 @@ namespace Unity.Scenes.Editor
             return !subScene.IsLoaded;
         }
 
-        public static void EditScene(params SubScene[] scenes)
+        public static void SetSceneAsSubScene(Scene scene)
         {
-            foreach (var subScene in scenes)
-            {
-                if (CanEditScene(subScene))
-                {
-                    Scene scene;
-                    if (Application.isPlaying)
-                        scene = EditorSceneManager.LoadSceneInPlayMode(subScene.EditableScenePath, new LoadSceneParameters(LoadSceneMode.Additive));
-                    else
-                        scene = EditorSceneManager.OpenScene(subScene.EditableScenePath, OpenSceneMode.Additive);
-                    scene.isSubScene = true;
-                }
-            }
+            scene.isSubScene = true;
         }
 
         public static void CloseAndAskSaveIfUserWantsTo(params SubScene[] subScenes)
@@ -265,70 +264,5 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static LiveConversionMode LiveConversionMode
-        {
-            get
-            {
-                if (EditorApplication.isPlaying || LiveConversionEnabled)
-                    return LiveConversionSceneViewShowRuntime ? LiveConversionMode.SceneViewShowsRuntime : LiveConversionMode.SceneViewShowsAuthoring;
-                else
-                    return LiveConversionMode.Disabled;
-            }
-        }
-
-        public static bool LiveConversionEnabled
-        {
-            get
-            {
-                // DEPRECATE 2021-04-25
-                if (EditorPrefs.HasKey("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode"))
-                {
-                    var oldValue = EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode", false);
-                    EditorPrefs.DeleteKey("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode");
-                    LiveConversionEnabled = oldValue;
-                    return oldValue;
-                }
-
-                return EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveConversionEnabled", false);
-            }
-            set
-            {
-                if (LiveConversionEnabled == value)
-                    return;
-
-                EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveConversionEnabled", value);
-                LiveConversionConnection.GlobalDirtyLiveConversion();
-                LiveConversionModeChanged();
-            }
-        }
-
-        public static bool LiveConversionSceneViewShowRuntime
-        {
-            get
-            {
-                // DEPRECATE 2021-04-25
-                if (EditorPrefs.HasKey("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView"))
-                {
-                    var oldValue = EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView", false);
-                    EditorPrefs.DeleteKey("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView");
-                    LiveConversionEnabled = oldValue;
-                    return oldValue;
-                }
-
-                return EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveConversionSceneViewShowRuntime", false);
-            }
-            set
-            {
-                if (LiveConversionSceneViewShowRuntime == value)
-                    return;
-
-                EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveConversionSceneViewShowRuntime", value);
-                LiveConversionConnection.GlobalDirtyLiveConversion();
-                LiveConversionModeChanged();
-            }
-        }
-
-        [Obsolete("LiveConversionModeChanged will no longer be public. Removed after 2021-04-25")]
-        public static event Action LiveConversionModeChanged = delegate {};
     }
 }

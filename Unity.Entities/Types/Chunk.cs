@@ -45,13 +45,17 @@ namespace Unity.Entities
         [FieldOffset(32)]
         public uint Flags;
 
+        // Index of chunk in global ChunkStore
+        [FieldOffset(36)]
+        public int ChunkstoreIndex;
+
         // SequenceNumber is a unique number for each chunk, across all worlds. (Chunk* is not guranteed unique, in particular because chunk allocations are pooled)
         [FieldOffset(kSerializedHeaderSize)]
         public ulong SequenceNumber;
 
         // NOTE: SequenceNumber is not part of the serialized header.
         //       It is cleared on write to disk, it is a global in memory sequence ID used for comparing chunks.
-        public const int kSerializedHeaderSize = 36;
+        public const int kSerializedHeaderSize = 40;
 
 
         // Chunk header END

@@ -38,6 +38,7 @@ namespace Unity.Entities.Editor
 
             protected override VisualElement CreateView()
             {
+                Analytics.SendEditorEvent(Analytics.Window.Profiler, Analytics.EventType.ProfilerModuleCreate, Analytics.MemoryProfilerModuleName);
                 return m_View.Create();
             }
 
@@ -123,7 +124,7 @@ namespace Unity.Entities.Editor
             if (m_FrameIndex == -1 || IsRecording || !m_View.HasArchetypesDataSource)
                 m_View.Clear(IsRecording ? s_DisplayingFrameDataDisabled : s_NoFrameDataAvailable);
             else
-                m_View.Rebuild();
+                m_View.Update();
         }
 
         public override void Clear()

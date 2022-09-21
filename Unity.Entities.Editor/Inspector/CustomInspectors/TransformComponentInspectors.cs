@@ -1,20 +1,19 @@
 using JetBrains.Annotations;
 using Unity.Mathematics;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Transforms;
-using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Inspectors
 {
-    abstract class Float4x4ValueInspector<T> : Inspector<T>
+    abstract class Float4x4ValueInspector<T> : PropertyInspector<T>
     {
         static Float4x4ValueInspector()
         {
-            TypeConversion.Register<float4, Vector4>(v => v);
-            TypeConversion.Register<Vector4, float4>(v => v);
+            TypeConversion.Register((ref float4 v) => (Vector4) v);
+            TypeConversion.Register((ref Vector4 v) => (float4) v);
         }
 
         public override VisualElement Build()
@@ -28,6 +27,7 @@ namespace Unity.Entities.Editor.Inspectors
             {
                 var column = new Vector4Field { bindingPath = "c" + i };
                 column.Query<FloatField>().ForEach(field => field.formatString = "0.###");
+                InspectorUtility.AddRuntimeBar(column);
                 root.Add(column);
             }
 
@@ -35,16 +35,21 @@ namespace Unity.Entities.Editor.Inspectors
         }
     }
 
+    #if !ENABLE_TRANSFORM_V1
+    #else
     [UsedImplicitly]
     sealed class LocalToParentInspector : Float4x4ValueInspector<LocalToParent>
     {
     }
+#endif
 
     [UsedImplicitly]
     sealed class LocalToWorldInspector : Float4x4ValueInspector<LocalToWorld>
     {
     }
 
+#if !ENABLE_TRANSFORM_V1
+#else
     [UsedImplicitly]
     sealed class CompositeRotationInspector : Float4x4ValueInspector<CompositeRotation>
     {
@@ -64,13 +69,14 @@ namespace Unity.Entities.Editor.Inspectors
     sealed class WorldToLocalInspector : Float4x4ValueInspector<WorldToLocal>
     {
     }
+#endif
 
-    abstract class Float3ValueInspector<T> : Inspector<T>
+    abstract class Float3ValueInspector<T> : PropertyInspector<T>
     {
         static Float3ValueInspector()
         {
-            TypeConversion.Register<float3, Vector3>(v => v);
-            TypeConversion.Register<Vector3, float3>(v => v);
+            TypeConversion.Register((ref float3 v) => (Vector3) v);
+            TypeConversion.Register((ref Vector3 v) => (float3) v);
         }
 
         public override VisualElement Build()
@@ -81,6 +87,8 @@ namespace Unity.Entities.Editor.Inspectors
         }
     }
 
+#if !ENABLE_TRANSFORM_V1
+#else
     [UsedImplicitly]
     sealed class TranslationInspector : Float3ValueInspector<Translation>
     {
@@ -170,13 +178,14 @@ namespace Unity.Entities.Editor.Inspectors
     sealed class ScalePivotTranslationInspector : Float4x4ValueInspector<ScalePivotTranslation>
     {
     }
+#endif
 
-    abstract class QuaternionValueInspector<T> : Inspector<T>
+    abstract class QuaternionValueInspector<T> : PropertyInspector<T>
     {
         static QuaternionValueInspector()
         {
-            TypeConversion.Register<quaternion, Vector4>(v => v.value);
-            TypeConversion.Register<Vector4, quaternion>(v => new quaternion { value = v });
+            TypeConversion.Register((ref quaternion v) => (Vector4) v.value);
+            TypeConversion.Register((ref Vector4 v) => new quaternion { value = v });
         }
 
         public override VisualElement Build()
@@ -187,6 +196,8 @@ namespace Unity.Entities.Editor.Inspectors
         }
     }
 
+#if !ENABLE_TRANSFORM_V1
+#else
     [UsedImplicitly]
     sealed class RotationInspector : QuaternionValueInspector<Rotation>
     {
@@ -196,8 +207,9 @@ namespace Unity.Entities.Editor.Inspectors
     sealed class PostRotationInspector : QuaternionValueInspector<PostRotation>
     {
     }
+#endif
 
-    abstract class DefaultValueInspector<T> : Inspector<T>
+    abstract class DefaultValueInspector<T> : PropertyInspector<T>
     {
         public override VisualElement Build()
         {

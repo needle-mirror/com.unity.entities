@@ -1,6 +1,6 @@
 ﻿#if !NET_DOTS
 // NET_DOTS does not support TestCaseSource and these tests are only used to validate existing DOTS ILPP-related issues (not specifically NET_DOTS related)
-// https://unity3d.atlassian.net/browse/DOTS-3822
+// DOTS-3822
 
 using System;
 using System.Runtime.CompilerServices;
@@ -39,7 +39,7 @@ namespace Unity.Entities.CodeGen.Tests
 
         World Create(Type type)
         {
-            if (World.GetOrCreateSystem(type) is SystemBase system)
+            if (World.GetOrCreateSystemManaged(type) is SystemBase system)
             {
                 return World;
             }
@@ -50,15 +50,22 @@ namespace Unity.Entities.CodeGen.Tests
         {
             protected override void OnUpdate()
             {
-                var deltaTime = Time.DeltaTime;
+                var deltaTime = SystemAPI.Time.DeltaTime;
                 DoAction(() =>
                 {
                     Entities
                         .WithName("RotationSpeedSystem_ForEach")
+#if !ENABLE_TRANSFORM_V1
+                        .ForEach((ref LocalToWorldTransform transform) =>
+                        {
+                            transform.Value.Rotation = math.mul(math.normalize(transform.Value.Rotation), quaternion.AxisAngle(math.up(), deltaTime));
+                        })
+#else
                         .ForEach((ref Rotation rotation) =>
                         {
                             rotation.Value = math.mul(math.normalize(rotation.Value), quaternion.AxisAngle(math.up(), deltaTime));
                         })
+#endif
                         .ScheduleParallel();
                 });
             }
@@ -91,7 +98,7 @@ namespace Unity.Entities.CodeGen.Tests
         {
             protected override void OnUpdate()
             {
-                var testData = GetComponentDataFromEntity<EcsTestData>();
+                var testData = GetComponentLookup<EcsTestData>();
                 bool somethingChanged = default;
 
                 Entities
@@ -114,7 +121,7 @@ namespace Unity.Entities.CodeGen.Tests
                 var shared = new SharedData1{ value = 0x42 };
 
                 var e = EntityManager.CreateEntity();
-                EntityManager.SetSharedComponentData(e, shared);
+                EntityManager.SetSharedComponentManaged(e, shared);
                 EntityManager.AddComponentData(e, new EcsTestData {value = 1});
                 var b = EntityManager.AddBuffer<EcsIntElement>(e);
                 b.Add(5);
@@ -133,9 +140,15 @@ namespace Unity.Entities.CodeGen.Tests
                         }
                         if ((q > 0) && EntityManager.HasComponent<EcsTestData2>(entity))
                         {
+#if !ENABLE_TRANSFORM_V1
+                            EntityManager.SetComponentData(entity, new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(.0f, 1.0f, .0f)});
+                            var r = EntityManager.Instantiate(entity);
+                            EntityManager.AddComponentData(EntityManager.Instantiate(entity), new LocalToParentTransform());
+#else
                             EntityManager.SetComponentData(entity, new Translation{Value = new float3(.0f, 1.0f, .0f)});
                             var r = EntityManager.Instantiate(entity);
                             EntityManager.AddComponentData(EntityManager.Instantiate(entity), new LocalToParent());
+#endif
                             writeTo = entity;
                         }
                     })
@@ -148,8 +161,8 @@ namespace Unity.Entities.CodeGen.Tests
         {
             protected override void OnUpdate()
             {
-                var foo = GetComponentDataFromEntity<EcsTestData>();
-                var bar = GetComponentDataFromEntity<EcsTestData2>();
+                var foo = GetComponentLookup<EcsTestData>();
+                var bar = GetComponentLookup<EcsTestData2>();
 
                 bool somethingChanged = default;
                 Entities.ForEach((Entity e) =>
@@ -172,7 +185,7 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     value = 0x42
                 });
-                var foo = GetComponentDataFromEntity<EcsTestData>(true);
+                var foo = GetComponentLookup<EcsTestData>(true);
 
                 int fromGet = default;
                 int fromCom = default;
@@ -285,8 +298,8 @@ namespace Unity.Entities.CodeGen.Tests
                 var entityA = EntityManager.CreateEntity(typeof(SomeSharedComponent), typeof(SomeComponent));
                 var entityB = EntityManager.CreateEntity(typeof(SomeSharedComponent), typeof(SomeComponent));
 
-                EntityManager.SetSharedComponentData(entityA, new SomeSharedComponent { Value = 123 });
-                EntityManager.SetSharedComponentData(entityB, new SomeSharedComponent { Value = 234 });
+                EntityManager.SetSharedComponentManaged(entityA, new SomeSharedComponent { Value = 123 });
+                EntityManager.SetSharedComponentManaged(entityB, new SomeSharedComponent { Value = 234 });
             }
 
             protected override void OnUpdate()

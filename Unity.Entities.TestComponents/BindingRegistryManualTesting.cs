@@ -11,7 +11,7 @@ namespace Unity.Entities.Tests
         public bool BindBool;
     }
 
-    public class BindingRegistryManualTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class BindingRegistryManualTestAuthoring : MonoBehaviour
     {
         [RegisterBinding(typeof(BindingRegistryManualTestComponent),
             nameof(BindingRegistryManualTestComponent.BindFloat))]
@@ -25,11 +25,13 @@ namespace Unity.Entities.Tests
             nameof(BindingRegistryManualTestComponent.BindBool))]
         public bool BoolField = true;
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+        class Baker : Baker<BindingRegistryManualTestAuthoring>
         {
-            dstManager.AddComponentData(entity,
-                new BindingRegistryManualTestComponent
-                    {BindFloat = FloatField, BindInt = IntField, BindBool = BoolField});
+            public override void Bake(BindingRegistryManualTestAuthoring authoring)
+            {
+                AddComponent(new BindingRegistryManualTestComponent
+                        {BindFloat = authoring.FloatField, BindInt = authoring.IntField, BindBool = authoring.BoolField});
+            }
         }
     }
 
@@ -38,31 +40,35 @@ namespace Unity.Entities.Tests
         public float2 BindFloat2;
     }
 
-    public class BindingRegistryField1TestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class BindingRegistryField1TestAuthoring : MonoBehaviour
     {
         [RegisterBinding(typeof(BindingRegistryFieldTestComponent),
             nameof(BindingRegistryFieldTestComponent.BindFloat2) + ".x")]
         public float2 FloatField = new float2(5.0f, 0.0f);
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+        class Baker : Baker<BindingRegistryField1TestAuthoring>
         {
-            dstManager.AddComponentData(entity,
-                new BindingRegistryFieldTestComponent
-                    {BindFloat2 = FloatField});
+            public override void Bake(BindingRegistryField1TestAuthoring authoring)
+            {
+                AddComponent(new BindingRegistryFieldTestComponent
+                    {BindFloat2 = authoring.FloatField});
+            }
         }
     }
 
-    public class BindingRegistryField2TestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class BindingRegistryField2TestAuthoring : MonoBehaviour
     {
         [RegisterBinding(typeof(BindingRegistryFieldTestComponent),
             nameof(BindingRegistryFieldTestComponent.BindFloat2) + ".y")]
         public float2 FloatField = new float2(0.0f, 5.0f);
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+        class Baker : Baker<BindingRegistryField2TestAuthoring>
         {
-            dstManager.AddComponentData(entity,
-                new BindingRegistryFieldTestComponent
-                    {BindFloat2 = FloatField});
+            public override void Bake(BindingRegistryField2TestAuthoring authoring)
+            {
+                AddComponent(new BindingRegistryFieldTestComponent
+                        {BindFloat2 = authoring.FloatField});
+            }
         }
     }
 }

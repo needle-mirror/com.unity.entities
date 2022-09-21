@@ -3,14 +3,17 @@ using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Assert = FastAssert;
 #if !NET_DOTS
 using System.Text.RegularExpressions;
 #endif
 
 namespace Unity.Entities.Tests
 {
+#pragma warning disable 618 // IJobEntityBatch is obsolete
     class IJobEntityBatchTests : ECSTestsFixture
     {
         [BurstCompile(CompileSynchronously = true)]
@@ -43,7 +46,7 @@ namespace Unity.Entities.Tests
             {
                 // We expect the BatchInfos array to be uninitialized until written by this job.
                 // If this fires, some other job thread has filled in this batch's info already!
-                // TODO https://unity3d.atlassian.net/browse/DOTS-4591: this will break when enabled bits are enabled. batchId is no longer guaranteed to be tightly-packed and zero-based.
+                // TODO DOTS-4591: this will break when enabled bits are enabled. batchId is no longer guaranteed to be tightly-packed and zero-based.
                 // a new approach will be needed for this test.
                 Assert.IsFalse(IsBatchInitialized(BatchInfos[batchId]));
                 Assert.NotZero(batchInChunk.Count);
@@ -134,7 +137,7 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        [TestCase(ScheduleMode.RunWithoutJobs)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)]
         public void IJobEntityBatch_GeneratesExpectedBatches_WithoutFiltering(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
@@ -143,7 +146,7 @@ namespace Unity.Entities.Tests
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             using (var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator))
             using (var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(
-                (granularity == ScheduleGranularity.Chunk) ? archetype.ChunkCount : entityCount, ref World.UpdateAllocator))
+                       (granularity == ScheduleGranularity.Chunk) ? archetype.ChunkCount : entityCount, ref World.UpdateAllocator))
             {
                 for (var i = 0; i < entityCount; ++i)
                 {
@@ -165,8 +168,10 @@ namespace Unity.Entities.Tests
                     job.Schedule(query).Complete();
                 else if (mode == ScheduleMode.Run)
                     job.Run(query);
+                /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                 else if (mode == ScheduleMode.RunWithoutJobs)
-                    JobEntityBatchExtensions.RunWithoutJobs(ref job, query);
+                    InternalCompilerInterface.JobEntityBatchInterface.RunWithoutJobs(ref job, query);
+                */
 
                 var entityTypeHandle = m_Manager.GetEntityTypeHandle();
                 int markedEntityCount = 0;
@@ -203,13 +208,13 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        [TestCase(ScheduleMode.RunWithoutJobs)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)]
         public void IJobEntityBatch_GeneratesExpectedBatches_WithFiltering(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
-            query.SetSharedComponentFilter(new EcsTestSharedComp {value = 17});
+            query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 17});
 
             var entityCount = 10000;
             using (var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator))
@@ -219,7 +224,7 @@ namespace Unity.Entities.Tests
                     m_Manager.SetComponentData(entities[i], new EcsTestData {value = -1});
                     if ((i % 2) == 0)
                     {
-                        m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = 17});
+                        m_Manager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp {value = 17});
                     }
                 }
 
@@ -241,8 +246,10 @@ namespace Unity.Entities.Tests
                         job.Schedule(query).Complete();
                     else if (mode == ScheduleMode.Run)
                         job.Run(query);
+                    /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                     else if (mode == ScheduleMode.RunWithoutJobs)
-                        JobEntityBatchExtensions.RunWithoutJobs(ref job, query);
+                        InternalCompilerInterface.JobEntityBatchInterface.RunWithoutJobs(ref job, query);
+                    */
 
                     var entityTypeHandle = m_Manager.GetEntityTypeHandle();
                     int markedEntityCount = 0;
@@ -261,7 +268,7 @@ namespace Unity.Entities.Tests
                         var batchEntities = batch.GetNativeArray(entityTypeHandle);
                         for (int i = 0; i < batchEntities.Length; ++i)
                         {
-                            Assert.AreEqual(17, m_Manager.GetSharedComponentData<EcsTestSharedComp>(batchEntities[i]).value);
+                            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(batchEntities[i]).value);
                             Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(batchEntities[i]).value);
                             m_Manager.SetComponentData(batchEntities[i], new EcsTestData {value = 1});
                             markedEntityCount++;
@@ -273,7 +280,7 @@ namespace Unity.Entities.Tests
                 for (int i = 0; i < entities.Length; ++i)
                 {
                     int testValue = m_Manager.GetComponentData<EcsTestData>(entities[i]).value;
-                    if (m_Manager.GetSharedComponentData<EcsTestSharedComp>(entities[i]).value == 17)
+                    if (m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(entities[i]).value == 17)
                     {
                         Assert.AreEqual(1, testValue);
                     }
@@ -291,7 +298,7 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        [TestCase(ScheduleMode.RunWithoutJobs)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)]
         public void IJobEntityBatchWithIndex_GeneratesExpectedBatches_WithoutFiltering(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
@@ -300,7 +307,7 @@ namespace Unity.Entities.Tests
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             using (var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator))
             using (var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(
-                (granularity == ScheduleGranularity.Chunk) ? archetype.ChunkCount : entityCount, ref World.UpdateAllocator))
+                       (granularity == ScheduleGranularity.Chunk) ? archetype.ChunkCount : entityCount, ref World.UpdateAllocator))
             {
                 for (var i = 0; i < entityCount; ++i)
                 {
@@ -329,8 +336,10 @@ namespace Unity.Entities.Tests
                     job.Schedule(query).Complete();
                 else if (mode == ScheduleMode.Run)
                     job.Run(query);
+                /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                 else if (mode == ScheduleMode.RunWithoutJobs)
-                    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query);
+                    InternalCompilerInterface.JobEntityBatchWithIndexInterface.RunWithoutJobs(ref job, query);
+                */
 
                 using (var matchingEntities = query.ToEntityArray(World.UpdateAllocator.ToAllocator))
                 {
@@ -374,13 +383,13 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        [TestCase(ScheduleMode.RunWithoutJobs)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)]
         public void IJobEntityBatchWithIndex_GeneratesExpectedBatches_WithFiltering(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
-            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
-            query.SetSharedComponentFilter(new EcsTestSharedComp {value = 17});
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 17});
 
             var entityCount = 10000;
             using (var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator))
@@ -390,7 +399,7 @@ namespace Unity.Entities.Tests
                     m_Manager.SetComponentData(entities[i], new EcsTestData {value = -1});
                     if ((i % 2) == 0)
                     {
-                        m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = 17});
+                        m_Manager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp {value = 17});
                     }
                 }
 
@@ -419,8 +428,10 @@ namespace Unity.Entities.Tests
                         job.Schedule(query).Complete();
                     else if (mode == ScheduleMode.Run)
                         job.Run(query);
+                    /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                     else if (mode == ScheduleMode.RunWithoutJobs)
-                        JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query);
+                        InternalCompilerInterface.JobEntityBatchWithIndexInterface.RunWithoutJobs(ref job, query);
+                    */
 
                     using (var matchingEntities = query.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
@@ -447,7 +458,7 @@ namespace Unity.Entities.Tests
                             for (int i = 0; i < batchEntities.Length; ++i)
                             {
                                 Assert.AreEqual(17,
-                                    m_Manager.GetSharedComponentData<EcsTestSharedComp>(batchEntities[i]).value);
+                                    m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(batchEntities[i]).value);
                                 Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(batchEntities[i]).value);
                                 m_Manager.SetComponentData(batchEntities[i], new EcsTestData {value = 1});
                                 markedEntityCount++;
@@ -460,7 +471,7 @@ namespace Unity.Entities.Tests
                 for (int i = 0; i < entities.Length; ++i)
                 {
                     int testValue = m_Manager.GetComponentData<EcsTestData>(entities[i]).value;
-                    if (m_Manager.GetSharedComponentData<EcsTestSharedComp>(entities[i]).value == 17)
+                    if (m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(entities[i]).value == 17)
                     {
                         Assert.AreEqual(1, testValue);
                     }
@@ -470,8 +481,6 @@ namespace Unity.Entities.Tests
                     }
                 }
             }
-
-            query.Dispose();
         }
 #endif
 
@@ -618,7 +627,7 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        [TestCase(ScheduleMode.RunWithoutJobs)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)]
         public unsafe void IJobEntityBatch_WithEntityList(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
@@ -648,8 +657,11 @@ namespace Unity.Entities.Tests
                         job.Schedule(query, entities).Complete();
                     else if (mode == ScheduleMode.Run)
                         job.Run(query, entities);
+
+                    /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                     else if (mode == ScheduleMode.RunWithoutJobs)
-                        JobEntityBatchExtensions.RunWithoutJobs(ref job, query, entities);
+                        InternalCompilerInterface.JobEntityBatchInterface.RunWithoutJobs(ref job, query, entities);
+                    */
                     else if (mode == ScheduleMode.Parallel)
                         job.ScheduleParallel(query, granularity, entities).Complete();
 
@@ -686,8 +698,10 @@ namespace Unity.Entities.Tests
                         job.Schedule(query, entities).Complete();
                     else if (mode == ScheduleMode.Run)
                         job.Run(query, entities);
+                    /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                     else if (mode == ScheduleMode.RunWithoutJobs)
-                        JobEntityBatchExtensions.RunWithoutJobs(ref job, query, entities);
+                        InternalCompilerInterface.JobEntityBatchInterface.RunWithoutJobs(ref job, query, entities);
+                    */
                     else if (mode == ScheduleMode.Parallel)
                         job.ScheduleParallel(query, granularity, entities).Complete();
 
@@ -723,8 +737,10 @@ namespace Unity.Entities.Tests
                         job.Schedule(query, entities).Complete();
                     else if (mode == ScheduleMode.Run)
                         job.Run(query, entities);
+                    /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                     else if (mode == ScheduleMode.RunWithoutJobs)
-                        JobEntityBatchExtensions.RunWithoutJobs(ref job, query, entities);
+                        InternalCompilerInterface.JobEntityBatchInterface.RunWithoutJobs(ref job, query, entities);
+                    */
                     else if (mode == ScheduleMode.Parallel)
                         job.ScheduleParallel(query, granularity, entities).Complete();
 
@@ -761,7 +777,6 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        //[TestCase(ScheduleMode.RunWithoutJobs)] // TODO: https://unity3d.atlassian.net/browse/DOTS-4463
         public unsafe void IJobEntityBatchWithIndex_WithEntityList(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
@@ -791,9 +806,9 @@ namespace Unity.Entities.Tests
                         job.Schedule(query, entities).Complete();
                     else if (mode == ScheduleMode.Run)
                         job.Run(query, entities);
-                    // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                    // TODO: this code path is missing; DOTS-4463 tracks the fix
                     //else if (mode == ScheduleMode.RunWithoutJobs)
-                    //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                    //  InternalCompilerInterface.JobEntityBatchWithIndexInterface.RunWithoutJobs(ref job, query, entities);
                     else if (mode == ScheduleMode.Parallel)
                         job.ScheduleParallel(query, granularity, entities).Complete();
 
@@ -830,9 +845,9 @@ namespace Unity.Entities.Tests
                         job.Schedule(query, entities).Complete();
                     else if (mode == ScheduleMode.Run)
                         job.Run(query, entities);
-                    // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                    // TODO: this code path is missing; DOTS-4463 tracks the fix
                     //else if (mode == ScheduleMode.RunWithoutJobs)
-                    //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                    //    InternalCompilerInterface.JobEntityBatchWithIndexInterface.RunWithoutJobs(ref job, query, entities);
                     else if (mode == ScheduleMode.Parallel)
                         job.ScheduleParallel(query, granularity, entities).Complete();
 
@@ -868,9 +883,9 @@ namespace Unity.Entities.Tests
                         job.Schedule(query, entities).Complete();
                     else if (mode == ScheduleMode.Run)
                         job.Run(query, entities);
-                    // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                    // TODO: this code path is missing; DOTS-4463 tracks the fix
                     //else if (mode == ScheduleMode.RunWithoutJobs)
-                    //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                    //    InternalCompilerInterface.JobEntityBatchWithIndexInterface.RunWithoutJobs(ref job, query, entities);
                     else if (mode == ScheduleMode.Parallel)
                         job.ScheduleParallel(query, granularity, entities).Complete();
 
@@ -907,7 +922,8 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        [TestCase(ScheduleMode.RunWithoutJobs)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)]
+        [Obsolete("The function this test exercises is obsolete.")]
         public void IJobEntityBatch_GeneratesExpectedBatches_WithEntityList(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
@@ -947,8 +963,10 @@ namespace Unity.Entities.Tests
                     job.Schedule(query, limitEntities).Complete();
                 else if (mode == ScheduleMode.Run)
                     job.Run(query, limitEntities);
+                /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                 else if (mode == ScheduleMode.RunWithoutJobs)
-                    JobEntityBatchExtensions.RunWithoutJobs(ref job, query, limitEntities);
+                    InternalCompilerInterface.JobEntityBatchInterface.RunWithoutJobs(ref job, query, limitEntities);
+                */
                 else if (mode == ScheduleMode.Parallel)
                     job.ScheduleParallel(query, granularity, limitEntities).Complete();
 
@@ -984,7 +1002,8 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        [TestCase(ScheduleMode.RunWithoutJobs)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)]
+        [Obsolete("The function this test exercises is obsolete.")]
         public void IJobEntityBatch_GeneratesExpectedBatches_WithEntityList_WithFiltering(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
@@ -1003,10 +1022,10 @@ namespace Unity.Entities.Tests
 
                     var mod = i % 5;
                     var val = mod < 3 ? 17 : 7;
-                    m_Manager.SetSharedComponentData(entitiesA[i], new EcsTestSharedComp(val));
+                    m_Manager.SetSharedComponentManaged(entitiesA[i], new EcsTestSharedComp(val));
                 }
 
-                query.SetSharedComponentFilter(new EcsTestSharedComp(17));
+                query.SetSharedComponentFilterManaged(new EcsTestSharedComp(17));
 
                 // AAAAABBBBCAAAAABBBBC...
                 // With filtering its A1A1A1A2A2BBBBCA1A1A1A2A2BBBBC...
@@ -1031,8 +1050,10 @@ namespace Unity.Entities.Tests
                     job.Schedule(query, limitEntities).Complete();
                 else if (mode == ScheduleMode.Run)
                     job.Run(query, limitEntities);
+                /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                 else if (mode == ScheduleMode.RunWithoutJobs)
-                    JobEntityBatchExtensions.RunWithoutJobs(ref job, query, limitEntities);
+                    InternalCompilerInterface.JobEntityBatchInterface.RunWithoutJobs(ref job, query, limitEntities);
+                */
                 else if (mode == ScheduleMode.Parallel)
                     job.ScheduleParallel(query, granularity, limitEntities).Complete();
 
@@ -1076,7 +1097,7 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        //[TestCase(ScheduleMode.RunWithoutJobs)] // TODO: https://unity3d.atlassian.net/browse/DOTS-4463
+        [Obsolete("The function this test exercises is obsolete.")]
         public void IJobEntityBatchWithIndex_GeneratesExpectedBatches_WithEntityList_WithFiltering(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
@@ -1095,10 +1116,10 @@ namespace Unity.Entities.Tests
 
                     var mod = i % 5;
                     var val = mod < 3 ? 17 : 7;
-                    m_Manager.SetSharedComponentData(entitiesA[i], new EcsTestSharedComp(val));
+                    m_Manager.SetSharedComponentManaged(entitiesA[i], new EcsTestSharedComp(val));
                 }
 
-                query.SetSharedComponentFilter(new EcsTestSharedComp(17));
+                query.SetSharedComponentFilterManaged(new EcsTestSharedComp(17));
 
                 // AAAAABBBBCAAAAABBBBC...
                 // With filtering its A1A1A1A2A2BBBBCA1A1A1A2A2BBBBC...
@@ -1130,9 +1151,9 @@ namespace Unity.Entities.Tests
                     job.Schedule(query, limitEntities).Complete();
                 else if (mode == ScheduleMode.Run)
                     job.Run(query, limitEntities);
-                // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                // TODO: this code path is missing; DOTS-4463 tracks the fix
                 //else if (mode == ScheduleMode.RunWithoutJobs)
-                //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                //    InternalCompilerInterface.JobEntityBatchWithIndexInterface.RunWithoutJobs(ref job, query, entities);
                 else if (mode == ScheduleMode.Parallel)
                     job.ScheduleParallel(query, granularity, limitEntities).Complete();
 
@@ -1179,7 +1200,7 @@ namespace Unity.Entities.Tests
         [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
-        //[TestCase(ScheduleMode.RunWithoutJobs)] // TODO: https://unity3d.atlassian.net/browse/DOTS-4463
+        [Obsolete("The function this test exercises is obsolete.")]
         public void IJobEntityBatchWithIndex_GeneratesExpectedBatches_WithEntityList(ScheduleMode mode,
             ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
@@ -1226,9 +1247,9 @@ namespace Unity.Entities.Tests
                     job.Schedule(query, limitEntities).Complete();
                 else if (mode == ScheduleMode.Run)
                     job.Run(query, limitEntities);
-                // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                // TODO: this code path is missing; DOTS-4463 tracks the fix
                 //else if (mode == ScheduleMode.RunWithoutJobs)
-                //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                //    InternalCompilerInterface.JobEntityBatchWithIndexInterface.RunWithoutJobs(ref job, query, limitEntities);
                 else if (mode == ScheduleMode.Parallel)
                     job.ScheduleParallel(query, granularity, limitEntities).Complete();
 
@@ -1286,7 +1307,9 @@ namespace Unity.Entities.Tests
 
         [Test]
         public void IJobEntityBatch_WithNoBatching_HasCorrectIndices(
-            [Values(ScheduleMode.Parallel, ScheduleMode.Single, ScheduleMode.Run, ScheduleMode.RunWithoutJobs)] ScheduleMode scheduleMode)
+            [Values(ScheduleMode.Parallel, ScheduleMode.Single, ScheduleMode.Run
+                //,ScheduleMode.RunWithoutJobs
+                )] ScheduleMode scheduleMode)
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
 
@@ -1297,7 +1320,7 @@ namespace Unity.Entities.Tests
                 foreach (var entity in entities)
                 {
                     m_Manager.SetComponentData(entity, new EcsTestData() {value = val});
-                    m_Manager.SetSharedComponentData(entity, new EcsTestSharedComp() {value = val});
+                    m_Manager.SetSharedComponentManaged(entity, new EcsTestSharedComp() {value = val});
                     val++;
                 }
 
@@ -1318,10 +1341,12 @@ namespace Unity.Entities.Tests
                         job.Run(query);
                         jobWithIndex.Run(query);
                         break;
+                    /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
                     case ScheduleMode.RunWithoutJobs:
-                        JobEntityBatchExtensions.RunWithoutJobs(ref job, query);
-                        JobEntityBatchIndexExtensions.RunWithoutJobs(ref jobWithIndex, query);
+                        InternalCompilerInterface.JobEntityBatchInterface.RunWithoutJobs(ref job, query);
+                        InternalCompilerInterface.JobEntityBatchWithIndexInterface.RunWithoutJobs(ref jobWithIndex, query);
                         break;
+                    */
                 }
             }
         }
@@ -1405,5 +1430,250 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(lengths[0], 10);
             }
         }
+
+        [TestCase(JobRunType.Schedule)]
+        [TestCase(JobRunType.ScheduleByRef)]
+        [TestCase(JobRunType.Run)]
+        [TestCase(JobRunType.RunByRef)]
+        //[TestCase(JobRunType.RunWithoutJobs)]
+        public void IJobEntityBatch_Jobs_FromBurst(JobRunType runType)
+        {
+            if (!IsBurstEnabled())  // No need to error on burst compilation failure in job if no burst
+                return;
+
+            var sys = World.CreateSystem<IJobEntityBatch_Jobs_ISystem_WithBurst>();
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
+            using var entities = m_Manager.CreateEntity(archetype, 3, World.UpdateAllocator.ToAllocator);
+            for(int i=0; i<entities.Length; ++i)
+                m_Manager.SetSharedComponent(entities[i], new EcsTestSharedComp{value = i});
+
+            var singletonArchetype = m_Manager.CreateArchetype(typeof(JobRunTypeComp));
+            var singletonEntity = m_Manager.CreateEntity(singletonArchetype);
+            m_Manager.SetComponentData(singletonEntity, new JobRunTypeComp { type = runType });
+
+            sys.Update(World.Unmanaged);
+            var Result = World.EntityManager.GetComponentData<ResultData>(sys);
+            Assert.AreEqual(entities.Length, Result.Result);
+        }
+
+        /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
+        [BurstCompile(CompileSynchronously = true)]
+        struct IJobEntityBatchWithIndex_RunWithoutJobs_ISystem_WithBurst : ISystem
+        {
+            struct TestJob : IJobEntityBatchWithIndex
+            {
+                public NativeReference<int> Count;
+                public void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery)
+                {
+                    Count.Value += 1;
+                }
+            }
+
+            EntityQuery _query;
+
+            public void OnCreate(ref SystemState state)
+            {
+                state.EntityManager.AddComponentData(state.SystemHandleUntyped, new ResultData
+                {
+                    Result = 0
+                });
+                _query = state.m_EntityManager.CreateEntityQuery(typeof(EcsTestSharedComp));
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnUpdate(ref SystemState state)
+            {
+                using var count = new NativeReference<int>(state.m_WorldUnmanaged.UpdateAllocator.ToAllocator);
+                var job = new TestJob { Count = count };
+                InternalCompilerInterface.JobEntityBatchWithIndexInterface.RunWithoutJobs(ref job, _query);
+                ref var Result = ref state.EntityManager.GetComponentDataRW<ResultData>(state.SystemHandleUntyped);
+                Result.Result = count.Value;
+            }
+        }
+
+        [Test]
+        public void IJobEntityBatchWithIndex_RunWithoutJobs_FromBurst()
+        {
+            var sys = World.CreateSystem<IJobEntityBatchWithIndex_RunWithoutJobs_ISystem_WithBurst>();
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
+            using var entities = m_Manager.CreateEntity(archetype, 3, World.UpdateAllocator.ToAllocator);
+            for(int i=0; i<entities.Length; ++i)
+                m_Manager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp{value = i});
+            sys.Update(World.Unmanaged);
+            ref var Result = ref World.EntityManager.GetComponentDataRW<ResultData>(sys);
+            Assert.AreEqual(entities.Length, Result.Result);
+        }
+        */
+
+        // TODO(DOTS-6573): This test can be enabled once DOTSRT supports AtomicSafetyHandle.SetExclusiveWeak()
+#if !UNITY_DOTSRUNTIME
+        struct WritesToEnabledBitsJob_Batch : IJobEntityBatch
+        {
+            public ComponentLookup<EcsTestDataEnableable> Data;
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex) { }
+        }
+
+        struct ReadsFromEnabledBitsJob_Batch : IJobEntityBatch
+        {
+            [ReadOnly]  public ComponentLookup<EcsTestDataEnableable> Data;
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex) { }
+        }
+
+        struct EmptyJob_Batch : IJobEntityBatch
+        {
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex){ }
+        }
+
+        [Test]
+        public void IJobEntityBatch_JobStructContainsSameEnableableComponentAsQuery_DoesNotThrow()
+        {
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+            var job = new WritesToEnabledBitsJob_Batch{ Data = m_Manager.GetComponentLookup<EcsTestDataEnableable>(false)};
+            Assert.DoesNotThrow(() => job.Schedule(query).Complete());
+        }
+
+        struct WritesToEnabledBitsJob_BatchWithIndex : IJobEntityBatchWithIndex
+        {
+            public ComponentLookup<EcsTestDataEnableable> Data;
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery) { }
+        }
+
+        struct ReadsFromEnabledBitsJob_BatchWithIndex : IJobEntityBatchWithIndex
+        {
+            [ReadOnly]  public ComponentLookup<EcsTestDataEnableable> Data;
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery) { }
+        }
+
+        struct EmptyJob_BatchWithIndex : IJobEntityBatchWithIndex
+        {
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery) { }
+        }
+
+        [Test]
+        public void IJobEntityBatchWithIndex_JobStructContainsSameEnableableComponentAsQuery_DoesNotThrow()
+        {
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+            var job = new WritesToEnabledBitsJob_BatchWithIndex{ Data = m_Manager.GetComponentLookup<EcsTestDataEnableable>(false)};
+            Assert.DoesNotThrow(() => job.Schedule(query).Complete());
+        }
+#endif
+
+    // These tests require:
+    // - Assert.That() support
+    // TODO(DOTS-6573): AtomicSafetyHandle.SetExclusiveWeak()
+#if !UNITY_DOTSRUNTIME
+        [Test]
+        public void IJobEntityBatch_QueryContainsEnableableTypes_DetectsRaceConditions()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            using var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
+
+            using var writerQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var explicitReaderQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var implicitReaderQuery = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+
+            var writerJob = new WritesToEnabledBitsJob_Batch { Data = m_Manager.GetComponentLookup<EcsTestDataEnableable>(false)};
+            var writerHandle = writerJob.Schedule(writerQuery);
+
+            // This should clearly throw; we can't read from the enableable component while the writer has write access.
+            var explicitReaderJob = new ReadsFromEnabledBitsJob_Batch{ Data = m_Manager.GetComponentLookup<EcsTestDataEnableable>(true) };
+            NUnit.Framework.Assert.That(() => { explicitReaderJob.Run(explicitReaderQuery); },
+                NUnit.Framework.Throws.InvalidOperationException.With.Message.Contains($"WritesToEnabledBitsJob_Batch writes to the Component"));
+
+            // This should also throw, since the query contains the same enableable type that the writer job is writing to.
+            var implicitReaderJob = new EmptyJob_Batch{};
+            NUnit.Framework.Assert.That(() => { implicitReaderJob.Run(implicitReaderQuery); },
+                NUnit.Framework.Throws.InvalidOperationException.With.Message.Contains($"WritesToEnabledBitsJob_Batch writes to the Component"));
+
+            writerHandle.Complete();
+        }
+
+        [Test]
+        public void IJobEntityBatchWithIndex_QueryContainsEnableableTypes_DetectsRaceConditions()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            using var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
+
+            using var writerQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var explicitReaderQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var implicitReaderQuery = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+
+            var writerJob = new WritesToEnabledBitsJob_BatchWithIndex { Data = m_Manager.GetComponentLookup<EcsTestDataEnableable>(false)};
+            var writerHandle = writerJob.Schedule(writerQuery);
+
+            // This should clearly throw; we can't read from the enableable component while the writer has write access.
+            var explicitReaderJob = new ReadsFromEnabledBitsJob_BatchWithIndex{ Data = m_Manager.GetComponentLookup<EcsTestDataEnableable>(true) };
+            NUnit.Framework.Assert.That(() => { explicitReaderJob.Run(explicitReaderQuery); },
+                NUnit.Framework.Throws.InvalidOperationException.With.Message.Contains($"WritesToEnabledBitsJob_BatchWithIndex writes to the Component"));
+
+            // This should also throw, since the query contains the same enableable type that the writer job is writing to.
+            var implicitReaderJob = new EmptyJob_BatchWithIndex{};
+            NUnit.Framework.Assert.That(() => { implicitReaderJob.Run(implicitReaderQuery); },
+                NUnit.Framework.Throws.InvalidOperationException.With.Message.Contains($"WritesToEnabledBitsJob_BatchWithIndex writes to the Component"));
+
+            writerHandle.Complete();
+        }
+#endif
     }
+
+    [BurstCompile(CompileSynchronously = true)]
+    partial struct IJobEntityBatch_Jobs_ISystem_WithBurst : ISystem
+    {
+        struct TestJob : IJobEntityBatch
+        {
+            public NativeReference<int> Count;
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            {
+                Count.Value += 1;
+            }
+        }
+
+        EntityQuery _query;
+
+        public void OnCreate(ref SystemState state)
+        {
+            state.EntityManager.AddComponentData(state.SystemHandle, new ResultData
+            {
+                Result = 0
+            });
+            _query = state.m_EntityManager.CreateEntityQuery(typeof(EcsTestSharedComp));
+        }
+
+        public void OnDestroy(ref SystemState state)
+        {
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        public void OnUpdate(ref SystemState state)
+        {
+            bool burstCompiled = true;
+            ECSTestsCommonBase.TestBurstCompiled(ref burstCompiled);
+            if (!burstCompiled)
+                throw new InvalidOperationException("Expected burst compiled job schedule code");
+
+            using var count = new NativeReference<int>(state.m_WorldUnmanaged.UpdateAllocator.ToAllocator);
+            var job = new TestJob { Count = count };
+
+            var runType = SystemAPI.GetSingleton<JobRunTypeComp>();
+
+            switch (runType.type)
+            {
+                case JobRunType.Schedule: job.Schedule(_query).Complete(); break;
+                case JobRunType.ScheduleByRef: job.ScheduleByRef(_query).Complete(); break;
+                case JobRunType.Run: job.Run(_query); break;
+                case JobRunType.RunByRef: job.RunByRef(_query); break;
+                /* This code is eventually getting removed as we move over to IJobChunk, disabling this test (missing method) for now
+                case JobRunType.RunWithoutJobs: InternalCompilerInterface.JobEntityBatchInterface.RunWithoutJobs(ref job, _query); break;
+                */
+            }
+
+            ref var Result = ref state.EntityManager.GetComponentDataRW<ResultData>(state.SystemHandle).ValueRW;
+            Result.Result = count.Value;
+        }
+    }
+#pragma warning restore 618 // IJobEntityBatch is obsolete
 }

@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Linq;
@@ -46,7 +46,14 @@ namespace Unity.Entities.Editor.Tests
 
             var r = HierarchyQueryBuilder.BuildQuery($"c:{componentType.FullName}");
             Assert.That(r.IsValid, Is.True);
-            Assert.That(r.EntityQueryDesc.Any, Is.EquivalentTo(new ComponentType[] { componentType }));
+            if (typeCategory == TypeManager.TypeCategory.EntityData)
+            {
+                Assert.That(r.EntityQueryDesc.Any, Is.Empty);
+            }
+            else
+            {
+                Assert.That(r.EntityQueryDesc.Any, Is.EquivalentTo(new ComponentType[] { componentType }));
+            }
             Assert.That(r.EntityQueryDesc.None, Is.Empty);
             Assert.That(r.EntityQueryDesc.All, Is.Empty);
         }
@@ -55,7 +62,7 @@ namespace Unity.Entities.Editor.Tests
         public void QueryBuilder_ResultQueryIncludesPrefabsAndDisabledEntities()
         {
             var r = HierarchyQueryBuilder.BuildQuery($"c:{typeof(EntityGuid).FullName}");
-            Assert.That(r.EntityQueryDesc.Options & EntityQueryOptions.IncludeDisabled, Is.EqualTo(EntityQueryOptions.IncludeDisabled));
+            Assert.That(r.EntityQueryDesc.Options & EntityQueryOptions.IncludeDisabledEntities, Is.EqualTo(EntityQueryOptions.IncludeDisabledEntities));
             Assert.That(r.EntityQueryDesc.Options & EntityQueryOptions.IncludePrefab, Is.EqualTo(EntityQueryOptions.IncludePrefab));
         }
 
@@ -107,11 +114,18 @@ namespace Unity.Entities.Editor.Tests
             try
             {
                 var t = TypeManager.AllTypes.First(x => x.Category == category && x.Type != null);
-                using (var q = w.EntityManager.CreateEntityQuery(t.Type))
+                var desc = new EntityQueryDesc();
+                // Entity is implicitly included in EntityQuery, it should not be explicitly added.
+                if (t.TypeIndex != TypeManager.GetTypeIndex<Entity>())
+                {
+                    desc.All = new ComponentType[] { t.Type };
+                }
+
+                using (var q = w.EntityManager.CreateEntityQuery(desc))
                 {
                     Assert.DoesNotThrow(() =>
                     {
-                        var entities = q.ToEntityArray(Allocator.TempJob);
+                        var entities = q.ToEntityArray(w.UpdateAllocator.ToAllocator);
                         entities.Dispose();
                     });
                 }

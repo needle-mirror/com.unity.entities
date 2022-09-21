@@ -10,8 +10,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void Ctor_StoresValuesPacked()
         {
-            var g0 = new EntityGuid(1, 2, 3);
-            var g1 = new EntityGuid(-1, 0xF0, 0x89ABCDEF);
+            var g0 = new EntityGuid(1, 0, 2, 3);
+            var g1 = new EntityGuid(-1, 0, 0xF0, 0x89ABCDEF);
 
             Assert.That(g0.OriginatingId, Is.EqualTo(1));
             Assert.That(g0.FullNamespaceId, Is.EqualTo(2));
@@ -25,11 +25,11 @@ namespace Unity.Entities.Tests
         [Test]
         public void ToString_ExtractsPackedValues()
         {
-            var g0 = new EntityGuid(1, 2, 3);
-            var g1 = new EntityGuid(-1, 0xF0, 0x89ABCDEF);
+            var g0 = new EntityGuid(1, 0, 2, 3);
+            var g1 = new EntityGuid(-1, 0, 0xF0, 0x89ABCDEF);
 
-            Assert.That(g0.ToString(), Is.EqualTo("1:00000002:00000003"));
-            Assert.That(g1.ToString(), Is.EqualTo("-1:000000f0:89abcdef"));
+            Assert.That(g0.ToString(), Is.EqualTo("1:0:00000002:00000003"));
+            Assert.That(g1.ToString(), Is.EqualTo("-1:0:000000f0:89abcdef"));
         }
 
 #if !NET_DOTS
@@ -39,12 +39,12 @@ namespace Unity.Entities.Tests
         {
             var guids = new[]
             {
-                new EntityGuid(1, 2, 3),
-                new EntityGuid(1, 2, 3),
-                new EntityGuid(1, 2, 2),
-                new EntityGuid(1, 1, 2),
-                new EntityGuid(2, 1, 2),
-                new EntityGuid(1, 2, 3),
+                new EntityGuid(1, 0, 2, 3),
+                new EntityGuid(1, 0, 2, 3),
+                new EntityGuid(1, 0, 2, 2),
+                new EntityGuid(1, 0, 1, 2),
+                new EntityGuid(2, 0, 1, 2),
+                new EntityGuid(1, 0, 2, 3),
             };
 
             var range = Enumerable.Range(0, guids.Length - 1).Select(i => (a: guids[i], b: guids[i + 1])).ToList();

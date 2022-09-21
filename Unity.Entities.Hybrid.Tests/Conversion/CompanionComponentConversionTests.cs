@@ -3,6 +3,7 @@ using System.IO;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.Conversion;
+using Unity.Entities.Hybrid.Baking;
 using Unity.Entities.Hybrid.EndToEnd.Tests;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -10,29 +11,27 @@ using UnityEditor;
 
 namespace Unity.Entities.Tests
 {
-    class ConversionTestCompanionComponentPrefabReference : UnityEngine.MonoBehaviour, IDeclareReferencedPrefabs
-    {
-        public UnityEngine.GameObject Prefab;
-
-        public void DeclareReferencedPrefabs(List<UnityEngine.GameObject> referencedPrefabs)
-        {
-            referencedPrefabs.Add(Prefab);
-        }
-    }
 }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
 namespace Unity.Entities.Tests.Conversion
 {
-    class CompanionComponentConversionTests : ConversionTestFixtureBase
+    class CompanionComponentBakingTests : BakingTestFixture
     {
         string m_TempAssetDir;
 
         [OneTimeSetUp]
         public void SetUp()
         {
-            var guid = AssetDatabase.CreateFolder("Assets", Path.GetRandomFileName());
+            var guid = AssetDatabase.CreateFolder("Assets", nameof(CompanionComponentBakingTests));
             m_TempAssetDir = AssetDatabase.GUIDToAssetPath(guid);
+
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponentWithEntity));
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponentA));
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponentB));
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponentC));
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponentPrefabReference));
         }
 
         [OneTimeTearDown]
@@ -41,45 +40,35 @@ namespace Unity.Entities.Tests.Conversion
             AssetDatabase.DeleteAsset(m_TempAssetDir);
         }
 
-        public class MonoBehaviourComponentConversionSystem : GameObjectConversionSystem
+        class ConversionTestCompanionComponentWithEntityBaker : Baker<ConversionTestCompanionComponentWithEntity>
         {
-            protected override void OnUpdate()
+            public override void Bake(ConversionTestCompanionComponentWithEntity authoring)
             {
-                AddTypeToCompanionWhiteList(typeof(ConversionTestCompanionComponent));
-                AddTypeToCompanionWhiteList(typeof(ConversionTestCompanionComponentWithEntity));
-                AddTypeToCompanionWhiteList(typeof(ConversionTestCompanionComponentA));
-                AddTypeToCompanionWhiteList(typeof(ConversionTestCompanionComponentB));
-                AddTypeToCompanionWhiteList(typeof(ConversionTestCompanionComponentC));
+                AddComponentObject(authoring);
+            }
+        }
 
-                Entities.ForEach((ConversionTestCompanionComponent component) =>
-                {
-                    var entity = GetPrimaryEntity(component);
-                    DstEntityManager.AddComponentObject(entity, component);
-                });
+        class ConversionTestCompanionComponentABaker : Baker<ConversionTestCompanionComponentA>
+        {
+            public override void Bake(ConversionTestCompanionComponentA authoring)
+            {
+                AddComponentObject(authoring);
+            }
+        }
 
-                Entities.ForEach((ConversionTestCompanionComponentWithEntity component) =>
-                {
-                    var entity = GetPrimaryEntity(component);
-                    DstEntityManager.AddComponentObject(entity, component);
-                });
+        class ConversionTestCompanionComponentBBaker : Baker<ConversionTestCompanionComponentB>
+        {
+            public override void Bake(ConversionTestCompanionComponentB authoring)
+            {
+                AddComponentObject(authoring);
+            }
+        }
 
-                Entities.ForEach((ConversionTestCompanionComponentA component) =>
-                {
-                    var entity = GetPrimaryEntity(component);
-                    DstEntityManager.AddComponentObject(entity, component);
-                });
-
-                Entities.ForEach((ConversionTestCompanionComponentB component) =>
-                {
-                    var entity = GetPrimaryEntity(component);
-                    DstEntityManager.AddComponentObject(entity, component);
-                });
-
-                Entities.ForEach((ConversionTestCompanionComponentC component) =>
-                {
-                    var entity = GetPrimaryEntity(component);
-                    DstEntityManager.AddComponentObject(entity, component);
-                });
+        class ConversionTestCompanionComponentCBaker : Baker<ConversionTestCompanionComponentC>
+        {
+            public override void Bake(ConversionTestCompanionComponentC authoring)
+            {
+                AddComponentObject(authoring);
             }
         }
 
@@ -89,7 +78,16 @@ namespace Unity.Entities.Tests.Conversion
             var gameObject = CreateGameObject();
             gameObject.AddComponent<ConversionTestCompanionComponent>().SomeValue = 123;
 
-            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>());
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            BakingUtility.BakeGameObjects(World, new []{gameObject}, bakingSettings);
+            var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
+                {All = new[] {new ComponentType(typeof(ConversionTestCompanionComponent))}});
+            var entities = query.ToEntityArray(Allocator.Temp);
+            Assert.AreEqual(1, entities.Length);
+            var entity = entities[0];
+            entities.Dispose();
 
             gameObject.GetComponent<ConversionTestCompanionComponent>().SomeValue = 234;
             Assert.AreEqual(123, m_Manager.GetComponentObject<ConversionTestCompanionComponent>(entity).SomeValue);
@@ -106,37 +104,8 @@ namespace Unity.Entities.Tests.Conversion
             Assert.AreEqual(345, m_Manager.GetComponentObject<ConversionTestCompanionComponent>(instances[1]).SomeValue);
         }
 
-        class MockMultipleAuthoringComponentsConversionSystem : GameObjectConversionSystem
-        {
-            protected override void OnUpdate()
-            {
-                Entities.ForEach((ConversionTestCompanionComponent authoring) =>
-                {
-                    var buffer = DstEntityManager.AddBuffer<MockDynamicBufferData>(GetPrimaryEntity(authoring));
-                    foreach (var authoringInstance in authoring.gameObject.GetComponents<ConversionTestCompanionComponent>())
-                        buffer.Add(new MockDynamicBufferData { Value = authoringInstance.SomeValue });
-                });
-            }
-        }
-
         [Test]
-        public void EntityQueryBuilder_WhenGameObjectHasMultipleAuthoringComponentsOfQueriedType_ReturnsFirstMatch()
-        {
-            var gameObject = CreateGameObject($"GameObject With 2 {nameof(ConversionTestCompanionComponent)}", typeof(ConversionTestCompanionComponent), typeof(ConversionTestCompanionComponent));
-            var authoringComponents = gameObject.GetComponents<ConversionTestCompanionComponent>();
-            Assume.That(authoringComponents.Length, Is.EqualTo(2));
-            var expectedValues = new[] { new MockDynamicBufferData { Value = 123 }, new MockDynamicBufferData { Value = 456 } };
-            authoringComponents[0].SomeValue = expectedValues[0].Value;
-            authoringComponents[1].SomeValue = expectedValues[1].Value;
-
-            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings().WithExtraSystem<MockMultipleAuthoringComponentsConversionSystem>());
-
-            var buffer = m_Manager.GetBuffer<MockDynamicBufferData>(entity);
-            Assert.That(buffer.AsNativeArray(), Is.EqualTo(expectedValues));
-        }
-
-        [Test]
-        public void CompanionGameObjectTranform_WithScale_IsSetFromLocalToWorld()
+        public void CompanionGameObjectTransform_WithScale_IsSetFromLocalToWorld()
         {
             var gameObject = CreateGameObject("source", typeof(ConversionTestCompanionComponent));
             gameObject.transform.localPosition = new UnityEngine.Vector3(1, 2, 3);
@@ -144,8 +113,16 @@ namespace Unity.Entities.Tests.Conversion
             gameObject.transform.localScale = new UnityEngine.Vector3(4, 5, 6);
             var reference = gameObject.transform.localToWorldMatrix;
 
-            var conversionSettings = MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>();
-            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, conversionSettings);
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            BakingUtility.BakeGameObjects(World, new []{gameObject}, bakingSettings);
+            var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
+                {All = new[] {new ComponentType(typeof(ConversionTestCompanionComponent))}});
+            var entities = query.ToEntityArray(Allocator.Temp);
+            Assert.AreEqual(1, entities.Length);
+            var entity = entities[0];
+            entities.Dispose();
 
             TestUtilities.RegisterSystems(World, TestUtilities.SystemCategories.CompanionComponents);
 
@@ -189,10 +166,23 @@ namespace Unity.Entities.Tests.Conversion
             gameObject.GetComponent<ConversionTestCompanionComponentPrefabReference>().Prefab = prefab;
 
             // Run the actual conversion, we only care about the prefab so we destroy the other entity
-            var settings = MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>();
-            var dummy = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, settings);
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            BakingUtility.BakeGameObjects(World, new []{gameObject}, bakingSettings);
+
+            var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
+            {
+                None = new[] {new ComponentType(typeof(Prefab))},
+                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
+            });
+            var entities = query.ToEntityArray(Allocator.Temp);
+            Assert.AreEqual(1, entities.Length);
+            var dummy = entities[0];
+            entities.Dispose();
             m_Manager.DestroyEntity(dummy);
-            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<CompanionLink, ConversionTestCompanionComponent, Prefab, LinkedEntityGroup>(k_CommonComponents));
+
+            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<CompanionLink, ConversionTestCompanionComponent, Prefab, LinkedEntityGroup, AdditionalEntitiesBakingData, LinkedEntityGroupBakingData, TransformAuthoring>(k_CommonComponents));
 
             // Accessing the prefab entity and its companion GameObject can't be directly done with GetSingleton because it requires EntityQueryOptions.IncludePrefab
             var companionQuery = EmptySystem.GetEntityQuery(new EntityQueryDesc
@@ -258,12 +248,24 @@ namespace Unity.Entities.Tests.Conversion
         {
             // Setup a simple entity with a Companion Component that contains an Entity field
             var gameObjectPrefab = CreateGameObject("prefab", typeof(ConversionTestCompanionComponentWithEntity));
-            var settings = MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>();
-            var entityPrefab = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObjectPrefab, settings);
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            BakingUtility.BakeGameObjects(World, new []{gameObjectPrefab}, bakingSettings);
+            var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
+                {All = new[] {new ComponentType(typeof(ConversionTestCompanionComponentWithEntity))}});
+            var entities = query.ToEntityArray(Allocator.Temp);
+            Assert.AreEqual(1, entities.Length);
+            var entityPrefab = entities[0];
+            entities.Dispose();
 
             // Add a managed and an unmanaged component, each with an entity field pointing to their own entity
             m_Manager.AddComponentData(entityPrefab, new EcsTestDataEntity {value1 = entityPrefab});
             m_Manager.AddComponentData(entityPrefab, new EcsTestManagedDataEntity {value1 = entityPrefab});
+
+            // This is necessary because there is a bug in Instantiate that only remaps if a LinkedEntityGroup is present
+            var buffer = m_Manager.AddBuffer<LinkedEntityGroup>(entityPrefab);
+            buffer.Add(entityPrefab);
 
             // Since Entity contents aren't serialized, GameObject.Instantiate won't copy the Entity field
             // But we need that field to be set to the prefab entity in order to check if the remapping happens
@@ -288,6 +290,19 @@ namespace Unity.Entities.Tests.Conversion
             }
         }
 
+        class ConversionTestCompanionComponentPrefabReference : UnityEngine.MonoBehaviour
+        {
+            public UnityEngine.GameObject Prefab;
+        }
+
+        class ConversionTestCompanionComponentPrefabReferenceBaker : Baker<ConversionTestCompanionComponentPrefabReference>
+        {
+            public override void Bake(ConversionTestCompanionComponentPrefabReference authoring)
+            {
+                GetEntity(authoring.Prefab);
+            }
+        }
+
         public class ConversionTestCompanionComponentA : UnityEngine.MonoBehaviour
         {
             public int SomeValue;
@@ -309,8 +324,17 @@ namespace Unity.Entities.Tests.Conversion
                 typeof(ConversionTestCompanionComponentA),
                 typeof(ConversionTestCompanionComponentB),
                 typeof(ConversionTestCompanionComponentC));
-            var settings = MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>();
-            var entityPrefab = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObjectPrefab, settings);
+
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            BakingUtility.BakeGameObjects(World, new []{gameObjectPrefab}, bakingSettings);
+            var findEntityQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
+                {All = new[] {new ComponentType(typeof(ConversionTestCompanionComponentA))}});
+            var entities = findEntityQuery.ToEntityArray(Allocator.Temp);
+            Assert.AreEqual(1, entities.Length);
+            var entityPrefab = entities[0];
+            entities.Dispose();
 
             // Create a bunch of instances
             var instances = m_Manager.Instantiate(entityPrefab, 10, Allocator.Temp);
@@ -348,7 +372,16 @@ namespace Unity.Entities.Tests.Conversion
             Entity entity = default;
             Assert.DoesNotThrow(() =>
             {
-                entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>());
+                using var blobAssetStore = new BlobAssetStore(128);
+                var bakingSettings = MakeDefaultSettings();
+                bakingSettings.BlobAssetStore = blobAssetStore;
+                BakingUtility.BakeGameObjects(World, new []{gameObject}, bakingSettings);
+                var findEntityQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
+                    {All = new[] {new ComponentType(typeof(ConversionTestCompanionComponent))}});
+                var entities = findEntityQuery.ToEntityArray(Allocator.Temp);
+                Assert.AreEqual(1, entities.Length);
+                entity = entities[0];
+                entities.Dispose();
             });
             Assert.That(m_Manager.HasComponent<CompanionLink>(entity), Is.True);
         }

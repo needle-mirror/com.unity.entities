@@ -12,14 +12,14 @@ namespace Unity.Entities.Tests
         private static Entity[] nothing = {};
         // * TODO: using out of date version cached ComponentDataArray should give exception... (We store the System order version in it...)
         // * TODO: Using monobehaviour as delta inputs?
-        // * TODO: Self-delta-mutation doesn't trigger update (ComponentDataFromEntity.cs)
+        // * TODO: Self-delta-mutation doesn't trigger update (ComponentLookup.cs)
         // /////@TODO: GlobalSystemVersion can't be pulled from m_Entities... indeterministic
         // * TODO: Chained delta works
         // How can this work? Need to use specialized job type because the number of entities to be
         // processed isn't known until running the job... Need some kind of late binding of parallel for length etc...
         // How do we prevent incorrect usage / default...
 
-        public class DeltaCheckSystem : ComponentSystem
+        public partial class DeltaCheckSystem : SystemBase
         {
             public Entity[] Expected;
 
@@ -46,14 +46,14 @@ namespace Unity.Entities.Tests
         public void CreateEntityTriggersChange()
         {
             Entity[] entity = new Entity[] { m_Manager.CreateEntity(typeof(EcsTestData)) };
-            var deltaCheckSystem = World.CreateSystem<DeltaCheckSystem>();
+            var deltaCheckSystem = World.CreateSystemManaged<DeltaCheckSystem>();
             deltaCheckSystem.UpdateExpectedResults(entity);
         }
 
         public enum ChangeMode
         {
             SetComponentData,
-            SetComponentDataFromEntity,
+            SetComponentLookup,
         }
 
 #pragma warning disable 649
@@ -80,10 +80,10 @@ namespace Unity.Entities.Tests
             {
                 m_Manager.SetComponentData(entity, new EcsTestData(value));
             }
-            else if (mode == ChangeMode.SetComponentDataFromEntity)
+            else if (mode == ChangeMode.SetComponentLookup)
             {
                 //@TODO: Chaining correctness... Definitely not implemented right now...
-                var array = EmptySystem.GetComponentDataFromEntity<EcsTestData>(false);
+                var array = EmptySystem.GetComponentLookup<EcsTestData>(false);
                 array[entity] = new EcsTestData(value);
             }
         }
@@ -99,7 +99,7 @@ namespace Unity.Entities.Tests
                 for (int i = 0; i != entityArray.Length; i++)
                     m_Manager.GetComponentData<EcsTestData>(entityArray[i]);
             }
-            else if (mode == ChangeMode.SetComponentDataFromEntity)
+            else if (mode == ChangeMode.SetComponentLookup)
             {
                 for (int i = 0; i != entityArray.Length; i++)
                     m_Manager.GetComponentData<EcsTestData>(entityArray[i]);
@@ -112,8 +112,8 @@ namespace Unity.Entities.Tests
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var deltaCheckSystem0 = World.CreateSystem<DeltaCheckSystem>();
-            var deltaCheckSystem1 = World.CreateSystem<DeltaCheckSystem>();
+            var deltaCheckSystem0 = World.CreateSystemManaged<DeltaCheckSystem>();
+            var deltaCheckSystem1 = World.CreateSystemManaged<DeltaCheckSystem>();
 
             // Chunk versions are considered changed upon creation and until after they're first updated.
             deltaCheckSystem0.UpdateExpectedResults(new Entity[] { entity0, entity1 });
@@ -146,7 +146,7 @@ namespace Unity.Entities.Tests
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var deltaCheckSystem = World.CreateSystem<DeltaCheckSystem>();
+            var deltaCheckSystem = World.CreateSystemManaged<DeltaCheckSystem>();
 
             // First update of chunks after creation.
             SetValue(0, 2, mode);
@@ -166,7 +166,7 @@ namespace Unity.Entities.Tests
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
 
-            var deltaCheckSystem = World.CreateSystem<DeltaCheckSystem>();
+            var deltaCheckSystem = World.CreateSystemManaged<DeltaCheckSystem>();
 
             for (int i = 0; i != 7; i++)
             {
@@ -185,7 +185,7 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             SetValue(0, 2, ChangeMode.SetComponentData);
 
-            var deltaCheckSystem = World.CreateSystem<DeltaCheckSystem>();
+            var deltaCheckSystem = World.CreateSystemManaged<DeltaCheckSystem>();
             deltaCheckSystem.UpdateExpectedResults(new Entity[] { entity });
 
             for (int i = 0; i != 7; i++)
@@ -210,7 +210,7 @@ namespace Unity.Entities.Tests
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var deltaSystem = World.CreateSystem<DeltaProcessComponentSystem>();
+            var deltaSystem = World.CreateSystemManaged<DeltaProcessComponentSystem>();
 
             // First update of chunks after creation.
             SetValue(0, -100, ChangeMode.SetComponentData);
@@ -249,7 +249,7 @@ namespace Unity.Entities.Tests
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var deltaSystem = World.CreateSystem<DeltaProcessComponentSystemUsingRun>();
+            var deltaSystem = World.CreateSystemManaged<DeltaProcessComponentSystemUsingRun>();
 
             // First update of chunks after creation.
             SetValue(0, -100, ChangeMode.SetComponentData);
@@ -304,8 +304,8 @@ namespace Unity.Entities.Tests
             var entities = new NativeArray<Entity>(10000, Allocator.Persistent);
             m_Manager.CreateEntity(archetype, entities);
 
-            var modifySystem = World.CreateSystem<ModifyComponentSystem1Comp>();
-            var deltaSystem = World.CreateSystem<DeltaModifyComponentSystem1Comp>();
+            var modifySystem = World.CreateSystemManaged<ModifyComponentSystem1Comp>();
+            var deltaSystem = World.CreateSystemManaged<DeltaModifyComponentSystem1Comp>();
 
             // First update of chunks after creation.
             modifySystem.Update();
@@ -314,7 +314,7 @@ namespace Unity.Entities.Tests
             modifySystem.m_sharedComp = new EcsTestSharedComp(456);
             for (int i = 123; i < entities.Length; i += 345)
             {
-                m_Manager.SetSharedComponentData(entities[i], modifySystem.m_sharedComp);
+                m_Manager.SetSharedComponentManaged(entities[i], modifySystem.m_sharedComp);
             }
 
             modifySystem.Update();
@@ -322,13 +322,13 @@ namespace Unity.Entities.Tests
 
             foreach (var entity in entities)
             {
-                if (m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value == 456)
+                if (m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(entity).value == 456)
                 {
-                    Assert.AreEqual(250, m_Manager.GetComponentData<EcsTestData>(entity).value);
+                    FastAssert.AreEqual(250, m_Manager.GetComponentData<EcsTestData>(entity).value);
                 }
                 else
                 {
-                    Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(entity).value);
+                    FastAssert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(entity).value);
                 }
             }
             entities.Dispose();
@@ -400,8 +400,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype, entities);
 
             // All entities have just been created, so they're all technically "changed".
-            var modifSystem = World.CreateSystem<ModifyComponentSystem2Comp>();
-            var deltaSystem = World.CreateSystem<DeltaModifyComponentSystem2Comp>();
+            var modifSystem = World.CreateSystemManaged<ModifyComponentSystem2Comp>();
+            var deltaSystem = World.CreateSystemManaged<DeltaModifyComponentSystem2Comp>();
 
             // First update of chunks after creation.
             modifSystem.Update();
@@ -412,7 +412,7 @@ namespace Unity.Entities.Tests
             modifSystem.m_sharedComp = new EcsTestSharedComp(456);
             for (int i = 123; i < entities.Length; i += 345)
             {
-                m_Manager.SetSharedComponentData(entities[i], modifSystem.m_sharedComp);
+                m_Manager.SetSharedComponentManaged(entities[i], modifSystem.m_sharedComp);
             }
 
             modifSystem.Update();
@@ -420,14 +420,14 @@ namespace Unity.Entities.Tests
 
             foreach (var entity in entities)
             {
-                if (m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value == 456)
+                if (m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(entity).value == 456)
                 {
-                    Assert.AreEqual(250, m_Manager.GetComponentData<EcsTestData>(entity).value);
-                    Assert.AreEqual(254, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
+                    FastAssert.AreEqual(250, m_Manager.GetComponentData<EcsTestData>(entity).value);
+                    FastAssert.AreEqual(254, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
                 }
                 else
                 {
-                    Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(entity).value);
+                    FastAssert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(entity).value);
                 }
             }
 
@@ -521,8 +521,8 @@ namespace Unity.Entities.Tests
             var entities = new NativeArray<Entity>(10000, Allocator.Persistent);
             m_Manager.CreateEntity(archetype, entities);
 
-            var modifySystem = World.CreateSystem<ModifyComponentSystem3Comp>();
-            var deltaSystem = World.CreateSystem<DeltaModifyComponentSystem3Comp>();
+            var modifySystem = World.CreateSystemManaged<ModifyComponentSystem3Comp>();
+            var deltaSystem = World.CreateSystemManaged<DeltaModifyComponentSystem3Comp>();
 
             // First update of chunks after creation.
             modifySystem.Update();
@@ -533,7 +533,7 @@ namespace Unity.Entities.Tests
             modifySystem.m_sharedComp = new EcsTestSharedComp(456);
             for (int i = 123; i < entities.Length; i += 345)
             {
-                m_Manager.SetSharedComponentData(entities[i], modifySystem.m_sharedComp);
+                m_Manager.SetSharedComponentManaged(entities[i], modifySystem.m_sharedComp);
             }
 
             modifySystem.Update();
@@ -541,15 +541,15 @@ namespace Unity.Entities.Tests
 
             foreach (var entity in entities)
             {
-                if (m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value == 456)
+                if (m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(entity).value == 456)
                 {
-                    Assert.AreEqual(250, m_Manager.GetComponentData<EcsTestData>(entity).value);
-                    Assert.AreEqual(254, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
-                    Assert.AreEqual(256, m_Manager.GetComponentData<EcsTestData3>(entity).value0);
+                    FastAssert.AreEqual(250, m_Manager.GetComponentData<EcsTestData>(entity).value);
+                    FastAssert.AreEqual(254, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
+                    FastAssert.AreEqual(256, m_Manager.GetComponentData<EcsTestData3>(entity).value0);
                 }
                 else
                 {
-                    Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(entity).value);
+                    FastAssert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(entity).value);
                 }
             }
 
@@ -571,7 +571,7 @@ namespace Unity.Entities.Tests
         public void ChangeFilterWorksWithOneTypes()
         {
             var e = m_Manager.CreateEntity();
-            var system = World.GetOrCreateSystem<ChangeFilter1TestSystem>();
+            var system = World.GetOrCreateSystemManaged<ChangeFilter1TestSystem>();
             m_Manager.AddComponentData(e, new EcsTestData(0));
             m_Manager.AddComponentData(e, new EcsTestData2(1));
 
@@ -614,7 +614,7 @@ namespace Unity.Entities.Tests
         public void ChangeFilterWorksWithTwoTypes()
         {
             var e = m_Manager.CreateEntity();
-            var system = World.GetOrCreateSystem<ChangeFilter2TestSystem>();
+            var system = World.GetOrCreateSystemManaged<ChangeFilter2TestSystem>();
             m_Manager.AddComponentData(e, new EcsTestData(0));
             m_Manager.AddComponentData(e, new EcsTestData2(1));
             m_Manager.AddComponentData(e, new EcsTestData3(2));
@@ -672,7 +672,7 @@ namespace Unity.Entities.Tests
             protected override void OnCreate()
             {
                 _query = GetEntityQuery(typeof(EcsTestData));
-                RequireSingletonForUpdate<EcsTestTag>();
+                RequireForUpdate<EcsTestTag>();
             }
 
             protected override void OnStartRunning()
@@ -691,7 +691,7 @@ namespace Unity.Entities.Tests
                 _query.CopyFromComponentDataArray(arr);
 
                 var entity = EntityManager.CreateEntity();
-                EntityManager.AddComponentData(entity, new EcsTestData { value = 0 });
+                EntityManager.AddComponentData(entity, new EcsTestData { value = 1 });
             }
 
             protected override void OnStopRunning()
@@ -731,9 +731,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void ChangeFilterWorksWithOnStartRunningAndOnStopRunning()
         {
-            var group = World.CreateSystem<SimulationSystemGroup>();
-            var spawnerSys = World.CreateSystem<SpawnerSystem>();
-            var reactiveSys = World.CreateSystem<ReactiveSystem>();
+            var group = World.CreateSystemManaged<SimulationSystemGroup>();
+            var spawnerSys = World.CreateSystemManaged<SpawnerSystem>();
+            var reactiveSys = World.CreateSystemManaged<ReactiveSystem>();
 
             group.AddSystemToUpdateList(spawnerSys);
             group.AddSystemToUpdateList(reactiveSys);
@@ -751,27 +751,28 @@ namespace Unity.Entities.Tests
             reactiveSys.LastDependency.Complete();
             Assert.AreEqual(1, query.CalculateEntityCount(), "OnStartRunning should have created 1 entity");
             var array = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
-            Assert.AreEqual(1, array[0].value, "Change-filtered system should have incremented value");
+            Assert.AreEqual(2, array[0].value, "Change-filtered system should have incremented value");
 
             World.Update();
 
             reactiveSys.LastDependency.Complete();
             var array2 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
-            Assert.AreEqual(1, array2[0].value, "Change-filtered system should not run with no changes to component");
+            Assert.AreEqual(2, array2[0].value, "Change-filtered system should not run with no changes to component");
 
+            // Remove the required component to stop the SpawnerSystem from running
             m_Manager.RemoveComponent<EcsTestTag>(singletonEntity);
             World.Update();
 
             reactiveSys.LastDependency.Complete();
             var array3 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
             // OnStopRunning doubles previous component, ReactiveSystem should increment after that
-            Assert.AreEqual(3, array3[0].value, "Change-filtered system should run with changes from OnStopRunning");
+            Assert.AreEqual(5, array3[0].value, "Change-filtered system should run with changes from OnStopRunning");
 
             World.Update();
 
             reactiveSys.LastDependency.Complete();
             var array4 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
-            Assert.AreEqual(3, array4[0].value, "Change-filtered system should not run with no changes to component");
+            Assert.AreEqual(5, array4[0].value, "Change-filtered system should not run with no changes to component");
 
             // Reenable to test OnStartRunning after initial run
             m_Manager.AddComponent<EcsTestTag>(singletonEntity);
@@ -781,17 +782,165 @@ namespace Unity.Entities.Tests
             var array5 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
             Assert.AreEqual(2, query.CalculateEntityCount(), "Restarted system should have created 1 entity in OnStartRunning");
             // OnStartRunning increments existing value and ReactiveSystem increments changed components again
-            Assert.AreEqual(5, array5[0].value, "Change-filtered system should increment existing entity that was changed");
-            Assert.AreEqual(1, array5[1].value, "Change-filtered system should increment new entity created in OnStartRunning");
+            Assert.AreEqual(7, array5[0].value, "Change-filtered system should increment existing entity that was changed");
+            Assert.AreEqual(2, array5[1].value, "Change-filtered system should increment new entity created in OnStartRunning");
 
-            array5[1] = new EcsTestData { value = 6 };
+            array5[1] = new EcsTestData { value = 8 };
             query.CopyFromComponentDataArray(array5);
 
             World.Update();
 
             reactiveSys.LastDependency.Complete();
             var array6 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
-            Assert.AreEqual(7, array6[1].value, "Change-filtered system should increment existing entity that was changed without accompanying structural change in the chunk");
+            Assert.AreEqual(9, array6[1].value, "Change-filtered system should increment existing entity that was changed without accompanying structural change in the chunk");
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        partial struct SpawnerSystemUnmanaged : ISystem, ISystemStartStop
+        {
+            private EntityQuery _query;
+
+            public void OnCreate(ref SystemState state)
+            {
+                _query = state.GetEntityQuery(typeof(EcsTestData));
+                state.RequireForUpdate<EcsTestTag>();
+            }
+
+            public void OnDestroy(ref SystemState state) { }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                // Increment all EcsTestData components, then add a new one.
+
+                // Component data should not normally be accessed like this, this is just
+                // to test in-place changes outside of OnUpdate.
+                var arr = _query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+                for (var i = 0; i < arr.Length; i++)
+                {
+                    var data = arr[i];
+                    data.value++;
+                    arr[i] = data;
+                }
+                _query.CopyFromComponentDataArray(arr);
+
+                var entity = state.EntityManager.CreateEntity();
+                state.EntityManager.AddComponentData(entity, new EcsTestData { value = 1 });
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
+                // Double all EcsTestData component values
+                var arr = _query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+                for (var i = 0; i < arr.Length; i++)
+                {
+                    var data = arr[i];
+                    data.value *= 2;
+                    arr[i] = data;
+                }
+                _query.CopyFromComponentDataArray(arr);
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+            }
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        partial struct ReactiveSystemUnmanaged : ISystem
+        {
+            private EntityQuery _query;
+
+            public partial struct IncrementTestDataJob : IJobEntity
+            {
+                public float deltaTime;
+                public void Execute(ref EcsTestData data)
+                {
+                    data.value++;
+                }
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnCreate(ref SystemState state)
+            {
+                _query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+                _query.AddChangedVersionFilter(ComponentType.ReadWrite<EcsTestData>());
+            }
+            public void OnDestroy(ref SystemState state) { }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnUpdate(ref SystemState state)
+            {
+                state.Dependency = new IncrementTestDataJob().Schedule(_query, state.Dependency);
+            }
+        }
+
+        [Ignore("DOTS-6905 Needs re-evaluated after we solve the NullReferenceException issues")]
+        [Test]
+        public void ChangeFilterWorksWithOnStartRunningAndOnStopRunningUnmanaged()
+        {
+            var group = World.CreateSystemManaged<SimulationSystemGroup>();
+            var spawnerSys = World.CreateSystem<SpawnerSystemUnmanaged>();
+            var reactiveSys = World.CreateSystem<ReactiveSystemUnmanaged>();
+            var reactiveSysState = World.Unmanaged.ResolveSystemStateRef(reactiveSys);
+
+            group.AddSystemToUpdateList(spawnerSys);
+            group.AddSystemToUpdateList(reactiveSys);
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            var singletonEntity = m_Manager.CreateEntity();
+            // Add required component for SpawnerSystem
+            m_Manager.AddComponent<EcsTestTag>(singletonEntity);
+
+            Assert.AreEqual(0, query.CalculateEntityCount(), "Should start with no entities");
+
+            World.Update();
+
+            reactiveSysState.Dependency.Complete();
+            Assert.AreEqual(1, query.CalculateEntityCount(), "OnStartRunning should have created 1 entity");
+            var array = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(2, array[0].value, "Change-filtered system should have incremented value");
+
+            World.Update();
+
+            reactiveSysState.Dependency.Complete();
+            var array2 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(2, array2[0].value, "Change-filtered system should not run with no changes to component");
+
+            // Remove the required component to stop the SpawnerSystem from running
+            m_Manager.RemoveComponent<EcsTestTag>(singletonEntity);
+            World.Update();
+
+            reactiveSysState.Dependency.Complete();
+            var array3 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            // OnStopRunning doubles previous component, ReactiveSystem should increment after that
+            Assert.AreEqual(5, array3[0].value, "Change-filtered system should run with changes from OnStopRunning");
+
+            World.Update();
+
+            reactiveSysState.Dependency.Complete();
+            var array4 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(5, array4[0].value, "Change-filtered system should not run with no changes to component");
+
+            // Reenable to test OnStartRunning after initial run
+            m_Manager.AddComponent<EcsTestTag>(singletonEntity);
+            World.Update();
+
+            reactiveSysState.Dependency.Complete();
+            var array5 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(2, query.CalculateEntityCount(), "Restarted system should have created 1 entity in OnStartRunning");
+            // OnStartRunning increments existing value and ReactiveSystem increments changed components again
+            Assert.AreEqual(7, array5[0].value, "Change-filtered system should increment existing entity that was changed");
+            Assert.AreEqual(2, array5[1].value, "Change-filtered system should increment new entity created in OnStartRunning");
+
+            array5[1] = new EcsTestData { value = 8 };
+            query.CopyFromComponentDataArray(array5);
+
+            World.Update();
+
+            reactiveSysState.Dependency.Complete();
+            var array6 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(9, array6[1].value, "Change-filtered system should increment existing entity that was changed without accompanying structural change in the chunk");
         }
     }
 }

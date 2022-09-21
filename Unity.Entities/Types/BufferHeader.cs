@@ -52,7 +52,7 @@ namespace Unity.Entities
 
             if (oldData != newData) // if at least one of them isn't the internal pointer...
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (useMemoryInitPattern)
                 {
                     if (trashMode == TrashMode.RetainOldData)

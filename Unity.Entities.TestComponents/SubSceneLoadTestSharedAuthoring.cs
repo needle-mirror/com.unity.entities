@@ -6,50 +6,52 @@ using Object = UnityEngine.Object;
 namespace Unity.Scenes.Editor.Tests
 {
     [AddComponentMenu("")]
-    [ConverterVersion("unity", 1)]
-    public class SubSceneLoadTestSharedAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class SubSceneLoadTestSharedAuthoring : MonoBehaviour
     {
         public int Int;
         public Object Asset;
         public string String;
+    }
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+    public struct SubSceneLoadTestSharedComponent : ISharedComponentData, IEquatable<SubSceneLoadTestSharedComponent>
+    {
+        // Shared components do not support Entity or BlobAssetReference typed fields, hence not tested
+        public int Int;
+        public Object Asset;
+        public string String;
+
+        public bool Equals(SubSceneLoadTestSharedComponent other)
         {
-            dstManager.AddSharedComponentData(entity, new Component
-            {
-                Int = Int,
-                Asset = Asset,
-                String = String
-            });
+            return Int == other.Int && Equals(Asset, other.Asset) && String == other.String;
         }
 
-        public struct Component : ISharedComponentData, IEquatable<Component>
+        public override bool Equals(object obj)
         {
-            // Shared components do not support Entity or BlobAssetReference typed fields, hence not tested
-            public int Int;
-            public Object Asset;
-            public string String;
+            return obj is SubSceneLoadTestSharedComponent other && Equals(other);
+        }
 
-            public bool Equals(Component other)
+        public override int GetHashCode()
+        {
+            unchecked
             {
-                return Int == other.Int && Equals(Asset, other.Asset) && String == other.String;
+                var hashCode = Int;
+                hashCode = (hashCode * 397) ^ (Asset != null ? Asset.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (String != null ? String.GetHashCode() : 0);
+                return hashCode;
             }
+        }
+    }
 
-            public override bool Equals(object obj)
+    public class SubSceneLoadTestBaker : Baker<SubSceneLoadTestSharedAuthoring>
+    {
+        public override void Bake(SubSceneLoadTestSharedAuthoring authoring)
+        {
+            AddSharedComponentManaged(new SubSceneLoadTestSharedComponent()
             {
-                return obj is Component other && Equals(other);
-            }
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    var hashCode = Int;
-                    hashCode = (hashCode * 397) ^ (Asset != null ? Asset.GetHashCode() : 0);
-                    hashCode = (hashCode * 397) ^ (String != null ? String.GetHashCode() : 0);
-                    return hashCode;
-                }
-            }
+                Int = authoring.Int,
+                Asset = authoring.Asset,
+                String = authoring.String
+            });
         }
     }
 }

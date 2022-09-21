@@ -9,20 +9,19 @@ namespace Unity.Entities
     /// Identifies an entity.
     /// </summary>
     /// <remarks>
-    /// The entity is a fundamental part of the Entity Component System. Everything in your game that has data or an
-    /// identity of its own is an entity. However, an entity does not contain either data or behavior itself. Instead,
+    /// The entity is a fundamental part of the Entity Component System. Everything in your application that has data or an
+    /// identity of its own is an entity. However, an entity doesn't contain either data or behavior itself. Instead,
     /// the data is stored in the components and the behavior is provided by the systems that process those
     /// components. The entity acts as an identifier or key to the data stored in components.
     ///
-    /// Entities are managed by the <see cref="EntityManager"/> class and exist within a <see cref="World"/>. An
-    /// Entity struct refers to an entity, but is not a reference. Rather the Entity struct contains an
-    /// <see cref="Index"/> used to access entity data and a <see cref="Version"/> used to check whether the Index is
-    /// still valid. Note that you generally do not use the Index or Version values directly, but instead pass the
-    /// Entity struct to the relevant API methods.
+    /// The <see cref="EntityManager"/> class manages entities and they exist within a <see cref="World"/>. An
+    /// Entity struct refers to an entity, but isn't a reference. Rather, the Entity struct contains an
+    /// <see cref="Index"/> that you can use to access entity data, and a <see cref="Version"/> that you can 
+    /// use to check whether the Index is still valid. Note that you must pass the Index or Version values to  
+    /// relevant API methods, rather than accessing them directly.
     ///
-    /// Pass an Entity struct to methods of the <see cref="EntityManager"/>, the <see cref="EntityCommandBuffer"/>,
-    /// or the <see cref="ComponentSystem"/> in order to add or remove components, to access components, or to destroy
-    /// the entity.
+    /// To add or remove components, access components, or to destroy the entity, pass an Entity struct to methods of 
+    /// the <see cref="EntityManager"/>, the <see cref="EntityCommandBuffer"/>, or the <see cref="ComponentSystemBase"/>. 
     /// </remarks>
     [DebuggerTypeProxy(typeof(EntityDebugProxy))]
     [DebuggerDisplay("{EntityDebugProxy.GetDebugName(Index, Version)}")]
@@ -125,11 +124,10 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// <inheritdoc cref="ToString"/>
-        /// Burst compatible.
+        /// Provides a Burst compatible debugging string.
         /// </summary>
-        /// <returns><inheritdoc cref="ToString"/></returns>
-        [BurstCompatible]
+        /// <returns>A string containing the entity index and generational version.</returns>
+        [GenerateTestsForBurstCompatibility]
         public FixedString64Bytes ToFixedString()
         {
             if (Equals(Null))

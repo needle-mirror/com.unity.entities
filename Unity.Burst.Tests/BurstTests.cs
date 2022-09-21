@@ -7,8 +7,38 @@ using Unity.Burst;
 using NUnit.Framework;
 using static Unity.Burst.CompilerServices.Aliasing;
 
+public class BurstTestFixture
+{
+    AllocatorHelper<RewindableAllocator> m_AllocatorHelper;
+    protected ref RewindableAllocator RwdAllocator => ref m_AllocatorHelper.Allocator;
+
+    [OneTimeSetUp]
+    public virtual void OneTimeSetUp()
+    {
+        m_AllocatorHelper = new AllocatorHelper<RewindableAllocator>(Allocator.Persistent);
+        m_AllocatorHelper.Allocator.Initialize(128 * 1024, true);
+    }
+
+    [OneTimeTearDown]
+    public virtual void OneTimeTearDown()
+    {
+        m_AllocatorHelper.Allocator.Dispose();
+        m_AllocatorHelper.Dispose();
+    }
+
+    [TearDown]
+    public virtual void TearDown()
+    {
+        RwdAllocator.Rewind();
+        // This is test only behavior for determinism.  Rewind twice such that all
+        // tests start with an allocator containing only one memory block.
+        RwdAllocator.Rewind();
+    }
+}
+
+
 [BurstCompile]
-public class BurstTests
+public class BurstTests : BurstTestFixture
 {
     [BurstCompile(CompileSynchronously = true)]
     public struct SimpleArrayAssignJob : IJob
@@ -109,7 +139,7 @@ public class BurstTests
     [Test]
     public void ListCapacityJobTest()
     {
-        var jobData = new ListCapacityJob() { list = new NativeList<int>(Allocator.TempJob) };
+        var jobData = new ListCapacityJob() { list = new NativeList<int>(RwdAllocator.ToAllocator) };
         jobData.Run();
 
         Assert.IsTrue(jobData.list.Capacity >= 100);
@@ -132,7 +162,11 @@ public class BurstTests
     [Test]
     public void AssignValue()
     {
-        var jobData = new NativeListAssignValue() { list = new NativeList<int>(Allocator.TempJob) };
+        var allocatorHelper = new AllocatorHelper<RewindableAllocator>(Allocator.Persistent);
+        ref var allocator = ref allocatorHelper.Allocator;
+        allocator.Initialize(128 * 1024, true);
+
+        var jobData = new NativeListAssignValue() { list = new NativeList<int>(allocator.ToAllocator) };
         jobData.list.Add(5);
         jobData.list.Add(42);
 
@@ -142,6 +176,8 @@ public class BurstTests
         Assert.AreEqual(jobData.list[0], jobData.list[1]);
 
         jobData.list.Dispose();
+        allocator.Dispose();
+        allocatorHelper.Dispose();
     }
 
     [BurstCompile(CompileSynchronously = true)]
@@ -341,4 +377,48 @@ public class BurstTests
 
         ecb.Dispose();
     }
+
+#if UNITY_EDITOR
+    [BurstCompile(CompileSynchronously = true)]
+    unsafe public static void DoThing(void* val)
+    {
+        throw new ArgumentException();
+    }
+    unsafe public delegate void FunPtr(void* val);
+
+    [Test]
+    unsafe public void FunctionPointerExceptions()
+    {
+        var func = BurstCompiler.CompileFunctionPointer<FunPtr>(DoThing).Invoke;
+
+        bool didCatch = false;
+        try
+        {
+            func(null);
+        }
+        catch (Exception)
+        {
+            didCatch = true;
+        }
+
+        Assert.IsTrue(didCatch);
+    }
+
+    [Test]
+    [Ignore("This currently fails in Unity 2020.3. Burst team claims that this is fixed in 2022.1. Once it is fixed we can further reduce the amount of BurstCompiler.CompileFunctionPointer code we use")]
+    unsafe public void DirectCallExceptions()
+    {
+        bool didCatch = false;
+        try
+        {
+            DoThing(null);
+        }
+        catch (Exception)
+        {
+            didCatch = true;
+        }
+
+        Assert.IsTrue(didCatch);
+    }
+#endif
 }

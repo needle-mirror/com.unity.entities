@@ -1,7 +1,10 @@
-﻿using System;
+using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using NUnit.Framework;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Tests;
@@ -10,10 +13,56 @@ using Unity.PerformanceTesting;
 
 namespace Unity.Entities.PerformanceTests
 {
+    readonly partial struct PerfTestAspect : IAspect
+    {
+        readonly public RefRW<EcsTestFloatData3> Output;
+        readonly public RefRO<EcsTestFloatData> Input;
+    }
+
     [TestFixture]
     [Category("Performance")]
-    public sealed class SystemUpdatePerformanceTests : EntityPerformanceTestFixture
+    public partial class SystemUpdatePerformanceTests : EntityPerformanceTestFixture
     {
+        static IEnumerable TestCombinations_WithoutEnable()
+        {
+            /*
+            // Parameters: int iterationCount, int loopsPerSystem, int entity Count
+            yield return new TestCaseData(250, 10, 1);
+            yield return new TestCaseData(500, 5, 1);
+            yield return new TestCaseData(500, 5, 10);
+            yield return new TestCaseData(500, 5, 100);
+            yield return new TestCaseData(500, 5, 1000);
+            */
+            yield return new TestCaseData(500, 5, 1000);
+            yield return new TestCaseData(5, 5, 100000);
+        }
+
+        static IEnumerable TestCombinations()
+        {
+            /*
+            // Parameters: int iterationCount, int loopsPerSystem, int entity Count, EnabledBitsMode enableBitsMode
+            yield return new TestCaseData(250, 10, 1, EnabledBitsMode.NoEnableableComponents);
+            yield return new TestCaseData(250, 10, 1, EnabledBitsMode.NoComponentsDisabled);
+            yield return new TestCaseData(500, 5, 1, EnabledBitsMode.NoEnableableComponents);
+            yield return new TestCaseData(500, 5, 10, EnabledBitsMode.NoEnableableComponents);
+            yield return new TestCaseData(500, 5, 10, EnabledBitsMode.NoComponentsDisabled);
+            yield return new TestCaseData(500, 5, 10, EnabledBitsMode.ManyComponentsDisabled);
+            yield return new TestCaseData(500, 5, 100, EnabledBitsMode.NoEnableableComponents);
+            yield return new TestCaseData(500, 5, 1000, EnabledBitsMode.NoEnableableComponents);
+            yield return new TestCaseData(500, 5, 1000, EnabledBitsMode.NoComponentsDisabled);
+            yield return new TestCaseData(500, 5, 1000, EnabledBitsMode.FewComponentsDisabled);
+            yield return new TestCaseData(500, 5, 1000, EnabledBitsMode.ManyComponentsDisabled);
+            */
+            yield return new TestCaseData(500, 5, 1000, EnabledBitsMode.NoEnableableComponents);
+
+            yield return new TestCaseData(5, 5, 100000, EnabledBitsMode.NoEnableableComponents);
+           yield return new TestCaseData(5, 5, 100000, EnabledBitsMode.NoComponentsDisabled);
+            yield return new TestCaseData(5, 5, 100000, EnabledBitsMode.FewComponentsDisabled);
+            yield return new TestCaseData(5, 5, 100000, EnabledBitsMode.ManyComponentsDisabled);
+            yield return new TestCaseData(5, 5, 100000, EnabledBitsMode.MostComponentsDisabled);
+        }
+
+
         unsafe public partial class BenchMarkReferenceClassArrayLoop : SystemBase
         {
             // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
@@ -132,18 +181,21 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [BurstCompile(CompileSynchronously = true)]
-        unsafe struct MySystemBenchmarkJob : IJobEntityBatch
+        unsafe struct MySystemBenchmarkJobChunk : IJobChunk
         {
             public ComponentTypeHandle<EcsTestFloatData3> RotationTypeHandle;
             [ReadOnly] public ComponentTypeHandle<EcsTestFloatData> RotationSpeedTypeHandle;
             public float Singleton;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var chunkRotations = (float3*)batchInChunk.GetComponentDataPtrRW(ref RotationTypeHandle);
-                var chunkRotationSpeeds = (float*)batchInChunk.GetComponentDataPtrRO(ref RotationSpeedTypeHandle);
-                int count = batchInChunk.Count;
-                for (var i = 0; i < count; i++)
+                var chunkRotations = (float3*)chunk.GetComponentDataPtrRW(ref RotationTypeHandle);
+                var chunkRotationSpeeds = (float*)chunk.GetComponentDataPtrRO(ref RotationSpeedTypeHandle);
+
+                ChunkEntityEnumerator enumerator =
+                    new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.ChunkEntityCount);
+
+                while(enumerator.NextEntityIndex(out var i))
                 {
                     chunkRotations[i] += chunkRotationSpeeds[i] + Singleton;
                 }
@@ -151,13 +203,123 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [BurstCompile(CompileSynchronously = true)]
-        public partial struct MyStructSystem : ISystem
+        unsafe partial struct MySystemBenchmarkJobEntity : IJobEntity
         {
-            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
+            public void Execute(ref EcsTestFloatData3 rotation, in EcsTestFloatData rotationSpeed)
+            {
+                rotation.Value0 += rotationSpeed.Value;
+                rotation.Value1 += rotationSpeed.Value;
+                rotation.Value2 += rotationSpeed.Value;
+            }
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        public partial struct MyBufferSystem : ISystem, ISystemStartStop, ISetLoopMode
+        {
+            [InternalBufferCapacity(10)]
+            public struct EcsFloatElement : IBufferElementData
+            {
+                public float Value;
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            unsafe struct MySystemBufferBenchmarkJob : IJobChunk
+            {
+                public BufferTypeHandle<EcsFloatElement> BufferHandle;
+                [ReadOnly] public ComponentTypeHandle<EcsTestFloatData> DataHandle;
+                public float Singleton;
+
+                public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+                {
+                    var buffers = chunk.GetBufferAccessor(BufferHandle);
+                    var datas = (EcsTestData*)chunk.GetComponentDataPtrRO(ref DataHandle);
+
+                    var enumerator =
+                        new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.ChunkEntityCount);
+
+                    while(enumerator.NextEntityIndex(out var e))
+                    {
+                        var buffer = buffers[e];
+                        for (int i = 0; i != buffer.Length; i++)
+                        {
+                            buffer.ElementAt(i).Value += buffer[i].Value + datas[i].value + Singleton;
+                        }
+                    }
+                }
+            }
+
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
+            {
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
             public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
 
             private EntityQuery _Query;
 
+            public void OnDestroy(ref SystemState state)
+            { }
+
+            BufferTypeHandle<EcsFloatElement> _FloatBufferHandle;
+            ComponentTypeHandle<EcsTestFloatData> _ComponentFloatHandle;
+            public void OnCreate(ref SystemState state)
+            {
+                _FloatBufferHandle = state.GetBufferTypeHandle<EcsFloatElement>();
+                _ComponentFloatHandle = state.GetComponentTypeHandle<EcsTestFloatData>();
+            }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsFloatElement>(), ComponentType.ReadOnly<EcsTestFloatData>());
+                else
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsFloatElement>(), ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestDataEnableable>());
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
+            }
+
+            [BurstDiscard]
+            static void CheckRunningBurst()
+            {
+                throw new ArgumentException("Not running burst");
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnUpdate(ref SystemState state)
+            {
+                CheckRunningBurst();
+
+                for (int i = 0; i != LoopsPerSystem; i++)
+                {
+                    _FloatBufferHandle.Update(ref state);
+                    _ComponentFloatHandle.Update(ref state);
+                    var job = new MySystemBufferBenchmarkJob
+                    {
+                        BufferHandle = _FloatBufferHandle,
+                        DataHandle = _ComponentFloatHandle,
+                    };
+                    InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, _Query);
+                }
+            }
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        public partial struct MyStructSystem_IJobChunk : ISystem, ISystemStartStop, ISetLoopMode
+        {
+            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
+            public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
+
+            private EntityQuery _Query;
+
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
+            {
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
             public void OnDestroy(ref SystemState state)
             { }
 
@@ -165,10 +327,22 @@ namespace Unity.Entities.PerformanceTests
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
             public void OnCreate(ref SystemState state)
             {
-                _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
-                    ComponentType.ReadOnly<EcsTestFloatData>());
                 _RotationTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData3>();
                 _RotationSpeedTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData>();
+            }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>());
+                else
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestDataEnableable>());
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
             }
 
             [BurstDiscard]
@@ -186,12 +360,64 @@ namespace Unity.Entities.PerformanceTests
                 {
                     _RotationTypeHandle.Update(ref state);
                     _RotationSpeedTypeHandle.Update(ref state);
-                    var job = new MySystemBenchmarkJob
+                    var job = new MySystemBenchmarkJobChunk
                     {
                         RotationTypeHandle = _RotationTypeHandle,
                         RotationSpeedTypeHandle = _RotationSpeedTypeHandle,
                     };
-                    JobEntityBatchExtensions.RunWithoutJobs(ref job, _Query);
+                    InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, _Query);
+                }
+            }
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        public partial struct MyStructSystem_IJobEntity : ISystem, ISystemStartStop, ISetLoopMode
+        {
+            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
+            public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
+
+            private EntityQuery _Query;
+
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
+            {
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
+            public void OnDestroy(ref SystemState state)
+            { }
+
+            public void OnCreate(ref SystemState state)
+            { }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>());
+                else
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestDataEnableable>());
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
+            }
+
+            [BurstDiscard]
+            static void CheckRunningBurst()
+            {
+                throw new ArgumentException("Not running burst");
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnUpdate(ref SystemState state)
+            {
+                CheckRunningBurst();
+
+                for (int i = 0; i != LoopsPerSystem; i++)
+                {
+                    new MySystemBenchmarkJobEntity().Run(_Query);
                 }
             }
         }
@@ -202,14 +428,20 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [BurstCompile(CompileSynchronously = true)]
-        public partial struct MyStructSystemWithSingleton : ISystem
+        public partial struct MyStructSystemWithSingleton : ISystem, ISystemStartStop, ISetLoopMode
         {
             // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
             public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
 
             private EntityQuery _Query;
             private EntityQuery _SingletonData;
 
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
+            {
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
             public void OnDestroy(ref SystemState state)
             { }
 
@@ -217,11 +449,23 @@ namespace Unity.Entities.PerformanceTests
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
             public void OnCreate(ref SystemState state)
             {
-                _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
-                    ComponentType.ReadOnly<EcsTestFloatData>());
                 _SingletonData = state.GetEntityQuery(typeof(SingletonData));
                 _RotationTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData3>();
                 _RotationSpeedTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData>();
+            }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>());
+                else
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestDataEnableable>());
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
             }
 
             [BurstDiscard]
@@ -241,26 +485,32 @@ namespace Unity.Entities.PerformanceTests
                     _RotationSpeedTypeHandle.Update(ref state);
                     var singletonData = _SingletonData.GetSingleton<SingletonData>();
 
-                    var job = new MySystemBenchmarkJob
+                    var job = new MySystemBenchmarkJobChunk
                     {
                         RotationTypeHandle = _RotationTypeHandle,
                         RotationSpeedTypeHandle = _RotationSpeedTypeHandle,
                         Singleton = singletonData.Value
                     };
-                    JobEntityBatchExtensions.RunWithoutJobs(ref job, _Query);
+                    InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, _Query);
                 }
             }
         }
 
 
         [BurstCompile(CompileSynchronously = true)]
-        public partial struct MyStructRunSystem : ISystem
+        public partial struct MyStructRunSystem : ISystem, ISystemStartStop, ISetLoopMode
         {
             // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
             public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
 
             private EntityQuery _Query;
 
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
+            {
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
             public void OnDestroy(ref SystemState state)
             { }
 
@@ -268,10 +518,22 @@ namespace Unity.Entities.PerformanceTests
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
             public void OnCreate(ref SystemState state)
             {
-                _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
-                    ComponentType.ReadOnly<EcsTestFloatData>());
                 _RotationTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData3>();
                 _RotationSpeedTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData>();
+            }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>());
+                else
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestDataEnableable>());
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
             }
 
             [BurstDiscard]
@@ -289,7 +551,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     _RotationTypeHandle.Update(ref state);
                     _RotationSpeedTypeHandle.Update(ref state);
-                    var job = new MySystemBenchmarkJob
+                    var job = new MySystemBenchmarkJobChunk
                     {
                         RotationTypeHandle = _RotationTypeHandle,
                         RotationSpeedTypeHandle = _RotationSpeedTypeHandle,
@@ -299,14 +561,164 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 
+
         [BurstCompile(CompileSynchronously = true)]
-        public partial struct MyStructScheduleSystem : ISystem
+        public partial struct StructSystem_Aspect_foreach : ISystem, ISystemStartStop, ISetLoopMode
         {
             // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
             public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
 
             private EntityQuery _Query;
+            PerfTestAspect.TypeHandle _TypeHandle;
+            float singleton;
 
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
+            {
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
+            public void OnDestroy(ref SystemState state)
+            { }
+
+            public void OnCreate(ref SystemState state)
+            {
+                _TypeHandle = new PerfTestAspect.TypeHandle(ref state, false);
+                singleton = 1.0F;
+            }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = state.GetEntityQuery(PerfTestAspect.RequiredComponents);
+                else
+                    _Query = state.GetEntityQuery(ComponentType.Combine(PerfTestAspect.RequiredComponents, new ComponentType[] { ComponentType.ReadOnly<EcsTestDataEnableable>() } ));
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
+            }
+
+            [BurstDiscard]
+            static void CheckRunningBurst()
+            {
+                throw new ArgumentException("Not running burst");
+            }
+
+            [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+            public void OnUpdate(ref SystemState state)
+            {
+                CheckRunningBurst();
+
+                float s = singleton;
+                for (int i = 0; i != LoopsPerSystem; i++)
+                {
+                    _TypeHandle.Update(ref state);
+                    foreach (var a in PerfTestAspect.Query(_Query, _TypeHandle))
+                    {
+                        ref var output = ref a.Output.ValueRW;
+                        var input = a.Input.ValueRO;
+                        output.Value0  += input.Value + s;
+                        output.Value1  += input.Value + s;
+                        output.Value2  += input.Value + s;
+                    }
+                }
+            }
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        public partial struct StructSystem_Aspect_IJobChunk_RunWithoutJobs : ISystem, ISystemStartStop, ISetLoopMode
+        {
+            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
+            public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
+
+            private EntityQuery _Query;
+            PerfTestAspect.TypeHandle _TypeHandle;
+            float singleton;
+
+            unsafe struct AspectJob : IJobChunk
+            {
+                public PerfTestAspect.TypeHandle Aspect;
+                public float Singleton;
+
+                public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+                {
+                    var aspects = Aspect.Resolve(chunk);
+                    int count = aspects.Length;
+                    for (var i = 0; i < count; i++)
+                    {
+                        ref var output = ref aspects[i].Output.ValueRW;
+                        var input = aspects[i].Input.ValueRO;
+                        output.Value0  += input.Value + Singleton;
+                        output.Value1  += input.Value + Singleton;
+                        output.Value2  += input.Value + Singleton;
+                    }
+                }
+            }
+
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
+            {
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
+            public void OnDestroy(ref SystemState state)
+            { }
+
+            public void OnCreate(ref SystemState state)
+            {
+                _TypeHandle = new PerfTestAspect.TypeHandle(ref state, false);
+                singleton = 1.0F;
+            }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = state.GetEntityQuery(PerfTestAspect.RequiredComponents);
+                else
+                    _Query = state.GetEntityQuery(ComponentType.Combine(PerfTestAspect.RequiredComponents, new ComponentType[] { ComponentType.ReadOnly<EcsTestDataEnableable>() } ));
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
+            }
+
+            [BurstDiscard]
+            static void CheckRunningBurst()
+            {
+                throw new ArgumentException("Not running burst");
+            }
+
+            [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+            public void OnUpdate(ref SystemState state)
+            {
+                CheckRunningBurst();
+
+                float s = singleton;
+                for (int i = 0; i != LoopsPerSystem; i++)
+                {
+                    _TypeHandle.Update(ref state);
+
+                    var job = new AspectJob {Singleton = singleton, Aspect = _TypeHandle};
+                    InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, _Query);
+                }
+            }
+        }
+
+
+        [BurstCompile(CompileSynchronously = true)]
+        public partial struct MyStructScheduleSystem : ISystem, ISystemStartStop, ISetLoopMode
+        {
+            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
+            public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
+
+            private EntityQuery _Query;
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
+            {
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
             public void OnDestroy(ref SystemState state)
             { }
 
@@ -314,10 +726,22 @@ namespace Unity.Entities.PerformanceTests
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
             public void OnCreate(ref SystemState state)
             {
-                _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
-                    ComponentType.ReadOnly<EcsTestFloatData>());
                 _RotationTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData3>();
                 _RotationSpeedTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData>();
+            }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>());
+                else
+                    _Query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestDataEnableable>());
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
             }
 
             [BurstDiscard]
@@ -335,7 +759,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     _RotationTypeHandle.Update(ref state);
                     _RotationSpeedTypeHandle.Update(ref state);
-                    var job = new MySystemBenchmarkJob
+                    var job = new MySystemBenchmarkJobChunk
                     {
                         RotationTypeHandle = _RotationTypeHandle,
                         RotationSpeedTypeHandle = _RotationSpeedTypeHandle,
@@ -345,22 +769,37 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 
-        public partial class MyClassSystem : SystemBase
+        public partial class MyClassSystem : SystemBase, ISetLoopMode
         {
             // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
             public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
 
             private EntityQuery _Query;
 
             ComponentTypeHandle<EcsTestFloatData3> _RotationTypeHandle;
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
 
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
+            {
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
             protected override void OnCreate()
             {
-                _Query = GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
-                    ComponentType.ReadOnly<EcsTestFloatData>());
                 _RotationTypeHandle = GetComponentTypeHandle<EcsTestFloatData3>();
                 _RotationSpeedTypeHandle = GetComponentTypeHandle<EcsTestFloatData>();
+            }
+
+            protected override void OnStartRunning()
+            {
+                base.OnStartRunning();
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>());
+                else
+                    _Query = GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestDataEnableable>());
             }
 
             protected override void OnUpdate()
@@ -369,31 +808,38 @@ namespace Unity.Entities.PerformanceTests
                 {
                     _RotationTypeHandle.Update(this);
                     _RotationSpeedTypeHandle.Update(this);
-                    var job = new MySystemBenchmarkJob
+                    var job = new MySystemBenchmarkJobChunk
                     {
                         RotationTypeHandle = _RotationTypeHandle,
                         RotationSpeedTypeHandle = _RotationSpeedTypeHandle,
                     };
-
-                    JobEntityBatchExtensions.RunWithoutJobs(ref job, _Query);
+                    InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, _Query);
                 }
             }
         }
 
         [BurstCompile(CompileSynchronously = true)]
-        unsafe public partial class MyClassSystemWithBurstForEach : SystemBase
+        unsafe public partial class MyClassSystemWithBurstForEach : SystemBase, ISetLoopMode
         {
             // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
             public int LoopsPerSystem;
+            public EnabledBitsMode Mode;
 
             EntityQuery _Query;
             ComponentTypeHandle<EcsTestFloatData3> _RotationTypeHandle;
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
 
-            [BurstCompile(CompileSynchronously = true)]
-            static void RunBursted(void* job, EntityQuery* query)
+            public void Set(int loopsPerSystem, EnabledBitsMode mode)
             {
-                JobEntityBatchExtensions.RunWithoutJobs(ref *(MySystemBenchmarkJob*)job, *query);
+                LoopsPerSystem = loopsPerSystem;
+                Mode = mode;
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            static void RunBursted(void* jobPtr, EntityQuery* query)
+            {
+                ref var job = ref *(MySystemBenchmarkJobChunk*)jobPtr;
+                InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, *query);
             }
 
             unsafe delegate void RunBurstedCallback(void* job, EntityQuery* query);
@@ -402,13 +848,22 @@ namespace Unity.Entities.PerformanceTests
             static private RunBurstedCallback _Callback;
             protected override void OnCreate()
             {
-                _Query = GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
-                    ComponentType.ReadOnly<EcsTestFloatData>());
                 _RotationTypeHandle = GetComponentTypeHandle<EcsTestFloatData3>();
                 _RotationSpeedTypeHandle = GetComponentTypeHandle<EcsTestFloatData>();
 
                 if (_Callback == null)
                     _Callback = BurstCompiler.CompileFunctionPointer<RunBurstedCallback>(RunBursted).Invoke;
+            }
+
+            protected override void OnStartRunning()
+            {
+                base.OnStartRunning();
+                if (Mode == EnabledBitsMode.NoEnableableComponents)
+                    _Query = GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>());
+                else
+                    _Query = GetEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>(),
+                        ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestDataEnableable>());
             }
 
             protected override void OnUpdate()
@@ -417,7 +872,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     _RotationTypeHandle.Update(this);
                     _RotationSpeedTypeHandle.Update(this);
-                    var job = new MySystemBenchmarkJob
+                    var job = new MySystemBenchmarkJobChunk
                     {
                         RotationTypeHandle = _RotationTypeHandle,
                         RotationSpeedTypeHandle = _RotationSpeedTypeHandle,
@@ -428,129 +883,37 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 
-        public partial class BenchmarkStructSystemGroup : ComponentSystemGroup
+        public interface ISetLoopMode
         {
-            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
-            public int IterationCount;
-            public int LoopsPerSystem;
-
-            protected override void OnStartRunning()
-            {
-                base.OnStartRunning();
-
-                for (int i = 0; i != IterationCount; i++)
-                {
-                    var res = World.AddSystem<MyStructSystem>();
-                    res.Struct.LoopsPerSystem = LoopsPerSystem;
-                    AddUnmanagedSystemToUpdateList(res);
-                }
-            }
+            void Set(int loopsPerSystem, EnabledBitsMode mode);
         }
 
-        public partial class BenchmarkStructSystemWithSingletonGroup : ComponentSystemGroup
+        public partial class BenchmarkSystemGroup : ComponentSystemGroup
         {
-            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
-            public int IterationCount;
-            public int LoopsPerSystem;
-
-            protected override void OnStartRunning()
+            public unsafe void CreateUnmanagedSystems<T>(int iterationCount, int loopsPerSystem, EnabledBitsMode mode) where T : unmanaged, ISystem, ISetLoopMode
             {
-                base.OnStartRunning();
-
-                for (int i = 0; i != IterationCount; i++)
+                for (int i = 0; i != iterationCount; i++)
                 {
-                    var res = World.AddSystem<MyStructSystemWithSingleton>();
-                    res.Struct.LoopsPerSystem = LoopsPerSystem;
-                    AddUnmanagedSystemToUpdateList(res);
+                    var res = World.CreateSystem<T>();
+                    World.Unmanaged.GetUnsafeSystemRef<T>(res).Set(loopsPerSystem, mode);
+                    AddSystemToUpdateList(res);
                 }
             }
-        }
 
-        public partial class BenchmarkSystemBaseGroup : ComponentSystemGroup
-        {
-            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
-            public int IterationCount;
-            public int LoopsPerSystem;
-
-            protected override void OnStartRunning()
+            public void CreateManagedSystems<T>(int iterationCount, int loopsPerSystem, EnabledBitsMode mode) where T : ComponentSystemBase, ISetLoopMode, new()
             {
-                base.OnStartRunning();
-
-                for (int i = 0; i != IterationCount; i++)
+                for (int i = 0; i != iterationCount; i++)
                 {
-                    var sys = World.CreateSystem<MyClassSystem>();
-                    sys.LoopsPerSystem = LoopsPerSystem;
-                    AddSystemToUpdateList(sys);
-                }
-            }
-        }
-
-        public partial class BenchmarkSystemBaseWithBurstForEachGroup : ComponentSystemGroup
-        {
-            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
-            public int IterationCount;
-            public int LoopsPerSystem;
-
-            protected override void OnStartRunning()
-            {
-                base.OnStartRunning();
-
-                for (int i = 0; i != IterationCount; i++)
-                {
-                    var sys = World.CreateSystem<MyClassSystemWithBurstForEach>();
-                    sys.LoopsPerSystem = LoopsPerSystem;
-                    AddSystemToUpdateList(sys);
-                }
-            }
-        }
-
-        public partial class BenchmarkRunStructSystemGroup : ComponentSystemGroup
-        {
-            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
-            public int IterationCount;
-            public int LoopsPerSystem;
-
-            protected override void OnStartRunning()
-            {
-                base.OnStartRunning();
-
-                for (int i = 0; i != IterationCount; i++)
-                {
-                    var res = World.AddSystem<MyStructRunSystem>();
-                    res.Struct.LoopsPerSystem = LoopsPerSystem;
-                    AddUnmanagedSystemToUpdateList(res);
+                    var res = World.CreateSystemManaged<T>();
+                    res.Set(loopsPerSystem, mode);
+                    AddSystemToUpdateList(res);
                 }
             }
 
             protected override void OnUpdate()
             {
                 base.OnUpdate();
-                EntityManager.CompleteAllJobs();
-            }
-        }
-
-        public partial class BenchmarkScheduleStructSystemGroup : ComponentSystemGroup
-        {
-            // Assign values to these fields post-OnCreate() based on test case settings, before the first Update()
-            public int IterationCount;
-            public int LoopsPerSystem;
-
-            protected override void OnStartRunning()
-            {
-                base.OnStartRunning();
-
-                for (int i = 0; i != IterationCount; i++)
-                {
-                    var res = World.AddSystem<MyStructScheduleSystem>();
-                    res.Struct.LoopsPerSystem = LoopsPerSystem;
-                    AddUnmanagedSystemToUpdateList(res);
-                }
-            }
-
-            protected override void OnUpdate()
-            {
-                base.OnUpdate();
-                EntityManager.CompleteAllJobs();
+                EntityManager.CompleteAllTrackedJobs();
             }
         }
 
@@ -560,8 +923,30 @@ namespace Unity.Entities.PerformanceTests
             NoComponentsDisabled,
             FewComponentsDisabled,
             ManyComponentsDisabled,
+            MostComponentsDisabled,
         }
 
+        void CreateBufferTestEntities(int entityCount, EnabledBitsMode enabledBitsMode)
+        {
+            // Create the entities that will match the test queries
+            var types = new List<ComponentType>
+            {
+                typeof(MyBufferSystem.EcsFloatElement), typeof(EcsTestFloatData), typeof(SceneTag)
+            };
+
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                types.Add(typeof(EcsTestDataEnableable));
+
+            var archPos = m_Manager.CreateArchetype(types.ToArray());
+            var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, m_World.UpdateAllocator.ToAllocator);
+            m_Manager.CreateEntity(archPos, entities);
+            for (int i = 0; i != entities.Length; i++)
+            {
+                m_Manager.GetBuffer<MyBufferSystem.EcsFloatElement>(entities[i]).Resize(10, NativeArrayOptions.ClearMemory);
+            }
+
+            CreateAdditionalEntityData(entityCount, enabledBitsMode, archPos, entities);
+        }
         void CreateTestEntities(int entityCount, EnabledBitsMode enabledBitsMode)
         {
             // Create the entities that will match the test queries
@@ -575,6 +960,12 @@ namespace Unity.Entities.PerformanceTests
             var archPos = m_Manager.CreateArchetype(types.ToArray());
             var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, m_World.UpdateAllocator.ToAllocator);
             m_Manager.CreateEntity(archPos, entities);
+
+            CreateAdditionalEntityData(entityCount, enabledBitsMode, archPos, entities);
+        }
+
+        private void CreateAdditionalEntityData(int entityCount, EnabledBitsMode enabledBitsMode, EntityArchetype archPos, NativeArray<Entity> entities)
+        {
             if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled)
             {
                 for (int i = 0; i < entityCount; i += archPos.ChunkCapacity)
@@ -589,6 +980,19 @@ namespace Unity.Entities.PerformanceTests
                     m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
                 }
             }
+            else if (enabledBitsMode == EnabledBitsMode.MostComponentsDisabled)
+            {
+                // Disable component on all entities
+                for (int i = 0; i < entityCount; i++)
+                {
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+                }
+                // Re-enable one entity every few chunks
+                for (int i = 0; i < entityCount; i += 10*archPos.ChunkCapacity)
+                {
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], true);
+                }
+            }
 
             // Create a bunch of entities in a different archetype that won't match the test queries
             var archNeg = m_Manager.CreateArchetype(typeof(EcsTestData4), typeof(EcsTestData3));
@@ -598,15 +1002,11 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.CreateEntity(typeof(SingletonData));
         }
 
-        [TestCase(250,10,1)]
-        [TestCase(500,5,1)]
-        [TestCase(500,5,10)]
-        [TestCase(500,5,100)]
-        [TestCase(500,5,1000)]
+        [TestCaseSource(nameof(TestCombinations_WithoutEnable))]
         [Performance]
         public void SystemUpdatePerformance_ReferenceArrayLoop(int iterationCount, int loopsPerSystem, int entityCount)
         {
-            var sys = m_World.CreateSystem<BenchMarkReferenceClassArrayLoop>();
+            var sys = m_World.CreateSystemManaged<BenchMarkReferenceClassArrayLoop>();
             sys.IterationCount = iterationCount;
             sys.LoopsPerSystem = loopsPerSystem;
             sys.EntityCount = entityCount;
@@ -616,19 +1016,15 @@ namespace Unity.Entities.PerformanceTests
                         sys.Update();
                     })
                 .WarmupCount(1)
-                .MeasurementCount(100)
+                .MeasurementCount(9)
                 .Run();
         }
 
-        [TestCase(250,10,1)]
-        [TestCase(500,5,1)]
-        [TestCase(500,5,10)]
-        [TestCase(500,5,100)]
-        [TestCase(500,5,1000)]
+        [TestCaseSource(nameof(TestCombinations_WithoutEnable))]
         [Performance]
         public void SystemUpdatePerformance_ReferenceArrayLoop_WithBurst(int iterationCount, int loopsPerSystem, int entityCount)
         {
-            var sys = m_World.CreateSystem<BenchmarkReferenceBurstArrayLoop>();
+            var sys = m_World.CreateSystemManaged<BenchmarkReferenceBurstArrayLoop>();
             sys.IterationCount = iterationCount;
             sys.LoopsPerSystem = loopsPerSystem;
             sys.EntityCount = entityCount;
@@ -638,175 +1034,202 @@ namespace Unity.Entities.PerformanceTests
                         sys.Update();
                     })
                 .WarmupCount(1)
-                .MeasurementCount(100)
+                .MeasurementCount(9)
                 .Run();
         }
 
-        [TestCase(250,10,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(250,10,1, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,10, EnabledBitsMode.ManyComponentsDisabled)]
-        [TestCase(500,5,100, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.FewComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.ManyComponentsDisabled)]
+
+
         [Performance]
-        public void SystemUpdatePerformance_StructSystem_RunWithoutJobs(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
+        [TestCaseSource(nameof(TestCombinations))]
+        public void SystemUpdatePerformance_StructSystem_IJobChunk_RunWithoutJobs(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
         {
             CreateTestEntities(entityCount, enabledBitsMode);
-            var group = m_World.CreateSystem<BenchmarkStructSystemGroup>();
-            group.IterationCount = iterationCount;
-            group.LoopsPerSystem = loopsPerSystem;
+
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateUnmanagedSystems<MyStructSystem_IJobChunk>(iterationCount, loopsPerSystem, enabledBitsMode);
+
             Measure.Method(
                     () =>
                     {
                         group.Update();
                     })
                 .WarmupCount(1)
-                .MeasurementCount(100)
+                .MeasurementCount(9)
+                .CleanUp(() => { m_World.UpdateAllocator.Rewind();})
                 .Run();
         }
 
-        [TestCase(250,10,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(250,10,1, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,10, EnabledBitsMode.ManyComponentsDisabled)]
-        [TestCase(500,5,100, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.FewComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.ManyComponentsDisabled)]
+        [Performance]
+        [TestCaseSource(nameof(TestCombinations))]
+        public void SystemUpdatePerformance_StructSystem_IJobEntity_Run(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
+        {
+            CreateTestEntities(entityCount, enabledBitsMode);
+
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateUnmanagedSystems<MyStructSystem_IJobEntity>(iterationCount, loopsPerSystem, enabledBitsMode);
+
+            Measure.Method(
+                    () =>
+                    {
+                        group.Update();
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(9)
+                .CleanUp(() => { m_World.UpdateAllocator.Rewind();})
+                .Run();
+        }
+
+        [Performance]
+        [TestCaseSource(nameof(TestCombinations))]
+        public void SystemUpdatePerformance_StructSystem_Aspect_foreach(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
+        {
+            CreateTestEntities(entityCount, enabledBitsMode);
+
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateUnmanagedSystems<StructSystem_Aspect_foreach>(iterationCount, loopsPerSystem, enabledBitsMode);
+
+            Measure.Method(
+                    () =>
+                    {
+                        group.Update();
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(9)
+                .CleanUp(() => { m_World.UpdateAllocator.Rewind();})
+                .Run();
+        }
+
+        [Performance]
+        [TestCaseSource(nameof(TestCombinations))]
+        public void SystemUpdatePerformance_StructSystem_Aspect_IJobChunkRunWithoutJobs(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
+        {
+            CreateTestEntities(entityCount, enabledBitsMode);
+
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateUnmanagedSystems<StructSystem_Aspect_IJobChunk_RunWithoutJobs>(iterationCount, loopsPerSystem, enabledBitsMode);
+
+            Measure.Method(
+                    () =>
+                    {
+                        group.Update();
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(9)
+                .CleanUp(() => { m_World.UpdateAllocator.Rewind();})
+                .Run();
+        }
+
+
+        [TestCaseSource(nameof(TestCombinations))]
+        [Performance]
+        public void SystemUpdatePerformance_StructBuffer_10X_System_RunWithoutJobs(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
+        {
+            // NOTE this test iterates over 10 elements hence it is expected to be roughly 10x slower than all the other tests
+            CreateBufferTestEntities(entityCount, enabledBitsMode);
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateUnmanagedSystems<MyBufferSystem>(iterationCount, loopsPerSystem, enabledBitsMode);
+
+            Measure.Method(
+                    () =>
+                    {
+                        group.Update();
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(9)
+                .CleanUp(() => { m_World.UpdateAllocator.Rewind();})
+                .Run();
+        }
+
+        [TestCaseSource(nameof(TestCombinations))]
         [Performance]
         public void SystemUpdatePerformance_StructSystem_RunWithoutJobs_WithSingleton(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
         {
             CreateTestEntities(entityCount, enabledBitsMode);
-            var group = m_World.CreateSystem<BenchmarkStructSystemWithSingletonGroup>();
-            group.IterationCount = iterationCount;
-            group.LoopsPerSystem = loopsPerSystem;
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateUnmanagedSystems<MyStructSystemWithSingleton>(iterationCount, loopsPerSystem, enabledBitsMode);
+
             Measure.Method(
                     () =>
                     {
                         group.Update();
                     })
                 .WarmupCount(1)
-                .MeasurementCount(100)
+                .MeasurementCount(9)
+                .CleanUp(() => { m_World.UpdateAllocator.Rewind();})
                 .Run();
         }
 
-        [TestCase(250,10,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(250,10,1, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,10, EnabledBitsMode.ManyComponentsDisabled)]
-        [TestCase(500,5,100, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.FewComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.ManyComponentsDisabled)]
+        [TestCaseSource(nameof(TestCombinations))]
         [Performance]
         public void SystemUpdatePerformance_SystemBase(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
         {
             CreateTestEntities(entityCount, enabledBitsMode);
-            var group = m_World.CreateSystem<BenchmarkSystemBaseGroup>();
-            group.IterationCount = iterationCount;
-            group.LoopsPerSystem = loopsPerSystem;
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateManagedSystems<MyClassSystem>(iterationCount, loopsPerSystem, enabledBitsMode);
             Measure.Method(
                     () =>
                     {
                         group.Update();
                     })
                 .WarmupCount(1)
-                .MeasurementCount(100)
+                .MeasurementCount(9)
+                .CleanUp(() => { m_World.UpdateAllocator.Rewind();})
                 .Run();
         }
 
-        [TestCase(250,10,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(250,10,1, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,10, EnabledBitsMode.ManyComponentsDisabled)]
-        [TestCase(500,5,100, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.FewComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.ManyComponentsDisabled)]
+        [TestCaseSource(nameof(TestCombinations))]
         [Performance]
         public void SystemUpdatePerformance_SystemBase_WithBurstForEach(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
         {
             CreateTestEntities(entityCount, enabledBitsMode);
-            var group = m_World.CreateSystem<BenchmarkSystemBaseWithBurstForEachGroup>();
-            group.IterationCount = iterationCount;
-            group.LoopsPerSystem = loopsPerSystem;
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateManagedSystems<MyClassSystemWithBurstForEach>(iterationCount, loopsPerSystem, enabledBitsMode);
             Measure.Method(
                     () =>
                     {
                         group.Update();
                     })
                 .WarmupCount(1)
-                .MeasurementCount(100)
+                .MeasurementCount(9)
+                .CleanUp(() => { m_World.UpdateAllocator.Rewind();})
                 .Run();
         }
 
-        [TestCase(250,10,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(250,10,1, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,10, EnabledBitsMode.ManyComponentsDisabled)]
-        [TestCase(500,5,100, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.FewComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.ManyComponentsDisabled)]
+        [TestCaseSource(nameof(TestCombinations))]
         [Performance]
         public void SystemUpdatePerformance_StructSystem_Run(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
         {
             CreateTestEntities(entityCount, enabledBitsMode);
-            var group = m_World.CreateSystem<BenchmarkRunStructSystemGroup>();
-            group.IterationCount = iterationCount;
-            group.LoopsPerSystem = loopsPerSystem;
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateUnmanagedSystems<MyStructRunSystem>(iterationCount, loopsPerSystem, enabledBitsMode);
+
             Measure.Method(
                     () =>
                     {
                         group.Update();
                     })
                 .WarmupCount(1)
-                .MeasurementCount(100)
+                .MeasurementCount(9)
                 .Run();
         }
 
-        [TestCase(250,10,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(250,10,1, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,10, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,10, EnabledBitsMode.ManyComponentsDisabled)]
-        [TestCase(500,5,100, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoEnableableComponents)]
-        [TestCase(500,5,1000, EnabledBitsMode.NoComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.FewComponentsDisabled)]
-        [TestCase(500,5,1000, EnabledBitsMode.ManyComponentsDisabled)]
+        [TestCaseSource(nameof(TestCombinations))]
         [Performance]
         public void SystemUpdatePerformance_StructSystem_Schedule(int iterationCount, int loopsPerSystem, int entityCount, EnabledBitsMode enabledBitsMode)
         {
             CreateTestEntities(entityCount, enabledBitsMode);
-            var group = m_World.CreateSystem<BenchmarkScheduleStructSystemGroup>();
-            group.IterationCount = iterationCount;
-            group.LoopsPerSystem = loopsPerSystem;
+
+            var group = m_World.CreateSystemManaged<BenchmarkSystemGroup>();
+            group.CreateUnmanagedSystems<MyStructScheduleSystem>(iterationCount, loopsPerSystem, enabledBitsMode);
+
             Measure.Method(
                     () =>
                     {
                         group.Update();
                     })
                 .WarmupCount(1)
-                .MeasurementCount(100)
+                .MeasurementCount(9)
                 .Run();
         }
     }

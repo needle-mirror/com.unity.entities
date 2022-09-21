@@ -6,7 +6,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Profiling;
-using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
@@ -30,7 +29,7 @@ namespace Unity.Entities
         {
             public JobHandle WriteFence;
             public int       NumReadFences;
-            public int       TypeIndex;
+            public TypeIndex TypeIndex;
         }
 
         const int              kMaxReadJobHandles = 17;
@@ -45,11 +44,11 @@ namespace Unity.Entities
         ushort                 m_DependencyHandlesCount;
         JobHandle*             m_ReadJobFences;
 
-        const int              EntityTypeIndex = 1;
+        TypeIndex              EntityTypeIndex;
         const ushort           NullTypeIndex = 0xFFFF;
 
         JobHandle              m_ExclusiveTransactionDependency;
-        bool                   _IsInTransaction;
+        byte                   _IsInTransaction;
 
         private ProfilerMarker m_Marker;
         private WorldUnmanaged m_World;
@@ -57,19 +56,19 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public ComponentSafetyHandles Safety;
 #endif
-        public int IsInForEachDisallowStructuralChange;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+        public ForEachDisallowStructuralChangeSupport ForEachStructuralChange;
+#endif
 
-        ushort GetTypeArrayIndex(int typeIndex)
+        ushort GetTypeArrayIndex(TypeIndex typeIndex)
         {
-            var withoutFlags = typeIndex & TypeManager.ClearFlagsMask;
-            var arrayIndex = m_TypeArrayIndices[withoutFlags];
+            var arrayIndex = m_TypeArrayIndices[typeIndex.Index];
             if (arrayIndex != NullTypeIndex)
                 return arrayIndex;
 
-            Assert.IsFalse(TypeManager.IsZeroSized(typeIndex));
-
+            Assert.IsFalse(TypeManager.IsZeroSized(typeIndex) && !TypeManager.IsEnableable(typeIndex));
             arrayIndex = m_DependencyHandlesCount++;
-            m_TypeArrayIndices[withoutFlags] = arrayIndex;
+            m_TypeArrayIndices[typeIndex.Index] = arrayIndex;
             m_DependencyHandles[arrayIndex].TypeIndex = typeIndex;
             m_DependencyHandles[arrayIndex].NumReadFences = 0;
             m_DependencyHandles[arrayIndex].WriteFence = new JobHandle();
@@ -80,7 +79,7 @@ namespace Unity.Entities
         void ClearDependencies()
         {
             for (int i = 0; i < m_DependencyHandlesCount; ++i)
-                m_TypeArrayIndices[m_DependencyHandles[i].TypeIndex & TypeManager.ClearFlagsMask] = NullTypeIndex;
+                m_TypeArrayIndices[m_DependencyHandles[i].TypeIndex.Index] = NullTypeIndex;
             m_DependencyHandlesCount = 0;
         }
 
@@ -93,6 +92,8 @@ namespace Unity.Entities
             m_ReadJobFences = (JobHandle*)Memory.Unmanaged.Allocate(sizeof(JobHandle) * kMaxReadJobHandles * kMaxTypes, 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_ReadJobFences, sizeof(JobHandle) * kMaxReadJobHandles * kMaxTypes);
 
+            EntityTypeIndex = TypeManager.GetTypeIndex<Entity>();
+
             m_DependencyHandles = (DependencyHandle*)Memory.Unmanaged.Allocate(sizeof(DependencyHandle) * kMaxTypes, 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_DependencyHandles, sizeof(DependencyHandle) * kMaxTypes);
 
@@ -100,9 +101,12 @@ namespace Unity.Entities
             m_JobDependencyCombineBuffer = (JobHandle*)Memory.Unmanaged.Allocate(sizeof(DependencyHandle) * m_JobDependencyCombineBufferCount, 16, Allocator.Persistent);
 
             m_DependencyHandlesCount = 0;
-            _IsInTransaction = false;
-            IsInForEachDisallowStructuralChange = 0;
+            _IsInTransaction = 0;
             m_ExclusiveTransactionDependency = default;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            ForEachStructuralChange.Init();
+#endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.OnCreate();
@@ -120,7 +124,7 @@ namespace Unity.Entities
             }
         }
 
-        public void CompleteAllJobsAndInvalidateArrays()
+        public void CompleteAllJobs()
         {
             var executingSystem = m_World.ExecutingSystem;
             if (executingSystem != default)
@@ -147,9 +151,23 @@ namespace Unity.Entities
                 ClearDependencies();
                 m_Marker.End();
             }
+        }
+
+        public void CompleteAllJobsAndInvalidateArrays()
+        {
+            CompleteAllJobs();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.CompleteAllJobsAndInvalidateArrays();
+#endif
+        }
+
+        public void CompleteAllJobsAndCheckDeallocateAndThrow()
+        {
+            CompleteAllJobs();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            Safety.CheckAllJobsCanDeallocate();
 #endif
         }
 
@@ -170,6 +188,9 @@ namespace Unity.Entities
             Memory.Unmanaged.Free(m_ReadJobFences, Allocator.Persistent);
             m_ReadJobFences = null;
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            ForEachStructuralChange.Dispose();
+#endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.Dispose();
 #endif
@@ -188,7 +209,7 @@ namespace Unity.Entities
 #endif
         }
 
-        public void CompleteDependenciesNoChecks(int* readerTypes, int readerTypesCount, int* writerTypes, int writerTypesCount)
+        public void CompleteDependenciesNoChecks(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount)
         {
             for (var i = 0; i != writerTypesCount; i++)
                 CompleteReadAndWriteDependencyNoChecks(writerTypes[i]);
@@ -197,9 +218,9 @@ namespace Unity.Entities
                 CompleteWriteDependencyNoChecks(readerTypes[i]);
         }
 
-        public bool HasReaderOrWriterDependency(int type, JobHandle dependency)
+        public bool HasReaderOrWriterDependency(TypeIndex typeIndex, JobHandle dependency)
         {
-            var typeArrayIndex = m_TypeArrayIndices[type & TypeManager.ClearFlagsMask];
+            var typeArrayIndex = m_TypeArrayIndices[typeIndex.Index];
             if (typeArrayIndex == NullTypeIndex)
                 return false;
 
@@ -218,7 +239,7 @@ namespace Unity.Entities
             return false;
         }
 
-        public JobHandle GetDependency(int* readerTypes, int readerTypesCount, int* writerTypes, int writerTypesCount)
+        public JobHandle GetDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (readerTypesCount * kMaxReadJobHandles + writerTypesCount > m_JobDependencyCombineBufferCount)
@@ -228,14 +249,14 @@ namespace Unity.Entities
             var count = 0;
             for (var i = 0; i != readerTypesCount; i++)
             {
-                var typeArrayIndex = m_TypeArrayIndices[readerTypes[i] & TypeManager.ClearFlagsMask];
+                var typeArrayIndex = m_TypeArrayIndices[readerTypes[i].Index];
                 if (typeArrayIndex != NullTypeIndex)
                     m_JobDependencyCombineBuffer[count++] = m_DependencyHandles[typeArrayIndex].WriteFence;
             }
 
             for (var i = 0; i != writerTypesCount; i++)
             {
-                var typeArrayIndex = m_TypeArrayIndices[writerTypes[i] & TypeManager.ClearFlagsMask];
+                var typeArrayIndex = m_TypeArrayIndices[writerTypes[i].Index];
                 if (typeArrayIndex == NullTypeIndex)
                     continue;
 
@@ -249,7 +270,7 @@ namespace Unity.Entities
             return JobHandleUnsafeUtility.CombineDependencies(m_JobDependencyCombineBuffer, count);
         }
 
-        public JobHandle AddDependency(int* readerTypes, int readerTypesCount, int* writerTypes, int writerTypesCount,
+        public JobHandle AddDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount,
             JobHandle dependency)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -316,18 +337,16 @@ namespace Unity.Entities
 #endif
         }
 
-        internal void CompleteWriteDependencyNoChecks(int type)
+        internal void CompleteWriteDependencyNoChecks(TypeIndex typeIndex)
         {
-            var withoutFlags = type & TypeManager.ClearFlagsMask;
-            var arrayIndex = m_TypeArrayIndices[withoutFlags];
+            var arrayIndex = m_TypeArrayIndices[typeIndex.Index];
             if (arrayIndex != NullTypeIndex)
                 m_DependencyHandles[arrayIndex].WriteFence.Complete();
         }
 
-        void CompleteReadAndWriteDependencyNoChecks(int type)
+        internal void CompleteReadAndWriteDependencyNoChecks(TypeIndex typeIndex)
         {
-            var withoutFlags = type & TypeManager.ClearFlagsMask;
-            var arrayIndex = m_TypeArrayIndices[withoutFlags];
+            var arrayIndex = m_TypeArrayIndices[typeIndex.Index];
             if (arrayIndex != NullTypeIndex)
             {
                 for (var i = 0; i < m_DependencyHandles[arrayIndex].NumReadFences; ++i)
@@ -338,7 +357,7 @@ namespace Unity.Entities
             }
         }
 
-        public void CompleteWriteDependency(int type)
+        public void CompleteWriteDependency(TypeIndex type)
         {
             CompleteWriteDependencyNoChecks(type);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -346,7 +365,7 @@ namespace Unity.Entities
 #endif
         }
 
-        public void CompleteReadAndWriteDependency(int type)
+        public void CompleteReadAndWriteDependency(TypeIndex type)
         {
             CompleteReadAndWriteDependencyNoChecks(type);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -390,27 +409,32 @@ namespace Unity.Entities
     {
         JobHandle              m_Dependency;
         JobHandle              m_ExclusiveTransactionDependency;
-        bool                   _IsInTransaction;
+        byte                   _IsInTransaction;
+        WorldUnmanaged         m_World;
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public ComponentSafetyHandles Safety;
 #endif
-        public int IsInForEachDisallowStructuralChange;
-        private WorldUnmanaged m_World;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+        public ForEachDisallowStructuralChangeSupport ForEachStructuralChange;
+#endif
 
         public void OnCreate(WorldUnmanaged world)
         {
             m_Dependency = default;
-            _IsInTransaction = false;
+            _IsInTransaction = 0;
             m_World = world;
-            IsInForEachDisallowStructuralChange = 0;
             m_ExclusiveTransactionDependency = default;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            ForEachStructuralChange.Init();
+#endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.OnCreate();
 #endif
         }
 
-        public void CompleteAllJobsAndInvalidateArrays()
+        void CompleteAllJobs()
         {
             var executingSystem = m_World.ExecutingSystem;
             if (executingSystem != default)
@@ -419,10 +443,25 @@ namespace Unity.Entities
                 if (systemState != null)
                     systemState->m_JobHandle.Complete();
             }
+
             m_Dependency.Complete();
+        }
+
+        public void CompleteAllJobsAndInvalidateArrays()
+        {
+            CompleteAllJobs();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.CompleteAllJobsAndInvalidateArrays();
+#endif
+        }
+
+        public void CompleteAllJobsAndCheckDeallocateAndThrow()
+        {
+            CompleteAllJobs();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            Safety.CheckAllJobsCanDeallocate();
 #endif
         }
 
@@ -430,6 +469,9 @@ namespace Unity.Entities
         {
             m_Dependency.Complete();
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            ForEachStructuralChange.Dispose();
+#endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.Dispose();
 #endif
@@ -444,28 +486,28 @@ namespace Unity.Entities
 #endif
         }
 
-        public void CompleteDependenciesNoChecks(int* readerTypes, int readerTypesCount, int* writerTypes, int writerTypesCount)
+        public void CompleteDependenciesNoChecks(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount)
         {
             m_Dependency.Complete();
         }
 
-        public bool HasReaderOrWriterDependency(int type, JobHandle dependency)
+        public bool HasReaderOrWriterDependency(TypeIndex type, JobHandle dependency)
         {
             return JobHandle.CheckFenceIsDependencyOrDidSyncFence(dependency, m_Dependency);
         }
 
-        public JobHandle GetDependency(int* readerTypes, int readerTypesCount, int* writerTypes, int writerTypesCount)
+        public JobHandle GetDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount)
         {
             return m_Dependency;
         }
 
-        public JobHandle AddDependency(int* readerTypes, int readerTypesCount, int* writerTypes, int writerTypesCount, JobHandle dependency)
+        public JobHandle AddDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount, JobHandle dependency)
         {
             m_Dependency = dependency;
             return dependency;
         }
 
-        public void CompleteWriteDependency(int type)
+        public void CompleteWriteDependency(TypeIndex type)
         {
             m_Dependency.Complete();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -473,7 +515,7 @@ namespace Unity.Entities
 #endif
         }
 
-        public void CompleteReadAndWriteDependency(int type)
+        public void CompleteReadAndWriteDependency(TypeIndex type)
         {
             m_Dependency.Complete();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -481,10 +523,16 @@ namespace Unity.Entities
 #endif
         }
 
-        internal void CompleteWriteDependencyNoChecks(int type)
+        internal void CompleteWriteDependencyNoChecks(TypeIndex type)
         {
             m_Dependency.Complete();
         }
+
+        internal void CompleteReadAndWriteDependencyNoChecks(TypeIndex type)
+        {
+            m_Dependency.Complete();
+        }
+
 
         void ClearDependencies()
         {
@@ -498,7 +546,11 @@ namespace Unity.Entities
     // Shared code of the above two different implementation
     partial struct ComponentDependencyManager
     {
-        internal bool IsInTransaction => _IsInTransaction;
+        internal bool IsInTransaction
+        {
+            get { return _IsInTransaction != 0; }
+            set { _IsInTransaction = (byte) (value ? 1u : 0u); }
+        }
 
         public JobHandle ExclusiveTransactionDependency
         {
@@ -506,7 +558,7 @@ namespace Unity.Entities
             set
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (!_IsInTransaction)
+                if (_IsInTransaction == 0)
                     throw new InvalidOperationException(
                         "EntityManager.ExclusiveEntityTransactionDependency can only be used after EntityManager.BeginExclusiveEntityTransaction has been called.");
 
@@ -520,7 +572,7 @@ namespace Unity.Entities
 
         public void PreEndExclusiveTransaction()
         {
-            if (_IsInTransaction)
+            if (_IsInTransaction == 1)
             {
                 m_ExclusiveTransactionDependency.Complete();
             }
@@ -528,27 +580,99 @@ namespace Unity.Entities
 
         public void EndExclusiveTransaction()
         {
-            if (!_IsInTransaction)
+            if (_IsInTransaction == 0)
                 return;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.EndExclusiveTransaction();
 #endif
-            _IsInTransaction = false;
+            _IsInTransaction = 0;
         }
 
         public void BeginExclusiveTransaction()
         {
-            if (_IsInTransaction)
+            if (_IsInTransaction == 1)
                 return;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.BeginExclusiveTransaction();
 #endif
 
-            _IsInTransaction = true;
+            _IsInTransaction = 1;
             m_ExclusiveTransactionDependency = GetAllDependencies();
             ClearDependencies();
         }
     }
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+    internal unsafe struct ForEachDisallowStructuralChangeSupport
+    {
+        const int         kMaxNestedForEachDisallowStructuralChange = 32;
+
+        internal int      Depth;
+
+        EntityQueryMask*  _forEachQueryMasks;
+
+        public void Init()
+        {
+            Depth = 0;
+            _forEachQueryMasks = (EntityQueryMask*)Memory.Unmanaged.Allocate(sizeof(EntityQueryMask) * kMaxNestedForEachDisallowStructuralChange, 16, Allocator.Persistent);
+        }
+
+        internal void BeginIsInForEach(EntityQueryImpl* query)
+        {
+            CheckIsWithinMaxAllowedNestedForEach(Depth);
+            if (query->_QueryData->DoesQueryRequireBatching != 0)
+                _forEachQueryMasks[Depth++] = new EntityQueryMask();
+            else
+                _forEachQueryMasks[Depth++] = query->GetEntityQueryMask();
+        }
+
+        void CheckIsWithinMaxAllowedNestedForEach(int value)
+        {
+            if (value >= kMaxNestedForEachDisallowStructuralChange)
+                throw new InvalidOperationException(
+                    $"The maximum allowed number of nested foreach with structural changes is {kMaxNestedForEachDisallowStructuralChange}.");
+        }
+
+        internal void SetIsInForEachDisallowStructuralChangeCounter(int counter)
+        {
+            CheckIsWithinMaxAllowedNestedForEach(counter);
+            if (counter > Depth)
+            {
+                ClearEntityQueryCacheFrom(Depth);
+            }
+
+            Depth = counter;
+        }
+
+        void ClearEntityQueryCacheFrom(int index)
+        {
+            UnsafeUtility.MemClear(
+                _forEachQueryMasks + index * sizeof(EntityQueryMask),
+                sizeof(EntityQueryMask) * (kMaxNestedForEachDisallowStructuralChange - Depth));
+        }
+
+        internal void EndIsInForEach()
+        {
+            Depth--;
+        }
+
+        internal bool IsAdditiveStructuralChangePossible(Archetype* archetype)
+        {
+            for (var i = 0; i < Depth; i++)
+            {
+                if (_forEachQueryMasks[i].IsCreated() && _forEachQueryMasks[i].Matches(archetype))
+                    return false;
+            }
+
+            return true;
+        }
+
+        public void Dispose()
+        {
+            Memory.Unmanaged.Free(_forEachQueryMasks, Allocator.Persistent);
+        }
+    }
+#endif
 }

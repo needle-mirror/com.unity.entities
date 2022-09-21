@@ -120,5 +120,100 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(4, offsets[0].Offset);
             Assert.AreEqual(16, offsets[1].Offset);
         }
+
+#if !UNITY_DOTSRUNTIME && !UNITY_DISABLE_MANAGED_COMPONENTS
+        // Test uses class component types
+        [Test]
+        public void HasEntityReferencesManaged_Basic()
+        {
+            //shallow types with no recursion
+
+            //primitive
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(string),out var entRef, out var blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
+
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(System.Int32),out entRef, out blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
+
+            //blob only
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TypeOverridesBlob),out entRef, out blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
+
+            //entity only
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TypeOverridesEntity),out entRef, out blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
+
+            //blob and entity
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TypeOverridesBlobEntity),out entRef, out blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
+        }
+
+        public sealed class RecursionA3: IComponentData
+        {
+            public RecursionA2 a2;
+            public RecursionB2 b2;
+            public RecursionC2 c2;
+        }
+        public sealed class RecursionA2: IComponentData
+        {
+            public Recursion1LayerBlob blob1;
+            public Recursion1LayerEntity entity1;
+        }
+
+        public sealed class RecursionB2: IComponentData
+        {
+            public Recursion1LayerBlob blob1;
+            public Recursion1LayerEntity entity1;
+        }
+
+        public sealed class RecursionC2: IComponentData
+        {
+            public Recursion1LayerBlob blob1;
+            public Recursion1LayerEntity entity1;
+        }
+
+        public sealed class Recursion1LayerEntity: IComponentData
+        {
+            TypeManagerTests.TypeOverridesEntity entity;
+        }
+
+        public sealed class Recursion1LayerBlob: IComponentData
+        {
+            TypeManagerTests.TypeOverridesBlob blob;
+        }
+
+        [Test]
+        public void HasEntityReferencesManaged_Recursion()
+        {
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(RecursionA2),out var entRef, out var blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
+
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(RecursionA3),out  entRef, out  blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
+
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(EcsTestManagedDataEntity),out  entRef, out  blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
+
+
+        }
+#endif // !UNITY_DOTSRUNTIME && !UNITY_DISABLE_MANAGED_COMPONENTS
+
     }
 }

@@ -4,20 +4,24 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [AddComponentMenu("")]
-    public class DependsOnComponentTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class DependsOnComponentTestAuthoring : MonoBehaviour
     {
         public GameObject Other;
         public static Dictionary<GameObject, int> Versions = new Dictionary<GameObject,int>();
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
-        {
-            conversionSystem.DeclareDependency(gameObject, Other);
 
-            if (Other == null || Other.scene != gameObject.scene)
-                dstManager.AddComponentData(entity, new Component {Value = -1});
-            else
+        class Baker : Baker<DependsOnComponentTestAuthoring>
+        {
+            public override void Bake(DependsOnComponentTestAuthoring authoring)
             {
-                Versions.TryGetValue(Other, out var version);
-                dstManager.AddComponentData(entity, new Component {Value = version});
+                DependsOn(authoring.Other);
+
+                if (authoring.Other == null || authoring.Other.scene != authoring.gameObject.scene)
+                    AddComponent(new Component {Value = -1});
+                else
+                {
+                    Versions.TryGetValue(authoring.Other, out var version);
+                    AddComponent(new Component {Value = version});
+                }
             }
         }
 

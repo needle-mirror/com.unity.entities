@@ -1,11 +1,10 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
-using UnityEngine;
-using NUnit.Framework;
+using Unity.Burst.Intrinsics;
+using Unity.Assertions;
 
 // Only used in obsolete IJobChunk docs -- do not update to use IJobEntityBatch
 // The files in this namespace are used to compile/test the code samples in the documentation.
@@ -44,13 +43,14 @@ namespace Doc.CodeSamples.Tests
             public ComponentTypeHandle<Rotation> RotationTypeHandle;
             [ReadOnly] public ComponentTypeHandle<RotationSpeed> RotationSpeedTypeHandle;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 #region chunkiteration
+                Assert.IsFalse(useEnabledMask); // this job is not written with enabled-bit support
 
                 var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
                 var chunkRotationSpeeds = chunk.GetNativeArray(RotationSpeedTypeHandle);
-                for (var i = 0; i < chunk.Count; i++)
+                for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
                 {
                     var rotation = chunkRotations[i];
                     var rotationSpeed = chunkRotationSpeeds[i];
@@ -75,7 +75,7 @@ namespace Doc.CodeSamples.Tests
             {
                 RotationTypeHandle = GetComponentTypeHandle<Rotation>(false),
                 RotationSpeedTypeHandle = GetComponentTypeHandle<RotationSpeed>(true),
-                DeltaTime = Time.DeltaTime
+                DeltaTime = SystemAPI.Time.DeltaTime
             };
             this.Dependency =  job.ScheduleParallel(m_Query, this.Dependency);
         }
@@ -118,7 +118,7 @@ namespace Doc.CodeSamples.Tests
             public ComponentTypeHandle<Rotation> RotationTypeHandle;
             [ReadOnly] public ComponentTypeHandle<RotationSpeed> RotationSpeedTypeHandle;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 // ...
             }
@@ -132,7 +132,7 @@ namespace Doc.CodeSamples.Tests
             {
                 RotationTypeHandle = GetComponentTypeHandle<Rotation>(false),
                 RotationSpeedTypeHandle = GetComponentTypeHandle<RotationSpeed>(true),
-                DeltaTime = Time.DeltaTime
+                DeltaTime = SystemAPI.Time.DeltaTime
             };
 
             this.Dependency =  job.ScheduleParallel(m_Query, this.Dependency);
@@ -171,7 +171,7 @@ namespace Doc.CodeSamples.Tests
 
             #region execsignature
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
 
                 #endregion
             {
@@ -190,7 +190,7 @@ namespace Doc.CodeSamples.Tests
             {
                 RotationTypeHandle = GetComponentTypeHandle<Rotation>(false),
                 RotationSpeedTypeHandle = GetComponentTypeHandle<RotationSpeed>(true),
-                DeltaTime = Time.DeltaTime
+                DeltaTime = SystemAPI.Time.DeltaTime
             };
 
             this.Dependency = job.ScheduleParallel(m_Query, this.Dependency);
@@ -244,8 +244,9 @@ namespace Doc.CodeSamples.Tests
             [ReadOnly] public ComponentTypeHandle<Output> OutputTypeHandle;
             public uint LastSystemVersion;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                Assert.IsFalse(useEnabledMask); // this job is not written with enabled-bit support
                 var inputAChanged = chunk.DidChange(InputATypeHandle, LastSystemVersion);
                 var inputBChanged = chunk.DidChange(InputBTypeHandle, LastSystemVersion);
 
@@ -286,7 +287,11 @@ namespace Doc.CodeSamples.Tests
 
     #region basic-ijobchunk
 
-    [GenerateAuthoringComponent]
+    public struct ChaserPosition : IComponentData
+    {
+        public float3 Value;
+    }
+
     public struct Target : IComponentData
     {
         public Entity entity;
@@ -300,7 +305,7 @@ namespace Doc.CodeSamples.Tests
         private struct ChaserSystemJob : IJobChunk
         {
             // Read-write data in the current chunk
-            public ComponentTypeHandle<Translation> PositionTypeHandle;
+            public ComponentTypeHandle<ChaserPosition> PositionTypeHandle;
 
             // Read-only data in the current chunk
             [ReadOnly]
@@ -309,45 +314,46 @@ namespace Doc.CodeSamples.Tests
             // Read-only data stored (potentially) in other chunks
             [ReadOnly]
             //[NativeDisableParallelForRestriction]
-            public ComponentDataFromEntity<LocalToWorld> EntityPositions;
+            public ComponentLookup<LocalToWorld> EntityPositions;
 
             // Non-entity data
             public float deltaTime;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                NativeArray<Translation> positions = chunk.GetNativeArray<Translation>(PositionTypeHandle);
+                Assert.IsFalse(useEnabledMask); // this job is not written with enabled-bit support
                 NativeArray<Target> targets = chunk.GetNativeArray<Target>(TargetTypeHandle);
-
-                for (int i = 0; i < positions.Length; i++)
+                NativeArray<ChaserPosition> positions = chunk.GetNativeArray<ChaserPosition>(PositionTypeHandle);
+                for (int i = 0; i < targets.Length; i++)
                 {
                     Entity targetEntity = targets[i].entity;
                     float3 targetPosition = EntityPositions[targetEntity].Position;
                     float3 chaserPosition = positions[i].Value;
 
                     float3 displacement = (targetPosition - chaserPosition);
-                    positions[i] = new Translation { Value = chaserPosition + displacement * deltaTime };
+                    positions[i] = new ChaserPosition { Value = chaserPosition + displacement * deltaTime };
                 }
             }
         }
 
         protected override void OnCreate()
         {
-            query = this.GetEntityQuery(typeof(Translation), ComponentType.ReadOnly<Target>());
+            query = this.GetEntityQuery(ComponentType.ReadOnly<Target>(), typeof(ChaserPosition));
         }
 
         protected override void OnUpdate()
         {
             var job = new ChaserSystemJob();
-            job.PositionTypeHandle = this.GetComponentTypeHandle<Translation>(false);
+            job.PositionTypeHandle = this.GetComponentTypeHandle<ChaserPosition>(false);
             job.TargetTypeHandle = this.GetComponentTypeHandle<Target>(true);
 
-            job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
-            job.deltaTime = this.Time.DeltaTime;
+            job.EntityPositions = SystemAPI.GetComponentLookup<LocalToWorld>(true);
+            job.deltaTime = SystemAPI.Time.DeltaTime;
 
-            this.Dependency = job.Schedule(query, this.Dependency);
+            this.Dependency = job.ScheduleParallel(query, this.Dependency);
         }
     }
     #endregion
 
 }
+

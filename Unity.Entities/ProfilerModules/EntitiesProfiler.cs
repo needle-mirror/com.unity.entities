@@ -15,11 +15,12 @@ namespace Unity.Entities
     static partial class EntitiesProfiler
     {
         static bool s_Initialized;
+        static ulong s_LastWorldSequenceNumber;
+
         sealed class SharedStaticData { internal static readonly SharedStatic<StaticData> Ref = SharedStatic<StaticData>.GetOrCreate<SharedStaticData>(); }
 
         public static Guid Guid => SharedStaticData.Ref.Data.Guid;
 
-        [NotBurstCompatible]
         public static void Initialize()
         {
             if (s_Initialized)
@@ -33,8 +34,6 @@ namespace Unity.Entities
             MemoryProfiler.Initialize();
 
             // Register global events
-            World.WorldCreated += OnWorldCreated;
-            World.SystemCreated += OnSystemCreated;
 #if UNITY_EDITOR
             if (EditorApplication.isPlayingOrWillChangePlaymode)
                 RuntimeApplication.PostFrameUpdate += Update;
@@ -47,7 +46,6 @@ namespace Unity.Entities
             s_Initialized = true;
         }
 
-        [NotBurstCompatible]
         public static void Shutdown()
         {
             if (!s_Initialized)
@@ -62,8 +60,6 @@ namespace Unity.Entities
 #else
             RuntimeApplication.PostFrameUpdate -= Update;
 #endif
-            World.SystemCreated -= OnSystemCreated;
-            World.WorldCreated -= OnWorldCreated;
 
             // Shutdown profiler modules
             MemoryProfiler.Shutdown();
@@ -73,19 +69,31 @@ namespace Unity.Entities
             SharedStaticData.Ref.Data.Dispose();
 
             s_Initialized = false;
+            s_LastWorldSequenceNumber = 0;
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Takes managed World")]
         public static void OnWorldCreated(World world) => SharedStaticData.Ref.Data.AddWorld(world);
 
-        [NotBurstCompatible]
-        public static void OnSystemCreated(World world, ComponentSystemBase system) => SharedStaticData.Ref.Data.AddSystem(world, system);
+        [ExcludeFromBurstCompatTesting("Takes managed Type")]
+        public static void OnSystemCreated(Type systemType, in SystemHandle systemHandle) => SharedStaticData.Ref.Data.AddSystem(systemType, in systemHandle);
 
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         public static unsafe void ArchetypeAdded(Archetype* archetype) => SharedStaticData.Ref.Data.AddArchetype(archetype);
 
         internal static void Update()
         {
+            if (World.NextSequenceNumber != s_LastWorldSequenceNumber)
+            {
+                // Iterate forward to keep creation order in our events.
+                foreach (var world in World.All)
+                {
+                    if(world.SequenceNumber >= s_LastWorldSequenceNumber)
+                        OnWorldCreated(world);
+                }
+                s_LastWorldSequenceNumber = World.NextSequenceNumber;
+            }
+
             MemoryProfiler.Update();
             StructuralChangesProfiler.Flush();
             SharedStaticData.Ref.Data.Flush();

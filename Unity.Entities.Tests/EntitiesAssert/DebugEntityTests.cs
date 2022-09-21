@@ -12,7 +12,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetAllEntities_WithEmptyEcs()
         {
-            var debugEntities = DebugEntity.GetAllEntities(m_Manager);
+            var debugEntities = DebugEntity.GetAllEntitiesWithSystems(m_Manager);
 
             CollectionAssert.IsEmpty(debugEntities);
         }
@@ -22,10 +22,10 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity();
 
-            var debugEntities = DebugEntity.GetAllEntities(m_Manager);
+            var debugEntities = DebugEntity.GetAllEntitiesWithSystems(m_Manager);
 
             EntitiesAssert.AreEqual(
-                new[] { new DebugEntity(entity) },
+                new[] { new DebugEntity(entity, new DebugComponent {Type = typeof(Simulate), Data = new Simulate()}) },
                 debugEntities);
         }
 
@@ -34,10 +34,12 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestTag));
 
-            var debugEntities = DebugEntity.GetAllEntities(m_Manager);
+            var debugEntities = DebugEntity.GetAllEntitiesWithSystems(m_Manager);
 
             EntitiesAssert.AreEqual(
-                new[] { new DebugEntity(entity, new DebugComponent { Type = typeof(EcsTestTag), Data = new EcsTestTag() }) },
+                new[] { new DebugEntity(entity,
+                    new DebugComponent { Type = typeof(EcsTestTag), Data = new EcsTestTag() },
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()}) },
                 debugEntities);
         }
 
@@ -50,7 +52,7 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestSharedTag));
 
-            var debugEntities = DebugEntity.GetAllEntities(m_Manager);
+            var debugEntities = DebugEntity.GetAllEntitiesWithSystems(m_Manager);
 
 #if NET_DOTS
 
@@ -64,7 +66,9 @@ namespace Unity.Entities.Tests
 #else
 
             EntitiesAssert.AreEqual(
-                new[] { new DebugEntity(entity, new DebugComponent { Type = typeof(EcsTestSharedTag), Data = new EcsTestSharedTag() }) },
+                new[] { new DebugEntity(entity,
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()},
+                    new DebugComponent { Type = typeof(EcsTestSharedTag), Data = new EcsTestSharedTag() }) },
                 debugEntities);
 
 #endif
@@ -78,16 +82,18 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity();
             m_Manager.AddComponentData(entity, new EcsTestData(5));
 
-            var debugEntities = DebugEntity.GetAllEntities(m_Manager);
+            var debugEntities = DebugEntity.GetAllEntitiesWithSystems(m_Manager);
 
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity,
-                    new DebugComponent { Type = typeof(EcsTestData), Data = new EcsTestData(5)}) },
+                    new DebugComponent { Type = typeof(EcsTestData), Data = new EcsTestData(5)},
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()}) },
                 debugEntities);
 
             EntitiesAssert.AreNotEqual(
                 new[] { new DebugEntity(entity,
-                    new DebugComponent { Type = typeof(EcsTestData), Data = new EcsTestData(6)}) },
+                    new DebugComponent { Type = typeof(EcsTestData), Data = new EcsTestData(6)},
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()}) },
                 debugEntities);
         }
 
@@ -95,17 +101,19 @@ namespace Unity.Entities.Tests
         public void GetAllEntities_WithSharedComponentData()
         {
             var entity = m_Manager.CreateEntity();
-            m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp(5));
+            m_Manager.AddSharedComponentManaged(entity, new EcsTestSharedComp(5));
 
-            var debugEntities = DebugEntity.GetAllEntities(m_Manager);
+            var debugEntities = DebugEntity.GetAllEntitiesWithSystems(m_Manager);
 
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity,
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()},
                     new DebugComponent { Type = typeof(EcsTestSharedComp), Data = new EcsTestSharedComp(5)}) },
                 debugEntities);
 
             EntitiesAssert.AreNotEqual(
                 new[] { new DebugEntity(entity,
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()},
                     new DebugComponent { Type = typeof(EcsTestSharedComp), Data = new EcsTestSharedComp(6)}) },
                 debugEntities);
         }
@@ -119,11 +127,12 @@ namespace Unity.Entities.Tests
             buffer.Add(5);
             buffer.Add(9);
 
-            var debugEntities = DebugEntity.GetAllEntities(m_Manager);
+            var debugEntities = DebugEntity.GetAllEntitiesWithSystems(m_Manager);
 
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity,
-                    new DebugComponent { Type = typeof(EcsIntElement), Data = new EcsIntElement[] { 1, 5, 9 } }) },
+                    new DebugComponent { Type = typeof(EcsIntElement), Data = new EcsIntElement[] { 1, 5, 9 } },
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()}) },
                 debugEntities);
         }
 
@@ -143,21 +152,24 @@ namespace Unity.Entities.Tests
             var component = new TestClassComponent { Value = 5 };
             m_Manager.AddComponentObject(entity, component);
 
-            var debugEntities = DebugEntity.GetAllEntities(m_Manager);
+            var debugEntities = DebugEntity.GetAllEntitiesWithSystems(m_Manager);
 
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity,
-                    new DebugComponent { Type = typeof(TestClassComponent), Data = component }) },
+                    new DebugComponent { Type = typeof(TestClassComponent), Data = component },
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()}) },
                 debugEntities);
 
             // currently we are doing Equals comparisons, so validate it
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity,
-                    new DebugComponent { Type = typeof(TestClassComponent), Data = new TestClassComponent { Value = 5 } }) },
+                    new DebugComponent { Type = typeof(TestClassComponent), Data = new TestClassComponent { Value = 5 } },
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()}) },
                 debugEntities);
             EntitiesAssert.AreNotEqual(
                 new[] { new DebugEntity(entity,
-                    new DebugComponent { Type = typeof(TestClassComponent), Data = new TestClassComponent { Value = 6 } }) },
+                    new DebugComponent { Type = typeof(TestClassComponent), Data = new TestClassComponent { Value = 6 } },
+                    new DebugComponent {Type = typeof(Simulate), Data = new Simulate()}) },
                 debugEntities);
         }
 

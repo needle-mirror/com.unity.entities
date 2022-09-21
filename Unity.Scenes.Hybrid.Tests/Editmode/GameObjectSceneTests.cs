@@ -52,6 +52,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editor
         {
             m_TempAssets.TearDown();
             SceneWithBuildConfigurationGUIDs.ClearBuildSettingsCache();
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
         }
 
         // This test handles the case where the user presses Play in Editor with a Scene with SubScenes.
@@ -74,16 +75,17 @@ namespace Unity.Scenes.Hybrid.Tests.Editor
 
             using (var worldB = TestWorldSetup.CreateEntityWorld("World B", false))
             {
-                var sceneSystemA = worldA.GetExistingSystem<SceneSystem>();
-                var sceneSystemB = worldB.GetExistingSystem<SceneSystem>();
                 Assert.IsTrue(m_SceneGUID.IsValid, "Scene guid is invalid");
 
-                var worldAScene = sceneSystemA.LoadSceneAsync(m_SceneGUID, new SceneSystem.LoadParameters{Flags = SceneLoadFlags.LoadAsGOScene});
-                var worldBScene = sceneSystemB.LoadSceneAsync(m_SceneGUID, new SceneSystem.LoadParameters{Flags = SceneLoadFlags.LoadAsGOScene});
-                Assert.IsFalse(sceneSystemA.IsSceneLoaded(worldAScene), "Scene is apparently immediately loaded");
-                Assert.IsFalse(sceneSystemB.IsSceneLoaded(worldBScene), "Scene is apparently immediately loaded");
+                var worldAScene = SceneSystem.LoadSceneAsync(worldA.Unmanaged, m_SceneGUID, new SceneSystem.LoadParameters{Flags = SceneLoadFlags.LoadAsGOScene});
+                var worldBScene = SceneSystem.LoadSceneAsync(worldB.Unmanaged, m_SceneGUID, new SceneSystem.LoadParameters{Flags = SceneLoadFlags.LoadAsGOScene});
+                Assert.IsFalse(SceneSystem.IsSceneLoaded(worldA.Unmanaged, worldAScene), "Scene is apparently immediately loaded");
+                Assert.IsFalse(SceneSystem.IsSceneLoaded(worldB.Unmanaged, worldBScene), "Scene is apparently immediately loaded");
 
-                while (!sceneSystemA.IsSceneLoaded(worldAScene) || !sceneSystemB.IsSceneLoaded(worldBScene))
+                while (!SceneSystem.IsSceneLoaded(worldA.Unmanaged,
+                           worldAScene) ||
+                       !SceneSystem.IsSceneLoaded(worldB.Unmanaged,
+                           worldBScene)) 
                 {
                     worldA.Update();
                     worldB.Update();
@@ -96,15 +98,15 @@ namespace Unity.Scenes.Hybrid.Tests.Editor
                 var worldBQuery = worldB.EntityManager.CreateEntityQuery(typeof(RuntimeUnmanaged));
                 Assert.AreEqual(1, worldBQuery.CalculateEntityCount());
 
-                var unitySceneRef = worldA.EntityManager.GetSharedComponentData<GameObjectSceneData>(worldAScene);
+                var unitySceneRef = worldA.EntityManager.GetSharedComponentManaged<GameObjectSceneData>(worldAScene);
                 Assert.IsTrue(unitySceneRef.Scene.IsValid(), "GameObject Scene is not valid");
                 Assert.IsTrue(unitySceneRef.Scene.isLoaded, "GameObject Scene is not loaded");
 
-                sceneSystemB.UnloadScene(worldBScene);
+                SceneSystem.UnloadScene(worldB.Unmanaged, worldBScene);
                 worldA.Update();
                 worldB.Update();
 
-                while (sceneSystemB.IsSceneLoaded(worldBScene))
+                while (SceneSystem.IsSceneLoaded(worldB.Unmanaged, worldBScene))
                 {
                     worldA.Update();
                     worldB.Update();

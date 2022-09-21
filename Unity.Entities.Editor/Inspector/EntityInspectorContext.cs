@@ -1,7 +1,6 @@
 using System;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
-using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
@@ -12,7 +11,7 @@ namespace Unity.Entities.Editor
     {
         const string k_InvalidEntityName = "{ Invalid Entity }";
 
-        const WorldFlags ReadonlyFlags = WorldFlags.Conversion
+        const WorldFlags k_ReadonlyFlags = WorldFlags.Conversion
                                          | WorldFlags.Shadow
                                          | WorldFlags.Staging
                                          | WorldFlags.Streaming;
@@ -24,16 +23,33 @@ namespace Unity.Entities.Editor
         internal Entity Entity => EntityContainer.Entity;
         internal bool IsReadOnly => EntityContainer.IsReadOnly;
 
-        internal void SetContext(EntitySelectionProxy proxy)
+        internal EntityAspectsCollectionContainer AspectsCollectionContainer => new EntityAspectsCollectionContainer(World, Entity, IsReadOnly);
+
+        internal void SetContext(EntitySelectionProxy proxy, bool forceWritable = false)
         {
+            if (!proxy.Exists)
+            {
+                // The proxy is no longer valid, we can't generate a valid container out of it
+                EntityContainer = default;
+                return;
+            }
+
             World = proxy.World;
-            var isReadonly = !EditorApplication.isPlaying || IsWorldReadOnly(World);
-            EntityContainer = new EntityContainer(World.EntityManager, proxy.Entity, isReadonly);
+
+            if (forceWritable)
+            {
+                EntityContainer = new EntityContainer(World.EntityManager, proxy.Entity, false);
+            }
+            else
+            {
+                var isReadonly = !EditorApplication.isPlaying || IsWorldReadOnly(World);
+                EntityContainer = new EntityContainer(World.EntityManager, proxy.Entity, isReadonly);
+            }
         }
 
         internal bool TargetExists()
         {
-            return World.IsCreated && World.EntityManager.SafeExists(Entity);
+            return World is { IsCreated: true } && World.EntityManager.SafeExists(Entity);
         }
 
         internal string GetTargetName()
@@ -58,7 +74,7 @@ namespace Unity.Entities.Editor
 
         static bool IsWorldReadOnly(World world)
         {
-            return (world.Flags & ReadonlyFlags) != WorldFlags.None;
+            return (world.Flags & k_ReadonlyFlags) != WorldFlags.None;
         }
     }
 
@@ -96,7 +112,7 @@ namespace Unity.Entities.Editor
     static class EntityInspectorContextStructExtensions
     {
         public static bool TryGetComponentData<T>(this EntityInspectorContext context, out T component)
-            where T : struct, IComponentData
+            where T : unmanaged, IComponentData
         {
             if (!context.TargetExists() || !context.EntityManager.HasComponent<T>(context.Entity))
             {
@@ -109,7 +125,7 @@ namespace Unity.Entities.Editor
         }
 
         public static bool TryGetChunkComponentData<T>(this EntityInspectorContext context, out T component)
-            where T : struct, IComponentData
+            where T : unmanaged, IComponentData
         {
             if (!context.TargetExists() || !context.EntityManager.HasComponent<T>(context.Entity))
             {

@@ -9,6 +9,14 @@ using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities.Tests.Conversion
 {
+    internal abstract class BakingTestFixture : ConversionTestFixtureBase
+    {
+        protected BakingSettings MakeDefaultSettings() => new BakingSettings
+        {
+            BakingFlags = BakingUtility.BakingFlags.AssignName
+        };
+    }
+
     internal abstract class ConversionTestFixtureBase : ECSTestsFixture
     {
         protected enum DestructionBy
@@ -27,18 +35,19 @@ namespace Unity.Entities.Tests.Conversion
         readonly List<UnityObject> m_ObjectsDestroyedByTest = new List<UnityObject>();
         readonly Dictionary<string, int> m_ObjectNames = new Dictionary<string, int>();
 
-        protected GameObjectConversionSettings MakeDefaultSettings() => new GameObjectConversionSettings
-        {
-            DestinationWorld = World,
-            ConversionFlags = GameObjectConversionUtility.ConversionFlags.AssignName,
-            Systems = TestWorldSetup.GetDefaultInitSystemsFromEntitiesPackage(WorldSystemFilterFlags.GameObjectConversion).ToList()
-        };
-
-        protected static readonly IEnumerable<Type> k_CommonComponents = new[] { typeof(Translation), typeof(Rotation), typeof(LocalToWorld) };
+#if !ENABLE_TRANSFORM_V1
+        protected static readonly IEnumerable<Type> k_CommonComponents = new[] { typeof(Simulate), typeof(LocalToWorldTransform), typeof(LocalToWorld) };
+#else
+        protected static readonly IEnumerable<Type> k_CommonComponents = new[] { typeof(Simulate), typeof(Translation), typeof(Rotation), typeof(LocalToWorld) };
+#endif
         protected static readonly IEnumerable<Type> k_StaticComponents = new[] {typeof(LocalToWorld), typeof(Static)};
         protected static readonly IEnumerable<Type> k_RootComponents = k_CommonComponents.Append(typeof(LinkedEntityGroup));
         protected static readonly IEnumerable<Type> k_StaticRootComponents = k_StaticComponents.Append(typeof(LinkedEntityGroup));
+#if !ENABLE_TRANSFORM_V1
+        protected static readonly IEnumerable<Type> k_ChildComponents  = k_CommonComponents.Concat(new[] { typeof(Parent), typeof(LocalToParentTransform) });
+#else
         protected static readonly IEnumerable<Type> k_ChildComponents  = k_CommonComponents.Concat(new[] { typeof(Parent), typeof(LocalToParent) });
+#endif
 
         [TearDown]
         public new void TearDown()
@@ -110,7 +119,7 @@ namespace Unity.Entities.Tests.Conversion
 
         protected static T LoadAsset<T>(string name) where T : UnityObject
         {
-            var path = $"Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/Conversion/{name}";
+            var path = $"Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/Prefabs/{name}";
             var asset = AssetDatabase.LoadAssetAtPath<T>(path);
             if (asset == null)
                 throw new Exception($"Failed to load asset {typeof(T).Name} at '{path}'");

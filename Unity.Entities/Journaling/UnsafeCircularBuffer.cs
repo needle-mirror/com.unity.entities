@@ -16,7 +16,7 @@ namespace Unity.Entities.LowLevel.Unsafe
     [DebuggerDisplay("Count = {Count}, Capacity = {Capacity}, IsCreated = {IsCreated}, IsEmpty = {IsEmpty}, IsFull = {IsFull}")]
     [DebuggerTypeProxy(typeof(UnsafeCircularBufferTDebugView<>))]
     [StructLayout(LayoutKind.Sequential)]
-    [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
+    [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
     internal unsafe struct UnsafeCircularBuffer<T> :
         IDisposable,
         IEnumerable<T>
@@ -78,22 +78,17 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// <param name="options">Memory initialization options.</param>
         public UnsafeCircularBuffer(int capacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory)
         {
-            m_Allocator = allocator;
-
-            var sizeOf = sizeof(T);
-            var alignOf = UnsafeUtility.AlignOf<T>();
-            m_Ptr = (T*)m_Allocator.Allocate(sizeOf, alignOf, capacity);
+            m_Allocator = default;
+            m_Ptr = null;
             m_Front = 0;
             m_Back = 0;
-            m_Capacity = capacity;
+            m_Capacity = 0;
             m_Count = 0;
-
-            if (options == NativeArrayOptions.ClearMemory && m_Ptr != null)
-                UnsafeUtility.MemClear(m_Ptr, m_Capacity * sizeOf);
+            Construct(capacity, allocator, options);
         }
 
         /// <summary>
-        /// Create a new circular buffer using native array.
+        /// Create a new circular buffer from a native array.
         /// </summary>
         /// <param name="array">The native array.</param>
         /// <param name="allocator">The allocator.</param>
@@ -101,7 +96,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         {
             m_Allocator = allocator;
 
-            var sizeOf = sizeof(T);
+            var sizeOf = UnsafeUtility.SizeOf<T>();
             var alignOf = UnsafeUtility.AlignOf<T>();
             m_Ptr = (T*)m_Allocator.Allocate(sizeOf, alignOf, array.Length);
             m_Front = 0;
@@ -113,16 +108,16 @@ namespace Unity.Entities.LowLevel.Unsafe
         }
 
         /// <summary>
-        /// Create a new circular buffer using managed array.
+        /// Create a new circular buffer from a managed array.
         /// </summary>
         /// <param name="array">The managed array.</param>
         /// <param name="allocator">The allocator.</param>
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Takes managed array")]
         public UnsafeCircularBuffer(T[] array, Allocator allocator)
         {
             m_Allocator = allocator;
 
-            var sizeOf = sizeof(T);
+            var sizeOf = UnsafeUtility.SizeOf<T>();
             var alignOf = UnsafeUtility.AlignOf<T>();
             m_Ptr = (T*)m_Allocator.Allocate(sizeOf, alignOf, array.Length);
             m_Front = 0;
@@ -132,6 +127,30 @@ namespace Unity.Entities.LowLevel.Unsafe
 
             fixed (T* ptr = array)
                 UnsafeUtility.MemCpy(m_Ptr, ptr, array.Length * sizeOf);
+        }
+
+        /// <summary>
+        /// Construct the circular buffer. Throws if already allocated.
+        /// </summary>
+        /// <param name="capacity">The total capacity.</param>
+        /// <param name="allocator">The allocator.</param>
+        /// <param name="options">Memory initialization options.</param>
+        public void Construct(int capacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory)
+        {
+            ThrowIfAllocated();
+
+            m_Allocator = allocator;
+
+            var sizeOf = UnsafeUtility.SizeOf<T>();
+            var alignOf = UnsafeUtility.AlignOf<T>();
+            m_Ptr = (T*)m_Allocator.Allocate(sizeOf, alignOf, capacity);
+            m_Front = 0;
+            m_Back = 0;
+            m_Capacity = capacity;
+            m_Count = 0;
+
+            if (options == NativeArrayOptions.ClearMemory && m_Ptr != null)
+                UnsafeUtility.MemClear(m_Ptr, m_Capacity * sizeOf);
         }
 
         public void Dispose()
@@ -218,7 +237,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// <returns>Whether or not the elements could be added.</returns>
         public bool PushFront(T* elements, int count)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (elements == null)
                 throw new ArgumentNullException(nameof(elements));
 #endif
@@ -228,16 +247,17 @@ namespace Unity.Entities.LowLevel.Unsafe
             if (m_Count + count > m_Capacity)
                 return false;
 
+            var sizeOf = UnsafeUtility.SizeOf<T>();
             var spaceAtFront = m_Front <= m_Back ? m_Front : m_Front - m_Back;
             if (count <= spaceAtFront)
             {
-                UnsafeUtility.MemCpy(m_Ptr + (m_Front - count), elements, sizeof(T) * count);
+                UnsafeUtility.MemCpy(m_Ptr + (m_Front - count), elements, count * sizeOf);
             }
             else
             {
                 var elementsAtEnd = count - spaceAtFront;
-                UnsafeUtility.MemCpy(m_Ptr + (m_Capacity - elementsAtEnd), elements, sizeof(T) * elementsAtEnd);
-                UnsafeUtility.MemCpy(m_Ptr, elements + elementsAtEnd, sizeof(T) * spaceAtFront);
+                UnsafeUtility.MemCpy(m_Ptr + (m_Capacity - elementsAtEnd), elements, elementsAtEnd * sizeOf);
+                UnsafeUtility.MemCpy(m_Ptr, elements + elementsAtEnd, spaceAtFront * sizeOf);
             }
             m_Front = Modulo(m_Front - count, m_Capacity);
             m_Count += count;
@@ -259,7 +279,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// </summary>
         /// <param name="array">The elements.</param>
         /// <returns>Whether or not the elements could be added.</returns>
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Takes managed array")]
         public bool PushFront(T[] array)
         {
             fixed (T* ptr = array)
@@ -290,7 +310,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// <returns>Whether or not the elements could be added.</returns>
         public bool PushBack(T* elements, int count)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (elements == null)
                 throw new ArgumentNullException(nameof(elements));
 #endif
@@ -300,15 +320,16 @@ namespace Unity.Entities.LowLevel.Unsafe
             if (m_Count + count > m_Capacity)
                 return false;
 
+            var sizeOf = UnsafeUtility.SizeOf<T>();
             var spaceAtBack = m_Front <= m_Back ? m_Capacity - m_Back : m_Front - m_Back;
             if (count <= spaceAtBack)
             {
-                UnsafeUtility.MemCpy(m_Ptr + m_Back, elements, sizeof(T) * count);
+                UnsafeUtility.MemCpy(m_Ptr + m_Back, elements, count * sizeOf);
             }
             else
             {
-                UnsafeUtility.MemCpy(m_Ptr + m_Back, elements, sizeof(T) * spaceAtBack);
-                UnsafeUtility.MemCpy(m_Ptr, elements + spaceAtBack, sizeof(T) * (count - spaceAtBack));
+                UnsafeUtility.MemCpy(m_Ptr + m_Back, elements, spaceAtBack * sizeOf);
+                UnsafeUtility.MemCpy(m_Ptr, elements + spaceAtBack, (count - spaceAtBack) * sizeOf);
             }
             m_Back = Modulo(m_Back + count, m_Capacity);
             m_Count += count;
@@ -330,7 +351,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// </summary>
         /// <param name="array">The elements.</param>
         /// <returns>Whether or not the elements could be added.</returns>
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Takes managed array")]
         public bool PushBack(T[] array)
         {
             fixed (T* ptr = array)
@@ -367,7 +388,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// <summary>
         /// Pop many elements at the back of the circular buffer.
         /// </summary>
-        /// <param name="count"></param>
+        /// <param name="count">The number of elements to pop.</param>
         /// <returns>Whether or not the elements could be removed.</returns>
         public bool PopBack(int count)
         {
@@ -377,6 +398,48 @@ namespace Unity.Entities.LowLevel.Unsafe
             m_Back = Modulo(m_Back - count, m_Capacity);
             m_Count -= count;
             return true;
+        }
+
+        /// <summary>
+        /// Rotate the circular buffer elements back to the front of the allocation.
+        /// </summary>
+        public void Unwind()
+        {
+            if (m_Front == 0)
+                return;
+
+            if (m_Count > 0)
+            {
+                var sizeOf = UnsafeUtility.SizeOf<T>();
+                if (m_Front < m_Back)
+                {
+                    UnsafeUtility.MemMove(m_Ptr, m_Ptr + m_Front, m_Count * sizeOf);
+                }
+                else
+                {
+                    var frontLength = m_Capacity - m_Front;
+                    var backLength = m_Back;
+                    var alignOf = UnsafeUtility.AlignOf<T>();
+                    if (frontLength < backLength)
+                    {
+                        var tmpFront = m_Allocator.Allocate(sizeOf, alignOf, frontLength);
+                        UnsafeUtility.MemCpy(tmpFront, m_Ptr + m_Front, frontLength * sizeOf);
+                        UnsafeUtility.MemMove(m_Ptr + frontLength, m_Ptr, backLength * sizeOf);
+                        UnsafeUtility.MemCpy(m_Ptr, tmpFront, frontLength * sizeOf);
+                        m_Allocator.Free(tmpFront, sizeOf, alignOf, frontLength);
+                    }
+                    else
+                    {
+                        var tmpBack = m_Allocator.Allocate(sizeOf, alignOf, backLength);
+                        UnsafeUtility.MemCpy(tmpBack, m_Ptr, backLength * sizeOf);
+                        UnsafeUtility.MemMove(m_Ptr, m_Ptr + m_Front, frontLength * sizeOf);
+                        UnsafeUtility.MemCpy(m_Ptr + frontLength, tmpBack, backLength * sizeOf);
+                        m_Allocator.Free(tmpBack, sizeOf, alignOf, backLength);
+                    }
+                }
+            }
+            m_Front = 0;
+            m_Back = m_Count;
         }
 
         /// <summary>
@@ -401,20 +464,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         {
             var array = new NativeArray<T>(m_Count, allocator, NativeArrayOptions.UninitializedMemory);
             if (m_Count > 0)
-            {
-                var sizeOf = sizeof(T);
-                var dest = (T*)array.GetUnsafePtr();
-                if (m_Front < m_Back)
-                {
-                    UnsafeUtility.MemCpy(dest, m_Ptr + m_Front, sizeOf * (m_Back - m_Front));
-                }
-                else
-                {
-                    var length = m_Capacity - m_Front;
-                    UnsafeUtility.MemCpy(dest, m_Ptr + m_Front, sizeOf * length);
-                    UnsafeUtility.MemCpy(dest + length, m_Ptr, sizeOf * m_Back);
-                }
-            }
+                CopyTo((T*)array.GetUnsafePtr());
             return array;
         }
 
@@ -422,52 +472,65 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// Convert the circular buffer to an array.
         /// </summary>
         /// <returns>The circular buffer elements copied into an array.</returns>
-        [NotBurstCompatible]
-        public T[] ToArray()
+        [ExcludeFromBurstCompatTesting("Returns managed array")]
+        public unsafe T[] ToArray()
         {
-            using (var array = ToNativeArray(Allocator.Temp))
+            var array = new T[m_Count];
+            if (m_Count > 0)
             {
-                return array.ToArray();
+                fixed (T* dest = array)
+                {
+                    CopyTo(dest);
+                }
+            }
+            return array;
+        }
+
+        void CopyTo(T* dest)
+        {
+            var sizeOf = UnsafeUtility.SizeOf<T>();
+            if (m_Front < m_Back)
+            {
+                UnsafeUtility.MemCpy(dest, m_Ptr + m_Front, m_Count * sizeOf);
+            }
+            else
+            {
+                var frontLength = m_Capacity - m_Front;
+                UnsafeUtility.MemCpy(dest, m_Ptr + m_Front, frontLength * sizeOf);
+                UnsafeUtility.MemCpy(dest + frontLength, m_Ptr, m_Back * sizeOf);
             }
         }
 
         /// <summary>
-        /// Returns an enumerator over the elements of the list.
+        /// Returns an enumerator that can iterate through the <see cref="UnsafeCircularBuffer{T}"/>.
         /// </summary>
-        /// <returns>An enumerator over the elements of the list.</returns>
         public Enumerator GetEnumerator() => new Enumerator(this);
 
         /// <summary>
-        /// This method is not implemented. Use <see cref="GetEnumerator"/> instead.
+        /// Returns an enumerator that can iterate through the <see cref="UnsafeCircularBuffer{T}"/>.
         /// </summary>
-        /// <returns>Throws NotImplementedException.</returns>
-        /// <exception cref="NotImplementedException">Method is not implemented.</exception>
-        IEnumerator<T> IEnumerable<T>.GetEnumerator()
-        {
-            throw new NotImplementedException();
-        }
+        [ExcludeFromBurstCompatTesting("Returns managed object")]
+        IEnumerator<T> IEnumerable<T>.GetEnumerator() => GetEnumerator();
 
         /// <summary>
-        /// This method is not implemented. Use <see cref="GetEnumerator"/> instead.
+        /// Returns an enumerator that can iterate through the <see cref="UnsafeCircularBuffer{T}"/>.
         /// </summary>
-        /// <returns>Throws NotImplementedException.</returns>
-        /// <exception cref="NotImplementedException">Method is not implemented.</exception>
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            throw new NotImplementedException();
-        }
+        [ExcludeFromBurstCompatTesting("Returns managed object")]
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>
-        /// An enumerator over the elements of a circular buffer.
+        /// Enumerator that can iterate through the <see cref="UnsafeCircularBuffer{T}"/>.
         /// </summary>
-        /// <remarks>
-        /// In an enumerator's initial state, <see cref="Current"/> is invalid.
-        /// The first <see cref="MoveNext"/> call advances the enumerator to the first element of the list.
-        /// </remarks>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
         public struct Enumerator : IEnumerator<T>
         {
-            UnsafeCircularBuffer<T> m_Buffer;
+            readonly UnsafeCircularBuffer<T> m_Buffer;
             int m_Index;
+
+            public T Current => m_Buffer[m_Index];
+
+            [ExcludeFromBurstCompatTesting("Returns managed object")]
+            object IEnumerator.Current => Current;
 
             internal Enumerator(UnsafeCircularBuffer<T> buffer)
             {
@@ -475,32 +538,9 @@ namespace Unity.Entities.LowLevel.Unsafe
                 m_Index = -1;
             }
 
-            /// <summary>
-            /// Does nothing.
-            /// </summary>
             public void Dispose() { }
-
-            /// <summary>
-            /// Advances the enumerator to the next element of the list.
-            /// </summary>
-            /// <remarks>
-            /// The first `MoveNext` call advances the enumerator to the first element of the list. Before this call, `Current` is not valid to read.
-            /// </remarks>
-            /// <returns>True if `Current` is valid to read after the call.</returns>
             public bool MoveNext() => ++m_Index < m_Buffer.m_Count;
-
-            /// <summary>
-            /// Resets the enumerator to its initial state.
-            /// </summary>
             public void Reset() => m_Index = -1;
-
-            /// <summary>
-            /// The current element.
-            /// </summary>
-            /// <value>The current element.</value>
-            public T Current => m_Buffer[m_Index];
-
-            object IEnumerator.Current => Current;
         }
 
         /// <summary>
@@ -521,14 +561,21 @@ namespace Unity.Entities.LowLevel.Unsafe
             return r < 0 ? r + y : r;
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        void ThrowIfAllocated()
+        {
+            if (m_Ptr != null)
+                throw new InvalidOperationException("Buffer is already allocated.");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ThrowIfEmpty()
         {
             if (IsEmpty)
                 throw new InvalidOperationException("Buffer is empty.");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ThrowIfIndexOutOfRange(int index)
         {
             if (IsEmpty)
@@ -539,7 +586,7 @@ namespace Unity.Entities.LowLevel.Unsafe
                 throw new IndexOutOfRangeException($"Cannot access index {index}. Buffer count is {m_Count}.");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ThrowIfCapacityExceeded(int count)
         {
             if (count > m_Capacity)

@@ -19,7 +19,7 @@ namespace Unity.Entities.Tests
     }
 #endif
 
-#if !UNITY_DOTSRUNTIME
+#if UNITY_DOTSRUNTIME
     public class DotsRuntimeIncompatibleTestAttribute : IgnoreAttribute
     {
         public DotsRuntimeIncompatibleTestAttribute(string reason) : base(reason)

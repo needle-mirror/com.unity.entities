@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Unity.Entities.SourceGen.LambdaJobs
+﻿namespace Unity.Entities.SourceGen.LambdaJobs
 {
     public enum ScheduleMode
     {
@@ -23,13 +21,5 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         High,
         Medium,
         Low,
-    }
-
-    public enum SingletonAccessType
-    {
-        GetSingleton,
-        GetSingletonEntity,
-        Set,
-        None
     }
 }

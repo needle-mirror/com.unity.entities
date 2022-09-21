@@ -4,12 +4,11 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 #if !NET_DOTS
 using Unity.Properties;
-using Unity.Properties.Internal;
 #endif
 
 namespace Unity.Entities
 {
-#if !UNITY_DOTSRUNTIME
+#if !NET_DOTS
     /// <summary>
     /// Unity.Properties visitor used to deep clone object instances. This is an internal class.
     /// </summary>
@@ -73,7 +72,7 @@ namespace Unity.Entities
                 : Activator.CreateInstance(type);
 
             // Visit the source container and write to the dst.
-            var properties = PropertyBagStore.GetPropertyBag(type);
+            var properties = PropertyBag.GetPropertyBag(type);
 
             if (null == properties)
                 throw new MissingPropertyBagException(type);
@@ -237,19 +236,19 @@ namespace Unity.Entities
         void CloneValue<TValue>(ref TValue dstValue, TValue srcValue)
         {
             // Values types can be copied as-is.
-            if (!RuntimeTypeInfoCache<TValue>.IsContainerType)
+            if (!TypeTraits<TValue>.IsContainer)
             {
                 dstValue = srcValue;
                 return;
             }
 
-            if (RuntimeTypeInfoCache<TValue>.CanBeNull && null == srcValue)
+            if (TypeTraits<TValue>.CanBeNull && null == srcValue)
             {
                 dstValue = default;
                 return;
             }
 
-            if (RuntimeTypeInfoCache<TValue>.IsValueType)
+            if (TypeTraits<TValue>.IsValueType)
             {
                 dstValue = default;
             }
@@ -266,7 +265,7 @@ namespace Unity.Entities
                 }
 #endif
                 // Boxed value types can be copied as-is.
-                if (!RuntimeTypeInfoCache.IsContainerType(type))
+                if (!TypeTraits.IsContainer(type))
                 {
                     dstValue = srcValue;
                     return;
@@ -327,10 +326,18 @@ namespace Unity.Entities
             var dstContainer = m_Stack;
 
             m_Stack = dstValue;
-            PropertyContainer.Visit(ref srcValue, this, out _);
+            PropertyContainer.TryAccept(this, ref srcValue, out _);
             dstValue = (TValue)m_Stack;
 
             m_Stack = dstContainer;
+        }
+
+        public void ClearGCRefs()
+        {
+            m_References?.Clear();
+            m_Stack = null;
+            m_RootSource = null;
+            m_RootDestination = null;
         }
     }
 #else
@@ -340,6 +347,11 @@ namespace Unity.Entities
         {
             if (obj is ICloneable cloneable) return cloneable.Clone();
             return obj;
+        }
+
+        public void ClearGCRefs()
+        {
+            //no-op, no references to clear
         }
     }
 #endif

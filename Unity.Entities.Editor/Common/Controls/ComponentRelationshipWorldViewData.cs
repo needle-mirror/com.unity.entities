@@ -13,12 +13,12 @@ namespace Unity.Entities.Editor
             World = world;
             var entityQueryDesc = new EntityQueryDesc
             {
-                All = new ComponentType[]
-                {
-                    componentType
-                },
-                Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
             };
+            if (componentType != typeof(Entity))
+            {
+                entityQueryDesc.All = new ComponentType[] { componentType };
+            }
 
             QueryWithEntitiesViewData = new QueryWithEntitiesViewData(world, world.EntityManager.CreateEntityQuery(entityQueryDesc));
             ComponentMatchingSystems = new ComponentMatchingSystems(world, componentType);

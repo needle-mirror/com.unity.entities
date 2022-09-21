@@ -1,6 +1,7 @@
 using System;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
@@ -92,7 +93,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void CreatingGenericSystem_Works()
         {
-            var system = (GenericSystem<int>)World.CreateSystem(typeof(GenericSystem<int>));
+            var system = (GenericSystem<int>)World.CreateSystemManaged(typeof(GenericSystem<int>));
             system.thing = 5;
             system.Update();
             Assert.AreEqual(system.thing, system.thing2);
@@ -105,16 +106,16 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            WriteSystem rs1 = World.GetOrCreateSystem<WriteSystem>();
-            ReadSystem2 rs2 = World.GetOrCreateSystem<ReadSystem2>();
+            WriteSystem ws = World.GetOrCreateSystemManaged<WriteSystem>();
+            ReadSystem2 rs2 = World.GetOrCreateSystemManaged<ReadSystem2>();
 
-            LogAssert.Expect(LogType.Error, "The system Unity.Entities.Tests.SystemBaseDependencyTests+ReadSystem2 reads Unity.Entities.Tests.EcsTestData via ReadSystem2:ReadSystem2_LambdaJob_1_Job but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.");
+            LogAssert.Expect(LogType.Error, "The system Unity.Entities.Tests.SystemBaseDependencyTests+ReadSystem2 reads Unity.Entities.Tests.EcsTestData via ReadSystem2:ReadSystem2_7AD410AF_LambdaJob_1_Job but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.");
 
             rs2.returnWrongJob = true;
 
-            rs1.Update();
+            ws.Update();
             rs2.Update();
-            rs1.Update();
+            Assert.Throws<InvalidOperationException>(()=> { ws.Update(); });
         }
 
         [Test]
@@ -122,8 +123,8 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            WriteSystem ws1 = World.GetOrCreateSystem<WriteSystem>();
-            ReadSystem2 rs2 = World.GetOrCreateSystem<ReadSystem2>();
+            WriteSystem ws1 = World.GetOrCreateSystemManaged<WriteSystem>();
+            ReadSystem2 rs2 = World.GetOrCreateSystemManaged<ReadSystem2>();
 
             rs2.ignoreInputDeps = true;
 
@@ -136,7 +137,7 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            WriteSystem ws1 = World.GetOrCreateSystem<WriteSystem>();
+            WriteSystem ws1 = World.GetOrCreateSystemManaged<WriteSystem>();
 
             ws1.Update();
             ws1.SkipJob = true;
@@ -148,8 +149,8 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            ReadSystem1 rs1 = World.GetOrCreateSystem<ReadSystem1>();
-            ReadSystem3 rs3 = World.GetOrCreateSystem<ReadSystem3>();
+            ReadSystem1 rs1 = World.GetOrCreateSystemManaged<ReadSystem1>();
+            ReadSystem3 rs3 = World.GetOrCreateSystemManaged<ReadSystem3>();
 
             rs1.Update();
             rs3.Update();
@@ -160,8 +161,8 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var ws = World.GetOrCreateSystem<WriteSystem>();
-            var rs = World.GetOrCreateSystem<ReadSystem2>();
+            var ws = World.GetOrCreateSystemManaged<WriteSystem>();
+            var rs = World.GetOrCreateSystemManaged<ReadSystem2>();
 
             ws.Update();
             rs.Update();
@@ -171,7 +172,7 @@ namespace Unity.Entities.Tests
         {
             public struct MutateEcsTestDataJob : IJob
             {
-                public ComponentDataFromEntity<EcsTestData> data;
+                public ComponentLookup<EcsTestData> data;
 
                 public void Execute()
                 {
@@ -180,7 +181,7 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                var job = new MutateEcsTestDataJob { data = GetComponentDataFromEntity<EcsTestData>() };
+                var job = new MutateEcsTestDataJob { data = GetComponentLookup<EcsTestData>() };
                 Dependency = job.Schedule(Dependency);
             }
         }
@@ -191,8 +192,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void AddingDependencyTypeDuringOnUpdateSyncsDependency()
         {
-            var systemA = World.CreateSystem<UseEcsTestDataFromEntity>();
-            var systemB = World.CreateSystem<UseEcsTestDataFromEntity>();
+            var systemA = World.CreateSystemManaged<UseEcsTestDataFromEntity>();
+            var systemB = World.CreateSystemManaged<UseEcsTestDataFromEntity>();
 
             systemA.Update();
             systemB.Update();
@@ -210,7 +211,7 @@ namespace Unity.Entities.Tests
             public struct EmptyJob : IJobChunk
             {
                 public ComponentTypeHandle<EcsTestData> TestDataTypeHandle;
-                public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+                public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
                 {
                 }
             }
@@ -229,8 +230,8 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
 
-            var systemA = World.CreateSystem<SystemBaseWithJobChunkJob>();
-            var systemB = World.CreateSystem<EmptySystemBase>();
+            var systemA = World.CreateSystemManaged<SystemBaseWithJobChunkJob>();
+            var systemB = World.CreateSystemManaged<EmptySystemBase>();
 
             systemA.Update();
             systemB.Update();
@@ -261,7 +262,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemBaseEntitiesForEachDependencies_WithNoRun_HasUncompletedDependencies()
         {
-            var system = World.CreateSystem<SystemBaseEntitiesForEachDependencies>();
+            var system = World.CreateSystemManaged<SystemBaseEntitiesForEachDependencies>();
             system.DoRunToCompleteDependencies = false;
 
             Assert.Throws<Exception>(() =>
@@ -273,7 +274,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemBaseEntitiesForEachDependencies_WithRun_HasNoUncompletedDependencies()
         {
-            var system = World.CreateSystem<SystemBaseEntitiesForEachDependencies>();
+            var system = World.CreateSystemManaged<SystemBaseEntitiesForEachDependencies>();
             system.DoRunToCompleteDependencies = true;
 
             Assert.DoesNotThrow(() =>
@@ -318,7 +319,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemBaseEntitiesForEachScheduling_ScheduleAndRun_RunsOverAllComponentsWithCorrectThreadIndex([Values(0, 1, 2)] int runScheduleMode)
         {
-            var system = World.CreateSystem<SystemBaseEntitiesForEachScheduling>();
+            var system = World.CreateSystemManaged<SystemBaseEntitiesForEachScheduling>();
             system.ScheduleMode = runScheduleMode;
 
             Assert.DoesNotThrow(() =>
@@ -349,13 +350,13 @@ namespace Unity.Entities.Tests
             system.CreatedEntities.Dispose();
         }
 
-        partial class SystemBaseEntitiesForEachComponentDataFromEntity : SystemBase
+        partial class SystemBaseEntitiesForEachComponentLookup : SystemBase
         {
             public bool RunScheduleParallel = false;
 
             protected override void OnUpdate()
             {
-                var dataFromEntity = GetComponentDataFromEntity<EcsTestData>(false);
+                var dataFromEntity = GetComponentLookup<EcsTestData>(false);
 
                 if (RunScheduleParallel)
                 {
@@ -375,9 +376,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SystemBaseEntitiesForEachComponentDataFromEntity_Scheduled_ThrowsAppropriateException([Values(false, true)] bool runScheduleParallel)
+        public void SystemBaseEntitiesForEachComponentLookup_Scheduled_ThrowsAppropriateException([Values(false, true)] bool runScheduleParallel)
         {
-            var system = World.CreateSystem<SystemBaseEntitiesForEachComponentDataFromEntity>();
+            var system = World.CreateSystemManaged<SystemBaseEntitiesForEachComponentLookup>();
             system.RunScheduleParallel = runScheduleParallel;
 
             var archetype = system.EntityManager.CreateArchetype(new ComponentType[] { typeof(EcsTestDataEntity), typeof(EcsTestData) });
@@ -416,7 +417,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemBase_CanHaveSyncPointAfterSchedule()
         {
-            var s = World.CreateSystem<SystemWithSyncPointAfterSchedule>();
+            var s = World.CreateSystemManaged<SystemWithSyncPointAfterSchedule>();
             Assert.DoesNotThrow(() => s.Update());
         }
 
@@ -424,7 +425,7 @@ namespace Unity.Entities.Tests
         {
             public struct MutateEcsTestDataJob : IJob
             {
-                public StorageInfoFromEntity StorageInfo;
+                public EntityStorageInfoLookup EntityStorageInfo;
 
                 public void Execute()
                 {
@@ -433,19 +434,83 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                var job = new MutateEcsTestDataJob { StorageInfo = GetStorageInfoFromEntity() };
-                //Dependency = job.Schedule(Dependency); commented out to show that StorageInfoFromEntity is always readonly and does not require dependency tracking
+                var job = new MutateEcsTestDataJob { EntityStorageInfo = GetEntityStorageInfoLookup() };
+                //Dependency = job.Schedule(Dependency); commented out to show that EntityStorageInfoLookup is always readonly and does not require dependency tracking
             }
         }
 
         [Test]
         public void StorageDataFromEntity_IsReadOnly_ThrowsNoSyncErrors()
         {
-            var systemA = World.CreateSystem<UseStorageDataFromEntity>();
-            var systemB = World.CreateSystem<UseStorageDataFromEntity>();
+            var systemA = World.CreateSystemManaged<UseStorageDataFromEntity>();
+            var systemB = World.CreateSystemManaged<UseStorageDataFromEntity>();
 
             systemA.Update();
             systemB.Update();
+        }
+
+        partial class WritesZeroSizeComponent : SystemBase
+        {
+            ComponentLookup<EcsTestTagEnableable> _lookup;
+            protected override void OnCreate()
+            {
+                _lookup = GetComponentLookup<EcsTestTagEnableable>(false);
+            }
+
+            protected override void OnUpdate()
+            {
+                _lookup.Update(this);
+                var lookupCopy = _lookup;
+                Entities
+                    .WithNativeDisableParallelForRestriction(lookupCopy)
+                    .ForEach((Entity entity) =>
+                    {
+                        lookupCopy.SetComponentEnabled(entity, false);
+                    }).ScheduleParallel();
+            }
+        }
+        partial class ReadsZeroSizeComponent : SystemBase
+        {
+            EntityQuery _query;
+            public int EntityCount;
+            protected override void OnCreate()
+            {
+                _query = GetEntityQuery(typeof(EcsTestTagEnableable));
+            }
+
+            protected override void OnUpdate()
+            {
+                int count = 0;
+                Entities
+                    .WithAll<EcsTestTagEnableable>()
+                    .ForEach((Entity entity) =>
+                    {
+                        count += 1;
+                    }).Run();
+                EntityCount = count;
+            }
+        }
+
+        [Test]
+        public void ZeroSizeComponent_WriteDependency_IsTracked()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestTagEnableable));
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestTagEnableable));
+            using var entities = m_Manager.CreateEntity(archetype, 10000, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; i += 2)
+            {
+                m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+            }
+            // A running job writing to the tag component should systems reading it to block
+            var sysWrite = World.CreateSystemManaged<WritesZeroSizeComponent>();
+            var sysRead = World.CreateSystemManaged<ReadsZeroSizeComponent>();
+            sysWrite.Update();
+            sysRead.Update();
+            Assert.AreEqual(0, sysRead.EntityCount);
+            foreach(var ent in entities)
+            {
+                Assert.IsFalse(m_Manager.IsComponentEnabled<EcsTestTagEnableable>(ent));
+            }
         }
 
         partial class EntityManagerGetBufferWriteSystem : SystemBase
@@ -493,22 +558,22 @@ namespace Unity.Entities.Tests
             }
         }
 
-        partial class GetBufferFromEntityWriteJobSystem : SystemBase
+        partial class GetBufferLookupWriteJobSystem : SystemBase
         {
             protected override void OnUpdate()
             {
-                var buffer = GetBufferFromEntity<EcsIntElement>()[GetSingletonEntity<EcsTestTag>()];
+                var buffer = GetBufferLookup<EcsIntElement>()[GetSingletonEntity<EcsTestTag>()];
                 Job.WithCode(() => { buffer.Add(new EcsIntElement {Value = 123}); }).Schedule();
             }
         }
 
-        partial class GetBufferFromEntityInEntitiesForEachWriteSystem : SystemBase
+        partial class GetBufferLookupInEntitiesForEachWriteSystem : SystemBase
         {
             protected override void OnUpdate()
             {
                 Entities.WithAll<EcsTestTag>().ForEach((Entity entity) =>
                 {
-                    var buffer = GetBufferFromEntity<EcsIntElement>()[entity];
+                    var buffer = GetBufferLookup<EcsIntElement>()[entity];
                     buffer.Add(new EcsIntElement {Value = 123});
                 }).Schedule();
             }
@@ -567,7 +632,7 @@ namespace Unity.Entities.Tests
             {
                 Entities.WithAll<EcsTestTag>().ForEach((in Entity tagEntity) =>
                 {
-                    // Codegen should replace this with GetBufferFromEntity created in OnUpdate
+                    // Codegen should replace this with GetBufferLookup created in OnUpdate
                     var buffer = GetBuffer<EcsIntElement>(tagEntity);
                     Assert.AreEqual(123, buffer[0].Value);
                 }).Schedule();
@@ -586,7 +651,7 @@ namespace Unity.Entities.Tests
                 var tagEntity = GetSingletonEntity<EcsTestTag>();
                 Entities.ForEach((in EcsTestData testData) =>
                 {
-                    // Codegen should replace this with GetBufferFromEntity created in OnUpdate
+                    // Codegen should replace this with GetBufferLookup created in OnUpdate
                     var buffer = GetBuffer<EcsIntElement>(tagEntity);
                     Assert.AreEqual(123, buffer[0].Value);
                 }).Schedule();
@@ -616,8 +681,8 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement), typeof(EcsIntElement2));
 
-            var sysWriteInt = World.CreateSystem<EntityManagerGetBufferWriteSystem>();
-            var sysWriteInt2 = World.CreateSystem<GetBufferWriteInt2JobSystem>();
+            var sysWriteInt = World.CreateSystemManaged<EntityManagerGetBufferWriteSystem>();
+            var sysWriteInt2 = World.CreateSystemManaged<GetBufferWriteInt2JobSystem>();
 
             sysWriteInt.Update();
             Assert.DoesNotThrow(() => sysWriteInt2.Update());
@@ -635,18 +700,12 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
-            var sysWrite = World.CreateSystem<EntityManagerGetBufferWriteSystem>();
-            var sysRead = World.CreateSystem<GetBufferReadInUpdateSystem>();
+            var sysWrite = World.CreateSystemManaged<EntityManagerGetBufferWriteSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferReadInUpdateSystem>();
             sysWrite.Update();
 
             LogAssert.Expect(LogType.Error, new Regex(".*dependency.*"));
-
-            // TODO: Fix discrepancy between runtimes. See https://jira.unity3d.com/browse/DOTS-5913
-#if !UNITY_DOTSRUNTIME
-            Assert.DoesNotThrow(() => sysRead.Update());
-#else
             Assert.Throws<InvalidOperationException>(() => sysRead.Update());
-#endif
         }
 
         [Test]
@@ -654,8 +713,8 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
-            var sysWrite = World.CreateSystem<EntityManagerGetBufferWriteInUpdateSystem>();
-            var sysRead = World.CreateSystem<GetBufferReadInUpdateSystem>();
+            var sysWrite = World.CreateSystemManaged<EntityManagerGetBufferWriteInUpdateSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferReadInUpdateSystem>();
             sysWrite.Update();
             Assert.DoesNotThrow(() => sysRead.Update());
 
@@ -672,8 +731,8 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
-            var sysWrite = World.CreateSystem<EntityManagerGetBufferWriteViaRunSystem>();
-            var sysRead = World.CreateSystem<GetBufferReadInUpdateSystem>();
+            var sysWrite = World.CreateSystemManaged<EntityManagerGetBufferWriteViaRunSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferReadInUpdateSystem>();
             sysWrite.Update();
             Assert.DoesNotThrow(() => sysRead.Update());
 
@@ -690,8 +749,8 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
-            var sysWrite = World.CreateSystem<GetBufferWriteJobSystem>();
-            var sysRead = World.CreateSystem<GetBufferReadInUpdateSystem>();
+            var sysWrite = World.CreateSystemManaged<GetBufferWriteJobSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferReadInUpdateSystem>();
             sysWrite.Update();
             Assert.DoesNotThrow(() => sysRead.Update());
 
@@ -700,7 +759,7 @@ namespace Unity.Entities.Tests
                 var writeHandle = sysWrite.CheckedState()->Dependency;
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
-                // Investigate why this fails in DOTS Runtime https://jira.unity3d.com/browse/DOTS-5964
+                // Investigate why this fails in DOTS Runtime DOTS-5964
 #if !UNITY_DOTSRUNTIME
                 Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
 #endif
@@ -708,33 +767,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void BufferDependencies_GetBufferReadInUpdateDependsOnGetBufferFromEntityWriteJob()
+        public void BufferDependencies_GetBufferReadInUpdateDependsOnGetBufferLookupWriteJob()
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
-            var sysWrite = World.CreateSystem<GetBufferFromEntityWriteJobSystem>();
-            var sysRead = World.CreateSystem<GetBufferReadInUpdateSystem>();
-            sysWrite.Update();
-            Assert.DoesNotThrow(() => sysRead.Update());
-
-            unsafe
-            {
-                var writeHandle = sysWrite.CheckedState()->Dependency;
-                var readHandle = sysRead.CheckedState()->Dependency;
-                Assert.IsFalse(writeHandle.Equals(readHandle));
-#if !UNITY_DOTSRUNTIME
-                Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
-#endif
-            }
-        }
-
-        [Test]
-        public void BufferDependencies_GetBufferReadInUpdateDependsOnGetBufferFromEntityForEachWriteJob()
-        {
-            m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
-
-            var sysWrite = World.CreateSystem<GetBufferFromEntityInEntitiesForEachWriteSystem>();
-            var sysRead = World.CreateSystem<GetBufferReadInUpdateSystem>();
+            var sysWrite = World.CreateSystemManaged<GetBufferLookupWriteJobSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferReadInUpdateSystem>();
             sysWrite.Update();
             Assert.DoesNotThrow(() => sysRead.Update());
 
@@ -750,12 +788,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void BufferDependencies_GetBufferReadInForEachDependsOnGetBufferFromEntityWriteJob()
+        public void BufferDependencies_GetBufferReadInUpdateDependsOnGetBufferLookupForEachWriteJob()
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
-            var sysWrite = World.CreateSystem<GetBufferFromEntityWriteJobSystem>();
-            var sysRead = World.CreateSystem<GetBufferInsideForEachWithEntityIteratorSystem>();
+            var sysWrite = World.CreateSystemManaged<GetBufferLookupInEntitiesForEachWriteSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferReadInUpdateSystem>();
             sysWrite.Update();
             Assert.DoesNotThrow(() => sysRead.Update());
 
@@ -764,18 +802,39 @@ namespace Unity.Entities.Tests
                 var writeHandle = sysWrite.CheckedState()->Dependency;
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
-                // TODO: This fails, requires investigation https://jira.unity3d.com/browse/DOTS-5964
+#if !UNITY_DOTSRUNTIME
+                Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
+#endif
+            }
+        }
+
+        [Test]
+        public void BufferDependencies_GetBufferReadInForEachDependsOnGetBufferLookupWriteJob()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
+
+            var sysWrite = World.CreateSystemManaged<GetBufferLookupWriteJobSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferInsideForEachWithEntityIteratorSystem>();
+            sysWrite.Update();
+            Assert.DoesNotThrow(() => sysRead.Update());
+
+            unsafe
+            {
+                var writeHandle = sysWrite.CheckedState()->Dependency;
+                var readHandle = sysRead.CheckedState()->Dependency;
+                Assert.IsFalse(writeHandle.Equals(readHandle));
+                // TODO: This fails, requires investigation DOTS-5964
                 //Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
             }
         }
 
         [Test]
-        public void BufferDependencies_GetBufferFromSingletonReadInForEachDependsOnGetBufferFromEntityWriteJob()
+        public void BufferDependencies_GetBufferFromSingletonReadInForEachDependsOnGetBufferLookupWriteJob()
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
-            var sysWrite = World.CreateSystem<GetBufferFromEntityWriteJobSystem>();
-            var sysRead = World.CreateSystem<GetBufferInsideForEachWithSingletonSystem>();
+            var sysWrite = World.CreateSystemManaged<GetBufferLookupWriteJobSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferInsideForEachWithSingletonSystem>();
             sysWrite.Update();
             Assert.DoesNotThrow(() => sysRead.Update());
 
@@ -784,7 +843,7 @@ namespace Unity.Entities.Tests
                 var writeHandle = sysWrite.CheckedState()->Dependency;
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
-                // TODO: This fails, requires investigation https://jira.unity3d.com/browse/DOTS-5964
+                // TODO: This fails, requires investigation DOTS-5964
                 //Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
             }
         }
@@ -794,8 +853,8 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
-            var sysWrite = World.CreateSystem<GetBufferWriteJobSystem>();
-            var sysRead = World.CreateSystem<GetBufferAndPassAsNativeArrayToJob>();
+            var sysWrite = World.CreateSystemManaged<GetBufferWriteJobSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferAndPassAsNativeArrayToJob>();
             sysWrite.Update();
             Assert.DoesNotThrow(() => sysRead.Update());
 
@@ -814,10 +873,10 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
             // Read systems assume first buffer element is 123, so we write them first
-            var sysWrite = World.CreateSystem<GetBufferFromEntityWriteJobSystem>();
+            var sysWrite = World.CreateSystemManaged<GetBufferLookupWriteJobSystem>();
 
-            var sysReadOnly = World.CreateSystem<GetBufferReadOnlyJobSystem>();
-            var sysReadOnly2 = World.CreateSystem<GetBufferReadOnlyJobSystem>();
+            var sysReadOnly = World.CreateSystemManaged<GetBufferReadOnlyJobSystem>();
+            var sysReadOnly2 = World.CreateSystemManaged<GetBufferReadOnlyJobSystem>();
             sysWrite.Update();
             sysReadOnly.Update();
             Assert.DoesNotThrow(() => sysReadOnly2.Update());
@@ -840,10 +899,10 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
 
             // Read systems assume first buffer element is 123, so we write them first
-            var sysWrite = World.CreateSystem<GetBufferFromEntityWriteJobSystem>();
+            var sysWrite = World.CreateSystemManaged<GetBufferLookupWriteJobSystem>();
 
-            var sysReadOnly = World.CreateSystem<GetBufferReadOnlyJobSystem>();
-            var sysRead = World.CreateSystem<GetBufferReadJobSystem>();
+            var sysReadOnly = World.CreateSystemManaged<GetBufferReadOnlyJobSystem>();
+            var sysRead = World.CreateSystemManaged<GetBufferReadJobSystem>();
             sysWrite.Update();
             sysReadOnly.Update();
             Assert.DoesNotThrow(() => sysRead.Update());
@@ -858,6 +917,133 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(readOnlyHandle.Equals(readHandle));
                 Assert.IsFalse(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, readOnlyHandle));
             }
+        }
+
+        public partial class SystemSchedulingTwoParallelJobsWritingToSameArray : SystemBase
+        {
+            public struct InputStatus
+            {
+            }
+
+            public struct Discriminator1 : IComponentData { }
+            public struct Discriminator2 : IComponentData { }
+
+            public partial struct Discriminator1Job : IJobEntity
+            {
+                [NativeDisableParallelForRestriction] public NativeArray<InputStatus> InputStatusArray;
+                [ReadOnly] public NativeParallelHashMap<Entity, int> EntitiesIndexMap;
+
+                private void Execute(
+                    Entity entity,
+                    in EcsTestData testData,
+                    in Discriminator1 disc)
+                {
+                    InputStatusArray[EntitiesIndexMap[entity]] = new InputStatus();
+                }
+            }
+
+            public partial struct Discriminator2Job : IJobEntity
+            {
+                [NativeDisableParallelForRestriction] public NativeArray<InputStatus> InputStatusArray;
+                [ReadOnly] public NativeParallelHashMap<Entity, int> EntitiesIndexMap;
+
+                private void Execute(
+                    Entity entity,
+                    in EcsTestData testData,
+                    in Discriminator2 disc)
+                {
+                    InputStatusArray[EntitiesIndexMap[entity]] = new InputStatus();
+                }
+            }
+
+            static readonly int NumEntities = 10;
+
+            private NativeArray<InputStatus> inputStatusArray;
+            private NativeParallelHashMap<Entity, int> entitiesIndexMap;
+            private EntityQuery entityQuery;
+
+            protected override void OnCreate()
+            {
+                inputStatusArray = new NativeArray<InputStatus>(NumEntities, Allocator.Persistent);
+                entitiesIndexMap = new NativeParallelHashMap<Entity, int>(NumEntities, Allocator.Persistent);
+
+                for (int i = 0; i < NumEntities/2; ++i)
+                    EntityManager.CreateEntity(typeof(EcsTestData), typeof(Discriminator1));
+
+                for (int i = 0; i < NumEntities/2; ++i)
+                    EntityManager.CreateEntity(typeof(EcsTestData), typeof(Discriminator2));
+
+                entityQuery = GetEntityQuery(new EntityQueryDesc()
+                    {
+                        All = new[] { ComponentType.ReadOnly<EcsTestData>() },
+                        Any = new[]
+                        {
+                            ComponentType.ReadOnly<Discriminator1>(), ComponentType.ReadOnly<Discriminator2>()
+                        }
+                    }
+                );
+            }
+
+            protected override void OnDestroy()
+            {
+                inputStatusArray.Dispose();
+                entitiesIndexMap.Dispose();
+            }
+
+            protected override void OnUpdate()
+            {
+                var inputStatus = inputStatusArray;
+                var entitiesIndex = entitiesIndexMap;
+
+                var entitiesArray = entityQuery.ToEntityArray(Allocator.TempJob);
+                Dependency = Job.WithCode(() =>
+                {
+                    entitiesIndex.Clear();
+
+                    for (var i = 0; i < entitiesArray.Length; i++)
+                        entitiesIndex.Add(entitiesArray[i], i);
+
+                    for (var i = 0; i < inputStatus.Length; i++)
+                        inputStatus[i] = new InputStatus { };
+                }).Schedule(Dependency);
+
+                entitiesArray.Dispose(Dependency);
+
+                // These two jobs write to the same container and will trigger
+                // a parallel write safety exception
+                var job0 = new Discriminator1Job
+                {
+                    InputStatusArray = inputStatusArray,
+                    EntitiesIndexMap = entitiesIndex,
+                }.ScheduleParallel(Dependency);
+
+                var job1 = new Discriminator2Job
+                {
+                    InputStatusArray = inputStatusArray,
+                    EntitiesIndexMap = entitiesIndex,
+                }.ScheduleParallel(Dependency);
+
+                // Don't assign to Dependency to trigger a system safety error message
+                //Dependency = JobHandle.CombineDependencies(job0, job1);
+            }
+        }
+
+        [Test]
+        public void ParallelWrite_Exception_Not_Suppressed()
+        {
+            // Regression test. Run a system that unsafely writes to a NativeArray from two parallel jobs.
+            // The data access is safe but the safety system can't know that. We had an issue where the safety PanicFunction
+            // was preventing the real safety message from surfacing
+            var sys1 = World.CreateSystem<SystemSchedulingTwoParallelJobsWritingToSameArray>();
+#if UNITY_DOTSRUNTIME
+            Assert.Throws<InvalidOperationException>(() => { sys1.Update(World.Unmanaged); });
+#else
+            Assert.That(() => { sys1.Update(World.Unmanaged); },
+                            Throws.Exception.TypeOf<InvalidOperationException>()
+                                .With.Message.Contains(
+                                    "The previously scheduled job SystemSchedulingTwoParallelJobsWritingToSameArray:Discriminator1Job writes to the Unity.Collections.NativeArray"));
+#endif
+            LogAssert.Expect(LogType.Error, "The system Unity.Entities.Tests.SystemBaseDependencyTests+SystemSchedulingTwoParallelJobsWritingToSameArray reads Unity.Entities.Tests.EcsTestData via SystemSchedulingTwoParallelJobsWritingToSameArray:Discriminator1Job but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.");
         }
     }
 }

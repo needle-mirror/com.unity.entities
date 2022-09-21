@@ -286,7 +286,7 @@ namespace Unity.Entities.CodeGen.Tests
 
         class WithGenericMethod_Class
         {
-            BlobAssetReference<T> DoThing<T>() where T : struct
+            BlobAssetReference<T> DoThing<T>() where T : unmanaged
             {
                 var builder = new BlobBuilder(Allocator.Temp);
                 ref var root = ref builder.ConstructRoot<T>();

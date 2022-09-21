@@ -19,8 +19,8 @@ namespace Unity.Entities
                 {
                     if (query.HasFilter())
                         continue;
-                    var mask = world.EntityManager.GetEntityQueryMask(query);
-                    if (mask.Matches(entity))
+                    var mask = query.GetEntityQueryMask();
+                    if (mask.MatchesIgnoreFilter(entity))
                         queryList.Add(query);
                 }
 

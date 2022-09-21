@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
@@ -43,6 +44,23 @@ namespace Unity.Entities.Tests
 
                 for (var i = 0; i < componentTypes.Length; ++i)
                     m_Components[i] = new DebugComponent(entityManager, entity, componentTypes[i]);
+            }
+        }
+
+        public static List<DebugEntity> GetAllEntitiesWithSystems(EntityManager entityManager)
+        {
+            using (var entities = entityManager.GetAllEntities(Allocator.Temp, EntityManager.GetAllEntitiesOptions.IncludeSystems))
+            {
+                var debugEntities = new List<DebugEntity>(entities.Length);
+
+                foreach (var entity in entities)
+                    debugEntities.Add(new DebugEntity(entityManager, entity));
+
+                // consider rando-sorting debugEntities if a certain command line flag is set to detect instabilities
+
+                debugEntities.Sort((x, y) => x.Entity.Index.CompareTo(y.Entity.Index));
+
+                return debugEntities;
             }
         }
 
@@ -186,6 +204,25 @@ namespace Unity.Entities.Tests
             }
 
             return -1;
+        }
+
+        public static T GetComponent<T>(this DebugEntity de)
+        {
+            if (!TryGetComponent<T>(de, out var c))
+                throw new Exception($"Could not find component {typeof(T)}");
+            return c;
+        }
+
+        public static bool TryGetComponent<T>(this DebugEntity de, out T component)
+        {
+            int idx = de.IndexOfComponent<T>();
+            if (idx == -1)
+            {
+                component = default;
+                return false;
+            }
+            component = (T) de.Components[idx].Data;
+            return true;
         }
     }
 }

@@ -1,42 +1,32 @@
 #clear-cache {
-    padding: 15px;
+    padding: 10px;
     flex-shrink: 0;
     flex-grow: 1;
-}
-
-#clear-cache-title {
-    font-size: 18px;
-}
-
-#clear-cache_body {
-    padding: 15px;
-    flex-grow: 1;
-    flex-basis: auto;
     flex-direction: column;
-    flex-shrink: 0;
+}
+
+#clear-cache_label {
+    font-size: 14px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+#clear-cache_desc {
+    font-size: 12px;
+    padding-left: 20px;
+    padding-right: 20px;
+    white-space: normal;
 }
 
 .clear-cache_field {
-    flex-direction: row;
+    flex-direction: column;
     justify-content: space-between;
-}
-
-.cache-toggle {
-    font-size: 14px;
-    margin-bottom: 10px;
-    border-left-width: 1px;
-    border-right-width: 1px;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    flex-shrink: 0;
-}
-
-.cache-toggle .unity-toggle__text {
-    padding-left: 10px;
+    margin-top: 30px;
+    -unity-text-align: upper-center;
 }
 
 #clear-cache_footer {
-    margin-top: 15px;
+    margin-top: 10px;
     flex-direction: row;
 }
 

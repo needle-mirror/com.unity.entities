@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor
         static readonly string s_WindowName = L10n.Tr("Archetypes");
         static readonly string s_NoDataAvailable = L10n.Tr("No archetype data available.");
 
-        [MenuItem(Constants.MenuItems.ArchetypesWindow, false, Constants.MenuItems.WindowPriority)]
+        [MenuItem(Constants.MenuItems.ArchetypesWindow, false, Constants.MenuItems.ArchetypesWindowPriority)]
         static void OpenWindow() => GetWindow<ArchetypesWindow>();
 
         Stopwatch m_UpdateTimer;
@@ -23,6 +23,9 @@ namespace Unity.Entities.Editor
         NativeList<ulong> m_ArchetypesStableHash;
         NativeList<ArchetypeMemoryData> m_ArchetypesMemoryData;
         MemoryProfilerModuleView m_View;
+
+        public ArchetypesWindow() : base(Analytics.Window.Archetypes)
+        {}
 
         void OnEnable()
         {
@@ -63,8 +66,8 @@ namespace Unity.Entities.Editor
             m_UpdateTimer.Restart();
 
             m_Recorder.Record();
-            if (!MemCmp(m_ArchetypesStableHash, m_Recorder.ArchetypesStableHash) ||
-                !MemCmp(m_ArchetypesMemoryData, m_Recorder.ArchetypesMemoryData))
+            if (!MemCmp(m_ArchetypesStableHash.AsArray(), m_Recorder.ArchetypesStableHash) ||
+                !MemCmp(m_ArchetypesMemoryData.AsArray(), m_Recorder.ArchetypesMemoryData))
             {
                 m_View.ArchetypesDataSource = GetTreeViewData().ToArray();
                 m_View.Search();

@@ -216,7 +216,7 @@ namespace Unity.Entities.CodeGen
 
             foreach (var type in AssemblyDefinition.MainModule.GetAllTypes())
             {
-                if ((type.IsValueType && !type.IsInterface && type.Interfaces.Count > 0) || (!type.IsAbstract && type.IsClass))
+                if ((type.IsValueType() && !type.IsInterface && type.Interfaces.Count > 0) || (!type.IsAbstract && type.IsClass))
                 {
                     // Generic components are handled below
                     if (!type.HasGenericParameters)
@@ -248,7 +248,7 @@ namespace Unity.Entities.CodeGen
 
                     // the auto-creation system instantiates using the default ctor, so if we can't find one, exclude from list
                     // that said, if it's a value type, it's fine, because you can just do default
-                    if (!type.IsValueType && type.GetConstructors().All(c => c.HasParameters))
+                    if (!type.IsValueType() && type.GetConstructors().All(c => c.HasParameters))
                     {
                         var disableTypeAutoCreation = type.CustomAttributes.Any(attr => attr.AttributeType.Name == nameof(DisableAutoCreationAttribute));
 
@@ -274,7 +274,7 @@ namespace Unity.Entities.CodeGen
             foreach (var genericComponent in genericComponents)
             {
                 TypeCategory typeCategory;
-                if (!genericComponent.IsValueType)
+                if (!genericComponent.IsValueType())
                     typeCategory = FindTypeCategoryForTypeRecursive(genericComponent.Resolve());
                 else
                     typeCategory = FindTypeCategoryForType(genericComponent.Resolve());
@@ -462,12 +462,12 @@ namespace Unity.Entities.CodeGen
             var systemTypeHashesFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("SystemTypeHashes", BindingFlags.Public | BindingFlags.Instance));
             GenerateSystemTypeHashArray(il, systemList, systemTypeHashesFieldDef, false);
 
-            // Store TypeRegistry.IsSystemGroup[]
-            var isSystemGroupList = GetSystemIsGroupList(systemList);
+            // Store TypeRegistry.SystemTypeFlags[]
+            var systemTypeFlagsList = GetSystemTypeFlagsList(systemList);
             il.Emit(OpCodes.Ldloc_0);
-            var isSystemGroupFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("IsSystemGroup", BindingFlags.Public | BindingFlags.Instance));
-            StoreBoolArrayInField(il, isSystemGroupList, isSystemGroupFieldDef, false);
-
+            var systemTypeFlagsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("SystemTypeFlags", BindingFlags.Public | BindingFlags.Instance));
+            StoreIntArrayInField(il, systemTypeFlagsList, systemTypeFlagsFieldDef, false);
+            
             // Store TypeRegistry.FieldNames[]
             il.Emit(OpCodes.Ldloc_0);
             var fieldNamesFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("FieldNames", BindingFlags.Public | BindingFlags.Instance));

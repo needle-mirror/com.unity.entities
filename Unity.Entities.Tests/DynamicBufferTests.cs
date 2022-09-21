@@ -3,6 +3,7 @@ using System.Diagnostics;
 using NUnit.Framework;
 using Unity.Jobs;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using static Unity.Burst.CompilerServices.Aliasing;
 using Unity.Mathematics;
@@ -173,6 +174,22 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void DynamicBufferResize_Clears()
+        {
+            var dstEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
+            var buf = m_Manager.GetBuffer<DynamicBufferElement>(dstEntity);
+            buf.Add(new DynamicBufferElement(3));
+            buf.Add(new DynamicBufferElement(5));
+            buf.Resize(10, NativeArrayOptions.ClearMemory);
+
+            Assert.AreEqual(3, buf[0].Value);
+            Assert.AreEqual(5, buf[1].Value);
+            Assert.AreEqual(10, buf.Length);
+            for(int i = 2;i != 10;i++)
+                Assert.AreEqual(0, buf[i].Value);
+        }
+
+        [Test]
         public unsafe void DynamicBuffer_GetUnsafePtr_ReadOnlyAndReadWriteAreEqual()
         {
             var ent = m_Manager.CreateEntity(typeof(DynamicBufferElement));
@@ -187,8 +204,11 @@ namespace Unity.Entities.Tests
 
             public NativeArray<int> IntArray;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 var buffer = chunk.GetBufferAccessor(BufferTypeRO)[0];
                 IntArray[0] += buffer.Length;
             }
@@ -198,8 +218,11 @@ namespace Unity.Entities.Tests
         {
             public BufferTypeHandle<EcsIntElement> BufferTypeRW;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 var buffer = chunk.GetBufferAccessor(BufferTypeRW)[0];
                 buffer.Add(10);
             }
@@ -211,14 +234,17 @@ namespace Unity.Entities.Tests
             public EntityTypeHandle EntityTypeRO;
 
             [ReadOnly]
-            public BufferFromEntity<EcsIntElement> BufferFromEntityRO;
+            public BufferLookup<EcsIntElement> BufferLookupRo;
 
             public NativeArray<int> IntArray;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 var entity = chunk.GetNativeArray(EntityTypeRO)[0];
-                var buffer = BufferFromEntityRO[entity];
+                var buffer = BufferLookupRo[entity];
                 IntArray[0] += buffer.Length;
             }
         }
@@ -228,12 +254,15 @@ namespace Unity.Entities.Tests
             [ReadOnly]
             public EntityTypeHandle EntityTypeRO;
 
-            public BufferFromEntity<EcsIntElement> BufferFromEntityRW;
+            public BufferLookup<EcsIntElement> BufferLookupRw;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 var entity = chunk.GetNativeArray(EntityTypeRO)[0];
-                var buffer = BufferFromEntityRW[entity];
+                var buffer = BufferLookupRw[entity];
                 buffer.Add(10);
             }
         }
@@ -267,7 +296,7 @@ namespace Unity.Entities.Tests
        }
 
        [Test]
-       public void ReadOnlyBufferDoesNotBumpVersionNumber_BufferFromEntity()
+       public void ReadOnlyBufferDoesNotBumpVersionNumber_BufferLookup()
        {
            m_ManagerDebug.SetGlobalSystemVersion(10);
            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -281,7 +310,7 @@ namespace Unity.Entities.Tests
            new BufferJob_ReadOnly_FromEntity
            {
                EntityTypeRO = m_Manager.GetEntityTypeHandle(),
-               BufferFromEntityRO = m_Manager.GetBufferFromEntity<EcsIntElement>(true),
+               BufferLookupRo = m_Manager.GetBufferLookup<EcsIntElement>(true),
                IntArray = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator)
            }.Run(queryRO);
 
@@ -289,7 +318,7 @@ namespace Unity.Entities.Tests
            new BufferJob_ReadWrite_FromEntity
            {
                EntityTypeRO = m_Manager.GetEntityTypeHandle(),
-               BufferFromEntityRW = m_Manager.GetBufferFromEntity<EcsIntElement>(false),
+               BufferLookupRw = m_Manager.GetBufferLookup<EcsIntElement>(false),
            }.Run(queryRW);
 
            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
@@ -308,13 +337,13 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void WritingToReadOnlyBufferTriggersSafetySystem_BufferFromEntity()
+        public void WritingToReadOnlyBufferTriggersSafetySystem_BufferLookup()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var queryRO = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
 
             LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
-            new BufferJob_ReadWrite_FromEntity{EntityTypeRO = m_Manager.GetEntityTypeHandle(), BufferFromEntityRW = m_Manager.GetBufferFromEntity<EcsIntElement>(true)}.Run(queryRO);
+            new BufferJob_ReadWrite_FromEntity{EntityTypeRO = m_Manager.GetEntityTypeHandle(), BufferLookupRw = m_Manager.GetBufferLookup<EcsIntElement>(true)}.Run(queryRO);
         }
 
         public partial class DynamicBufferTestsSystem : SystemBase
@@ -356,7 +385,8 @@ namespace Unity.Entities.Tests
                     ExpectNotAliased(in d1, in d3);
                     ExpectNotAliased(in d2, in d3);
                 })
-                .WithBurst(synchronousCompilation: true)
+                .WithoutBurst() // See "DOTS-3029"
+                // .WithBurst(synchronousCompilation: true)
                 .Run();
 
                 Entities
@@ -379,7 +409,8 @@ namespace Unity.Entities.Tests
                         ExpectAliased(copyBuffer.GetUnsafePtr(), d1.GetUnsafePtr());
                     }
                 })
-                .WithBurst(synchronousCompilation: true)
+                .WithoutBurst() // See "DOTS-3029"
+                // .WithBurst(synchronousCompilation: true)
                 .Run();
             }
         }
@@ -388,7 +419,7 @@ namespace Unity.Entities.Tests
         [Test, Ignore("DOTS-3029")]
         public void DynamicBufferAliasing()
         {
-            World.GetOrCreateSystem<DynamicBufferTestsSystem>().Update();
+            World.GetOrCreateSystemManaged<DynamicBufferTestsSystem>().Update();
         }
 #endif
 
@@ -451,6 +482,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, count);
             Assert.AreEqual(8, sum);
         }
+
 
 #endif
     }

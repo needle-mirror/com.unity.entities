@@ -1,30 +1,104 @@
-using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
-using Unity.Collections;
 using Unity.Entities;
+using Unity.Entities.Conversion;
 using Unity.Entities.Hybrid.Tests;
 using Unity.Entities.Tests;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.LowLevel;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 namespace Unity.Scenes.Editor.Tests
 {
-    public class SubSceneConversionTests
+    class SubSceneConversionTests : SubSceneConversionAndBakingTests
     {
-        TestWithTempAssets m_TempAssets;
+        [OneTimeSetUp]
+        public void OneTimeSetup()
+        {
+            m_Settings.Setup(false);
+            base.OneTimeSetUp();
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTeardown()
+        {
+            base.OneTimeTearDown();
+            m_Settings.TearDown();
+        }
+    }
+
+    class SubSceneBakingTests : SubSceneConversionAndBakingTests
+    {
+        [OneTimeSetUp]
+        public void OneTimeSetup()
+        {
+            m_Settings.Setup(true);
+            base.OneTimeSetUp();
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTeardown()
+        {
+            base.OneTimeTearDown();
+            m_Settings.TearDown();
+        }
+
+        [Test]
+        public void ImportingASubscene_Exports_ExportedTypesFile()
+        {
+            var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, "SubScene", false, () =>
+            {
+                var go = new GameObject();
+                go.AddComponent<MockDataAuthoring>();
+                return new List<GameObject> { go };
+            });
+
+            var buildSettings = default(Unity.Entities.Hash128);
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            AssetDatabaseCompatibility.GetArtifactPaths(hash, out var artifactPaths);
+
+            var exportedTypesFile = "";
+            foreach (var line in artifactPaths)
+            {
+                if (Path.GetExtension(line).Replace(".", "") == EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesExportedTypes))
+                {
+                    exportedTypesFile = line;
+                    break;
+                }
+            }
+            Assert.IsFalse(string.IsNullOrEmpty(exportedTypesFile));
+
+            var allLines = File.ReadAllLines(exportedTypesFile);
+            var findType = false;
+            foreach (var line in allLines)
+            {
+                if (line.Contains("Unity.Entities.Tests.MockData"))
+                {
+                    findType = true;
+                    break;
+                }
+            }
+            Assert.IsTrue(findType);
+        }
+    }
+
+    abstract class SubSceneConversionAndBakingTests
+    {
+        protected TestLiveConversionSettings m_Settings;
+
+        protected TestWithTempAssets m_TempAssets;
         TestWithSubScenes m_SubSceneTest;
         TestWithCustomDefaultGameObjectInjectionWorld m_World;
         private PlayerLoopSystem m_PrevPlayerLoop;
         Texture m_Texture1;
         Texture m_Texture2;
 
-        [OneTimeSetUp]
-        public void SetUp()
+        public void OneTimeSetUp()
         {
             m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
             m_TempAssets.SetUp();
@@ -37,20 +111,12 @@ namespace Unity.Scenes.Editor.Tests
             AssetDatabase.CreateAsset(m_Texture2, m_TempAssets.GetNextPath("Texture2.asset"));
         }
 
-        [OneTimeTearDown]
         public void OneTimeTearDown()
         {
             m_World.TearDown();
             m_SubSceneTest.TearDown();
             m_TempAssets.TearDown();
             PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-            em.DestroyEntity(em.UniversalQuery);
         }
 
         void CheckPublicRefs(EntityManager entityManager)
@@ -62,7 +128,7 @@ namespace Unity.Scenes.Editor.Tests
                 }
             ))
             {
-                using (var entities = query.ToEntityArray(Allocator.TempJob))
+                using (var entities = query.ToEntityArray(entityManager.World.UpdateAllocator.ToAllocator))
                 {
                     foreach (var entity in entities)
                     {
@@ -78,6 +144,47 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [Test]
+        public void SubScene_WithDependencyOnAssetInScene_ClearCache_EndToEnd()
+        {
+            var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, "SubScene", false, () =>
+            {
+                var go = new GameObject();
+                var authoring = go.AddComponent<DependencyTestAuthoring>();
+                var sphereHolder = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                authoring.Asset = sphereHolder.GetComponent<MeshFilter>().sharedMesh;
+                UnityEngine.Object.DestroyImmediate(sphereHolder);
+                return new List<GameObject> { go };
+            });
+
+            var buildSettings = default(Unity.Entities.Hash128);
+            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            Assert.IsTrue(originalHash.IsValid);
+
+            // Clear Cache (First time this creates global dependency asset, so we will test both steps)
+            EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
+
+            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            Assert.IsTrue(newHashCreated.IsValid);
+            Assert.AreNotEqual(originalHash, newHashCreated);
+
+            // Clear Cache (This updates existing asset)
+            EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
+
+            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            Assert.IsTrue(newHashUpdated.IsValid);
+            Assert.AreNotEqual(newHashCreated, newHashUpdated);
+            Assert.AreNotEqual(originalHash, newHashUpdated);
+
+            // Delete created dependency, this cleans up test but also we need to verify that the scene returns to the original hash
+            AssetDatabase.DeleteAsset(EntitiesCacheUtility.globalEntitiesDependencyDir);
+            AssetDatabase.Refresh();
+
+            // With the dependency deleted, the hash should return to the original
+            var finalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            Assert.AreEqual(originalHash, finalHash);
+        }
+
+        [Test]
         public void SubScene_WithDependencyOnAsset_IsInvalidatedWhenAssetChanges()
         {
             var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, "SubScene", false, () =>
@@ -89,13 +196,13 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
             Assert.IsTrue(hash.IsValid);
 
             m_Texture1.wrapMode = m_Texture1.wrapMode == TextureWrapMode.Repeat ? TextureWrapMode.Mirror : TextureWrapMode.Repeat;
             AssetDatabase.SaveAssets();
 
-            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.NoImport);
+            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.NoImport);
             Assert.AreNotEqual(hash, newHash);
             Assert.IsFalse(newHash.IsValid);
         }
@@ -108,8 +215,8 @@ namespace Unity.Scenes.Editor.Tests
             subScene.gameObject.SetActive(false);
 
             var world = World.DefaultGameObjectInjectionWorld;
-            var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
-            var sceneEntity = sceneSystem.LoadSceneAsync(subScene.SceneGUID, new SceneSystem.LoadParameters
+
+            var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID, new SceneSystem.LoadParameters
             {
                 Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
             });
@@ -117,14 +224,14 @@ namespace Unity.Scenes.Editor.Tests
             // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
             world.Update();
 
-            Assert.IsTrue(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to load scene");
+            Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Failed to load scene");
             CheckPublicRefs(world.EntityManager);
 
-            sceneSystem.UnloadScene(sceneEntity);
+            SceneSystem.UnloadScene(world.Unmanaged, sceneEntity);
 
             world.Update();
 
-            Assert.IsFalse(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to unload scene");
+            Assert.IsFalse(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Failed to unload scene");
         }
 
         [Test]
@@ -136,23 +243,28 @@ namespace Unity.Scenes.Editor.Tests
             subScene.gameObject.SetActive(false);
 
             var world = World.DefaultGameObjectInjectionWorld;
-            var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
-            var sceneEntity = sceneSystem.LoadSceneAsync(subScene.SceneGUID, new SceneSystem.LoadParameters
+
+            var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID, new SceneSystem.LoadParameters
             {
                 Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
             });
 
-            Assert.IsFalse(sceneSystem.IsSceneLoaded(sceneEntity), "Scene should not be loaded yet.");
+            Assert.IsFalse(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Scene should not be loaded yet.");
 
             // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
             world.Update();
-            Assert.IsTrue(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to load scene");
+            Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Failed to load scene");
             CheckPublicRefs(world.EntityManager);
 
             AssetDatabase.DeleteAsset(AssetDatabase.GetAssetPath(subScene.SceneAsset));
 
             // Block the import of this subscene so that we can get a single-frame result for this test
-            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, true, ImportMode.Synchronous);
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID,
+                world.EntityManager.GetComponentData<SceneSystemData>(world.GetOrCreateSystem<SceneSystem>()).BuildConfigurationGUID,
+                true,
+                true,
+                LiveConversionSettings.IsBuiltinBuildsEnabled,
+                ImportMode.Synchronous);
             Assert.IsTrue(hash.IsValid, "Failed to import SubScene.");
 
             LogAssert.Expect(LogType.Error, new Regex("Loading Entity Scene failed.*"));
@@ -160,7 +272,7 @@ namespace Unity.Scenes.Editor.Tests
             // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
             world.Update();
 
-            Assert.IsFalse(sceneSystem.IsSceneLoaded(sceneEntity), "Scene should not be loaded");
+            Assert.IsFalse(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Scene should not be loaded");
         }
 
 #if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -185,8 +297,8 @@ namespace Unity.Scenes.Editor.Tests
             subScene.gameObject.SetActive(false);
 
             var world = World.DefaultGameObjectInjectionWorld;
-            var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
-            var sceneEntity = sceneSystem.LoadSceneAsync(subScene.SceneGUID, new SceneSystem.LoadParameters
+
+            var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID, new SceneSystem.LoadParameters
             {
                 Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
             });
@@ -194,17 +306,19 @@ namespace Unity.Scenes.Editor.Tests
             // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
             world.Update();
 
-            Assert.IsTrue(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to load scene");
+            Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Failed to load scene");
             CheckPublicRefs(world.EntityManager);
 
             {
-                var entities = DebugEntity.GetAllEntities(world.EntityManager);
-                var entity = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestAssetAuthoring.Component>());
+                var entities = DebugEntity.GetAllEntitiesWithSystems(world.EntityManager);
+                var entity = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestAssetComponent>());
                 Assert.IsNotNull(entity, "Failed to find converted GameObject");
 
-                var component = world.EntityManager.GetComponentData<SubSceneLoadTestAssetAuthoring.Component>(entity.Entity);
+                var component = world.EntityManager.GetComponentData<SubSceneLoadTestAssetComponent>(entity.Entity);
                 Assert.AreEqual(asset, component.Asset);
             }
+
+            SceneSystem.UnloadScene(world.Unmanaged, sceneEntity);
         }
 
 #endif
@@ -234,8 +348,8 @@ namespace Unity.Scenes.Editor.Tests
             subScene.gameObject.SetActive(false);
 
             var world = World.DefaultGameObjectInjectionWorld;
-            var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
-            var sceneEntity = sceneSystem.LoadSceneAsync(subScene.SceneGUID, new SceneSystem.LoadParameters
+
+            var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID, new SceneSystem.LoadParameters
             {
                 Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
             });
@@ -243,15 +357,15 @@ namespace Unity.Scenes.Editor.Tests
             // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
             world.Update();
 
-            Assert.IsTrue(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to load scene");
+            Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Failed to load scene");
             CheckPublicRefs(world.EntityManager);
 
             {
-                var entities = DebugEntity.GetAllEntities(world.EntityManager);
-                var entity = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestBlobAssetAuthoring.Component>());
+                var entities = DebugEntity.GetAllEntitiesWithSystems(world.EntityManager);
+                var entity = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestBlobAssetComponent>());
                 Assert.IsNotNull(entity, "Failed to find converted GameObject");
 
-                var component = world.EntityManager.GetComponentData<SubSceneLoadTestBlobAssetAuthoring.Component>(entity.Entity);
+                var component = world.EntityManager.GetComponentData<SubSceneLoadTestBlobAssetComponent>(entity.Entity);
                 if (useBlobAsset)
                 {
                     Assert.AreEqual(1, component.BlobAsset.Value.Int);
@@ -269,6 +383,8 @@ namespace Unity.Scenes.Editor.Tests
                     Assert.IsFalse(component.BlobAsset.IsCreated, "Blob asset should not be created, but it was");
                 }
             }
+
+            SceneSystem.UnloadScene(world.Unmanaged, sceneEntity);
         }
 
         [Test]
@@ -286,8 +402,8 @@ namespace Unity.Scenes.Editor.Tests
             subScene.gameObject.SetActive(false);
 
             var world = World.DefaultGameObjectInjectionWorld;
-            var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
-            var sceneEntity = sceneSystem.LoadSceneAsync(subScene.SceneGUID, new SceneSystem.LoadParameters
+
+            var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID, new SceneSystem.LoadParameters
             {
                 Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
             });
@@ -295,12 +411,12 @@ namespace Unity.Scenes.Editor.Tests
             // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
             world.Update();
 
-            Assert.IsTrue(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to load scene");
+            Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Failed to load scene");
             CheckPublicRefs(world.EntityManager);
 
             {
-                var query = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestUnmanagedAuthoring.Component));
-                var comp = query.GetSingleton<SubSceneLoadTestUnmanagedAuthoring.Component>();
+                var query = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestUnmanagedComponent));
+                var comp = query.GetSingleton<SubSceneLoadTestUnmanagedComponent>();
                 var entity = query.GetSingletonEntity();
                 Assert.AreEqual(1, comp.Int);
                 Assert.AreEqual(entity, comp.Entity);
@@ -324,8 +440,8 @@ namespace Unity.Scenes.Editor.Tests
             subScene.gameObject.SetActive(false);
 
             var world = World.DefaultGameObjectInjectionWorld;
-            var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
-            var sceneEntity = sceneSystem.LoadSceneAsync(subScene.SceneGUID, new SceneSystem.LoadParameters
+
+            var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID, new SceneSystem.LoadParameters
             {
                 Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
             });
@@ -333,13 +449,13 @@ namespace Unity.Scenes.Editor.Tests
             // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
             world.Update();
 
-            Assert.IsTrue(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to load scene");
+            Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Failed to load scene");
             CheckPublicRefs(world.EntityManager);
 
             {
-                var query = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestSharedAuthoring.Component));
+                var query = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestSharedComponent));
                 var entity = query.GetSingletonEntity();
-                var comp = world.EntityManager.GetSharedComponentData<SubSceneLoadTestSharedAuthoring.Component>(entity);
+                var comp = world.EntityManager.GetSharedComponentManaged<SubSceneLoadTestSharedComponent>(entity);
                 Assert.AreEqual(1, comp.Int);
                 Assert.AreEqual("Test", comp.String);
                 Assert.AreEqual(m_Texture1, comp.Asset);
@@ -429,8 +545,9 @@ namespace Unity.Scenes.Editor.Tests
             subScene.gameObject.SetActive(false);
 
             var world = World.DefaultGameObjectInjectionWorld;
-            var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
-            var sceneEntity = sceneSystem.LoadSceneAsync(subScene.SceneGUID, new SceneSystem.LoadParameters
+            ref var state = ref world.Unmanaged.GetExistingSystemState<SceneSystem>();
+
+            var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, subScene.SceneGUID, new SceneSystem.LoadParameters
             {
                 Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
             });
@@ -438,83 +555,83 @@ namespace Unity.Scenes.Editor.Tests
             // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
             world.Update();
 
-            Assert.IsTrue(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to load scene");
+            Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Failed to load scene");
             CheckPublicRefs(world.EntityManager);
 
             {
-                var entities = DebugEntity.GetAllEntities(world.EntityManager);
-                var unmanagedQuery = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestUnmanagedAuthoring.Component));
-                var managedQuery = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestManagedAuthoring.Component));
-                var sharedQuery = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestSharedAuthoring.Component));
-                var bufferQuery = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestBufferAuthoring.Component));
+                var entities = DebugEntity.GetAllEntitiesWithSystems(world.EntityManager);
+                var unmanagedQuery = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestUnmanagedComponent));
+                var managedQuery = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestManagedComponent));
+                var sharedQuery = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestSharedComponent));
+                var bufferQuery = world.EntityManager.CreateEntityQuery(typeof(SubSceneLoadTestBufferComponent));
 
-                Assert.AreEqual(3, unmanagedQuery.CalculateEntityCount(), $"Expected exactly 3 entities with {typeof(SubSceneLoadTestUnmanagedAuthoring.Component).FullName}");
-                Assert.AreEqual(3, managedQuery.CalculateEntityCount(), $"Expected exactly 3 entities with {typeof(SubSceneLoadTestManagedAuthoring.Component).FullName}");
-                Assert.AreEqual(3, sharedQuery.CalculateEntityCount(), $"Expected exactly 3 entities with {typeof(SubSceneLoadTestSharedAuthoring.Component).FullName}");
-                Assert.AreEqual(3, bufferQuery.CalculateEntityCount(), $"Expected exactly 3 entities with {typeof(SubSceneLoadTestBufferAuthoring.Component).FullName}");
+                Assert.AreEqual(3, unmanagedQuery.CalculateEntityCount(), $"Expected exactly 3 entities with {typeof(SubSceneLoadTestUnmanagedComponent).FullName}");
+                Assert.AreEqual(3, managedQuery.CalculateEntityCount(), $"Expected exactly 3 entities with {typeof(SubSceneLoadTestManagedComponent).FullName}");
+                Assert.AreEqual(3, sharedQuery.CalculateEntityCount(), $"Expected exactly 3 entities with {typeof(SubSceneLoadTestSharedComponent).FullName}");
+                Assert.AreEqual(3, bufferQuery.CalculateEntityCount(), $"Expected exactly 3 entities with {typeof(SubSceneLoadTestBufferComponent).FullName}");
 
 
-                var e1 = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestUnmanagedAuthoring.Component>() && de.HasComponent<SubSceneLoadTestSharedAuthoring.Component>() && de.HasComponent<SubSceneLoadTestBufferAuthoring.Component>());
+                var e1 = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestUnmanagedComponent>() && de.HasComponent<SubSceneLoadTestSharedComponent>() && de.HasComponent<SubSceneLoadTestBufferComponent>());
                 Assert.IsNotNull(e1, "Could not find entity corresponding to GO1");
-                var e2 = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestUnmanagedAuthoring.Component>()
-                    && de.HasComponent<SubSceneLoadTestManagedAuthoring.Component>()
-                    && de.HasComponent<SubSceneLoadTestSharedAuthoring.Component>());
+                var e2 = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestUnmanagedComponent>()
+                    && de.HasComponent<SubSceneLoadTestManagedComponent>()
+                    && de.HasComponent<SubSceneLoadTestSharedComponent>());
                 Assert.IsNotNull(e2, "Could not find entity corresponding to GO2");
                 var e3 = entities.FirstOrDefault(de =>
-                    de.HasComponent<SubSceneLoadTestManagedAuthoring.Component>() &&
-                    de.HasComponent<SubSceneLoadTestSharedAuthoring.Component>() && de.HasComponent<SubSceneLoadTestBufferAuthoring.Component>());
+                    de.HasComponent<SubSceneLoadTestManagedComponent>() &&
+                    de.HasComponent<SubSceneLoadTestSharedComponent>() && de.HasComponent<SubSceneLoadTestBufferComponent>());
                 Assert.IsNotNull(e3, "Could not find entity corresponding to GO3");
-                var e4 = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestUnmanagedAuthoring.Component>()
-                    && de.HasComponent<SubSceneLoadTestManagedAuthoring.Component>()
-                    && de.HasComponent<SubSceneLoadTestBufferAuthoring.Component>());
+                var e4 = entities.FirstOrDefault(de => de.HasComponent<SubSceneLoadTestUnmanagedComponent>()
+                    && de.HasComponent<SubSceneLoadTestManagedComponent>()
+                    && de.HasComponent<SubSceneLoadTestBufferComponent>());
                 Assert.IsNotNull(e4, "Could not find entity corresponding to GO4");
 
                 {
-                    var unmanaged = world.EntityManager.GetComponentData<SubSceneLoadTestUnmanagedAuthoring.Component>(e1.Entity);
+                    var unmanaged = world.EntityManager.GetComponentData<SubSceneLoadTestUnmanagedComponent>(e1.Entity);
                     Assert.AreEqual(e1.Entity, unmanaged.Entity);
                     Assert.AreEqual(1, unmanaged.Int);
                     VerifyBlobAsset(unmanaged.BlobAsset, 1, "GO1", 1, "GO1-unmanaged");
 
-                    var shared = world.EntityManager.GetSharedComponentData<SubSceneLoadTestSharedAuthoring.Component>(e1.Entity);
+                    var shared = world.EntityManager.GetSharedComponentManaged<SubSceneLoadTestSharedComponent>(e1.Entity);
                     Assert.AreEqual(42, shared.Int);
                     Assert.AreEqual("Test", shared.String);
                     Assert.AreEqual(m_Texture2, shared.Asset);
 
-                    var buffer = world.EntityManager.GetBuffer<SubSceneLoadTestBufferAuthoring.Component>(e1.Entity);
+                    var buffer = world.EntityManager.GetBuffer<SubSceneLoadTestBufferComponent>(e1.Entity);
                     Assert.AreEqual(0, buffer.Length);
                 }
 
                 {
-                    var unmanaged = world.EntityManager.GetComponentData<SubSceneLoadTestUnmanagedAuthoring.Component>(e2.Entity);
+                    var unmanaged = world.EntityManager.GetComponentData<SubSceneLoadTestUnmanagedComponent>(e2.Entity);
                     Assert.AreEqual(e2.Entity, unmanaged.Entity);
                     Assert.AreEqual(2, unmanaged.Int);
                     VerifyBlobAsset(unmanaged.BlobAsset, 2, "GO2", 1, "GO2-unmanaged");
 
-                    var managed = world.EntityManager.GetComponentData<SubSceneLoadTestManagedAuthoring.Component>(e2.Entity);
+                    var managed = world.EntityManager.GetComponentData<SubSceneLoadTestManagedComponent>(e2.Entity);
                     Assert.AreEqual(e2.Entity, managed.Entity);
                     Assert.AreEqual(2, managed.Int);
                     Assert.AreEqual("Test2", managed.String);
                     Assert.AreEqual(m_Texture1, managed.Asset);
 
-                    var shared = world.EntityManager.GetSharedComponentData<SubSceneLoadTestSharedAuthoring.Component>(e2.Entity);
+                    var shared = world.EntityManager.GetSharedComponentManaged<SubSceneLoadTestSharedComponent>(e2.Entity);
                     Assert.AreEqual(42, shared.Int);
                     Assert.AreEqual("Test", shared.String);
                     Assert.AreEqual(m_Texture1, shared.Asset);
                 }
 
                 {
-                    var managed = world.EntityManager.GetComponentData<SubSceneLoadTestManagedAuthoring.Component>(e3.Entity);
+                    var managed = world.EntityManager.GetComponentData<SubSceneLoadTestManagedComponent>(e3.Entity);
                     Assert.AreEqual(e3.Entity, managed.Entity);
                     Assert.AreEqual(3, managed.Int);
                     Assert.AreEqual("Test3", managed.String);
                     Assert.AreEqual(m_Texture1, managed.Asset);
 
-                    var shared = world.EntityManager.GetSharedComponentData<SubSceneLoadTestSharedAuthoring.Component>(e3.Entity);
+                    var shared = world.EntityManager.GetSharedComponentManaged<SubSceneLoadTestSharedComponent>(e3.Entity);
                     Assert.AreEqual(42, shared.Int);
                     Assert.AreEqual("Test Different", shared.String);
                     Assert.AreEqual(m_Texture1, shared.Asset);
 
-                    var buffer = world.EntityManager.GetBuffer<SubSceneLoadTestBufferAuthoring.Component>(e3.Entity);
+                    var buffer = world.EntityManager.GetBuffer<SubSceneLoadTestBufferComponent>(e3.Entity);
                     Assert.AreEqual(1, buffer.Length);
                     Assert.AreEqual(e2.Entity, buffer[0].Entity);
                     Assert.AreEqual(5, buffer[0].Int);
@@ -522,18 +639,18 @@ namespace Unity.Scenes.Editor.Tests
                 }
 
                 {
-                    var unmanaged = world.EntityManager.GetComponentData<SubSceneLoadTestUnmanagedAuthoring.Component>(e4.Entity);
+                    var unmanaged = world.EntityManager.GetComponentData<SubSceneLoadTestUnmanagedComponent>(e4.Entity);
                     Assert.AreEqual(e4.Entity, unmanaged.Entity);
                     Assert.AreEqual(4, unmanaged.Int);
                     VerifyBlobAsset(unmanaged.BlobAsset, 4, "GO4", 1, "GO4-unmanaged");
 
-                    var managed = world.EntityManager.GetComponentData<SubSceneLoadTestManagedAuthoring.Component>(e4.Entity);
+                    var managed = world.EntityManager.GetComponentData<SubSceneLoadTestManagedComponent>(e4.Entity);
                     Assert.AreEqual(e4.Entity, managed.Entity);
                     Assert.AreEqual(4, managed.Int);
                     Assert.AreEqual("Test4", managed.String);
                     Assert.AreEqual(m_Texture1, managed.Asset);
 
-                    var buffer = world.EntityManager.GetBuffer<SubSceneLoadTestBufferAuthoring.Component>(e4.Entity);
+                    var buffer = world.EntityManager.GetBuffer<SubSceneLoadTestBufferComponent>(e4.Entity);
                     Assert.AreEqual(3, buffer.Length);
 
                     Assert.AreEqual(e1.Entity, buffer[0].Entity);
@@ -550,8 +667,8 @@ namespace Unity.Scenes.Editor.Tests
                 }
             }
 
-            sceneSystem.UnloadScene(sceneEntity);
-            Assert.IsFalse(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to unload scene");
+            SceneSystem.UnloadScene(world.Unmanaged, sceneEntity);
+            Assert.IsFalse(SceneSystem.IsSceneLoaded(world.Unmanaged, sceneEntity), "Failed to unload scene");
         }
 
         #endif
@@ -580,7 +697,7 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
             Assert.IsTrue(hash.IsValid);
         }
 
@@ -598,7 +715,7 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
             Assert.IsTrue(hash.IsValid);
         }
 
@@ -616,62 +733,58 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
+            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
             Assert.IsTrue(originalHash.IsValid);
 
             SubSceneInspectorUtility.ForceReimport(new []{subScene});
 
-            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
+            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
             Assert.IsTrue(newHashCreated.IsValid);
             Assert.AreNotEqual(originalHash, newHashCreated);
 
             SubSceneInspectorUtility.ForceReimport(new []{subScene});
 
-            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
+            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
             Assert.IsTrue(newHashUpdated.IsValid);
             Assert.AreNotEqual(newHashCreated, newHashUpdated);
             Assert.AreNotEqual(originalHash, newHashUpdated);
         }
 
         [Test]
-        public void SubScene_WithDependencyOnAssetInScene_ClearCache_EndToEnd()
+        public void SubScene_NegativeSceneSectionValuesGetStripped_EndToEnd()
         {
-            var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, "SubScene", false, () =>
+            var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, "NegativeSceneSection", false, () =>
             {
-                var go = new GameObject();
-                var authoring = go.AddComponent<DependencyTestAuthoring>();
-                var sphereHolder = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                authoring.Asset = sphereHolder.GetComponent<MeshFilter>().sharedMesh;
-                UnityEngine.Object.DestroyImmediate(sphereHolder);
-                return new List<GameObject> { go };
+                var go0 = new GameObject();
+                var authoring0 = go0.AddComponent<SceneSectionValueAuthoring>();
+                authoring0.Value = -1;
+
+                var go1 = new GameObject();
+                var authoring1 = go1.AddComponent<SceneSectionValueAuthoring>();
+                authoring1.Value = 1;
+
+                return new List<GameObject> { go0, go1 };
             });
 
-            var buildSettings = default(Unity.Entities.Hash128);
-            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
-            Assert.IsTrue(originalHash.IsValid);
+            SubSceneInspectorUtility.ForceReimport(new []{subScene});
 
-            // Clear Cache (First time this creates global dependency asset, so we will test both steps)
-            EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
+            {
+                using (var world = TestWorldSetup.CreateEntityWorld("World", false))
+                {
+                    var manager = world.EntityManager;
 
-            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
-            Assert.IsTrue(newHashCreated.IsValid);
-            Assert.AreNotEqual(originalHash, newHashCreated);
+                    var resolveParams = new SceneSystem.LoadParameters
+                    {
+                        Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
+                    };
 
-            // Clear Cache (This updates existing asset)
-            EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
+                    Unity.Entities.Hash128 sceneGuid = AssetDatabaseCompatibility.PathToGUID(AssetDatabase.GetAssetPath(subScene.SceneAsset));
+                    var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, sceneGuid, resolveParams);
+                    world.Update();
 
-            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
-            Assert.IsTrue(newHashUpdated.IsValid);
-            Assert.AreNotEqual(newHashCreated, newHashUpdated);
-            Assert.AreNotEqual(originalHash, newHashUpdated);
-
-            // Delete created dependency, this cleans up test but also we need to verify that the scene returns to the original hash
-            AssetDatabase.DeleteAsset(EntitiesCacheUtility.globalEntitiesDependencyDir);
-            AssetDatabase.Refresh();
-
-            // With the dependency deleted, the hash should return to the original
-            var finalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
-            Assert.AreEqual(originalHash, finalHash);
+                    EntitiesAssert.Contains(manager, EntityMatch.Partial(new SceneSectionValue(1)));
+                }
+            }
         }
     }
 }

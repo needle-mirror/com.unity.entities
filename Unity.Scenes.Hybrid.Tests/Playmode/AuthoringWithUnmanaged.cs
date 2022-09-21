@@ -11,13 +11,16 @@ namespace Unity.Scenes.Hybrid.Tests
     }
 
     [DisallowMultipleComponent]
-    public class AuthoringWithUnmanaged : MonoBehaviour, IConvertGameObjectToEntity
+    public class AuthoringWithUnmanaged : MonoBehaviour
     {
         public int Value;
+    }
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+    public class AuthoringWithUnmanagedBaker : Baker<AuthoringWithUnmanaged>
+    {
+        public override void Bake(AuthoringWithUnmanaged authoring)
         {
-            dstManager.AddComponentData(entity, new RuntimeUnmanaged {Value = Value});
+            AddComponent(new RuntimeUnmanaged{ Value = authoring.Value});
         }
     }
 }

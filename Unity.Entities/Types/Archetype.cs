@@ -8,8 +8,8 @@ namespace Unity.Entities
     [Flags]
     internal enum ArchetypeFlags : ushort
     {
-        SystemStateCleanupComplete = 1,
-        SystemStateCleanupNeeded = 2,
+        CleanupComplete = 1,
+        CleanupNeeded = 2,
         Disabled = 4,
         Prefab = 8,
         HasChunkHeader = 16,
@@ -18,7 +18,8 @@ namespace Unity.Entities
         HasBufferComponents = 128,
         HasManagedComponents = 256,
         HasManagedEntityRefs = 512,
-        HasWeakAssetRefs = 1024
+        HasWeakAssetRefs = 1024,
+        HasSystemInstanceComponents = 2048,
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -67,9 +68,9 @@ namespace Unity.Entities
 
         public ArchetypeFlags Flags;
 
-        public Archetype* CopyArchetype; // Removes system state components
-        public Archetype* InstantiateArchetype; // Removes system state components & prefabs
-        public Archetype* SystemStateResidueArchetype;
+        public Archetype* CopyArchetype; // Removes cleanup components
+        public Archetype* InstantiateArchetype; // Removes cleanup components & prefabs
+        public Archetype* CleanupResidueArchetype;
         public Archetype* MetaChunkArchetype;
 
         public EntityRemapUtility.EntityPatchInfo* ScalarEntityPatches;
@@ -82,8 +83,8 @@ namespace Unity.Entities
 
         public fixed byte QueryMaskArray[128];
 
-        public bool SystemStateCleanupComplete => (Flags & ArchetypeFlags.SystemStateCleanupComplete) != 0;
-        public bool SystemStateCleanupNeeded => (Flags & ArchetypeFlags.SystemStateCleanupNeeded) != 0;
+        public bool CleanupComplete => (Flags & ArchetypeFlags.CleanupComplete) != 0;
+        public bool CleanupNeeded => (Flags & ArchetypeFlags.CleanupNeeded) != 0;
         public bool Disabled => (Flags & ArchetypeFlags.Disabled) != 0;
         public bool Prefab => (Flags & ArchetypeFlags.Prefab) != 0;
         public bool HasChunkHeader => (Flags & ArchetypeFlags.HasChunkHeader) != 0;
@@ -91,6 +92,7 @@ namespace Unity.Entities
         public bool HasManagedEntityRefs => (Flags & ArchetypeFlags.HasManagedEntityRefs) != 0;
         public bool HasCompanionComponents => (Flags & ArchetypeFlags.HasCompanionComponents) != 0;
         public bool HasWeakAssetRefs => (Flags & ArchetypeFlags.HasWeakAssetRefs) != 0;
+        public bool HasSystemInstanceComponents => (Flags & ArchetypeFlags.HasSystemInstanceComponents) != 0;
 
         public int NumNativeComponentData => FirstBufferComponent - 1;
         public int NumBufferComponents => FirstManagedComponent - FirstBufferComponent;

@@ -21,9 +21,9 @@ namespace Unity.Entities.PerformanceTests
 
             Measure.Method(() =>
             {
-                using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+                using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    using (differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.TempJob))
+                    using (differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                     }
                 }
@@ -31,6 +31,7 @@ namespace Unity.Entities.PerformanceTests
                 .SampleGroup("EntityDiffer")
                 .WarmupCount(1)
                 .MeasurementCount(100)
+                .CleanUp(() => { SrcWorld.UpdateAllocator.Rewind(); })
                 .Run();
         }
 
@@ -45,9 +46,9 @@ namespace Unity.Entities.PerformanceTests
 
             Measure.Method(() =>
             {
-                using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+                using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    using (differ.GetChanges(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, Allocator.TempJob))
+                    using (differ.GetChanges(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                     }
                 }
@@ -55,6 +56,7 @@ namespace Unity.Entities.PerformanceTests
                 .SampleGroup("EntityDiffer")
                 .WarmupCount(1)
                 .MeasurementCount(100)
+                .CleanUp(() => { SrcWorld.UpdateAllocator.Rewind(); })
                 .Run();
         }
 
@@ -70,9 +72,9 @@ namespace Unity.Entities.PerformanceTests
 
             Measure.Method(() =>
             {
-                using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+                using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    using (differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
+                    using (differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                     }
                 }
@@ -80,6 +82,7 @@ namespace Unity.Entities.PerformanceTests
                 .SampleGroup("EntityDiffer")
                 .WarmupCount(1)
                 .MeasurementCount(100)
+                .CleanUp(() => { SrcWorld.UpdateAllocator.Rewind(); })
                 .Run();
         }
 
@@ -95,9 +98,9 @@ namespace Unity.Entities.PerformanceTests
 
             Measure.Method(() =>
             {
-                using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+                using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
                 {
-                    using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.TempJob))
+                    using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                     }
                 }
@@ -105,6 +108,7 @@ namespace Unity.Entities.PerformanceTests
                 .SampleGroup("EntityDiffer")
                 .WarmupCount(1)
                 .MeasurementCount(100)
+                .CleanUp(() => { SrcWorld.UpdateAllocator.Rewind(); })
                 .Run();
         }
 
@@ -119,17 +123,17 @@ namespace Unity.Entities.PerformanceTests
         {
             CreateEntitiesWithMockComponentData(SrcEntityManager, entityCount, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
 
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Fast forward the shadow world
-                using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.TempJob))
+                using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                 }
 
                 Measure.Method(() =>
                 {
                     // Get changes with all options selected
-                    using (differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.TempJob))
+                    using (differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                     }
                 })
@@ -160,10 +164,10 @@ namespace Unity.Entities.PerformanceTests
                 entity = entities[0];
             }
 
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Fast forward the shadow world
-                using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.TempJob))
+                using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                 }
 
@@ -174,7 +178,7 @@ namespace Unity.Entities.PerformanceTests
                     SrcEntityManager.SetComponentData(entity, new EcsTestData(startValue++));
 
                     // Get changes with all options selected
-                    using (differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
+                    using (differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                     }
                 })

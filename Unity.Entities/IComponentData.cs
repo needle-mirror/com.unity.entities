@@ -6,9 +6,9 @@ namespace Unity.Entities
     /// This interface marks structs as 'unmanaged components' and classes as 'managed components'.
     /// </summary>
     /// <remarks>
-    /// See https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/manual/ecs_components.html
+    /// For more information, see the documentation on [components](xref:ecs-components).
     /// </remarks>
-    public interface IComponentData
+    public interface IComponentData : IQueryTypeParameter
     {
     }
 
@@ -16,7 +16,7 @@ namespace Unity.Entities
     /// An interface for creating structs that can be stored in a <see cref="DynamicBuffer{T}"/>.
     /// </summary>
     /// <remarks>
-    /// See [Dynamic Buffers](xref:ecs-dynamic-buffers) for additional information.
+    /// See [Dynamic Buffers](xref:components-buffer-introducing) for additional information.
     /// </remarks>
     public interface IBufferElementData
     {
@@ -109,58 +109,100 @@ namespace Unity.Entities
     /// An interface for a component type whose value is shared across all entities with the same value.
     /// </summary>
     /// <remarks>
-    /// See https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/manual/shared_component_data.html
+    /// For more information, see the documentation on [Shared components](xref:components-shared).
     /// </remarks>
-    public interface ISharedComponentData
+    public interface ISharedComponentData : IQueryTypeParameter
     {
     }
 
     /// <summary>
-    /// An interface for a component type that stores system-specific data.
+    /// An interface for a component that must be removed individually after its entity is destroyed.
     /// </summary>
     /// <remarks>
-    /// See [System State Components](xref:ecs-system-state-component-data) for additional information.
+    /// See [Cleanup Components](xref:components-cleanup) for additional information.
     /// </remarks>
+    public interface ICleanupComponentData : IComponentData
+    {
+    }
+
+    /// <summary>
+    /// An interface for a component that must be removed individually after its entity is destroyed.
+    /// </summary>
+    /// <remarks>
+    /// See [Cleanup Components](xref:components-cleanup) for additional information.
+    /// </remarks>
+    [Obsolete("ISystemStateComponentData has been renamed to ICleanupComponentData. This old type has been kept for transition purposes, but it will not function correctly, so you should replace it with ICleanupComponentData immediately. (UnityUpgradable) -> ICleanupComponentData", true)]
     public interface ISystemStateComponentData : IComponentData
     {
     }
 
     /// <summary>
-    /// An interface for a component type that stores system-specific data in a buffer.
+    /// An interface for a buffer component that must be removed individually after its entity is destroyed.
     /// </summary>
-    /// <seealso cref="ISystemStateComponentData"/>
+    /// <seealso cref="ICleanupComponentData"/>
     /// <seealso cref="IBufferElementData"/>
+    public interface ICleanupBufferElementData : IBufferElementData
+    {
+    }
+
+    /// <summary>
+    /// An interface for a buffer component that must be removed individually after its entity is destroyed.
+    /// </summary>
+    /// <seealso cref="ICleanupComponentData"/>
+    /// <seealso cref="IBufferElementData"/>
+    [Obsolete("ISystemStateBufferElementData has been renamed to ICleanupBufferElementData. This old type has been kept for transition purposes, but it will not function correctly, so you should replace it with ICleanupBufferElementData immediately. (UnityUpgradable) -> ICleanupBufferElementData", true)]
     public interface ISystemStateBufferElementData : IBufferElementData
     {
     }
 
     /// <summary>
-    /// An interface for a component type that stores shared system-specific data.
+    /// An interface for a shared component that must be removed individually after its entity is destroyed.
     /// </summary>
-    /// <seealso cref="ISystemStateComponentData"/>
+    /// <seealso cref="ICleanupComponentData"/>
     /// <seealso cref="ISharedComponentData"/>
-    public interface ISystemStateSharedComponentData : ISharedComponentData
+    public interface ICleanupSharedComponentData : ISharedComponentData
     {
     }
 
     /// <summary>
-    /// An interface for a component type which allows the component to be Enabled and Disabled
+    /// An interface for a shared component that must be removed individually after its entity is destroyed.
+    /// </summary>
+    /// <seealso cref="ICleanupComponentData"/>
+    /// <seealso cref="IBufferElementData"/>
+    [Obsolete("ISystemStateSharedComponentData has been renamed to ICleanupSharedComponentData. This old type has been kept for transition purposes, but it will not function correctly, so you should replace it with ICleanupSharedComponentData immediately. (UnityUpgradable) -> ICleanupSharedComponentData", true)]
+    public interface ISystemStateSharedComponentData : IBufferElementData
+    {
+    }
+
+    /// <summary>
+    /// An interface for a component type which allows the component to be enabled and disabled at runtime without a
+    /// structural change.
     /// </summary>
     /// <remarks>
-    /// This interface is marked as "internal" during development of the feature. It will be made public when the feature is complete.
+    /// This interface is only valid when used in combination with <see cref="IBufferElementData"/> or <see cref="IComponentData"/>.
+    /// While the extra overhead involved in processing enableable components is generally quite low, this interface should only
+    /// be used on components that will actually be enabled/disabled by the application at relatively high frequency.
     /// </remarks>
-    internal interface IEnableableComponent
+    /// <seealso cref="EntityManager.SetComponentEnabled{T}"/>
+    /// <seealso cref="EntityManager.IsComponentEnabled{T}"/>
+    /// <seealso cref="ComponentLookup{T}.SetComponentEnabled"/>
+    /// <seealso cref="ComponentLookup{T}.IsComponentEnabled"/>
+    /// <seealso cref="BufferLookup{T}.SetComponentEnabled"/>
+    /// <seealso cref="BufferLookup{T}.IsComponentEnabled"/>
+    /// <seealso cref="ArchetypeChunk.SetComponentEnabled{T}(ComponentTypeHandle{T},int,bool)"/>
+    /// <seealso cref="ArchetypeChunk.IsComponentEnabled{T}(ComponentTypeHandle{T},int)"/>
+    public interface IEnableableComponent
     {
     }
 
     /// <summary>
     /// Disables the entity.
     /// </summary>
-    /// <remarks> By default, an <see cref="EntityQuery"/> ignores all entities that have a Disabled component. You
-    /// can override this default behavior by setting the <see cref="EntityQueryOptions.IncludeDisabled"/> flag of the
-    /// <see cref="EntityQueryDesc"/> object used to create the query. When using the EntityQueryBuilder class
-    /// in a ComponentSystem, set this flag by calling the <see cref="EntityQueryBuilder.With(EntityQueryOptions)"/>
-    /// function.</remarks>
+    /// <remarks> By default, an <see cref="EntityQuery"/> ignores all entities that have this component. You
+    /// can override this default behavior by setting the `EntityQueryOptions.IncludeDisabledEntities` flag of the
+    /// <see cref="EntityQueryDesc"/> object used to create the query.</remarks>
+    /// <seealso cref="EntityManager.IsEnabled(Entity)"/>
+    /// <seealso cref="EntityManager.SetEnabled(Entity,bool)"/>
     public struct Disabled : IComponentData
     {
     }
@@ -169,10 +211,8 @@ namespace Unity.Entities
     /// Marks the entity as a prefab, which implicitly disables the entity.
     /// </summary>
     /// <remarks> By default, an <see cref="EntityQuery"/> ignores all entities that have a Prefab component. You
-    /// can override this default behavior by setting the <see cref="EntityQueryOptions.IncludePrefab"/> flag of the
-    /// <see cref="EntityQueryDesc"/> object used to create the query. When using the EntityQueryBuilder class
-    /// in a ComponentSystem, set this flag by calling the <see cref="EntityQueryBuilder.With(EntityQueryOptions)"/>
-    /// function.</remarks>
+    /// can override this default behavior by setting the EntityQueryOptions.IncludePrefab flag of the
+    /// <see cref="EntityQueryDesc"/> object used to create the query.</remarks>
     public struct Prefab : IComponentData
     {
     }
@@ -248,5 +288,16 @@ namespace Unity.Entities
         {
             return $"SubSceneTag: {SceneEntity}";
         }
+    }
+
+    /// <summary>
+    /// Enable simulation of an entity.
+    /// </summary>
+    /// <remarks> This component is added by default to all entities. Systems which needs to support simulating a
+    /// subset of entities matching a specific query - such as prediction systems in netcode - need to include this
+    /// component in their queries to make sure entities which are not supposed to be simulated at the moment
+    /// are skipped.</remarks>
+    public struct Simulate : IComponentData, IEnableableComponent
+    {
     }
 }

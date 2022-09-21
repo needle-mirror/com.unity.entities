@@ -6,7 +6,7 @@ using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities.Tests.Conversion
 {
-    class UnityEngineExtensionsTests : ConversionTestFixtureBase
+    class UnityEngineExtensionsTests : BakingTestFixture
     {
         class TestScriptableObject : ScriptableObject {}
         class TestUnityComponent : MonoBehaviour {}

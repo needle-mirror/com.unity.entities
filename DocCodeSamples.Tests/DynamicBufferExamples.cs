@@ -1,3 +1,4 @@
+using Unity.Burst.Intrinsics;
 using UnityEngine;
 using Unity.Collections;
 
@@ -8,6 +9,7 @@ namespace Doc.CodeSamples.Tests
     using Unity.Entities;
     using Unity.Jobs;
 
+    [RequireMatchingQueriesForUpdate]
     public partial class CreateEntitiesWithBuffers : SystemBase
     {
         // A command buffer system executes command buffers in its own OnUpdate
@@ -17,7 +19,7 @@ namespace Doc.CodeSamples.Tests
         {
             // Get the command buffer system
             CommandBufferSystem
-                = World.DefaultGameObjectInjectionWorld.GetExistingSystem<EndSimulationEntityCommandBufferSystem>();
+                = World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<EndSimulationEntityCommandBufferSystem>();
         }
 
         protected override void OnUpdate()
@@ -130,7 +132,7 @@ namespace Doc.CodeSamples.Tests
 
             #region lookup-snippet
 
-            BufferFromEntity<MyBufferElement> lookup = GetBufferFromEntity<MyBufferElement>();
+            BufferLookup<MyBufferElement> lookup = GetBufferLookup<MyBufferElement>();
             var buffer = lookup[entity];
             buffer.Add(17);
             buffer.RemoveAt(0);
@@ -160,8 +162,41 @@ namespace Doc.CodeSamples.Tests
         }
     }
 
+    #region access-in-ijobentity-system
+    public partial struct AccessDynamicBufferFromJobSystem : ISystem
+    {
+        private BufferLookup<ExampleBufferComponent> _bufferLookup;
+
+        public void OnCreate(ref SystemState state)
+        {
+            _bufferLookup = state.GetBufferLookup<ExampleBufferComponent>(true);
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            _bufferLookup.Update(ref state);
+            var exampleBufferAccessJob = new AccessDynamicBufferJob { BufferLookup = _bufferLookup };
+            exampleBufferAccessJob.ScheduleParallel();
+        }
+
+        public void OnDestroy(ref SystemState state) { }
+    }
+    #endregion
+
+    #region access-in-ijobentity-job
+    public partial struct AccessDynamicBufferJob : IJobEntity
+    {
+        [ReadOnly] public BufferLookup<ExampleBufferComponent> BufferLookup;
+        public void Execute()
+		{
+            // ...
+		}
+    }
+    #endregion
+
     #region access-buffer-system
 
+    [RequireMatchingQueriesForUpdate]
     public partial class DynamicBufferSystem : SystemBase
     {
         protected override void OnUpdate()
@@ -184,6 +219,7 @@ namespace Doc.CodeSamples.Tests
 
     #region access-ijfe
 
+    [RequireMatchingQueriesForUpdate]
     public partial class DynamicBufferForEachSystem : SystemBase
     {
         private EntityQuery query;
@@ -251,8 +287,43 @@ namespace Doc.CodeSamples.Tests
 
     #endregion
 
+    #region access-buffers-in-chunk
+    public partial class ExampleSystem : SystemBase
+    {
+        protected override void OnUpdate()
+        {
+            var query = EntityManager.CreateEntityQuery(typeof(ExampleBufferComponent));
+            NativeArray<ArchetypeChunk> chunks = query.ToArchetypeChunkArray(Allocator.Temp);
+            for (int i = 0; i < chunks.Length; i++)
+            {
+                UpdateChunk(chunks[i]);
+            }
+            chunks.Dispose();
+        }
+
+        private void UpdateChunk(ArchetypeChunk chunk)
+        {
+            // Get a BufferTypeHandle representing dynamic buffer type ExampleBufferComponent from SystemBase.
+            BufferTypeHandle<ExampleBufferComponent> myElementHandle = GetBufferTypeHandle<ExampleBufferComponent>();
+            // Get a BufferAccessor from the chunk.
+            BufferAccessor<ExampleBufferComponent> buffers = chunk.GetBufferAccessor(myElementHandle);
+            // Iterate through all ExampleBufferComponent buffers of each entity in the chunk.
+            for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
+            {
+                DynamicBuffer<ExampleBufferComponent> buffer = buffers[i];
+                // Iterate through all elements of the buffer.
+                for (int j = 0; j < buffer.Length; j++)
+                {
+                    // ...
+                }
+            }
+        }
+    }
+    #endregion
+
     #region access-chunk-job
 
+    [RequireMatchingQueriesForUpdate]
     public partial class DynamicBufferJobSystem : SystemBase
     {
         private EntityQuery query;
@@ -266,7 +337,7 @@ namespace Doc.CodeSamples.Tests
             query = GetEntityQuery(queryDescription);
         }
 
-        public struct BuffersInChunks : IJobEntityBatch
+        public struct BuffersInChunks : IJobChunk
         {
             //The data type and safety object
             public BufferTypeHandle<MyBufferElement> BufferTypeHandle;
@@ -274,19 +345,22 @@ namespace Doc.CodeSamples.Tests
             //An array to hold the output, intermediate sums
             public NativeArray<int> sums;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 //A buffer accessor is a list of all the buffers in the chunk
                 BufferAccessor<MyBufferElement> buffers
-                    = batchInChunk.GetBufferAccessor(BufferTypeHandle);
+                    = chunk.GetBufferAccessor(BufferTypeHandle);
 
-                for (int c = 0; c < batchInChunk.Count; c++)
+                ChunkEntityEnumerator enumerator =
+                    new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.ChunkEntityCount);
+
+                while(enumerator.NextEntityIndex(out var e))
                 {
                     //An individual dynamic buffer for a specific entity
-                    DynamicBuffer<MyBufferElement> buffer = buffers[c];
+                    DynamicBuffer<MyBufferElement> buffer = buffers[e];
                     for(int i = 0; i < buffer.Length; i++)
                     {
-                        sums[batchIndex] += buffer[i].Value;
+                        sums[e] += buffer[i].Value;
                     }
                 }
             }
@@ -354,7 +428,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
 
-    public class DynamicBufferExample : ComponentSystem
+    public partial class DynamicBufferExample : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -366,7 +440,7 @@ namespace Doc.CodeSamples.Tests
                 {
                     sum += buffer[i].Value;
                 }
-            });
+            }).Run();
 
             Debug.Log("Sum of all buffers: " + sum);
         }
@@ -526,6 +600,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class ReinterpretExample : SystemBase
     {
         protected override void OnUpdate()

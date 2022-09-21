@@ -7,7 +7,7 @@ using Unity.Properties;
 namespace Unity.Entities
 {
     [DisableAutoCreation]
-    unsafe class EntityPatcherBlobAssetSystem : ComponentSystem
+    unsafe partial class EntityPatcherBlobAssetSystem : SystemBase
     {
         DynamicBlobAssetBatch* m_BlobAssetBatchPtr;
 
@@ -23,7 +23,7 @@ namespace Unity.Entities
                     {
                         typeof(EntityGuid)
                     },
-                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+                    Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
                 });
             }
         }
@@ -61,8 +61,8 @@ namespace Unity.Entities
 
         public void ReleaseUnusedBlobAssets()
         {
-            using (var chunks = EntityManager.CreateEntityQuery(EntityGuidQueryDesc).CreateArchetypeChunkArray(Allocator.TempJob))
-            using (var blobAssets = EntityDiffer.GetBlobAssetsWithDistinctHash(EntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore, chunks, Allocator.TempJob))
+            using (var chunks = EntityManager.CreateEntityQuery(EntityGuidQueryDesc).ToArchetypeChunkArray(Allocator.TempJob))
+            using (var blobAssets = EntityDiffer.GetBlobAssetsWithDistinctHash(EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore, EntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore, chunks, Allocator.TempJob))
             {
                 m_BlobAssetBatchPtr->RemoveUnusedBlobAssets(blobAssets.BlobAssetsMap);
             }
@@ -76,21 +76,21 @@ namespace Unity.Entities
         static void ApplyBlobAssetChanges(
             EntityManager entityManager,
             NativeArray<EntityGuid> packedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
+            NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes,
             NativeArray<BlobAssetChange> createdBlobAssets,
             NativeArray<byte> createdBlobAssetData,
             NativeArray<ulong> destroyedBlobAssets,
             NativeArray<BlobAssetReferenceChange> blobAssetReferenceChanges)
         {
-            if (createdBlobAssets.Length == 0 && blobAssetReferenceChanges.Length == 0)
+            if (createdBlobAssets.Length == 0 && blobAssetReferenceChanges.Length == 0 && destroyedBlobAssets.Length == 0)
                 return;
 
             s_ApplyBlobAssetChangesProfilerMarker.Begin();
 
-            var managedObjectBlobAssetReferencePatches = new NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>(blobAssetReferenceChanges.Length, Allocator.Temp);
+            var managedObjectBlobAssetReferencePatches = new NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>(blobAssetReferenceChanges.Length, Allocator.Temp);
 
-            var patcherBlobAssetSystem = entityManager.World.GetOrCreateSystem<EntityPatcherBlobAssetSystem>();
+            var patcherBlobAssetSystem = entityManager.World.GetOrCreateSystemManaged<EntityPatcherBlobAssetSystem>();
 
             var blobAssetDataPtr = (byte*)createdBlobAssetData.GetUnsafePtr();
 
@@ -196,10 +196,10 @@ namespace Unity.Entities
         }
 
 #if !UNITY_DOTSRUNTIME
-        class ManagedObjectBlobAssetReferencePatcher : PropertyVisitor, Properties.Adapters.IVisit<BlobAssetReferenceData>
+        class ManagedObjectBlobAssetReferencePatcher : PropertyVisitor, Properties.IVisitPropertyAdapter<BlobAssetReferenceData>
         {
             EntityPatcherBlobAssetSystem m_EntityPatcherBlobAssetSystem;
-            NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator Patches;
+            NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator Patches;
 
             public ManagedObjectBlobAssetReferencePatcher(EntityPatcherBlobAssetSystem entityPatcherBlobAssetSystem)
             {
@@ -207,17 +207,17 @@ namespace Unity.Entities
                 AddAdapter(this);
             }
 
-            public void ApplyPatches(ref object obj, NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator patches)
+            public void ApplyPatches(ref object obj, NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator patches)
             {
                 Patches = patches;
-                PropertyContainer.Visit(ref obj, this);
+                PropertyContainer.Accept(this, ref obj);
             }
 
-            VisitStatus Properties.Adapters.IVisit<BlobAssetReferenceData>.Visit<TContainer>(Property<TContainer, BlobAssetReferenceData> property, ref TContainer container, ref BlobAssetReferenceData value)
+            void IVisitPropertyAdapter<BlobAssetReferenceData>.Visit<TContainer>(in VisitContext<TContainer, BlobAssetReferenceData> context, ref TContainer container, ref BlobAssetReferenceData value)
             {
                 // Make a copy for we can re-use the enumerator
                 var patches = Patches;
-                
+
                 foreach (var patch in patches)
                 {
                     if (value.m_Align8Union == patch.Id)
@@ -230,12 +230,10 @@ namespace Unity.Entities
                         {
                             value = new BlobAssetReferenceData();
                         }
-                        
+
                         break;
                     }
                 }
-                
-                return VisitStatus.Stop;
             }
         }
 #endif

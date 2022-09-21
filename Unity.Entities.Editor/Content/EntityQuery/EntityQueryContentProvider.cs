@@ -2,17 +2,16 @@ using System;
 using System.Linq;
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Serialization;
 using Unity.Serialization.Json;
-using Unity.Serialization.Json.Adapters;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    public enum EntityQueryContentTab
+    enum EntityQueryContentTab
     {
         Components,
         Entities
@@ -244,7 +243,7 @@ namespace Unity.Entities.Editor
                     var type = Type.GetType(container.Type);
                     var typeIndex = TypeManager.GetTypeIndex(type);
 
-                    if (typeIndex != -1)
+                    if (typeIndex != TypeIndex.Null)
                     {
                         if (container.IsChunkComponent)
                         {
@@ -273,20 +272,20 @@ namespace Unity.Entities.Editor
                 return false;
             }
 
-            public void Serialize(JsonStringBuffer writer, ComponentType value)
+            void IJsonAdapter<ComponentType>.Serialize(in JsonSerializationContext<ComponentType> context, ComponentType value)
             {
-                writer.Write(TrySerialize(value, out var json) ? json : null);
+                context.Writer.WriteValue(TrySerialize(value, out var json) ? json : null);
             }
 
-            public ComponentType Deserialize(SerializedValueView view)
+            ComponentType IJsonAdapter<ComponentType>.Deserialize(in JsonDeserializationContext<ComponentType> context)
             {
-                return TryDeserialize(view.AsStringView().ToString(), out var componentType) ? componentType : default;
+                return TryDeserialize(context.SerializedValue.AsStringView().ToString(), out var componentType) ? componentType : default;
             }
         }
     }
 
     [UsedImplicitly]
-    class EntityQueryContentProviderInspector : Inspector<EntityQueryContentProvider>
+    class EntityQueryContentProviderInspector : PropertyInspector<EntityQueryContentProvider>
     {
         public override VisualElement Build()
         {

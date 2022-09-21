@@ -1,20 +1,20 @@
-using Unity.Burst;
+﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-using Translation = Unity.Transforms.Translation;
 
 namespace DocCodeSamples.Tests
 {
 
     #region SimpleSample
+    public struct SampleComponent : IComponentData { public float Value; }
     public partial struct ASampleJob : IJobEntity
     {
-        // Adds one to every translation component
-        void Execute(ref Translation translation)
+        // Adds one to every SampleComponent value
+        void Execute(ref SampleComponent sample)
         {
-            translation.Value += 1f;
+            sample.Value += 1f;
         }
     }
 
@@ -31,36 +31,37 @@ namespace DocCodeSamples.Tests
     #region Query
     partial struct QueryJob : IJobEntity
     {
-        // Iterates over all translation components and increments upwards movement by one.
-        public void Execute(ref Translation translation)
+        // Iterates over all SampleComponents and increments their value
+        public void Execute(ref SampleComponent sample)
         {
-            translation.Value += math.up();
+            sample.Value += 1;
         }
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class QuerySystem : SystemBase
     {
         // Query that matches QueryJob, specified for `BoidTarget`
-        EntityQuery m_QueryBoidTarget;
+        EntityQuery query_boidtarget;
 
         // Query that matches QueryJob, specified for `BoidObstacle`
-        EntityQuery m_QueryBoidObstacle;
+        EntityQuery query_boidobstacle;
         protected override void OnCreate()
         {
             // Query that contains all of Execute params found in `QueryJob` - as well as additional user specified component `BoidTarget`.
-            m_QueryBoidTarget = GetEntityQuery(ComponentType.ReadWrite<Translation>(),ComponentType.ReadOnly<BoidTarget>());
+            query_boidtarget = GetEntityQuery(ComponentType.ReadWrite<SampleComponent>(),ComponentType.ReadOnly<BoidTarget>());
 
             // Query that contains all of Execute params found in `QueryJob` - as well as additional user specified component `BoidObstacle`.
-            m_QueryBoidObstacle = GetEntityQuery(ComponentType.ReadWrite<Translation>(),ComponentType.ReadOnly<BoidObstacle>());
+            query_boidobstacle = GetEntityQuery(ComponentType.ReadWrite<SampleComponent>(),ComponentType.ReadOnly<BoidObstacle>());
         }
 
         protected override void OnUpdate()
         {
             // Uses the BoidTarget query
-            new QueryJob().ScheduleParallel(m_QueryBoidTarget);
+            new QueryJob().ScheduleParallel(query_boidtarget);
 
             // Uses the BoidObstacle query
-            new QueryJob().ScheduleParallel(m_QueryBoidObstacle);
+            new QueryJob().ScheduleParallel(query_boidobstacle);
 
             // Uses query created automatically that matches parameters found in `QueryJob`.
             new QueryJob().ScheduleParallel();
@@ -72,32 +73,33 @@ namespace DocCodeSamples.Tests
     [BurstCompile]
     partial struct CopyPositionsJob : IJobEntity
     {
-        public NativeArray<float3> CopyPositions;
+        public NativeArray<float3> copyPositions;
 
         // Iterates over all `LocalToWorld` and stores their position inside `copyPositions`.
         public void Execute([EntityInQueryIndex] int entityInQueryIndex, in LocalToWorld localToWorld)
         {
-            CopyPositions[entityInQueryIndex] = localToWorld.Position;
+            copyPositions[entityInQueryIndex] = localToWorld.Position;
         }
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class EntityInQuerySystem : SystemBase
     {
         // This query should match `CopyPositionsJob` parameters
-        EntityQuery m_Query;
+        EntityQuery query;
         protected override void OnCreate()
         {
             // Get query that matches `CopyPositionsJob` parameters
-            m_Query = GetEntityQuery(ComponentType.ReadOnly<LocalToWorld>());
+            query = GetEntityQuery(ComponentType.ReadOnly<LocalToWorld>());
         }
 
         protected override void OnUpdate()
         {
             // Get a native array equal to the size of the amount of entities found by the query.
-            var positions = new NativeArray<float3>(m_Query.CalculateEntityCount(), World.UpdateAllocator.ToAllocator);
+            var positions = new NativeArray<float3>(query.CalculateEntityCount(), World.UpdateAllocator.ToAllocator);
 
             // Schedule job on parallel threads for this array.
-            new CopyPositionsJob{CopyPositions = positions}.ScheduleParallel();
+            new CopyPositionsJob{copyPositions = positions}.ScheduleParallel();
 
             // Dispose the array of positions found by the job.
             positions.Dispose(Dependency);
@@ -106,6 +108,7 @@ namespace DocCodeSamples.Tests
     #endregion
 
     #region Boids
+    [RequireMatchingQueriesForUpdate]
     public partial class BoidJobEntitySystem : SystemBase
     {
         EntityQuery m_BoidQuery;
@@ -125,9 +128,9 @@ namespace DocCodeSamples.Tests
             var copyObstaclePositions = CollectionHelper.CreateNativeArray<float3, RewindableAllocator>(obstacleCount, ref World.UpdateAllocator);
 
             // Schedule job for respective arrays to be stored with respective queries.
-            new CopyPositionsJob { CopyPositions = cellSeparation}.ScheduleParallel(m_BoidQuery);
-            new CopyPositionsJob { CopyPositions = copyTargetPositions}.ScheduleParallel(m_TargetQuery);
-            new CopyPositionsJob { CopyPositions = copyObstaclePositions}.ScheduleParallel(m_ObstacleQuery);
+            new CopyPositionsJob { copyPositions = cellSeparation}.ScheduleParallel(m_BoidQuery);
+            new CopyPositionsJob { copyPositions = copyTargetPositions}.ScheduleParallel(m_TargetQuery);
+            new CopyPositionsJob { copyPositions = copyObstaclePositions}.ScheduleParallel(m_ObstacleQuery);
         }
 
         protected override void OnCreate()
@@ -142,6 +145,7 @@ namespace DocCodeSamples.Tests
     #endregion
 
     #region BoidsForEach
+    [RequireMatchingQueriesForUpdate]
     public partial class BoidForEachSystem : SystemBase
     {
         EntityQuery m_BoidQuery;

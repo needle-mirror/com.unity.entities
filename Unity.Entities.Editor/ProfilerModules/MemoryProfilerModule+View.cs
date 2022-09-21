@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using Unity.Editor.Bridge;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using TreeView = Unity.Editor.Bridge.TreeView;
 
 namespace Unity.Entities.Editor
 {
@@ -35,7 +35,6 @@ namespace Unity.Entities.Editor
             static readonly string s_Unknown = L10n.Tr("Unknown");
             static readonly string s_ComponentSizeInChunkTooltip = L10n.Tr("Component size in chunk.");
             static readonly string s_ComponentsSizeInChunkTooltip = L10n.Tr("Components size in chunk.");
-            static readonly string[] s_BytesToStringSuffixes = { "B", "KB", "MB", "GB", "TB", "PB", "EB" };
 
             static readonly VisualElementTemplate s_WindowTemplate = PackageResources.LoadTemplate("ProfilerModules/memory-profiler-window");
             static readonly VisualElementTemplate s_LeftPaneTemplate = PackageResources.LoadTemplate("ProfilerModules/memory-profiler-left-pane");
@@ -107,7 +106,7 @@ namespace Unity.Entities.Editor
                         .Select(t => TypeManager.GetType(t))
                         .Where(t => t != null)
                         .Select(t => t.Name)
-                        .Append(HashToString(data.StableHash))
+                        .Append(FormattingUtility.HashToString(data.StableHash))
                         .ToArray();
                 });
                 m_SearchElement.AddSearchFilterCallbackWithPopupItem<MemoryProfilerTreeViewItemData, ulong>("allocated", data => data.AllocatedBytes, "Allocated Bytes");
@@ -174,8 +173,8 @@ namespace Unity.Entities.Editor
                 {
                     var itemData = (MemoryProfilerTreeViewItem)item;
                     element.Q<Label>("column1").text = itemData.displayName;
-                    element.Q<Label>("column2").text = BytesToString(itemData.totalAllocatedBytes);
-                    element.Q<Label>("column3").text = BytesToString(itemData.totalUnusedBytes);
+                    element.Q<Label>("column2").text = FormattingUtility.BytesToString(itemData.totalAllocatedBytes);
+                    element.Q<Label>("column3").text = FormattingUtility.BytesToString(itemData.totalUnusedBytes);
                 };
                 m_TreeView.onSelectionChange += OnTreeViewSelectionChanged;
                 m_TreeView.selectionType = SelectionType.Single;
@@ -246,7 +245,7 @@ namespace Unity.Entities.Editor
                         archetypeDataItem = new MemoryProfilerTreeViewItem
                         {
                             id = itemId++,
-                            displayName = $"Archetype {HashToString(archetypeData.StableHash)}",
+                            displayName = $"Archetype {FormattingUtility.HashToString(archetypeData.StableHash)}",
                             data = archetypeData
                         };
                         worldItem.AddChild(archetypeDataItem);
@@ -310,10 +309,10 @@ namespace Unity.Entities.Editor
                 if (item != null && item.data.ComponentTypes != null)
                 {
                     m_ArchetypeName.value = item.displayName;
-                    m_EntityCount.text = CountToString(item.data.EntityCount);
-                    m_UnusedEntityCount.text = CountToString(item.data.UnusedEntityCount);
-                    m_ChunkCount.text = CountToString(item.data.ChunkCount);
-                    m_ChunkCapacity.text = CountToString(item.data.ChunkCapacity);
+                    m_EntityCount.text = FormattingUtility.CountToString(item.data.EntityCount);
+                    m_UnusedEntityCount.text = FormattingUtility.CountToString(item.data.UnusedEntityCount);
+                    m_ChunkCount.text = FormattingUtility.CountToString(item.data.ChunkCount);
+                    m_ChunkCapacity.text = FormattingUtility.CountToString(item.data.ChunkCapacity);
                     //m_SegmentCount.text = CountToString(item.data.SegmentCount);
                     m_ComponentsFoldout.Clear();
                     m_ExternalComponents.SetVisibility(false);
@@ -331,7 +330,7 @@ namespace Unity.Entities.Editor
 
                         componentSizeInChunk.tooltip = s_ComponentSizeInChunkTooltip;
 
-                        if (typeIndex <= 0)
+                        if (typeIndex <= TypeIndex.Null)
                         {
                             componentIcon.AddToClassList("memory-profiler-component__icon-component");
                             componentName.text = s_Unknown;
@@ -360,7 +359,7 @@ namespace Unity.Entities.Editor
                                 !TypeManager.IsSharedComponentType(typeIndex))
                             {
                                 var typeInfo = TypeManager.GetTypeInfo(typeIndex);
-                                componentSizeInChunk.text = BytesToString((ulong)typeInfo.SizeInChunk);
+                                componentSizeInChunk.text = FormattingUtility.BytesToString((ulong)typeInfo.SizeInChunk);
                             }
                         }
 
@@ -372,20 +371,20 @@ namespace Unity.Entities.Editor
                             m_ComponentsFoldout.Add(component);
                     }
 
-                    m_ComponentsFoldout.text = $"{s_Components} ({CountToString(m_ComponentsFoldout.childCount)})";
-                    m_ComponentsSizeInChunk.text = BytesToString((ulong)item.data.InstanceSize);
+                    m_ComponentsFoldout.text = $"{s_Components} ({FormattingUtility.CountToString(m_ComponentsFoldout.childCount)})";
+                    m_ComponentsSizeInChunk.text = FormattingUtility.BytesToString((ulong)item.data.InstanceSize);
 
                     m_ExternalComponents.SetVisibility(m_ChunkComponentsFoldout.childCount > 0 || m_SharedComponentsFoldout.childCount > 0);
 
                     if (m_ChunkComponentsFoldout.childCount > 0)
                     {
-                        m_ChunkComponentsFoldout.text = $"{s_ChunkComponents} ({CountToString(m_ChunkComponentsFoldout.childCount)})";
+                        m_ChunkComponentsFoldout.text = $"{s_ChunkComponents} ({FormattingUtility.CountToString(m_ChunkComponentsFoldout.childCount)})";
                         m_ChunkComponentsFoldout.SetVisibility(true);
                     }
 
                     if (m_SharedComponentsFoldout.childCount > 0)
                     {
-                        m_SharedComponentsFoldout.text = $"{s_SharedComponents} ({CountToString(m_SharedComponentsFoldout.childCount)})";
+                        m_SharedComponentsFoldout.text = $"{s_SharedComponents} ({FormattingUtility.CountToString(m_SharedComponentsFoldout.childCount)})";
                         m_SharedComponentsFoldout.SetVisibility(true);
                     }
 
@@ -416,29 +415,9 @@ namespace Unity.Entities.Editor
                 return count;
             }
 
-            static int GetTypeSizeInChunk(int typeIndex)
+            static int GetTypeSizeInChunk(TypeIndex typeIndex)
             {
-                return typeIndex > 0 ? TypeManager.GetTypeInfo(typeIndex).SizeInChunk : 0;
-            }
-
-            static string CountToString(int value)
-            {
-                return value.ToString("N0", CultureInfo.InvariantCulture);
-            }
-
-            static string BytesToString(ulong value)
-            {
-                if (value == 0)
-                    return "0 B";
-
-                var place = Convert.ToInt32(Math.Floor(Math.Log(value, 1024)));
-                var num = Math.Round(value / Math.Pow(1024, place), 1).ToString("0.##", CultureInfo.InvariantCulture);
-                return num + " " + s_BytesToStringSuffixes[place];
-            }
-
-            static string HashToString(ulong hash)
-            {
-                return hash.ToString("x", CultureInfo.InvariantCulture);
+                return typeIndex != TypeIndex.Null ? TypeManager.GetTypeInfo(typeIndex).SizeInChunk : 0;
             }
         }
     }

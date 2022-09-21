@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Unity.Scenes
 {
-    static class EditorUpdateUtility
+    internal static class EditorUpdateUtility
     {
 #if UNITY_EDITOR
         public static bool DidRequest = false;

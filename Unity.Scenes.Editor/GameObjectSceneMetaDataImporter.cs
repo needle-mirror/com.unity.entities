@@ -94,7 +94,7 @@ namespace Unity.Scenes.Editor
             var scene = EditorSceneManager.OpenScene(ctx.assetPath, OpenSceneMode.Additive);
             try
             {
-                var metaPath = ctx.GetResultPath(k_Extension);
+                var metaPath = ctx.GetOutputArtifactFilePath(k_Extension);
                 var subScenes = SubScene.AllSubScenes;
                 var sceneGuids = subScenes.Where(x => x.SceneGUID.IsValid).Select(x => x.SceneGUID)
                     .Distinct()

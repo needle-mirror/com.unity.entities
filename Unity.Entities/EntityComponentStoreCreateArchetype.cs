@@ -27,18 +27,18 @@ namespace Unity.Entities
             if (srcArchetype->InstantiateArchetype != null)
             {
                 Assert.IsTrue(srcArchetype->InstantiateArchetype->InstantiateArchetype == srcArchetype->InstantiateArchetype);
-                Assert.IsTrue(srcArchetype->InstantiateArchetype->SystemStateResidueArchetype == null);
+                Assert.IsTrue(srcArchetype->InstantiateArchetype->CleanupResidueArchetype == null);
             }
 
             if (srcArchetype->CopyArchetype != null)
             {
                 Assert.IsTrue(srcArchetype->CopyArchetype->CopyArchetype == srcArchetype->CopyArchetype);
-                Assert.IsTrue(srcArchetype->CopyArchetype->SystemStateResidueArchetype == null);
+                Assert.IsTrue(srcArchetype->CopyArchetype->CleanupResidueArchetype == null);
             }
 
 
-            // Setup System state cleanup archetype
-            if (srcArchetype->SystemStateCleanupNeeded)
+            // Setup cleanup archetype
+            if (srcArchetype->CleanupNeeded)
             {
                 var cleanupEntityType = new ComponentTypeInArchetype(ComponentType.FromTypeIndex(m_CleanupEntityType));
                 bool cleanupAdded = false;
@@ -50,7 +50,7 @@ namespace Unity.Entities
                 {
                     var type = srcArchetype->Types[t];
 
-                    if (type.IsSystemStateComponent)
+                    if (type.IsCleanupComponent)
                     {
                         if (!cleanupAdded && (cleanupEntityType < srcArchetype->Types[t]))
                         {
@@ -67,12 +67,12 @@ namespace Unity.Entities
                     types[newTypeCount++] = cleanupEntityType;
                 }
 
-                var systemStateResidueArchetype = GetOrCreateArchetype(types, newTypeCount);
-                srcArchetype->SystemStateResidueArchetype = systemStateResidueArchetype;
+                var cleanupResidueArchetype = GetOrCreateArchetype(types, newTypeCount);
+                srcArchetype->CleanupResidueArchetype = cleanupResidueArchetype;
 
-                Assert.IsTrue(systemStateResidueArchetype->SystemStateResidueArchetype == systemStateResidueArchetype);
-                Assert.IsTrue(systemStateResidueArchetype->InstantiateArchetype == null);
-                Assert.IsTrue(systemStateResidueArchetype->CopyArchetype == null);
+                Assert.IsTrue(cleanupResidueArchetype->CleanupResidueArchetype == cleanupResidueArchetype);
+                Assert.IsTrue(cleanupResidueArchetype->InstantiateArchetype == null);
+                Assert.IsTrue(cleanupResidueArchetype->CopyArchetype == null);
             }
 
             // Setup meta chunk archetype
@@ -116,7 +116,7 @@ namespace Unity.Entities
 
                 hasCleanup |= type.TypeIndex == m_CleanupEntityType;
 
-                var skip = type.IsSystemStateComponent || (removePrefab && type.TypeIndex == m_PrefabType);
+                var skip = type.IsCleanupComponent || (removePrefab && type.TypeIndex == m_PrefabType);
                 if (skip)
                     ++removedTypes;
                 else
@@ -295,10 +295,10 @@ namespace Unity.Entities
             return archetypeChunkFilter;
         }
 
-        Archetype* GetArchetypeWithAddedComponents(Archetype* srcArchetype, ComponentTypes componentTypes)
+        Archetype* GetArchetypeWithAddedComponents(Archetype* srcArchetype, ComponentTypeSet componentTypeSet)
         {
             var srcTypes = srcArchetype->Types;
-            var dstTypesCount = srcArchetype->TypesCount + componentTypes.Length;
+            var dstTypesCount = srcArchetype->TypesCount + componentTypeSet.Length;
 
             ComponentTypeInArchetype* dstTypes = stackalloc ComponentTypeInArchetype[dstTypesCount];
 
@@ -308,12 +308,12 @@ namespace Unity.Entities
             var unusedIndices = 0;
             {
                 var oldThings = srcArchetype->TypesCount - 1;
-                var newThings = componentTypes.Length - 1;
+                var newThings = componentTypeSet.Length - 1;
                 var mixedThings = dstTypesCount;
                 while (newThings >= 0) // oldThings[0] has typeIndex 0, newThings can't have anything lower than that
                 {
                     var oldThing = srcTypes[oldThings];
-                    var newThing = new ComponentTypeInArchetype(componentTypes.GetTypeIndex(newThings));
+                    var newThing = new ComponentTypeInArchetype(componentTypeSet.GetTypeIndex(newThings));
                     if (oldThing.TypeIndex > newThing.TypeIndex) // put whichever is bigger at the end of the array
                     {
                         dstTypes[--mixedThings] = oldThing;
@@ -337,7 +337,7 @@ namespace Unity.Entities
                 unusedIndices = mixedThings; // In case we ignored duplicated types, this will be > 0
             }
 
-            if (unusedIndices == componentTypes.Length)
+            if (unusedIndices == componentTypeSet.Length)
                 return srcArchetype;
 
             return GetOrCreateArchetype(dstTypes + unusedIndices, dstTypesCount - unusedIndices);
@@ -443,8 +443,8 @@ namespace Unity.Entities
 
             for (; n < newCount && o < oldCount;)
             {
-                int srcType = srcArchetype->Types[o + oldFirstShared].TypeIndex;
-                int dstType = dstArchetype->Types[n + newFirstShared].TypeIndex;
+                var srcType = srcArchetype->Types[o + oldFirstShared].TypeIndex;
+                var dstType = dstArchetype->Types[n + newFirstShared].TypeIndex;
                 if (srcType == dstType)
                     dstSharedComponentValues[n++] = srcSharedComponentValues[o++];
                 else if (dstType > srcType)
@@ -507,7 +507,7 @@ namespace Unity.Entities
             return GetOrCreateArchetype(newTypes, archetype->TypesCount - removedTypes);
         }
 
-        Archetype* GetArchetypeWithRemovedComponents(Archetype* archetype, ComponentTypes typesToRemove)
+        Archetype* GetArchetypeWithRemovedComponents(Archetype* archetype, ComponentTypeSet typeSetToRemove)
         {
             ComponentTypeInArchetype* newTypes = stackalloc ComponentTypeInArchetype[archetype->TypesCount];
 
@@ -517,9 +517,9 @@ namespace Unity.Entities
                 var existingTypeIndex = archetype->Types[t].TypeIndex;
 
                 var removed = false;
-                for (int i = 0; i < typesToRemove.Length; i++)
+                for (int i = 0; i < typeSetToRemove.Length; i++)
                 {
-                    if (existingTypeIndex == typesToRemove.GetTypeIndex(i))
+                    if (existingTypeIndex == typeSetToRemove.GetTypeIndex(i))
                     {
                         numRemovedTypes++;
                         removed = true;

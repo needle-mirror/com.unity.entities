@@ -159,7 +159,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(FastEquality.Equals(a, a, typeInfo));
             Assert.IsFalse(FastEquality.Equals(a, b, typeInfo));
         }
-
         [DisableAutoTypeRegistration]
         struct TypeWithoutHashCodeOverride : ISharedComponentData, IEquatable<TypeWithoutHashCodeOverride>
         {
@@ -209,25 +208,14 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(iseq);
         }
 
-        private unsafe delegate bool _dlg_CallsEquals(ref Entity a, ref Entity b);
-        private unsafe delegate int _dlg_CallsGetHashCode(ref Entity a);
-        private static readonly FunctionPointer<_dlg_CallsEquals> BurstedTestFuncCallingEquals;
-        private static readonly FunctionPointer<_dlg_CallsGetHashCode> BurstedTestFuncCallingGetHashCode;
-
-        static unsafe FastEqualityTests()
-        {
-            BurstedTestFuncCallingEquals = BurstCompiler.CompileFunctionPointer<_dlg_CallsEquals>(_mono_to_burst_CallEquals);
-            BurstedTestFuncCallingGetHashCode = BurstCompiler.CompileFunctionPointer<_dlg_CallsGetHashCode>(_mono_to_burst_CallGetHashCode);
-        }
-
         [BurstCompile(CompileSynchronously = true)]
-        private static unsafe bool _mono_to_burst_CallEquals(ref Entity a, ref Entity b)
+        private static unsafe bool EqualsBurst(ref Entity a, ref Entity b)
         {
             return FastEquality.Equals(a, b);
         }
 
-        [BurstCompile(CompileSynchronously = true)] 
-        private static unsafe int _mono_to_burst_CallGetHashCode(ref Entity a)
+        [BurstCompile(CompileSynchronously = true)]
+        private static unsafe int GetHashCodeBurst(ref Entity a)
         {
             return FastEquality.GetHashCode(a);
         }
@@ -242,8 +230,8 @@ namespace Unity.Entities.Tests
             Entity b = new Entity() {Index = 2, Version = 1};
             var monoA1EqualsA2 = FastEquality.Equals(a1, a2);
             var monoA1EqualsB = FastEquality.Equals(a1, b);
-            var burstA1EqualsA2 = BurstedTestFuncCallingEquals.Invoke(ref a1, ref a2);
-            var burstA1EqualsB = BurstedTestFuncCallingEquals.Invoke(ref a1, ref b);
+            var burstA1EqualsA2 = EqualsBurst(ref a1, ref a2);
+            var burstA1EqualsB = EqualsBurst(ref a1, ref b);
 
             Assert.IsTrue(monoA1EqualsA2);
             Assert.IsTrue(burstA1EqualsA2);
@@ -253,9 +241,9 @@ namespace Unity.Entities.Tests
             var monoA1GetHashCode = FastEquality.GetHashCode(a1);
             var monoA2GetHashCode = FastEquality.GetHashCode(a2);
             var monoBGetHashCode = FastEquality.GetHashCode(b);
-            var burstA1GetHashCode = BurstedTestFuncCallingGetHashCode.Invoke(ref a1);
-            var burstA2GetHashCode = BurstedTestFuncCallingGetHashCode.Invoke(ref a2);
-            var burstBGetHashCode = BurstedTestFuncCallingGetHashCode.Invoke(ref b);
+            var burstA1GetHashCode = GetHashCodeBurst(ref a1);
+            var burstA2GetHashCode = GetHashCodeBurst(ref a2);
+            var burstBGetHashCode = GetHashCodeBurst(ref b);
 
             Assert.AreEqual(monoA1GetHashCode, burstA1GetHashCode);
             Assert.AreEqual(monoA2GetHashCode, burstA2GetHashCode);

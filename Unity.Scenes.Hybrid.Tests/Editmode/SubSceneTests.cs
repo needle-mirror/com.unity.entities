@@ -8,11 +8,50 @@ using UnityEngine.TestTools;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Tests;
+using Unity.Scenes.Editor.Tests;
 
 
 namespace Unity.Scenes.Hybrid.Tests
 {
-    public class SubSceneTests : SubSceneTestFixture
+    public class SubSceneTestsConversion : SubSceneTests
+    {
+        private TestLiveConversionSettings m_Settings;
+
+        [OneTimeSetUp]
+        public void OneTimeSetup()
+        {
+            m_Settings.Setup(false);
+            base.SetUpOnce();
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTeardown()
+        {
+            base.TearDownOnce();
+            m_Settings.TearDown();
+        }
+    }
+
+    public class SubSceneTestsBaking : SubSceneTests
+    {
+        private TestLiveConversionSettings m_Settings;
+
+        [OneTimeSetUp]
+        public void OneTimeSetup()
+        {
+            m_Settings.Setup(true);
+            base.SetUpOnce();
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTeardown()
+        {
+            base.TearDownOnce();
+            m_Settings.TearDown();
+        }
+    }
+
+    public abstract class SubSceneTests : SubSceneTestFixture
     {
         public SubSceneTests() : base("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/TestSubScene.unity")
         {
@@ -29,21 +68,22 @@ namespace Unity.Scenes.Hybrid.Tests
                 var sceneSystemB = worldB.GetExistingSystem<SceneSystem>();
                 Assert.IsTrue(SceneGUID.IsValid);
 
-                var worldAScene = sceneSystemA.LoadSceneAsync(SceneGUID);
-                var worldBScene = sceneSystemB.LoadSceneAsync(SceneGUID);
+                var worldAScene = SceneSystem.LoadSceneAsync(worldA.Unmanaged, SceneGUID);
+                var worldBScene = SceneSystem.LoadSceneAsync(worldB.Unmanaged, SceneGUID);
 
-                Assert.IsFalse(sceneSystemA.IsSceneLoaded(worldAScene));
-                Assert.IsFalse(sceneSystemB.IsSceneLoaded(worldBScene));
+                Assert.IsFalse(SceneSystem.IsSceneLoaded(worldA.Unmanaged, worldAScene));
+                Assert.IsFalse(SceneSystem.IsSceneLoaded(worldB.Unmanaged, worldBScene));
 
-                while (!sceneSystemA.IsSceneLoaded(worldAScene) || !sceneSystemB.IsSceneLoaded(worldBScene))
+                while (!SceneSystem.IsSceneLoaded(worldA.Unmanaged, worldAScene) || 
+                       !SceneSystem.IsSceneLoaded(worldB.Unmanaged, worldBScene))
                 {
                     worldA.Update();
                     worldB.Update();
                     yield return null;
                 }
 
-                var worldAEntities = worldA.EntityManager.GetAllEntities(Allocator.TempJob);
-                var worldBEntities = worldB.EntityManager.GetAllEntities(Allocator.TempJob);
+                var worldAEntities = worldA.EntityManager.GetAllEntities(worldA.UpdateAllocator.ToAllocator);
+                var worldBEntities = worldB.EntityManager.GetAllEntities(worldB.UpdateAllocator.ToAllocator);
                 using (worldAEntities)
                 using (worldBEntities)
                 {
@@ -56,16 +96,16 @@ namespace Unity.Scenes.Hybrid.Tests
                 Assert.AreEqual(1, worldAQuery.CalculateEntityCount());
 
                 // Get Material on RenderMesh
-                var sharedEntitiesA = worldAQuery.ToEntityArray(Allocator.TempJob);
-                var sharedEntitiesB = worldBQuery.ToEntityArray(Allocator.TempJob);
+                var sharedEntitiesA = worldAQuery.ToEntityArray(worldA.UpdateAllocator.ToAllocator);
+                var sharedEntitiesB = worldBQuery.ToEntityArray(worldB.UpdateAllocator.ToAllocator);
 
                 SharedWithMaterial sharedA;
                 SharedWithMaterial sharedB;
                 using (sharedEntitiesA)
                 using (sharedEntitiesB)
                 {
-                    sharedA = worldA.EntityManager.GetSharedComponentData<SharedWithMaterial>(sharedEntitiesA[0]);
-                    sharedB = worldB.EntityManager.GetSharedComponentData<SharedWithMaterial>(sharedEntitiesB[0]);
+                    sharedA = worldA.EntityManager.GetSharedComponentManaged<SharedWithMaterial>(sharedEntitiesA[0]);
+                    sharedB = worldB.EntityManager.GetSharedComponentManaged<SharedWithMaterial>(sharedEntitiesB[0]);
                 }
 
                 Assert.AreSame(sharedA.material, sharedB.material);
@@ -80,10 +120,10 @@ namespace Unity.Scenes.Hybrid.Tests
 #endif
                 Assert.AreEqual(0, SceneBundleHandle.GetUnloadingCount());
 
-                worldA.GetOrCreateSystem<SceneSystem>().UnloadScene(worldAScene);
+                SceneSystem.UnloadScene(worldA.Unmanaged, worldAScene);
                 worldA.Update();
 
-                worldB.GetOrCreateSystem<SceneSystem>().UnloadScene(worldBScene);
+                SceneSystem.UnloadScene(worldB.Unmanaged, worldBScene);
                 worldB.Update();
 
                 Assert.AreEqual(0, SceneBundleHandle.GetLoadedCount());
@@ -109,19 +149,19 @@ namespace Unity.Scenes.Hybrid.Tests
 
                 Assert.IsTrue(SceneGUID.IsValid);
 
-                var worldAScene = worldA.GetOrCreateSystem<SceneSystem>().LoadSceneAsync(SceneGUID, loadParams);
-                var worldBScene = worldB.GetOrCreateSystem<SceneSystem>().LoadSceneAsync(SceneGUID, loadParams);
-                Assert.IsFalse(worldA.GetExistingSystem<SceneSystem>().IsSceneLoaded(worldAScene));
-                Assert.IsFalse(worldB.GetExistingSystem<SceneSystem>().IsSceneLoaded(worldBScene));
+                var worldAScene = SceneSystem.LoadSceneAsync(worldA.Unmanaged, SceneGUID, loadParams);
+                var worldBScene = SceneSystem.LoadSceneAsync(worldB.Unmanaged, SceneGUID, loadParams);
+                Assert.IsFalse(SceneSystem.IsSceneLoaded(worldA.Unmanaged, worldAScene));
+                Assert.IsFalse(SceneSystem.IsSceneLoaded(worldB.Unmanaged, worldBScene));
 
                 worldA.Update();
                 worldB.Update();
 
-                Assert.IsTrue(worldA.GetExistingSystem<SceneSystem>().IsSceneLoaded(worldAScene));
-                Assert.IsTrue(worldB.GetExistingSystem<SceneSystem>().IsSceneLoaded(worldBScene));
+                Assert.IsTrue(SceneSystem.IsSceneLoaded(worldA.Unmanaged, worldAScene));
+                Assert.IsTrue(SceneSystem.IsSceneLoaded(worldB.Unmanaged, worldBScene));
 
-                var worldAEntities = worldA.EntityManager.GetAllEntities(Allocator.TempJob);
-                var worldBEntities = worldB.EntityManager.GetAllEntities(Allocator.TempJob);
+                var worldAEntities = worldA.EntityManager.GetAllEntities(worldA.UpdateAllocator.ToAllocator);
+                var worldBEntities = worldB.EntityManager.GetAllEntities(worldB.UpdateAllocator.ToAllocator);
                 using (worldAEntities)
                 using (worldBEntities)
                 {
@@ -134,16 +174,16 @@ namespace Unity.Scenes.Hybrid.Tests
                 Assert.AreEqual(1, worldAQuery.CalculateEntityCount());
 
                 // Get Material on RenderMesh
-                var sharedEntitiesA = worldAQuery.ToEntityArray(Allocator.TempJob);
-                var sharedEntitiesB = worldBQuery.ToEntityArray(Allocator.TempJob);
+                var sharedEntitiesA = worldAQuery.ToEntityArray(worldA.UpdateAllocator.ToAllocator);
+                var sharedEntitiesB = worldBQuery.ToEntityArray(worldB.UpdateAllocator.ToAllocator);
 
                 SharedWithMaterial sharedA;
                 SharedWithMaterial sharedB;
                 using (sharedEntitiesA)
                 using (sharedEntitiesB)
                 {
-                    sharedA = worldA.EntityManager.GetSharedComponentData<SharedWithMaterial>(sharedEntitiesA[0]);
-                    sharedB = worldB.EntityManager.GetSharedComponentData<SharedWithMaterial>(sharedEntitiesB[0]);
+                    sharedA = worldA.EntityManager.GetSharedComponentManaged<SharedWithMaterial>(sharedEntitiesA[0]);
+                    sharedB = worldB.EntityManager.GetSharedComponentManaged<SharedWithMaterial>(sharedEntitiesB[0]);
                 }
 
                 Assert.AreSame(sharedA.material, sharedB.material);
@@ -158,10 +198,10 @@ namespace Unity.Scenes.Hybrid.Tests
 #endif
                 Assert.AreEqual(0, SceneBundleHandle.GetUnloadingCount());
 
-                worldA.GetOrCreateSystem<SceneSystem>().UnloadScene(worldAScene);
+                SceneSystem.UnloadScene(worldA.Unmanaged, worldAScene);
                 worldA.Update();
 
-                worldB.GetOrCreateSystem<SceneSystem>().UnloadScene(worldBScene);
+                SceneSystem.UnloadScene(worldB.Unmanaged, worldBScene);
                 worldB.Update();
 
                 Assert.AreEqual(0, SceneBundleHandle.GetLoadedCount());
@@ -191,14 +231,13 @@ namespace Unity.Scenes.Hybrid.Tests
 
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
-                var sceneSystem = world.GetExistingSystem<SceneSystem>();
                 if (addCommandBufferToSection)
                 {
                     var resolveParams = new SceneSystem.LoadParameters
                     {
                         Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.DisableAutoLoad
                     };
-                    sceneSystem.LoadSceneAsync(SceneGUID, resolveParams);
+                    SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
                     world.Update();
                     var section = world.EntityManager.CreateEntityQuery(typeof(SceneSectionData)).GetSingletonEntity();
                     world.EntityManager.AddComponentData(section, postLoadCommandBuffer);
@@ -211,13 +250,13 @@ namespace Unity.Scenes.Hybrid.Tests
 
                 Assert.IsTrue(SceneGUID.IsValid);
 
-                var scene = sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                var scene = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, loadParams);
                 if (!addCommandBufferToSection)
                     world.EntityManager.AddComponentData(scene, postLoadCommandBuffer);
 
                 if (loadAsync)
                 {
-                    while (!sceneSystem.IsSceneLoaded(scene))
+                    while (!SceneSystem.IsSceneLoaded(world.Unmanaged, scene))
                     {
                         world.Update();
                         yield return null;
@@ -226,7 +265,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 else
                 {
                     world.Update();
-                    Assert.IsTrue(sceneSystem.IsSceneLoaded(scene));
+                    Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, scene));
                 }
 
                 var ecsTestDataQuery = world.EntityManager.CreateEntityQuery(typeof(TestProcessAfterLoadData));
@@ -247,8 +286,7 @@ namespace Unity.Scenes.Hybrid.Tests
 
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
-                var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                var resolvedScene = sceneSystem.LoadSceneAsync(SceneGUID, new SceneSystem.LoadParameters {AutoLoad = false, Flags = SceneLoadFlags.BlockOnImport});
+                var resolvedScene = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, new SceneSystem.LoadParameters {AutoLoad = false, Flags = SceneLoadFlags.BlockOnImport});
                 world.Update();
 
                 Assert.IsTrue(world.EntityManager.HasComponent<ResolvedSectionEntity>(resolvedScene));
@@ -262,31 +300,31 @@ namespace Unity.Scenes.Hybrid.Tests
 
                 var scene1 = world.EntityManager.Instantiate(resolvedScene);
                 world.EntityManager.AddComponentData(scene1, postLoadCommandBuffer1);
-                sceneSystem.LoadSceneAsync(scene1, loadParams);
+                SceneSystem.LoadSceneAsync(world.Unmanaged, scene1, loadParams);
 
 
                 var scene2 = world.EntityManager.Instantiate(resolvedScene);
                 world.EntityManager.AddComponentData(scene2, postLoadCommandBuffer2);
-                sceneSystem.LoadSceneAsync(scene2, loadParams);
+                SceneSystem.LoadSceneAsync(world.Unmanaged, scene2, loadParams);
 
                 world.Update();
 
                 var ecsTestDataQuery = world.EntityManager.CreateEntityQuery(typeof(TestProcessAfterLoadData));
-                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(world.UpdateAllocator.ToAllocator))
                 {
                     CollectionAssert.AreEquivalent(new[] {8, 43}, ecsTestDataArray.ToArray().Select(e => e.Value));
                 }
 
                 world.EntityManager.DestroyEntity(scene1);
                 world.Update();
-                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(world.UpdateAllocator.ToAllocator))
                 {
                     CollectionAssert.AreEquivalent(new[] {8}, ecsTestDataArray.ToArray().Select(e => e.Value));
                 }
 
                 world.EntityManager.DestroyEntity(scene2);
                 world.Update();
-                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(world.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(0, ecsTestDataArray.Length);
                 }
@@ -302,7 +340,6 @@ namespace Unity.Scenes.Hybrid.Tests
 
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
-                var sceneSystem = world.GetExistingSystem<SceneSystem>();
                 var loadParams = new SceneSystem.LoadParameters
                 {
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn | SceneLoadFlags.NewInstance
@@ -310,16 +347,16 @@ namespace Unity.Scenes.Hybrid.Tests
 
                 Assert.IsTrue(SceneGUID.IsValid);
 
-                var scene1 = sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                var scene1 = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, loadParams);
                 world.EntityManager.AddComponentData(scene1, postLoadCommandBuffer1);
 
-                var scene2 = sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                var scene2 = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, loadParams);
                 world.EntityManager.AddComponentData(scene2, postLoadCommandBuffer2);
 
                 world.Update();
 
                 var ecsTestDataQuery = world.EntityManager.CreateEntityQuery(typeof(TestProcessAfterLoadData));
-                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(world.UpdateAllocator.ToAllocator))
                 {
                     CollectionAssert.AreEquivalent(new[] {8, 43}, ecsTestDataArray.ToArray().Select(e => e.Value));
                 }
@@ -363,14 +400,13 @@ namespace Unity.Scenes.Hybrid.Tests
         {
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
-                var sceneSystem = world.GetExistingSystem<SceneSystem>();
                 var loadParams = new SceneSystem.LoadParameters
                 {
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn | SceneLoadFlags.NewInstance
                 };
                 Assert.IsTrue(SceneGUID.IsValid);
 
-                sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, loadParams);
                 world.Update();
                 Assert.Greater(System1.CounterRead, System2.CounterRead);
             }
@@ -385,8 +421,7 @@ namespace Unity.Scenes.Hybrid.Tests
 
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
-                var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                var sceneSectionStreamingSystem = world.GetExistingSystem<SceneSectionStreamingSystem>();
+                var sceneSectionStreamingSystem = world.GetExistingSystemManaged<SceneSectionStreamingSystem>();
 
                 var loadParams = new SceneSystem.LoadParameters
                 {
@@ -399,7 +434,7 @@ namespace Unity.Scenes.Hybrid.Tests
 
                 var scenes = postLoadCommandBuffers.Select(cb =>
                 {
-                    var scene = sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                    var scene = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, loadParams);
                     world.EntityManager.AddComponentData(scene, cb);
                     return scene;
                 }).ToArray();
@@ -407,7 +442,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 // Increase ConcurrentSectionStreamCount to 10 so all streams are started in the first update
                 sceneSectionStreamingSystem.ConcurrentSectionStreamCount = 10;
                 world.Update();
-                world.GetExistingSystem<SceneSectionStreamingSystem>().ConcurrentSectionStreamCount = 0;
+                world.GetExistingSystemManaged<SceneSectionStreamingSystem>().ConcurrentSectionStreamCount = 0;
                 //All streams should still be in progress
                 Assert.AreEqual(10, sceneSectionStreamingSystem.StreamArrayLength);
 
@@ -427,7 +462,7 @@ namespace Unity.Scenes.Hybrid.Tests
 
                 //All streams are completed so the stream array should have been resized to ConcurrentSectionStreamCount (0)
                 Assert.AreEqual(0, sceneSectionStreamingSystem.StreamArrayLength);
-                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(world.UpdateAllocator.ToAllocator))
                 {
                     CollectionAssert.AreEquivalent(Enumerable.Range(2, 10), ecsTestDataArray.ToArray().Select(e => e.Value));
                 }

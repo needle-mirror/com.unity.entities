@@ -34,8 +34,7 @@ namespace Unity.Entities.Conversion
         {
             if (@this is Component component)
                 @this = component.gameObject;
-
-            return new EntityGuid(@this.GetInstanceID(), namespaceId, (uint)serial);
+            return new EntityGuid(@this.GetInstanceID(), 0, namespaceId, (uint)serial);
         }
 
         public static bool IsPrefab(this UnityObject @this) =>
@@ -89,6 +88,28 @@ namespace Unity.Entities.Conversion
             return false;
         }
 
+        public static bool GetComponentsBaking(this GameObject gameObject, List<Component> componentsCache)
+        {
+            int outputIndex = 0;
+            gameObject.GetComponents(componentsCache);
+
+            for (var i = 0; i != componentsCache.Count; i++)
+            {
+                var component = componentsCache[i];
+
+                if (component == null)
+                    LogWarning($"The referenced script is missing on {gameObject.name} (index {i} in components list)", gameObject);
+                else
+                {
+                    componentsCache[outputIndex] = component;
+
+                    outputIndex++;
+                }
+            }
+
+            componentsCache.RemoveRange(outputIndex, componentsCache.Count - outputIndex);
+            return true;
+        }
         public static unsafe bool GetComponents(this GameObject @this, ComponentType* componentTypes, int maxComponentTypes, List<Component> componentsCache)
         {
             int outputIndex = 0;
@@ -105,8 +126,8 @@ namespace Unity.Entities.Conversion
                 var component = componentsCache[i];
 
                 if (component == null)
-                    LogWarning($"The referenced script is missing on {@this.name}", @this);
-                else if (!component.IsComponentDisabled() && !(component is GameObjectEntity))
+                    LogWarning($"The referenced script is missing on {@this.name} (index {i} in components list)", @this);
+                else if (!component.IsComponentDisabled())
                 {
                     var componentType = component.GetType();
                     var isUniqueType = true;

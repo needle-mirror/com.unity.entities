@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
 using UnityEngine.UIElements;
@@ -17,25 +17,25 @@ namespace Unity.Entities.Editor.Tests
         public void OneTimeSetUp()
         {
             m_World = new World("QueryWithEntitiesTestWorld");
-            var group = m_World.GetOrCreateSystem<SimulationSystemGroup>();
-            m_SystemA = m_World.GetOrCreateSystem<TestSystemsForControls.SystemA>();
+            var group = m_World.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            m_SystemA = m_World.GetOrCreateSystemManaged<TestSystemsForControls.SystemA>();
             group.AddSystemToUpdateList(m_SystemA);
             m_WorldProxyManager = new WorldProxyManager();
             m_WorldProxyManager.CreateWorldProxiesForAllWorlds();
             m_WorldProxy = m_WorldProxyManager.GetWorldProxyForGivenWorld(m_World);
 
             var archetype = m_World.EntityManager.CreateArchetype(typeof(EntityGuid), typeof(EcsTestSharedComp));
-            using var entities = m_World.EntityManager.CreateEntity(archetype, 2, Allocator.TempJob);
+            using var entities = m_World.EntityManager.CreateEntity(archetype, 2, m_World.UpdateAllocator.ToAllocator);
             for (var i = 0; i < entities.Length; i++)
             {
-                m_World.EntityManager.SetSharedComponentData(entities[i], new EcsTestSharedComp{ value = i == 0 ? 123 : 345});
+                m_World.EntityManager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp{ value = i == 0 ? 123 : 345});
 #if !DOTS_DISABLE_DEBUG_NAMES
                 m_World.EntityManager.SetName(entities[i], $"QueryWithEntitiesView_Entity{i}");
 #endif
             }
 
             m_Query = m_World.EntityManager.CreateEntityQuery(typeof(EntityGuid), typeof(EcsTestSharedComp));
-            m_Query.SetSharedComponentFilter(new EcsTestSharedComp{value = 123});
+            m_Query.SetSharedComponentFilterManaged(new EcsTestSharedComp{value = 123});
         }
 
         [OneTimeTearDown]

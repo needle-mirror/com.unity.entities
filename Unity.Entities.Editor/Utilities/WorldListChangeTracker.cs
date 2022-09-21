@@ -7,27 +7,21 @@ namespace Unity.Entities.Editor
     /// </summary>
     class WorldListChangeTracker
     {
-        static int s_Version;
-        int m_LastVersion = -1;
+        int m_Count;
+        ulong m_CurrentHash;
 
-        static WorldListChangeTracker()
-        {
-            World.WorldCreated += OnWorldCreatedOrDestroyed;
-            World.WorldDestroyed += OnWorldCreatedOrDestroyed;
-        }
-
-        static void OnWorldCreatedOrDestroyed(World world)
-        {
-            s_Version++;
-        }
-
+        /// <returns>If called after World(s) have been created or destroyed, will return true *once*.</returns>
         public bool HasChanged()
         {
-            if (m_LastVersion == s_Version)
-                return false;
+            var newCount = World.All.Count;
+            ulong newHash = 0;
+            foreach (var world in World.All)
+                newHash += world.SequenceNumber;
 
-            m_LastVersion = s_Version;
-            return true;
+            var hasChanged = m_Count != newCount || newHash != m_CurrentHash;
+            m_CurrentHash = newHash;
+            m_Count = newCount;
+            return hasChanged;
         }
     }
 }

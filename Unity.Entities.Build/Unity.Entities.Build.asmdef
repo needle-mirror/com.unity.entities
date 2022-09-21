@@ -1,0 +1,7 @@
+﻿{
+  "name": "Unity.Entities.Build",
+  "references": [
+    "Unity.Entities",
+    "Unity.Mathematics"
+  ]
+}

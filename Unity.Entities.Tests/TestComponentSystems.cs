@@ -2,7 +2,6 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
-    [AlwaysUpdateSystem]
     public partial class TestEcsChangeSystem : SystemBase
     {
         public int NumChanged;

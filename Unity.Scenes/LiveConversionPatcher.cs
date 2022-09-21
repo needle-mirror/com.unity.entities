@@ -1,24 +1,43 @@
 #if !UNITY_DOTSRUNTIME
 using System;
+using Unity.Assertions;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections.LowLevel.Unsafe.NotBurstCompatible;
 using Unity.Entities;
-using Unity.Entities.Serialization;
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes
 {
+    /// <summary>
+    /// Tag component for disabling live conversion of scene entities.
+    /// </summary>
     public struct DisableLiveConversion : IComponentData
     {
     }
 
+    /// <summary>
+    /// Options for how the conversion system runs and makes the results available in the Editor.
+    /// </summary>
     public enum LiveConversionMode
     {
+        /// <summary>
+        /// Disable live conversion. The conversion system doesn't run when the authoring data is changed.
+        /// </summary>
         Disabled = 0,
+        /// <summary>
+        /// Run the conversion when building the player.
+        /// </summary>
         LiveConvertStandalonePlayer,
+        /// <summary>
+        /// Enable live conversion is enabled and display the authoring data in the scene view.
+        /// </summary>
         SceneViewShowsAuthoring,
+        /// <summary>
+        /// Enable the live conversion and display the result of the conversion in the scene view.
+        /// </summary>
         SceneViewShowsRuntime,
     }
 
@@ -70,11 +89,11 @@ namespace Unity.Scenes
 
     class LiveConversionPatcher
     {
-        public struct LiveConvertedSceneState : ISystemStateComponentData, IEquatable<LiveConvertedSceneState>
+        public struct LiveConvertedSceneCleanup : ICleanupComponentData, IEquatable<LiveConvertedSceneCleanup>
         {
             public Hash128 Scene;
 
-            public bool Equals(LiveConvertedSceneState other)
+            public bool Equals(LiveConvertedSceneCleanup other)
             {
                 return Scene.Equals(other.Scene);
             }
@@ -96,13 +115,13 @@ namespace Unity.Scenes
             _AddedScenesQuery = _DstWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[] {typeof(SceneTag)},
-                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
+                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
             });
             _AddedScenesQuery.SetSharedComponentFilter(new SceneTag { SceneEntity = Entity.Null});
 
             _RemovedScenesQuery = _DstWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
             {
-                All = new ComponentType[] {typeof(LiveConvertedSceneState)},
+                All = new ComponentType[] {typeof(LiveConvertedSceneCleanup)},
                 None = new ComponentType[] {typeof(SceneReference)},
             });
         }
@@ -113,48 +132,58 @@ namespace Unity.Scenes
             _RemovedScenesQuery.Dispose();
         }
 
-        // @Todo: move to IJobEntity once system is ISystem or SystemBase
-        struct RemoveLiveConversionSceneState : IJobEntityBatch
+        struct RemoveLiveConversionSceneState : IJobChunk
         {
             public Hash128 DeleteGuid;
             public  EntityCommandBuffer Commands;
 
-            [ReadOnly] public ComponentTypeHandle<LiveConvertedSceneState> LiveConvertedSceneStateHandle;
+            [ReadOnly] public ComponentTypeHandle<LiveConvertedSceneCleanup> LiveConvertedSceneStateHandle;
             [ReadOnly] public EntityTypeHandle EntitiesHandle;
 
-            public void Execute(Entity entity, ref LiveConvertedSceneState scene)
+            public void Execute(Entity entity, in LiveConvertedSceneCleanup scene)
             {
                 if (scene.Scene == DeleteGuid)
-                    Commands.RemoveComponent<LiveConvertedSceneState>(entity);
+                    Commands.RemoveComponent<LiveConvertedSceneCleanup>(entity);
             }
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var entities = batchInChunk.GetNativeArray(EntitiesHandle);
-                var liveLinkedSceneStates = batchInChunk.GetNativeArray(LiveConvertedSceneStateHandle);
-                int count = batchInChunk.Count;
+                Assert.IsFalse(useEnabledMask);
+                var entities = chunk.GetNativeArray(EntitiesHandle);
+                var liveConvertedSceneStates = chunk.GetNativeArray(LiveConvertedSceneStateHandle);
+                int count = chunk.Count;
                 for (int i = 0; i < count; ++i)
                 {
-                    var liveLinkedSceneState = liveLinkedSceneStates[i];
-                    Execute(entities[i], ref liveLinkedSceneState);
+                    var liveConvertedSceneState = liveConvertedSceneStates[i];
+                    Execute(entities[i], in liveConvertedSceneState);
                 }
             }
         }
-        public void UnloadScene(Hash128 sceneGUID)
+
+        public unsafe void UnloadScene(Hash128 sceneGUID)
         {
             var dstEntities = _DstWorld.EntityManager;
             var sceneSystem = _DstWorld.GetExistingSystem<SceneSystem>();
-            var sceneEntity = sceneSystem.GetLiveConvertedSceneEntity(sceneGUID);
+
+            ref var state = ref _DstWorld.Unmanaged.ResolveSystemStateRef(sceneSystem);
+
+            var sceneEntity = SceneSystem.GetLiveConvertedSceneEntity(ref state, sceneGUID);
+
             dstEntities.RemoveComponent<DisableSceneResolveAndLoad>(sceneEntity);
-            dstEntities.RemoveComponent<LiveConvertedSceneState>(sceneEntity);
-            sceneSystem.UnloadScene(sceneEntity, SceneSystem.UnloadParameters.DestroySectionProxyEntities | SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded);
-            // Cleanup leftover LiveConvertedScene system state
+            dstEntities.RemoveComponent<LiveConvertedSceneCleanup>(sceneEntity);
+            SceneSystem.UnloadScene(_DstWorld.Unmanaged,
+                sceneEntity,
+                SceneSystem.UnloadParameters.DestroySectionProxyEntities |
+                SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded);
+
+
+            // Cleanup leftover LiveConvertedSceneCleanup
             // (This happens if the scene entity got destroyed)
             var job = new RemoveLiveConversionSceneState
             {
                 DeleteGuid = sceneGUID,
                 Commands = new EntityCommandBuffer(Allocator.TempJob),
-                LiveConvertedSceneStateHandle = _DstWorld.EntityManager.GetComponentTypeHandle<LiveConvertedSceneState>(true),
+                LiveConvertedSceneStateHandle = _DstWorld.EntityManager.GetComponentTypeHandle<LiveConvertedSceneCleanup>(true),
                 EntitiesHandle = _DstWorld.EntityManager.GetEntityTypeHandle()
             };
             job.Run(_RemovedScenesQuery);
@@ -163,12 +192,14 @@ namespace Unity.Scenes
             job.Commands.Dispose();
         }
 
-        public void ApplyPatch(LiveConversionChangeSet changeSet)
+        public unsafe void ApplyPatch(LiveConversionChangeSet changeSet)
         {
             var dstEntities = _DstWorld.EntityManager;
             var sceneSystem = _DstWorld.GetExistingSystem<SceneSystem>();
+            ref var state = ref *_DstWorld.Unmanaged.ResolveSystemState(sceneSystem);
+
             Entity sectionEntity = Entity.Null;
-            var sceneEntity = sceneSystem.GetLiveConvertedSceneEntity(changeSet.SceneGUID);
+            var sceneEntity = SceneSystem.GetLiveConvertedSceneEntity(ref state, changeSet.SceneGUID);
 
             //@TODO: Check if the scene or section is requested to be loaded
             if (sceneEntity == Entity.Null)
@@ -177,24 +208,28 @@ namespace Unity.Scenes
                 return;
             }
 
-            var patcherBlobAssetSystem = _DstWorld.GetOrCreateSystem<EntityPatcherBlobAssetSystem>();
+            var patcherBlobAssetSystem = _DstWorld.GetOrCreateSystemManaged<EntityPatcherBlobAssetSystem>();
             patcherBlobAssetSystem.SetFramesToRetainBlobAssets(changeSet.FramesToRetainBlobAssets);
 
             // Unload scene
             if (changeSet.UnloadAllPreviousEntities)
             {
                 //@Todo: Can we try to keep scene & section entities alive? (In case user put custom data on it)
-                sceneSystem.UnloadScene(sceneEntity, SceneSystem.UnloadParameters.DestroySectionProxyEntities | SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded);
+                SceneSystem.UnloadScene(_DstWorld.Unmanaged,
+                    sceneEntity,
+                    SceneSystem.UnloadParameters.DestroySectionProxyEntities |
+                    SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded);
 
                 // Create section
                 sectionEntity = dstEntities.CreateEntity();
                 dstEntities.AddComponentData(sectionEntity, new SceneSectionStreamingSystem.StreamingState { Status = SceneSectionStreamingSystem.StreamingStatus.Loaded});
+                dstEntities.AddComponentData(sectionEntity, new IsSectionLoaded());
                 dstEntities.AddComponentData(sectionEntity, new DisableSceneResolveAndLoad());
                 dstEntities.AddComponentData(sectionEntity, new SceneEntityReference {SceneEntity = sceneEntity});
 
                 // Configure scene
                 dstEntities.AddComponentData(sceneEntity, new DisableSceneResolveAndLoad());
-                dstEntities.AddComponentData(sceneEntity, new LiveConvertedSceneState { Scene = changeSet.SceneGUID });
+                dstEntities.AddComponentData(sceneEntity, new LiveConvertedSceneCleanup { Scene = changeSet.SceneGUID });
 
                 dstEntities.AddBuffer<ResolvedSectionEntity>(sceneEntity).Add(new ResolvedSectionEntity { SectionEntity = sectionEntity});
 
@@ -223,7 +258,7 @@ namespace Unity.Scenes
 
             if (sectionEntity != Entity.Null)
             {
-                dstEntities.SetSharedComponentData(_AddedScenesQuery, new SceneTag {SceneEntity = sectionEntity});
+                dstEntities.SetSharedComponentManaged(_AddedScenesQuery, new SceneTag {SceneEntity = sectionEntity});
             }
 
             EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();

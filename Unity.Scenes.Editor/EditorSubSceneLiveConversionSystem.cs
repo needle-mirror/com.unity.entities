@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Entities.Conversion;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -10,10 +11,9 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
-    [ExecuteAlways]
-    [AlwaysUpdateSystem]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(LiveConversionEditorSystemGroup))]
-    class EditorSubSceneLiveConversionSystem : ComponentSystem
+    partial class EditorSubSceneLiveConversionSystem : SystemBase
     {
         LiveConversionConnection         _EditorLiveConversion;
         LiveConversionPatcher            _Patcher;
@@ -29,6 +29,19 @@ namespace Unity.Scenes.Editor
         System.Diagnostics.Stopwatch m_Watch;
         internal double MillisecondsTakenByUpdate { get; set; }
 
+        internal World GetConvertedWorldForEntity(Entity entity)
+        {
+            if (!EntityManager.HasComponent<SceneSection>(entity))
+                return null;
+            var section = EntityManager.GetSharedComponent<SceneSection>(entity);
+            return _EditorLiveConversion.GetConvertedWorldForScene(section.SceneGUID);
+        }
+
+        internal World GetConvertedWorldForScene(Hash128 sceneGUID)
+        {
+            return _EditorLiveConversion.GetConvertedWorldForScene(sceneGUID);
+        }
+
         protected override void OnUpdate()
         {
             m_Watch.Restart();
@@ -36,7 +49,7 @@ namespace Unity.Scenes.Editor
             {
                 // We can't initialize live link in OnCreate because other systems might configure BuildConfigurationGUID from OnCreate
                 if (_EditorLiveConversion == null)
-                    _EditorLiveConversion = new LiveConversionConnection(World.GetExistingSystem<SceneSystem>().BuildConfigurationGUID);
+                    _EditorLiveConversion = new LiveConversionConnection(EntityManager.GetComponentData<SceneSystemData>(World.GetExistingSystem<SceneSystem>()).BuildConfigurationGUID);
 
                 try
                 {
@@ -48,7 +61,7 @@ namespace Unity.Scenes.Editor
                         }
                     }
 
-                    _EditorLiveConversion.Update(_ChangeSets, _LoadScenes, _UnloadScenes, SubSceneInspectorUtility.LiveConversionMode);
+                    _EditorLiveConversion.Update(_ChangeSets, _LoadScenes, _UnloadScenes, LiveConversionEditorSettings.LiveConversionMode);
 
                     // Unload scenes that are no longer being edited / need to be reloaded etc
                     foreach (var change in _UnloadScenes)
@@ -83,7 +96,7 @@ namespace Unity.Scenes.Editor
                 }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-                CompanionGameObjectUtility.UpdateLiveConversionCulling(SubSceneInspectorUtility.LiveConversionMode);
+                CompanionGameObjectUtility.UpdateLiveConversionCulling(LiveConversionEditorSettings.LiveConversionMode);
 #endif
 
                 if (_EditorLiveConversion.HasLoadedScenes())
@@ -96,9 +109,9 @@ namespace Unity.Scenes.Editor
                         var sceneGUID = AssetDatabaseCompatibility.PathToGUID(scene.path);
                         if (_EditorLiveConversion.HasScene(sceneGUID))
                         {
-                            if (SubSceneInspectorUtility.LiveConversionMode == LiveConversionMode.SceneViewShowsAuthoring)
+                            if (LiveConversionEditorSettings.LiveConversionMode == LiveConversionMode.SceneViewShowsAuthoring)
                                 EditorSceneManager.SetSceneCullingMask(scene, SceneCullingMasks.MainStageSceneViewObjects);
-                            else if (SubSceneInspectorUtility.LiveConversionMode == LiveConversionMode.SceneViewShowsRuntime)
+                            else if (LiveConversionEditorSettings.LiveConversionMode == LiveConversionMode.SceneViewShowsRuntime)
                                 EditorSceneManager.SetSceneCullingMask(scene, m_GizmoSceneCullingMask);
                             else
                                 EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask);
@@ -116,7 +129,7 @@ namespace Unity.Scenes.Editor
         protected override void OnCreate()
         {
             Camera.onPreCull += OnPreCull;
-            RenderPipelineManager.beginFrameRendering += OnPreCull;
+            RenderPipelineManager.beginContextRendering += OnPreCull;
             SceneView.duringSceneGui += SceneViewOnBeforeSceneGui;
             m_Watch = new Stopwatch();
 
@@ -131,7 +144,7 @@ namespace Unity.Scenes.Editor
         protected override void OnDestroy()
         {
             Camera.onPreCull -= OnPreCull;
-            RenderPipelineManager.beginFrameRendering -= OnPreCull;
+            RenderPipelineManager.beginContextRendering -= OnPreCull;
             SceneView.duringSceneGui -= SceneViewOnBeforeSceneGui;
 
             if (_EditorLiveConversion != null)
@@ -147,7 +160,7 @@ namespace Unity.Scenes.Editor
         // * Also we are not rendering the selection (Selection must be drawn around live linked object, not the editing object)
         void SceneViewOnBeforeSceneGui(SceneView sceneView)
         {
-            if (SubSceneInspectorUtility.LiveConversionMode == LiveConversionMode.SceneViewShowsRuntime)
+            if (LiveConversionEditorSettings.LiveConversionMode == LiveConversionMode.SceneViewShowsRuntime)
             {
                 Camera camera = sceneView.camera;
                 bool sceneViewIsRenderingCustomScene = camera.scene.IsValid();
@@ -161,6 +174,14 @@ namespace Unity.Scenes.Editor
         }
 
         void OnPreCull(ScriptableRenderContext src, Camera[] cameras)
+        {
+            foreach (Camera camera in cameras)
+            {
+                OnPreCull(camera);
+            }
+        }
+
+        void OnPreCull(ScriptableRenderContext src, List<Camera> cameras)
         {
             foreach (Camera camera in cameras)
             {

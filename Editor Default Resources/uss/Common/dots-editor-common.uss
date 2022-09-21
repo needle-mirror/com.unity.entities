@@ -73,3 +73,15 @@
 {
 	border-bottom-width: 1px;
 }
+
+.empty-inspector-label{
+    padding-left: 15px;
+    padding-top: 5px;
+}
+
+.icon-prefix {
+    position: relative;
+    width: 16px;
+    height: 16px;
+    margin-right: 2px;
+}

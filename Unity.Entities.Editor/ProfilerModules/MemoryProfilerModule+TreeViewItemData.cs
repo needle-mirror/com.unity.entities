@@ -17,7 +17,7 @@ namespace Unity.Entities.Editor
             public readonly int ChunkCapacity;
             public readonly int SegmentCount;
             public readonly int InstanceSize;
-            public readonly int[] ComponentTypes;
+            public readonly TypeIndex[] ComponentTypes;
 
             public MemoryProfilerTreeViewItemData(string worldName, ArchetypeData archetypeData, ArchetypeMemoryData archetypeMemoryData)
             {
@@ -31,7 +31,7 @@ namespace Unity.Entities.Editor
                 ChunkCapacity = archetypeData.ChunkCapacity;
                 SegmentCount = archetypeMemoryData.SegmentCount;
                 InstanceSize = archetypeData.InstanceSize;
-                ComponentTypes = new int[archetypeData.ComponentTypes.Length];
+                ComponentTypes = new TypeIndex[archetypeData.ComponentTypes.Length];
                 for (var i = 0; i < archetypeData.ComponentTypes.Length; ++i)
                     ComponentTypes[i] = archetypeData.ComponentTypes[i].GetTypeIndex();
             }

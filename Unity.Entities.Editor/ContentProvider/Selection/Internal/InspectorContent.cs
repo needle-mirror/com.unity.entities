@@ -1,8 +1,8 @@
-using Unity.Properties.UI.Internal;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine;
 
-namespace Unity.Properties.UI
+namespace Unity.Platforms.UI
 {
     sealed class InspectorContent : ScriptableObject
     {

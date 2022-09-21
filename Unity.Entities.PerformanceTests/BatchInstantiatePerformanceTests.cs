@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities.Tests;
 using Unity.Jobs;
 using Unity.PerformanceTesting;
-using Assert = Unity.Assertions.Assert;
+
 
 namespace Unity.Entities.PerformanceTests
 {
@@ -19,7 +20,7 @@ namespace Unity.Entities.PerformanceTests
             // This variant instantiates and translates the entities entirely on the main thread using EntityManager commands.
             var prefabEntity = m_Manager.CreateEntity(typeof(EcsTestFloatData3), typeof(Prefab));
             using var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>());
-            using var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob);
+            using var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, World.UpdateAllocator.ToAllocator);
             Measure.Method(
                     () =>
                     {
@@ -38,12 +39,14 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [BurstCompile(CompileSynchronously = true)]
-        struct TranslateJob : IJobEntityBatch
+        struct TranslateJob : IJobChunk
         {
             public ComponentTypeHandle<EcsTestFloatData3> PosHandle;
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var positions = batchInChunk.GetNativeArray(PosHandle);
+                Assert.IsFalse(useEnabledMask);
+                var positions = chunk.GetNativeArray(PosHandle);
                 for (int i = 0; i < positions.Length; ++i)
                 {
                     positions[i] = new EcsTestFloatData3 {Value0 = i, Value1 = 1, Value2 = i};
@@ -57,7 +60,7 @@ namespace Unity.Entities.PerformanceTests
             // This variant instantiates the entities on the main thread, and uses a parallel job to apply a random translation to each entity.
             var prefabEntity = m_Manager.CreateEntity(typeof(EcsTestFloatData3), typeof(Prefab));
             using var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>());
-            using var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob);
+            using var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, World.UpdateAllocator.ToAllocator);
             Measure.Method(
                     () =>
                     {
@@ -65,7 +68,7 @@ namespace Unity.Entities.PerformanceTests
                         new TranslateJob
                         {
                             PosHandle = m_Manager.GetComponentTypeHandle<EcsTestFloatData3>(false),
-                        }.ScheduleParallel(query).Complete();
+                        }.ScheduleParallel(query, default).Complete();
                     })
                 .WarmupCount(1)
                 .MeasurementCount(100)
@@ -101,7 +104,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                     () =>
                     {
-                        ecb = new EntityCommandBuffer(Allocator.TempJob);
+                        ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                         new EcbInstantiateAndTranslateJob
                         {
                             PrefabEntity = prefabEntity,
@@ -118,6 +121,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     ecb.Dispose();
                     m_Manager.DestroyEntity(query);
+                    World.UpdateAllocator.Rewind();
                 })
                 .Run();
         }
@@ -139,13 +143,13 @@ namespace Unity.Entities.PerformanceTests
             // This variant instantiates the entities on the main thread, and uses a parallel job to apply a random translation to each entity.
             var prefabEntity = m_Manager.CreateEntity(typeof(EcsTestFloatData3), typeof(Prefab));
             EntityCommandBuffer ecb = default;
-            using var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob);
+            using var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, World.UpdateAllocator.ToAllocator);
             using var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestFloatData3>());
             Measure.Method(
                     () =>
                     {
                         m_Manager.Instantiate(prefabEntity, entities);
-                        ecb = new EntityCommandBuffer(Allocator.TempJob);
+                        ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                         new EcbTranslateJob
                         {
                             Entities = entities,
@@ -177,7 +181,7 @@ namespace Unity.Entities.PerformanceTests
 
             protected override void OnUpdate()
             {
-                var ecb = new EntityCommandBuffer(Allocator.TempJob);
+                var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 var ecbWriter = ecb.AsParallelWriter();
                 var prefab = _prefabEntity;
                 Entities
@@ -205,11 +209,11 @@ namespace Unity.Entities.PerformanceTests
             int spawnCount = 100000;
             m_Manager.SetComponentData(spawnerEntity, new EcsTestData {value = spawnCount});
 
-            var sys = m_World.CreateSystem<BatchInstantiateSystem>();
+            var sys = m_World.CreateSystemManaged<BatchInstantiateSystem>();
             sys.Update();
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestFloatData3));
-            using var entities = query.ToEntityArray(Allocator.TempJob);
+            using var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(spawnCount, entities.Length);
             for (int i = 0; i < entities.Length; ++i)
             {
@@ -245,7 +249,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                     () =>
                     {
-                        ecb = new EntityCommandBuffer(Allocator.TempJob);
+                        ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                         new EcbInstantiateOneAndTranslateJob
                         {
                             PrefabEntity = prefabEntity,
@@ -263,6 +267,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     ecb.Dispose();
                     m_Manager.DestroyEntity(query);
+                    World.UpdateAllocator.Rewind();
                 })
                 .Run();
         }
@@ -296,7 +301,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                     () =>
                     {
-                        ecb = new EntityCommandBuffer(Allocator.TempJob);
+                        ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                         new EcbInstantiateAllAndTranslateJob
                         {
                             PrefabEntity = prefabEntity,
@@ -314,10 +319,9 @@ namespace Unity.Entities.PerformanceTests
                 {
                     ecb.Dispose();
                     m_Manager.DestroyEntity(query);
+                    World.UpdateAllocator.Rewind();
                 })
                 .Run();
         }
-
-
     }
 }

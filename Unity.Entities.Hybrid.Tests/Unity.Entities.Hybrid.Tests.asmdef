@@ -17,7 +17,11 @@
         "Unity.Entities.Hybrid.EndToEnd.Tests",
         "Unity.Scenes",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "Unity.Scenes.Editor",
+        "Unity.Entities.Hybrid.Tests.SeparateAssembly",
+        "Unity.Entities.Build.Editor",
+        "Unity.Entities.Build"
     ],
     "includePlatforms": [
         "Editor"
@@ -32,12 +36,6 @@
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
-    "versionDefines": [
-        {
-            "name": "com.unity.roslyn",
-            "expression": "0.0.0-preview.2",
-            "define": "ROSLYN_SOURCEGEN_ENABLED"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

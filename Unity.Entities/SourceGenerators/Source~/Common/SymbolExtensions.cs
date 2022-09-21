@@ -1,12 +1,23 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Unity.Entities.SourceGen.SystemGeneratorCommon;
 
 namespace Unity.Entities.SourceGen.Common
 {
     public static class SymbolExtensions
     {
+        public static (bool IsSystemType, SystemType SystemType) TryGetSystemType(this ITypeSymbol namedSystemTypeSymbol)
+        {
+            if (namedSystemTypeSymbol.Is("Unity.Entities.SystemBase"))
+                return (true, SystemType.SystemBase);
+            if (namedSystemTypeSymbol.InheritsFromInterface("Unity.Entities.ISystem"))
+                return (true, SystemType.ISystem);
+            return (false, default);
+        }
+
         static SymbolDisplayFormat QualifiedFormat { get; } =
             new SymbolDisplayFormat(
                 typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
@@ -33,12 +44,26 @@ namespace Unity.Entities.SourceGen.Common
             return checkBaseType && symbol.BaseType.Is(fullyQualifiedName);
         }
 
+        public static IEnumerable<string> GetAllFullyQualifiedInterfaceAndBaseTypeNames(this ITypeSymbol symbol)
+        {
+            if (symbol.BaseType != null)
+            {
+                var baseTypeName = symbol.BaseType.ToDisplayString(QualifiedFormat);
+                if (baseTypeName != "System.ValueType")
+                    yield return baseTypeName;
+            }
+
+            foreach (var _interface in symbol.Interfaces)
+                yield return _interface.ToDisplayString(QualifiedFormat);
+        }
+
         public static bool IsInt(this ITypeSymbol symbol) => symbol.SpecialType == SpecialType.System_Int32;
         public static bool IsDynamicBuffer(this ITypeSymbol symbol) =>
             symbol.Name == "DynamicBuffer" && symbol.ContainingNamespace.ToDisplayString(QualifiedFormat) == "Unity.Entities";
+        public static bool IsSharedComponent(this ITypeSymbol symbol) => symbol.InheritsFromInterface("Unity.Entities.ISharedComponentData");
+        public static bool IsComponent(this ITypeSymbol symbol) => symbol.InheritsFromInterface("Unity.Entities.IComponentData");
 
         public static string ToFullName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormat);
-        public static string ToFullName(this INamespaceSymbol symbol) => symbol.ToDisplayString(QualifiedFormat);
         public static string ToValidVariableName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormat).Replace('.', '_');
 
         public static bool ImplementsInterface(this ISymbol symbol, string interfaceName)
@@ -150,10 +175,10 @@ namespace Unity.Entities.SourceGen.Common
             return strBuilder.ToString();
         }
 
-        public static bool IsInterfaceImplementation(this IMethodSymbol method)
-        {
-            return method.ContainingType.AllInterfaces.SelectMany(@interface => @interface.GetMembers().OfType<IMethodSymbol>()).Any(interfaceMethod => method.ContainingType.FindImplementationForInterfaceMember(interfaceMethod).Equals(method));
-        }
+        public static bool IsAspect(this ITypeSymbol typeSymbol) => typeSymbol.InheritsFromInterface("Unity.Entities.IAspect");
+
+        public static string GetFirstOrDefaultParameterNameOfType(this IMethodSymbol methodSymbol, string fullTypeName) =>
+            methodSymbol.Parameters.FirstOrDefault(param => param.Type.Is(fullTypeName))?.Name;
 
         public static TypedConstantKind GetTypedConstantKind(this ITypeSymbol type)
         {

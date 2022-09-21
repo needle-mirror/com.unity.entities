@@ -1,10 +1,7 @@
-using System;
 using Unity.Burst;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
-using UnityEditor.SceneManagement;
-using UnityEngine;
 
 #pragma warning disable 649
 
@@ -19,7 +16,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [SetUp]
         public void SetUp()
         {
-            TestSystem = World.GetOrCreateSystem<SystemBase_TestSystem>();
+            TestSystem = World.GetOrCreateSystemManaged<SystemBase_TestSystem>();
 
             var myArch = m_Manager.CreateArchetype(
                 ComponentType.ReadWrite<EcsTestDataEntity>(),
@@ -121,40 +118,40 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 entityArray.Dispose();
             }
 
-            public void GetComponentThroughGetComponentDataFromEntity_GetsValue(Entity entity, ScheduleType scheduleType)
+            public void GetComponentThroughGetComponentLookup_GetsValue(Entity entity, ScheduleType scheduleType)
             {
                 switch (scheduleType)
                 {
                     case ScheduleType.Run:
-                        Entities.ForEach((ref EcsTestData td) => { td.value = GetComponentDataFromEntity<EcsTestDataEntity>(true)[entity].value0; }).Run();
+                        Entities.ForEach((ref EcsTestData td) => { td.value = GetComponentLookup<EcsTestDataEntity>(true)[entity].value0; }).Run();
                         break;
                     case ScheduleType.Schedule:
-                        Entities.ForEach((ref EcsTestData td) => { td.value = GetComponentDataFromEntity<EcsTestDataEntity>(true)[entity].value0; }).Schedule();
+                        Entities.ForEach((ref EcsTestData td) => { td.value = GetComponentLookup<EcsTestDataEntity>(true)[entity].value0; }).Schedule();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        Entities.ForEach((ref EcsTestData td) => { td.value = GetComponentDataFromEntity<EcsTestDataEntity>(true)[entity].value0; }).ScheduleParallel();
+                        Entities.ForEach((ref EcsTestData td) => { td.value = GetComponentLookup<EcsTestDataEntity>(true)[entity].value0; }).ScheduleParallel();
                         break;
                 }
 
                 Dependency.Complete();
             }
 
-            public void SetComponentThroughGetComponentDataFromEntity_SetsValue(Entity entity, ScheduleType scheduleType)
+            public void SetComponentThroughGetComponentLookup_SetsValue(Entity entity, ScheduleType scheduleType)
             {
                 switch (scheduleType)
                 {
                     case ScheduleType.Run:
                         Entities.ForEach((ref EcsTestDataEntity tde) =>
                         {
-                            var cdfe = GetComponentDataFromEntity<EcsTestData>(false);
-                            cdfe[entity] = new EcsTestData(){ value = 2 };
+                            var lookup = GetComponentLookup<EcsTestData>(false);
+                            lookup[entity] = new EcsTestData(){ value = 2 };
                         }).Run();
                         break;
                     case ScheduleType.Schedule:
                         Entities.ForEach((ref EcsTestDataEntity tde) =>
                         {
-                            var cdfe = GetComponentDataFromEntity<EcsTestData>(false);
-                            cdfe[entity] = new EcsTestData(){ value = 2 };
+                            var lookup = GetComponentLookup<EcsTestData>(false);
+                            lookup[entity] = new EcsTestData(){ value = 2 };
                         }).Schedule();
                         break;
                     case ScheduleType.ScheduleParallel:
@@ -165,24 +162,24 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
-            static int GetComponentDataValueByMethod(ComponentDataFromEntity<EcsTestData> cdfe, Entity entity)
+            static int GetComponentDataValueByMethod(ComponentLookup<EcsTestData> lookup, Entity entity)
             {
-                return cdfe[entity].value;
+                return lookup[entity].value;
             }
 
-            public void GetComponentThroughGetComponentDataFromEntityPassedToMethod_GetsValue(Entity entity)
+            public void GetComponentThroughGetComponentLookupPassedToMethod_GetsValue(Entity entity)
             {
-                Entities.ForEach((ref EcsTestDataEntity td) => { td.value0 = GetComponentDataValueByMethod(GetComponentDataFromEntity<EcsTestData>(true), entity); }).Run();
+                Entities.ForEach((ref EcsTestDataEntity td) => { td.value0 = GetComponentDataValueByMethod(GetComponentLookup<EcsTestData>(true), entity); }).Run();
             }
 
-            static void SetComponentDataValueByMethod(ComponentDataFromEntity<EcsTestData> cdfe, Entity entity, int value)
+            static void SetComponentDataValueByMethod(ComponentLookup<EcsTestData> lookup, Entity entity, int value)
             {
-                cdfe[entity] = new EcsTestData() { value = value };
+                lookup[entity] = new EcsTestData() { value = value };
             }
 
-            public void SetComponentThroughGetComponentDataFromEntityPassedToMethod_GetsValue(Entity entity)
+            public void SetComponentThroughGetComponentLookupPassedToMethod_GetsValue(Entity entity)
             {
-                Entities.ForEach((ref EcsTestDataEntity td) => { SetComponentDataValueByMethod(GetComponentDataFromEntity<EcsTestData>(false), entity, 2); }).Run();
+                Entities.ForEach((ref EcsTestDataEntity td) => { SetComponentDataValueByMethod(GetComponentLookup<EcsTestData>(false), entity, 2); }).Run();
             }
 
             public void GetComponentFromComponentDataField_GetsValue()
@@ -197,6 +194,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .WithoutBurst()
                     .ForEach((Entity entity, in EcsTestDataEntity tde) =>
                     {
+                        SetComponent(entity: entity, new EcsTestData() { value = 2 });
                         SetComponent(component: new EcsTestData() { value = 2 }, entity: entity);
                     }).Schedule();
                 Dependency.Complete();
@@ -228,14 +226,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
-            public void GetComponentSetComponentThroughComponentDataFromEntity_SetsValue()
+            public void GetComponentSetComponent_ThroughComponentLookup_SetsValue()
             {
                 Entities
                     .WithoutBurst()
                     .ForEach((Entity entity, in EcsTestDataEntity tde) =>
                     {
-                        var cdfeWrite = GetComponentDataFromEntity<EcsTestData>(false);
-                        cdfeWrite[entity] = new EcsTestData() {value = GetComponentDataFromEntity<EcsTestData>(true)[tde.value1].value};
+                        var lookupWrite = GetComponentLookup<EcsTestData>(false);
+                        lookupWrite[entity] = new EcsTestData() {value = GetComponentLookup<EcsTestData>(true)[tde.value1].value};
                     }).Schedule();
                 Dependency.Complete();
             }
@@ -291,7 +289,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }
             }
 
-            public void GetComponentDataFromEntityInEntitiesForEachWithNestedCaptures_ComponentAccessWorks()
+            public void GetComponentLookupInEntitiesForEachWithNestedCaptures_ComponentAccessWorks()
             {
                 var outerCapture = 2;
                 {
@@ -302,10 +300,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         if (HasComponent<EcsTestDataEntity>(entity))
                             outerCapture = 10;
 
-                        var cdfeRead = GetComponentDataFromEntity<EcsTestData>(true);
-                        var val = cdfeRead[tde.value1].value;
-                        var cdfeWrite = GetComponentDataFromEntity<EcsTestData>(false);
-                        cdfeWrite[entity] = new EcsTestData(val * innerCapture * outerCapture);
+                        var lookupRead = GetComponentLookup<EcsTestData>(true);
+                        var val = lookupRead[tde.value1].value;
+                        var lookupWrite = GetComponentLookup<EcsTestData>(false);
+                        lookupWrite[entity] = new EcsTestData(val * innerCapture * outerCapture);
                     }).Run();
                 }
             }
@@ -345,7 +343,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 if (StaticMethod())
                 {
                     return Entities
-                        .WithBurst(FloatMode.Default, FloatPrecision.Standard, true)
+                        .WithBurst()
                         .ForEach((in EcsTestDataEntity tde) =>
                         {
                             if (StaticMethod())
@@ -386,30 +384,30 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void GetComponentThroughGetComponentDataFromEntity_GetsValue([Values] ScheduleType scheduleType)
+        public void GetComponentThroughGetComponentLookup_GetsValue([Values] ScheduleType scheduleType)
         {
-            TestSystem.GetComponentThroughGetComponentDataFromEntity_GetsValue(TestEntity2, scheduleType);
+            TestSystem.GetComponentThroughGetComponentLookup_GetsValue(TestEntity2, scheduleType);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 
         [Test]
-        public void SetComponentThroughGetComponentDataFromEntity_SetsValue([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType)
+        public void SetComponentThroughGetComponentLookup_SetsValue([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType)
         {
-            TestSystem.SetComponentThroughGetComponentDataFromEntity_SetsValue(TestEntity1, scheduleType);
+            TestSystem.SetComponentThroughGetComponentLookup_SetsValue(TestEntity1, scheduleType);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 
         [Test]
-        public void GetComponentThroughGetComponentDataFromEntityPassedToMethod_GetsValue()
+        public void GetComponentThroughGetComponentLookupPassedToMethod_GetsValue()
         {
-            TestSystem.GetComponentThroughGetComponentDataFromEntityPassedToMethod_GetsValue(TestEntity2);
+            TestSystem.GetComponentThroughGetComponentLookupPassedToMethod_GetsValue(TestEntity2);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestDataEntity>(TestEntity1).value0);
         }
 
         [Test]
-        public void SetComponentThroughGetComponentDataFromEntityPassedToMethod_GetsValue()
+        public void SetComponentThroughGetComponentLookupPassedToMethod_GetsValue()
         {
-            TestSystem.SetComponentThroughGetComponentDataFromEntityPassedToMethod_GetsValue(TestEntity1);
+            TestSystem.SetComponentThroughGetComponentLookupPassedToMethod_GetsValue(TestEntity1);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 
@@ -449,9 +447,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void GetComponentSetComponentThroughComponentDataFromEntity_SetsValue()
+        public void GetComponentSetComponent_ThroughComponentLookup_SetsValue()
         {
-            TestSystem.GetComponentSetComponentThroughComponentDataFromEntity_SetsValue();
+            TestSystem.GetComponentSetComponent_ThroughComponentLookup_SetsValue();
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 
@@ -477,9 +475,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void GetComponentDataFromEntityInEntitiesForEachWithNestedCaptures_ComponentAccessWorks()
+        public void GetComponentLookupInEntitiesForEachWithNestedCaptures_ComponentAccessWorks()
         {
-            TestSystem.GetComponentDataFromEntityInEntitiesForEachWithNestedCaptures_ComponentAccessWorks();
+            TestSystem.GetComponentLookupInEntitiesForEachWithNestedCaptures_ComponentAccessWorks();
             Assert.AreEqual(200, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 

@@ -2,9 +2,9 @@ using System;
 using Unity.Build;
 using Unity.Build.Classic;
 
-namespace Unity.Entities
+namespace Unity.Entities.Editor
 {
-    internal class EntityNameBuildPipelineCustomizer: ClassicBuildPipelineCustomizer
+    class EntityNameBuildPipelineCustomizer: ClassicBuildPipelineCustomizer
     {
         public override Type[] UsedComponents { get; } =
         {

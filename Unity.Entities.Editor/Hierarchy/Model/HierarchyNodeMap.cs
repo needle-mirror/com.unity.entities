@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor
     /// This structure has a fixed memory overhead of 8 bytes per entity plus any node data stored.
     /// </remarks>
     /// <typeparam name="T">The hierarchy node data type.</typeparam>
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     unsafe struct HierarchyNodeMap<T> : IDisposable where T : unmanaged
     {
         /// <summary>
@@ -113,7 +113,7 @@ namespace Unity.Entities.Editor
             m_Allocator = allocator;
             m_ValueByEntity = new EntityMapDense<T>(16, allocator);
             m_ValueByHandle = new UnsafeParallelHashMap<HierarchyNodeHandle, T>(16, allocator) {{HierarchyNodeHandle.Root, default}};
-            m_HierarchyNodeMapData = (HierarchyNodeMapData*) UnsafeUtility.Malloc(UnsafeUtility.SizeOf<HierarchyNodeMapData>(), UnsafeUtility.AlignOf<HierarchyNodeMapData>(), allocator);
+            m_HierarchyNodeMapData = (HierarchyNodeMapData*) Memory.Unmanaged.Allocate(UnsafeUtility.SizeOf<HierarchyNodeMapData>(), UnsafeUtility.AlignOf<HierarchyNodeMapData>(), allocator);
             m_HierarchyNodeMapData->ValueByHandleCount = 1;
         }
 
@@ -124,7 +124,7 @@ namespace Unity.Entities.Editor
         {
             m_ValueByEntity.Dispose();
             m_ValueByHandle.Dispose();
-            UnsafeUtility.Free(m_HierarchyNodeMapData, m_Allocator);
+            Memory.Unmanaged.Free(m_HierarchyNodeMapData, m_Allocator);
             m_HierarchyNodeMapData = null;
         }
 

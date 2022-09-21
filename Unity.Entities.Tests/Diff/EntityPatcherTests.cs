@@ -12,9 +12,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_NoChanges()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(0, DstEntityManager.Debug.EntityCount);
             }
@@ -23,7 +23,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_CreateEntityWithTestData()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData));
 
@@ -32,7 +32,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, entityGuid);
                 SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 9 });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(9, GetComponentData<EcsTestData>(DstEntityManager, entityGuid).value);
@@ -41,14 +41,14 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, entityGuid);
                 SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 10 });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(10, GetComponentData<EcsTestData>(DstEntityManager, entityGuid).value);
 
                 // Destroy the entity
                 SrcEntityManager.DestroyEntity(entity);
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
                 Assert.AreEqual(0, DstEntityManager.Debug.EntityCount);
             }
         }
@@ -56,12 +56,12 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_CreateEntityWithPrefabComponent()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(Prefab));
                 SrcEntityManager.SetComponentData(entity, entityGuid);
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
                 Assert.IsTrue(HasComponent<Prefab>(DstEntityManager, entityGuid));
             }
         }
@@ -69,12 +69,12 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_CreateEntityWithDisabledComponent()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(Disabled));
                 SrcEntityManager.SetComponentData(entity, entityGuid);
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
                 Assert.IsTrue(HasComponent<Disabled>(DstEntityManager, entityGuid));
             }
         }
@@ -82,12 +82,12 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_CreateEntityWithPrefabAndDisabledComponent()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(Prefab), typeof(Disabled));
                 SrcEntityManager.SetComponentData(entity, entityGuid);
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
                 Assert.IsTrue(HasComponent<Prefab>(DstEntityManager, entityGuid));
                 Assert.IsTrue(HasComponent<Disabled>(DstEntityManager, entityGuid));
             }
@@ -96,7 +96,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_RemapEntityReferences()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Create extra entity to make sure test doesn't accidentally succeed with no remapping
                 SrcEntityManager.CreateEntity();
@@ -113,7 +113,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(e0, new EcsTestDataEntity {value1 = e1});
                 SrcEntityManager.SetComponentData(e1, new EcsTestDataEntity {value1 = e0});
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid1), GetComponentData<EcsTestDataEntity>(DstEntityManager, entityGuid0).value1);
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid0), GetComponentData<EcsTestDataEntity>(DstEntityManager, entityGuid1).value1);
@@ -123,7 +123,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_UnidentifiedEntityReferenceBecomesNull()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Create extra entity to make sure test doesn't accidentally succeed with no remapping
                 SrcEntityManager.CreateEntity();
@@ -136,7 +136,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.AddComponentData(entity, entityGuid);
                 SrcEntityManager.AddComponentData(entity, new EcsTestDataEntity {value1 = missing});
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // Missing entity has no entityGuid, so the reference becomes null.
                 Assert.AreEqual(Entity.Null, GetComponentData<EcsTestDataEntity>(DstEntityManager, entityGuid).value1);
@@ -146,14 +146,14 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_AddComponent()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
                 SrcEntityManager.AddComponentData(entity, entityGuid);
                 SrcEntityManager.AddComponentData(entity, new EcsTestData { value = 9 });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // Add a component in the source world.
                 SrcEntityManager.AddComponentData(entity, new EcsTestData2(10));
@@ -161,7 +161,7 @@ namespace Unity.Entities.Tests
                 // Mutate the dst world
                 SetComponentData(DstEntityManager, entityGuid, new EcsTestData(-1));
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // Both changes should be present in the output
                 Assert.AreEqual(10, GetComponentData<EcsTestData2>(DstEntityManager, entityGuid).value0);
@@ -172,7 +172,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_RemoveComponent()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
@@ -180,12 +180,12 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.AddComponentData(entity, new EcsTestData { value = 9 });
                 SrcEntityManager.AddComponentData(entity, new EcsTestData2(7));
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 SrcEntityManager.RemoveComponent<EcsTestData>(entity);
                 SetComponentData(DstEntityManager, entityGuid, new EcsTestData2(-1));
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.IsFalse(HasComponent<EcsTestData>(DstEntityManager, entityGuid));
                 Assert.AreEqual(-1, GetComponentData<EcsTestData2>(DstEntityManager, entityGuid).value0);
@@ -197,7 +197,7 @@ namespace Unity.Entities.Tests
         {
             const int count = 3;
 
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuids = stackalloc EntityGuid[count]
                 {
@@ -210,10 +210,10 @@ namespace Unity.Entities.Tests
                 {
                     var entity = SrcEntityManager.CreateEntity();
                     SrcEntityManager.AddComponentData(entity, entityGuids[i]);
-                    SrcEntityManager.AddSharedComponentData(entity, new EcsTestSharedComp {value = i * 2});
+                    SrcEntityManager.AddSharedComponentManaged(entity, new EcsTestSharedComp {value = i * 2});
                 }
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 for (var i = 0; i != count; i++)
                 {
@@ -227,30 +227,30 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_ChangeSharedComponent()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
                 SrcEntityManager.AddComponentData(entity, entityGuid);
                 SrcEntityManager.AddComponent<EcsTestSharedComp>(entity);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
                 var dstEntity = GetEntity(DstEntityManager, entityGuid);
                 Assert.AreEqual(0, DstEntityManager.GetSharedComponentDataIndex<EcsTestSharedComp>(dstEntity));
-                Assert.AreEqual(0, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(dstEntity).value);
+                Assert.AreEqual(0, DstEntityManager.GetSharedComponentManaged<EcsTestSharedComp>(dstEntity).value);
 
-                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedComp {value = 2});
-                PushChanges(differ, DstEntityManager);
-                Assert.AreEqual(2, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(dstEntity).value);
+                SrcEntityManager.SetSharedComponentManaged(entity, new EcsTestSharedComp {value = 2});
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(2, DstEntityManager.GetSharedComponentManaged<EcsTestSharedComp>(dstEntity).value);
 
-                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedComp {value = 3});
-                PushChanges(differ, DstEntityManager);
-                Assert.AreEqual(3, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(dstEntity).value);
+                SrcEntityManager.SetSharedComponentManaged(entity, new EcsTestSharedComp {value = 3});
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(3, DstEntityManager.GetSharedComponentManaged<EcsTestSharedComp>(dstEntity).value);
 
-                SrcEntityManager.SetSharedComponentData(entity, new EcsTestSharedComp {value = 0});
-                PushChanges(differ, DstEntityManager);
+                SrcEntityManager.SetSharedComponentManaged(entity, new EcsTestSharedComp {value = 0});
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
                 Assert.AreEqual(0, DstEntityManager.GetSharedComponentDataIndex<EcsTestSharedComp>(dstEntity));
-                Assert.AreEqual(0, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(dstEntity).value);
+                Assert.AreEqual(0, DstEntityManager.GetSharedComponentManaged<EcsTestSharedComp>(dstEntity).value);
             }
         }
 
@@ -259,7 +259,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_ChangeAppliesToAllPrefabInstances([Values] bool prefabTag)
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Create a prefab in the source world.
                 var entityGuid = CreateEntityGuid();
@@ -273,7 +273,7 @@ namespace Unity.Entities.Tests
                 }
 
                 // Sync to the dst world. At this point the dst world will have a single entity.
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 var dstPrefab = GetEntity(DstEntityManager, entityGuid);
 
@@ -285,7 +285,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(prefab, new EcsTestData(10));
 
                 // Sync to the dst world.
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // The changes should be propagated to all instances.
                 Assert.AreEqual(10, DstEntityManager.GetComponentData<EcsTestData>(dstPrefab).value);
@@ -297,7 +297,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_CreateDynamicBuffer([Values(1, 100)] int bufferLength)
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
@@ -310,7 +310,7 @@ namespace Unity.Entities.Tests
                     buffer.Add(new EcsIntElement {Value = i});
                 }
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 var dstEntity = GetEntity(DstEntityManager, entityGuid);
                 var dstBuffer = DstEntityManager.GetBuffer<EcsIntElement>(dstEntity);
@@ -323,7 +323,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-// TODO: remove UNITY_EDITOR conditional once https://unity3d.atlassian.net/browse/DOTS-3862 is fixed
+// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
 #if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
         [Test]
         [TestCase("Manny")]
@@ -331,14 +331,14 @@ namespace Unity.Entities.Tests
         [TestCase("Jack")]
         public void EntityPatcher_ApplyChanges_DebugNames(string srcName)
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
                 SrcEntityManager.AddComponentData(entity, entityGuid);
                 SrcEntityManager.SetName(entity, srcName);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 var dstEntity = GetEntity(DstEntityManager, entityGuid);
                 var dstName = DstEntityManager.GetName(dstEntity);
@@ -352,7 +352,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_EntityPatchWithMissingTargetDoesNotThrow()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid0 = CreateEntityGuid();
                 var entity0 = SrcEntityManager.CreateEntity();
@@ -362,12 +362,12 @@ namespace Unity.Entities.Tests
                 var entity1 = SrcEntityManager.CreateEntity();
                 SrcEntityManager.AddComponentData(entity1, entityGuid1);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // Create a component with an entity reference
                 SrcEntityManager.AddComponentData(entity1, new EcsTestDataEntity {value1 = entity0});
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     var forward = changes.ForwardChangeSet;
 
@@ -384,7 +384,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_EntityPatchWithMissingValueDoesNotThrow()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid0 = CreateEntityGuid();
                 var entity0 = SrcEntityManager.CreateEntity();
@@ -394,12 +394,12 @@ namespace Unity.Entities.Tests
                 var entity1 = SrcEntityManager.CreateEntity();
                 SrcEntityManager.AddComponentData(entity1, entityGuid1);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // Create a component with an entity reference
                 SrcEntityManager.AddComponentData(entity1, new EcsTestDataEntity {value1 = entity0});
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     var forward = changes.ForwardChangeSet;
 
@@ -416,7 +416,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_EntityPatchWithAmbiguousValueDoesNotThrow()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid0 = CreateEntityGuid();
                 var entity0 = SrcEntityManager.CreateEntity();
@@ -427,12 +427,12 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.AddComponentData(entity1, entityGuid1);
 
                 // Create a component with an entity reference
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // Create a patch
                 SrcEntityManager.AddComponentData(entity1, new EcsTestDataEntity {value1 = entity0});
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     var forward = changes.ForwardChangeSet;
 
@@ -450,7 +450,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_EntityPatchWithAmbiguousTargetDoesNotThrow()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid0 = CreateEntityGuid();
                 var entity0 = SrcEntityManager.CreateEntity();
@@ -460,12 +460,12 @@ namespace Unity.Entities.Tests
                 var entity1 = SrcEntityManager.CreateEntity();
                 SrcEntityManager.AddComponentData(entity1, entityGuid1);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // Create a patch
                 SrcEntityManager.AddComponentData(entity1, new EcsTestDataEntity {value1 = entity0});
 
-                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, SrcWorld.UpdateAllocator.ToAllocator))
                 {
                     var forward = changes.ForwardChangeSet;
 
@@ -483,7 +483,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_NewEntityIsReplicatedIntoExistingPrefabInstances([Values(1, 10)] int instanceCount)
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var rootEntityGuid = CreateEntityGuid();
                 var childEntityGuid = CreateEntityGuid();
@@ -493,7 +493,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.AddComponentData(srcRootEntity, rootEntityGuid);
                 SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcRootEntity).Add(srcRootEntity);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 var dstRootEntity = GetEntity(DstEntityManager, rootEntityGuid);
 
@@ -515,7 +515,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(srcRootEntity, new EcsTestDataEntity {value1 = srcChildEntity});
                 SrcEntityManager.SetComponentData(srcChildEntity, new EcsTestDataEntity {value1 = srcRootEntity});
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 for (var i = 0; i != dstRootInstances.Length; i++)
                 {
@@ -539,7 +539,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_WithChunkData()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var guid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
@@ -554,7 +554,7 @@ namespace Unity.Entities.Tests
                     SrcEntityManager.AddChunkComponentData<EcsTestData2>(entity);
                     SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestData2(3));
 
-                    PushChanges(differ, DstEntityManager);
+                    PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                     dstRootEntity = GetEntity(DstEntityManager, guid);
                     Assert.AreEqual(1, DstEntityManager.GetComponentData<EcsTestData>(dstRootEntity).value);
@@ -566,7 +566,7 @@ namespace Unity.Entities.Tests
                 // Changing Chunk component creates no diff
                 {
                     SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestData2(7));
-                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                         Assert.IsFalse(changes.AnyChanges);
                     }
@@ -575,7 +575,7 @@ namespace Unity.Entities.Tests
                 // Removing chunk component, removes chunk component again
                 {
                     SrcEntityManager.RemoveChunkComponent<EcsTestData2>(entity);
-                    PushChanges(differ, DstEntityManager);
+                    PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
                     Assert.IsFalse(DstEntityManager.HasChunkComponent<EcsTestData2>(dstRootEntity));
                     Assert.AreEqual(0, DstEntityManager.CreateEntityQuery(typeof(ChunkHeader)).CalculateEntityCount());
                 }
@@ -586,7 +586,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_WithChunkData_ManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var guid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
@@ -603,7 +603,7 @@ namespace Unity.Entities.Tests
                     SrcEntityManager.AddChunkComponentData<EcsTestManagedComponent>(entity);
                     SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestManagedComponent() { value = "SomeString" });
 
-                    PushChanges(differ, DstEntityManager);
+                    PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                     dstRootEntity = GetEntity(DstEntityManager, guid);
                     Assert.AreEqual(1, DstEntityManager.GetComponentData<EcsTestData>(dstRootEntity).value);
@@ -618,7 +618,7 @@ namespace Unity.Entities.Tests
                 {
                     SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestData2(7));
                     SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestManagedComponent() { value = "SomeOtherString" });
-                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
                     {
                         Assert.IsFalse(changes.AnyChanges);
                     }
@@ -628,7 +628,7 @@ namespace Unity.Entities.Tests
                 {
                     SrcEntityManager.RemoveChunkComponent<EcsTestData2>(entity);
                     SrcEntityManager.RemoveChunkComponent<EcsTestManagedComponent>(entity);
-                    PushChanges(differ, DstEntityManager);
+                    PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
                     Assert.IsFalse(DstEntityManager.HasChunkComponent<EcsTestData2>(dstRootEntity));
                     Assert.IsFalse(DstEntityManager.HasChunkComponent<EcsTestManagedComponent>(dstRootEntity));
                     Assert.AreEqual(0, DstEntityManager.CreateEntityQuery(typeof(ChunkHeader)).CalculateEntityCount());
@@ -639,7 +639,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_CreateEntityWithTestData_ManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData), typeof(EcsTestManagedComponent));
 
@@ -649,7 +649,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 9 });
                 SrcEntityManager.SetComponentData(entity, new EcsTestManagedComponent { value = "SomeString" });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(9, GetComponentData<EcsTestData>(DstEntityManager, entityGuid).value);
@@ -661,7 +661,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, new EcsTestData { value = 10 });
                 SrcEntityManager.SetComponentData(entity, new EcsTestManagedComponent { value = "SomeOtherString" });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(10, GetComponentData<EcsTestData>(DstEntityManager, entityGuid).value);
@@ -671,7 +671,7 @@ namespace Unity.Entities.Tests
                 // Destroy the entity
                 SrcEntityManager.DestroyEntity(entity);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(0, DstEntityManager.Debug.EntityCount);
             }
@@ -681,7 +681,7 @@ namespace Unity.Entities.Tests
         [DotsRuntimeFixme] // Requires Unity.Properties
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Create extra entity to make sure test doesn't accidentally succeed with no remapping
                 SrcEntityManager.CreateEntity();
@@ -698,7 +698,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(e0, new EcsTestManagedDataEntity { value1 = e1 });
                 SrcEntityManager.SetComponentData(e1, new EcsTestManagedDataEntity { value1 = e0 });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid1), GetManagedComponentData<EcsTestManagedDataEntity>(DstEntityManager, entityGuid0).value1);
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid0), GetManagedComponentData<EcsTestManagedDataEntity>(DstEntityManager, entityGuid1).value1);
@@ -712,7 +712,7 @@ namespace Unity.Entities.Tests
         [DotsRuntimeFixme] // No support for PinGCObject
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponentCollection()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 // Create extra entity to make sure test doesn't accidentally succeed with no remapping
                 SrcEntityManager.CreateEntity();
@@ -729,7 +729,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(e0, new EcsTestManagedDataEntityCollection(new string[] { e1.ToString() }, new Entity[] { e1, e1, e1 }));
                 SrcEntityManager.SetComponentData(e1, new EcsTestManagedDataEntityCollection(new string[] { e0.ToString() }, new Entity[] { e0, e0, e0 }));
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 var c0 = GetManagedComponentData<EcsTestManagedDataEntityCollection>(DstEntityManager, entityGuid0);
                 var c1 = GetManagedComponentData<EcsTestManagedDataEntityCollection>(DstEntityManager, entityGuid1);
@@ -747,7 +747,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_AddComponent_ManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
@@ -755,7 +755,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.AddComponentData(entity, new EcsTestData { value = 9 });
                 SrcEntityManager.AddComponentData(entity, new EcsTestManagedComponent { value = "SomeString" });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // Add a component in the source world.
                 SrcEntityManager.AddComponentData(entity, new EcsTestData2(10));
@@ -765,7 +765,7 @@ namespace Unity.Entities.Tests
                 SetComponentData(DstEntityManager, entityGuid, new EcsTestData(-1));
                 SetManagedComponentData(DstEntityManager, entityGuid, new EcsTestManagedComponent() { value = "YetAnotherString" });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 // Both changes should be present in the output
                 Assert.AreEqual(10, GetComponentData<EcsTestData2>(DstEntityManager, entityGuid).value0);
@@ -780,7 +780,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_RemoveComponent_ManagedComponents()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var entityGuid = CreateEntityGuid();
                 var entity = SrcEntityManager.CreateEntity();
@@ -790,14 +790,14 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.AddComponentData(entity, new EcsTestManagedComponent { value = "SomeString" });
                 SrcEntityManager.AddComponentData(entity, new EcsTestManagedComponent2 { value = "SomeOtherString" });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 SrcEntityManager.RemoveComponent<EcsTestData>(entity);
                 SrcEntityManager.RemoveComponent<EcsTestManagedComponent>(entity);
                 SetComponentData(DstEntityManager, entityGuid, new EcsTestData2(-1));
                 SetManagedComponentData(DstEntityManager, entityGuid, new EcsTestManagedComponent2() { value = "YetAnotherString" });
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.IsFalse(HasComponent<EcsTestData>(DstEntityManager, entityGuid));
                 Assert.IsFalse(HasManagedComponent<EcsTestManagedComponent>(DstEntityManager, entityGuid));
@@ -810,7 +810,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_BlobAssets_CreateEntityWithBlobAssetReferenceSharedComponent()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             using (var blobAssetReference = BlobAssetReference<int>.Create(11))
             using (var blobAssetReference2 = BlobAssetReference<int>.Create(12))
             {
@@ -818,9 +818,9 @@ namespace Unity.Entities.Tests
                 var entityGuid = CreateEntityGuid();
 
                 SrcEntityManager.SetComponentData(entity, entityGuid);
-                SrcEntityManager.AddSharedComponentData(entity, new EcsTestDataBlobAssetRefShared { value = blobAssetReference, value2 = blobAssetReference2});
+                SrcEntityManager.AddSharedComponentManaged(entity, new EcsTestDataBlobAssetRefShared { value = blobAssetReference, value2 = blobAssetReference2});
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(11, GetSharedComponentData<EcsTestDataBlobAssetRefShared>(DstEntityManager, entityGuid).value.Value);
@@ -831,7 +831,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_BlobAssets_CreateEntityWithBlobAssetReferenceClassComponent()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             using (var blobAssetReference = BlobAssetReference<int>.Create(11))
             using (var blobAssetReference2 = BlobAssetReference<int>.Create(12))
             {
@@ -841,7 +841,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, entityGuid);
                 SrcEntityManager.AddComponentData(entity, new EcsTestDataBlobAssetRefClass { value = blobAssetReference, value2 = blobAssetReference2});
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(11, GetManagedComponentData<EcsTestDataBlobAssetRefClass>(DstEntityManager, entityGuid).value.Value);
@@ -853,7 +853,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_BlobAssets_CreateEntityWithBlobAssetReference()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             using (var blobAssetReference = BlobAssetReference<int>.Create(11))
             using (var blobAssetReference2 = BlobAssetReference<int>.Create(12))
             {
@@ -863,7 +863,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity, entityGuid);
                 SrcEntityManager.AddComponentData(entity, new EcsTestDataBlobAssetRef2 { value = blobAssetReference, value2 = blobAssetReference2});
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(11, GetComponentData<EcsTestDataBlobAssetRef2>(DstEntityManager, entityGuid).value.Value);
@@ -874,7 +874,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_LinkedEntityGroups()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var rootEntityGuid = CreateEntityGuid();
                 var childEntityGuid = CreateEntityGuid();
@@ -890,7 +890,7 @@ namespace Unity.Entities.Tests
                 srcLinkedEntityGroup.Add(srcRootEntity);
                 srcLinkedEntityGroup.Add(srcChildEntity);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 var dstRootEntity = GetEntity(DstEntityManager, rootEntityGuid);
                 var dstChildEntity = GetEntity(DstEntityManager, childEntityGuid);
@@ -905,7 +905,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityPatcher_ApplyChanges_LinkedEntityGroups_CombineTwoGroups()
         {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
             {
                 var rootEntityGuid = CreateEntityGuid();
                 var childEntityGuid = CreateEntityGuid();
@@ -920,7 +920,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcChildEntity).Add(srcChildEntity);
 
                 // verify that we have two different groups in the output
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 var dstRootEntity = GetEntity(DstEntityManager, rootEntityGuid);
                 var dstChildEntity = GetEntity(DstEntityManager, childEntityGuid);
@@ -941,7 +941,7 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.RemoveComponent<LinkedEntityGroup>(srcChildEntity);
                 SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcRootEntity).Add(srcChildEntity);
 
-                PushChanges(differ, DstEntityManager);
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
                 {
                     var dstLinkedEntityGroup = DstEntityManager.GetBuffer<LinkedEntityGroup>(dstRootEntity);

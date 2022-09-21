@@ -15,6 +15,9 @@ namespace Unity.Entities.Editor
             const string CenteredMessageElementBase = "centered-message-element";
             public const string CenteredMessageElementTitle = CenteredMessageElementBase + "__title";
             public const string CenteredMessageElementMessage = CenteredMessageElementBase + "__message";
+
+            public const string UnityToolbarMenuArrow = "unity-toolbar-menu__arrow";
+            public const string UnityBaseField = "unity-base-field";
         }
 
         public static class ComponentView
@@ -85,7 +88,6 @@ namespace Unity.Entities.Editor
             const string k_Base = "system-queries-view";
 
             public const string Icon = k_Base + "__icon";
-            public const string Name = k_Base + "__name";
             public const string GoTo = k_Base + "__goto-icon";
         }
 
@@ -168,56 +170,18 @@ namespace Unity.Entities.Editor
             }
         }
 
-        public static class EntityHierarchyWindow
-        {
-            const string k_EntityHierarchyBase = "entity-hierarchy";
-
-            public static class Toolbar
-            {
-                const string k_Base = k_EntityHierarchyBase + "-toolbar";
-                public const string Container = k_Base + "__container";
-                public const string LeftSide = k_Base + "__left";
-                public const string RightSide = k_Base + "__right";
-                public const string SearchField = k_Base + "__search-field";
-            }
-
-            public static class Item
-            {
-                const string k_Base = k_EntityHierarchyBase + "-item";
-
-                public const string SceneNode = k_Base + "__scene-node";
-
-                public const string Icon = k_Base + "__icon";
-                public const string IconScene = Icon + "--scene";
-                public const string IconEntity = Icon + "--entity";
-
-                public const string NameLabel = k_Base + "__name-label";
-                public const string NameScene = NameLabel + "--scene";
-
-                public const string SystemButton = k_Base + "__system-button";
-                public const string PingGameObjectButton = k_Base + "__ping-gameobject-button";
-
-                public const string VisibleOnHover = k_Base + "__visible-on-hover";
-
-                public const string Prefab = k_Base + "--prefab";
-                public const string PrefabRoot = k_Base + "--prefab-root";
-            }
-        }
-
         public static class Hierarchy
         {
             const string k_Hierarchy = "hierarchy";
             public const string Root = k_Hierarchy;
             public const string Loading = k_Hierarchy + "-loading";
-            public const string Footer = k_Hierarchy + "-footer";
+            public const string PrefabStage = k_Hierarchy + "-prefab-stage";
 
             public static class Toolbar
             {
                 const string k_Toolbar = k_Hierarchy + "-toolbar";
-                public const string Container = k_Toolbar + "__container";
                 public const string LeftSide = k_Toolbar + "__left";
                 public const string RightSide = k_Toolbar + "__right";
-                public const string SearchField = k_Toolbar + "__search-field";
             }
 
             public static class Item
@@ -228,20 +192,24 @@ namespace Unity.Entities.Editor
                 public const string Icon = k_Item + "__icon";
                 public const string IconScene = Icon + "--scene";
                 public const string IconEntity = Icon + "--entity";
+                public const string IconGameObject = Icon + "--gameobject";
                 public const string NameLabel = k_Item + "__name-label";
                 public const string SubSceneState = k_Item + "__subscene-state-label";
                 public const string NameScene = NameLabel + "--scene";
                 public const string SystemButton = k_Item + "__system-button";
                 public const string PingGameObjectButton = k_Item + "__ping-gameobject-button";
+                public const string PrefabStageButton = k_Item + "__prefab-stage-button";
                 public const string VisibleOnHover = k_Item + "__visible-on-hover";
                 public const string Prefab = k_Item + "--prefab";
                 public const string PrefabRoot = k_Item + "--prefab-root";
+                public const string RuntimeModeIndent = "runtime";
             }
         }
 
         public static class Inspector
         {
             public const string EntityInspector = "entity-inspector";
+            public const string EmptyMessage = "empty-inspector-label";
 
             public static class EntityHeader
             {
@@ -252,8 +220,12 @@ namespace Unity.Entities.Editor
             {
                 const string k_Base = "inspector-icon";
                 public const string Small = k_Base + "--small";
-                public const string Medium = k_Base + "--medium";
-                public const string Big = k_Base + "--big";
+            }
+
+            public static class RuntimeBar
+            {
+                public const string RuntimeYellowBar = EntityInspector + "__runtime-bar";
+                public const string RuntimeYellowBarAdded = EntityInspector + "__runtime-bar-added";
             }
 
             public static class Component
@@ -263,8 +235,12 @@ namespace Unity.Entities.Editor
                 public const string Header = k_Base + "-header";
                 public const string Name = k_Base + "-name";
                 public const string Icon = k_Base + "-icon";
+                public const string Enabled = k_Base + "-enabled";
                 public const string Category = k_Base + "-category";
                 public const string Menu = k_Base + "-menu";
+                public const string AspectIcon = "aspect-icon";
+                public const string TransformAspectIcon = "transform-aspect-icon";
+                public const string Shrink = "shrink";
             }
 
             public static class ComponentTypes
@@ -278,6 +254,13 @@ namespace Unity.Entities.Editor
                 public const string BufferComponent = "buffer-component" + k_PostFix;
             }
 
+            public static class AspectsTab
+            {
+                const string k_TabBase = EntityInspector + "-aspects-tab";
+                public const string Content = k_TabBase + "__content";
+                public const string ViewAllComponents = k_TabBase + "__view-all-components";
+            }
+
             public static class RelationshipsTab
             {
                 const string k_TabBase = EntityInspector + "-relationships-tab";
@@ -289,6 +272,28 @@ namespace Unity.Entities.Editor
             {
                 const string k_TabBase = EntityInspector + "-components-tab";
                 public const string SearchField = k_TabBase + "__search-field";
+            }
+
+            public static class UnsupportedInspector
+            {
+                public static class Names
+                {
+                    const string k_RootName = "UnsupportedInspector";
+                    public const string Icon = k_RootName + "-ItemIcon";
+                    public const string Name = k_RootName + "-ItemName";
+                    public const string BodyText = k_RootName + "-BodyText";
+                }
+
+                public static class Classes
+                {
+                    const string k_RootClass = "unsupported-inspector";
+                    const string k_RootIcon = k_RootClass + "__item-icon";
+                    public const string EntityIcon = k_RootIcon + "--entity";
+                    public const string GameObjectIcon = k_RootIcon + "--game-object";
+                    public const string PrefabEntityIcon = k_RootIcon + "--prefab-entity";
+                    public const string Button = k_RootClass + "__button";
+                }
+
             }
         }
 
@@ -325,7 +330,6 @@ namespace Unity.Entities.Editor
             {
                 public const string SystemContainer = "system__container";
                 public const string SystemQueriesEmpty = "system-queries__empty";
-                public const string SystemQueriesToggle = "system-queries__toggle";
 
                 public static class SystemIcons
                 {
@@ -359,6 +363,23 @@ namespace Unity.Entities.Editor
                 public const string Text = k_Base + "__text";
                 public const string Input = k_Base + "__input";
             }
+        }
+
+        public static class SearchElement
+        {
+            const string k_Base = "unity-entities";
+
+            public const string Root = k_Base + "__search-element";
+        }
+
+        public static class SearchElementFilterPopup
+        {
+            const string k_Base = "unity-entities";
+
+            public const string Root = k_Base + "__search-element-filter-popup";
+            public const string ChoiceButton = Root + "__choice-button";
+            public const string ChoiceName = Root + "__choice-name";
+            public const string ChoiceToken = Root + "__choice-token";
         }
     }
 }

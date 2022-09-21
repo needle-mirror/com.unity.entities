@@ -14,7 +14,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [SetUp]
         public void SetUp()
         {
-            TestSystem = World.GetOrCreateSystem<TestSystemType>();
+            TestSystem = World.GetOrCreateSystemManaged<TestSystemType>();
         }
 
         struct CanContainDisposedStruct

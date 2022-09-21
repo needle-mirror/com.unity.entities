@@ -166,7 +166,7 @@ namespace Unity.Entities.CodeGen
                 return AlignAndSizeOfType(enumBaseType, bits);
             }
 
-            if (!type.IsValueType)
+            if (!type.IsValueType())
             {
                 // Why not throw? Really should expect this:
                 //throw new ArgumentException($"Type {type} ({type.Name}) was expected to be a value type");
@@ -339,7 +339,7 @@ namespace Unity.Entities.CodeGen
                 {
                     list.Add(offset + in_type_offset);
                 }
-                else if (fieldType.IsValueType && !fieldType.IsPrimitive)
+                else if (fieldType.IsValueType() && !fieldType.IsPrimitive)
                 {
                     GetFieldOffsetsOfRecurse(match, offset + in_type_offset, fieldType, list, bits);
                 }
@@ -434,7 +434,7 @@ namespace Unity.Entities.CodeGen
                     // We found a match to our first fieldName but we now need to look at the next type
                     if (currentFieldIndex < maxFieldIndex)
                     {
-                        if (!(f.FieldType.IsValueType && !f.FieldType.IsPrimitive))
+                        if (!(f.FieldType.IsValueType() && !f.FieldType.IsPrimitive))
                             throw new ArgumentException($"Trying to get the field offset of a primitive type from string '{fieldPath}'. Please confirm your field path string is correct.");
 
                         // Swap in the found field types field list and reset our iteration counter

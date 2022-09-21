@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -6,85 +6,62 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.Entities.SourceGen.Common;
 using Unity.Entities.SourceGen.SystemGenerator;
-using Unity.Entities.SourceGen.SystemGeneratorCommon;
+using InvalidDescriptionException = Unity.Entities.SourceGen.Common.InvalidDescriptionException;
 
 namespace Unity.Entities.SourceGen.LambdaJobs
 {
     // Describes the field in the LambdaJob struct that holds the accessor type for accessing data from entities
-    // (ComponentDataFromEntity, BufferFromEntity)
+    // (ComponentLookup, BufferLookup)
     // These get added as members into the LambdaJob struct.
-    class DataFromEntityFieldDescription
-    {
-        public bool IsReadOnly { get; }
-        public ITypeSymbol Type { get; }
-        public LambdaJobsPatchableMethod.AccessorDataType AccessorDataType { get; }
-        public string FieldName { get; }
-
-        public DataFromEntityFieldDescription(bool isReadOnly, ITypeSymbol type, LambdaJobsPatchableMethod.AccessorDataType accessorDataType)
-        {
-            IsReadOnly = isReadOnly;
-            Type = type;
-            AccessorDataType = accessorDataType;
-            FieldName = $"__{Type.ToValidVariableName()}_FromEntity";;
-        }
-
-        public string JobStructAssign()
-        {
-            return AccessorDataType switch
-            {
-                LambdaJobsPatchableMethod.AccessorDataType.ComponentDataFromEntity =>
-                    $@"{FieldName} = GetComponentDataFromEntity<{Type.ToFullName()}>({(IsReadOnly ? "true" : "")})",
-                LambdaJobsPatchableMethod.AccessorDataType.BufferFromEntity =>
-                    $@"{FieldName} = GetBufferFromEntity<{Type.ToFullName()}>({(IsReadOnly ? "true" : "")})",
-                _ => ""
-            };
-        }
-    }
 
     // Rewrite the original lambda body with a few changes:
     // 1. If we are accessing any methods/fields of our declaring type, make sure it is explicit
-    //   ("this.EntityMananger.DoThing()" instead of "EntityMananger.DoThing()")
+    //   ("this.EntityManager.DoThing()" instead of "EntityManager.DoThing()")
     // 2. Replace all member access with "this" identifiers to "__this" (to access through stored field on job struct)
     // 3. Patch all access through data access through entity methods (GetComponent, SetComponent, etc)
     // 4. Adds trivia for line numbers from original syntax statements
+    // 5. Replace ForEach.Method() and ForEach.Property with either state.Method()/Property or just Method()/Property
+    //    for ISystem or SystemBase, respectively
     sealed class LambdaBodyRewriter
     {
-        Dictionary<ITypeSymbol, DataFromEntityFieldDescription> DataFromEntityFields { get; }
-            = new Dictionary<ITypeSymbol, DataFromEntityFieldDescription>();
+        readonly LambdaJobDescription _lambdaJobDescription;
+        Dictionary<ITypeSymbol, DataLookupFieldDescription> DataLookupFields { get; } = new Dictionary<ITypeSymbol, DataLookupFieldDescription>();
+        public bool NeedsTimeData { get; private set; }
 
-        internal static (SyntaxNode rewrittenLambdaExpression, List<DataFromEntityFieldDescription> additionalFields, List<MethodDeclarationSyntax> methodsForLocalFunctions)
-            Rewrite(LambdaJobDescription description)
+        public LambdaBodyRewriter(LambdaJobDescription lambdaJobDescription)
         {
-            SemanticModel model = description.SemanticModel;
-            SyntaxNode originalLambdaExpression = description.OriginalLambdaExpression;
-            List<LambdaCapturedVariableDescription> variablesCapturedOnlyByLocals = description.VariablesCapturedOnlyByLocals;
+            _lambdaJobDescription = lambdaJobDescription;
+        }
 
-            var lambdaBodyRewriter = new LambdaBodyRewriter();
+        internal (SyntaxNode rewrittenLambdaExpression, List<DataLookupFieldDescription> additionalFields, List<MethodDeclarationSyntax> methodsForLocalFunctions) Rewrite()
+        {
+            var variablesCapturedOnlyByLocals = _lambdaJobDescription.VariablesCapturedOnlyByLocals;
 
             // Find all locations where we are accessing a member on the declaring SystemBase
             // and change them to access through "__this" instead.
             // This also annotates the changed nodes so that we can find them later for patching (and get their original symbols).
-            var rewrittenLambdaBodyData = LambdaBodySyntaxReplacer.Rewrite(model, originalLambdaExpression);
-            var rewrittenLambdaExpression = rewrittenLambdaBodyData.rewrittenLambdaExpression;
+            var replacer  = new LambdaBodySyntaxReplacer(_lambdaJobDescription);
+            var rewrittenLambdaBodyData = replacer.Rewrite();
+            NeedsTimeData = replacer.NeedsTimeData;
+            var rewrittenLambdaExpression = rewrittenLambdaBodyData.rewrittenLambdaExpression; ;
 
             // Go through all changed nodes and check to see if they are a component access method that we need to patch (GetComponent/SetComponent/etc)
             // Only need to do this if we are not doing structural changes (in which case we can't as structural changes will invalidate)
-            if (!description.WithStructuralChanges)
+            if (!_lambdaJobDescription.WithStructuralChanges)
             {
                 var replacedToOriginal = new Dictionary<SyntaxNode, SyntaxNode>(rewrittenLambdaBodyData.thisAccessNodesNeedingReplacement.Count);
                 foreach (var originalNode in rewrittenLambdaBodyData.thisAccessNodesNeedingReplacement)
                 {
-                    var originalInvocation = originalNode.Ancestors().OfType<InvocationExpressionSyntax>().First();
+                    var originalInvocation = originalNode.AncestorOfKind<InvocationExpressionSyntax>();
 
                     var currentNode = rewrittenLambdaExpression.GetCurrentNode(originalNode);
-                    var currentNodeInvocationExpression = currentNode.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
+                    var currentNodeInvocationExpression = currentNode.AncestorOfKindOrDefault<InvocationExpressionSyntax>();
                     if (currentNodeInvocationExpression == null)
                         continue;
                     replacedToOriginal[currentNodeInvocationExpression] = originalInvocation;
                 }
-
                 rewrittenLambdaExpression = rewrittenLambdaExpression.ReplaceNodes(replacedToOriginal.Keys, (node, replacedNode)
-                    => lambdaBodyRewriter.GenerateReplacementMemberAccessExpression(description, replacedToOriginal[node], replacedNode, model) ?? replacedNode);
+                    => CreateDataLookupFields_AndReplaceMemberAccessExpressionNodes(_lambdaJobDescription, replacedToOriginal[node], replacedNode, _lambdaJobDescription.SystemDescription.SemanticModel) ?? replacedNode);
             }
 
             // Go through all local declaration nodes and replace them with assignment nodes (or remove) if they are now captured variables that live in job struct
@@ -119,89 +96,97 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             foreach (var localFunction in localFunctions)
                 methodsForLocalFunctions.Add((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(localFunction.ToString()));
 
-            return (rewrittenLambdaExpression, lambdaBodyRewriter.DataFromEntityFields.Values.ToList(), methodsForLocalFunctions);
+            return (rewrittenLambdaExpression, DataLookupFields.Values.ToList(), methodsForLocalFunctions);
         }
 
-        SyntaxNode GenerateReplacementMemberAccessExpression(LambdaJobDescription description, SyntaxNode originalNode, SyntaxNode replaced, SemanticModel model)
+        SyntaxNode CreateDataLookupFields_AndReplaceMemberAccessExpressionNodes(LambdaJobDescription description, SyntaxNode originalNode, SyntaxNode replaced, SemanticModel model)
         {
-            if (originalNode is InvocationExpressionSyntax originalInvocationNode && replaced is InvocationExpressionSyntax replacedExpression)
+            if (originalNode is InvocationExpressionSyntax originalInvocationNode && replaced is InvocationExpressionSyntax replacedExpression
+                && model.GetSymbolInfo(originalInvocationNode.Expression) is var symbolInfo)
             {
-                if (model.GetSymbolInfo(originalInvocationNode.Expression).Symbol is IMethodSymbol methodSymbol &&
-                    methodSymbol.ContainingType.Is("Unity.Entities.SystemBase") &&
-                    methodSymbol.IsGenericMethod && methodSymbol.TypeArguments.Length == 1)
+                var methodSymbol = symbolInfo.Symbol as IMethodSymbol ?? symbolInfo.CandidateSymbols[0] as IMethodSymbol;
+                if (methodSymbol == null)
+                    return null;
+
+                if (!(methodSymbol.ContainingType.Is("Unity.Entities.SystemBase") || methodSymbol.ContainingType.Is("Unity.Entities.SystemAPI")))
+                    return null;
+
+                if (!LambdaJobsPatchableMethod.PatchableMethods.TryGetValue(methodSymbol.Name, out var patchableMethod))
                 {
-                    var patchMethod = LambdaJobsPatchableMethod.PatchableMethods.FirstOrDefault(patchableMethod => methodSymbol.Name == patchableMethod.UnpatchedMethod);
-                    if (patchMethod != null)
-                    {
-                        var readOnlyAccess = true;
-                        switch (patchMethod.AccessRights)
+                    return null;
+                }
+
+                var readOnlyAccess = true;
+                switch (patchableMethod.AccessRights)
+                {
+                    case LambdaJobsPatchableMethod.ComponentAccessRights.ReadOnly:
+                        readOnlyAccess = true;
+                        break;
+                    case LambdaJobsPatchableMethod.ComponentAccessRights.ReadWrite:
+                        readOnlyAccess = false;
+                        break;
+
+                    // Get read-access from method's param
+                    case LambdaJobsPatchableMethod.ComponentAccessRights.GetFromFirstMethodParam:
+                        if (originalInvocationNode.ArgumentList.Arguments.Count == 0)
                         {
-                            case LambdaJobsPatchableMethod.ComponentAccessRights.ReadOnly:
-                                readOnlyAccess = true;
-                                break;
-                            case LambdaJobsPatchableMethod.ComponentAccessRights.ReadWrite:
-                                readOnlyAccess = false;
-                                break;
-
-                            // Get read-access from method's param
-                            case LambdaJobsPatchableMethod.ComponentAccessRights.GetFromFirstMethodParam:
-                                if (originalInvocationNode.ArgumentList.Arguments.Count == 0)
-                                {
-                                    // Default parameter value for GetComponentFromEntity/GetBufferFromEntity is false (aka `bool isReadOnly = false`)
-                                    readOnlyAccess = false;
-                                }
-                                else
-                                {
-                                    var literalArgument = originalInvocationNode.ArgumentList.Arguments.FirstOrDefault()?.DescendantNodes().OfType<LiteralExpressionSyntax>().FirstOrDefault();
-                                    if (literalArgument != null && description.SemanticModel.GetConstantValue(literalArgument).Value is bool boolValue)
-                                    {
-                                        readOnlyAccess = boolValue;
-                                    }
-                                    else
-                                    {
-                                        LambdaJobsErrors.DC0059(description.SystemGeneratorContext, description.Location, methodSymbol.Name);
-                                        description.Success = false;
-                                        throw new LambdaJobDescription.InvalidDescriptionException();
-                                    }
-                                }
-
-                                break;
+                            // Default parameter value for GetComponentLookup/GetBufferLookup is false (aka `bool isReadOnly = false`)
+                            readOnlyAccess = false;
                         }
-
-                        // If we have read/write access, we can only guaranteed safe access with sequential access (.Run or .Schedule)
-                        if (!readOnlyAccess && description.Schedule.Mode == ScheduleMode.ScheduleParallel)
+                        else
                         {
-                            var patchedMethodTypeArgument = methodSymbol.TypeArguments.First();
-                            SystemGeneratorErrors.DC0063(description.SystemGeneratorContext, description.Location, methodSymbol.Name, patchedMethodTypeArgument.Name);
-                            description.Success = false;
-                            throw new LambdaJobDescription.InvalidDescriptionException();
-                        }
-
-                        // Make sure our componentDataFromEntityField doesn't give write access to a lambda parameter of the same type
-                        // or there is a writable lambda parameter that gives access to this type (either could violate aliasing rules).
-                        foreach (var parameter in description.LambdaParameters)
-                        {
-                            var patchedMethodTypeArgument = methodSymbol.TypeArguments.First();
-                            if (parameter.TypeSymbol.ToFullName() == patchedMethodTypeArgument.ToFullName())
+                            var literalArgument = originalInvocationNode.ArgumentList.Arguments.FirstOrDefault()?.DescendantNodes().OfType<LiteralExpressionSyntax>().FirstOrDefault();
+                            if (literalArgument != null && description.SystemDescription.SemanticModel.GetConstantValue(literalArgument).Value is bool boolValue)
                             {
-                                if (!readOnlyAccess)
-                                {
-                                    LambdaJobsErrors.DC0046(description.SystemGeneratorContext, description.Location, methodSymbol.Name, parameter.TypeSymbol.Name);
-                                    description.Success = false;
-                                    throw new LambdaJobDescription.InvalidDescriptionException();
-                                }
-                                else if (!parameter.QueryTypeIsReadOnly())
-                                {
-                                    LambdaJobsErrors.DC0047(description.SystemGeneratorContext, description.Location, methodSymbol.Name, parameter.TypeSymbol.Name);
-                                    description.Success = false;
-                                    throw new LambdaJobDescription.InvalidDescriptionException();
-                                }
+                                readOnlyAccess = boolValue;
+                            }
+                            else
+                            {
+                                LambdaJobsErrors.DC0059(description.SystemDescription, description.Location, methodSymbol.Name, description.LambdaJobKind);
+                                description.Success = false;
+                                throw new InvalidDescriptionException();
                             }
                         }
 
-                        return patchMethod.GeneratePatchedReplacementSyntax(methodSymbol, this, replacedExpression);
+                        break;
+                }
+
+                // If we have read/write access, we can only guaranteed safe access with sequential access (.Run or .Schedule)
+                if (!readOnlyAccess && description.Schedule.Mode == ScheduleMode.ScheduleParallel)
+                {
+                    var patchedMethodTypeArgument = methodSymbol.TypeArguments.First();
+                    SystemGeneratorErrors.DC0063(description.SystemDescription, description.Location, methodSymbol.Name, patchedMethodTypeArgument.Name);
+                    description.Success = false;
+                    throw new InvalidDescriptionException();
+                }
+
+                // Make sure our ComponentLookupField doesn't give write access to a lambda parameter of the same type
+                // or there is a writable lambda parameter that gives access to this type (either could violate aliasing rules).
+                if (methodSymbol.TypeArguments.Length == 1)
+                {
+                    foreach (var parameter in description.LambdaParameters)
+                    {
+                        var patchedMethodTypeArgument = methodSymbol.TypeArguments.First();
+                        if (parameter.TypeSymbol.ToFullName() != patchedMethodTypeArgument.ToFullName())
+                            continue;
+
+                        if (!readOnlyAccess)
+                        {
+                            LambdaJobsErrors.DC0046(description.SystemDescription, description.Location, methodSymbol.Name, parameter.TypeSymbol.Name, description.LambdaJobKind);
+                            description.Success = false;
+                            throw new InvalidDescriptionException();
+                        }
+
+                        if (!parameter.QueryTypeIsReadOnly())
+                        {
+                            LambdaJobsErrors.DC0047(description.SystemDescription, description.Location, methodSymbol.Name, parameter.TypeSymbol.Name, description.LambdaJobKind);
+                            description.Success = false;
+                            throw new InvalidDescriptionException();
+                        }
                     }
                 }
+
+                return patchableMethod.GeneratePatchedReplacementSyntax(methodSymbol, this, replacedExpression);
             }
 
             return null;
@@ -211,18 +196,18 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         // This will first check if a RW one is available, if that is the case we should use that.
         // If not it will check to see if a RO one is available, use that and promote to RW if needed.
         // Finally, if we don't have one at all, let's create one with the appropriate access rights
-        internal DataFromEntityFieldDescription GetOrCreateDataAccessField(ITypeSymbol type, bool asReadOnly, LambdaJobsPatchableMethod.AccessorDataType patchableMethodDataType)
+        internal DataLookupFieldDescription GetOrCreateDataAccessField(ITypeSymbol type, bool asReadOnly, LambdaJobsPatchableMethod.AccessorDataType patchableMethodDataType)
         {
-            if (DataFromEntityFields.TryGetValue(type, out var result))
+            if (DataLookupFields.TryGetValue(type, out var result))
             {
                 if (result.IsReadOnly && !asReadOnly)
-                    DataFromEntityFields[type] = new DataFromEntityFieldDescription(false, type, patchableMethodDataType);
+                    DataLookupFields[type] = new DataLookupFieldDescription(false, type, patchableMethodDataType);
 
-                return DataFromEntityFields[type];
+                return DataLookupFields[type];
             }
 
-            DataFromEntityFields[type] = new DataFromEntityFieldDescription(asReadOnly, type, patchableMethodDataType);
-            return DataFromEntityFields[type];
+            DataLookupFields[type] = new DataLookupFieldDescription(asReadOnly, type, patchableMethodDataType);
+            return DataLookupFields[type];
         }
     }
 }

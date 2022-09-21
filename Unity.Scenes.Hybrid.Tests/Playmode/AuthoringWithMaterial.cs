@@ -24,15 +24,18 @@ namespace Unity.Scenes.Hybrid.Tests
             return (material != null ? material.GetHashCode() : 0);
         }
     }
-}
 
-[DisallowMultipleComponent]
-public class AuthoringWithMaterial : MonoBehaviour, IConvertGameObjectToEntity
-{
-    public Material material;
-
-    public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+    [DisallowMultipleComponent]
+    public class AuthoringWithMaterial : MonoBehaviour
     {
-        dstManager.AddSharedComponentData(entity, new SharedWithMaterial {material = material});
+        public Material material;
+    }
+
+    public class AuthoringWithMaterialBaker : Baker<AuthoringWithMaterial>
+    {
+        public override void Bake(AuthoringWithMaterial authoring)
+        {
+            AddSharedComponentManaged(GetEntity(authoring), new SharedWithMaterial(){material = authoring.material});
+        }
     }
 }

@@ -3,6 +3,14 @@ using System.ComponentModel;
 
 namespace Unity.Core
 {
+    /// <summary>
+    /// Encapsulates state to measure a <see cref="Unity.Entities.World"/>'s simulation time.
+    /// </summary>
+    /// <remarks>
+    /// This data is most frequently read using <see cref="Unity.Entities.World.Time"/>. It is updated every frame by
+    /// <see cref="Unity.Entities.UpdateWorldTimeSystem"/>. To temporarily override the time values,
+    /// use <see cref="Unity.Entities.World.SetTime"/> or <see cref="Unity.Entities.World.PushTime"/>.
+    /// </remarks>
     public readonly struct TimeData
     {
         /// <summary>
@@ -30,7 +38,10 @@ namespace Unity.Core
 
     #if !UNITY_DOTSRUNTIME
 
-        // This member will be deprecated once a native fixed delta time is introduced in dots.
+        /// <summary>
+        /// Currently, an alias to <see cref="UnityEngine.Time.fixedDeltaTime"/>.
+        /// </summary>
+        /// <remarks>This member will be deprecated once a native fixed delta time is introduced in Unity.Entities.</remarks>
         [EditorBrowsable(EditorBrowsableState.Never)]
         public float fixedDeltaTime => UnityEngine.Time.fixedDeltaTime;
 

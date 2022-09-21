@@ -2,13 +2,15 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Unity.Transforms;
+using Assert = UnityEngine.Assertions.Assert;
 
-#if !NET_DOTS && UNITY_2020_2_OR_NEWER // Regex is not supported in NET_DOTS
+#if !NET_DOTS // Regex is not supported in NET_DOTS
 using System.Text.RegularExpressions;
 #endif
 
@@ -37,7 +39,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
         void Execute(Entity entity, ref T t0, ref Baz baz, NativeArray<Foo> foos);
     }
 
-    public static class TestUtility<TJob, T0> where TJob : struct, IJobCustom<T0> where T0 : struct, IBufferElementData
+    public static class TestUtility<TJob, T0> where TJob : struct, IJobCustom<T0> where T0 : unmanaged, IBufferElementData
     {
         [BurstCompile]
         public struct WrapperJob : IJobChunk
@@ -53,10 +55,13 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
             public EntityTypeHandle entityType;
             public ComponentTypeHandle<Baz> bazType;
             public BufferTypeHandle<T0> t0Type;
-            public bool isReadOnly_T0;
+            public byte isReadOnly_T0;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 var entities = chunk.GetNativeArray(entityType);
                 var bazArray = chunk.GetNativeArray(bazType);
                 var t0Buffers = chunk.GetBufferAccessor(t0Type);
@@ -76,13 +81,28 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
 
                         bazArray[i] = baz;
 
-                        if (!isReadOnly_T0)
+                        if (isReadOnly_T0 == 0)
                         {
                             t0Buffer[iT0] = t0;
                         }
                     }
                 }
             }
+        }
+
+        public static JobHandle Schedule(ref SystemState state, EntityQuery query, JobHandle dependentOn, TJob jobData)
+        {
+            WrapperJob wrapperJob = new WrapperJob
+            {
+                wrappedJob = jobData,
+                foos = new NativeArray<Foo>(10, Allocator.TempJob),
+                entityType = state.EntityManager.GetEntityTypeHandle(),
+                bazType = state.EntityManager.GetComponentTypeHandle<Baz>(false),
+                t0Type = state.EntityManager.GetBufferTypeHandle<T0>(false),
+                isReadOnly_T0 = 0
+            };
+
+            return wrapperJob.ScheduleParallel(query, dependentOn);
         }
 
         public static JobHandle Schedule(CustomSystemBase system, JobHandle dependentOn, TJob jobData)
@@ -110,11 +130,11 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
             WrapperJob wrapperJob = new WrapperJob
             {
                 wrappedJob = jobData,
-                // foos = new NativeArray<Foo>(10, Allocator.TempJob), -- this will just leak and cause test failures. we're just testing that the Schedule() will not work in the first place
+                foos = new NativeArray<Foo>(10, Allocator.TempJob),
                 entityType = system.EntityManager.GetEntityTypeHandle(),
                 bazType = system.EntityManager.GetComponentTypeHandle<Baz>(false),
                 t0Type = system.EntityManager.GetBufferTypeHandle<T0>(false),
-                isReadOnly_T0 = false
+                isReadOnly_T0 = 0
             };
 
             return wrapperJob.ScheduleParallel(query, dependentOn);
@@ -122,7 +142,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
 
         private static Dictionary<Type, ComponentType[]> componentTypesByJobType = new Dictionary<Type, ComponentType[]>();
 
-        private static EntityQuery GetExistingEntityQuery(ComponentSystemBase system)
+        private static unsafe EntityQuery GetExistingEntityQuery(ComponentSystemBase system)
         {
             ComponentType[] componentTypes;
             if (!componentTypesByJobType.TryGetValue(typeof(TJob), out componentTypes))
@@ -130,17 +150,14 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
                 return default;
             }
 
-            using var builder = new EntityQueryDescBuilder(Allocator.Temp);
-            for (var i = 0; i < componentTypes.Length; i++)
+            fixed (ComponentType* componentTypesPtr = componentTypes)
             {
-                builder.AddAll(componentTypes[i]);
-            }
-            builder.FinalizeQuery();
-
-            for (var i = 0; i != system.EntityQueries.Length; i++)
-            {
-                if (system.EntityQueries[i].CompareQuery(builder))
-                    return system.EntityQueries[i];
+                using var builder = new EntityQueryBuilder(Allocator.Temp, componentTypesPtr, componentTypes.Length);
+                for (var i = 0; i != system.EntityQueries.Length; i++)
+                {
+                    if (system.EntityQueries[i].CompareQuery(builder))
+                        return system.EntityQueries[i];
+                }
             }
 
             return default;
@@ -195,22 +212,79 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
         }
     }
 
-// This should work in !NET_DOTS with UNITY_DOTSRUNTIME just fine, but that
-// actually happening is currently WIP - so disable completely in UNITY_DOTSRUNTIME
-// temporarily.
-#if !UNITY_DOTSRUNTIME && UNITY_2020_2_OR_NEWER // Regex is not supported in NET_DOTS (and this is totally broken in DOTS Runtime temporarily)
-//#if !NET_DOTS && UNITY_2020_2_OR_NEWER // Regex is not supported in NET_DOTS
+    [BurstCompile(CompileSynchronously = true)]
+    public partial struct MyISystem : ISystem
+    {
+        EntityQuery query;
+
+        public void OnCreate(ref SystemState state)
+        {
+            // Creating a single entity for testing purposes
+            Entity entity = state.EntityManager.CreateEntity(ComponentType.ReadWrite<Bar>(), ComponentType.ReadWrite<Baz>());
+
+            DynamicBuffer<Bar> barBuffer = state.EntityManager.GetBuffer<Bar>(entity);
+            barBuffer.Add(new Bar { num = 0 });
+
+            query = state.GetEntityQuery(new EntityQueryDesc()
+            {
+                All = new ComponentType[] { ComponentType.ReadOnly<Bar>(), ComponentType.ReadOnly<Baz>() },
+            });
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        public void OnUpdate(ref SystemState state)
+        {
+            state.Dependency = TestUtility<WrappedCustomJob, Bar>.Schedule(ref state, query, state.Dependency, new WrappedCustomJob
+            {
+                toAdd = 10
+            });
+        }
+
+        public void OnDestroy(ref SystemState state)
+        {
+        }
+
+        public struct WrappedCustomJob : IJobCustom<Bar>
+        {
+            public int toAdd;
+
+            public void Execute(Entity entity, ref Bar t0, ref Baz baz, NativeArray<Foo> foos)
+            {
+                // do custom logic here
+                t0.num += toAdd;
+            }
+        }
+    }
+
+    // This should work in !NET_DOTS with UNITY_DOTSRUNTIME just fine, but that
+    // actually happening is currently WIP - so disable completely in UNITY_DOTSRUNTIME
+    // temporarily.
+#if !UNITY_DOTSRUNTIME // Regex is not supported in NET_DOTS (and this is totally broken in DOTS Runtime temporarily)
+    //#if !NET_DOTS // Regex is not supported in NET_DOTS
     public class UserGenericJobCode1 : ECSTestsFixture
     {
         [Test]
-        public void NoReflectionDataForHiddenGenerics()
+        public void ReflectionDataForHiddenGenerics()
         {
-            // This should throw, as we can't pre-make the reflection data for this type of generic job
-            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException: Reflection data"));
-            var repro = World.GetOrCreateSystem<MySystem>();
-            var simulationGroup = World.GetOrCreateSystem<SimulationSystemGroup>();
+            var repro = World.GetOrCreateSystemManaged<MySystem>();
+            var simulationGroup = World.GetOrCreateSystemManaged<SimulationSystemGroup>();
             simulationGroup.AddSystemToUpdateList(repro);
             World.Update();
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void NoReflectionDataForHiddenGenericsInBurst()
+        {
+            // This should throw, as we can't pre-make the reflection data for this type of generic job
+            if (IsBurstEnabled())
+                LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException: Reflection data"));
+            var repro = World.GetOrCreateSystem<MyISystem>();
+            var simulationGroup = World.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            simulationGroup.AddSystemToUpdateList(repro);
+            World.Update();
+            if (!IsBurstEnabled())
+                LogAssert.NoUnexpectedReceived();
         }
     }
 #endif
@@ -223,15 +297,18 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum2
         public int value;
     }
 
-    public static class TestUtility<T> where T : struct, IComponentData
+    public static class TestUtility<T> where T : unmanaged, IComponentData
     {
         [BurstCompile]
         public struct ProcessChunks : IJobChunk
         {
             public ComponentTypeHandle<T> typeHandle;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 for (int i = 0; i < 10000; i++)
                 {
                     var testDataArray = chunk.GetNativeArray(typeHandle);
@@ -267,8 +344,8 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum2
         [Test, DotsRuntimeFixme]
         public void DoesntCrashEditor()
         {
-            var repro = World.GetOrCreateSystem<MySystem>();
-            var simulationGroup = World.GetOrCreateSystem<SimulationSystemGroup>();
+            var repro = World.GetOrCreateSystemManaged<MySystem>();
+            var simulationGroup = World.GetOrCreateSystemManaged<SimulationSystemGroup>();
             simulationGroup.AddSystemToUpdateList(repro);
             World.Update();
         }
@@ -298,7 +375,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
         void Execute(Entity entity, ref T t0, ref Baz baz, NativeArray<Foo> foos);
     }
 
-    public static class TestUtility<TJob, T0> where TJob : struct, IJobCustom<T0> where T0 : struct, IBufferElementData
+    public static class TestUtility<TJob, T0> where TJob : struct, IJobCustom<T0> where T0 : unmanaged, IBufferElementData
     {
         public struct BlahBlah<Q> where Q : unmanaged
         {
@@ -317,10 +394,10 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
                 public EntityTypeHandle entityType;
                 public ComponentTypeHandle<Baz> bazType;
                 public BufferTypeHandle<T0> t0Type;
-                public bool isReadOnly_T0;
+                public byte isReadOnly_T0;
                 public Q stuff;
 
-                public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+                public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
                 {
                     var entities = chunk.GetNativeArray(entityType);
                     var bazArray = chunk.GetNativeArray(bazType);
@@ -341,7 +418,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
 
                             bazArray[i] = baz;
 
-                            if (!isReadOnly_T0)
+                            if (isReadOnly_T0 == 0)
                             {
                                 t0Buffer[iT0] = t0;
                             }
@@ -383,7 +460,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
                     entityType = system.EntityManager.GetEntityTypeHandle(),
                     bazType = system.EntityManager.GetComponentTypeHandle<Baz>(false),
                     t0Type = system.EntityManager.GetBufferTypeHandle<T0>(false),
-                    isReadOnly_T0 = false
+                    isReadOnly_T0 = 0
                 }
             };
 
@@ -392,7 +469,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
 
         private static Dictionary<Type, ComponentType[]> componentTypesByJobType = new Dictionary<Type, ComponentType[]>();
 
-        private static EntityQuery GetExistingEntityQuery(ComponentSystemBase system)
+        private static unsafe EntityQuery GetExistingEntityQuery(ComponentSystemBase system)
         {
             ComponentType[] componentTypes;
             if (!componentTypesByJobType.TryGetValue(typeof(TJob), out componentTypes))
@@ -400,17 +477,14 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
                 return default;
             }
 
-            using var builder = new EntityQueryDescBuilder(Allocator.Temp);
-            for (var i = 0; i < componentTypes.Length; i++)
+            fixed (ComponentType* componentTypesPtr = componentTypes)
             {
-                builder.AddAll(componentTypes[i]);
-            }
-            builder.FinalizeQuery();
-
-            for (var i = 0; i != system.EntityQueries.Length; i++)
-            {
-                if (system.EntityQueries[i].CompareQuery(builder))
-                    return system.EntityQueries[i];
+                using var builder = new EntityQueryBuilder(Allocator.Temp, componentTypesPtr, componentTypes.Length);
+                for (var i = 0; i != system.EntityQueries.Length; i++)
+                {
+                    if (system.EntityQueries[i].CompareQuery(builder))
+                        return system.EntityQueries[i];
+                }
             }
 
             return default;
@@ -470,8 +544,8 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
         [Test]
         public void ReflectionDataForVisibleGenerics()
         {
-            var repro = World.GetOrCreateSystem<MySystem>();
-            var simulationGroup = World.GetOrCreateSystem<SimulationSystemGroup>();
+            var repro = World.GetOrCreateSystemManaged<MySystem>();
+            var simulationGroup = World.GetOrCreateSystemManaged<SimulationSystemGroup>();
             simulationGroup.AddSystemToUpdateList(repro);
             World.Update();
         }
@@ -480,7 +554,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
 
 namespace Unity.Entities.Tests.CustomerProvided.Forum3
 {
-    public abstract partial class CustomSystem<TComponent> : SystemBase where TComponent : struct, IComponentData
+    public abstract partial class CustomSystem<TComponent> : SystemBase where TComponent : unmanaged, IComponentData
     {
         protected interface IProcessor
         {
@@ -492,8 +566,11 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum3
         {
             public TProcessor processor;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 TComponent component = default;
 
                 processor.Execute(ref component);
@@ -509,7 +586,11 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum3
         }
     }
 
+#if !ENABLE_TRANSFORM_V1
+    public class TestSystem : CustomSystem<LocalToWorldTransform>
+#else
     public class TestSystem : CustomSystem<Translation>
+#endif
     {
         protected override void OnUpdate()
         {
@@ -520,7 +601,11 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum3
 
         struct TestProcessor : IProcessor
         {
+#if !ENABLE_TRANSFORM_V1
+            public void Execute(ref LocalToWorldTransform transform)
+#else
             public void Execute(ref Translation translation)
+#endif
             {
             }
         }
@@ -531,7 +616,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum3
         [Test]
         public void ReflectionDataForVisibleGenerics()
         {
-            var repro = World.GetOrCreateSystem<TestSystem>();
+            var repro = World.GetOrCreateSystemManaged<TestSystem>();
             repro.Update();
         }
     }

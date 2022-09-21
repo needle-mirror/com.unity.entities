@@ -10,7 +10,6 @@ namespace Unity.Entities.SourceGen.SystemGeneratorCommon
         bool RequiresReferenceToBurst { get; }
 
         void OnReceiveSyntaxNode(SyntaxNode node);
-        bool GenerateSystemType(SystemGeneratorContext systemGeneratorContext);
-        bool ShouldRun(ParseOptions parseOptions);
+        bool RegisterChangesInSystem(SystemDescription systemDescription);
     }
 }

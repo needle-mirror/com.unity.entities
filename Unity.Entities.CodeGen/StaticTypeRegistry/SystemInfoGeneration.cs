@@ -10,29 +10,95 @@ using ParameterAttributes = Mono.Cecil.ParameterAttributes;
 using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.TypeGenInfo>;
 using SystemList = System.Collections.Generic.List<Mono.Cecil.TypeDefinition>;
 using Unity.Cecil.Awesome;
+using static Unity.Entities.CodeGen.MonoExtensions;
 
 namespace Unity.Entities.CodeGen
 {
     internal partial class StaticTypeRegistryPostProcessor : EntitiesILPostProcessor
     {
-        public List<bool> GetSystemIsGroupList(List<TypeReference> systems)
+        public List<int> GetSystemTypeFlagsList(List<TypeReference> systems)
         {
-            var inGroup = systems.Select(s => s.Resolve().IsChildTypeOf(AssemblyDefinition.MainModule.ImportReference(typeof(ComponentSystemGroup)).Resolve())).ToList();
+            var inGroup = systems.Select(s =>
+            {
+                var flags = 0;
+                var resolvedSystemType = s.Resolve();
+                if (resolvedSystemType
+                    .IsChildTypeOf(AssemblyDefinition.MainModule.ImportReference(typeof(ComponentSystemGroup))
+                        .Resolve()))
+                    flags |= TypeManager.SystemTypeInfo.kIsSystemGroupFlag;
+                var unused1 = false;
+                var unused2 = false;
+                if (s.IsManagedType(ref unused1, ref unused2))
+                    flags |= TypeManager.SystemTypeInfo.kIsSystemManagedFlag;
+
+                if (s.TypeImplements(typeof(ISystemStartStop)))
+                    flags |= TypeManager.SystemTypeInfo.kIsSystemISystemStartStopFlag;
+                return flags;
+            }).ToList();
             return inGroup;
         }
 
-        int GetFilterFlag(TypeDefinition typeDef)
+        static WorldSystemFilterFlags GetChildDefaultFilterFlag(TypeDefinition typeDef)
+        {
+            var flags =  WorldSystemFilterFlags.Default;
+            var filterFlagsAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(WorldSystemFilterAttribute) && ca.ConstructorArguments.Count >= 2);
+            if(filterFlagsAttribute != null)
+            {
+                // override the default value if flags are provided
+                flags = (WorldSystemFilterFlags) filterFlagsAttribute.ConstructorArguments[1].Value;
+            }
+            else if (typeDef.BaseType != null) // Traverse the hierarchy to fetch a flags from an ancestor if we can't find one on this type
+                flags = (WorldSystemFilterFlags) GetChildDefaultFilterFlag(typeDef.BaseType.Resolve());
+            return flags;
+        }
+        static WorldSystemFilterFlags GetParentGroupDefaultFilterFlags(TypeDefinition typeDef)
+        {
+            var baseTypeDef = typeDef;
+            List<CustomAttribute> groupAttributes = new List<CustomAttribute>();
+            while (baseTypeDef != null)
+            {
+                groupAttributes.Add(baseTypeDef.CustomAttributes.Where(ca => ca.AttributeType.Name == nameof(UpdateInGroupAttribute) && ca.ConstructorArguments.Count == 1));
+                baseTypeDef = baseTypeDef.BaseType?.Resolve();
+            }
+            if (groupAttributes.Count == 0)
+            {
+                // Fallback default
+                return WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation;
+            }
+
+            WorldSystemFilterFlags systemFlags = default;
+            foreach (var uig in groupAttributes)
+            {
+                var groupTypeDef = ((TypeReference)uig.ConstructorArguments[0].Value).Resolve();
+                var groupFlags = GetChildDefaultFilterFlag(groupTypeDef);
+                if ((groupFlags & WorldSystemFilterFlags.Default) != 0)
+                {
+                    groupFlags &= ~WorldSystemFilterFlags.Default;
+                    groupFlags |= GetParentGroupDefaultFilterFlags(groupTypeDef);
+                }
+                systemFlags |= groupFlags;
+            }
+            return systemFlags;
+        }
+
+        int GetFilterFlag(TypeDefinition typeDef, bool isBase = false)
         {
             // If no flags are given we assume the default world
             var flags =  WorldSystemFilterFlags.Default;
-            var filterFlagsAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(WorldSystemFilterAttribute) && ca.ConstructorArguments.Count == 1);
+            var filterFlagsAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(WorldSystemFilterAttribute) && ca.ConstructorArguments.Count >= 1);
             if(filterFlagsAttribute != null)
             {
                 // override the default value if flags are provided
                 flags = (WorldSystemFilterFlags) filterFlagsAttribute.ConstructorArguments[0].Value;
             }
             else if (typeDef.BaseType != null) // Traverse the hierarchy to fetch a flags from an ancestor if we can't find one on this type
-                flags = (WorldSystemFilterFlags) GetFilterFlag(typeDef.BaseType.Resolve());
+                flags = (WorldSystemFilterFlags) GetFilterFlag(typeDef.BaseType.Resolve(), true);
+
+            if (!isBase && (flags & WorldSystemFilterFlags.Default) != 0)
+            {
+                flags &= ~WorldSystemFilterFlags.Default;
+                flags |= GetParentGroupDefaultFilterFlags(typeDef);
+            }
 
             if(typeDef.HasAttribute("UnityEngine.ExecuteAlways"))
                 flags |= WorldSystemFilterFlags.Editor;
@@ -258,7 +324,7 @@ namespace Unity.Entities.CodeGen
 
             foreach (var sysRef in systems)
             {
-                if (sysRef.IsValueType)
+                if (sysRef.IsValueType())
                     continue;
 
                 var sysDef = sysRef.Resolve();

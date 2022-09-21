@@ -1,4 +1,4 @@
-namespace Unity.Properties.UI.Internal
+namespace Unity.Platforms.UI
 {
     class DynamicInspectionContext : InspectionContext
     {

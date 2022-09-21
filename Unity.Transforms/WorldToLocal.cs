@@ -1,9 +1,14 @@
 using System;
+using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+
+#if !ENABLE_TRANSFORM_V1
+#else
 
 namespace Unity.Transforms
 {
@@ -19,26 +24,31 @@ namespace Unity.Transforms
     }
 
     [BurstCompile]
+    [RequireMatchingQueriesForUpdate]
     public partial struct WorldToLocalSystem : ISystem
     {
         private EntityQuery m_Query;
+        ComponentTypeHandle<LocalToWorld> m_LocalToWorldTypeHandle;
+        ComponentTypeHandle<WorldToLocal> m_WorldToLocalTypeHandle;
 
         [BurstCompile]
-        struct ToWorldToLocal : IJobEntityBatch
+        struct ToWorldToLocal : IJobChunk
         {
             [ReadOnly] public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandle;
             public ComponentTypeHandle<WorldToLocal> WorldToLocalTypeHandle;
             public uint LastSystemVersion;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                if (!batchInChunk.DidChange(LocalToWorldTypeHandle, LastSystemVersion))
+                Assert.IsFalse(useEnabledMask);
+
+                if (!chunk.DidChange(LocalToWorldTypeHandle, LastSystemVersion))
                     return;
 
-                var chunkLocalToWorld = batchInChunk.GetNativeArray(LocalToWorldTypeHandle);
-                var chunkWorldToLocal = batchInChunk.GetNativeArray(WorldToLocalTypeHandle);
+                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldTypeHandle);
+                var chunkWorldToLocal = chunk.GetNativeArray(WorldToLocalTypeHandle);
 
-                for (int i = 0; i < batchInChunk.Count; i++)
+                for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
                 {
                     var localToWorld = chunkLocalToWorld[i].Value;
                     chunkWorldToLocal[i] = new WorldToLocal {Value = math.inverse(localToWorld)};
@@ -46,19 +56,17 @@ namespace Unity.Transforms
             }
         }
 
-        //burst disabled pending burstable entityquerydesc
-        //[BurstCompile]
+        [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            m_Query = state.GetEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]
-                {
-                    typeof(WorldToLocal),
-                    ComponentType.ReadOnly<LocalToWorld>(),
-                },
-                Options = EntityQueryOptions.FilterWriteGroup
-            });
+            var builder = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<WorldToLocal>()
+                .WithAll<LocalToWorld>()
+                .WithOptions(EntityQueryOptions.FilterWriteGroup);
+            m_Query = state.GetEntityQuery(builder);
+
+            m_LocalToWorldTypeHandle = state.GetComponentTypeHandle<LocalToWorld>(true);
+            m_WorldToLocalTypeHandle = state.GetComponentTypeHandle<WorldToLocal>();
         }
 
         [BurstCompile]
@@ -66,19 +74,21 @@ namespace Unity.Transforms
         {
         }
 
-        //disabling burst in dotsrt until burstable scheduling works
-#if !UNITY_DOTSRUNTIME
         [BurstCompile]
-#endif
         public void OnUpdate(ref SystemState state)
         {
+            m_LocalToWorldTypeHandle.Update(ref state);
+            m_WorldToLocalTypeHandle.Update(ref state);
+
             var toWorldToLocalJob = new ToWorldToLocal
             {
-                LocalToWorldTypeHandle = state.GetComponentTypeHandle<LocalToWorld>(true),
-                WorldToLocalTypeHandle = state.GetComponentTypeHandle<WorldToLocal>(),
+                LocalToWorldTypeHandle = m_LocalToWorldTypeHandle,
+                WorldToLocalTypeHandle = m_WorldToLocalTypeHandle,
                 LastSystemVersion = state.LastSystemVersion
             };
             state.Dependency = toWorldToLocalJob.ScheduleParallel(m_Query, state.Dependency);
         }
     }
 }
+
+#endif

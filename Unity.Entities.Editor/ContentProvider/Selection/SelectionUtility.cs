@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Unity.Properties.UI.Internal;
+using Unity.Platforms.UI;
 using UnityEditor;
 
-namespace Unity.Properties.UI
+namespace Unity.Platforms.UI
 {
     /// <summary>
     /// Provides entry points into displaying arbitrary content in editor windows or in the inspector.
@@ -68,6 +68,7 @@ namespace Unity.Properties.UI
         /// <param name="options">The options used to configure the host <see cref="UnityEditor.EditorWindow"/></param>
         /// <exception cref="ArgumentNullException">The content cannot be <see langword="null"/>.</exception>
         /// <typeparam name="T">The typeof the content. Must be default constructable.</typeparam>
+        /// <returns>Returns the new window</returns>
         public static EditorWindow ShowInWindow<T>(T content, ContentWindowParameters options)
             where T : ContentProvider, new()
         {
@@ -90,6 +91,7 @@ namespace Unity.Properties.UI
         /// </summary>
         /// <param name="content">The <see cref="UnityEngine.Object"/> to display.</param>
         /// <exception cref="ArgumentNullException">The content cannot be <see langword="null"/>.</exception>
+        /// <returns>Returns the new window</returns>
         public static EditorWindow ShowInWindow(UnityEngine.Object content)
         {
             return ShowInWindow(content, ContentWindowParameters.Default);
@@ -101,6 +103,7 @@ namespace Unity.Properties.UI
         /// <param name="content">The <see cref="UnityEngine.Object"/> to display.</param>
         /// <param name="options">The options used to configure the host <see cref="UnityEditor.EditorWindow"/></param>
         /// <exception cref="ArgumentNullException">The content cannot be <see langword="null"/>.</exception>
+        /// <returns>Returns the new window</returns>
         public static EditorWindow ShowInWindow(UnityEngine.Object content, ContentWindowParameters options)
         {
             if (null == content || !content)

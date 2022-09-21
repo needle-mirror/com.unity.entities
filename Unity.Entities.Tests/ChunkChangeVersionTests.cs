@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -222,7 +223,7 @@ namespace Unity.Entities.Tests
             BumpGlobalSystemVersion();
 
             // Individual Entity not changed in place.
-            m_Manager.SetSharedComponentData(e1, new EcsTestSharedComp(7));
+            m_Manager.SetSharedComponentManaged(e1, new EcsTestSharedComp(7));
 
             AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
             AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
@@ -238,8 +239,8 @@ namespace Unity.Entities.Tests
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
 
-            m_Manager.SetSharedComponentData(e0, new EcsTestSharedComp(1));
-            m_Manager.SetSharedComponentData(e1, new EcsTestSharedComp(2));
+            m_Manager.SetSharedComponentManaged(e0, new EcsTestSharedComp(1));
+            m_Manager.SetSharedComponentManaged(e1, new EcsTestSharedComp(2));
 
             var chunk0 = m_Manager.GetChunk(e0);
             var chunk1 = m_Manager.GetChunk(e1);
@@ -264,8 +265,8 @@ namespace Unity.Entities.Tests
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
 
-            m_Manager.SetSharedComponentData(e0, new EcsTestSharedComp(1));
-            m_Manager.SetSharedComponentData(e1, new EcsTestSharedComp(2));
+            m_Manager.SetSharedComponentManaged(e0, new EcsTestSharedComp(1));
+            m_Manager.SetSharedComponentManaged(e1, new EcsTestSharedComp(2));
 
             var chunk0 = m_Manager.GetChunk(e0);
             var chunk1 = m_Manager.GetChunk(e1);
@@ -338,7 +339,7 @@ namespace Unity.Entities.Tests
 
             BumpGlobalSystemVersion();
 
-            m_Manager.AddSharedComponentData(m_Manager.UniversalQuery, new SharedData1(5));
+            m_Manager.AddSharedComponentManaged(m_Manager.UniversalQuery, new SharedData1(5));
 
             AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
             AssetHasSharedChangeVersion<SharedData1>(e0, NewVersion);
@@ -375,7 +376,7 @@ namespace Unity.Entities.Tests
             BumpGlobalSystemVersion();
 
             // Individual Entity not changed in place.
-            m_Manager.AddSharedComponentData(e0, new SharedData1(5));
+            m_Manager.AddSharedComponentManaged(e0, new SharedData1(5));
 
             AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
             AssetHasSharedChangeVersion<SharedData1>(e0, NewVersion);
@@ -495,7 +496,7 @@ namespace Unity.Entities.Tests
 
             BumpGlobalSystemVersion();
 
-            m_Manager.AddSharedComponentData(e1, new EcsTestSharedComp {value = 2});
+            m_Manager.AddSharedComponentManaged(e1, new EcsTestSharedComp {value = 2});
 
             AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
             AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
@@ -514,7 +515,7 @@ namespace Unity.Entities.Tests
 
             BumpGlobalSystemVersion();
 
-            m_Manager.AddSharedComponentData(e1, new EcsTestSharedComp {value = 2});
+            m_Manager.AddSharedComponentManaged(e1, new EcsTestSharedComp {value = 2});
 
             AssetHasChangeVersion<EcsTestManagedComponent>(e0, OldVersion);
             AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
@@ -535,8 +536,11 @@ namespace Unity.Entities.Tests
             [ReadOnly] public BufferTypeHandle<EcsIntElement> EcsIntElementTypeHandle;
             [NativeDisableUnsafePtrRestriction] public int* Count;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 var buffer = chunk.GetBufferAccessor(EcsIntElementTypeHandle);
                 *Count = buffer.Length;
             }
@@ -568,10 +572,13 @@ namespace Unity.Entities.Tests
 
         struct MyChunk : IJobChunk
         {
-            public Unity.Entities.ComponentTypeHandle<EcsTestData> Value;
+            public ComponentTypeHandle<EcsTestData> Value;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 chunk.GetNativeArray(Value);
             }
         }
@@ -585,7 +592,7 @@ namespace Unity.Entities.Tests
 
             var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
             var job = new MyChunk {Value = m_Manager.GetComponentTypeHandle<EcsTestData>(false)};
-            var jobHandle = job.Schedule(query);
+            var jobHandle = job.ScheduleParallel(query, default);
 
             m_Manager.Debug.SetGlobalSystemVersion(2);
 

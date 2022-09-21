@@ -67,15 +67,16 @@ public unsafe class BurstDelegateTest
     }
 
     [Test]
+#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
     [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
+#endif
     public void CompileMissingBurstCompile()
     {
         Assert.Throws<InvalidOperationException>(() => BurstCompiler.CompileFunctionPointer<DoThingDelegate>(DoThingMissingBurstCompile));
     }
 
-#if UNITY_2020_1_OR_NEWER
     [BurstCompile]
-    private struct DivideByZeroJob : IJobBurstSchedulable
+    private struct DivideByZeroJob : IJob
     {
         [NativeDisableUnsafePtrRestriction]
         public int I;
@@ -109,5 +110,4 @@ public unsafe class BurstDelegateTest
         funcPtr.Invoke(ref job);
         Assert.AreEqual(job.I, 1);
     }
-#endif
 }

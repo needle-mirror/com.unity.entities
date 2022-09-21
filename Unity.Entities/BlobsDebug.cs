@@ -7,7 +7,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.DebugProxies
 {
-    readonly unsafe struct BlobAssetReferenceProxy<T> where T : struct
+    readonly unsafe struct BlobAssetReferenceProxy<T> where T : unmanaged
     {
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private readonly object m_Root;

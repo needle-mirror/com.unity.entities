@@ -18,7 +18,6 @@
 .hierarchy-item__column-2
 {
     flex-direction: row;
-    padding-right: 4px;
 }
 
 .hierarchy-item__icon
@@ -38,6 +37,11 @@
 .hierarchy-item__icon--entity
 {
     background-image: var(--entity-icon);
+}
+
+.hierarchy-item__icon--gameobject
+{
+    background-image: var(--gameobject);
 }
 
 .hierarchy-item__subscene-state-label
@@ -106,6 +110,12 @@
     background-image: var(--entity-icon--selected);
 }
 
+.unity-list-view:focus .unity-list-view__item:checked .hierarchy-item__icon--gameobject,
+.unity-tree-view:focus .unity-tree-view__item:checked .hierarchy-item__icon--gameobject
+{
+    background-image: var(--gameobject--selected);
+}
+
 .unity-list-view:focus .unity-list-view__item:checked .hierarchy-item__system-button,
 .unity-tree-view:focus .unity-tree-view__item:checked .hierarchy-item__system-button
 {
@@ -140,9 +150,32 @@
 {
     background-image: var(--prefab-entity-icon);
 }
+.hierarchy-item--prefab-root .hierarchy-item__icon--gameobject
+{
+    background-image: var(--prefab-gameobject-icon);
+}
 
 .unity-list-view:focus .unity-list-view__item:checked .hierarchy-item--prefab-root .hierarchy-item__icon--entity,
 .unity-tree-view:focus .unity-tree-view__item:checked .hierarchy-item--prefab-root .hierarchy-item__icon--entity
 {
     background-image: var(--prefab-entity-icon--selected);
+}
+.unity-list-view:focus .unity-list-view__item:checked .hierarchy-item--prefab-root .hierarchy-item__icon--gameobject,
+.unity-tree-view:focus .unity-tree-view__item:checked .hierarchy-item--prefab-root .hierarchy-item__icon--gameobject
+{
+    background-image: var(--prefab-gameobject-icon--selected);
+}
+
+.hierarchy-item__prefab-stage-button
+{
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    margin-left: 2px;
+    background-image: var(--arrow-navigation-right);
+}
+
+.hierarchy-item__prefab-stage-button:hover
+{
+    background-color: var(--prefab-stage-back-button-hover-color);
 }

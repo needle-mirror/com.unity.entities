@@ -1,11 +1,15 @@
-﻿using System;
+using System.Runtime.InteropServices;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
+
+#if !NET_DOTS
+
 namespace Unity.Entities.Tests
 {
-    class EntityDebugProxyTests : ECSTestsFixture
+    partial class EntityDebugProxyTests : ECSTestsFixture
     {
+        public static World WorldForTest;
         static Entity CreateEntity(EntityManager em)
         {
             var entity = em.CreateEntity();
@@ -13,10 +17,12 @@ namespace Unity.Entities.Tests
 
             em.AddComponentData(entity, new EcsTestData(1));
             em.AddBuffer<EcsIntElement>(entity).Add(2);
-            em.AddSharedComponentData(entity, new EcsTestSharedComp{value = 3});
+            em.AddSharedComponentManaged(entity, new EcsTestSharedComp{value = 3});
             #if !UNITY_DISABLE_MANAGED_COMPONENTS
             em.AddComponentData(entity, new EcsTestManagedComponent(){ value = "boing" });
             #endif
+
+            WorldForTest = em.World;
 
             return entity;
         }
@@ -32,61 +38,55 @@ namespace Unity.Entities.Tests
             return default;
         }
 
-        #if NET_DOTS
-        static object[] GetArrayOf<T>(object[] array)
-        {
-            for (int i = 0; i != array.Length; i++)
-            {
-                if (array[i] is object[] arr && arr.Length > 0)
-                {
-                    if (arr[0].GetType() == typeof(T))
-                        return arr;
-                }
-            }
-
-            return default;
-        }
-        #endif
-
-        static void CheckEntity(Entity entity)
+        static void CheckEntity(Entity entity, bool partOfSystem)
         {
             #if !DOTS_DISABLE_DEBUG_NAMES
-                Assert.AreEqual("'Test' Entity(0:1) Test World", EntityDebugProxy.GetDebugName(entity.Index, entity.Version));
+            var expectedName = "'Test' Entity(0:1)";
             #else
-                Assert.AreEqual("'' Entity(0:1) Test World", EntityDebugProxy.GetDebugName(entity.Index, entity.Version));
+            var expectedName = "'' Entity(0:1)";
             #endif
+            Assert.AreEqual(expectedName +  " Test World", EntityDebugProxy.GetDebugName(entity.Index, entity.Version));
+
             var proxy = new EntityDebugProxy(entity);
             var components = proxy.Components;
             #if !UNITY_DISABLE_MANAGED_COMPONENTS
-            Assert.AreEqual(4, components.Length);
+            Assert.AreEqual(5, components.Length); // +1 for Simulate
             #else
-            Assert.AreEqual(3, components.Length);
+            Assert.AreEqual(4, components.Length); // +1 for Simulate
             #endif
+
+            Assert.AreEqual(default(Simulate), Get<Simulate>(proxy.Components));
 
             Assert.AreEqual(1, Get<EcsTestData>(proxy.Components).value);
 
-            #if !NET_DOTS
             Assert.AreEqual(1, Get<EcsIntElement[]>(proxy.Components).Length);
             Assert.AreEqual(2, Get<EcsIntElement[]>(proxy.Components)[0].Value);
-            #else
-            // in NET_DOTS, we can't construct an array of the appropriate type, so it shows up
-            // as object[].  We hack around it so that we can still verify the internal values.
-            Assert.AreEqual(1, GetArrayOf<EcsIntElement>(proxy.Components).Length);
-            Assert.AreEqual(2, ((EcsIntElement) GetArrayOf<EcsIntElement>(proxy.Components)[0]).Value);
-            #endif
 
             Assert.AreEqual(3, Get<EcsTestSharedComp>(proxy.Components).value);
 
             #if !UNITY_DISABLE_MANAGED_COMPONENTS
             Assert.AreEqual("boing", Get<EcsTestManagedComponent>(proxy.Components).value);
             #endif
+
+            var entityManagerDebug = new EntityManagerDebugView(proxy.World.EntityManager);
+
+            var entities = entityManagerDebug.Entities;
+            Assert.AreEqual(1 + (partOfSystem ? 1 : 0), entities.Length);
+            Assert.AreEqual(expectedName, entities[0].ToString());
+            Assert.AreEqual(WorldForTest, entities[0].World);
+
+            Assert.AreEqual(1 + (partOfSystem ? 1 : 0), entityManagerDebug.ArchetypesUsed.Length);
+            Assert.AreEqual(proxy.Archetype, entityManagerDebug.ArchetypesUsed[0]);
+            var testAccess = entityManagerDebug.NumEntities;
         }
 
         [Test]
         public void TestEntityDebugProxyComponents()
         {
             var entity = CreateEntity(m_Manager);
-            CheckEntity(entity);
+            CheckEntity(entity, false);
+
+            Assert.AreEqual(4, Marshal.SizeOf(typeof(EcsTestData)));
         }
 
         struct Job : IJob
@@ -96,7 +96,7 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-                CheckEntity(Entity);
+                CheckEntity(Entity, false);
                 Success.Value = true;
             }
         }
@@ -115,6 +115,65 @@ namespace Unity.Entities.Tests
             job.Success.Dispose();
         }
 
+        partial class CheckDebugProxyFromEntitiesForEach : SystemBase
+        {
+            public NativeReference<bool> Reference = new NativeReference<bool>(false, Allocator.Persistent);
+
+            protected override void OnDestroy()
+            {
+                Reference.Dispose();
+            }
+
+            protected override void OnUpdate()
+            {
+                var referenceValue = Reference;
+                Entities.WithoutBurst().WithNativeDisableParallelForRestriction(referenceValue).ForEach((Entity entity, ref EcsTestData outputValue) =>
+                {
+                    CheckEntity(entity, true);
+                    referenceValue.Value = true;
+                }).ScheduleParallel();
+            }
+        }
+
+        [Test]
+        public void AccessDebugProxyFromSystem()
+        {
+            CreateEntity(m_Manager);
+            var system = World.CreateSystemManaged<CheckDebugProxyFromEntitiesForEach>();
+            system.Update();
+
+            system.EntityManager.CompleteAllTrackedJobs();
+            Assert.IsTrue(system.Reference.Value);
+        }
+
+        [Test]
+        unsafe public void EntityQueryVisualizerEnableBits()
+        {
+            var entityDisabled = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entityDisabled, false);
+            var entityEnabled = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var enabledEnabled2 = m_Manager.CreateEntity(typeof(EcsTestData2), typeof(EcsTestDataEnableable));
+
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+            var debug = new EntityQueryDebugView(query);
+            var matchingEntities = debug.MatchingEntities;
+            Assert.AreEqual(2, matchingEntities.Length);
+            Assert.AreEqual(new Entity_(World, entityEnabled, false).ToString(), matchingEntities[0].ToString());
+            Assert.AreEqual(new Entity_(World, enabledEnabled2, false).ToString(), matchingEntities[1].ToString());
+
+            matchingEntities = new EntityQueryDebugView(m_Manager.UniversalQuery).MatchingEntities;
+            Assert.AreEqual(3, matchingEntities.Length);
+            Assert.AreEqual(new Entity_(World, entityDisabled, false).ToString(), matchingEntities[0].ToString());
+            Assert.AreEqual(new Entity_(World, entityEnabled, false).ToString(), matchingEntities[1].ToString());
+            Assert.AreEqual(new Entity_(World, enabledEnabled2, false).ToString(), matchingEntities[2].ToString());
+
+            query.Dispose();
+            Assert.AreEqual(null, debug.MatchingEntities);
+            Assert.AreEqual(null, debug.MatchingChunks);
+        }
+
+
         partial class CheckDebugProxyWorldSystem : SystemBase
         {
             protected override void OnUpdate()
@@ -129,10 +188,77 @@ namespace Unity.Entities.Tests
         {
             var world = new World("TestWorld2");
 
-            world.GetOrCreateSystem<CheckDebugProxyWorldSystem>().Update();
-            World.GetOrCreateSystem<CheckDebugProxyWorldSystem>().Update();
+            world.GetOrCreateSystemManaged<CheckDebugProxyWorldSystem>().Update();
+            World.GetOrCreateSystemManaged<CheckDebugProxyWorldSystem>().Update();
 
             world.Dispose();
         }
+
+
+        partial class DebugSystemBaseWithVariable : SystemBase
+        {
+            public int Value;
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+        partial struct DebugISystemWithVariable : ISystem
+        {
+            public int Value;
+            public void OnCreate(ref SystemState state)
+            {
+
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+            }
+        }
+
+        [Test]
+        public void SystemDebugVisualization()
+        {
+            var system = World.CreateSystemManaged<DebugSystemBaseWithVariable>();
+            system.Value = 5;
+
+            var systemDebugView = new SystemDebugView(system);
+            var debugObject = (DebugSystemBaseWithVariable) systemDebugView.UserData;
+
+            Assert.AreEqual(5, debugObject.Value);
+            Assert.AreEqual(typeof(DebugSystemBaseWithVariable),systemDebugView.Type);
+            Assert.AreEqual(nameof(DebugSystemBaseWithVariable),systemDebugView.ToString());
+            Assert.AreEqual(World,systemDebugView.SystemState.EntityManager.World);
+        }
+
+        [Test]
+        public unsafe void ISystemDebugVisualization()
+        {
+            var system = World.CreateSystem<DebugISystemWithVariable>();
+            World.Unmanaged.GetUnsafeSystemRef<DebugISystemWithVariable>(system).Value = 5;
+
+            var systemDebugView = new SystemDebugView(system);
+            var debugObject = (DebugISystemWithVariable) systemDebugView.UserData;
+
+            Assert.AreEqual(5, debugObject.Value);
+            Assert.AreEqual(typeof(DebugISystemWithVariable),systemDebugView.Type);
+            Assert.AreEqual(nameof(DebugISystemWithVariable),systemDebugView.ToString());
+            Assert.AreEqual(World,systemDebugView.SystemState.EntityManager.World);
+        }
+
+        [Test]
+        public void DoesntIncludeMetaChunkEntities()
+        {
+            // Meta chunk entities can be found by viewing an entity with a chunk component
+            m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestData>());
+            var debugView = new EntityManagerDebugView(m_Manager);
+            Assert.AreEqual(1, debugView.Entities.Length);
+        }
     }
 }
+
+#endif

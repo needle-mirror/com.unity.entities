@@ -1,19 +1,22 @@
+// TODO: convert tests over to use/compare with foreach and IJobEntity
+// DOTS-6252
+#if FALSE
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests.ForEachCodegen
 {
     [TestFixture]
     public unsafe partial class ForEachISystemTests : ECSTestsFixture
     {
-        Entity TestEntity;
-        Entity DisabledEntity;
+        internal static Entity TestEntity;
+        internal static Entity DisabledEntity;
 
         [SetUp]
         public void SetUp()
         {
-            World.GetOrCreateSystem<MyTestSystem>();
+            World.GetOrCreateSystem<ForEachISystemTestsSystem>();
 
             var myArch = m_Manager.CreateArchetype(
                 ComponentType.ReadWrite<EcsTestData>(),
@@ -24,235 +27,256 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 ComponentType.ReadWrite<EcsTestTag>());
 
             TestEntity = m_Manager.CreateEntity(myArch);
-            m_Manager.SetComponentData(TestEntity, new EcsTestData() { value = 3});
-            m_Manager.SetComponentData(TestEntity, new EcsTestData2() { value0 = 4});
+            m_Manager.SetComponentData(TestEntity, new EcsTestData { value = 3});
+            m_Manager.SetComponentData(TestEntity, new EcsTestData2 { value0 = 4});
             var buffer = m_Manager.GetBuffer<EcsIntElement>(TestEntity);
-            buffer.Add(new EcsIntElement() {Value = 18});
-            buffer.Add(new EcsIntElement() {Value = 19});
-            m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp() { value = 5 });
-            m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp2() { value0 = 11, value1 = 13 });
+            buffer.Add(new EcsIntElement {Value = 18});
+            buffer.Add(new EcsIntElement {Value = 19});
+            m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp { value = 5 });
+            m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp2 { value0 = 11, value1 = 13 });
 
             DisabledEntity = m_Manager.CreateEntity(typeof(Disabled), typeof(EcsTestData3));
         }
 
-        SystemRef<MyTestSystem> GetTestSystemRef() => World.GetExistingSystem<MyTestSystem>();
-        ref SystemState GetSystemStateRef(SystemRef<MyTestSystem> testSystemRef) =>
-            ref UnsafeUtility.AsRef<SystemState>(World.Unmanaged.ResolveSystemState(testSystemRef));
+        SystemRef<ForEachISystemTestsSystem> GetTestSystemRef() => World.GetExistingSystem<ForEachISystemTestsSystem>();
 
-        void AssertNothingChanged() => Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
-
-
-        [Test]
-        public void SimplestCase()
+        ref SystemState GetSystemStateRef(SystemRef<ForEachISystemTestsSystem> testSystemRef)
         {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            testSystemRef.Struct.SimplestCase(ref systemStateRef);
-            Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+            var statePtr = World.Unmanaged.ResolveSystemState(testSystemRef);
+            if (statePtr == null)
+                throw new System.InvalidOperationException("No system state exists any more for this SystemRef");
+            return ref *statePtr;
         }
 
         [Test]
-        public void WithTagComponent()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            testSystemRef.Struct.WithTagComponent(ref systemStateRef);
-            Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
-        }
+        public void SimplestCase([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.SimplestCase(ref GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
 
         [Test]
-        public void WithNone()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            testSystemRef.Struct.WithNone(ref systemStateRef);
-            AssertNothingChanged();
-        }
+        public void WithTagComponent([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.WithTagComponent(ref GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
 
         [Test]
-        public void WithAny_DoesntExecute_OnEntityWithoutThatComponent()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            testSystemRef.Struct.WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref systemStateRef);
-            AssertNothingChanged();
-        }
+        public void WithNone([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.WithNone(ref GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
 
         [Test]
-        public void WithAllSharedComponent()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            testSystemRef.Struct.WithAllSharedComponentData(ref systemStateRef);
-            Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
-        }
+        public void WithAny_DoesntExecute_OnEntityWithoutThatComponent([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
 
         [Test]
-        public void StoresEntityQueryInField()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            var entityCountFromQuery = testSystemRef.Struct.m_StoredQuery.CalculateEntityCount();
-            var entityCountFromJob = testSystemRef.Struct.StoresEntityQueryInField(ref systemStateRef);
-
-            Assert.AreEqual(entityCountFromQuery, entityCountFromJob);
-        }
+        public void WithAllSharedComponent([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.WithAllSharedComponentData(ref GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
 
         [Test]
-        public void WithEntityQueryOption_DisabledEntity()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            var entity = testSystemRef.Struct.WithEntityQueryOption_DisabledEntity(ref systemStateRef);
-            Assert.AreEqual(DisabledEntity, entity);
-        }
+        public void StoresEntityQueryInField([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.StoresEntityQueryInField(ref GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
 
         [Test]
-        public void AddToDynamicBuffer()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            testSystemRef.Struct.AddToDynamicBuffer(ref systemStateRef);
-            var buffer = m_Manager.GetBuffer<EcsIntElement>(TestEntity);
-            Assert.AreEqual(3, buffer.Length);
-            CollectionAssert.AreEqual(new[] {18, 19, 4}, buffer.Reinterpret<int>().AsNativeArray());
-        }
+        public void WithEntityQueryOption_DisabledEntity([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.WithEntityQueryOption_DisabledEntity(ref GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
 
         [Test]
-        public void ModifyDynamicBuffer()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            testSystemRef.Struct.ModifyDynamicBuffer(ref systemStateRef);
-            var buffer = m_Manager.GetBuffer<EcsIntElement>(TestEntity);
-            CollectionAssert.AreEqual(new[] {18 * 2, 19 * 2}, buffer.Reinterpret<int>().AsNativeArray());
-        }
+        public void WithEntityQueryOption_DisabledAndPrefabEntity() => GetTestSystemRef().Struct.WithEntityQueryOption_DisabledAndPrefabEntity(ref GetSystemStateRef(GetTestSystemRef()));
 
         [Test]
-        public void IterateExistingDynamicBufferReadOnly()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
-
-            testSystemRef.Struct.IterateExistingDynamicBufferReadOnly(ref systemStateRef);
-            Assert.AreEqual(18 + 19, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
-        }
+        public void DynamicBufferNoWarnings() => GetTestSystemRef().Struct.DynamicBufferNoWarnings(ref GetSystemStateRef(GetTestSystemRef()));
 
         [Test]
-        public void DisposeNativeArray_DisposesAtEnd()
-        {
-            var testSystemRef = GetTestSystemRef();
-            ref var systemStateRef = ref GetSystemStateRef(testSystemRef);
+        public void AddToDynamicBuffer([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.AddToDynamicBuffer(ref GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
 
-            var testArray = new NativeArray<int>(100, Allocator.Temp);
-            var isCreated = false;
+        [Test]
+        public void ModifyDynamicBuffer([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.ModifyDynamicBuffer(ref  GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
 
-            isCreated = testSystemRef.Struct.DisposeNativeArray(ref systemStateRef, testArray);
-            Assert.IsFalse(isCreated);
-        }
+        [Test]
+        public void IterateExistingDynamicBufferReadOnly([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.IterateExistingDynamicBufferReadOnly(ref  GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
+
+        [Test]
+        public void DisposeNativeArray_DisposesAtEnd([Values] bool useSystemStateForEach) => GetTestSystemRef().Struct.DisposeNativeArray(ref GetSystemStateRef(GetTestSystemRef()), useSystemStateForEach);
+
+        [Test]
+        public void ForEach_EntityParameter_NoWarnings() => GetTestSystemRef().Struct.ForEach_EntityParameter_NoWarnings(ref  GetSystemStateRef(GetTestSystemRef()));
+
     }
 
-    partial struct MyTestSystem : ISystem
+    partial struct ForEachISystemTestsSystem : ISystem
     {
-        public EntityQuery m_StoredQuery;
+        EntityQuery m_StoredQuery;
 
         public void OnCreate(ref SystemState state) {}
         public void OnDestroy(ref SystemState state) {}
         public void OnUpdate(ref SystemState state) {}
 
-        public void SimplestCase(ref SystemState systemState)
+        public void SimplestCase(ref SystemState systemState, bool useSystemStateForEach)
         {
-            systemState.Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0; }).Schedule();
+            if (useSystemStateForEach)
+                systemState.Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0; }).Schedule();
+            else
+                systemState.Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0; }).Schedule();
             systemState.Dependency.Complete();
+            Assert.AreEqual(7, systemState.EntityManager.GetComponentData<EcsTestData>(ForEachISystemTests.TestEntity).value);
         }
 
-        public void WithTagComponent(ref SystemState systemState)
+        public void WithTagComponent(ref SystemState systemState, bool useSystemStateForEach)
         {
-            systemState.Entities.ForEach((ref EcsTestData e1, ref EcsTestTag e2) => { e1.value = 5; }).Schedule();
+            if (useSystemStateForEach)
+                systemState.Entities.ForEach((ref EcsTestData e1, ref EcsTestTag e2) => { e1.value = 5; }).Schedule();
+            else
+                systemState.Entities.ForEach((ref EcsTestData e1, ref EcsTestTag e2) => { e1.value = 5; }).Schedule();
             systemState.Dependency.Complete();
+            Assert.AreEqual(5, systemState.EntityManager.GetComponentData<EcsTestData>(ForEachISystemTests.TestEntity).value);
         }
 
-        public void WithNone(ref SystemState systemState)
-        {
-            var one = 1;
-            systemState.Entities
-                .WithNone<EcsTestData2>()
-                .ForEach((ref EcsTestData e1) => { e1.value += one; })
-                .Schedule();
-            systemState.Dependency.Complete();
-        }
-
-        public void WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref SystemState systemState)
+        public void WithNone(ref SystemState systemState, bool useSystemStateForEach)
         {
             var one = 1;
-            systemState.Entities
-                .WithAny<EcsTestData3>()
-                .ForEach((ref EcsTestData e1) => { e1.value += one; })
-                .Schedule();
+            if (useSystemStateForEach)
+                systemState.Entities
+                    .WithNone<EcsTestData2>()
+                    .ForEach((ref EcsTestData e1) => { e1.value += one; })
+                    .Schedule();
+            else
+                systemState.Entities
+                    .WithNone<EcsTestData2>()
+                    .ForEach((ref EcsTestData e1) => { e1.value += one; })
+                    .Schedule();
             systemState.Dependency.Complete();
+            Assert.AreEqual(3, systemState.EntityManager.GetComponentData<EcsTestData>(ForEachISystemTests.TestEntity).value);
         }
 
-        public void WithAllSharedComponentData(ref SystemState systemState)
+        public void WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref SystemState systemState, bool useSystemStateForEach)
         {
             var one = 1;
-            systemState.Entities
-                .WithAll<EcsTestSharedComp>()
-                .ForEach((ref EcsTestData e1) => { e1.value += one; })
-                .Schedule();
+            if (useSystemStateForEach)
+                systemState.Entities
+                    .WithAny<EcsTestData3>()
+                    .ForEach((ref EcsTestData e1) => { e1.value += one; })
+                    .Schedule();
+            else
+                systemState.Entities
+                    .WithAny<EcsTestData3>()
+                    .ForEach((ref EcsTestData e1) => { e1.value += one; })
+                    .Schedule();
             systemState.Dependency.Complete();
+            Assert.AreEqual(3, systemState.EntityManager.GetComponentData<EcsTestData>(ForEachISystemTests.TestEntity).value);
         }
 
-        public int StoresEntityQueryInField(ref SystemState systemState)
+        public void WithAllSharedComponentData(ref SystemState systemState, bool useSystemStateForEach)
+        {
+            var one = 1;
+            if (useSystemStateForEach)
+                systemState.Entities
+                    .WithAll<EcsTestSharedComp>()
+                    .ForEach((ref EcsTestData e1) => { e1.value += one; })
+                    .Schedule();
+            else
+                systemState.Entities
+                    .WithAll<EcsTestSharedComp>()
+                    .ForEach((ref EcsTestData e1) => { e1.value += one; })
+                    .Schedule();
+            systemState.Dependency.Complete();
+            Assert.AreEqual(4, systemState.EntityManager.GetComponentData<EcsTestData>(ForEachISystemTests.TestEntity).value);
+        }
+
+        public void StoresEntityQueryInField(ref SystemState systemState, bool useSystemStateForEach)
         {
             var count = 0;
-            systemState.Entities
-                .WithStoreEntityQueryInField(ref m_StoredQuery)
-                .ForEach((ref EcsTestData e1) => { count++; })
-                .Run();
+            if (useSystemStateForEach)
+                systemState.Entities
+                    .WithStoreEntityQueryInField(ref m_StoredQuery)
+                    .ForEach((ref EcsTestData e1) => { count++; })
+                    .Run();
+            else
+                systemState.Entities
+                    .WithStoreEntityQueryInField(ref m_StoredQuery)
+                    .ForEach((ref EcsTestData e1) => { count++; })
+                    .Run();
 
-            return count;
+            Assert.AreEqual(m_StoredQuery.CalculateEntityCount(), count);
         }
 
-        public Entity WithEntityQueryOption_DisabledEntity(ref SystemState systemState)
+        public void WithEntityQueryOption_DisabledEntity(ref SystemState systemState, bool useSystemStateForEach)
         {
             Entity disabledEntity = default;
-            systemState.Entities
-                .WithEntityQueryOptions(EntityQueryOptions.IncludeDisabled)
-                .ForEach((Entity entity, in EcsTestData3 data3) => { disabledEntity = entity; })
-                .Run();
+            if (useSystemStateForEach)
+                systemState.Entities
+                    .WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities)
+                    .ForEach((Entity entity, in EcsTestData3 data3) => { disabledEntity = entity; })
+                    .Run();
+            else
+                systemState.Entities
+                    .WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities)
+                    .ForEach((Entity entity, in EcsTestData3 data3) => { disabledEntity = entity; })
+                    .Run();
             systemState.Dependency.Complete();
-            return disabledEntity;
+
+            Assert.AreEqual(ForEachISystemTests.DisabledEntity, disabledEntity);
         }
 
-        public void AddToDynamicBuffer(ref SystemState systemState)
+        private EntityQuery _IncludeDisabledAndPrefabTests;
+        public void WithEntityQueryOption_DisabledAndPrefabEntity(ref SystemState systemState)
         {
             systemState.Entities
-                .ForEach((ref EcsTestData e1, ref DynamicBuffer<EcsIntElement> buf) =>
+                    .WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                    .WithStoreEntityQueryInField( ref _IncludeDisabledAndPrefabTests)
+                    .ForEach((Entity entity) => { })
+                    .Run();
+
+            Assert.AreEqual(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab, _IncludeDisabledAndPrefabTests.GetEntityQueryDesc().Options);
+        }
+
+        public void DynamicBufferNoWarnings(ref SystemState systemState)
+        {
+            systemState.Entities
+                .ForEach((DynamicBuffer<EcsIntElement> buf) =>
                 {
                     buf.Add(4);
                 })
                 .Schedule();
+
             systemState.Dependency.Complete();
+
+            LogAssert.NoUnexpectedReceived();
         }
 
-        public void ModifyDynamicBuffer(ref SystemState systemState)
+        public void AddToDynamicBuffer(ref SystemState systemState, bool useSystemStateForEach)
         {
-            systemState.Entities
-                .ForEach((ref EcsTestData e1, ref DynamicBuffer<EcsIntElement> buf) =>
-                {
-                    for (int i = 0; i < buf.Length; ++i) buf[i] = buf[i].Value * 2;
-                })
-                .Schedule();
+            if (useSystemStateForEach)
+                systemState.Entities
+                    .ForEach((ref EcsTestData e1, ref DynamicBuffer<EcsIntElement> buf) =>
+                    {
+                        buf.Add(4);
+                    })
+                    .Schedule();
+            else
+                systemState.Entities
+                    .ForEach((ref EcsTestData e1, ref DynamicBuffer<EcsIntElement> buf) =>
+                    {
+                        buf.Add(4);
+                    })
+                    .Schedule();
+
             systemState.Dependency.Complete();
+
+            var buffer = systemState.EntityManager.GetBuffer<EcsIntElement>(ForEachISystemTests.TestEntity);
+            Assert.AreEqual(3, buffer.Length);
+            CollectionAssert.AreEqual(new[] {18, 19, 4}, buffer.Reinterpret<int>().AsNativeArray());
+        }
+
+        public void ModifyDynamicBuffer(ref SystemState systemState, bool useSystemStateForEach)
+        {
+            if (useSystemStateForEach)
+                systemState.Entities
+                    .ForEach((ref EcsTestData e1, ref DynamicBuffer<EcsIntElement> buf) =>
+                    {
+                        for (int i = 0; i < buf.Length; ++i) buf[i] = buf[i].Value * 2;
+                    })
+                    .Schedule();
+            else
+                systemState.Entities
+                    .ForEach((ref EcsTestData e1, ref DynamicBuffer<EcsIntElement> buf) =>
+                    {
+                        for (int i = 0; i < buf.Length; ++i) buf[i] = buf[i].Value * 2;
+                    })
+                    .Schedule();
+
+            systemState.Dependency.Complete();
+
+            var buffer = systemState.EntityManager.GetBuffer<EcsIntElement>(ForEachISystemTests.TestEntity);
+            CollectionAssert.AreEqual(new[] {18 * 2, 19 * 2}, buffer.Reinterpret<int>().AsNativeArray());
         }
 
         static int SumOfBufferElements(DynamicBuffer<EcsIntElement> buf)
@@ -263,29 +287,59 @@ namespace Unity.Entities.Tests.ForEachCodegen
             return total;
         }
 
-        public void IterateExistingDynamicBufferReadOnly(ref SystemState systemState)
+        public void IterateExistingDynamicBufferReadOnly(ref SystemState systemState, bool useSystemStateForEach)
         {
-            systemState.Entities
-                .ForEach((ref EcsTestData e1, in DynamicBuffer<EcsIntElement> buf) =>
-                {
-                    e1.value = SumOfBufferElements(buf);
-                })
-                .Schedule();
+            if (useSystemStateForEach)
+                systemState.Entities
+                    .ForEach((ref EcsTestData e1, in DynamicBuffer<EcsIntElement> buf) =>
+                    {
+                        e1.value = SumOfBufferElements(buf);
+                    })
+                    .Schedule();
+            else
+                systemState.Entities
+                    .ForEach((ref EcsTestData e1, in DynamicBuffer<EcsIntElement> buf) =>
+                    {
+                        e1.value = SumOfBufferElements(buf);
+                    })
+                    .Schedule();
             systemState.Dependency.Complete();
+
+            Assert.AreEqual(18 + 19, systemState.EntityManager.GetComponentData<EcsTestData>(ForEachISystemTests.TestEntity).value);
         }
 
-        public bool DisposeNativeArray(ref SystemState systemState, NativeArray<int> testArray)
+        public void ForEach_EntityParameter_NoWarnings(ref SystemState systemState)
         {
-            systemState.Entities
-                .WithReadOnly(testArray)
-                .WithDisposeOnCompletion(testArray)
-                .ForEach((Entity entity) =>
-                {
-                    var length = testArray.Length;
-                })
-                .Run();
+            systemState.Entities.ForEach((Entity entity) => {}).Run();
+#if !UNITY_DOTSRUNTIME
+            LogAssert.NoUnexpectedReceived();
+#endif
+        }
+        public void DisposeNativeArray(ref SystemState systemState, bool useSystemStateForEach)
+        {
+            var testArray = new NativeArray<int>(100, Allocator.Temp);
 
-            return testArray.IsCreated;
+            if (useSystemStateForEach)
+                systemState.Entities
+                    .WithReadOnly(testArray)
+                    .WithDisposeOnCompletion(testArray)
+                    .ForEach((Entity entity) =>
+                    {
+                        var length = testArray.Length;
+                    })
+                    .Run();
+            else
+                systemState.Entities
+                    .WithReadOnly(testArray)
+                    .WithDisposeOnCompletion(testArray)
+                    .ForEach((Entity entity) =>
+                    {
+                        var length = testArray.Length;
+                    })
+                    .Run();
+
+            Assert.IsFalse(testArray.IsCreated);
         }
     }
 }
+#endif

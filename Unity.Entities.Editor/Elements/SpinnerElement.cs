@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    public class SpinnerElement : VisualElement
+    class SpinnerElement : VisualElement
     {
         /// <summary>
         /// Instantiates a <see cref="SpinnerElement"/> using the data read from a UXML file.

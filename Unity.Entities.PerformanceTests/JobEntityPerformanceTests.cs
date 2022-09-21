@@ -1,6 +1,8 @@
-﻿#if !SYSTEM_SOURCEGEN_DISABLED
+#if !SYSTEM_SOURCEGEN_DISABLED
 
 using NUnit.Framework;
+using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities.Tests;
 using Unity.Jobs;
@@ -10,8 +12,25 @@ using static Unity.Entities.PerformanceTests.PerformanceTestHelpers;
 
 namespace Unity.Entities.PerformanceTests
 {
+    [NoAlias]
+    [BurstCompile(FloatPrecision.Standard, FloatMode.Default, CompileSynchronously = true)]
+    struct EcsTestSetComponentValueTo10Chunk_BaseLine : IJobChunk
+    {
+        public ComponentTypeHandle<EcsTestData> EcsTestDataRW;
+
+        public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+        {
+            Assert.IsFalse(useEnabledMask);
+            var data = chunk.GetNativeArray(EcsTestDataRW);
+            for (int i = 0; i < chunk.Count; i++)
+            {
+                data[i] = new EcsTestData {value = 10};
+            }
+        }
+    }
+
     [Category("Performance")]
-    public partial class JobEntityPerformanceTests : EntitiesTestsFixture
+    internal partial class JobEntityPerformanceTests : EntitiesTestsFixture
     {
         public partial class JobEntityTestComponentSystem : SystemBase
         {
@@ -32,13 +51,13 @@ namespace Unity.Entities.PerformanceTests
                     case ScheduleType.ScheduleParallel:
                     {
                         var job = new EcsTestUpdateOneComponentJob();
-                        Dependency = job.ScheduleParallel();
+                        Dependency = job.ScheduleParallel(Dependency);
                         break;
                     }
                     case ScheduleType.Schedule:
                     {
                         var job = new EcsTestUpdateOneComponentJob();
-                        Dependency = job.Schedule();
+                        Dependency = job.Schedule(Dependency);
                         break;
                     }
                 }
@@ -59,13 +78,13 @@ namespace Unity.Entities.PerformanceTests
                     case ScheduleType.ScheduleParallel:
                     {
                         var job = new EcsTestUpdateTwoComponentsJob();
-                        Dependency = job.ScheduleParallel();
+                        Dependency = job.ScheduleParallel(Dependency);
                         break;
                     }
                     case ScheduleType.Schedule:
                     {
                         var job = new EcsTestUpdateTwoComponentsJob();
-                        Dependency = job.Schedule();
+                        Dependency = job.Schedule(Dependency);
                         break;
                     }
                 }
@@ -86,13 +105,13 @@ namespace Unity.Entities.PerformanceTests
                     case ScheduleType.ScheduleParallel:
                     {
                         var job = new EcsTestUpdateThreeComponentsJob();
-                        Dependency = job.ScheduleParallel();
+                        Dependency = job.ScheduleParallel(Dependency);
                         break;
                     }
                     case ScheduleType.Schedule:
                     {
                         var job = new EcsTestUpdateThreeComponentsJob();
-                        Dependency = job.Schedule();
+                        Dependency = job.Schedule(Dependency);
                         break;
                     }
                 }
@@ -113,13 +132,13 @@ namespace Unity.Entities.PerformanceTests
                     case ScheduleType.ScheduleParallel:
                     {
                         var job = new EcsTestUpdateOneComponentWithValuesFromOtherComponentsJob();
-                        Dependency = job.ScheduleParallel();
+                        Dependency = job.ScheduleParallel(Dependency);
                         break;
                     }
                     case ScheduleType.Schedule:
                     {
                         var job = new EcsTestUpdateOneComponentWithValuesFromOtherComponentsJob();
-                        Dependency = job.Schedule();
+                        Dependency = job.Schedule(Dependency);
                         break;
                     }
                 }
@@ -165,7 +184,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp) }
                 });
-                query.SetSharedComponentFilter(new EcsTestSharedComp {value = 10});
+                query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 10});
                 var job = new EcsTestSetComponentValueTo10();
                 var jobHandle = job.ScheduleParallel(query, dependsOn);
                 return jobHandle;
@@ -179,7 +198,7 @@ namespace Unity.Entities.PerformanceTests
                     {
                         All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp) }
                     });
-                    query.SetSharedComponentFilter(new EcsTestSharedComp {value = 10});
+                    query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 10});
                     var job = new EcsTestSetComponentValueTo10();
                     var jobHandle = job.ScheduleParallel(query, dependsOn);
                     return jobHandle;
@@ -190,14 +209,14 @@ namespace Unity.Entities.PerformanceTests
                     {
                         All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestSharedComp) }
                     });
-                    query.SetSharedComponentFilter(new EcsTestSharedComp {value = 10});
+                    query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 10});
                     var job = new EcsTestSetComponentValueTo10();
                     var jobHandle = job.ScheduleParallel(query, dependsOn);
                     return jobHandle;
                 }
             }
         }
-        protected JobEntityTestComponentSystem JobEntityTestSystem => World.GetOrCreateSystem<JobEntityTestComponentSystem>();
+        protected JobEntityTestComponentSystem JobEntityTestSystem => World.GetOrCreateSystemManaged<JobEntityTestComponentSystem>();
 
         [Test, Performance]
         [Category("Performance")]
@@ -207,7 +226,7 @@ namespace Unity.Entities.PerformanceTests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
 
-            using (var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob))
+            using (var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, World.UpdateAllocator.ToAllocator))
             {
                 m_Manager.CreateEntity(archetype, entities);
 
@@ -229,7 +248,7 @@ namespace Unity.Entities.PerformanceTests
             [Values(1, 1000, 100000)] int entityCount)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            using (var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob))
+            using (var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, World.UpdateAllocator.ToAllocator))
             {
                 m_Manager.CreateEntity(archetype, entities);
 
@@ -252,7 +271,7 @@ namespace Unity.Entities.PerformanceTests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
 
-            using (var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob))
+            using (var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, World.UpdateAllocator.ToAllocator))
             {
                 m_Manager.CreateEntity(archetype, entities);
                 var handle = default(JobHandle);
@@ -273,7 +292,7 @@ namespace Unity.Entities.PerformanceTests
         {
             EntityArchetype archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
 
-            using (var entities = new NativeArray<Entity>(length: 1000000, Allocator.TempJob))
+            using (var entities = CollectionHelper.CreateNativeArray<Entity>(length: 1000000, World.UpdateAllocator.ToAllocator))
             {
                 m_Manager.CreateEntity(archetype, entities);
 
@@ -301,7 +320,7 @@ namespace Unity.Entities.PerformanceTests
             [Values(10, 100)] int numUniqueArchetypes,
             [Values(Type.JobEntity, Type.JobEntityBatch)] Type type)
         {
-            using (var archetypes = CreateUniqueArchetypes(m_Manager, numUniqueArchetypes, Allocator.TempJob, typeof(EcsTestData)))
+            using (var archetypes = CreateUniqueArchetypes(m_Manager, numUniqueArchetypes, World.UpdateAllocator.ToAllocator, typeof(EcsTestData)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 for (int archetypeIndex = 0; archetypeIndex < numUniqueArchetypes; ++archetypeIndex)
@@ -319,6 +338,7 @@ namespace Unity.Entities.PerformanceTests
                                 handle = JobEntityTestSystem.UpdateComponentValueTo10Job_Schedule(handle);
                             })
                             .WarmupCount(5)
+                            .MeasurementCount(1)
                             .CleanUp(() => {handle.Complete();})
                             .SampleGroup("IJobEntity")
                             .Run();
@@ -328,12 +348,13 @@ namespace Unity.Entities.PerformanceTests
                         var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
                         Measure.Method(() =>
                             {
-                                handle_ = new EcsTestSetComponentValueTo10_BaseLine
+                                handle_ = new EcsTestSetComponentValueTo10Chunk_BaseLine
                                 {
                                     EcsTestDataRW = typeHandle
                                 }.Schedule(basicQuery, handle_);
                             })
                             .WarmupCount(5)
+                            .MeasurementCount(1)
                             .CleanUp(() => {handle_.Complete();})
                             .SampleGroup("IJobEntityBatch")
                             .Run();
@@ -349,7 +370,7 @@ namespace Unity.Entities.PerformanceTests
             [Values(10, 100)] int numUniqueArchetypes,
             [Values(Type.JobEntity, Type.JobEntityBatch)] Type type)
         {
-            using (var archetypes = CreateUniqueArchetypes(m_Manager, numUniqueArchetypes, Allocator.TempJob, typeof(EcsTestData)))
+            using (var archetypes = CreateUniqueArchetypes(m_Manager, numUniqueArchetypes, World.UpdateAllocator.ToAllocator, typeof(EcsTestData)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 for (int archetypeIndex = 0; archetypeIndex < numUniqueArchetypes; ++archetypeIndex)
@@ -367,6 +388,7 @@ namespace Unity.Entities.PerformanceTests
                                 handle = JobEntityTestSystem.UpdateComponentValueTo10Job_ScheduleParallel(handle);
                             })
                             .WarmupCount(5)
+                            .MeasurementCount(1)
                             .CleanUp(() => {handle.Complete();})
                             .SampleGroup("IJobEntity")
                             .Run();
@@ -376,12 +398,13 @@ namespace Unity.Entities.PerformanceTests
                         var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
                         Measure.Method(() =>
                             {
-                                handle_ = new EcsTestSetComponentValueTo10_BaseLine
+                                handle_ = new EcsTestSetComponentValueTo10Chunk_BaseLine
                                 {
                                     EcsTestDataRW = typeHandle
-                                }.ScheduleParallel(basicQuery, ScheduleGranularity.Entity, default, handle_);
+                                }.ScheduleParallel(basicQuery, handle_);
                             })
                             .WarmupCount(5)
+                            .MeasurementCount(1)
                             .CleanUp(() => {handle_.Complete();})
                             .SampleGroup("IJobEntityBatch")
                             .Run();
@@ -397,7 +420,7 @@ namespace Unity.Entities.PerformanceTests
             [Values(10, 100)] int numUniqueArchetypes,
             [Values(Type.JobEntity, Type.JobEntityBatch)] Type type)
         {
-            using (var archetypes = CreateUniqueArchetypes(m_Manager, numUniqueArchetypes, Allocator.TempJob, typeof(EcsTestData)))
+            using (var archetypes = CreateUniqueArchetypes(m_Manager, numUniqueArchetypes, World.UpdateAllocator.ToAllocator, typeof(EcsTestData)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 for (int archetypeIndex = 0; archetypeIndex < numUniqueArchetypes; ++archetypeIndex)
@@ -412,18 +435,20 @@ namespace Unity.Entities.PerformanceTests
                             .Method(() => { JobEntityTestSystem.UpdateComponentValueTo10Job_Run(); })
                             .SampleGroup("IJobEntity")
                             .WarmupCount(5)
+                            .MeasurementCount(1)
                             .Run();
                         break;
                     case Type.JobEntityBatch:
                         var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
                         Measure.Method(() =>
                             {
-                                new EcsTestSetComponentValueTo10_BaseLine
+                                new EcsTestSetComponentValueTo10Chunk_BaseLine
                                 {
                                     EcsTestDataRW = typeHandle
                                 }.Run(basicQuery);
                             })
                             .WarmupCount(5)
+                            .MeasurementCount(1)
                             .SampleGroup("IJobEntityBatch")
                             .Run();
                         break;
@@ -437,7 +462,7 @@ namespace Unity.Entities.PerformanceTests
             const int kEntityCount = 10;
 
             var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>());
-            var entities = new NativeArray<Entity>(kEntityCount, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(kEntityCount, World.UpdateAllocator.ToAllocator);
             m_Manager.CreateEntity(archetype, entities);
 
             var dependsOn = new JobHandle();
@@ -478,12 +503,12 @@ namespace Unity.Entities.PerformanceTests
                 ComponentType.ReadWrite<EcsTestData2>(),
                 ComponentType.ReadWrite<EcsTestSharedComp>());
 
-            var entities = new NativeArray<Entity>(kEntityCount, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(kEntityCount, World.UpdateAllocator.ToAllocator);
             m_Manager.CreateEntity(archetype, entities);
 
             for (int i = kEntityCount / 2; i < kEntityCount; ++i)
             {
-                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = 10});
+                m_Manager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp {value = 10});
             }
 
             var dependsOn = new JobHandle();
@@ -525,12 +550,12 @@ namespace Unity.Entities.PerformanceTests
                 ComponentType.ReadWrite<EcsTestData2>(),
                 ComponentType.ReadWrite<EcsTestSharedComp>());
 
-            var entities = new NativeArray<Entity>(kEntityCount, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(kEntityCount, World.UpdateAllocator.ToAllocator);
             m_Manager.CreateEntity(archetype, entities);
 
             for (int i = 0; i < kEntityCount; ++i)
             {
-                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = i % 10 });
+                m_Manager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp {value = i % 10 });
             }
 
             var dependsOn = new JobHandle();
@@ -584,12 +609,12 @@ namespace Unity.Entities.PerformanceTests
             const int kEntityCountPerArchetype = 1000;
             for (int i = 0; i < 8; ++i)
             {
-                var entities = new NativeArray<Entity>(kEntityCountPerArchetype, Allocator.TempJob);
+                var entities = CollectionHelper.CreateNativeArray<Entity>(kEntityCountPerArchetype, World.UpdateAllocator.ToAllocator);
                 m_Manager.CreateEntity(allArchetypes[i], entities);
 
                 for (int j = 0; j < kEntityCountPerArchetype; ++j)
                 {
-                    m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = i % 10 });
+                    m_Manager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp {value = i % 10 });
                 }
 
                 entities.Dispose();
@@ -622,6 +647,124 @@ namespace Unity.Entities.PerformanceTests
                 .SampleGroup("ScheduleAndRun")
                 .Run();
         }
+
+#pragma warning disable 618 // IJobEntityBatchWithIndex is obsolete
+        [Test, Performance]
+        [Category("Performance")]
+        public void JobEntityBatchOnUpdate_Performance_EnabledBits_AllEnabled(
+            [Values(ScheduleType.Run)] ScheduleType scheduleType,
+            [Values(100,10_000)] int numChunks)
+        {
+            EntityArchetype archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+
+            using (var entities = CollectionHelper.CreateNativeArray<Entity>(length: numChunks * archetype.ChunkCapacity, World.UpdateAllocator.ToAllocator))
+            {
+                m_Manager.CreateEntity(archetype, entities);
+                var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+                var ecsDataTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
+
+                var job = new EnabledBitsBatchWithIndex()
+                {
+                    TestDataHandleRW = ecsDataTypeHandle
+                };
+
+                Measure
+                    .Method(() =>
+                    {
+                        job.Run(query);
+                    })
+                    .WarmupCount(5)
+                    .MeasurementCount(10)
+                    .CleanUp(() => { World.UpdateAllocator.Rewind();})
+                    .Run();
+            }
+        }
+
+        [Test, Performance]
+        [Category("Performance")]
+        public void JobEntityBatchOnUpdate_Performance_EnabledBits_Alternating(
+            [Values(ScheduleType.Run)] ScheduleType scheduleType,
+            [Values(100,10_000)] int numChunks)
+        {
+            EntityArchetype archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+
+            using (var entities = CollectionHelper.CreateNativeArray<Entity>(length: numChunks * archetype.ChunkCapacity, World.UpdateAllocator.ToAllocator))
+            {
+                m_Manager.CreateEntity(archetype, entities);
+
+                for(int i = 1; i < entities.Length; i += 2)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i],false);
+
+                var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+                var ecsDataTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
+
+                var job = new EnabledBitsBatchWithIndex()
+                {
+                    TestDataHandleRW = ecsDataTypeHandle
+                };
+
+                Measure
+                    .Method(() =>
+                    {
+                        job.Run(query);
+                    })
+                    .WarmupCount(5)
+                    .MeasurementCount(10)
+                    .CleanUp(() => { World.UpdateAllocator.Rewind();})
+                    .Run();
+            }
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        public struct EnabledBitsBatchWithIndex : IJobEntityBatchWithIndex
+        {
+            public ComponentTypeHandle<EcsTestDataEnableable> TestDataHandleRW;
+
+            public unsafe void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery)
+            {
+                var components = (EcsTestDataEnableable*)batchInChunk.GetComponentDataPtrRW(ref TestDataHandleRW);
+                for(int i = 0; i < batchInChunk.Count; i++)
+                {
+                    components[i].value++;
+                }
+            }
+        }
+
+        [Test, Performance]
+        [Category("Performance")]
+        public void JobEntityBatchOnUpdate_Performance_EnabledBits_Ranges(
+            [Values(ScheduleType.Run)] ScheduleType scheduleType,
+            [Values(100,10_000)] int numChunks)
+        {
+            EntityArchetype archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+
+            using (var entities = CollectionHelper.CreateNativeArray<Entity>(length: numChunks * archetype.ChunkCapacity, World.UpdateAllocator.ToAllocator))
+            {
+                m_Manager.CreateEntity(archetype, entities);
+
+                for(int i = 1; i < entities.Length; i += 10)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i],false);
+
+                var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+                var ecsDataTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
+
+                var job = new EnabledBitsBatchWithIndex()
+                {
+                    TestDataHandleRW = ecsDataTypeHandle
+                };
+
+                Measure
+                    .Method(() =>
+                    {
+                        job.Run(query);
+                    })
+                    .WarmupCount(5)
+                    .MeasurementCount(10)
+                    .CleanUp(() => { World.UpdateAllocator.Rewind();})
+                    .Run();
+            }
+        }
+#pragma warning disable 618 // IJobEntityBatchWithIndex is obsolete
     }
 }
 #endif

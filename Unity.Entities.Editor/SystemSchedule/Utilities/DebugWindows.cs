@@ -1,13 +1,13 @@
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine.LowLevel;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    internal class SystemsWindowDebugContentProvider : ContentProvider
+    class SystemsWindowDebugContentProvider : ContentProvider
     {
         public override string Name => "Systems (Debug)";
         public override object GetContent() => new SystemWindowDebugData();
@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor
             => !EditorWindow.HasOpenInstances<SystemScheduleWindow>() ? ContentStatus.ReloadContent : ContentStatus.ContentReady;
     }
 
-    internal class SystemWindowDebugData
+    class SystemWindowDebugData
     {
         [CreateProperty, UsedImplicitly]
         public int SystemTreeViewItemActiveInstanceCount => SystemTreeViewItem.Pool.ActiveInstanceCount;
@@ -30,7 +30,7 @@ namespace Unity.Entities.Editor
         public int SystemInformationVisualElementPoolSize => SystemInformationVisualElement.Pool.PoolSize;
 
         [UsedImplicitly]
-        class Inspector : Inspector<SystemWindowDebugData>
+        class Inspector : PropertyInspector<SystemWindowDebugData>
         {
             SystemScheduleWindow m_SystemScheduleWindow;
             World m_TestWorld;
@@ -94,22 +94,22 @@ namespace Unity.Entities.Editor
             void CreateTestSystem()
             {
                 var world = World.DefaultGameObjectInjectionWorld;
-                var testSystem = world.GetOrCreateSystem<SystemsWindowTestSystem>();
+                var testSystem = world.GetOrCreateSystemManaged<SystemsWindowTestSystem>();
 
-                world.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(testSystem);
-                world.GetOrCreateSystem<SimulationSystemGroup>().SortSystems();
+                world.GetOrCreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(testSystem);
+                world.GetOrCreateSystemManaged<SimulationSystemGroup>().SortSystems();
             }
 
             void DestroyTestSystem()
             {
                 var world = World.DefaultGameObjectInjectionWorld;
-                var testSystem = world.GetExistingSystem<SystemsWindowTestSystem>();
+                var testSystem = world.GetExistingSystemManaged<SystemsWindowTestSystem>();
                 if (testSystem == null)
                     return;
 
-                world.GetOrCreateSystem<SimulationSystemGroup>().RemoveSystemFromUpdateList(testSystem);
-                world.GetOrCreateSystem<SimulationSystemGroup>().SortSystems();
-                world.DestroySystem(testSystem);
+                world.GetOrCreateSystemManaged<SimulationSystemGroup>().RemoveSystemFromUpdateList(testSystem);
+                world.GetOrCreateSystemManaged<SimulationSystemGroup>().SortSystems();
+                world.DestroySystemManaged(testSystem);
             }
 
             void CreateTestWorld()
@@ -119,9 +119,9 @@ namespace Unity.Entities.Editor
 
                 m_TestWorld = new World("Systems Window Test World");
 
-                var testSystem = m_TestWorld.GetOrCreateSystem<SystemsWindowTestSystem>();
-                m_TestWorld.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(testSystem);
-                m_TestWorld.GetOrCreateSystem<SimulationSystemGroup>().SortSystems();
+                var testSystem = m_TestWorld.GetOrCreateSystemManaged<SystemsWindowTestSystem>();
+                m_TestWorld.GetOrCreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(testSystem);
+                m_TestWorld.GetOrCreateSystemManaged<SimulationSystemGroup>().SortSystems();
 
                 var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
                 ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(m_TestWorld, ref playerLoop);
@@ -141,7 +141,7 @@ namespace Unity.Entities.Editor
     }
 
     [DisableAutoCreation]
-    internal partial class SystemsWindowTestSystem : SystemBase
+    partial class SystemsWindowTestSystem : SystemBase
     {
         protected override void OnUpdate()
         {

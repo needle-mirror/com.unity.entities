@@ -38,23 +38,23 @@ namespace Unity.Entities.Tests
         {
             var output = m_Manager.GetBuffer<LinkedEntityGroup>(clone).Reinterpret<Entity>().AsNativeArray();
 
-            Assert.AreEqual(clone, output[0]);
-            Assert.AreEqual(count, output.Length);
+            FastAssert.AreEqual(clone, output[0]);
+            FastAssert.AreEqual(count, output.Length);
 
-            Assert.AreNotEqual(srcLinked[0], output[0]);
-            Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestDataEntity>(output[0]).value0);
-            Assert.AreEqual(external, m_Manager.GetComponentData<EcsTestDataEntity>(output[0]).value1);
+            FastAssert.AreNotEqual(srcLinked[0], output[0]);
+            FastAssert.AreEqual(0, m_Manager.GetComponentData<EcsTestDataEntity>(output[0]).value0);
+            FastAssert.AreEqual(external, m_Manager.GetComponentData<EcsTestDataEntity>(output[0]).value1);
 
-            Assert.AreNotEqual(srcLinked[1], output[1]);
-            Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestDataEntity>(output[1]).value0);
-            Assert.AreEqual(Entity.Null, m_Manager.GetComponentData<EcsTestDataEntity>(output[1]).value1);
+            FastAssert.AreNotEqual(srcLinked[1], output[1]);
+            FastAssert.AreEqual(1, m_Manager.GetComponentData<EcsTestDataEntity>(output[1]).value0);
+            FastAssert.AreEqual(Entity.Null, m_Manager.GetComponentData<EcsTestDataEntity>(output[1]).value1);
 
             for (int i = 2; i < count; i++)
             {
-                Assert.AreNotEqual(srcLinked[i], output[i]);
+                FastAssert.AreNotEqual(srcLinked[i], output[i]);
                 var component = m_Manager.GetComponentData<EcsTestDataEntity>(output[i]);
-                Assert.AreEqual(i, component.value0);
-                Assert.AreEqual(output[i - 1], component.value1);
+                FastAssert.AreEqual(i, component.value0);
+                FastAssert.AreEqual(output[i - 1], component.value1);
             }
         }
 
@@ -196,23 +196,23 @@ namespace Unity.Entities.Tests
         {
             var output = m_Manager.GetBuffer<LinkedEntityGroup>(clone).Reinterpret<Entity>().AsNativeArray();
 
-            Assert.AreEqual(clone, output[0]);
-            Assert.AreEqual(count, output.Length);
+            FastAssert.AreEqual(clone, output[0]);
+            FastAssert.AreEqual(count, output.Length);
 
-            Assert.AreNotEqual(srcLinked[0], output[0]);
-            Assert.AreEqual(0.ToString(), m_Manager.GetComponentData<EcsTestManagedDataEntity>(output[0]).value0);
-            Assert.AreEqual(external, m_Manager.GetComponentData<EcsTestManagedDataEntity>(output[0]).value1);
+            FastAssert.AreNotEqual(srcLinked[0], output[0]);
+            FastAssert.AreEqual("0", m_Manager.GetComponentData<EcsTestManagedDataEntity>(output[0]).value0);
+            FastAssert.AreEqual(external, m_Manager.GetComponentData<EcsTestManagedDataEntity>(output[0]).value1);
 
-            Assert.AreNotEqual(srcLinked[1], output[1]);
-            Assert.AreEqual(1.ToString(), m_Manager.GetComponentData<EcsTestManagedDataEntity>(output[1]).value0);
-            Assert.AreEqual(Entity.Null, m_Manager.GetComponentData<EcsTestManagedDataEntity>(output[1]).value1);
+            FastAssert.AreNotEqual(srcLinked[1], output[1]);
+            FastAssert.AreEqual("1", m_Manager.GetComponentData<EcsTestManagedDataEntity>(output[1]).value0);
+            FastAssert.AreEqual(Entity.Null, m_Manager.GetComponentData<EcsTestManagedDataEntity>(output[1]).value1);
 
             for (int i = 2; i < count; i++)
             {
-                Assert.AreNotEqual(srcLinked[i], output[i]);
+                FastAssert.AreNotEqual(srcLinked[i], output[i]);
                 var component = m_Manager.GetComponentData<EcsTestManagedDataEntity>(output[i]);
-                Assert.AreEqual(i.ToString(), component.value0);
-                Assert.AreEqual(output[i - 1], component.value1);
+                FastAssert.AreEqual(i.ToString(), component.value0);
+                FastAssert.AreEqual(output[i - 1], component.value1);
             }
         }
 

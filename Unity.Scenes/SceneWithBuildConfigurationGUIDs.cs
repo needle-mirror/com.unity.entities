@@ -14,11 +14,25 @@ namespace Unity.Scenes
         public Hash128 SceneGUID;
         public Hash128 BuildConfiguration;
         public int     _IsBuildingForEditor;
+        public int     _IsBakingEnabled;
+        public int     _IsBuiltInBuildsEnabled;
 
         public bool IsBuildingForEditor
         {
-            get { return _IsBuildingForEditor != 0 ? true : false; }
+            get { return _IsBuildingForEditor != 0; }
             set { _IsBuildingForEditor = value ? 1 : 0; }
+        }
+
+        public bool IsBakingEnabled
+        {
+            get { return _IsBakingEnabled != 0; }
+            set { _IsBakingEnabled = value ? 1 : 0; }
+        }
+
+        public bool IsBuiltInBuildsEnabled
+        {
+            get { return _IsBuiltInBuildsEnabled != 0; }
+            set { _IsBuiltInBuildsEnabled = value ? 1 : 0; }
         }
 
         // Currently used to allow us to force subscenes to reimport
@@ -50,9 +64,9 @@ namespace Unity.Scenes
             return $"{k_SceneDependencyCachePath}/{guid}.sceneWithBuildSettings";
         }
 
-        static bool DirtyFile(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor)
+        static bool DirtyFile(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, bool isBakingEnabled, bool isBuiltInBuildsEnabled)
         {
-            var guid = ComputeBuildConfigurationGUID(sceneGUID, buildConfigurationGUID, isBuildingForEditor);
+            var guid = ComputeBuildConfigurationGUID(sceneGUID, buildConfigurationGUID, isBuildingForEditor, isBakingEnabled, isBuiltInBuildsEnabled);
             var fileName = GetSceneWithBuildSettingsPath(guid);
             if (File.Exists(fileName))
             {
@@ -61,6 +75,8 @@ namespace Unity.Scenes
                     SceneGUID = sceneGUID,
                     BuildConfiguration = buildConfigurationGUID,
                     IsBuildingForEditor = isBuildingForEditor,
+                    IsBakingEnabled = isBakingEnabled,
+                    IsBuiltInBuildsEnabled = isBuiltInBuildsEnabled,
                     DirtyValue = DateTime.UtcNow.Ticks
                 };
                 WriteEntitySceneWithBuildConfig(guid, sceneWithBuildConfigurationGUIDs, GetSceneWithBuildSettingsPath(guid));
@@ -75,8 +91,14 @@ namespace Unity.Scenes
         public static bool Dirty(Hash128 sceneGUID, Hash128 buildConfigurationGUID)
         {
             var dirty = false;
-            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, false);
-            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, true);
+            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, false, false, false);
+            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, false, false, true);
+            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, true, false, true);
+            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, true, false, false);
+            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, false, true, false);
+            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, false, true, true);
+            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, true, true, false);
+            dirty |= DirtyFile(sceneGUID, buildConfigurationGUID, true, true, true);
             return dirty;
         }
 
@@ -95,10 +117,10 @@ namespace Unity.Scenes
                 $"fileFormatVersion: 2\nguid: {guid}\nDefaultImporter:\n  externalObjects: {{}}\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n");
         }
 
-        public static unsafe Hash128 EnsureExistsFor(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, out bool mustRequestRefresh)
+        public static unsafe Hash128 EnsureExistsFor(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, bool isBakingEnabled, bool isBuiltInEnabled, out bool mustRequestRefresh)
         {
             mustRequestRefresh = false;
-            var guid = ComputeBuildConfigurationGUID(sceneGUID, buildConfigurationGUID, isBuildingForEditor);
+            var guid = ComputeBuildConfigurationGUID(sceneGUID, buildConfigurationGUID, isBuildingForEditor, isBakingEnabled, isBuiltInEnabled);
 
             if (s_BuildConfigurationCreated.Contains(guid))
                 return guid;
@@ -106,7 +128,7 @@ namespace Unity.Scenes
             var fileName = GetSceneWithBuildSettingsPath(guid);
             if (!File.Exists(fileName))
             {
-                var sceneWithBuildConfigurationGUIDs = new SceneWithBuildConfigurationGUIDs { SceneGUID = sceneGUID, IsBuildingForEditor = isBuildingForEditor, BuildConfiguration = buildConfigurationGUID, DirtyValue = 0};
+                var sceneWithBuildConfigurationGUIDs = new SceneWithBuildConfigurationGUIDs { SceneGUID = sceneGUID, IsBuildingForEditor = isBuildingForEditor, IsBakingEnabled = isBakingEnabled, IsBuiltInBuildsEnabled = isBuiltInEnabled, BuildConfiguration = buildConfigurationGUID, DirtyValue = 0};
                 WriteEntitySceneWithBuildConfig(guid, sceneWithBuildConfigurationGUIDs, fileName);
                 mustRequestRefresh = true;
             }
@@ -126,9 +148,9 @@ namespace Unity.Scenes
             return sceneWithBuildConfiguration;
         }
 
-        static Hash128 ComputeBuildConfigurationGUID(in Hash128 sceneGUID, in Hash128 buildConfigurationGUID, bool isBuildingForEditor)
+        static Hash128 ComputeBuildConfigurationGUID(in Hash128 sceneGUID, in Hash128 buildConfigurationGUID, bool isBuildingForEditor, bool isBakingEnabled, bool isBuiltInEnabled)
         {
-            var guids = new SceneWithBuildConfigurationGUIDs { SceneGUID = sceneGUID, BuildConfiguration = buildConfigurationGUID, IsBuildingForEditor = isBuildingForEditor };
+            var guids = new SceneWithBuildConfigurationGUIDs { SceneGUID = sceneGUID, BuildConfiguration = buildConfigurationGUID, IsBuildingForEditor = isBuildingForEditor, IsBakingEnabled = isBakingEnabled, IsBuiltInBuildsEnabled = isBuiltInEnabled};
             var hash = xxHash3.Hash128(guids);
             return new Hash128(hash);
         }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
@@ -16,7 +16,11 @@ namespace Unity.Entities.Editor
             if (data.Entity != default)
                 Update(data);
             this.Q<VisualElement>(className: UssClasses.EntityView.GoTo)
-                .RegisterCallback<MouseDownEvent, EntityView>((_, @this) => EntitySelectionProxy.SelectEntity(@this.m_Data.World, @this.m_Data.Entity), this);
+                .RegisterCallback<MouseDownEvent, EntityView>((_, @this) =>
+                {
+                    Analytics.SendEditorEvent(Analytics.Window.Inspector, Analytics.EventType.RelationshipGoTo, Analytics.GoToEntityDestination);
+                    EntitySelectionProxy.SelectEntity(@this.m_Data.World, @this.m_Data.Entity);
+                }, this);
         }
 
         public void Update(EntityViewData data)

@@ -2031,7 +2031,7 @@ namespace Unity.Entities.PerformanceTests
         
         };
 
-        // TODO(https://unity3d.atlassian.net/browse/DOTS-4654): these systems use .WithoutBurst() until Burst compilation speed improves.
+        // TODO(DOTS-4654): these systems use .WithoutBurst() until Burst compilation speed improves.
         public partial class SchedulesEmptyJobSystem0 : SystemBase { protected override void OnCreate() { GetEntityQuery(typeof(EcsTestData));} protected override void OnUpdate(){Dependency = Entities.WithoutBurst().ForEach((ref EcsTestData data)=>{ }).Schedule(Dependency);} }
         public partial class SchedulesEmptyJobSystem1 : SystemBase { protected override void OnCreate() { GetEntityQuery(typeof(EcsTestData));} protected override void OnUpdate(){Dependency = Entities.WithoutBurst().ForEach((ref EcsTestData data)=>{ }).Schedule(Dependency);} }
         public partial class SchedulesEmptyJobSystem2 : SystemBase { protected override void OnCreate() { GetEntityQuery(typeof(EcsTestData));} protected override void OnUpdate(){Dependency = Entities.WithoutBurst().ForEach((ref EcsTestData data)=>{ }).Schedule(Dependency);} }
@@ -4042,10 +4042,10 @@ namespace Unity.Entities.PerformanceTests
         public void EmptySystem_NoMatchingEntities_Overhead()
         {
             var testWorld = new World("Test World");
-            var simulationGroup = testWorld.CreateSystem<SimulationSystemGroup>();
+            var simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
             for (int i = 0; i < 1000; ++i)
             {
-                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystem(emptySystemTypes[i]));
+                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystemManaged(emptySystemTypes[i]));
             }
 
             Measure.Method(
@@ -4065,10 +4065,10 @@ namespace Unity.Entities.PerformanceTests
         public void EmptySystem_OneMatchingEntity_Overhead()
         {
             var testWorld = new World("Test World");
-            var simulationGroup = testWorld.CreateSystem<SimulationSystemGroup>();
+            var simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
             for (int i = 0; i < 1000; ++i)
             {
-                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystem(emptySystemTypes[i]));
+                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystemManaged(emptySystemTypes[i]));
             }
 
             testWorld.EntityManager.CreateEntity(typeof(EcsTestData));
@@ -4090,10 +4090,10 @@ namespace Unity.Entities.PerformanceTests
         public void ScheduleWithEntitiesForEach_OneMatchingEntity_Overhead()
         {
             var testWorld = new World("Test World");
-            var simulationGroup = testWorld.CreateSystem<SimulationSystemGroup>();
+            var simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
             for (int i = 0; i < 1000; ++i)
             {
-                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystem(scheduleSystemTypes[i]));
+                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystemManaged(scheduleSystemTypes[i]));
             }
 
             testWorld.EntityManager.CreateEntity(typeof(EcsTestData));

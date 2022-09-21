@@ -1,12 +1,8 @@
 using System;
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
-using UnityEngine.Assertions;
-
 
 namespace Unity.Entities
 {
@@ -23,6 +19,8 @@ namespace Unity.Entities
         /// <summary>
         /// For internal, <see cref="BlobBuilder"/>, use only.
         /// </summary>
+        /// <param name="data">The pointer to the allocated buffer.</param>
+        /// <param name="length">The length of the buffer.</param>
         public BlobBuilderArray(void* data, int length)
         {
             m_data = data;
@@ -78,7 +76,7 @@ namespace Unity.Entities
     /// A blob asset is an immutable data structure stored in unmanaged memory.
     /// Blob assets can contain primitive types, strings, structs, arrays, and arrays of arrays. Arrays and structs
     /// must only contain blittable types. Strings must be of type <see cref="BlobString"/> (or a specialized unmanaged
-    /// string type such as <see cref="NativeString"/>).
+    /// string type).
     ///
     /// To use a BlobBuilder object to create a blob asset:
     /// 1. Declare the structure of the blob asset as a struct.
@@ -256,7 +254,9 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="ptr">A reference to a blob pointer field in a blob asset.</param>
         /// <param name="obj">The struct that exists in the blob that you want to point to.</param>
+        /// <typeparam name="T">The type of the object stored in the blob.</typeparam>
         /// <returns>A reference to obj.</returns>
+        /// <exception cref="ArgumentException">Throws if the object is not part of the blob.</exception>
         public ref T SetPointer<T>(ref BlobPtr<T> ptr, ref T obj) where T : struct
         {
             var offsetPtr = (int*)UnsafeUtility.AddressOf(ref ptr.m_OffsetPtr);
@@ -304,8 +304,8 @@ namespace Unity.Entities
         /// <see cref="Allocator.Persistent"/>.</param>
         /// <typeparam name="T">The data type of the struct used to construct the asset's root. Use the same struct type
         /// that you used when calling <see cref="ConstructRoot{T}"/>.</typeparam>
-        /// <returns></returns>
-        public BlobAssetReference<T> CreateBlobAssetReference<T>(Allocator allocator) where T : struct
+        /// <returns>Returns a reference to the blob asset in unmanaged memory.</returns>
+        public BlobAssetReference<T> CreateBlobAssetReference<T>(Allocator allocator) where T : unmanaged
         {
             //Align last chunk upwards so all chunks are 16 byte aligned
             AlignChunk(m_currentChunkIndex);

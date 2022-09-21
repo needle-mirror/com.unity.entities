@@ -62,6 +62,12 @@ namespace Unity.Scenes
         }
     }
 #endif
+
+    /// <summary>
+    /// A component representing a subscene reference.
+    /// </summary>
+    /// <remarks>Subscenes are SceneAssets which are loaded on demand by the SubScene component.</remarks>
+    // TODO: worth adding more information here
     [ExecuteAlways]
     [DisallowMultipleComponent]
     public class SubScene : MonoBehaviour
@@ -72,9 +78,18 @@ namespace Unity.Scenes
         [SerializeField] Color _HierarchyColor = Color.gray;
 
         static List<SubScene> m_AllSubScenes = new List<SubScene>();
+
+        /// <summary>
+        /// The list of loaded sub scenes.
+        /// </summary>
         public static IReadOnlyCollection<SubScene> AllSubScenes { get { return m_AllSubScenes; } }
 #endif
 
+        /// <summary>Set when the scene should load.</summary>
+        /// <remarks>
+        /// Set to true to load the scene automatically when entering Play mode.
+        /// Set to false to explicitly load the scene.
+        /// </remarks>
         public bool AutoLoadScene = true;
 
         [SerializeField]
@@ -89,6 +104,9 @@ namespace Unity.Scenes
         [NonSerialized]
         bool _IsAddedToListOfAllSubScenes;
 
+        /// <summary>
+        /// Represents the scene asset.
+        /// </summary>
         public SceneAsset SceneAsset
         {
             get { return _SceneAsset; }
@@ -111,17 +129,26 @@ namespace Unity.Scenes
             }
         }
 
+        /// <summary>
+        /// Represents the scene name.
+        /// </summary>
         public string SceneName
         {
             get { return SceneAsset.name; }
         }
 
+        /// <summary>
+        /// Represents the color of the Hierarchy panel.
+        /// </summary>
         public Color HierarchyColor
         {
             get { return _HierarchyColor; }
             set { _HierarchyColor = value; }
         }
 
+        /// <summary>
+        /// Represents the path of the SceneAsset.
+        /// </summary>
         public string EditableScenePath
         {
             get
@@ -130,6 +157,9 @@ namespace Unity.Scenes
             }
         }
 
+        /// <summary>
+        /// Represents the editing scene.
+        /// </summary>
         public Scene EditingScene
         {
             get
@@ -209,6 +239,9 @@ namespace Unity.Scenes
 
 #endif
 
+        /// <summary>
+        /// Represents the GUID of the SceneAsset.
+        /// </summary>
         public Hash128 SceneGUID => _SceneGUID;
 
         void OnEnable()
@@ -247,7 +280,7 @@ namespace Unity.Scenes
             GameObjectSceneUtility.UnregisterSubScene(gameObject.scene, this);
         }
 
-        void AddSceneEntities()
+        unsafe void AddSceneEntities()
         {
             Assert.IsTrue(_AddedSceneGUID == default);
             Assert.IsFalse(_SceneGUID == default);
@@ -261,21 +294,23 @@ namespace Unity.Scenes
             foreach (var world in World.All)
             {
                 var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                if (sceneSystem != null)
+
+                var stateptr = world.Unmanaged.ResolveSystemState(sceneSystem);
+                if (stateptr != null)
                 {
                     var loadParams = new SceneSystem.LoadParameters
                     {
                         Flags = flags
                     };
 
-                    var sceneEntity = sceneSystem.LoadSceneAsync(_SceneGUID, loadParams);
-                    sceneSystem.EntityManager.AddComponentObject(sceneEntity, this);
+                    var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, _SceneGUID, loadParams);
+                    stateptr->EntityManager.AddComponentObject(sceneEntity, this);
                     _AddedSceneGUID = _SceneGUID;
                 }
             }
         }
 
-        void RemoveSceneEntities()
+        unsafe void RemoveSceneEntities()
         {
             if (_AddedSceneGUID != default)
             {
@@ -285,8 +320,13 @@ namespace Unity.Scenes
                 foreach (var world in World.All)
                 {
                     var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                    if (sceneSystem != null)
-                        sceneSystem.UnloadScene(sceneGUID, SceneSystem.UnloadParameters.DestroySceneProxyEntity | SceneSystem.UnloadParameters.DestroySectionProxyEntities);
+
+                    var stateptr = world.Unmanaged.ResolveSystemState(sceneSystem);
+                    if (stateptr != null)
+                        SceneSystem.UnloadScene(world.Unmanaged,
+                            sceneGUID,
+                            SceneSystem.UnloadParameters.DestroySceneProxyEntity |
+                            SceneSystem.UnloadParameters.DestroySectionProxyEntities);
                 }
             }
         }
@@ -299,7 +339,11 @@ namespace Unity.Scenes
             {
                 // If there is only one scene left in the editor, we create a new empty scene
                 // before unloading this sub scene
+#if UNITY_2022_2_OR_NEWER
+                if (SceneManager.loadedSceneCount == 1 && !EditorApplication.isPlaying)
+#else
                 if (EditorSceneManager.loadedSceneCount == 1 && !EditorApplication.isPlaying)
+#endif
                 {
                     Debug.Log("Unloading last scene, creating new scene");
                     EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Additive);

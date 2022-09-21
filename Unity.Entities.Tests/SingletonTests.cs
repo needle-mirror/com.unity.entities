@@ -1,34 +1,239 @@
 using System;
 using NUnit.Framework;
+using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
     class SingletonTests : ECSTestsFixture
     {
-        [Test]
-        public void GetSetSingleton()
+        partial class EmptyTestSystem : SystemBase
         {
-            m_Manager.CreateEntity(typeof(EcsTestData));
+            protected override void OnUpdate() { }
+        }
+        partial struct EmptyTestISystem : ISystem
+        {
+            public void OnCreate(ref SystemState state) { }
+            public void OnDestroy(ref SystemState state) { }
+            public void OnUpdate(ref SystemState state) { }
+        }
+
+        [Test]
+        public void GetSetSingleton_Works()
+        {
+            m_Manager.CreateSingleton<EcsTestData>();
 
             EmptySystem.SetSingleton(new EcsTestData(10));
             Assert.AreEqual(10, EmptySystem.GetSingleton<EcsTestData>().value);
         }
 
         [Test]
+        public void GetCreateSingleton_Works()
+        {
+            m_Manager.CreateSingleton(new EcsTestData(10));
+            Assert.AreEqual(10, EmptySystem.GetSingleton<EcsTestData>().value);
+        }
+
+        [Test]
+        public void GetSetSingletonRW_ByRef_Modifies_Singleton()
+        {
+            m_Manager.CreateSingleton<EcsTestData>();
+            EmptySystem.SetSingleton(new EcsTestData(10));
+
+            {
+                const int expected = 42;
+                ref var singleton = ref EmptySystem.GetSingletonRW<EcsTestData>().ValueRW;
+                singleton.value = expected;
+
+                Assert.AreEqual(expected, EmptySystem.GetSingleton<EcsTestData>().value);
+                Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+            }
+
+            {
+                const int expected = 33;
+                EmptySystem.GetSingletonRW<EcsTestData>().ValueRW.value = expected;
+
+                Assert.AreEqual(expected, EmptySystem.GetSingleton<EcsTestData>().value);
+                Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+            }
+        }
+
+        [Test]
+        public void GetSingletonRW_Use_After_Free_Throws()
+        {
+            const int expected = 33;
+            m_Manager.CreateSingleton<EcsTestData>();
+            EmptySystem.SetSingleton(new EcsTestData(expected));
+            var singletonRef = EmptySystem.GetSingletonRW<EcsTestData>();
+            Assert.AreEqual(expected, singletonRef.ValueRO.value);
+
+            var singletonEntity = EmptySystem.GetSingletonEntity<EcsTestData>();
+            ref var singletonRefRef = ref singletonRef.ValueRW;
+            Assert.AreNotEqual(Entity.Null, singletonEntity);
+            m_Manager.DestroyEntity(singletonEntity);
+
+            // The reference now points to chunk memory that has either been repurposed or even deallocated
+            // we must throw to signal to the user this memory is not ok to access
+            Assert.Throws<ObjectDisposedException>(() => { Assert.AreEqual(expected, singletonRef.ValueRO.value); });
+        }
+
+        [Test]
+        public void GetSetSingletonRW_ByValue_DoesNot_Modify_Singleton()
+        {
+            const int expected = 42;
+            m_Manager.CreateSingleton<EcsTestData>();
+            EmptySystem.SetSingleton(new EcsTestData(expected));
+
+            var singleton = EmptySystem.GetSingletonRW<EcsTestData>().ValueRW;
+            singleton.value = 10;
+            Assert.AreEqual(expected, EmptySystem.GetSingleton<EcsTestData>().value);
+            Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+        }
+
+        [Test]
+        public void GetSetSingletonRW_Works()
+        {
+            const int expected = 42;
+            m_Manager.CreateSingleton<EcsTestData>();
+            EmptySystem.SetSingleton(new EcsTestData(expected));
+
+            Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+        }
+
+        [Test]
+        public void GetCreateSingletonRW_Works()
+        {
+            const int expected = 42;
+            m_Manager.CreateSingleton(new EcsTestData(expected));
+
+            Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+        }
+
+        [Test]
+        public void CreateSingleton_EnableableComponent_Throws()
+        {
+            Assert.Throws<InvalidOperationException>(() => m_Manager.CreateSingleton<EcsTestDataEnableable>());
+        }
+
+        [Test]
+        public void GetSingleton_EnableableComponent_Throws()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingleton<EcsTestDataEnableable>());
+        }
+
+        [Test]
+        public void GetSingletonEntity_EnableableComponent_Throws()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingletonEntity<EcsTestDataEnableable>());
+        }
+
+        [Test]
+        public void CreateSingletonBuffer_EnableableComponent_Throws()
+        {
+            Assert.Throws<InvalidOperationException>(() => m_Manager.CreateSingletonBuffer<EcsIntElementEnableable>());
+        }
+
+        [Test]
+        public void GetSingletonBuffer_EnableableComponent_Throws()
+        {
+            m_Manager.CreateEntity(typeof(EcsIntElementEnableable));
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingletonBuffer<EcsIntElementEnableable>());
+        }
+
+        [Test]
+        public void TryGetSingleton_EnableableComponent_Throws()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.TryGetSingleton<EcsTestDataEnableable>(out var value));
+        }
+
+        [Test]
+        public void TryGetSingletonEntity_EnableableComponent_Throws()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.TryGetSingletonEntity<EcsTestDataEnableable>(out var ent));
+        }
+
+        [Test]
+        public void TryGetSingletonBuffer_EnableableComponent_Throws()
+        {
+            m_Manager.CreateEntity(typeof(EcsIntElementEnableable));
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.TryGetSingletonBuffer<EcsIntElementEnableable>(out var buffer));
+        }
+
+        [Test]
+        public void SetSingleton_EnableableComponent_Throws()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton<EcsTestDataEnableable>(new EcsTestDataEnableable()));
+        }
+
+        [Test]
+        public void HasSingleton_EnableableComponent_Throws()
+        {
+            m_Manager.CreateEntity(typeof(EcsIntElementEnableable));
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.HasSingleton<EcsIntElementEnableable>());
+        }
+
+        [Test]
+        public void GetSingletonBuffer_Works()
+        {
+            var ent = m_Manager.CreateSingletonBuffer<EcsIntElement>();
+
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(ent);
+            buffer.Add(new EcsIntElement { Value = 17 });
+            buffer.Add(new EcsIntElement { Value = 23 });
+
+            var singletonBuffer = EmptySystem.GetSingletonBuffer<EcsIntElement>();
+            Assert.AreEqual(buffer.Length, singletonBuffer.Length);
+            Assert.AreEqual(buffer[0], singletonBuffer[0]);
+            Assert.AreEqual(buffer[1], singletonBuffer[1]);
+        }
+
+        [Test]
+        public void GetSingletonBuffer_WriteToReadOnly_Throws()
+        {
+            var ent = m_Manager.CreateSingletonBuffer<EcsIntElement>();
+
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(ent);
+            buffer.Add(new EcsIntElement { Value = 17 });
+            buffer.Add(new EcsIntElement { Value = 23 });
+
+            var singletonBuffer = EmptySystem.GetSingletonBuffer<EcsIntElement>(true);
+            Assert.Throws<InvalidOperationException>(() => singletonBuffer.Add(new EcsIntElement { Value = 10 }));
+            Assert.Throws<InvalidOperationException>(() => singletonBuffer[0] = new EcsIntElement { Value = 1024 });
+        }
+
+        [Test]
+        public void GetSingletonBuffer_WriteToReadWrite_Works()
+        {
+            var ent = m_Manager.CreateSingletonBuffer<EcsIntElement>();
+
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(ent);
+            buffer.Add(new EcsIntElement { Value = 17 });
+            buffer.Add(new EcsIntElement { Value = 23 });
+
+            var singletonBuffer = EmptySystem.GetSingletonBuffer<EcsIntElement>(false);
+            Assert.DoesNotThrow(() => singletonBuffer.Add(new EcsIntElement { Value = 10 }));
+            Assert.DoesNotThrow(() => singletonBuffer[0] = new EcsIntElement { Value = 1024 });
+        }
+
+        [Test]
         public void SingletonMethodsWithValidFilter_GetsAndSets()
         {
             var queryWithFilter1 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            queryWithFilter1.SetSharedComponentFilter(new SharedData1(1));
+            queryWithFilter1.SetSharedComponentFilterManaged(new SharedData1(1));
             var queryWithFilter2 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            queryWithFilter2.SetSharedComponentFilter(new SharedData1(2));
+            queryWithFilter2.SetSharedComponentFilterManaged(new SharedData1(2));
 
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
             m_Manager.SetComponentData(entity1, new EcsTestData(-1));
-            m_Manager.SetSharedComponentData(entity1, new SharedData1(1));
+            m_Manager.SetSharedComponentManaged(entity1, new SharedData1(1));
 
             var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
             m_Manager.SetComponentData(entity2, new EcsTestData(-1));
-            m_Manager.SetSharedComponentData(entity2, new SharedData1(2));
+            m_Manager.SetSharedComponentManaged(entity2, new SharedData1(2));
 
             Assert.DoesNotThrow(() => queryWithFilter1.SetSingleton(new EcsTestData(1)));
             Assert.DoesNotThrow(() => queryWithFilter2.SetSingleton(new EcsTestData(2)));
@@ -50,22 +255,24 @@ namespace Unity.Entities.Tests
         public void SingletonMethodsWithInvalidFilter_Throws()
         {
             var queryWithFilterMissingEntity = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            queryWithFilterMissingEntity.SetSharedComponentFilter(new SharedData1(1));
+            queryWithFilterMissingEntity.SetSharedComponentFilterManaged(new SharedData1(1));
             var queryWithFilterWithAdditionalEntity = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            queryWithFilterWithAdditionalEntity.SetSharedComponentFilter(new SharedData1(2));
+            queryWithFilterWithAdditionalEntity.SetSharedComponentFilterManaged(new SharedData1(2));
 
-            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
-            m_Manager.SetSharedComponentData(entity1, new SharedData1(2));
-            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
-            m_Manager.SetSharedComponentData(entity2, new SharedData1(2));
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(SharedData1), typeof(EcsIntElement));
+            m_Manager.SetSharedComponentManaged(entity1, new SharedData1(2));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(SharedData1), typeof(EcsIntElement));
+            m_Manager.SetSharedComponentManaged(entity2, new SharedData1(2));
 
             Assert.Throws<InvalidOperationException>(() => queryWithFilterMissingEntity.GetSingleton<EcsTestData>());
             Assert.Throws<InvalidOperationException>(() => queryWithFilterMissingEntity.SetSingleton(new EcsTestData(1)));
             Assert.Throws<InvalidOperationException>(() => queryWithFilterMissingEntity.GetSingletonEntity());
+            Assert.Throws<InvalidOperationException>(() => queryWithFilterMissingEntity.GetSingletonBuffer<EcsIntElement>());
 
             Assert.Throws<InvalidOperationException>(() => queryWithFilterWithAdditionalEntity.GetSingleton<EcsTestData>());
             Assert.Throws<InvalidOperationException>(() => queryWithFilterWithAdditionalEntity.SetSingleton(new EcsTestData(1)));
             Assert.Throws<InvalidOperationException>(() => queryWithFilterWithAdditionalEntity.GetSingletonEntity());
+            Assert.Throws<InvalidOperationException>(() => queryWithFilterWithAdditionalEntity.GetSingletonBuffer<EcsIntElement>());
 
             // These need to be reset or the AllSharedComponentReferencesAreFromChunks check will fail
             queryWithFilterMissingEntity.ResetFilter();
@@ -93,16 +300,43 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void GetSingletonBuffer_DoesntExist_Throws()
+        {
+            Assert.IsFalse(EmptySystem.HasSingleton<EcsIntElement>());
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingletonBuffer<EcsIntElement>());
+        }
+
+        // Zero size buffer components do in fact fail type system ILPPs in DOTS Runtime
+#if !UNITY_DOTSRUNTIME
+        public struct EcsTestTagElement : IBufferElementData
+        {
+        }
+
+        [Ignore("DOTS-6553 TypeManager doesn't mark buffer components as zero size due to buffer header in the chunk, so we can't easily detect them")]
+        [Test]
+        public void CreateSingletonBuffer_ZeroSizeComponent_Throws()
+        {
+            Assert.Throws<InvalidOperationException>(() => m_Manager.CreateSingletonBuffer<EcsTestTagElement>());
+        }
+#endif
+
+        [Test]
+        public void CreateSingleton_ZeroSizeComponent_Works()
+        {
+            Assert.DoesNotThrow(() => m_Manager.CreateSingleton<EcsTestTag>());
+        }
+
+        [Test]
         public void GetSetSingleton_ZeroSizeComponent_Throws()
         {
-            var ent = m_Manager.CreateEntity(typeof(EcsTestTag));
+            m_Manager.CreateEntity(typeof(EcsTestTag));
             Assert.IsTrue(EmptySystem.HasSingleton<EcsTestTag>());
             Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton(new EcsTestTag()));
             Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingleton<EcsTestTag>());
         }
 
         [Test]
-        public void GetSetSingletonMultipleThrows()
+        public void GetSetSingleton_MultipleEntities_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.CreateEntity(typeof(EcsTestData));
@@ -112,38 +346,65 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RequireSingletonWorks()
+        public void CreateSingleton_MultipleEntities_Throws()
         {
-            EmptySystem.RequireSingletonForUpdate<EcsTestData>();
-            EmptySystem.GetEntityQuery(typeof(EcsTestData2));
-
-            m_Manager.CreateEntity(typeof(EcsTestData2));
-            Assert.IsFalse(EmptySystem.ShouldRunSystem());
-            m_Manager.CreateEntity(typeof(EcsTestData));
-            Assert.IsTrue(EmptySystem.ShouldRunSystem());
-        }
-
-        [AlwaysUpdateSystem]
-        class TestAlwaysUpdateSystem : ComponentSystem
-        {
-            protected override void OnUpdate()
-            {
-            }
+            m_Manager.CreateSingleton<EcsTestData>();
+            Assert.Throws<InvalidOperationException>(() => m_Manager.CreateSingleton<EcsTestData>());
         }
 
         [Test]
-        public void RequireSingletonWithAlwaysUpdateThrows()
+        public void GetSingletonBuffer_MultipleEntities_Throws()
         {
-            var system = World.CreateSystem<TestAlwaysUpdateSystem>();
-            Assert.Throws<InvalidOperationException>(() => system.RequireSingletonForUpdate<EcsTestData>());
+            m_Manager.CreateEntity(typeof(EcsIntElement));
+            m_Manager.CreateEntity(typeof(EcsIntElement));
+
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingletonBuffer<EcsIntElement>());
+        }
+
+        [Test]
+        public void CreateSingletonBuffer_MultipleEntities_Throws()
+        {
+            m_Manager.CreateSingletonBuffer<EcsIntElement>();
+            Assert.Throws<InvalidOperationException>(() => m_Manager.CreateSingletonBuffer<EcsIntElement>());
+        }
+
+        [Test]
+        public void RequireForUpdate_Singleton()
+        {
+            EmptySystem.RequireForUpdate<EcsTestData>();
+            EmptySystem.GetEntityQuery(typeof(EcsTestData2));
+
+            m_Manager.CreateSingleton<EcsTestData2>();
+            Assert.IsFalse(EmptySystem.ShouldRunSystem());
+            m_Manager.CreateSingleton<EcsTestData>();
+            Assert.IsTrue(EmptySystem.ShouldRunSystem());
+        }
+
+        [Test]
+        public void RequireForUpdate_Multiple()
+        {
+            // RequireSingletonForUpdate was renamed to RequireForUpdate, no longer requires
+            // only one component, should work with multiple.
+            EmptySystem.RequireForUpdate<EcsTestData>();
+            EmptySystem.GetEntityQuery(typeof(EcsTestData2));
+
+            m_Manager.CreateSingleton<EcsTestData2>();
+            Assert.IsFalse(EmptySystem.ShouldRunSystem());
+            m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.CreateEntity(typeof(EcsTestData));
+            Assert.IsTrue(EmptySystem.ShouldRunSystem());
         }
 
         [Test]
         public void HasSingletonWorks()
         {
             Assert.IsFalse(EmptySystem.HasSingleton<EcsTestData>());
-            m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.CreateSingleton<EcsTestData>();
             Assert.IsTrue(EmptySystem.HasSingleton<EcsTestData>());
+
+            Assert.IsFalse(EmptySystem.HasSingleton<EcsIntElement>());
+            m_Manager.CreateSingletonBuffer<EcsIntElement>();
+            Assert.IsTrue(EmptySystem.HasSingleton<EcsIntElement>());
         }
 
         [Test]
@@ -161,16 +422,16 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetSingletonEntityWorks()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            var entity = m_Manager.CreateSingleton<EcsTestData>();
 
             var singletonEntity = EmptySystem.GetSingletonEntity<EcsTestData>();
             Assert.AreEqual(entity, singletonEntity);
         }
 
         [Test]
-        public void TryGetSingletonEntity()
+        public void TryGetSingletonEntity_Works()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            var entity = m_Manager.CreateSingleton<EcsTestData>();
 
             var hasEntity = EmptySystem.TryGetSingletonEntity<EcsTestData>(out var singletonEntity);
 
@@ -179,7 +440,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void TryGetSingletonEntityNoSingleton()
+        public void TryGetSingletonEntity_NoSingleton_ReturnsFalse()
         {
             var hasEntity = EmptySystem.TryGetSingletonEntity<EcsTestData>(out var singletonEntity);
 
@@ -188,38 +449,83 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void TryGetSingleton()
+        public void TryGetSingleton_Works()
         {
-            m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.CreateSingleton<EcsTestData>();
 
             EmptySystem.SetSingleton(new EcsTestData(10));
-            var hasSingleTon = EmptySystem.TryGetSingleton<EcsTestData>(out var ecsTestData);
-            Assert.IsTrue(hasSingleTon);
+            var hasSingleton = EmptySystem.TryGetSingleton<EcsTestData>(out var ecsTestData);
+            Assert.IsTrue(hasSingleton);
             Assert.AreEqual(10, ecsTestData.value);
 
         }
 
         [Test]
-        public void TryGetSingletonNoSingleton()
+        public void TryGetSingleton_NoSingleton_ReturnsFalse()
         {
-            var hasSingleTon = EmptySystem.TryGetSingleton<EcsTestData>(out var ecsTestData);
-            Assert.IsFalse(hasSingleTon);
+            var hasSingleton = EmptySystem.TryGetSingleton<EcsTestData>(out var ecsTestData);
+            Assert.IsFalse(hasSingleton);
             Assert.AreEqual(default(EcsTestData).value, ecsTestData.value);
+        }
+
+        [Test]
+        public void TryGetSingletonBuffer_Works()
+        {
+            var ent = m_Manager.CreateSingletonBuffer<EcsIntElement>();
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(ent);
+            buffer.Add(new EcsIntElement{Value = 10});
+            var hasSingleton = EmptySystem.TryGetSingletonBuffer<EcsIntElement>(out var singletonBuffer);
+            Assert.IsTrue(hasSingleton);
+            Assert.AreEqual(1, singletonBuffer.Length);
+            Assert.AreEqual(10, singletonBuffer[0].Value);
+        }
+
+        [Test]
+        public void TryGetSingletonBuffer_NoSingleton_ReturnsFalse()
+        {
+            var hasSingleton = EmptySystem.TryGetSingletonBuffer<EcsIntElement>(out var singletonBuffer);
+            Assert.IsFalse(hasSingleton);
+            Assert.IsFalse(singletonBuffer.IsCreated);
         }
 
         [Test]
         public void SetSingleton_ReadOnlyType_Throws()
         {
-            m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.CreateSingleton<EcsTestData>();
             var query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestData>());
             Assert.Throws<InvalidOperationException>(() => query.SetSingleton(new EcsTestData {value = 17}));
+        }
+
+        [Test]
+        public void GetSingletonWithMultipleComponentsAndMissingRequestedThrows()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
+            Assert.Throws<InvalidOperationException>(() => query.GetSingleton<EcsTestData3>());
+        }
+
+        [Test]
+        public void SystemEntityComponentDisallowsCreateSingleton()
+        {
+            using (var world = new World("WorldX"))
+            {
+                var system = world.GetOrCreateSystem<EmptyTestISystem>();
+
+                var e = world.EntityManager.CreateSingleton<EcsTestData>();
+                world.EntityManager.DestroyEntity(e);
+                Assert.DoesNotThrow(() => e = world.EntityManager.CreateSingleton<EcsTestData>());
+                world.EntityManager.DestroyEntity(e);
+
+                world.EntityManager.AddComponent<EcsTestData>(system);
+                Assert.Throws<InvalidOperationException>(() => world.EntityManager.CreateSingleton<EcsTestData>());
+            }
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void GetSetSingleton_ManagedComponents()
         {
-            m_Manager.CreateEntity(typeof(EcsTestManagedComponent));
+            m_Manager.CreateSingleton<EcsTestManagedComponent>();
 
             const string kTestVal = "SomeString";
             EmptySystem.SetSingleton(new EcsTestManagedComponent() { value = kTestVal });
@@ -230,7 +536,7 @@ namespace Unity.Entities.Tests
         public void HasSingletonWorks_ManagedComponents()
         {
             Assert.IsFalse(EmptySystem.HasSingleton<EcsTestManagedComponent>());
-            m_Manager.CreateEntity(typeof(EcsTestManagedComponent));
+            m_Manager.CreateSingleton<EcsTestManagedComponent>();
             Assert.IsTrue(EmptySystem.HasSingleton<EcsTestManagedComponent>());
         }
 

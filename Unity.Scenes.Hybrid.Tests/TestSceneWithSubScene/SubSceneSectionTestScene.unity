@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0, g: 0, b: 0, a: 1}
+  m_IndirectSpecularColor: {r: 0.12731713, g: 0.13414736, b: 0.121078536, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -133,6 +133,7 @@ GameObject:
   m_Component:
   - component: {fileID: 499221776}
   - component: {fileID: 499221777}
+  - component: {fileID: 499221778}
   m_Layer: 0
   m_Name: EcsTestData2
   m_TagString: Untagged
@@ -164,6 +165,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cdce3259fe726dc4f98db659fe7a7f6c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Value: 43
+--- !u!114 &499221778
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 499221775}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2f1014884174f53bf23276695c340e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Value: 43
@@ -298,6 +312,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1547003040}
   - component: {fileID: 1547003041}
+  - component: {fileID: 1547003042}
   m_Layer: 0
   m_Name: EcsTestData3
   m_TagString: Untagged
@@ -332,6 +347,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Value: 44
+--- !u!114 &1547003042
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1547003039}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2f1014884174f53bf23276695c340e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Value: 44
 --- !u!1 &1981954074
 GameObject:
   m_ObjectHideFlags: 0
@@ -342,6 +370,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1981954075}
   - component: {fileID: 1981954076}
+  - component: {fileID: 1981954077}
   m_Layer: 0
   m_Name: EcsTestData1
   m_TagString: Untagged
@@ -373,6 +402,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cdce3259fe726dc4f98db659fe7a7f6c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Value: 42
+--- !u!114 &1981954077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1981954074}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2f1014884174f53bf23276695c340e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Value: 42

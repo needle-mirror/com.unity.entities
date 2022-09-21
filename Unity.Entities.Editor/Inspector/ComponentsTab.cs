@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
-using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
@@ -16,7 +15,12 @@ namespace Unity.Entities.Editor
         bool m_IsVisible;
 
         public string TabName { get; } = L10n.Tr("Components");
-        public void OnTabVisibilityChanged(bool isVisible) => m_IsVisible = isVisible;
+        public void OnTabVisibilityChanged(bool isVisible)
+        {
+            if (isVisible)
+                Analytics.SendEditorEvent(Analytics.Window.Inspector, Analytics.EventType.InspectorTabFocus, Analytics.ComponentsTabName);
+            m_IsVisible = isVisible;
+        }
 
         public ComponentsTab(EntityInspectorContext entityInspectorContext)
         {
@@ -24,43 +28,46 @@ namespace Unity.Entities.Editor
         }
 
         [UsedImplicitly]
-        class ComponentTabsInspector : Inspector<ComponentsTab>
+        class ComponentsTabInspector : PropertyInspector<ComponentsTab>
         {
-            readonly List<string> m_Filters = new List<string>();
-            readonly EntityInspectorComponentOrder m_CurrentComponentOrder = new EntityInspectorComponentOrder();
-            readonly EntityInspectorStructureVisitor m_UpdateVisitor = new EntityInspectorStructureVisitor();
+            readonly List<ComponentElementBase> m_FilteredElements = new List<ComponentElementBase>();
 
-            EntityInspectorVisitor m_InspectorVisitor;
-            TagComponentContainer m_TagsRoot;
+            EntityInspectorComponentStructure m_CurrentComponentStructure;
+            EntityInspectorComponentStructure m_LastComponentStructure;
+            EntityInspectorBuilderVisitor m_InspectorBuilderVisitor;
             VisualElement m_Root;
+            TagComponentContainer m_TagsRoot;
+            VisualElement m_ComponentsRoot;
+            SearchElement m_SearchElement;
 
             public override VisualElement Build()
             {
                 m_Root = Resources.Templates.Inspector.ComponentsTab.Clone();
-                var componentSearchField = m_Root.Q<ToolbarSearchField>(className: UssClasses.Inspector.ComponentsTab.SearchField);
-                componentSearchField.RegisterCallback<ChangeEvent<string>, ComponentTabsInspector>((evt, ct) =>
-                {
-                    ct.m_Filters.Clear();
-                    var value = evt.newValue.Trim();
-                    var matches = value.Split(' ');
-                    foreach (var match in matches)
-                    {
-                        ct.m_Filters.Add(match);
-                    }
 
-                    ct.SearchChanged();
-                }, this);
+                m_SearchElement = m_Root.Q<SearchElement>(className: UssClasses.Inspector.ComponentsTab.SearchField);
+                m_SearchElement.RegisterSearchQueryHandler<ComponentElementBase>(query =>
+                {
+                    using var pooled = PooledList<ComponentElementBase>.Make();
+                    var list = pooled.List;
+                    m_Root.Query<ComponentElementBase>().ToList(list);
+                    m_FilteredElements.Clear();
+                    m_FilteredElements.AddRange(query.Apply(list));
+                    SearchChanged(list);
+                });
 
                 m_TagsRoot = new TagComponentContainer(Target.m_Context);
+                m_ComponentsRoot = new VisualElement();
                 m_Root.Add(m_TagsRoot);
+                m_Root.Add(m_ComponentsRoot);
 
-                m_Root.RegisterCallback<GeometryChangedEvent, VisualElement>((evt, elem) =>
+                m_Root.RegisterCallback<GeometryChangedEvent, VisualElement>((_, elem) =>
                 {
                     StylingUtility.AlignInspectorLabelWidth(elem);
                 }, m_Root);
 
-                m_InspectorVisitor = new EntityInspectorVisitor(m_Root, m_TagsRoot, Target.m_Context);
-                PropertyContainer.Visit(Target.m_Context.EntityContainer, m_InspectorVisitor);
+                m_InspectorBuilderVisitor = new EntityInspectorBuilderVisitor(Target.m_Context);
+                m_CurrentComponentStructure = new EntityInspectorComponentStructure();
+                BuildOrUpdateUI();
 
                 return m_Root;
             }
@@ -70,125 +77,100 @@ namespace Unity.Entities.Editor
                 if (!Target.m_IsVisible)
                     return;
 
-                m_UpdateVisitor.Reset();
+                BuildOrUpdateUI();
+            }
+
+            void BuildOrUpdateUI()
+            {
+                m_CurrentComponentStructure.Reset();
+
                 var container = Target.m_Context.EntityContainer;
-                PropertyContainer.Visit(ref container, m_UpdateVisitor);
-                UpdateComponentOrder(m_UpdateVisitor.ComponentOrder);
+                var propertyBag = PropertyBag.GetPropertyBag<EntityContainer>();
+                var properties = propertyBag.GetProperties(ref container);
+
+                foreach (var property in properties)
+                {
+                    if (property is IComponentProperty componentProperty)
+                    {
+                        if (componentProperty.Type == ComponentPropertyType.Tag)
+                            m_CurrentComponentStructure.Tags.Add(componentProperty.Name);
+                        else
+                            m_CurrentComponentStructure.Components.Add(componentProperty.Name);
+                    }
+                }
+
+                m_CurrentComponentStructure.Sort();
+
+                if (m_LastComponentStructure == null)
+                {
+                    m_LastComponentStructure = new EntityInspectorComponentStructure();
+                    foreach (var path in m_CurrentComponentStructure.Tags)
+                    {
+                        PropertyContainer.Accept(m_InspectorBuilderVisitor, ref container, new PropertyPath(path));
+                        m_TagsRoot.Add(m_InspectorBuilderVisitor.Result);
+                    }
+
+                    foreach (var path in m_CurrentComponentStructure.Components)
+                    {
+                        PropertyContainer.Accept(m_InspectorBuilderVisitor, ref container, new PropertyPath(path));
+                        m_ComponentsRoot.Add(m_InspectorBuilderVisitor.Result);
+                    }
+                }
+                else
+                {
+                    UpdateUI(!m_CurrentComponentStructure.Tags.SequenceEqual(m_LastComponentStructure.Tags),
+                             !m_CurrentComponentStructure.Components.SequenceEqual(m_LastComponentStructure.Components));
+                }
+
+                m_LastComponentStructure.CopyFrom(m_CurrentComponentStructure);
             }
 
-            void SearchChanged()
+            void UpdateUI(bool updateTags, bool updateComponents)
             {
-                using (var pooled = PooledList<ComponentElementBase>.Make())
-                {
-                    var list = pooled.List;
-                    m_Root.Query<ComponentElementBase>().ToList(list);
-                    if (m_Filters.Count == 0)
-                        list.ForEach(ce => ce.Show());
-                    else
-                    {
-                        list.ForEach(ce =>
-                        {
-                            var showShow = false;
-                            foreach (var token in m_Filters)
-                            {
-                                if (ce.Path.IndexOf(token, StringComparison.InvariantCultureIgnoreCase) >= 0)
-                                {
-                                    showShow = true;
-                                    break;
-                                }
-                            }
+                if (!updateTags && !updateComponents)
+                    return;
 
-                            if (showShow)
-                                ce.Show();
-                            else
-                                ce.Hide();
-                        });
-                    }
+                var container = Target.m_Context.EntityContainer;
+
+                // update tags
+                if (updateTags)
+                {
+                    InspectorUtility.Synchronize(m_LastComponentStructure.Tags,
+                        m_CurrentComponentStructure.Tags,
+                                StringComparer.OrdinalIgnoreCase,
+                                m_TagsRoot,
+                                Factory);
+                }
+
+                // update regular components
+                if (updateComponents)
+                {
+                    InspectorUtility.Synchronize(m_LastComponentStructure.Components,
+                        m_CurrentComponentStructure.Components,
+                                EntityInspectorComponentsComparer.Instance,
+                                m_ComponentsRoot,
+                                Factory);
+                }
+
+                VisualElement Factory(string path)
+                {
+                    PropertyContainer.Accept(m_InspectorBuilderVisitor, ref container, new PropertyPath(path));
+                    return m_InspectorBuilderVisitor.Result;
                 }
             }
 
-            void UpdateComponentOrder(EntityInspectorComponentOrder current)
+            void SearchChanged(List<ComponentElementBase> list)
             {
-                m_CurrentComponentOrder.Reset();
-                using (var pooledElements = PooledList<ComponentElementBase>.Make())
+                if (m_FilteredElements.Count == 0)
                 {
-                    ComputeCurrentComponentOrder(m_CurrentComponentOrder, pooledElements);
-
-                    if (current == m_CurrentComponentOrder)
-                        return;
-
-                    // Component removed since the last update
-                    using (var pooled = ComputeRemovedComponents(current.Components, m_CurrentComponentOrder.Components))
-                    {
-                        var list = pooled.List;
-                        foreach (var path in list)
-                        {
-                            var element = pooledElements.List.Find(ce => ce.Path == path);
-                            element?.RemoveFromHierarchy();
-                        }
-                    }
-
-                    // Tags removed since the last update
-                    using (var pooled = ComputeRemovedComponents(current.Tags, m_CurrentComponentOrder.Tags))
-                    {
-                        var list = pooled.List;
-                        foreach (var path in list)
-                        {
-                            var element = pooledElements.List.Find(ce => ce.Path == path);
-                            element?.RemoveFromHierarchy();
-                        }
-                    }
-
-                    // Component added since the last update
-                    using (var pooled = ComputeAddedComponents(current.Components, m_CurrentComponentOrder.Components))
-                    {
-                        var list = pooled.List;
-                        var container = Target.m_Context.EntityContainer;
-                        foreach (var path in list)
-                        {
-                            PropertyContainer.Visit(ref container, m_InspectorVisitor, new PropertyPath(path));
-                        }
-                    }
-
-                    // Tags removed since the last update
-                    using (var pooled = ComputeAddedComponents(current.Tags, m_CurrentComponentOrder.Tags))
-                    {
-                        var list = pooled.List;
-                        var container = Target.m_Context.EntityContainer;
-                        foreach (var path in list)
-                        {
-                            PropertyContainer.Visit(ref container, m_InspectorVisitor, new PropertyPath(path));
-                        }
-                    }
+                    foreach (var componentElementBase in list)
+                        componentElementBase.Show();
                 }
-            }
-
-            void ComputeCurrentComponentOrder(EntityInspectorComponentOrder info, List<ComponentElementBase> elements)
-            {
-                elements.Clear();
-                m_Root.Query<ComponentElementBase>().ToList(elements);
-                foreach (var ce in elements)
+                else
                 {
-                    if (ce.Type == ComponentPropertyType.Tag)
-                        info.Tags.Add(ce.Path);
-                    else
-                        info.Components.Add(ce.Path);
+                    foreach (var componentElementBase in list)
+                        componentElementBase.SetVisibility(m_FilteredElements.Contains(componentElementBase));
                 }
-            }
-
-            static PooledList<string> ComputeAddedComponents(IEnumerable<string> lhs, IEnumerable<string> rhs)
-            {
-                return Except(lhs, rhs);
-            }
-
-            static PooledList<string> ComputeRemovedComponents(IEnumerable<string> lhs, IEnumerable<string> rhs)
-            {
-                return Except(rhs, lhs);
-            }
-
-            static PooledList<string> Except(IEnumerable<string> lhs, IEnumerable<string> rhs)
-            {
-                return lhs.Except(rhs).ToPooledList();
             }
         }
     }

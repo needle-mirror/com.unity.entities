@@ -8,6 +8,7 @@ using System.Text;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Serialization;
+using Unity.Mathematics;
 using Unity.Profiling;
 using Unity.Transforms;
 using UnityEngine;
@@ -29,7 +30,7 @@ namespace Unity.Entities.Conversion
     }
 
     [DisableAutoCreation]
-    class GameObjectConversionMappingSystem : ComponentSystem
+    partial class GameObjectConversionMappingSystem : SystemBase
     {
         const int k_StaticMask = 1;
         const int k_EntityGUIDMask = 2;
@@ -55,7 +56,10 @@ namespace Unity.Entities.Conversion
         EntityArchetype[]                       m_Archetypes;
 
         // prefabs and everything they contain will be stored in this set, to be tagged with the Prefab component in dst world
-        HashSet<GameObject>                     m_DstPrefabs = new HashSet<GameObject>();
+#if UNITY_EDITOR
+        internal HashSet<UnityEditor.GUID>      m_DstPrefabsGUIDs = new HashSet<UnityEditor.GUID>();
+#endif
+        internal HashSet<GameObject>            m_DstPrefabs = new HashSet<GameObject>();
         // each will be marked as a linked entity group containing all of its converted descendants in the dst world
         HashSet<GameObject>                     m_DstLinkedEntityGroups = new HashSet<GameObject>();
         // assets that were declared via DeclareReferencedAssets
@@ -224,6 +228,31 @@ namespace Unity.Entities.Conversion
         static readonly ProfilerMarker IncrementalCollectDependencies = new ProfilerMarker("IncrementalCollectDependencies");
 #endif
 
+#if UNITY_EDITOR
+        ulong _refreshVersion;
+        uint4 _AllPrefabsHash;
+
+        internal bool CheckChangedAssets()
+        {
+            var version = UnityEditor.AssetDatabase.GlobalArtifactDependencyVersion;
+            if (_refreshVersion == version)
+                return false;
+            _refreshVersion = version;
+
+            var hash = new xxHash3.StreamingState(false);
+            foreach (var prefab in m_DstPrefabsGUIDs)
+                hash.Update(UnityEditor.AssetDatabase.GetAssetDependencyHash(prefab));
+
+            var finalHash = hash.DigestHash128();
+            bool change = !_AllPrefabsHash.Equals(finalHash);
+            _AllPrefabsHash = finalHash;
+
+            return change;
+        }
+#else
+        internal bool CheckChangedAssets() => false;
+#endif
+
         int ComputeArchetypeFlags(UnityObject uobject)
         {
             int flags = 0;
@@ -294,7 +323,7 @@ namespace Unity.Entities.Conversion
 
                     for (int i = 0; i < outEntities.Length; i++)
                     {
-                        m_DstManager.AddSharedComponentData(outEntities[i], new SceneSection { SceneGUID = Settings.SceneGUID, Section = sectionIndex });
+                        m_DstManager.AddSharedComponent(outEntities[i], new SceneSection { SceneGUID = Settings.SceneGUID, Section = sectionIndex });
                     }
                 }
 
@@ -302,7 +331,12 @@ namespace Unity.Entities.Conversion
                 if (AssignName)
                 {
                     for (int i = 0; i < outEntities.Length; i++)
-                        m_DstManager.SetName(outEntities[i], GetUnityObjectName(uobject));
+                    {
+                        var unityObjectName = GetUnityObjectName(uobject);
+                        var fs = new FixedString64Bytes();
+                        FixedStringMethods.CopyFromTruncated(ref fs, unityObjectName);
+                        m_DstManager.SetName(outEntities[i], fs);
+                    }
                 }
 #endif
             }
@@ -320,7 +354,7 @@ namespace Unity.Entities.Conversion
 
         public Entity GetSceneSectionEntity(Entity entity)
         {
-            var sceneSection = m_DstManager.GetSharedComponentData<SceneSection>(entity);
+            var sceneSection = m_DstManager.GetSharedComponent<SceneSection>(entity);
             return SerializeUtility.GetSceneSectionEntity(sceneSection.Section, m_DstManager, ref m_SceneSectionEntityQuery);
         }
 
@@ -363,33 +397,37 @@ namespace Unity.Entities.Conversion
             using (m_CreatePrimaryEntities.Auto())
             #endif
             {
-                Entities.WithIncludeAll().ForEach((Transform transform) =>
+                Entities
+                    .WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                    .ForEach((Transform transform) =>
                 {
                     CreatePrimaryEntity(transform.gameObject);
-                });
+                }).WithoutBurst().Run();
 
-                Entities.WithIncludeAll().ForEach((RectTransform transform) =>
+                Entities
+                    .WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                    .ForEach((RectTransform transform) =>
                 {
                     CreatePrimaryEntity(transform.gameObject);
-                });
+                }).WithoutBurst().Run();
 
-                Entities.WithAll<Asset>().ForEach(entity =>
+                Entities.WithAll<Asset>().ForEach((Entity entity) =>
                 {
                     using (var types = EntityManager.GetComponentTypes(entity))
                     {
                         var derivedType = types.FirstOrDefault(t => typeof(UnityObject).IsAssignableFrom(t.GetManagedType()));
-                        if (derivedType.TypeIndex == 0)
+                        if (derivedType.TypeIndex == TypeIndex.Null)
                             throw new Exception("Expected to find a UnityEngine.Object-derived component type in this entity");
 
                         var asset = EntityManager.GetComponentObject<UnityObject>(entity, derivedType);
                         CreatePrimaryEntity(asset);
                     }
-                });
+                }).WithoutBurst().Run();
             }
         }
 
 #if UNITY_EDITOR
-        public T GetBuildConfigurationComponent<T>() where T : Build.IBuildComponent
+        public T GetBuildConfigurationComponent<T>() where T : Unity.Build.IBuildComponent
         {
             if (Settings.BuildConfiguration == null)
             {
@@ -398,7 +436,7 @@ namespace Unity.Entities.Conversion
             return Settings.BuildConfiguration.GetComponent<T>();
         }
 
-        public bool TryGetBuildConfigurationComponent<T>(out T component) where T : Build.IBuildComponent
+        public bool TryGetBuildConfigurationComponent<T>(out T component) where T : Unity.Build.IBuildComponent
         {
             if (Settings.BuildConfiguration == null)
             {
@@ -590,7 +628,7 @@ namespace Unity.Entities.Conversion
             m_IncrementalConversionData.Clear();
             m_LiveConversionContext.UpdateHierarchy(arguments, ref m_IncrementalConversionData);
 
-            var incrementalSystem = World.GetExistingSystem<IncrementalChangesSystem>();
+            var incrementalSystem = World.GetExistingSystemManaged<IncrementalChangesSystem>();
             incrementalSystem.SceneHierarchy.Hierarchy = m_LiveConversionContext.Hierarchy.AsReadOnly();
             incrementalSystem.SceneHierarchy.TransformAccessArray = m_LiveConversionContext.Hierarchy.TransformArray;
             incrementalSystem.ConvertedEntities = m_JournalData.GetConvertedEntitiesAccessor();
@@ -599,7 +637,7 @@ namespace Unity.Entities.Conversion
 
         public void FinishIncrementalConversionPreparation()
         {
-            var incrementalSystem = World.GetExistingSystem<IncrementalChangesSystem>();
+            var incrementalSystem = World.GetExistingSystemManaged<IncrementalChangesSystem>();
             incrementalSystem.ExtractRequests(m_IncrementalConversionData);
 
 #if DETAIL_MARKERS
@@ -611,8 +649,8 @@ namespace Unity.Entities.Conversion
                 var toDestroy = new NativeList<Entity>(m_IncrementalConversionData.RemovedInstanceIds.Length, Allocator.Temp);
                 foreach (var instanceId in m_IncrementalConversionData.RemovedInstanceIds)
                     DeleteIncrementalConversion(instanceId, toRemoveLinkedEntityGroup, toDestroy);
-                m_DstManager.RemoveComponent<LinkedEntityGroup>(toRemoveLinkedEntityGroup);
-                m_DstManager.DestroyEntity(toDestroy);
+                m_DstManager.RemoveComponent<LinkedEntityGroup>(toRemoveLinkedEntityGroup.AsArray());
+                m_DstManager.DestroyEntity(toDestroy.AsArray());
             }
 
             _cachedCollections.Init();
@@ -642,6 +680,7 @@ namespace Unity.Entities.Conversion
                     for (int i = 0; i < dependentInstances.Length; i++)
                     {
                         var go = objs[i] as GameObject;
+                        // Prefabs are outside of the scene...
                         if (go == null || go.scene != scene)
                         {
                             // This case can happen e.g. when a GameObject is reparented to another object but that
@@ -831,7 +870,7 @@ namespace Unity.Entities.Conversion
                 var sceneCullingMask = UnityEditor.GameObjectUtility.ModifyMaskIfGameObjectIsHiddenForPrefabModeInContext(
                     UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask,
                     pickableObject);
-                m_DstManager.AddSharedComponentData(entity, new EditorRenderData
+                m_DstManager.AddSharedComponentManaged(entity, new EditorRenderData
                 {
                     PickableObject = pickableObject,
                     SceneCullingMask = sceneCullingMask
@@ -874,8 +913,23 @@ namespace Unity.Entities.Conversion
                 return;
             }
 
+#if UNITY_EDITOR
+            var guid = UnityEditor.AssetDatabase.GUIDFromAssetPath(UnityEditor.AssetDatabase.GetAssetPath(prefab));
+            if (!guid.Empty())
+                m_DstPrefabsGUIDs.Add(guid);
+#endif
+
             m_DstLinkedEntityGroups.Add(prefab);
             CreateEntitiesForGameObjectsRecurse(prefab.transform, m_DstPrefabs);
+        }
+
+        internal void DeclareAssetDep(UnityEngine.Object target)
+        {
+#if UNITY_EDITOR
+            var guid = UnityEditor.AssetDatabase.GUIDFromAssetPath(UnityEditor.AssetDatabase.GetAssetPath(target));
+            if (!guid.Empty())
+                m_DstPrefabsGUIDs.Add(guid);
+#endif
         }
 
         public void DeclareReferencedAsset(UnityObject asset)
@@ -1027,7 +1081,7 @@ namespace Unity.Entities.Conversion
             {
                 Any = m_CompanionTypeSet.ToArray(),
                 None = new ComponentType[] {typeof(CompanionLink)},
-                Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
             };
             m_CompanionComponentsQuery = DstEntityManager.CreateEntityQuery(entityQueryDesc);
             m_CompanionComponentsQuery.SetOrderVersionFilter();
@@ -1051,7 +1105,7 @@ namespace Unity.Entities.Conversion
 
                 var mcs = DstEntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore;
 
-                var archetypeChunkArray = m_CompanionComponentsQuery.CreateArchetypeChunkArray(Allocator.Temp);
+                var archetypeChunkArray = m_CompanionComponentsQuery.ToArchetypeChunkArray(Allocator.Temp);
 
                 Archetype* prevArchetype = null;
                 var unityObjectTypeOffset = -1;

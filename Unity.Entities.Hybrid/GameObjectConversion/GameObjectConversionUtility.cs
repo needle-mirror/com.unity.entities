@@ -6,7 +6,6 @@ using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Entities.Conversion;
 using Unity.Profiling;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityObject = UnityEngine.Object;
@@ -44,7 +43,7 @@ namespace Unity.Entities
             {
                 var gameObjectWorld = new World($"GameObject -> Entity Conversion '{settings.DebugConversionName}'", WorldFlags.Live | WorldFlags.Conversion | WorldFlags.Staging);
                 var mappingSystem = new GameObjectConversionMappingSystem(settings);
-                gameObjectWorld.AddSystem(mappingSystem);
+                gameObjectWorld.AddSystemManaged(mappingSystem);
                 if (mappingSystem.IsLiveConversion)
                     mappingSystem.PrepareForLiveConversion(scene);
 
@@ -63,9 +62,10 @@ namespace Unity.Entities
 
         static void DeclareReferencedObjects(World gameObjectWorld, GameObjectConversionMappingSystem mappingSystem)
         {
-            var newAllEntitiesQuery = mappingSystem.Entities
-                .WithNone<DeclaredReferenceObjectsTag>()
-                .ToEntityQuery();
+            var newAllEntitiesQuery = mappingSystem.GetEntityQuery(new EntityQueryDesc
+            {
+                None = new[] { ComponentType.ReadOnly<DeclaredReferenceObjectsTag>() },
+            });
 
             var newGoEntitiesQuery = mappingSystem.GetEntityQuery(
                 new EntityQueryDesc
@@ -108,7 +108,7 @@ namespace Unity.Entities
                 declaredPrefabs.Clear();
 
                 // give systems a chance to declare prefabs and assets
-                gameObjectWorld.GetExistingSystem<GameObjectDeclareReferencedObjectsGroup>().Update();
+                gameObjectWorld.GetExistingSystemManaged<GameObjectDeclareReferencedObjectsGroup>().Update();
             }
 
             // clean up the markers
@@ -121,7 +121,7 @@ namespace Unity.Entities
 
             public Conversion(World conversionWorld)
             {
-                MappingSystem = conversionWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
+                MappingSystem = conversionWorld.GetExistingSystemManaged<GameObjectConversionMappingSystem>();
                 MappingSystem.BeginConversion();
             }
 
@@ -141,9 +141,9 @@ namespace Unity.Entities
 
                     conversion.MappingSystem.CreatePrimaryEntities();
 
-                    conversionWorld.GetExistingSystem<GameObjectBeforeConversionGroup>().Update();
-                    conversionWorld.GetExistingSystem<GameObjectConversionGroup>().Update();
-                    conversionWorld.GetExistingSystem<GameObjectAfterConversionGroup>().Update();
+                    conversionWorld.GetExistingSystemManaged<GameObjectBeforeConversionGroup>().Update();
+                    conversionWorld.GetExistingSystemManaged<GameObjectConversionGroup>().Update();
+                    conversionWorld.GetExistingSystemManaged<GameObjectAfterConversionGroup>().Update();
                 }
 
                 using (s_AddPrefabComponentDataTag.Auto())
@@ -158,21 +158,8 @@ namespace Unity.Entities
                     conversion.MappingSystem.GenerateLinkedEntityGroups();
 
                 using (s_UpdateExportSystems.Auto())
-                    conversionWorld.GetExistingSystem<GameObjectExportGroup>()?.Update();
+                    conversionWorld.GetExistingSystemManaged<GameObjectExportGroup>()?.Update();
             }
-        }
-
-        internal static void ConvertIncremental(World conversionWorld, IEnumerable<GameObject> gameObjects, NativeList<int> changedAssetInstanceIds, ConversionFlags flags)
-        {
-            var args = new IncrementalConversionBatch
-            {
-                ReconvertHierarchyInstanceIds = new NativeArray<int>(gameObjects.Select(go => go.GetInstanceID()).ToArray(), Allocator.TempJob),
-                ChangedComponents = new List<Component>()
-            };
-            if (changedAssetInstanceIds.IsCreated)
-                args.ChangedAssets = changedAssetInstanceIds;
-            ConvertIncremental(conversionWorld, flags, ref args);
-            args.ReconvertHierarchyInstanceIds.Dispose();
         }
 
         internal static void ConvertIncremental(World conversionWorld, ConversionFlags flags, ref IncrementalConversionBatch batch)
@@ -180,7 +167,7 @@ namespace Unity.Entities
             using (var conversion = new Conversion(conversionWorld))
             {
                 conversion.MappingSystem.BeginIncrementalConversionPreparation(flags, ref batch);
-                conversionWorld.GetExistingSystem<ConversionSetupGroup>().Update();
+                conversionWorld.GetExistingSystemManaged<ConversionSetupGroup>().Update();
                 conversion.MappingSystem.FinishIncrementalConversionPreparation();
 
                 FinishConvertIncremental(conversionWorld, conversion);
@@ -191,9 +178,16 @@ namespace Unity.Entities
         {
             using (s_UpdateConversionSystems.Auto())
             {
-                conversionWorld.GetExistingSystem<GameObjectBeforeConversionGroup>().Update();
-                conversionWorld.GetExistingSystem<GameObjectConversionGroup>().Update();
-                conversionWorld.GetExistingSystem<GameObjectAfterConversionGroup>().Update();
+                var count = conversion.MappingSystem.m_DstPrefabs.Count;
+                DeclareReferencedObjects(conversionWorld, conversion.MappingSystem);
+                if (count != conversion.MappingSystem.m_DstPrefabs.Count)
+                    throw new ArgumentException("Convert incremental doesn't support adding new prefabs.");
+                /*if (conversion.MappingSystem.CheckChangedAssets())
+                    throw new ArgumentException("Convert incremental doesn't support changing assets.");*/
+
+                conversionWorld.GetExistingSystemManaged<GameObjectBeforeConversionGroup>().Update();
+                conversionWorld.GetExistingSystemManaged<GameObjectConversionGroup>().Update();
+                conversionWorld.GetExistingSystemManaged<GameObjectAfterConversionGroup>().Update();
             }
 
             using (s_GenerateLinkedEntityGroups.Auto())
@@ -219,6 +213,8 @@ namespace Unity.Entities
 
                     Convert(conversionWorld);
 
+                    conversion.MappingSystem.CheckChangedAssets();
+
                     conversionWorld.EntityManager.DestroyEntity(conversionWorld.EntityManager.UniversalQuery);
                 }
 
@@ -226,6 +222,7 @@ namespace Unity.Entities
             }
         }
 
+        [Obsolete("Runtime Conversion will be removed in DOTS 1.0")]
         public static Entity ConvertGameObjectHierarchy(GameObject root, GameObjectConversionSettings settings)
         {
             using (s_ConvertScene.Auto())
@@ -286,17 +283,19 @@ namespace Unity.Entities
 
         static void AddConversionSystems(World gameObjectWorld, IEnumerable<Type> systemTypes, bool includeExport)
         {
-            var incremental = gameObjectWorld.GetOrCreateSystem<ConversionSetupGroup>();
-            var declareConvert = gameObjectWorld.GetOrCreateSystem<GameObjectDeclareReferencedObjectsGroup>();
-            var earlyConvert = gameObjectWorld.GetOrCreateSystem<GameObjectBeforeConversionGroup>();
-            var convert = gameObjectWorld.GetOrCreateSystem<GameObjectConversionGroup>();
-            var lateConvert = gameObjectWorld.GetOrCreateSystem<GameObjectAfterConversionGroup>();
+            using var marker = new ProfilerMarker("AddSystems").Auto();
 
-            var export = includeExport ? gameObjectWorld.GetOrCreateSystem<GameObjectExportGroup>() : null;
+            var incremental = gameObjectWorld.GetOrCreateSystemManaged<ConversionSetupGroup>();
+            var declareConvert = gameObjectWorld.GetOrCreateSystemManaged<GameObjectDeclareReferencedObjectsGroup>();
+            var earlyConvert = gameObjectWorld.GetOrCreateSystemManaged<GameObjectBeforeConversionGroup>();
+            var convert = gameObjectWorld.GetOrCreateSystemManaged<GameObjectConversionGroup>();
+            var lateConvert = gameObjectWorld.GetOrCreateSystemManaged<GameObjectAfterConversionGroup>();
+
+            var export = includeExport ? gameObjectWorld.GetOrCreateSystemManaged<GameObjectExportGroup>() : null;
 
             {
                 // for various reasons, this system needs to be present before any other system initializes
-                var system = gameObjectWorld.GetOrCreateSystem<IncrementalChangesSystem>();
+                var system = gameObjectWorld.GetOrCreateSystemManaged<IncrementalChangesSystem>();
                 incremental.AddSystemToUpdateList(system);
             }
 

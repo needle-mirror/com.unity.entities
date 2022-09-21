@@ -3,19 +3,23 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Threading;
+using System.Reflection;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using Microsoft.CodeAnalysis.Text;
+using Unity.Entities.SourceGen.SystemGeneratorCommon;
+using Unity.Entities.SourceGen.SystemGenerator;
 
 namespace Unity.Entities.SourceGen.Common
 {
-    public static class SourceGenHelpers
+    public static partial class SourceGenHelpers
     {
+        public const string TrackedNodeAnnotationUsedByRoslyn = "Id";
+
         static string s_ProjectPath = string.Empty;
+        static bool InUnity2021OrNewer { get; set; }
+
         public static string ProjectPath
         {
             get
@@ -24,14 +28,10 @@ namespace Unity.Entities.SourceGen.Common
                     throw new Exception("ProjectPath must set before use, this is also only permitted before 2020.");
                 return s_ProjectPath;
             }
-            private set
-            {
-                s_ProjectPath = value;
-            }
+            private set => s_ProjectPath = value;
         }
 
-        public static bool InUnity2021OrNewer { get; private set; }
-        public static bool CanWriteToProjectPath { get => !string.IsNullOrEmpty(s_ProjectPath); }
+        public static bool CanWriteToProjectPath => !string.IsNullOrEmpty(s_ProjectPath);
 
         public static void Setup(GeneratorExecutionContext context)
         {
@@ -43,79 +43,57 @@ namespace Unity.Entities.SourceGen.Common
 
             InUnity2021OrNewer = context.ParseOptions.PreprocessorSymbolNames.Contains("UNITY_2021_1_OR_NEWER");
 
-            if (context.AdditionalFiles.Any() && !string.IsNullOrEmpty(context.AdditionalFiles[0].Path))
-            {
-                if (InUnity2021OrNewer)
-                {
-                    // With 2021+, the content of the first additional file contains the project path
-                    ProjectPath = context.AdditionalFiles[0].GetText().ToString();
-                }
-                else
-                {
-                    // Before 2021, the first additional file path points to the project path
-                    ProjectPath = context.AdditionalFiles[0].Path;
-                }
-            }
+            if (!context.AdditionalFiles.Any() || string.IsNullOrEmpty(context.AdditionalFiles[0].Path))
+                return;
+
+            ProjectPath = InUnity2021OrNewer ? context.AdditionalFiles[0].GetText().ToString() : context.AdditionalFiles[0].Path;
         }
 
-        public static string GetTempGeneratedPathToFile(string fileNameWithExtension)
+        static string GetTempGeneratedPathToFile(string fileNameWithExtension)
         {
-            if (CanWriteToProjectPath)
-            {
-                var tempFileDirectory = Path.Combine(ProjectPath, "Temp", "GeneratedCode");
-                Directory.CreateDirectory(tempFileDirectory);
-                return Path.Combine(tempFileDirectory, fileNameWithExtension);
-            }
-            else
-            {
+            if (!CanWriteToProjectPath)
                 return Path.Combine("Temp", "GeneratedCode");
-            }
-        }
 
-        public static void WaitForDebugger(this GeneratorExecutionContext context, string inAssembly = null)
-        {
-            if (inAssembly != null && !context.Compilation.Assembly.Name.Contains(inAssembly)) return;
-
-            // Debugger.Launch only works on Windows and not in Rider
-            SpinWait.SpinUntil(() => Debugger.IsAttached);
-
-            LogInfo($"DEBUG: Connected for assembly: {context.Compilation.Assembly.Name}");
+            var tempFileDirectory = Path.Combine(ProjectPath, "Temp", "GeneratedCode");
+            Directory.CreateDirectory(tempFileDirectory);
+            return Path.Combine(tempFileDirectory, fileNameWithExtension);
         }
 
         public static SyntaxList<AttributeListSyntax> GetCompilerGeneratedAttribute()
-        {
-            return AttributeListFromAttributeName("global::System.Runtime.CompilerServices.CompilerGenerated");
-        }
+            => AttributeListFromAttributeName("global::System.Runtime.CompilerServices.CompilerGenerated");
 
-        public static SyntaxList<AttributeListSyntax> AttributeListFromAttributeName(string attributeName) =>
-            new SyntaxList<AttributeListSyntax>(AttributeList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Attribute(SyntaxFactory.IdentifierName(attributeName)))));
+        static SyntaxList<AttributeListSyntax> AttributeListFromAttributeName(string attributeName) =>
+            new SyntaxList<AttributeListSyntax>(AttributeList(SingletonSeparatedList(Attribute(IdentifierName(attributeName)))));
 
         public static void LogInfo(string message)
         {
-            if (CanWriteToProjectPath)
+            if (!CanWriteToProjectPath)
+                return;
+            // Ignore IO exceptions in case there is already a lock, could use a named mutex but don't want to eat the performance cost
+            try
             {
-                // Ignore IO exceptions in case there is already a lock, could use a named mutex but don't want to eat the performance cost
-                try
-                {
-                    using StreamWriter w = File.AppendText(GetTempGeneratedPathToFile("SourceGen.log"));
-                    w.WriteLine(message);
-                }
-                catch (IOException) { }
+                using StreamWriter w = File.AppendText(GetTempGeneratedPathToFile("SourceGen.log"));
+                w.WriteLine(message);
             }
+            catch (IOException) { }
+        }
+
+        public static class CompilerError
+        {
+            public static string WithMessage(string errorMessage) =>
+                "This error indicates a bug in the DOTS source generators. We'd appreciate a bug report (Help -> Report a Bug...). Thanks! " +
+                $"Error message: '{errorMessage}'";
         }
 
         public static void LogError(this GeneratorExecutionContext context, string errorCode, string title, string errorMessage, Location location, string description = "")
         {
             if (errorCode.Contains("ICE"))
-                errorMessage = $"Seeing this error indicates a bug in the dots compiler. We'd appreciate a bug report (About->Report a Bug...). Thnx! <3 {errorMessage}";
+                errorMessage = CompilerError.WithMessage(errorMessage);
 
             context.Log(DiagnosticSeverity.Error, errorCode, title, errorMessage, location, description);
         }
 
-        public static void LogWarning(this GeneratorExecutionContext context, string errorCode, string title, string errorMessage, Location location, string description = "")
-            => context.Log(DiagnosticSeverity.Warning, errorCode, title, errorMessage, location, description);
-
-        public static void LogInfo(this GeneratorExecutionContext context, string errorCode, string title, string errorMessage, Location location, string description = "")
+        static void LogInfo(this GeneratorExecutionContext context, string errorCode, string title, string errorMessage, Location location, string description = "")
             => context.Log(DiagnosticSeverity.Info, errorCode, title, errorMessage, location, description);
 
         static void Log(this GeneratorExecutionContext context, DiagnosticSeverity diagnosticSeverity, string errorCode, string title, string errorMessage, Location location, string description = "")
@@ -125,28 +103,20 @@ namespace Unity.Entities.SourceGen.Common
             context.ReportDiagnostic(Diagnostic.Create(rule, location));
         }
 
-        public static bool ContainsId(this ImmutableArray<Diagnostic> diags, string id)
-            => diags.Any(diag => diag.Id == id);
-
         public static bool TryParseQualifiedEnumValue<TEnum>(string value, out TEnum result) where TEnum : struct
         {
-            string parseString = value;
-            int loc = value.LastIndexOf('.');
-            if (loc > 0)
-                parseString = value.Substring(loc + 1);
-            return Enum.TryParse(parseString, out result) && Enum.IsDefined(typeof(TEnum), result);
+            var unqualifiedEnumValue = value.Split('.').Last();
+            return Enum.TryParse(unqualifiedEnumValue, out result) && Enum.IsDefined(typeof(TEnum), result);
         }
 
-        public static IEnumerable<Enum> GetFlags(this Enum e)
-        {
-            return Enum.GetValues(e.GetType()).Cast<Enum>().Where(e.HasFlag);
-        }
+        public static IEnumerable<Enum> GetFlags(this Enum e) => Enum.GetValues(e.GetType()).Cast<Enum>().Where(e.HasFlag);
 
         public static SourceText WithInitialLineDirectiveToGeneratedSource(this SourceText sourceText, string generatedSourceFilePath)
         {
             var firstLine = sourceText.Lines.FirstOrDefault();
             return sourceText.WithChanges(new TextChange(firstLine.Span, $"#line 1 \"{generatedSourceFilePath}\"" + Environment.NewLine + firstLine));
         }
+
         public static SourceText WithIgnoreUnassignedVariableWarning(this SourceText sourceText)
         {
             var firstLine = sourceText.Lines.FirstOrDefault();
@@ -171,6 +141,85 @@ namespace Unity.Entities.SourceGen.Common
 
                 return hash1 + (hash2*1566083941);
             }
+        }
+
+        public static void OutputSourceToFile(GeneratorExecutionContext context, string generatedSourceFilePath, SourceText sourceTextForNewClass)
+        {
+            // Output as generated source file for debugging/inspection
+            if (!CanWriteToProjectPath)
+                return;
+
+            try
+            {
+                LogInfo($"Outputting generated source to file {generatedSourceFilePath}...");
+                File.WriteAllText(generatedSourceFilePath, sourceTextForNewClass.ToString());
+            }
+            catch (IOException ioException)
+            {
+                // emit Entities exceptions as info but don't block compilation or generate error to fail tests
+                context.LogInfo("SGICE005", "Entities Generators",
+                    ioException.ToUnityPrintableString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
+            }
+        }
+
+        public static bool TryGetAllTypeArgumentSymbolsOfMethod(SystemDescription systemDescription, SyntaxNode node, string methodName, QueryType resultsShouldHaveThisQueryType, out List<Query> result)
+        {
+            result = new List<Query>();
+
+            var isValid = true;
+            var semanticModel = systemDescription.SemanticModel;
+            var methodInvocations = node.GetMethodInvocations();
+            var location = node.GetLocation();
+
+            if (!methodInvocations.ContainsKey(methodName))
+                return true;
+
+            var symbols = methodInvocations[methodName]
+                .Select(methodInvocation => (IMethodSymbol) semanticModel.GetSymbolInfo(methodInvocation).Symbol)
+                .Where(symbol => symbol != null);
+
+            foreach (var symbol in symbols)
+            {
+                foreach (var argumentType in symbol.TypeArguments.OfType<ITypeParameterSymbol>())
+                {
+                    SystemGeneratorErrors.DC0051(systemDescription, location, argumentType.Name, methodName);
+                    isValid = false;
+                }
+
+                foreach (var argumentType in symbol.TypeArguments.OfType<INamedTypeSymbol>())
+                {
+                    if (argumentType.IsGenericType)
+                    {
+                        SystemGeneratorErrors.DC0051(systemDescription, location, argumentType.Name, methodName);
+                        isValid = false;
+                        continue;
+                    }
+                    result.Add(new Query { IsReadOnly = true, Type = resultsShouldHaveThisQueryType, TypeSymbol = argumentType});
+                }
+            }
+
+            return isValid;
+        }
+
+
+        /// <summary>
+        ///         
+        /// Returns true if running as part of csc.exe, otherwise we are likely running in the IDE.
+        /// Skipping Source Generation in the IDE can be a considerable performance win as source
+        /// generators can be run multiple times per keystroke. If the user doesn't rely on generated types
+        /// consider skipping your Generator's Execute method when this returns false
+        /// </summary>
+        public static readonly bool IsBuildTime = Assembly.GetEntryAssembly() != null;
+
+        public static bool ShouldRun(GeneratorExecutionContext context)
+        {
+            // Throw if we are cancelled
+            context.CancellationToken.ThrowIfCancellationRequested();
+
+            // Don't run if we don't reference Entities (or are Entities) or if we are CodeGen.Tests (which need to run generators manually)
+            return (context.Compilation.Assembly.Name == "Unity.Entities" ||
+                    context.Compilation.ReferencedAssemblyNames.Any(n => n.Name == "Unity.Entities")) &&
+                   !context.Compilation.Assembly.Name.Contains("CodeGen.Tests");
         }
     }
 }

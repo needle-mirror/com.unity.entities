@@ -2,7 +2,7 @@ using System;
 
 namespace Unity.Entities.Editor
 {
-    public interface IWorldProxyUpdater
+    interface IWorldProxyUpdater
     {
         /// <summary>
         /// Populate world proxy.

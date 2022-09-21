@@ -44,7 +44,7 @@ namespace Unity.Entities.Tests
         {
             var e = m_Manager.CreateEntity();
             var obj = new TextAsset();
-            m_Manager.AddSharedComponentData(e, new CorrectHashCode { Target = obj });
+            m_Manager.AddSharedComponentManaged(e, new CorrectHashCode { Target = obj });
             UnityEngine.Object.DestroyImmediate(obj);
             m_Manager.DestroyEntity(e);
         }
@@ -54,7 +54,7 @@ namespace Unity.Entities.Tests
         {
             var e = m_Manager.CreateEntity();
             var obj = new TextAsset();
-            m_Manager.AddSharedComponentData(e, new IncorrectHashCode { Target = obj });
+            m_Manager.AddSharedComponentManaged(e, new IncorrectHashCode { Target = obj });
             UnityEngine.Object.DestroyImmediate(obj);
 
             m_Manager.DestroyEntity(e);
@@ -69,12 +69,12 @@ namespace Unity.Entities.Tests
             var e = m_Manager.CreateEntity();
             var obj = new TextAsset();
             var sharedComponent = new CorrectHashCode {Target = obj};
-            m_Manager.AddSharedComponentData(e, sharedComponent);
+            m_Manager.AddSharedComponentManaged(e, sharedComponent);
             UnityEngine.Object.DestroyImmediate(obj);
 
             var query = m_Manager.CreateEntityQuery(typeof(CorrectHashCode));
 
-            query.SetSharedComponentFilter(sharedComponent);
+            query.SetSharedComponentFilterManaged(sharedComponent);
             Assert.AreEqual(0, query.CalculateEntityCount());
         }
 
@@ -84,12 +84,12 @@ namespace Unity.Entities.Tests
             var e = m_Manager.CreateEntity();
             var obj = new TextAsset();
             var sharedComponent = new IncorrectHashCode {Target = obj};
-            m_Manager.AddSharedComponentData(e, sharedComponent);
+            m_Manager.AddSharedComponentManaged(e, sharedComponent);
             UnityEngine.Object.DestroyImmediate(obj);
 
             var query = m_Manager.CreateEntityQuery(typeof(IncorrectHashCode));
 
-            query.SetSharedComponentFilter(sharedComponent);
+            query.SetSharedComponentFilterManaged(sharedComponent);
             Assert.AreEqual(0, query.CalculateEntityCount());
         }
     }

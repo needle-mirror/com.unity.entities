@@ -26,16 +26,35 @@ namespace Unity.Entities.Tests.Fuzzer
         internal readonly DictionaryForKeySampling<Entity, Entity> LinkedEntityParent = new DictionaryForKeySampling<Entity, Entity>();
         internal readonly HashSetForSampling<EntityGuid> LinkedEntityRoots = new HashSetForSampling<EntityGuid>();
         internal readonly DictionaryForKeySampling<EntityGuid, Entity> AliveEntities = new DictionaryForKeySampling<EntityGuid, Entity>();
-        private static readonly EntityQueryDesc Query = new EntityQueryDesc
+        private static readonly EntityQueryDesc Query;
+
+        static DifferPatcherFuzzer()
         {
-            All = new ComponentType[] { typeof(EntityGuid) },
-            Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
-        };
+            TypeManager.Initialize();
+            Query = new EntityQueryDesc
+            {
+                All = new ComponentType[] { typeof(EntityGuid) },
+                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
+            };
+            WeightedGenerators = new List<(CommandGenerator Generator, int Weight)>
+            {
+                (DifferPatcherFuzzerCommands.CreateEntity, 10),
+                (DifferPatcherFuzzerCommands.DestroyEntity, 8),
+                (DifferPatcherFuzzerCommands.CreateLinkedEntityGroup, 10),
+                (DifferPatcherFuzzerCommands.RemoveLinkedEntityGroup, 8),
+                (DifferPatcherFuzzerCommands.AddToLinkedEntityGroup, 10),
+                (DifferPatcherFuzzerCommands.RemoveFromLinkedEntityGroup, 8),
+                (Fuzzer.ValidationCommandGenerator<DifferPatcherFuzzer>(), 2)
+            };
+            Generators = WeightedGenerators.Select(t => t.Item1).ToList();
+        }
 
         public DifferPatcherFuzzer()
         {
             SourceWorld = new World("Source");
+            SourceWorld.UpdateAllocatorEnableBlockFree = true;
             DestinationWorld = new World("Destination");
+            DestinationWorld.UpdateAllocatorEnableBlockFree = true;
         }
 
         public void Validate()
@@ -43,12 +62,12 @@ namespace Unity.Entities.Tests.Fuzzer
             var srcEm = SourceWorld.EntityManager;
             var dstEm = DestinationWorld.EntityManager;
 
-            using (var changes = EntityDiffer.GetChanges(ref _cachedComponentChanges, srcEm, dstEm, _differOptions, Query, _srcBlobAssets, Allocator.TempJob))
+            using (var changes = EntityDiffer.GetChanges(ref _cachedComponentChanges, srcEm, dstEm, _differOptions, Query, _srcBlobAssets, SourceWorld.UpdateAllocator.ToAllocator))
             {
                 EntityPatcher.ApplyChangeSet(dstEm, changes.ForwardChangeSet);
             }
 
-            using (var changes = EntityDiffer.GetChanges(ref _cachedComponentChanges, dstEm, srcEm, _differOptions, Query, _dstBlobAssets, Allocator.TempJob))
+            using (var changes = EntityDiffer.GetChanges(ref _cachedComponentChanges, dstEm, srcEm, _differOptions, Query, _dstBlobAssets, DestinationWorld.UpdateAllocator.ToAllocator))
             {
                 if (!changes.ForwardChangeSet.HasChangesIncludeNames(true))
                     return;
@@ -57,18 +76,9 @@ namespace Unity.Entities.Tests.Fuzzer
             }
         }
 
-        public static readonly List<(CommandGenerator Generator, int Weight)> WeightedGenerators = new List<(CommandGenerator Generator, int Weight)>
-        {
-            (DifferPatcherFuzzerCommands.CreateEntity, 10),
-            (DifferPatcherFuzzerCommands.DestroyEntity, 8),
-            (DifferPatcherFuzzerCommands.CreateLinkedEntityGroup, 10),
-            (DifferPatcherFuzzerCommands.RemoveLinkedEntityGroup, 8),
-            (DifferPatcherFuzzerCommands.AddToLinkedEntityGroup, 10),
-            (DifferPatcherFuzzerCommands.RemoveFromLinkedEntityGroup, 8),
-            (Fuzzer.ValidationCommandGenerator<DifferPatcherFuzzer>(), 2)
-        };
+        public static readonly List<(CommandGenerator Generator, int Weight)> WeightedGenerators;
 
-        public static readonly List<CommandGenerator> Generators = WeightedGenerators.Select(t => t.Item1).ToList();
+        public static readonly List<CommandGenerator> Generators;
 
         public void Dispose()
         {
@@ -186,7 +196,7 @@ namespace Unity.Entities.Tests.Fuzzer
             (DifferPatcherFuzzer state, ref Random rng) =>
             {
                 int id = state.NextId++;
-                return new CreateEntityCommand {Guid = new EntityGuid(id, 0, 0)};
+                return new CreateEntityCommand {Guid = new EntityGuid(id, 0, 0, 0)};
             });
 
         ///////////////////////////////////////////

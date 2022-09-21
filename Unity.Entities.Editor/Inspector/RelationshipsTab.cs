@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Profiling;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
@@ -111,15 +111,22 @@ namespace Unity.Entities.Editor
         }
 
         public string TabName { get; } = L10n.Tr("Relationships");
-        public void OnTabVisibilityChanged(bool isVisible) => m_IsVisible = isVisible;
+        public void OnTabVisibilityChanged(bool isVisible)
+        {
+            if (isVisible)
+                Analytics.SendEditorEvent(Analytics.Window.Inspector, Analytics.EventType.InspectorTabFocus, Analytics.RelationshipsTabName);
+            m_IsVisible = isVisible;
+        }
 
         [UsedImplicitly]
-        internal class RelationshipsTabView : Inspector<RelationshipsTab>
+        internal class RelationshipsTabView : PropertyInspector<RelationshipsTab>
         {
             static readonly string k_MoreLabel = L10n.Tr("More systems are matching this entity. You can use the search to filter systems by name.");
             static readonly string k_MoreLabelWithFilter = L10n.Tr("More systems are matching this search. Refine the search terms to find a particular system.");
             static readonly ProfilerMarker k_ViewUpdateMarker = new ProfilerMarker($"EntityInspector.{nameof(RelationshipsTabView)}.{nameof(Update)}");
             readonly Cooldown m_Cooldown = new Cooldown(TimeSpan.FromMilliseconds(Constants.Inspector.CoolDownTime));
+            Label m_EmptyMessage;
+
             // internal for tests
             internal readonly List<string> SearchTerms = new List<string>();
             internal SystemQueriesListView systemQueriesListView;
@@ -146,6 +153,9 @@ namespace Unity.Entities.Editor
 
                 root.Add(toolbarSearchField);
                 root.Add(systemQueriesListView);
+                m_EmptyMessage = new Label(Constants.Inspector.EmptyRelationshipMessage);
+                m_EmptyMessage.AddToClassList(UssClasses.Inspector.EmptyMessage);
+                root.Add(m_EmptyMessage);
 
                 return root;
             }
@@ -159,6 +169,10 @@ namespace Unity.Entities.Editor
                 Target.Update();
 
                 systemQueriesListView.Update(Target.m_Systems);
+
+                var systemsCount = Target.m_Systems.Count;
+                systemQueriesListView.SetVisibility(systemsCount > 0);
+                m_EmptyMessage.SetVisibility(systemsCount == 0);
             }
         }
     }

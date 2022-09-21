@@ -21,6 +21,7 @@
     --go-to-systems-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Go To Systems/Go to Systems.png");
     --gameobject: resource("GameObject Icon");
     --component-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Components/Component.png");
+    --aspect-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Aspect/Aspect.png");
     --component-icon-32: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Components/Component-32.png");
     --tag-component-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Components/Tag Component.png");
     --buffer-component-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Components/Buffer Component.png");
@@ -31,6 +32,12 @@
     --search-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Search/Search.png");
     --open-in-window-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/WindowInstance/WindowInstance.png");
     --go-to-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Go To/Go to.png");
+    --prefab-gameobject-icon: resource("Prefab Icon");
+    --prefab-gameobject-icon--selected: resource("Prefab On Icon");
+    --arrow-navigation-left: resource('Packages/com.unity.entities/Editor Default Resources/icons/light/Prefab/ArrowNavigationLeft.png');
+    --arrow-navigation-right: resource('Packages/com.unity.entities/Editor Default Resources/icons/light/Prefab/ArrowNavigationRight.png');
+    --search-close-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Search/Close S.png");
+    --search-add-icon: resource("Packages/com.unity.entities/Editor Default Resources/icons/light/Search/Add.png");
 
     /* Colors */
     --list-heading-color: #E0E0E0;
@@ -47,4 +54,12 @@
     --subscene-background: #E5E5E5;
     --subscene-background-hover: #B2B2B2;
     --subscene-border: #B5B5B5;
+    --runtime-mode-indent-color: #B73C15;
+
+    /* Prefab stage colors */
+    --prefab-stage-background-color: #CECFCE;
+    --prefab-stage-background-hover-color: #DEDFDE;
+    --prefab-stage-background-active-color: #0F81BE;
+    --prefab-stage-back-button-hover-color: #9FA19F;
+    --prefab-stage-back-button-active-color: #DEDFDE;
 }

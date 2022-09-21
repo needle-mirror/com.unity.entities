@@ -4,7 +4,7 @@ using Unity.Collections;
 
 namespace Unity.Entities.LowLevel
 {
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     internal struct SpinLock
     {
 #if !NET_DOTS
@@ -56,8 +56,8 @@ namespace Unity.Entities.LowLevel
         /// <summary>
         /// Try to acquire the lock, and spin only if <paramref name="spin"/> is <see langword="true"/>.
         /// </summary>
-        /// <param name="spin"></param>
-        /// <returns></returns>
+        /// <param name="spin">Set to true to spin the lock.</param>
+        /// <returns><see langword="true"/> if the lock was acquired, <see langword="false"/> otherwise.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryAcquire(bool spin)
         {

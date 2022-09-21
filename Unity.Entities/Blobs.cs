@@ -11,24 +11,25 @@ using UnityEngine;
 
 namespace Unity.Entities
 {
-    internal struct RetainBlobAssets : ISystemStateComponentData
+    internal struct RetainBlobAssets : ICleanupComponentData
     {
         // DummyBlobAssetReference will always be null, but will make sure the serializer adds the BlobOwner shared componet
         public BlobAssetReference<byte> DummyBlobAssetReference;
         public int FramesToRetainBlobAssets;
     }
 
-    internal unsafe struct RetainBlobAssetBatchPtr : ISystemStateComponentData
+    internal unsafe struct RetainBlobAssetBatchPtr : ICleanupComponentData
     {
         public BlobAssetBatch* BlobAssetBatchPtr;
     }
 
-    internal unsafe struct RetainBlobAssetPtr : ISystemStateComponentData
+    internal unsafe struct RetainBlobAssetPtr : ICleanupComponentData
     {
         public BlobAssetHeader* BlobAsset;
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 8)]
+    [BurstCompile]
     internal unsafe struct BlobAssetOwner : ISharedComponentData, IRefCounted
     {
         [FieldOffset(0)]
@@ -39,12 +40,13 @@ namespace Unity.Entities
             BlobAssetBatchPtr = BlobAssetBatch.CreateFromMemory(buffer, expectedTotalDataSize);
         }
 
+        [BurstCompile]
         public void Release()
         {
             if (BlobAssetBatchPtr != null)
                 BlobAssetBatch.Release(BlobAssetBatchPtr);
         }
-
+        [BurstCompile]
         public void Retain()
         {
             if (BlobAssetBatchPtr != null)
@@ -332,7 +334,7 @@ namespace Unity.Entities
     [DebuggerDisplay(nameof(BlobAssetReference<T>))]
 #endif
     public unsafe struct BlobAssetReference<T> : IDisposable, IEquatable<BlobAssetReference<T>>
-        where T : struct
+        where T : unmanaged
     {
 #if !NET_DOTS
         [Properties.CreateProperty]
@@ -370,13 +372,13 @@ namespace Unity.Entities
             m_data.Dispose();
         }
 
+
         /// <summary>
-        /// A reference to the blob asset data.
+        /// A reference to the blob asset data, a struct of type T that is stored in the blob asset.
         /// </summary>
         /// <remarks>The property is a
         /// <see href="https://docs.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/ref-returns">
         /// reference return</see>.</remarks>
-        /// <typeparam name="T">The struct type stored in the blob asset.</typeparam>
         /// <value>The root data structure of the blob asset data.</value>
         public ref T Value
         {
@@ -463,6 +465,14 @@ namespace Unity.Entities
             return new BlobAssetReference<T> { m_data = blobData };
         }
 
+        /// <summary>
+        /// Reads bytes from a binary reader, validates the expected serialized version, and deserializes them into a new blob asset.
+        /// </summary>
+        /// <param name="binaryReader">The reader for the blob data path</param>
+        /// <param name="version">Expected version number of the blob data.</param>
+        /// <param name="result">The resulting BlobAssetReference if the data was read successful.</param>
+        /// <typeparam name="U">The type of binary reader</typeparam>
+        /// <returns>True if the data was successfully read, false otherwise</returns>
         public static bool TryRead<U>(U binaryReader, int version, out BlobAssetReference<T> result)
         where U : BinaryReader
         {
@@ -497,32 +507,6 @@ namespace Unity.Entities
             }
         }
 #else
-
-        /// <summary>
-        /// Reads bytes from a buffer, validates the expected serialized version, and deserializes them into a new blob asset.
-        /// </summary>
-        /// <param name="data">A byte stream of the blob data to read.</param>
-        /// <param name="version">Expected version number of the blob data.</param>
-        /// <param name="result">The resulting BlobAssetReference if the data was read successful.</param>
-        /// <returns>A bool if the read was successful or not.</returns>
-        [Obsolete("TryRead(byte* data, int version, out BlobAssetReference<T> result) will be removed. Please use the overload of TryRead that also takes the length of the buffer. (RemovedAfter 2021-04-10)")]
-        public static bool TryRead(byte* data, int version, out BlobAssetReference<T> result)
-        {
-            var binaryReader = new MemoryBinaryReader(data, long.MaxValue);
-            var storedVersion = binaryReader.ReadInt();
-            if (storedVersion != version)
-            {
-                result = default;
-                return false;
-            }
-
-            result = binaryReader.Read<T>();
-
-            return true;
-        }
-
-
-
         /// <summary>
         /// Reads bytes from a buffer, validates the expected serialized version, and deserializes them into a new blob asset.
         /// </summary>
@@ -587,12 +571,19 @@ namespace Unity.Entities
             return true;
         }
 
-        public static void Write<U>(U writer, BlobBuilder builder, int verison)
+        /// <summary>
+        /// Writes the blob data to a path with serialized version.
+        /// </summary>
+        /// <param name="writer">The binary writer to write the blob with.</param>
+        /// <param name="builder">The BlobBuilder containing the blob to write.</param>
+        /// <param name="version">Serialized version number of the blob data.</param>
+        /// <typeparam name="U">The type of binary writer</typeparam>
+        public static void Write<U>(U writer, BlobBuilder builder, int version)
         where U : BinaryWriter
         {
             using (var asset = builder.CreateBlobAssetReference<T>(Allocator.TempJob))
             {
-                writer.Write(verison);
+                writer.Write(version);
                 writer.Write(asset);
             }
         }
@@ -603,11 +594,11 @@ namespace Unity.Entities
         /// <param name="builder">The BlobBuilder containing the blob to write.</param>
         /// <param name="path">The path to write the blob data.</param>
         /// <param name="version">Serialized version number of the blob data.</param>
-        public static void Write(BlobBuilder builder, string path, int verison)
+        public static void Write(BlobBuilder builder, string path, int version)
         {
             using (var writer = new StreamBinaryWriter(path))
             {
-                Write(writer, builder, verison);
+                Write(writer, builder, version);
             }
         }
 #endif
@@ -859,9 +850,27 @@ namespace Unity.Entities
         internal static string ToString(byte* data, int lengthInBytes)
         {
             var utf16Capacity = math.max(1, lengthInBytes * 2);
-             var c = stackalloc char[utf16Capacity];
-             Unicode.Utf8ToUtf16(data, lengthInBytes, c, out var utf16Length, utf16Capacity);
-             return new String(c, 0, utf16Length);
+            var c = stackalloc char[utf16Capacity];
+            Unicode.Utf8ToUtf16(data, lengthInBytes, c, out var utf16Length, utf16Capacity);
+            return new String(c, 0, utf16Length);
+        }
+
+        /// <summary>
+        /// Copies the characters from a BlobString to a native container
+        /// </summary>
+        /// <param name="dest">The destination BlobString.</param>
+        /// <typeparam name="T">The type of native container to copy to</typeparam>
+        /// <returns>None if the copy fully completes. Otherwise, returns Overflow.</returns>
+        public ConversionError CopyTo<T>(ref T dest) where T : INativeList<byte>
+        {
+            byte* srcBuffer =(byte*)Data.GetUnsafePtr();
+            int srcLength = Length;
+            dest.Length = srcLength;
+            byte* destBuffer = (byte*)UnsafeUtility.AddressOf(ref dest.ElementAt(0));
+            int destCapacity = dest.Capacity;
+            var err = Unicode.Utf8ToUtf8(srcBuffer, srcLength, destBuffer, out var destLength, destCapacity);
+            dest.Length = destLength;
+            return err;
         }
     }
 
@@ -889,6 +898,22 @@ namespace Unity.Entities
                 UnsafeUtility.MemCpy(res.GetUnsafePtr(), b, utf8Length + 1);
             }
         }
+
+        /// <summary>
+        /// Allocates memory to store the string in a blob asset and copies the string data into it.
+        /// </summary>
+        /// <param name="builder">The BlobBuilder instance building the blob asset.</param>
+        /// <param name="blobStr">A reference to the field in the blob asset that will store the string. This
+        /// function allocates memory for that field and sets the string value.</param>
+        /// <param name="value">The string to copy into the blob asset.</param>
+        /// <typeparam name="T">The type of native container that contains the source string</typeparam>
+        public static unsafe void AllocateString<T>(ref this BlobBuilder builder, ref BlobString blobStr, ref T value) where T : INativeList<byte>
+        {
+            var utf8Length = value.Length;
+            byte* utf8Bytes = (byte*)UnsafeUtility.AddressOf(ref value.ElementAt(0));
+            var res = builder.Allocate(ref blobStr.Data, utf8Length + 1);
+            UnsafeUtility.MemCpy(res.GetUnsafePtr(), utf8Bytes, utf8Length + 1);
+        }
     }
 
     /// <summary>
@@ -904,7 +929,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The blob asset's root data type.</typeparam>
         /// <seealso cref="StreamBinaryWriter"/>
         /// <seealso cref="MemoryBinaryWriter"/>
-        public static unsafe void Write<T>(this BinaryWriter binaryWriter, BlobAssetReference<T> blob) where T : struct
+        public static unsafe void Write<T>(this BinaryWriter binaryWriter, BlobAssetReference<T> blob) where T : unmanaged
         {
             var blobAssetLength = blob.m_data.Header->Length;
             var serializeReadyHeader = BlobAssetHeader.CreateForSerialize(blobAssetLength, blob.m_data.Header->Hash);
@@ -921,7 +946,7 @@ namespace Unity.Entities
         /// <returns>A reference to the deserialized blob asset.</returns>
         /// <seealso cref="StreamBinaryReader"/>
         /// <seealso cref="MemoryBinaryReader"/>
-        public static unsafe BlobAssetReference<T> Read<T>(this BinaryReader binaryReader) where T : struct
+        public static unsafe BlobAssetReference<T> Read<T>(this BinaryReader binaryReader) where T : unmanaged
         {
             BlobAssetHeader header;
             binaryReader.ReadBytes(&header, sizeof(BlobAssetHeader));
@@ -956,25 +981,44 @@ namespace Unity.Entities.LowLevel.Unsafe
     {
         internal BlobAssetReferenceData m_data;
 
-        public static UnsafeUntypedBlobAssetReference Create<T> (BlobAssetReference<T> blob) where T : struct
+        /// <summary>
+        /// Creates an unsafe untyped blob asset reference from a BlobAssetReference.
+        /// </summary>
+        /// <typeparam name="T">The unsafe type.</typeparam>
+        /// <param name="blob">Reference to the blob asset that will be referenced by the new UnsafeUntypedBlobAssetReference.</param>
+        /// <returns>An unsafe untyped blob asset reference to the blob asset.</returns>
+        public static UnsafeUntypedBlobAssetReference Create<T> (BlobAssetReference<T> blob) where T : unmanaged
         {
             UnsafeUntypedBlobAssetReference value;
             value.m_data = blob.m_data;
             return value;
         }
 
-        public BlobAssetReference<T> Reinterpret<T>() where T : struct
+        /// <summary>
+        /// Returns a typed blob asset reference to the blob asset referenced by this instance.
+        /// </summary>
+        /// <typeparam name="T">The reinterpreted type.</typeparam>
+        /// <returns>A blob asset reference of the reinterpreted type.</returns>
+        public BlobAssetReference<T> Reinterpret<T>() where T : unmanaged
         {
             BlobAssetReference<T> value;
             value.m_data = m_data;
             return value;
         }
 
+        /// <summary>
+        /// Disposes the UnsafeUntypedBlobAssetReference object.
+        /// </summary>
         public void Dispose()
         {
             m_data.Dispose();
         }
 
+        /// <summary>
+        /// Two UnsafeUntypedBlobAssetReference are equal when they reference the same data.
+        /// </summary>
+        /// <param name="other">The reference to compare to this one.</param>
+        /// <returns>True, if both references point to the same data or if both are null.</returns>
         public bool Equals(UnsafeUntypedBlobAssetReference other)
         {
             return m_data.Equals(other.m_data);

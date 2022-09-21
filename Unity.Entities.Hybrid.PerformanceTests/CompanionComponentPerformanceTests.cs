@@ -16,34 +16,21 @@ using UnityEngine.SceneManagement;
 
 namespace Unity.Entities.Hybrid.PerformanceTests
 {
-    public class MonoBehaviourComponentConversionSystem : GameObjectConversionSystem
+    class ConversionTestCompanionComponentBaker : Baker<ConversionTestCompanionComponent>
     {
-        protected override void OnUpdate()
+        public override void Bake(ConversionTestCompanionComponent authoring)
         {
-            AddTypeToCompanionWhiteList(typeof(ConversionTestCompanionComponent));
-
-            Entities.ForEach((ConversionTestCompanionComponent component) =>
-            {
-                var entity = GetPrimaryEntity(component);
-                DstEntityManager.AddComponentObject(entity, component);
-            });
+            AddComponentObject(authoring);
         }
     }
 
     [Serializable]
     [TestFixture]
-    public class CompanionComponentPerformanceTests
+    public class CompanionComponentPerformanceTests_Baking
     {
         [SerializeField] TestWithCustomDefaultGameObjectInjectionWorld m_DefaultWorld;
         [SerializeField] TestWithObjects m_Objects;
         [SerializeField] TestWithTempAssets m_Assets;
-
-        protected GameObjectConversionSettings MakeDefaultSettings(World world) => new GameObjectConversionSettings
-        {
-            DestinationWorld = world,
-            ConversionFlags = GameObjectConversionUtility.ConversionFlags.AssignName,
-            Systems = TestWorldSetup.GetDefaultInitSystemsFromEntitiesPackage(WorldSystemFilterFlags.GameObjectConversion).ToList()
-        };
 
         [SetUp]
         public void SetUp()
@@ -61,16 +48,31 @@ namespace Unity.Entities.Hybrid.PerformanceTests
             m_Assets.TearDown();
         }
 
-        [Test, Performance]
-        public void CompanionComponent_Companion_TransformSync([Values(1, 10, 100, 1000, 9000)] int companionCount)
+        internal BakingSettings MakeDefaultSettings() => new BakingSettings
         {
+            BakingFlags = BakingUtility.BakingFlags.AssignName |
+                              BakingUtility.BakingFlags.AddEntityGUID
+        };
+
+        [Ignore("DOTS-6907 Physics systems are editor systems as well as baking systems, but after a World.Update (re?)moves entities, physics singletons are no longer available, and the test fails if is is present")]
+        [Test, Performance]
+        public void CompanionComponent_TransformSync([Values(1, 10, 100, 1000, 9000)] int companionCount)
+        {
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
+
             // Convert to create companions
+            var gameObjects = new GameObject[companionCount];
             for (int i = 0; i < companionCount; i++)
             {
                 var gameObject = m_Objects.CreateGameObject();
                 gameObject.AddComponent<ConversionTestCompanionComponent>().SomeValue = 123;
-                GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings(m_DefaultWorld.World).WithExtraSystem<MonoBehaviourComponentConversionSystem>());
+                gameObjects[i] = gameObject;
             }
+
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            BakingUtility.BakeGameObjects(m_DefaultWorld.World, gameObjects, bakingSettings);
 
             // Verify we have created the correct number of companions
             var query = m_DefaultWorld.EntityManager.CreateEntityQuery(typeof(CompanionLink));
@@ -79,10 +81,16 @@ namespace Unity.Entities.Hybrid.PerformanceTests
             var entities = query.ToEntityArray(Allocator.Persistent);
             for (int i = 0; i < entities.Length; i++)
             {
-                m_DefaultWorld.World.EntityManager.SetComponentData(entities[i], new Translation{Value=new float3(0.0f, 42f, 0.0f)});
+                m_DefaultWorld.World.EntityManager.SetComponentData(entities[i],
+#if !ENABLE_TRANSFORM_V1
+                    new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(0.0f, 42f, 0.0f)});
+#else
+                    new Translation {Value = new float3(0.0f, 42f, 0.0f)});
+#endif
             }
 
-            var companionGameObjectUpdateTransformSystem = m_DefaultWorld.World.GetExistingSystem<CompanionGameObjectUpdateTransformSystem>();
+            var companionGameObjectUpdateTransformSystem =
+                m_DefaultWorld.World.GetExistingSystemManaged<CompanionGameObjectUpdateTransformSystem>();
             Measure.ProfilerMarkers(companionGameObjectUpdateTransformSystem.GetProfilerMarkerName());
 
             // Validate positions not moved
@@ -106,8 +114,10 @@ namespace Unity.Entities.Hybrid.PerformanceTests
         }
 
         [Test, Performance]
-        public void CompanionComponent_Conversion_ConvertScene([Values(1, 10, 100, 1000, 10000)]int numObjects)
+        public void CompanionComponent_ConvertScene([Values(1, 10, 100, 1000, 10000)] int numObjects)
         {
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
+
             var scene = SubSceneTestsHelper.CreateScene(m_Assets.GetNextPath() + ".unity");
             for (int i = 0; i < numObjects; i++)
             {
@@ -115,18 +125,19 @@ namespace Unity.Entities.Hybrid.PerformanceTests
                 SceneManager.MoveGameObjectToScene(go, scene);
             }
 
-            using (var fullConversionWorld = new World("FullConversion"))
-            using (var blobAssetStore = new BlobAssetStore())
+            using (var bakingWorld = new World("FullBake"))
+            using (var blobAssetStore = new BlobAssetStore(128))
             {
-                var conversionSettings = GameObjectConversionSettings.FromWorld(fullConversionWorld, blobAssetStore);
-                conversionSettings.ConversionFlags =
-                    GameObjectConversionUtility.ConversionFlags.GameViewLiveConversion |
-                    GameObjectConversionUtility.ConversionFlags.AddEntityGUID;
+                var bakingSettings = MakeDefaultSettings();
+                bakingSettings.BlobAssetStore = blobAssetStore;
+                bakingSettings.BakingFlags =
+                    BakingUtility.BakingFlags.GameViewLiveConversion |
+                    BakingUtility.BakingFlags.AddEntityGUID;
 
-                Measure.Method(() =>
-                {
-                    GameObjectConversionUtility.ConvertScene(scene, conversionSettings);
-                }).MeasurementCount(100);
+                Measure.Method(() => { BakingUtility.BakeScene(bakingWorld, scene, bakingSettings, false, null); })
+                    .WarmupCount(2)
+                    .MeasurementCount(10)
+                    .Run();
             }
         }
     }

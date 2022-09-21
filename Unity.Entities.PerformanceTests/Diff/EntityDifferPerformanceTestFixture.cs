@@ -29,7 +29,7 @@ namespace Unity.Entities.PerformanceTests
                     typeof(EcsTestDataEntity), (manager, entity, index) => { manager.SetComponentData(entity, new EcsTestDataEntity(index, Entity.Null));}
                 },
                 {
-                    typeof(EcsTestSharedComp), (manager, entity, index) => { manager.SetSharedComponentData(entity, new EcsTestSharedComp {value = index / 31}); }
+                    typeof(EcsTestSharedComp), (manager, entity, index) => { manager.SetSharedComponent(entity, new EcsTestSharedComp {value = index / 31}); }
                 }
             };
         }

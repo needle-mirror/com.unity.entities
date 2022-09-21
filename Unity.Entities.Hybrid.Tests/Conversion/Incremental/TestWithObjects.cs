@@ -10,6 +10,13 @@ namespace Unity.Entities.Tests.Conversion
     {
         private List<Object> m_ObjectsToDestroy;
 
+        public GameObject CreateGameObject(Type component)
+        {
+            var go = new GameObject("Object", component);
+            m_ObjectsToDestroy.Add(go);
+            return go;
+        }
+
         public GameObject CreateGameObject(string name, Type component)
         {
             var go = new GameObject(name, component);

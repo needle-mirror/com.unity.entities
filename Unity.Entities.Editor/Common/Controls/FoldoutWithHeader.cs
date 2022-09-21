@@ -2,7 +2,7 @@
 
 namespace Unity.Entities.Editor
 {
-    public class FoldoutWithHeader : Foldout
+    class FoldoutWithHeader : Foldout
     {
         VisualElement m_Header;
         string m_Text;

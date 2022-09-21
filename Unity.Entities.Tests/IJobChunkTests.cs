@@ -1,5 +1,7 @@
 using System;
 using NUnit.Framework;
+using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
@@ -10,340 +12,288 @@ using System.Text.RegularExpressions;
 
 namespace Unity.Entities.Tests
 {
-    partial class IJobChunkTests : ECSTestsFixture
+    class IJobChunkTests : ECSTestsFixture
     {
-        struct ProcessChunks : IJobChunk
+        [BurstCompile(CompileSynchronously = true)]
+        struct WriteChunkIndex : IJobChunk
         {
             public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 var testDataArray = chunk.GetNativeArray(EcsTestTypeHandle);
                 testDataArray[0] = new EcsTestData
                 {
-                    value = 5
+                    value = unfilteredChunkIndex
                 };
             }
         }
 
-        [Test]
-        public void IJobChunkProcess()
+        static unsafe bool IsChunkInitialized(ArchetypeChunk chunk)
         {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                Any = Array.Empty<ComponentType>(),
-                None = Array.Empty<ComponentType>(),
-                All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) }
-            });
-
-            var entity = m_Manager.CreateEntity(archetype);
-            var job = new ProcessChunks
-            {
-                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-            };
-            job.Run(group);
-
-            Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(entity).value);
+            return chunk.m_Chunk != null;
         }
 
-        [Test]
-        public void IJobChunk_Run_WorksWithMultipleChunks()
+        // Not Burst compiling since we are Asserting in this job
+        struct WriteChunkInfoToArray : IJobChunk
         {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
-            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc
+            [NativeDisableParallelForRestriction]
+            public NativeArray<ArchetypeChunk> Chunks;
+            [NativeDisableParallelForRestriction]
+            public NativeArray<bool> ChunkUseEnabledMasks;
+            [NativeDisableParallelForRestriction]
+            public NativeArray<v128> ChunkEnabledMasks;
+
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                Any = Array.Empty<ComponentType>(),
-                None = Array.Empty<ComponentType>(),
-                All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) }
-            });
+                // We expect the Chunks array to be uninitialized until written by this job.
+                // If this fires, some other job thread has filled in this batch's info already!
+                Assert.IsFalse(IsChunkInitialized(Chunks[unfilteredChunkIndex]));
+                Assert.NotZero(chunk.Count);
 
-            const int entityCount = 10;
-            var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
-
-            m_Manager.CreateEntity(archetype, entities);
-
-            for (int i = 0; i < entityCount; ++i)
-                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp(i));
-
-            var job = new ProcessChunks
-            {
-                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-            };
-            job.Run(group);
-
-            for (int i = 0; i < entityCount; ++i)
-                Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
-
-            entities.Dispose();
-        }
-
-        [Test]
-        public void IJobChunkProcessFiltered()
-        {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-
-            var entity1 = m_Manager.CreateEntity(archetype);
-            var entity2 = m_Manager.CreateEntity(archetype);
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity1, new SharedData1 { value = 10 });
-            m_Manager.SetComponentData<EcsTestData>(entity1, new EcsTestData { value = 10 });
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity2, new SharedData1 { value = 20 });
-            m_Manager.SetComponentData<EcsTestData>(entity2, new EcsTestData { value = 20 });
-
-            group.SetSharedComponentFilter(new SharedData1 { value = 20 });
-
-            var job = new ProcessChunks
-            {
-                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-            };
-            job.Schedule(group).Complete();
-
-            Assert.AreEqual(10, m_Manager.GetComponentData<EcsTestData>(entity1).value);
-            Assert.AreEqual(5,  m_Manager.GetComponentData<EcsTestData>(entity2).value);
-
-            group.Dispose();
-        }
-
-        [Test]
-        public void IJobChunkWithEntityOffsetCopy()
-        {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
-
-            var entities = new NativeArray<Entity>(50000, Allocator.Temp);
-            m_Manager.CreateEntity(archetype, entities);
-
-            for (int i = 0; i < 50000; ++i)
-                m_Manager.SetComponentData(entities[i], new EcsTestData { value = i });
-
-            entities.Dispose();
-
-            var copyIndices = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
-
-            for (int i = 0; i < 50000; ++i)
-                Assert.AreEqual(copyIndices[i].value, i);
-        }
-
-        struct ProcessChunkIndex : IJobChunk
-        {
-            public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
-
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
-            {
-                var testDataArray = chunk.GetNativeArray(EcsTestTypeHandle);
-                testDataArray[0] = new EcsTestData
-                {
-                    value = chunkIndex
-                };
+                Chunks[unfilteredChunkIndex] = chunk;
+                ChunkUseEnabledMasks[unfilteredChunkIndex] = useEnabledMask;
+                ChunkEnabledMasks[unfilteredChunkIndex] = chunkEnabledMask;
             }
         }
 
-        struct ProcessEntityOffset : IJobChunk
+        [Test]
+        public void IJobChunk_Run_DoesNotThrow()
         {
-            public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
-
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                var testDataArray = chunk.GetNativeArray(EcsTestTypeHandle);
-                for (int i = 0; i < chunk.Count; ++i)
+                var entityCount = 100;
+                m_Manager.CreateEntity(archetype, entityCount);
+                var job = new WriteChunkIndex
                 {
-                    testDataArray[i] = new EcsTestData
-                    {
-                        value = entityOffset
-                    };
+                    EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
+                };
+                Assert.DoesNotThrow(() => { job.Run(query); });
+            }
+        }
+
+        [Test]
+        public void IJobChunk_RunWithoutDependency_Throws()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                var entityCount = 100;
+                m_Manager.CreateEntity(archetype, entityCount);
+                var job = new WriteChunkIndex
+                {
+                    EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
+                };
+                var handle = job.Schedule(query, default);
+                Assert.Throws<InvalidOperationException>(() => { job.Run(query); });
+                handle.Complete();
+            }
+        }
+
+        struct ChunkBaseEntityIndexJob : IJobChunk
+        {
+            [ReadOnly] public NativeArray<int> ChunkBaseEntityIndices;
+            public NativeArray<int> OutPerEntityData;
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+                int baseEntityIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
+                int validEntitiesInChunk = 0;
+                var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
+                while(enumerator.NextEntityIndex(out int i))
+                {
+                    int entityInQueryIndex = baseEntityIndex + validEntitiesInChunk;
+                    // If JobsUtility.PatchBufferMinMaxRanges() is not called correctly, this array write will fail
+                    OutPerEntityData[entityInQueryIndex] = i;
+                    ++validEntitiesInChunk;
                 }
             }
         }
 
         [Test]
-        public void IJobChunkProcessChunkIndexWithFilter()
+        public void IJobChunk_OptionalArrayRangeCheck_Works()
         {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-
-            var entity1 = m_Manager.CreateEntity(archetype);
-            var entity2 = m_Manager.CreateEntity(archetype);
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity1, new SharedData1 { value = 10 });
-            m_Manager.SetComponentData<EcsTestData>(entity1, new EcsTestData { value = 10 });
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity2, new SharedData1 { value = 20 });
-            m_Manager.SetComponentData<EcsTestData>(entity2, new EcsTestData { value = 20 });
-
-            group.SetSharedComponentFilter(new SharedData1 { value = 10 });
-
-            var job = new ProcessChunkIndex
-            {
-                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            int entityCount = 1000;
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            using var query = m_Manager.CreateEntityQuery(queryBuilder);
+            using var chunkBaseEntityIndices = query.CalculateBaseEntityIndexArray(World.UpdateAllocator.ToAllocator);
+            using var outputPerEntityData = CollectionHelper.CreateNativeArray<int>(entityCount, World.UpdateAllocator.ToAllocator);
+            var job = new ChunkBaseEntityIndexJob{
+                ChunkBaseEntityIndices = chunkBaseEntityIndices,
+                OutPerEntityData = outputPerEntityData
             };
-            job.Schedule(group).Complete();
-
-            group.SetSharedComponentFilter(new SharedData1 { value = 20 });
-            job.Schedule(group).Complete();
-
-            Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity1).value);
-            Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity2).value);
-
-            group.Dispose();
-        }
-
-        [Test]
-        public void IJobChunkProcessChunkIndexWithFilterRun()
-        {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-
-            var entity1 = m_Manager.CreateEntity(archetype);
-            var entity2 = m_Manager.CreateEntity(archetype);
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity1, new SharedData1 { value = 10 });
-            m_Manager.SetComponentData<EcsTestData>(entity1, new EcsTestData { value = 10 });
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity2, new SharedData1 { value = 20 });
-            m_Manager.SetComponentData<EcsTestData>(entity2, new EcsTestData { value = 20 });
-
-            group.SetSharedComponentFilter(new SharedData1 { value = 10 });
-
-            var job = new ProcessChunkIndex
+            InternalCompilerInterface.JobChunkInterface.ScheduleParallelByRef(ref job, query, default, chunkBaseEntityIndices).Complete();
+            for (int i = 0; i < entityCount; ++i)
             {
-                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-            };
-            job.Run(group);
-
-            group.SetSharedComponentFilter(new SharedData1 { value = 20 });
-            job.Run(group);
-
-            Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity1).value);
-            Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity2).value);
-
-            group.Dispose();
-        }
-
-        [Test]
-        public void IJobChunkProcessChunkIndex()
-        {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-
-            var entity1 = m_Manager.CreateEntity(archetype);
-            var entity2 = m_Manager.CreateEntity(archetype);
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity1, new SharedData1 { value = 10 });
-            m_Manager.SetComponentData<EcsTestData>(entity1, new EcsTestData { value = 10 });
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity2, new SharedData1 { value = 20 });
-            m_Manager.SetComponentData<EcsTestData>(entity2, new EcsTestData { value = 20 });
-
-            var job = new ProcessChunkIndex
-            {
-                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-            };
-            // ScheduleSingle forces all chunks to run on a single thread, so the for loop in IJobChunk.ExecuteInternal() has >1 iteration.
-            job.ScheduleSingle(group).Complete();
-
-            int[] values =
-            {
-                m_Manager.GetComponentData<EcsTestData>(entity1).value,
-                m_Manager.GetComponentData<EcsTestData>(entity2).value,
-            };
-            CollectionAssert.AreEquivalent(values, new int[] {0, 1});
-
-            group.Dispose();
-        }
-
-        [Test]
-        public void IJobChunkProcessEntityOffset()
-        {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
-
-            var entity1 = m_Manager.CreateEntity(archetype);
-            var entity2 = m_Manager.CreateEntity(archetype);
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity1, new SharedData1 { value = 10 });
-            m_Manager.SetComponentData<EcsTestData>(entity1, new EcsTestData { value = 10 });
-
-            m_Manager.SetSharedComponentData<SharedData1>(entity2, new SharedData1 { value = 20 });
-            m_Manager.SetComponentData<EcsTestData>(entity2, new EcsTestData { value = 20 });
-
-            group.SetSharedComponentFilter(new SharedData1 { value = 10 });
-
-            var job = new ProcessEntityOffset
-            {
-                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-            };
-            job.Schedule(group).Complete();
-
-            group.SetSharedComponentFilter(new SharedData1 { value = 20 });
-            job.Schedule(group).Complete();
-
-            Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity1).value);
-            Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity2).value);
-
-            group.Dispose();
-        }
-
-        [Test]
-        public void IJobChunkProcessChunkMultiArchetype()
-        {
-            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-            var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
-            var archetypeC = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
-
-            var entity1A = m_Manager.CreateEntity(archetypeA);
-            var entity2A = m_Manager.CreateEntity(archetypeA);
-            var entityB = m_Manager.CreateEntity(archetypeB);
-            var entityC = m_Manager.CreateEntity(archetypeC);
-
-            EntityQuery query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-
-            m_Manager.SetComponentData<EcsTestData>(entity1A, new EcsTestData { value = -1 });
-            m_Manager.SetComponentData<EcsTestData>(entity2A, new EcsTestData { value = -1 });
-            m_Manager.SetComponentData<EcsTestData>(entityB,  new EcsTestData { value = -1 });
-            m_Manager.SetComponentData<EcsTestData>(entityC,  new EcsTestData { value = -1 });
-
-            var job = new ProcessEntityOffset
-            {
-                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-            };
-            job.Schedule(query).Complete();
-
-            Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity1A).value);
-            Assert.AreEqual(0,  m_Manager.GetComponentData<EcsTestData>(entity2A).value);
-            Assert.AreEqual(2,  m_Manager.GetComponentData<EcsTestData>(entityB).value);
-            Assert.AreEqual(3,  m_Manager.GetComponentData<EcsTestData>(entityC).value);
-
-            query.Dispose();
-        }
-
-        struct ProcessChunkWriteIndex : IJobChunk
-        {
-            public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
-
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
-            {
-                var testDataArray = chunk.GetNativeArray(EcsTestTypeHandle);
-                for (int i = 0; i < chunk.Count; ++i)
-                {
-                    testDataArray[i] = new EcsTestData
-                    {
-                        value = entityOffset + i
-                    };
-                }
+                Assertions.Assert.AreEqual(i % archetype.ChunkCapacity,
+                    outputPerEntityData[i]);
             }
         }
 
+        public enum ScheduleMode
+        {
+            Parallel, Single, Run, RunWithoutJobs
+        }
+
+// TODO(https://unity3d.atlassian.net/browse/DOTSR-2746): [TestCase(args)] is not supported in the portable test runner
+#if !UNITY_PORTABLE_TEST_RUNNER
+        [TestCase(ScheduleMode.Parallel)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        [TestCase(ScheduleMode.RunWithoutJobs)]
+        public void IJobChunk_WithoutFiltering_ExecutesOnExpectedChunks(ScheduleMode mode)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var entityCount = 10000;
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            for (var i = 0; i < entityCount; ++i)
+            {
+                m_Manager.SetComponentData(entities[i], new EcsTestData {value = -1});
+            }
+
+            int queryUnfilteredChunkCount = query.CalculateChunkCountWithoutFiltering();
+            using var chunks = CollectionHelper.CreateNativeArray<ArchetypeChunk>(queryUnfilteredChunkCount,
+                    World.UpdateAllocator.ToAllocator);
+            using var chunkUseEnabledMasks =
+                CollectionHelper.CreateNativeArray<bool>(queryUnfilteredChunkCount, World.UpdateAllocator.ToAllocator);
+            using var chunkEnabledMasks =
+                CollectionHelper.CreateNativeArray<v128>(queryUnfilteredChunkCount, World.UpdateAllocator.ToAllocator);
+
+            var job = new WriteChunkInfoToArray
+            {
+                Chunks = chunks,
+                ChunkUseEnabledMasks = chunkUseEnabledMasks,
+                ChunkEnabledMasks = chunkEnabledMasks,
+            };
+            if (mode == ScheduleMode.Parallel)
+                job.ScheduleParallel(query, default).Complete();
+            else if (mode == ScheduleMode.Single)
+                job.Schedule(query, default).Complete();
+            else if (mode == ScheduleMode.Run)
+                job.Run(query);
+            else if (mode == ScheduleMode.RunWithoutJobs)
+                InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, query);
+
+            var entityTypeHandle = m_Manager.GetEntityTypeHandle();
+            int markedEntityCount = 0;
+            for (int chunkIndex = 0; chunkIndex < chunks.Length; ++chunkIndex)
+            {
+                var chunk = chunks[chunkIndex];
+                if (!IsChunkInitialized(chunk))
+                    continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
+                FastAssert.Greater(chunk.Count, 0); // empty batches should not have been Execute()ed
+                FastAssert.AreEqual(chunk.ChunkEntityCount, chunk.Count);
+                FastAssert.IsFalse(chunkUseEnabledMasks[chunkIndex]);
+                //Assert.AreEqual(default(v128), chunkUseEnabledMasks[chunkIndex]); // contents are undefined
+                var chunkEntities = chunk.GetNativeArray(entityTypeHandle);
+                for (int i = 0; i < chunkEntities.Length; ++i)
+                {
+                    FastAssert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(chunkEntities[i]).value);
+                    m_Manager.SetComponentData(chunkEntities[i], new EcsTestData {value = 1});
+                    markedEntityCount++;
+                }
+            }
+
+            Assert.AreEqual(entities.Length, markedEntityCount);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                FastAssert.AreEqual(1, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
+            }
+        }
+
+        [TestCase(ScheduleMode.Parallel)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        [TestCase(ScheduleMode.RunWithoutJobs)]
+        public void IJobChunk_WithFiltering_ExecutesOnExpectedChunks(ScheduleMode mode)
+        {
+            var entityCount = 10000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 17});
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            for (var i = 0; i < entityCount; ++i)
+            {
+                m_Manager.SetComponentData(entities[i], new EcsTestData {value = -1});
+                if ((i % 2) == 0)
+                {
+                    m_Manager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp {value = 17});
+                }
+            }
+
+            int queryUnfilteredChunkCount = query.CalculateChunkCountWithoutFiltering();
+            using var chunks = CollectionHelper.CreateNativeArray<ArchetypeChunk>(queryUnfilteredChunkCount,
+                    World.UpdateAllocator.ToAllocator);
+            using var chunkUseEnabledMasks =
+                CollectionHelper.CreateNativeArray<bool>(queryUnfilteredChunkCount, World.UpdateAllocator.ToAllocator);
+            using var chunkEnabledMasks =
+                CollectionHelper.CreateNativeArray<v128>(queryUnfilteredChunkCount, World.UpdateAllocator.ToAllocator);
+
+            var job = new WriteChunkInfoToArray
+            {
+                Chunks = chunks,
+                ChunkUseEnabledMasks = chunkUseEnabledMasks,
+                ChunkEnabledMasks = chunkEnabledMasks,
+            };
+            if (mode == ScheduleMode.Parallel)
+                job.ScheduleParallel(query, default).Complete();
+            else if (mode == ScheduleMode.Single)
+                job.Schedule(query, default).Complete();
+            else if (mode == ScheduleMode.Run)
+                job.Run(query);
+            else if (mode == ScheduleMode.RunWithoutJobs)
+                InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, query);
+
+            var entityTypeHandle = m_Manager.GetEntityTypeHandle();
+            int markedEntityCount = 0;
+            for (int chunkIndex = 0; chunkIndex < chunks.Length; ++chunkIndex)
+            {
+                var chunk = chunks[chunkIndex];
+                if (!IsChunkInitialized(chunk))
+                    continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
+                FastAssert.Greater(chunk.Count, 0); // empty batches should not have been Execute()ed
+                FastAssert.AreEqual(chunk.ChunkEntityCount, chunk.Count);
+                FastAssert.IsFalse(chunkUseEnabledMasks[chunkIndex]);
+                //Assert.AreEqual(default(v128), chunkUseEnabledMasks[chunkIndex]); // contents are undefined
+                var chunkEntities = chunk.GetNativeArray(entityTypeHandle);
+                for (int i = 0; i < chunkEntities.Length; ++i)
+                {
+                    FastAssert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(chunkEntities[i]).value);
+                    FastAssert.AreEqual(17, m_Manager.GetSharedComponent<EcsTestSharedComp>(chunkEntities[i]).value);
+                    m_Manager.SetComponentData(chunkEntities[i], new EcsTestData {value = 1});
+                    markedEntityCount++;
+                }
+            }
+
+            Assert.AreEqual(query.CalculateEntityCount(), markedEntityCount);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                int testValue = m_Manager.GetComponentData<EcsTestData>(entities[i]).value;
+                if (m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(entities[i]).value == 17)
+                {
+                    FastAssert.AreEqual(1, testValue);
+                }
+                else
+                {
+                    FastAssert.AreEqual(-1, testValue);
+                }
+            }
+        }
+#endif
+
+        [BurstCompile(CompileSynchronously = true)]
         struct WriteToArray : IJobChunk
         {
             public NativeArray<int> MyArray;
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 for (int i = 0; i < MyArray.Length; i++)
                 {
-                    MyArray[i] = chunkIndex + firstEntityIndex;
+                    MyArray[i] = unfilteredChunkIndex;
                 }
             }
         }
@@ -353,127 +303,108 @@ namespace Unity.Entities.Tests
         public void ParallelArrayWriteTriggersSafetySystem()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-            var entitiesA = new NativeArray<Entity>(archetypeA.ChunkCapacity, Allocator.Temp);
-            m_Manager.CreateEntity(archetypeA, entitiesA);
-            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-
+            using(var entitiesA = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(archetypeA.ChunkCapacity, ref World.UpdateAllocator))
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             using (var local = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(archetypeA.ChunkCapacity * 2, ref World.UpdateAllocator))
             {
+                m_Manager.CreateEntity(archetypeA, entitiesA);
                 LogAssert.Expect(LogType.Exception, new Regex("IndexOutOfRangeException: *"));
-
                 new WriteToArray
                 {
                     MyArray = local
-                }.ScheduleParallel(query).Complete();
+                }.ScheduleParallel(query, default).Complete();
             }
         }
+#endif
 
         [Test]
         public void SingleArrayWriteDoesNotTriggerSafetySystem()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-            var entitiesA = new NativeArray<Entity>(archetypeA.ChunkCapacity, Allocator.Temp);
-            m_Manager.CreateEntity(archetypeA, entitiesA);
-            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-
+            using(var entitiesA = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(archetypeA.ChunkCapacity, ref World.UpdateAllocator))
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             using (var local = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(archetypeA.ChunkCapacity * 2, ref World.UpdateAllocator))
             {
+                m_Manager.CreateEntity(archetypeA, entitiesA);
                 new WriteToArray
                 {
                     MyArray = local
-                }.ScheduleSingle(query).Complete();
+                }.Schedule(query, default).Complete();
             }
         }
-#endif
 
-#if !UNITY_DOTSRUNTIME
-        public partial class RewriteEcsTestDataSystem : SystemBase
+        // Not Burst compiling since we are Asserting in this job
+        struct CheckChunkIndices : IJobChunk
         {
-            public void RewriteData(JobHandle inputDeps = default)
+            public ComponentTypeHandle<EcsTestData> EcsTestDataTypeHandle;
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                Entities
-                    .WithSharedComponentFilter(new EcsTestSharedComp { value = 1 })
-                    .WithoutBurst()
-                    .ForEach((Entity entity, int entityInQueryIndex, ref EcsTestData data, in EcsTestSharedComp _) =>
-                    {
-                        data = new EcsTestData { value = entityInQueryIndex };
-                    }).Run();
-            }
-
-            protected override void OnUpdate()
-            {
+                var testData = chunk.GetNativeArray(EcsTestDataTypeHandle);
+                Assert.AreEqual(unfilteredChunkIndex, testData[0].value);
             }
         }
-
-        RewriteEcsTestDataSystem _rewriteEcsTestDataSystem => World.GetOrCreateSystem<RewriteEcsTestDataSystem>();
 
         [Test]
-        public void FilteredIJobChunkProcessesSameChunksAsFilteredJobForEach()
+        public void IJobChunk_WithNoBatching_HasCorrectIndices(
+            [Values(ScheduleMode.Parallel, ScheduleMode.Single, ScheduleMode.Run, ScheduleMode.RunWithoutJobs)] ScheduleMode scheduleMode)
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
-            var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
 
-            var entitiesA = new NativeArray<Entity>(5000, Allocator.Temp);
-            m_Manager.CreateEntity(archetypeA, entitiesA);
-
-            var entitiesB = new NativeArray<Entity>(5000, Allocator.Temp);
-            m_Manager.CreateEntity(archetypeB, entitiesB);
-
-            for (int i = 0; i < 5000; ++i)
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp)))
+            using (var entities = m_Manager.CreateEntity(archetypeA, 100, World.UpdateAllocator.ToAllocator))
             {
-                m_Manager.SetSharedComponentData(entitiesA[i], new EcsTestSharedComp { value = i % 8 });
-                m_Manager.SetSharedComponentData(entitiesB[i], new EcsTestSharedComp { value = i % 8 });
+                var val = 0;
+                foreach (var entity in entities)
+                {
+                    m_Manager.SetComponentData(entity, new EcsTestData() {value = val});
+                    m_Manager.SetSharedComponentManaged(entity, new EcsTestSharedComp() {value = val});
+                    val++;
+                }
+
+                var job = new CheckChunkIndices {EcsTestDataTypeHandle = EmptySystem.GetComponentTypeHandle<EcsTestData>() };
+
+                switch (scheduleMode)
+                {
+                    case ScheduleMode.Parallel:
+                        job.ScheduleParallel(query, default).Complete();
+                        break;
+                    case ScheduleMode.Single:
+                        job.Schedule(query, default).Complete();
+                        break;
+                    case ScheduleMode.Run:
+                        job.Run(query);
+                        break;
+                    case ScheduleMode.RunWithoutJobs:
+                        InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, query);
+                        break;
+                }
             }
-
-            var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
-            entityQuery.SetSharedComponentFilter(new EcsTestSharedComp { value = 1 });
-
-            var jobChunk = new ProcessChunkWriteIndex
-            {
-                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-            };
-            jobChunk.Schedule(entityQuery).Complete();
-
-            var componentArrayA = entityQuery.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
-
-            _rewriteEcsTestDataSystem.RewriteData();
-
-            var componentArrayB = entityQuery.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
-
-            CollectionAssert.AreEqual(componentArrayA.ToArray(), componentArrayB.ToArray());
-
-            entityQuery.Dispose();
         }
 
-#endif // !UNITY_DOTSRUNTIME
-
-        struct LargeJobChunk : IJobChunk
+        struct LargeChunkJob : IJobChunk
         {
             public FixedString4096Bytes StrA;
             public FixedString4096Bytes StrB;
             public FixedString4096Bytes StrC;
             public FixedString4096Bytes StrD;
+            [NativeDisableParallelForRestriction]
             public NativeArray<int> TotalLengths;
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
-            {
-                TotalLengths[chunkIndex] = StrA.Length + StrB.Length + StrC.Length + StrD.Length;
-            }
-        }
 
-        public enum ScheduleMode
-        {
-            Schedule, ScheduleParallel, ScheduleSingle, Run
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+                TotalLengths[0] = StrA.Length + StrB.Length + StrC.Length + StrD.Length;
+            }
         }
 
         [Test]
         public void IJobChunk_LargeJobStruct_ScheduleByRefWorks(
-            [Values(ScheduleMode.Schedule, ScheduleMode.ScheduleParallel, ScheduleMode.ScheduleSingle, ScheduleMode.Run)] ScheduleMode scheduleMode)
+            [Values(ScheduleMode.Parallel, ScheduleMode.Single, ScheduleMode.Run)] ScheduleMode scheduleMode)
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
             using(var lengths = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator))
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                var job = new LargeJobChunk
+                var job = new LargeChunkJob
                 {
                         StrA = "A",
                         StrB = "BB",
@@ -481,16 +412,225 @@ namespace Unity.Entities.Tests
                         StrD = "DDDD",
                         TotalLengths = lengths,
                 };
-                if (scheduleMode == ScheduleMode.Schedule)
-                    Assert.DoesNotThrow(() => { job.ScheduleByRef(query).Complete(); });
-                else if (scheduleMode == ScheduleMode.ScheduleParallel)
-                    Assert.DoesNotThrow(() => { job.ScheduleParallelByRef(query).Complete(); });
-                else if (scheduleMode == ScheduleMode.ScheduleSingle)
-                    Assert.DoesNotThrow(() => { job.ScheduleSingleByRef(query).Complete(); });
+                if (scheduleMode == ScheduleMode.Parallel)
+                    Assert.DoesNotThrow(() => { job.ScheduleParallelByRef(query, default).Complete(); });
+                else if (scheduleMode == ScheduleMode.Single)
+                    Assert.DoesNotThrow(() => { job.ScheduleByRef(query, default).Complete(); });
                 else if (scheduleMode == ScheduleMode.Run)
                     Assert.DoesNotThrow(() => { job.RunByRef(query); });
                 Assert.AreEqual(lengths[0], 10);
             }
+        }
+
+        [TestCase(JobRunType.Schedule)]
+        [TestCase(JobRunType.ScheduleByRef)]
+        [TestCase(JobRunType.Run)]
+        [TestCase(JobRunType.RunByRef)]
+        [TestCase(JobRunType.RunWithoutJobs)]
+        public void IJobChunk_Jobs_FromBurst(JobRunType runType)
+        {
+            if (!IsBurstEnabled())  // No need to error on burst compilation failure in job if no burst
+                return;
+
+            var sys = World.CreateSystem<IJobChunk_Jobs_ISystem_WithBurst>();
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
+            using var entities = m_Manager.CreateEntity(archetype, 3, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; ++i)
+                m_Manager.SetSharedComponent(entities[i], new EcsTestSharedComp { value = i });
+
+            var singletonArchetype = m_Manager.CreateArchetype(typeof(JobRunTypeComp));
+            var singletonEntity = m_Manager.CreateEntity(singletonArchetype);
+            m_Manager.SetComponentData(singletonEntity, new JobRunTypeComp { type = runType });
+
+            sys.Update(World.Unmanaged);
+            var Result = World.EntityManager.GetComponentData<ResultData>(sys);
+            Assert.AreEqual(entities.Length, Result.Result);
+        }
+
+        struct AddOne_EnabledBits: IJobChunk
+        {
+            public ComponentTypeHandle<EcsTestDataEnableable> TestDataHandle;
+            public unsafe void Execute(in ArchetypeChunk chunk, int chunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+                var enumerator = new ChunkEntityEnumerator(useEnabledMask,chunkEnabledMask,chunk.ChunkEntityCount);
+                var components = (EcsTestDataEnableable*)chunk.GetComponentDataPtrRW(ref TestDataHandle);
+                while(enumerator.NextEntityIndex(out var i))
+                {
+                    components[i].value++;
+                }
+            }
+        }
+
+        [Test]
+        public void IJobChunk_ChunkEntityEnumerator_NoDisabledBits()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+            //fill up multiple chunks of data
+            m_Manager.CreateEntity(archetype, archetype.ChunkCapacity * 2);
+
+            var job = new AddOne_EnabledBits
+            {
+                TestDataHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false)
+            };
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+            job.Run(query);
+
+            var components = query.ToComponentDataArray<EcsTestDataEnableable>(World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < components.Length; i++)
+            {
+                if(components[i].value != 1)
+                    Assert.AreEqual(1,components[i].value,$"Index {i} expected 1 but got {components[i].value}");
+            }
+        }
+
+        [Test]
+        public void IJobChunk_ChunkEntityEnumerator_HalfDisabledBits()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+            //fill up multiple chunks of data
+            var entities = m_Manager.CreateEntity(archetype, archetype.ChunkCapacity * 2,World.UpdateAllocator.ToAllocator);
+
+            for (int i = 1; i < entities.Length; i += 2)
+                m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+
+            var job = new AddOne_EnabledBits
+            {
+                TestDataHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false)
+            };
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+
+            job.Run(query);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                var value = i % 2 == 0 ? 1 : 0;
+                var actual = m_Manager.GetComponentData<EcsTestDataEnableable>(entities[i]).value;
+                if(value != actual)
+                    Assert.AreEqual(value, actual,$"Index {i} expected {value} but got {actual}");
+            }
+        }
+
+        [Test]
+        public void IJobChunk_ChunkEntityEnumerator_EnabledBitsRanges()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+            //fill up multiple chunks of data
+            var entities = m_Manager.CreateEntity(archetype, archetype.ChunkCapacity * 2,World.UpdateAllocator.ToAllocator);
+
+            //large ranges of enabled bits with some sparse disabling
+            for (int i = 0; i < entities.Length; i += 10)
+                m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+
+            var job = new AddOne_EnabledBits
+            {
+                TestDataHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false)
+            };
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+
+            job.Run(query);
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                var value = i % 10 == 0 ? 0 : 1;
+                var actual = m_Manager.GetComponentData<EcsTestDataEnableable>(entities[i]).value;
+                Assert.AreEqual(value, actual,$"Index {i} expected {value} but got {actual}");
+            }
+        }
+
+        struct WriteComponentJobChunk<T> : IJobChunk
+        {
+            public ComponentTypeHandle<T> TypeHandle;
+            public void Execute(in ArchetypeChunk chunk, int chunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+            }
+        }
+        struct WriteComponentJob<T> : IJob
+        {
+            public ComponentTypeHandle<T> TypeHandle;
+            public void Execute()
+            {
+            }
+        }
+
+        // TODO(DOTS-6573): This test can be enabled once DOTSRT supports AtomicSafetyHandle.SetExclusiveWeak()
+#if !UNITY_DOTSRUNTIME
+        [Test]
+        public void ConcurrentJob_WritesToEnableableComponentInQuery_Throws()
+        {
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
+            // Schedule job against a query which includes enableable types (which are not explicitly referenced by the
+            // job itself, but which are nonetheless read concurrently to determine which entities should be processed)
+            var job1 = new WriteComponentJobChunk<EcsTestData> { TypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false) };
+            var handle1 = job1.Schedule(query, default);
+            // Schedule a second job which writes to the enableable component in the query.
+            var job2 = new WriteComponentJob<EcsTestDataEnableable>
+                { TypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false) };
+            Assert.Throws<InvalidOperationException>(() => job2.Schedule());
+            // With the correct dependency, it's fine.
+            Assert.DoesNotThrow(() => job2.Schedule(handle1).Complete());
+        }
+#endif
+    }
+
+    struct ResultData : IComponentData
+    {
+        public int Result;
+    }
+
+    [BurstCompile(CompileSynchronously = true)]
+    partial struct IJobChunk_Jobs_ISystem_WithBurst : ISystem
+    {
+        struct TestJob : IJobChunk
+        {
+            public NativeReference<int> Count;
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+                Count.Value += 1;
+            }
+        }
+
+        EntityQuery _query;
+
+        public void OnCreate(ref SystemState state)
+        {
+            state.EntityManager.AddComponentData(state.SystemHandle, new ResultData
+            {
+                Result = 0
+            });
+            _query = state.GetEntityQuery(typeof(EcsTestSharedComp));
+        }
+
+        public void OnDestroy(ref SystemState state)
+        {
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        public void OnUpdate(ref SystemState state)
+        {
+            bool burstCompiled = true;
+            ECSTestsCommonBase.TestBurstCompiled(ref burstCompiled);
+            if (!burstCompiled)
+                throw new InvalidOperationException("Expected burst compiled job schedule code");
+
+            using var count = new NativeReference<int>(state.m_WorldUnmanaged.UpdateAllocator.ToAllocator);
+            var job = new TestJob { Count = count };
+
+            var runType = SystemAPI.GetSingleton<JobRunTypeComp>();
+
+            switch (runType.type)
+            {
+                case JobRunType.Schedule: job.Schedule(_query, state.Dependency).Complete(); break;
+                case JobRunType.ScheduleByRef: job.ScheduleByRef(_query, state.Dependency).Complete(); break;
+                case JobRunType.Run: job.Run(_query); break;
+                case JobRunType.RunByRef: job.RunByRef(_query); break;
+                case JobRunType.RunWithoutJobs: InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, _query); break;
+            }
+
+            ref var Result = ref state.EntityManager.GetComponentDataRW<ResultData>(state.SystemHandle).ValueRW;
+            Result.Result = count.Value;
         }
     }
 }

@@ -85,10 +85,12 @@ namespace Unity.Entities.CodeGen
             return type.MetadataType == MetadataType.Void;
         }
 
-        public static bool IsDisplayClass(this TypeReference tr) =>
-            tr.Name.Contains("<>c__DisplayClass");
+        // Roslyn can decide to start this class with <>c__DisplayClass or just <>c
+        // (seems to do the latter with DisplayClasses in value types for some reason)
+        public static bool IsDisplayClassCandidate(this TypeReference tr) =>
+            tr.Name.StartsWith("<>c");
 
-        // Safer version of TypeReference.IsValueType property as extension method since property is broken
+        // Safer version of TypeReference.IsValueType property as extension method since the Cecil property is broken
         // (Cecil doesn't have enough information without resolving references so it just guesses)
         public static bool IsValueType(this TypeReference typeReference)
         {
@@ -130,10 +132,10 @@ namespace Unity.Entities.CodeGen
         /// <summary>
         /// Generates a closed/specialized MethodReference for the given method and types[]
         /// e.g.
-        /// struct Foo { T Bar<T>(T val) { return default(T); }
+        /// <![CDATA[struct Foo { T Bar<T>(T val) { return default(T); }]]>
         ///
-        /// In this case, if one would like a reference to "Foo::int Bar(int val)" this method will construct such a method
-        /// reference when provided the open "T Bar(T val)" method reference and the TypeReferences to the types you'd like
+        /// In this case, if one would like a reference to `Foo::int Bar(int val)` this method will construct such a method
+        /// reference when provided the open `T Bar(T val)` method reference and the TypeReferences to the types you'd like
         /// specified as generic arguments (in this case a TypeReference to "int" would be passed in).
         /// </summary>
         /// <param name="method"></param>
@@ -151,10 +153,10 @@ namespace Unity.Entities.CodeGen
         /// <summary>
         /// Allows one to generate reference to a method contained in a generic type which has been closed/specialized.
         /// e.g.
-        /// struct Foo<T> { T Bar(T val) { return default(T); }
+        /// <![CDATA[struct Foo<T> { T Bar(T val) { return default(T); }]]>
         ///
-        /// In this case, if one would like a reference to "Foo<int>::int Bar(int val)" this method will construct such a method
-        /// reference when provided the open "T Bar(T val)" method reference and the closed declaring TypeReference, "Foo<int>".
+        /// In this case, if one would like a reference to <code><![CDATA[Foo<int>::int Bar(int val)]]></code> this method will construct such a method
+        /// reference when provided the open `T Bar(T val)` method reference and the closed declaring TypeReference, Foo&lt;int&gt;.
         /// </summary>
         /// <param name="self"></param>
         /// <param name="closedDeclaringType">See summary above for example. Typically construct this type using `MakeGenericInstanceMethod`</param>

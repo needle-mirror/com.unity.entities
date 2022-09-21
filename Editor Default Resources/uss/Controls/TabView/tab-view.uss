@@ -2,13 +2,14 @@
     flex-direction: column;
     margin-left: 0;
     margin-right: 0;
-    flex-shrink: 0;
+    flex-shrink: 1;
     flex-grow: 1;
 }
 
 .tab-view__tab-header
 {
     flex-direction: row;
+    flex-shrink: 0;
     padding-left: 0;
     flex-wrap: wrap;
     padding-top: 1px;
@@ -18,13 +19,14 @@
 }
 
 .tab-element {
-    flex-shrink: 0;
+    flex-shrink: 1;
     flex-grow: 1;
 }
 
 .tab-view__tab-content
 {
     flex-grow: 1;
+    flex-shrink: 1;
 }
 
 .tab-view__tab--active

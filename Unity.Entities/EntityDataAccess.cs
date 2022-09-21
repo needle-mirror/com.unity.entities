@@ -1,18 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
-    class ManagedEntityDataAccess
+    readonly struct ManagedEntityDataAccess
     {
-        volatile static ManagedEntityDataAccess[] s_Instances = { null, null, null, null };
+        volatile static ManagedEntityDataAccess[] s_Instances = { default, default, default, default };
 
         // AllocHandle and FreeHandle must be called from the main thread
         public static int AllocHandle(ManagedEntityDataAccess instance)
@@ -20,7 +22,7 @@ namespace Unity.Entities
             var count = s_Instances.Length;
             for (int i = 0; i < count; ++i)
             {
-                if (s_Instances[i] == null)
+                if (s_Instances[i].World == null)
                 {
                     s_Instances[i] = instance;
                     return i;
@@ -38,42 +40,56 @@ namespace Unity.Entities
 
         public static void FreeHandle(int i)
         {
-            s_Instances[i] = null;
+            s_Instances[i] = default;
         }
 
         // This is thread safe even if s_Instances is being resized concurrently since both the old and new versions
         // will have the same value at s_Instances[handle] and the reference is updated atomically
-        public static ManagedEntityDataAccess GetInstance(int handle)
+        public static ref ManagedEntityDataAccess GetInstance(int handle)
         {
-            return s_Instances[handle];
+            return ref s_Instances[handle];
         }
 
-        public World m_World;
-        public ManagedComponentStore m_ManagedComponentStore;
+        public static ManagedEntityDataAccess Debugger_GetInstance(int handle)
+        {
+            if (handle >= 0 && handle < s_Instances.Length)
+                return s_Instances[handle];
+            else
+                return default;
+        }
+
+        public ManagedEntityDataAccess(World world, ManagedComponentStore store)
+        {
+            World = world;
+            ManagedComponentStore = store;
+        }
+
+        readonly public World                 World;
+        readonly public ManagedComponentStore ManagedComponentStore;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
+    [BurstCompile]
     unsafe struct EntityDataAccess : IDisposable
     {
         private delegate void PlaybackManagedDelegate(IntPtr self);
 
         // approximate count of entities past which it is faster
         // to form batches when iterating through them all
-        internal static readonly int FASTER_TO_BATCH_THRESHOLD = 10;
-        internal static readonly int MANAGED_REFERENCES_DEFAULT = 8;
+        internal const int FASTER_TO_BATCH_THRESHOLD = 10;
+        internal const int MANAGED_REFERENCES_DEFAULT = 8;
 
         private static readonly SharedStatic<IntPtr> s_ManagedPlaybackTrampoline =
             SharedStatic<IntPtr>.GetOrCreate<PlaybackManagedDelegate>();
 
         private static object s_DelegateGCPrevention;
 
-        [NotBurstCompatible]
-        internal ManagedEntityDataAccess ManagedEntityDataAccess =>
-            ManagedEntityDataAccess.GetInstance(m_ManagedAccessHandle);
+        [ExcludeFromBurstCompatTesting("Managed data access")]
+        internal ref ManagedEntityDataAccess ManagedEntityDataAccess => ref ManagedEntityDataAccess.GetInstance(m_ManagedAccessHandle);
 
-        [NotBurstCompatible]
-        internal ManagedComponentStore ManagedComponentStore => ManagedEntityDataAccess.m_ManagedComponentStore;
+        [ExcludeFromBurstCompatTesting("Managed component store")]
+        internal ManagedComponentStore ManagedComponentStore => ManagedEntityDataAccess.ManagedComponentStore;
 
         // These pointer attributes freak debuggers out because they take
         // copies of the root struct when inspecting, and it generally
@@ -130,6 +146,8 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction] private UnsafeList<int> m_ManagedReferenceIndexList;
         [NativeDisableUnsafePtrRestriction] public EntityQuery m_UniversalQuery; // matches all components
         [NativeDisableUnsafePtrRestriction] public EntityQuery m_UniversalQueryWithChunks;
+        [NativeDisableUnsafePtrRestriction] public EntityQuery m_UniversalQueryWithSystems;
+        [NativeDisableUnsafePtrRestriction] public EntityQuery m_UniversalQueryWithChunksAndSystems;
         [NativeDisableUnsafePtrRestriction] public EntityQuery m_EntityGuidQuery;
         [NativeDisableUnsafePtrRestriction] public WorldUnmanaged m_WorldUnmanaged;
 
@@ -137,31 +155,26 @@ namespace Unity.Entities
         public int m_CachedEntityGUIDToEntityIndexVersion;
         UntypedUnsafeParallelHashMap m_CachedEntityGUIDToEntityIndex;
 
-        [BurstCompatible(CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
-        public ref UnsafeParallelMultiHashMap<int, Entity> CachedEntityGUIDToEntityIndex
+        [GenerateTestsForBurstCompatibility(CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
+        public ref UnsafeMultiHashMap<int, Entity> CachedEntityGUIDToEntityIndex
         {
             get
             {
                 fixed (void* ptr = &m_CachedEntityGUIDToEntityIndex)
                 {
-                    return ref UnsafeUtility.AsRef<UnsafeParallelMultiHashMap<int, Entity>>(ptr);
+                    return ref UnsafeUtility.AsRef<UnsafeMultiHashMap<int, Entity>>(ptr);
                 }
             }
         }
 
-        internal const int kBuiltinEntityQueryCount = 4;
+        internal const int kBuiltinEntityQueryCount = 6;
 #else
-        internal const int kBuiltinEntityQueryCount = 3;
+        internal const int kBuiltinEntityQueryCount = 5;
 #endif
 
         private int m_ManagedAccessHandle;
 
-        EntityArchetype m_EntityOnlyArchetype;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        public int m_InsideForEach;
-#endif
-
+        EntityArchetype m_EntityAndSimulateOnlyArchetype;
         private UntypedUnsafeParallelHashMap m_AliveEntityQueries;
 
         internal ref UnsafeParallelHashMap<ulong, byte> AliveEntityQueries
@@ -178,7 +191,7 @@ namespace Unity.Entities
         internal bool IsInExclusiveTransaction => m_DependencyManager.IsInTransaction;
 
         [BurstCompile]
-        internal struct DestroyChunks : IJobBurstSchedulable
+        internal struct DestroyChunks : IJob
         {
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* EntityComponentStore;
             public NativeArray<ArchetypeChunk> Chunks;
@@ -189,60 +202,67 @@ namespace Unity.Entities
             }
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Takes managed World")]
         public static void Initialize(EntityDataAccess* self, World world)
         {
-            var managedGuts = new ManagedEntityDataAccess();
 
             self->m_ManagedReferenceIndexList = new UnsafeList<int>(MANAGED_REFERENCES_DEFAULT, Allocator.Persistent);
 
-            self->m_EntityOnlyArchetype = default;
-            self->m_ManagedAccessHandle = ManagedEntityDataAccess.AllocHandle(managedGuts);
+            self->m_EntityAndSimulateOnlyArchetype = default;
+            self->m_ManagedAccessHandle = -1;
 
             self->AliveEntityQueries = new UnsafeParallelHashMap<ulong, byte>(32, Allocator.Persistent);
 #if UNITY_EDITOR
-            self->CachedEntityGUIDToEntityIndex = new UnsafeParallelMultiHashMap<int, Entity>(32, Allocator.Persistent);
+            self->CachedEntityGUIDToEntityIndex = new UnsafeMultiHashMap<int, Entity>(32, Allocator.Persistent);
 #endif
-            managedGuts.m_World = world;
-
             self->m_DependencyManager.OnCreate(world.Unmanaged);
-            Entities.EntityComponentStore.Create(&self->m_EntityComponentStore, world.SequenceNumber << 32);
+            Entities.EntityComponentStore.Create(&self->m_EntityComponentStore, world.SequenceNumber);
             Unity.Entities.EntityQueryManager.Create(&self->m_EntityQueryManager, &self->m_DependencyManager);
 
             self->m_WorldUnmanaged = world.Unmanaged;
-            managedGuts.m_ManagedComponentStore = new ManagedComponentStore();
 
-            var builder = new EntityQueryDescBuilder(Allocator.Temp);
-            builder.Options(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled);
-            builder.FinalizeQuery();
+            var managedGuts = new ManagedEntityDataAccess(world, new ManagedComponentStore(self->EntityComponentStore));
+            self->m_ManagedAccessHandle = ManagedEntityDataAccess.AllocHandle(managedGuts);
+            self->m_EntityComponentStore.m_DebugOnlyManagedAccess = self->m_ManagedAccessHandle;
+
+            var builder = new EntityQueryBuilder(Allocator.Temp)
+                .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludeSystems);
+            self->m_UniversalQueryWithSystems = self->m_EntityQueryManager.CreateEntityQuery(self, builder);
+
+            builder.Reset();
+            builder.WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab);
             self->m_UniversalQuery = self->m_EntityQueryManager.CreateEntityQuery(self, builder);
 
             builder.Reset();
-            builder.Options(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab);
-            builder.AddAll(ComponentType.ReadWrite<ChunkHeader>());
-            builder.FinalizeQuery();
-            builder.Options(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab);
-            builder.FinalizeQuery();
-
+            builder.WithAllRW<ChunkHeader>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                .AddAdditionalQuery()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab);
             self->m_UniversalQueryWithChunks = self->m_EntityQueryManager.CreateEntityQuery(self, builder);
 
+            builder.Reset();
+            builder.WithAllRW<ChunkHeader>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeSystems)
+                .AddAdditionalQuery()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeSystems);
+            self->m_UniversalQueryWithChunksAndSystems = self->m_EntityQueryManager.CreateEntityQuery(self, builder);
 
 #if UNITY_EDITOR
             builder.Reset();
-            builder.Options(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab);
-            builder.AddAll(ComponentType.ReadWrite<EntityGuid>());
-            builder.FinalizeQuery();
-
+            builder.WithAllRW<EntityGuid>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab);
             self->m_EntityGuidQuery = self->m_EntityQueryManager.CreateEntityQuery(self, builder);
 #endif
 
             builder.Dispose();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            self->m_UniversalQuery._GetImpl()->_DisallowDisposing = true;
-            self->m_UniversalQueryWithChunks._GetImpl()->_DisallowDisposing = true;
+            self->m_UniversalQuery._GetImpl()->_DisallowDisposing = 1;
+            self->m_UniversalQueryWithChunksAndSystems._GetImpl()->_DisallowDisposing = 1;
+            self->m_UniversalQueryWithSystems._GetImpl()->_DisallowDisposing = 1;
+            self->m_UniversalQueryWithChunks._GetImpl()->_DisallowDisposing = 1;
 #if UNITY_EDITOR
-            self->m_EntityGuidQuery._GetImpl()->_DisallowDisposing = true;
+            self->m_EntityGuidQuery._GetImpl()->_DisallowDisposing = 1;
 #endif
 #endif
 
@@ -254,7 +274,7 @@ namespace Unity.Entities
             }
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("calls managed playback")]
         [MonoPInvokeCallback(typeof(PlaybackManagedDelegate))]
         private static void PlaybackManagedDelegateInMonoWithWrappedExceptions(IntPtr target)
         {
@@ -268,24 +288,28 @@ namespace Unity.Entities
             }
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Disposes managed lists")]
         public void Dispose()
         {
-            ManagedEntityDataAccess managedGuts = ManagedEntityDataAccess;
-
             m_ManagedReferenceIndexList.Dispose();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_UniversalQuery._GetImpl()->_DisallowDisposing = false;
-            m_UniversalQueryWithChunks._GetImpl()->_DisallowDisposing = false;
+            m_UniversalQueryWithSystems._GetImpl()->_DisallowDisposing = 0;
+            m_UniversalQueryWithChunks._GetImpl()->_DisallowDisposing = 0;
+            m_UniversalQuery._GetImpl()->_DisallowDisposing = 0;
+            m_UniversalQueryWithChunksAndSystems._GetImpl()->_DisallowDisposing = 0;
 #if UNITY_EDITOR
-            m_EntityGuidQuery._GetImpl()->_DisallowDisposing = false;
+            m_EntityGuidQuery._GetImpl()->_DisallowDisposing = 0;
 #endif
 #endif
-            m_UniversalQuery.Dispose();
+            m_UniversalQueryWithSystems.Dispose();
             m_UniversalQueryWithChunks.Dispose();
-            m_UniversalQuery = default;
+            m_UniversalQuery.Dispose();
+            m_UniversalQueryWithChunksAndSystems.Dispose();
+            m_UniversalQueryWithSystems = default;
             m_UniversalQueryWithChunks = default;
+            m_UniversalQuery = default;
+            m_UniversalQueryWithChunksAndSystems = default;
 #if UNITY_EDITOR
             m_EntityGuidQuery.Dispose();
             m_EntityGuidQuery = default;
@@ -295,9 +319,7 @@ namespace Unity.Entities
             Entities.EntityComponentStore.Destroy(EntityComponentStore);
             Entities.EntityQueryManager.Destroy(EntityQueryManager);
 
-            managedGuts.m_ManagedComponentStore.Dispose();
-            managedGuts.m_World = null;
-
+            ManagedEntityDataAccess.ManagedComponentStore.Dispose();
             ManagedEntityDataAccess.FreeHandle(m_ManagedAccessHandle);
             m_ManagedAccessHandle = -1;
 
@@ -317,11 +339,29 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void CheckIsStructuralChange()
         {
-            if (DependencyManager->IsInForEachDisallowStructuralChange != 0)
-            {
-                throw new InvalidOperationException(
-                    "Structural changes are not allowed during Entities.ForEach. Please use EntityCommandBuffer instead.");
-            }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (DependencyManager->ForEachStructuralChange.Depth != 0)
+                throw new InvalidOperationException("Structural changes are not allowed during Entities.ForEach. Please use EntityCommandBuffer or WithStructuralChanges instead.");
+#endif
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        private void CheckIsAdditiveStructuralChange(UnsafePtrList<Archetype> archetypes)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            for(var i = 0; i < archetypes.Length; ++i)
+                CheckIsAdditiveStructuralChange(archetypes[i]);
+#endif
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        private void CheckIsAdditiveStructuralChange(Archetype* archetype)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (!DependencyManager->ForEachStructuralChange.IsAdditiveStructuralChangePossible(archetype))
+                //@TODO: Better error message
+                throw new InvalidOperationException("Structural changes are not allowed during Entities.ForEach. Please use EntityCommandBuffer or WithStructuralChanges instead.");
+#endif
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -336,6 +376,13 @@ namespace Unity.Entities
         {
             if (!IsQueryValid(query))
                 throw new ArgumentException("query is invalid or disposed");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        internal void AssertQueryHasNoEnableableComponents(EntityQuery query)
+        {
+            if (query._GetImpl()->_QueryData->DoesQueryRequireBatching != 0)
+                throw new ArgumentException("EntityQuery objects with types that implement IEnableableComponent are not currently supported by this operation.");
         }
 
         public bool IsQueryValid(EntityQuery query)
@@ -381,6 +428,60 @@ namespace Unity.Entities
                 BeforeStructuralChange();
             m_ManagedReferenceIndexList.Clear();
             return EntityComponentStore->BeginArchetypeChangeTracking();
+        }
+
+        public void PrepareForAdditiveStructuralChanges()
+        {
+            CompleteForAdditiveStructuralChanges();
+        }
+
+        public void PrepareForAdditiveStructuralChanges(Archetype* archetype)
+        {
+            CheckIsAdditiveStructuralChange(archetype);
+            CompleteForAdditiveStructuralChanges();
+        }
+
+        public void PrepareForInstantiateAdditiveStructuralChanges(NativeArray<Entity> entities)
+        {
+            foreach (var entity in entities)
+                CheckIsAdditiveStructuralChange(EntityComponentStore->GetArchetype(entity)->InstantiateArchetype);
+
+            CompleteForAdditiveStructuralChanges();
+        }
+
+        public void PrepareForCopyAdditiveStructuralChanges(NativeArray<Entity> entities)
+        {
+            foreach (var entity in entities)
+                CheckIsAdditiveStructuralChange(EntityComponentStore->GetArchetype(entity)->CopyArchetype);
+
+            CompleteForAdditiveStructuralChanges();
+        }
+
+        private void CompleteForAdditiveStructuralChanges()
+        {
+            if (IsInExclusiveTransaction)
+                return;
+
+            // This is not an end user error. If there are any managed changes at this point, it indicates there is some
+            // (previous) EntityManager change that is not properly playing back the managed changes that were buffered
+            // afterward. That needs to be found and fixed.
+
+            EntityComponentStore->AssertNoQueuedManagedDeferredCommands();
+
+            if (!m_DependencyManager.IsInTransaction)
+                DependencyManager->CompleteAllJobsAndCheckDeallocateAndThrow();
+        }
+
+        public EntityComponentStore.ArchetypeChanges BeginAdditiveStructuralChanges()
+        {
+            m_ManagedReferenceIndexList.Clear();
+            return EntityComponentStore->BeginArchetypeChangeTracking();
+        }
+
+        public void CheckIsAdditiveArchetypeStructuralChangePossible(Archetype* archetype)
+        {
+            if (!IsInExclusiveTransaction)
+                CheckIsAdditiveStructuralChange(archetype);
         }
 
         public void EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes)
@@ -432,7 +533,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="entities">The NativeArray of entities to destroy</param>
         public void DestroyEntityDuringStructuralChange(NativeArray<Entity> entities,
-            in SystemHandleUntyped originSystem = default)
+            in SystemHandle originSystem = default)
         {
             if (entities.Length == 0)
                 return;
@@ -440,35 +541,39 @@ namespace Unity.Entities
             EntityComponentStore->AssertValidEntities((Entity*) entities.GetUnsafePtr(), entities.Length);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordDestroyEntity(in m_WorldUnmanaged, in originSystem, (Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_DestroyEntity(in originSystem, in entities);
 #endif
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginDestroyEntity(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
 #endif
-            {
-                StructuralChange.DestroyEntity(EntityComponentStore, (Entity*) entities.GetUnsafePtr(),
-                    entities.Length);
-            }
+
+            StructuralChange.DestroyEntity(EntityComponentStore, (Entity*) entities.GetUnsafePtr(), entities.Length);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
-        /// <param name="archetypeList"></param>
-        /// <param name="filter"></param>
-        public void DestroyEntityDuringStructuralChange(UnsafeCachedChunkList cache,
-            UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
-            in SystemHandleUntyped originSystem = default)
+        /// <param name="queryImpl"></param>
+        public void DestroyEntitiesInChunksDuringStructuralChange(EntityQueryImpl* queryImpl,
+            in SystemHandle originSystem = default)
         {
-            if (archetypeList.Length == 0)
+            if (queryImpl->IsEmptyIgnoreFilter)
                 return;
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginDestroyEntity(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
 #endif
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Allocator.TempJob,
-                ref filter, DependencyManager))
+
+            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
             {
                 var errorEntity = Entity.Null;
                 var errorReferencedEntity = Entity.Null;
@@ -481,7 +586,8 @@ namespace Unity.Entities
                     if (errorEntity == Entity.Null)
                     {
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                        EntitiesJournaling.RecordDestroyEntity(in m_WorldUnmanaged, in originSystem, (ArchetypeChunk*) chunks.GetUnsafeReadOnlyPtr(), chunks.Length);
+                        if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                            JournalAddRecord_DestroyEntity(in originSystem, in chunks);
 #endif
                         RunDestroyChunks(chunks);
                     }
@@ -491,6 +597,11 @@ namespace Unity.Entities
                     }
                 }
             }
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
@@ -499,83 +610,73 @@ namespace Unity.Entities
         /// <param name="entities"></param>
         /// <param name="count"></param>
         internal void DestroyEntityInternalDuringStructuralChange(Entity* entities, int count,
-            in SystemHandleUntyped originSystem = default)
+            in SystemHandle originSystem = default)
         {
             if (count == 0)
                 return;
             EntityComponentStore->AssertValidEntities(entities, count);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordDestroyEntity(in m_WorldUnmanaged, in originSystem, entities, count);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_DestroyEntity(in originSystem, entities, count);
 #endif
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginDestroyEntity(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
 #endif
-            {
-                StructuralChange.DestroyEntity(EntityComponentStore, entities, count);
-            }
+
+            StructuralChange.DestroyEntity(EntityComponentStore, entities, count);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
-        internal EntityArchetype CreateArchetype(ComponentType* types, int count)
+        internal EntityArchetype CreateArchetype(ComponentType* types, int count, bool addSimulateComponentIfMissing)
         {
             Assert.IsTrue(types != null || count == 0);
             EntityComponentStore->AssertCanCreateArchetype(types, count);
 
-            ComponentTypeInArchetype* typesInArchetype = stackalloc ComponentTypeInArchetype[count + 1];
+            ComponentTypeInArchetype* typesInArchetype = stackalloc ComponentTypeInArchetype[count + 2];
 
-            var cachedComponentCount = FillSortedArchetypeArray(typesInArchetype, types, count);
+            var cachedComponentCount = FillSortedArchetypeArray(typesInArchetype, types, count, addSimulateComponentIfMissing);
 
-            // Lookup existing archetype (cheap)
-            EntityArchetype entityArchetype;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            entityArchetype._DebugComponentStore = EntityComponentStore;
-#endif
-
-            entityArchetype.Archetype =
-                EntityComponentStore->GetExistingArchetype(typesInArchetype, cachedComponentCount);
-            if (entityArchetype.Archetype != null)
-                return entityArchetype;
-
-            // Creating an archetype invalidates all iterators / jobs etc
-            // because it affects the live iteration linked lists...
-
-            entityArchetype.Archetype =
-                EntityComponentStore->GetOrCreateArchetype(typesInArchetype, cachedComponentCount);
-
-            return entityArchetype;
+            return CreateArchetype_Sorted(typesInArchetype, cachedComponentCount);
         }
 
-        internal EntityArchetype CreateArchetypeDuringStructuralChange(ComponentTypeInArchetype* typesInArchetype,
-            int cachedComponentCount)
+        internal EntityArchetype CreateArchetype_Sorted(ComponentTypeInArchetype* typesInArchetype, int cachedComponentCount)
         {
             // Lookup existing archetype (cheap)
             EntityArchetype entityArchetype;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            entityArchetype._DebugComponentStore = EntityComponentStore;
-#endif
-
-            entityArchetype.Archetype =
-                EntityComponentStore->GetExistingArchetype(typesInArchetype, cachedComponentCount);
+            entityArchetype.Archetype = EntityComponentStore->GetExistingArchetype(typesInArchetype, cachedComponentCount);
             if (entityArchetype.Archetype != null)
                 return entityArchetype;
 
             // Creating an archetype invalidates all iterators / jobs etc
             // because it affects the live iteration linked lists...
 
-            entityArchetype.Archetype =
-                EntityComponentStore->GetOrCreateArchetype(typesInArchetype, cachedComponentCount);
+            entityArchetype.Archetype = EntityComponentStore->GetOrCreateArchetype(typesInArchetype, cachedComponentCount);
 
             return entityArchetype;
         }
 
-        internal static int FillSortedArchetypeArray(ComponentTypeInArchetype* dst, ComponentType* requiredComponents,
-            int count)
+        internal static int FillSortedArchetypeArray(ComponentTypeInArchetype* dst, ComponentType* requiredComponents, int count, bool addSimulateComponentIfMissing)
         {
             CheckMoreThan1024Components(count);
             dst[0] = new ComponentTypeInArchetype(ComponentType.ReadWrite<Entity>());
+            bool hasSimulate = false;
             for (var i = 0; i < count; ++i)
+            {
+                hasSimulate |= (requiredComponents[i] == ComponentType.ReadWrite<Simulate>());
                 SortingUtilities.InsertSorted(dst, i + 1, requiredComponents[i]);
+            }
+            if (!hasSimulate && addSimulateComponentIfMissing)
+            {
+                SortingUtilities.InsertSorted(dst, count + 1, ComponentType.ReadWrite<Simulate>());
+                return count + 2;
+            }
             return count + 1;
         }
 
@@ -591,18 +692,25 @@ namespace Unity.Entities
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <returns>The Entity object that you can use to access the entity.</returns>
-        public Entity CreateEntity(in SystemHandleUntyped originSystem = default)
+        public Entity CreateEntity(in SystemHandle originSystem = default)
         {
             Entity entity;
+
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginCreateEntity(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
 #endif
-            {
-                StructuralChange.CreateEntity(EntityComponentStore, GetEntityOnlyArchetype().Archetype, &entity, 1);
-            }
+
+            StructuralChange.CreateEntity(EntityComponentStore, GetEntityAndSimulateArchetype().Archetype, &entity, 1);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordCreateEntity(in m_WorldUnmanaged, in originSystem, &entity, 1, null, 0);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_CreateEntity(in originSystem, &entity, 1);
 #endif
 
             return entity;
@@ -614,7 +722,7 @@ namespace Unity.Entities
         /// <param name="archetype"></param>
         /// <exception cref="ArgumentException">Thrown if the archetype is null.</exception>
         /// <returns></returns>
-        public Entity CreateEntityDuringStructuralChange(EntityArchetype archetype, in SystemHandleUntyped originSystem = default)
+        public Entity CreateEntityDuringStructuralChange(EntityArchetype archetype, in SystemHandle originSystem = default)
         {
             Entity entity;
             CreateEntityDuringStructuralChange(archetype, &entity, 1, in originSystem);
@@ -629,7 +737,7 @@ namespace Unity.Entities
         /// <param name="count"></param>
         /// <exception cref="ArgumentException">Thrown if the archetype is null.</exception>
         internal void CreateEntityDuringStructuralChange(EntityArchetype archetype, Entity* outEntities, int count,
-            in SystemHandleUntyped originSystem = default)
+            in SystemHandle originSystem = default)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (count < 0)
@@ -638,14 +746,20 @@ namespace Unity.Entities
             Unity.Entities.EntityComponentStore.AssertValidArchetype(EntityComponentStore, archetype);
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginCreateEntity(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
 #endif
-            {
-                StructuralChange.CreateEntity(EntityComponentStore, archetype.Archetype, outEntities, count);
-            }
+
+            StructuralChange.CreateEntity(EntityComponentStore, archetype.Archetype, outEntities, count);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordCreateEntity(in m_WorldUnmanaged, in originSystem, outEntities, count, (int*) archetype.Types, archetype.TypesCount);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_CreateEntity(in originSystem, outEntities, count, (TypeIndex*)archetype.Types, archetype.TypesCount);
 #endif
         }
 
@@ -654,7 +768,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="archetype"></param>
         /// <param name="entities"></param>
-        public void CreateEntityDuringStructuralChange(EntityArchetype archetype, NativeArray<Entity> entities, in SystemHandleUntyped originSystem = default)
+        public void CreateEntityDuringStructuralChange(EntityArchetype archetype, NativeArray<Entity> entities, in SystemHandle originSystem = default)
         {
             CreateEntityDuringStructuralChange(archetype, (Entity*) entities.GetUnsafePtr(), entities.Length, in originSystem);
         }
@@ -670,7 +784,7 @@ namespace Unity.Entities
         /// <exception cref="InvalidOperationException">Thrown if the component increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the component causes the size of the archetype to exceed the size of a chunk.</exception>
         public bool AddComponentDuringStructuralChange(Entity entity, ComponentType componentType,
-            in SystemHandleUntyped originSystem = default)
+            in SystemHandle originSystem = default)
         {
             if (HasComponent(entity, componentType))
                 return false;
@@ -678,45 +792,52 @@ namespace Unity.Entities
             EntityComponentStore->AssertCanAddComponent(entity, componentType);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordAddComponent(in m_WorldUnmanaged, in originSystem, &entity, 1, &componentType.TypeIndex, 1);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_AddComponent(in originSystem, &entity, 1, &componentType.TypeIndex, 1);
 #endif
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginAddComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
-            {
-                return StructuralChange.AddComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
-            }
+
+            var result = StructuralChange.AddComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
+            return result;
         }
 
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
-        /// <param name="archetypeList">The set of archetypes that defines the set of matching entities.</param>
-        /// <param name="filter">Additional filter criteria for the entities.</param>
+        /// <param name="queryImpl">The query to apply this operation to</param>
         /// <param name="componentType">The component type being added to the entities.</param>
         /// <exception cref="InvalidOperationException">Thrown if an entity in the query does not exist.</exception>
         /// <exception cref="ArgumentException">Thrown if the component type being added is Entity type.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the component increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the component causes the size of the archetype to exceed the size of a chunk.</exception>
-        public void AddComponentDuringStructuralChange(UnsafeCachedChunkList cache,
-            UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType,
-            in SystemHandleUntyped originSystem = default)
+        public void AddComponentToChunksDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentType componentType,
+            in SystemHandle originSystem = default)
         {
-            if (archetypeList.Length == 0)
+            if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-            EntityComponentStore->AssertCanAddComponent(archetypeList, componentType);
+            EntityComponentStore->AssertCanAddComponent(queryImpl->_QueryData->MatchingArchetypes, componentType);
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginAddComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Allocator.TempJob,
-                ref filter, DependencyManager))
+
+            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
             {
                 if (chunks.Length > 0)
                 {
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    EntitiesJournaling.RecordAddComponent(in m_WorldUnmanaged, in originSystem, (ArchetypeChunk*) chunks.GetUnsafeReadOnlyPtr(), chunks.Length, &componentType.TypeIndex, 1);
+                    if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                        JournalAddRecord_AddComponent(in originSystem, in chunks, &componentType.TypeIndex, 1);
 #endif
 
                     StructuralChange.AddComponentChunks(EntityComponentStore,
@@ -724,42 +845,52 @@ namespace Unity.Entities
                         componentType.TypeIndex);
                 }
             }
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
-        /// <param name="archetypeList">The set of archetypes that defines the set of matching entities.</param>
-        /// <param name="filter">Additional filter criteria for the entities.</param>
-        /// <param name="types">The component types being added to the entities.</param>
+        /// <param name="queryImpl">The query to apply this operation to</param>
+        /// <param name="typeSet">The component types being added to the entities.</param>
         /// <exception cref="InvalidOperationException">Thrown if an entity in the query does not exist.</exception>
         /// <exception cref="ArgumentException">Thrown if one of the component types being added is Entity type.</exception>
         /// <exception cref="InvalidOperationException">Thrown if one of the components increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
         /// <exception cref="InvalidOperationException">Thrown if one of the components causes the size of the archetype to exceed the size of a chunk.</exception>
-        internal void AddComponentsDuringStructuralChange(UnsafeCachedChunkList cache,
-            UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentTypes types,
-            in SystemHandleUntyped originSystem = default)
+        internal void AddComponentsToChunksDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentTypeSet typeSet,
+            in SystemHandle originSystem = default)
         {
-            if (archetypeList.Length == 0 || types.Length == 0)
+            if (queryImpl->IsEmptyIgnoreFilter || typeSet.Length == 0)
                 return;
-            EntityComponentStore->AssertCanAddComponents(archetypeList, types);
+            EntityComponentStore->AssertCanAddComponents(queryImpl->_QueryData->MatchingArchetypes, typeSet);
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginAddComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Allocator.TempJob,
-                ref filter, DependencyManager))
+
+            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
             {
                 if (chunks.Length > 0)
                 {
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    EntitiesJournaling.RecordAddComponent(in m_WorldUnmanaged, in originSystem, (ArchetypeChunk*) chunks.GetUnsafeReadOnlyPtr(), chunks.Length, types.Types, types.Length);
+                    if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                        JournalAddRecord_AddComponent(in originSystem, in chunks, typeSet.Types, typeSet.Length);
 #endif
 
                     StructuralChange.AddComponentsChunks(EntityComponentStore,
-                        (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, ref types);
+                        (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, ref typeSet);
                 }
             }
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
@@ -772,7 +903,7 @@ namespace Unity.Entities
         /// <exception cref="InvalidOperationException">Thrown if the component increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the component causes the size of the archetype to exceed the size of a chunk.</exception>
         public void AddComponentDuringStructuralChange(NativeArray<Entity> entities, ComponentType componentType,
-            in SystemHandleUntyped originSystem = default)
+            in SystemHandle originSystem = default)
         {
             if (entities.Length == 0)
                 return;
@@ -780,115 +911,130 @@ namespace Unity.Entities
             EntityComponentStore->AssertCanAddComponent(entities, componentType);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordAddComponent(in m_WorldUnmanaged, in originSystem, (Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length, &componentType.TypeIndex, 1);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_AddComponent(in originSystem, in entities, &componentType.TypeIndex, 1);
 #endif
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginAddComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
+
+            if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
+                EntityComponentStore->CreateEntityBatchList(entities, componentType.IsSharedComponent ? 1 : 0,
+                    Allocator.Temp, out var entityBatchList))
             {
-                if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
-                    EntityComponentStore->CreateEntityBatchList(entities, componentType.IsSharedComponent ? 1 : 0,
-                        out var entityBatchList))
+                StructuralChange.AddComponentEntitiesBatch(EntityComponentStore,
+                    (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
+                        ref entityBatchList), componentType.TypeIndex);
+            }
+            else
+            {
+                for (int i = 0; i < entities.Length; i++)
                 {
-                    StructuralChange.AddComponentEntitiesBatch(EntityComponentStore,
-                        (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
-                            ref entityBatchList), componentType.TypeIndex);
-                    entityBatchList.Dispose();
-                }
-                else
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                    {
-                        var entity = entities[i];
-                        StructuralChange.AddComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
-                    }
+                    var entity = entities[i];
+                    StructuralChange.AddComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
                 }
             }
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
         /// <param name="entities">The set of entities.</param>
-        /// <param name="componentTypes">The component types added to the entities.</param>
+        /// <param name="componentTypeSet">The component types added to the entities.</param>
         /// <exception cref="InvalidOperationException">Thrown if an entity in the native array does not exist.</exception>
         /// <exception cref="ArgumentException">Thrown if a component type being added is Entity type.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the component increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the component causes the size of the archetype to exceed the size of a chunk.</exception>
         public void AddMultipleComponentsDuringStructuralChange(NativeArray<Entity> entities,
-            ComponentTypes componentTypes, in SystemHandleUntyped originSystem = default)
+            ComponentTypeSet componentTypeSet, in SystemHandle originSystem = default)
         {
-            if (entities.Length == 0 || componentTypes.Length == 0)
+            if (entities.Length == 0 || componentTypeSet.Length == 0)
                 return;
-            EntityComponentStore->AssertCanAddComponents(entities, componentTypes);
+            EntityComponentStore->AssertCanAddComponents(entities, componentTypeSet);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordAddComponent(in m_WorldUnmanaged, in originSystem, (Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length, componentTypes.Types, componentTypes.Length);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_AddComponent(in originSystem, in entities, componentTypeSet.Types, componentTypeSet.Length);
 #endif
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginAddComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
+
+            if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
+                EntityComponentStore->CreateEntityBatchList(entities, componentTypeSet.m_masks.SharedComponents,
+                    Allocator.Temp, out var entityBatchList))
             {
-                if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
-                    EntityComponentStore->CreateEntityBatchList(entities, componentTypes.m_masks.SharedComponents,
-                        out var entityBatchList))
+                StructuralChange.AddComponentsEntitiesBatch(EntityComponentStore,
+                    (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
+                        ref entityBatchList), ref componentTypeSet);
+            }
+            else
+            {
+                for (int i = 0; i < entities.Length; i++)
                 {
-                    StructuralChange.AddComponentsEntitiesBatch(EntityComponentStore,
-                        (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
-                            ref entityBatchList), ref componentTypes);
-                    entityBatchList.Dispose();
-                }
-                else
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                    {
-                        var entity = entities[i];
-                        StructuralChange.AddComponentsEntity(EntityComponentStore, &entity, ref componentTypes);
-                    }
+                    var entity = entities[i];
+                    StructuralChange.AddComponentsEntity(EntityComponentStore, &entity, ref componentTypeSet);
                 }
             }
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
         /// <param name="entityArray"></param>
-        /// <param name="componentTypes"></param>
+        /// <param name="componentTypeSet"></param>
         /// <exception cref="InvalidOperationException">Thrown if a componentType is Entity type.</exception>
         public void RemoveMultipleComponentsDuringStructuralChange(NativeArray<Entity> entities,
-            ComponentTypes componentTypes, in SystemHandleUntyped originSystem = default)
+            ComponentTypeSet componentTypeSet, in SystemHandle originSystem = default)
         {
-            if (entities.Length == 0 || componentTypes.Length == 0)
+            if (entities.Length == 0 || componentTypeSet.Length == 0)
                 return;
-            EntityComponentStore->AssertCanRemoveComponents(componentTypes);
+            EntityComponentStore->AssertCanRemoveComponents(componentTypeSet);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordRemoveComponent(in m_WorldUnmanaged, in originSystem, (Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length, componentTypes.Types, componentTypes.Length);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_RemoveComponent(in originSystem, in entities, componentTypeSet.Types, componentTypeSet.Length);
 #endif
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginRemoveComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
+
+            if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
+                EntityComponentStore->CreateEntityBatchList(entities, 0, Allocator.Temp, out var entityBatchList))
             {
-                if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
-                    EntityComponentStore->CreateEntityBatchList(entities, 0, out var entityBatchList))
+                StructuralChange.RemoveComponentsEntitiesBatch(EntityComponentStore,
+                    (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
+                        ref entityBatchList), ref componentTypeSet);
+            }
+            else
+            {
+                for (int i = 0; i < entities.Length; i++)
                 {
-                    StructuralChange.RemoveComponentsEntitiesBatch(EntityComponentStore,
-                        (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
-                            ref entityBatchList), ref componentTypes);
-                    entityBatchList.Dispose();
-                }
-                else
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                    {
-                        var entity = entities[i];
-                        StructuralChange.RemoveComponentsEntity(EntityComponentStore, &entity, ref componentTypes);
-                    }
+                    var entity = entities[i];
+                    StructuralChange.RemoveComponentsEntity(EntityComponentStore, &entity, ref componentTypeSet);
                 }
             }
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
@@ -898,49 +1044,55 @@ namespace Unity.Entities
         /// <param name="componentType"></param>
         /// <returns></returns>
         public bool RemoveComponentDuringStructuralChange(Entity entity, ComponentType componentType,
-            in SystemHandleUntyped originSystem = default)
+            in SystemHandle originSystem = default)
         {
             EntityComponentStore->AssertCanRemoveComponent(componentType);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordRemoveComponent(in m_WorldUnmanaged, in originSystem, &entity, 1, &componentType.TypeIndex, 1);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_RemoveComponent(in originSystem, &entity, 1, &componentType.TypeIndex, 1);
 #endif
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginRemoveComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
-            {
-                return EntityComponentStore->RemoveComponent(entity, componentType);
-            }
+
+            var result = EntityComponentStore->RemoveComponent(entity, componentType);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
+
+            return result;
         }
 
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
-        /// <param name="archetypeList"></param>
-        /// <param name="cache"></param>
-        /// <param name="filter"></param>
+        /// <param name="queryImpl"></param>
         /// <param name="componentType"></param>
         /// <exception cref="InvalidOperationException">Thrown if the componentType is Entity type.</exception>
-        public void RemoveComponentDuringStructuralChange(UnsafeCachedChunkList cache,
-            UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType,
-            in SystemHandleUntyped originSystem = default)
+        public void RemoveComponentFromChunksDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentType componentType,
+            in SystemHandle originSystem = default)
         {
-            if (archetypeList.Length == 0)
+            if (queryImpl->IsEmptyIgnoreFilter)
                 return;
             EntityComponentStore->AssertCanRemoveComponent(componentType);
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginRemoveComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Allocator.TempJob,
-                ref filter, DependencyManager))
+
+            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
             {
                 if (chunks.Length > 0)
                 {
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    EntitiesJournaling.RecordRemoveComponent(in m_WorldUnmanaged, in originSystem,
-                        (ArchetypeChunk*) chunks.GetUnsafeReadOnlyPtr(), chunks.Length, &componentType.TypeIndex, 1);
+                    if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                        JournalAddRecord_RemoveComponent(in originSystem, in chunks, &componentType.TypeIndex, 1);
 #endif
 
                     StructuralChange.RemoveComponentChunks(EntityComponentStore,
@@ -948,40 +1100,49 @@ namespace Unity.Entities
                         componentType.TypeIndex);
                 }
             }
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
-        /// <param name="archetypeList"></param>
-        /// <param name="cache"></param>
-        /// <param name="filter"></param>
-        /// <param name="componentTypes"></param>
-        internal void RemoveMultipleComponentsDuringStructuralChange(UnsafeCachedChunkList cache,
-            UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentTypes componentTypes,
-            in SystemHandleUntyped originSystem = default)
+        /// <param name="queryImpl"></param>
+        /// <param name="componentTypeSet"></param>
+        internal void RemoveMultipleComponentsFromChunksDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentTypeSet componentTypeSet,
+            in SystemHandle originSystem = default)
         {
-            if (archetypeList.Length == 0 || componentTypes.Length == 0)
+            if (queryImpl->IsEmptyIgnoreFilter || componentTypeSet.Length == 0)
                 return;
-            EntityComponentStore->AssertCanRemoveComponents(componentTypes);
+            EntityComponentStore->AssertCanRemoveComponents(componentTypeSet);
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginRemoveComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Allocator.TempJob,
-                ref filter, DependencyManager))
+
+            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
             {
                 if (chunks.Length > 0)
                 {
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    EntitiesJournaling.RecordRemoveComponent(in m_WorldUnmanaged, in originSystem, (ArchetypeChunk*) chunks.GetUnsafeReadOnlyPtr(), chunks.Length, componentTypes.Types, componentTypes.Length);
+                    if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                        JournalAddRecord_RemoveComponent(in originSystem, in chunks, componentTypeSet.Types, componentTypeSet.Length);
 #endif
 
                     StructuralChange.RemoveComponentsChunks(EntityComponentStore,
                         (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length,
-                        ref componentTypes);
+                        ref componentTypeSet);
                 }
             }
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
@@ -990,23 +1151,29 @@ namespace Unity.Entities
         /// <param name="chunks"></param>
         /// <param name="componentType"></param>
         internal void RemoveComponentDuringStructuralChange(NativeArray<ArchetypeChunk> chunks,
-            ComponentType componentType, in SystemHandleUntyped originSystem = default)
+            ComponentType componentType, in SystemHandle originSystem = default)
         {
             if (chunks.Length == 0)
                 return;
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordRemoveComponent(in m_WorldUnmanaged, in originSystem, (ArchetypeChunk*) chunks.GetUnsafeReadOnlyPtr(), chunks.Length, &componentType.TypeIndex, 1);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_RemoveComponent(in originSystem, in chunks, &componentType.TypeIndex, 1);
 #endif
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginRemoveComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
-            {
-                StructuralChange.RemoveComponentChunks(EntityComponentStore,
-                    (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length,
-                    componentType.TypeIndex);
-            }
+
+            StructuralChange.RemoveComponentChunks(EntityComponentStore,
+                (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length,
+                componentType.TypeIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         /// <summary>
@@ -1016,7 +1183,7 @@ namespace Unity.Entities
         /// <param name="componentType"></param>
         /// <exception cref="ArgumentException">Thrown if componentType is Entity type.</exception>
         public void RemoveComponentDuringStructuralChange(NativeArray<Entity> entities, ComponentType componentType,
-            in SystemHandleUntyped originSystem = default)
+            in SystemHandle originSystem = default)
         {
             if (entities.Length == 0)
                 return;
@@ -1024,30 +1191,35 @@ namespace Unity.Entities
             EntityComponentStore->AssertCanRemoveComponent(componentType);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordRemoveComponent(in m_WorldUnmanaged, in originSystem, (Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length, &componentType.TypeIndex, 1);
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_RemoveComponent(in originSystem, in entities, &componentType.TypeIndex, 1);
 #endif
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginRemoveComponent(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
+
+            if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
+                EntityComponentStore->CreateEntityBatchList(entities, 0, Allocator.Temp, out var entityBatchList))
             {
-                if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
-                    EntityComponentStore->CreateEntityBatchList(entities, 0, out var entityBatchList))
+                StructuralChange.RemoveComponentEntitiesBatch(EntityComponentStore,
+                    (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
+                        ref entityBatchList), componentType.TypeIndex);
+            }
+            else
+            {
+                for (var i = 0; i < entities.Length; ++i)
                 {
-                    StructuralChange.RemoveComponentEntitiesBatch(EntityComponentStore,
-                        (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
-                            ref entityBatchList), componentType.TypeIndex);
-                    entityBatchList.Dispose();
-                }
-                else
-                {
-                    for (var i = 0; i < entities.Length; ++i)
-                    {
-                        var entity = entities[i];
-                        StructuralChange.RemoveComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
-                    }
+                    var entity = entities[i];
+                    StructuralChange.RemoveComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
                 }
             }
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
         }
 
         public bool HasComponent(Entity entity, ComponentType type)
@@ -1055,8 +1227,8 @@ namespace Unity.Entities
             return EntityComponentStore->HasComponent(entity, type);
         }
 
-        [BurstCompatible(GenericTypeArguments = new[] {typeof(BurstCompatibleComponentData)})]
-        public T GetComponentData<T>(Entity entity) where T : struct, IComponentData
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] {typeof(BurstCompatibleComponentData)})]
+        public T GetComponentData<T>(Entity entity) where T : unmanaged, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
 
@@ -1073,19 +1245,35 @@ namespace Unity.Entities
             return value;
         }
 
-        public void* GetComponentDataRawRW(Entity entity, int typeIndex)
+        // This complements the non-RW version above, completing dependencies. It must return byte* because we end up
+        // inserting into a RefRW in EntityManager.
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public byte* GetComponentDataRW_AsBytePointer(Entity entity, TypeIndex typeIndex)
+        {
+            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+            EntityComponentStore->AssertNotZeroSizedComponent(typeIndex);
+            EntityComponentStore->AssertComponentIsUnmanaged(typeIndex);
+
+            if (!IsInExclusiveTransaction)
+                DependencyManager->CompleteWriteDependency(typeIndex);
+
+            return EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex, EntityComponentStore->GlobalSystemVersion);
+        }
+
+        // Does not complete dependencies - used for low level component data memory access
+        public void* GetComponentDataRawRW(Entity entity, TypeIndex typeIndex)
         {
             return EntityComponentStore->GetComponentDataRawRW(entity, typeIndex);
         }
 
-        internal void* GetComponentDataRawRWEntityHasComponent(Entity entity, int typeIndex)
+        internal void* GetComponentDataRawRWEntityHasComponent(Entity entity, TypeIndex typeIndex)
         {
             return EntityComponentStore->GetComponentDataRawRWEntityHasComponent(entity, typeIndex);
         }
 
-        [BurstCompatible(GenericTypeArguments = new[] {typeof(BurstCompatibleComponentData)})]
-        public void SetComponentData<T>(Entity entity, T componentData, in SystemHandleUntyped originSystem = default)
-            where T : struct, IComponentData
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] {typeof(BurstCompatibleComponentData)})]
+        public void SetComponentData<T>(Entity entity, T componentData, in SystemHandle originSystem = default)
+            where T : unmanaged, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
 
@@ -1098,24 +1286,16 @@ namespace Unity.Entities
             var ptr = EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
                 EntityComponentStore->GlobalSystemVersion);
             UnsafeUtility.CopyStructureToPtr(ref componentData, ptr);
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordSetComponentData(in m_WorldUnmanaged, in originSystem, &entity, 1, &typeIndex, 1, UnsafeUtility.AddressOf(ref componentData), UnsafeUtility.SizeOf<T>());
-#endif
         }
 
-        public void SetComponentDataRaw(Entity entity, int typeIndex, void* data, int size,
-            in SystemHandleUntyped originSystem = default)
+        public void SetComponentDataRaw(Entity entity, TypeIndex typeIndex, void* data, int size,
+            in SystemHandle originSystem = default)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
             EntityComponentStore->SetComponentDataRawEntityHasComponent(entity, typeIndex, data, size);
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordSetComponentData(in m_WorldUnmanaged, in originSystem, &entity, 1, &typeIndex, 1, data, size);
-#endif
         }
 
-        public bool IsComponentEnabled(Entity entity, int typeIndex)
+        public bool IsComponentEnabled(Entity entity, TypeIndex typeIndex)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
             Unity.Entities.EntityComponentStore.AssertComponentEnableable(typeIndex);
@@ -1123,12 +1303,138 @@ namespace Unity.Entities
             return EntityComponentStore->IsComponentEnabled(entity, typeIndex);
         }
 
-        public void SetComponentEnabled(Entity entity, int typeIndex, bool value)
+        public void SetComponentEnabled(Entity entity, TypeIndex typeIndex, bool value)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
             Unity.Entities.EntityComponentStore.AssertComponentEnableable(typeIndex);
 
             EntityComponentStore->SetComponentEnabled(entity, typeIndex, value);
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_SetComponentEnabled(default, &entity, 1, &typeIndex, 1, value);
+#endif
+        }
+
+        public bool IsEnabled(Entity entity)
+        {
+            return !HasComponent(entity, ComponentType.ReadWrite<Disabled>());
+        }
+
+        public void SetEnabled(Entity entity, bool value)
+        {
+            if (IsEnabled(entity) == value)
+                return;
+
+            var disabledType = ComponentType.ReadWrite<Disabled>();
+            if (HasComponent(entity, ComponentType.ReadWrite<LinkedEntityGroup>()))
+            {
+                var typeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
+                //@TODO DOTS-5412: We can't use WorldUpdate.Allocator here because DynamicBuffer.ToNativeArray() uses new NativeArray() instead of CollectionHelper.CreateNativeArray()
+                var linkedEntities = GetBuffer<LinkedEntityGroup>(entity
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    , DependencyManager->Safety.GetSafetyHandle(typeIndex, false),
+                    DependencyManager->Safety.GetBufferSafetyHandle(typeIndex)
+#endif
+                ).Reinterpret<Entity>()
+                    .ToNativeArray(Allocator.TempJob);
+                {
+                    if (value)
+                        RemoveComponentDuringStructuralChange(linkedEntities, disabledType);
+                    else
+                        AddComponentDuringStructuralChange(linkedEntities, disabledType);
+                }
+                linkedEntities.Dispose();
+            }
+            else
+            {
+                if (!value)
+                    AddComponentDuringStructuralChange(entity, disabledType);
+                else
+                    RemoveComponentDuringStructuralChange(entity, disabledType);
+            }
+        }
+
+        public void AddComponentForLinkedEntityGroup(Entity entity, EntityQueryMask mask, TypeIndex typeIndex, void* data, int componentSize)
+        {
+            if (!HasComponent(entity, ComponentType.ReadWrite<LinkedEntityGroup>()))
+                return;
+
+            var linkedTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
+            using var linkedEntities = GetBuffer<LinkedEntityGroup>(entity
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    , DependencyManager->Safety.GetSafetyHandle(linkedTypeIndex, false),
+                    DependencyManager->Safety.GetBufferSafetyHandle(linkedTypeIndex)
+#endif
+                ).Reinterpret<Entity>()
+                .ToNativeArray(m_WorldUnmanaged.UpdateAllocator.ToAllocator);
+
+            // Filter the linked entities based on the mask
+            foreach (var e in linkedEntities)
+            {
+                if (mask.MatchesIgnoreFilter(e))
+                {
+                    AddComponentDuringStructuralChange(e, ComponentType.FromTypeIndex(typeIndex));
+                    if (componentSize > 0)
+                    {
+                        SetComponentDataRaw(e, typeIndex, data, componentSize);
+                    }
+                }
+            }
+        }
+
+        public void SetComponentForLinkedEntityGroup(Entity entity, EntityQueryMask mask, TypeIndex typeIndex, void* data, int componentSize)
+        {
+            if (!HasComponent(entity, ComponentType.ReadWrite<LinkedEntityGroup>()))
+                return;
+
+            EntityComponentStore->AssertNotZeroSizedComponent(typeIndex);
+
+            var linkedTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
+            using var linkedEntities = GetBuffer<LinkedEntityGroup>(entity
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    , DependencyManager->Safety.GetSafetyHandle(linkedTypeIndex, false),
+                    DependencyManager->Safety.GetBufferSafetyHandle(linkedTypeIndex)
+#endif
+                ).Reinterpret<Entity>()
+                .ToNativeArray(m_WorldUnmanaged.UpdateAllocator.ToAllocator);
+
+            // Filter the linked entities based on the mask
+            foreach (var e in linkedEntities)
+            {
+                if (mask.MatchesIgnoreFilter(e))
+                {
+                    EntityComponentStore->AssertEntityHasComponent(e, typeIndex);
+
+                    SetComponentDataRaw(e, typeIndex, data, componentSize);
+                }
+            }
+        }
+
+        public void ReplaceComponentForLinkedEntityGroup(Entity entity, TypeIndex typeIndex, void* data, int componentSize)
+        {
+            if (!HasComponent(entity, ComponentType.ReadWrite<LinkedEntityGroup>()))
+                return;
+
+            EntityComponentStore->AssertNotZeroSizedComponent(typeIndex);
+
+            var linkedTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
+            using var linkedEntities = GetBuffer<LinkedEntityGroup>(entity
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    , DependencyManager->Safety.GetSafetyHandle(linkedTypeIndex, false),
+                    DependencyManager->Safety.GetBufferSafetyHandle(linkedTypeIndex)
+#endif
+                ).Reinterpret<Entity>()
+                .ToNativeArray(m_WorldUnmanaged.UpdateAllocator.ToAllocator);
+
+            // Filter the linked entities based on the mask
+            foreach (var e in linkedEntities)
+            {
+                if (EntityComponentStore->HasComponent(e, typeIndex))
+                {
+                    SetComponentDataRaw(e, typeIndex, data, componentSize);
+                }
+            }
         }
 
         /// <summary>
@@ -1138,14 +1444,67 @@ namespace Unity.Entities
         /// <param name="componentData"></param>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        [NotBurstCompatible]
-        public bool AddSharedComponentDataDuringStructuralChange<T>(Entity entity, T componentData, in SystemHandleUntyped originSystem = default)
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public bool AddSharedComponentDataDuringStructuralChange_Managed<T>(
+            Entity entity,
+            T componentData,
+            in SystemHandle originSystem = default)
             where T : struct, ISharedComponentData
         {
+            Assert.IsTrue(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<T>()));
+
             //TODO: optimization: set value when component is added, not afterwards
             var added = AddComponentDuringStructuralChange(entity, ComponentType.ReadWrite<T>(), in originSystem);
-            SetSharedComponentData(entity, componentData, in originSystem);
+            SetSharedComponentData_Managed(entity, componentData, in originSystem);
             return added;
+        }
+
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="entities"></param>
+        /// <param name="componentData"></param>
+        /// <param name="originSystem"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public void AddSharedComponentDataDuringStructuralChange_Managed<T>(
+            NativeArray<Entity> entities,
+            T componentData,
+            in SystemHandle originSystem = default)
+            where T : struct, ISharedComponentData
+        {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            Assert.IsTrue(TypeManager.IsManagedSharedComponent(typeIndex));
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+            {
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+            }
+#endif
+
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            var newSharedComponentDataIndex = InsertSharedComponent(componentData);
+            StructuralChange.AddSharedComponentDataIndexWithBurst(EntityComponentStore, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, componentType,
+                newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+            {
+                StructuralChangesProfiler.End(); // SetSharedComponent
+                StructuralChangesProfiler.End(); // AddComponent
+            }
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                JournalAddRecord_AddComponent(in originSystem, in entities, &typeIndex, 1);
+                JournalAddRecord_SetSharedComponentManaged(in originSystem, in entities, typeIndex);
+            }
+#endif
         }
 
         /// <summary>
@@ -1154,28 +1513,24 @@ namespace Unity.Entities
         /// <param name="chunks"></param>
         /// <param name="sharedComponentIndex"></param>
         /// <param name="componentType"></param>
-        internal void AddSharedComponentDataDuringStructuralChange(NativeArray<ArchetypeChunk> chunks,
-            int sharedComponentIndex, ComponentType componentType, in SystemHandleUntyped originSystem = default)
+        internal void AddSharedComponentDataDuringStructuralChange(
+            NativeArray<ArchetypeChunk> chunks,
+            int sharedComponentIndex,
+            ComponentType componentType,
+            in SystemHandle originSystem = default)
         {
             Assert.IsTrue(componentType.IsSharedComponent);
             if (chunks.Length == 0)
                 return;
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            // Have to record here because method is not using EntityDataAccess
-            var chunksPtr = (ArchetypeChunk*) chunks.GetUnsafeReadOnlyPtr();
-            EntitiesJournaling.RecordAddComponent(in m_WorldUnmanaged, in originSystem, chunksPtr, chunks.Length, &componentType.TypeIndex, 1);
-            EntitiesJournaling.RecordSetSharedComponentData(in m_WorldUnmanaged, in originSystem, chunksPtr, chunks.Length, &componentType.TypeIndex, 1);
-#endif
 
             StructuralChange.AddSharedComponentChunks(EntityComponentStore,
                 (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex,
                 sharedComponentIndex);
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
         public void AddSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(NativeArray<Entity> entities,
-            int typeIndex, int hashCode, object componentData, in SystemHandleUntyped originSystem = default)
+            TypeIndex typeIndex, int hashCode, object componentData, in SystemHandle originSystem = default)
         {
             if (entities.Length == 0)
                 return;
@@ -1186,6 +1541,14 @@ namespace Unity.Entities
                 componentData, in originSystem);
         }
 
+        [GenerateTestsForBurstCompatibility]
+        public void AddSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(NativeArray<Entity> entities, TypeIndex typeIndex, int hashCode, void* componentDataAddr)
+        {
+            //TODO: optimization: set value when component is added, not afterwards
+            AddComponentDuringStructuralChange(entities, ComponentType.FromTypeIndex(typeIndex));
+            SetSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(entities, typeIndex, hashCode, componentDataAddr);
+        }
+
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
@@ -1193,9 +1556,9 @@ namespace Unity.Entities
         /// <param name="typeIndex"></param>
         /// <param name="hashCode"></param>
         /// <param name="componentData"></param>
-        [NotBurstCompatible]
-        public bool AddSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(Entity entity, int typeIndex,
-            int hashCode, object componentData, in SystemHandleUntyped originSystem = default)
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public bool AddSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(Entity entity, TypeIndex typeIndex,
+            int hashCode, object componentData, in SystemHandle originSystem = default)
         {
             //TODO: optimize this (no need to move the entity to a new chunk twice)
             var added = AddComponentDuringStructuralChange(entity, ComponentType.FromTypeIndex(typeIndex),
@@ -1206,36 +1569,724 @@ namespace Unity.Entities
             return added;
         }
 
+        [GenerateTestsForBurstCompatibility]
+        // if componentData is null: consider we are adding the default value
+        // if defaultComponentData is null: consider we are inserting non default value
+        public bool AddSharedComponentDataDuringStructuralChange_Unmanaged(Entity entity, ComponentType componentType, void* componentData, void* defaultComponentData)
+        {
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(componentType.TypeIndex));
+
+            var added = AddComponentDuringStructuralChange(entity, componentType);
+            SetSharedComponentData_Unmanaged(entity, componentType.TypeIndex, componentData, defaultComponentData);
+            return added;
+        }
+
+        [GenerateTestsForBurstCompatibility]
+        // if componentData is null: consider we are adding the default value
+        // if defaultComponentData is null: consider we are inserting non default value
+        public void AddSharedComponentDataDuringStructuralChange_Unmanaged(NativeArray<Entity> entities,
+            ComponentType componentType, void* componentData, void* defaultComponentData, in SystemHandle originSystem = default)
+        {
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(componentType.TypeIndex));
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+            {
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+            }
+#endif
+
+            var newSharedComponentDataIndex = InsertSharedComponent_Unmanaged(componentType.TypeIndex, 0, componentData, defaultComponentData);
+            StructuralChange.AddSharedComponentDataIndexWithBurst(EntityComponentStore, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, componentType,
+                newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+            {
+                StructuralChangesProfiler.End(); // SetSharedComponent
+                StructuralChangesProfiler.End(); // AddComponent
+            }
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                var typeIndex = componentType.TypeIndex;
+                JournalAddRecord_AddComponent(in originSystem, in entities, &typeIndex, 1);
+                JournalAddRecord_SetSharedComponent(in originSystem, in entities, typeIndex, componentData, TypeManager.GetTypeInfo(typeIndex).TypeSize);
+            }
+#endif
+        }
+
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
+        public void GetAllUniqueSharedComponents_Unmanaged<T>(out UnsafeList<T> sharedComponentValues,Allocator allocator) where T : unmanaged, ISharedComponentData
+        {
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<T>()));
+
+            EntityComponentStore->GetAllUniqueSharedComponents_Unmanaged<T>(out sharedComponentValues, allocator);
+        }
+
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public object GetSharedComponentDataNonDefaultBoxed(int shareComponentIndex)
+        {
+            if (Entities.EntityComponentStore.IsUnmanagedSharedComponentIndex(shareComponentIndex))
+            {
+                var typeIndex = Entities.EntityComponentStore.GetComponentTypeFromSharedComponentIndex(shareComponentIndex);
+                return EntityComponentStore->GetSharedComponentDataObject_Unmanaged(shareComponentIndex, typeIndex);
+            }
+            else
+            {
+                return ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(shareComponentIndex);
+            }
+        }
+
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public object GetSharedComponentDataBoxed(int shareComponentIndex, TypeIndex typeIndex)
+        {
+            if (Entities.EntityComponentStore.IsUnmanagedSharedComponentIndex(shareComponentIndex))
+            {
+                return EntityComponentStore->GetSharedComponentDataObject_Unmanaged(shareComponentIndex, typeIndex);
+            }
+            else
+            {
+                return ManagedComponentStore.GetSharedComponentDataBoxed(shareComponentIndex, typeIndex);
+            }
+        }
+
+        /// <summary>
+        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
+        /// </summary>
+        /// <remarks>
+        /// Entities must be fully destroyed, if cleanup components keep it alive it still counts as not yet destroyed.
+        /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
+        /// </remarks>
+        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created and destroyed.</param>
+        /// <param name="createdEntities">The entities that were created.</param>
+        /// <param name="destroyedEntities">The entities that were destroyed.</param>
+        public JobHandle GetCreatedAndDestroyedEntitiesAsync(NativeList<int> state, NativeList<Entity> createdEntities,
+            NativeList<Entity> destroyedEntities)
+        {
+            var jobHandle = Entities.EntityComponentStore.GetCreatedAndDestroyedEntities(EntityComponentStore, state,
+                createdEntities, destroyedEntities, true);
+            DependencyManager->AddDependency(null, 0, null, 0, jobHandle);
+
+            return jobHandle;
+        }
+
+        /// <summary>
+        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
+        /// </summary>
+        /// <remarks>
+        /// Entities must be fully destroyed, if cleanup components keep it alive it still counts as not yet destroyed.
+        /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
+        /// </remarks>
+        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created and destroyed.</param>
+        /// <param name="createdEntities">The entities that were created.</param>
+        /// <param name="destroyedEntities">The entities that were destroyed.</param>
+        public void GetCreatedAndDestroyedEntities(NativeList<int> state, NativeList<Entity> createdEntities,
+            NativeList<Entity> destroyedEntities)
+        {
+            Entities.EntityComponentStore.GetCreatedAndDestroyedEntities(EntityComponentStore, state, createdEntities,
+                destroyedEntities, false);
+        }
+
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
+        {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+
+            var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
+            return GetSharedComponentData<T>(sharedComponentIndex);
+        }
+
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public void SetSharedComponentData_Managed<T>(
+            Entity entity,
+            T componentData,
+            in SystemHandle originSystem = default)
+            where T : struct, ISharedComponentData
+        {
+            Assert.IsTrue(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<T>()));
+
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            var newSharedComponentDataIndex = InsertSharedComponent(componentData);
+            EntityComponentStore->SetSharedComponentDataIndex(entity, componentType, newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_SetSharedComponentManaged(in originSystem, &entity, 1, typeIndex);
+#endif
+        }
+
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public void SetSharedComponentData_Managed<T>(
+            NativeArray<Entity> entities,
+            T componentData,
+            in SystemHandle originSystem = default)
+            where T : struct, ISharedComponentData
+        {
+            Assert.IsTrue(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<T>()));
+
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            EntityComponentStore->AssertEntityHasComponent(entities, componentType);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+
+            var newSharedComponentDataIndex = InsertSharedComponent(componentData);
+            StructuralChange.SetSharedComponentDataIndexWithBurst(EntityComponentStore,
+                (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, componentType,
+                newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_SetSharedComponentManaged(in originSystem, in entities, typeIndex);
+#endif
+        }
+
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
-        /// <param name="archetypeList"></param>
-        /// <param name="cache"></param>
-        /// <param name="filter"></param>
+        /// <param name="entity"></param>
         /// <param name="typeIndex"></param>
         /// <param name="hashCode"></param>
         /// <param name="componentData"></param>
-        [NotBurstCompatible]
-        public void AddSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(
-            UnsafeMatchingArchetypePtrList archetypeList, UnsafeCachedChunkList cache, EntityQueryFilter filter,
-            int typeIndex, int hashCode, object componentData, in SystemHandleUntyped originSystem = default)
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public void SetSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(Entity entity, TypeIndex typeIndex,
+            int hashCode, object componentData, in SystemHandle originSystem = default)
         {
-            if (archetypeList.Length == 0)
-                return;
-            ComponentType componentType = ComponentType.FromTypeIndex(typeIndex);
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Allocator.TempJob,
-                ref filter, DependencyManager))
-            {
-                if (chunks.Length == 0)
-                    return;
-                var newSharedComponentDataIndex = 0;
-                if (componentData != null) // null means default
-                    newSharedComponentDataIndex =
-                        ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, componentData);
+            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
 
-                AddSharedComponentDataDuringStructuralChange(chunks, newSharedComponentDataIndex, componentType,
-                    originSystem);
-                m_ManagedReferenceIndexList.Add(newSharedComponentDataIndex);
+            var newSharedComponentDataIndex = 0;
+            var isManagedSharedComponent = TypeManager.IsManagedSharedComponent(typeIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+
+            if (componentData != null) // null means default
+            {
+                if (isManagedSharedComponent)
+                {
+                    newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, componentData);
+                }
+                else
+                {
+#if !UNITY_DOTSRUNTIME
+                    var componentDataAddr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(componentData, out var gcHandle) + TypeManager.ObjectOffset;
+                    newSharedComponentDataIndex = EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, componentDataAddr, null);
+                    UnsafeUtility.ReleaseGCObject(gcHandle);
+#else
+                    throw new NotSupportedException("This API is not supported when called with unmanaged shared component on DOTS Runtime");
+#endif
+                }
+            }
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            SetSharedComponentDataIndexWithBurst(EntityComponentStore, entity, componentType, newSharedComponentDataIndex);
+
+            m_ManagedReferenceIndexList.Add(newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
+        }
+
+        [BurstCompile]
+        private static void SetSharedComponentDataIndexWithBurst(EntityComponentStore* ecs, in Entity entity,
+            in ComponentType componentType, int newSharedComponentDataIndex)
+        {
+            ecs->SetSharedComponentDataIndex(entity, componentType, newSharedComponentDataIndex);
+        }
+
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public void SetSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(NativeArray<Entity> entities,
+            TypeIndex typeIndex, int hashCode, object componentData, in SystemHandle originSystem = default)
+        {
+            if (entities.Length == 0)
+                return;
+
+            var type = ComponentType.FromTypeIndex(typeIndex);
+            EntityComponentStore->AssertEntityHasComponent(entities, type);
+            Assert.IsTrue(TypeManager.IsManagedSharedComponent(typeIndex));
+
+            var newSharedComponentDataIndex = 0;
+            if (componentData != null) // null means default
+            {
+
+                newSharedComponentDataIndex =
+                    ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, componentData);
+            }
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                SetSharedComponentDataIndexWithBurst(EntityComponentStore, entities[i], type, newSharedComponentDataIndex);
+            }
+
+            m_ManagedReferenceIndexList.Add(newSharedComponentDataIndex);
+        }
+
+        [GenerateTestsForBurstCompatibility]
+        public void SetSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(
+            NativeArray<Entity> entities,
+            TypeIndex typeIndex,
+            int hashCode,
+            void* componentDataAddr,
+            in SystemHandle originSystem = default)
+        {
+            UnityEngine.Assertions.Assert.IsFalse(TypeManager.IsManagedSharedComponent(typeIndex));
+            var type = ComponentType.FromTypeIndex(typeIndex);
+            EntityComponentStore->AssertEntityHasComponent(entities, type);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+
+            var newSharedComponentDataIndex = 0;
+            if (componentDataAddr != null) // null means default
+            {
+                newSharedComponentDataIndex = EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, componentDataAddr, null);
+            }
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                SetSharedComponentDataIndexWithBurst(EntityComponentStore, entities[i], type, newSharedComponentDataIndex);
+            }
+
+            m_ManagedReferenceIndexList.Add(newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
+        }
+
+        [ExcludeFromBurstCompatTesting("Takes managed list")]
+        public void GetAllUniqueSharedComponents<T>(List<T> sharedComponentValues) where T : struct, ISharedComponentData
+        {
+            var ti = TypeManager.GetTypeIndex<T>();
+            if (TypeManager.IsManagedSharedComponent(ti))
+            {
+                ManagedComponentStore.GetAllUniqueSharedComponents_Managed(sharedComponentValues);
+            }
+            else
+            {
+                var defaultValue = default(T);
+                EntityComponentStore->GetAllUniqueSharedComponents_Unmanaged(ti, UnsafeUtility.AddressOf(ref defaultValue), out var unmanagedSharedComponentValues, out _, Allocator.Temp);
+                for (int i = 0; i < unmanagedSharedComponentValues.Length; i++)
+                {
+                    var el = UnsafeUtility.ReadArrayElement<T>(unmanagedSharedComponentValues.Ptr, i);
+                    sharedComponentValues.Add(el);
+                }
+            }
+        }
+
+        [ExcludeFromBurstCompatTesting("Takes managed list")]
+        public void GetAllUniqueSharedComponents<T>(List<T> sharedComponentValues, List<int> sharedComponentIndices) where T : struct, ISharedComponentData
+        {
+            var ti = TypeManager.GetTypeIndex<T>();
+            if (TypeManager.IsManagedSharedComponent(ti))
+            {
+                ManagedComponentStore.GetAllUniqueSharedComponents_Managed(sharedComponentValues, sharedComponentIndices);
+            }
+            else
+            {
+                var defaultValue = default(T);
+                EntityComponentStore->GetAllUniqueSharedComponents_Unmanaged(
+                    ti,
+                    UnsafeUtility.AddressOf(ref defaultValue),
+                    out var unmanagedSharedComponentValues,
+                    out var unmanagedSharedComponentIndices,
+                    Allocator.Temp);
+                for (int i = 0; i < unmanagedSharedComponentValues.Length; i++)
+                {
+                    var el = UnsafeUtility.ReadArrayElement<T>(unmanagedSharedComponentValues.Ptr, i);
+                    sharedComponentValues.Add(el);
+                    sharedComponentIndices.Add(unmanagedSharedComponentIndices[i]);
+                }
+            }
+        }
+
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public int InsertSharedComponent<T>(T newData) where T : struct, ISharedComponentData
+        {
+            var ti = TypeManager.GetTypeIndex<T>();
+            int index;
+            if (TypeManager.IsManagedSharedComponent(ti))
+            {
+                index = ManagedComponentStore.InsertSharedComponent_Managed(newData);
+            }
+            else
+            {
+                var defaultData = default(T);
+                index = EntityComponentStore->InsertSharedComponent_Unmanaged(ti,
+                    0,
+                    UnsafeUtility.AddressOf(ref newData),
+                    UnsafeUtility.AddressOf(ref defaultData));
+            }
+            m_ManagedReferenceIndexList.Add(index);
+            return index;
+        }
+
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
+        public int InsertSharedComponent_Unmanaged<T>(T newData) where T : unmanaged, ISharedComponentData
+        {
+            var ti = TypeManager.GetTypeIndex<T>();
+            int index;
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(ti));
+
+            var defaultData = default(T);
+            index = EntityComponentStore->InsertSharedComponent_Unmanaged(ti,
+                0,
+                UnsafeUtility.AddressOf(ref newData),
+                UnsafeUtility.AddressOf(ref defaultData));
+
+            m_ManagedReferenceIndexList.Add(index);
+            return index;
+        }
+
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public int GetSharedComponentVersion<T>(T sharedData) where T : struct
+        {
+            var ti = TypeManager.GetTypeIndex<T>();
+            if (TypeManager.IsManagedSharedComponent(ti))
+            {
+                return ManagedComponentStore.GetSharedComponentVersion_Managed(sharedData);
+            }
+            else
+            {
+                var defaultData = default(T);
+                return EntityComponentStore->GetSharedComponentVersion_Unmanaged(ti, UnsafeUtility.AddressOf(ref sharedData), UnsafeUtility.AddressOf(ref defaultData));
+            }
+        }
+
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public T GetSharedComponentData<T>(int sharedComponentIndex) where T : struct
+        {
+            if (Entities.EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
+            {
+                T res = default(T);
+                if (sharedComponentIndex != 0)
+                {
+                    EntityComponentStore->GetSharedComponentData_Unmanaged(sharedComponentIndex, TypeManager.GetTypeIndex<T>(), UnsafeUtility.AddressOf(ref res));
+                }
+                return res;
+            }
+            else
+            {
+                return ManagedComponentStore.GetSharedComponentData_Managed<T>(sharedComponentIndex);
+            }
+        }
+
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public void AddSharedComponentReference(int sharedComponentIndex, int numRefs = 1)
+        {
+            if (Unity.Entities.EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
+            {
+                EntityComponentStore->AddSharedComponentReference_Unmanaged(sharedComponentIndex, numRefs);
+            }
+            else
+            {
+                ManagedComponentStore.AddSharedComponentReference_Managed(sharedComponentIndex, numRefs);
+            }
+        }
+
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public void RemoveSharedComponentReference(int sharedComponentIndex, int numRefs = 1)
+        {
+            if (Entities.EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
+            {
+                EntityComponentStore->RemoveSharedComponentReference_Unmanaged(sharedComponentIndex, numRefs);
+            }
+            else
+            {
+                ManagedComponentStore.RemoveSharedComponentReference_Managed(sharedComponentIndex, numRefs);
+            }
+        }
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public int GetSharedComponentCount()
+        {
+            return ManagedComponentStore.GetSharedComponentCount() + EntityComponentStore->GetUnmanagedSharedComponentCount();
+        }
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public NativeParallelHashMap<int, int> MoveAllSharedComponents(EntityComponentStore* srcEntityComponentStore, ManagedComponentStore srcManagedComponents, Allocator allocator)
+        {
+            var managedsharedComponentCount = srcManagedComponents.GetSharedComponentCount();
+            var remap = new NativeParallelHashMap<int, int>(srcEntityComponentStore->GetUnmanagedSharedComponentCount() + managedsharedComponentCount, allocator);
+            ManagedComponentStore.MoveAllSharedComponents_Managed(srcManagedComponents, ref remap, managedsharedComponentCount);
+            EntityComponentStore->MoveAllSharedComponents_Unmanaged(srcEntityComponentStore, ref remap);
+            return remap;
+        }
+
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public NativeParallelHashMap<int, int> MoveSharedComponents(EntityComponentStore* srcEntityComponentStore, ManagedComponentStore srcManagedComponents, NativeArray<ArchetypeChunk> chunks, Allocator allocator)
+        {
+            var map = new NativeParallelHashMap<int, int>(64, allocator);
+
+            // Build a map of all shared component values that will be moved with the appropriate refcount
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i].m_Chunk;
+                var archetype = chunk->Archetype;
+                var sharedComponentValues = chunk->SharedComponentValues;
+
+                for (int sharedComponentValueIndex = 0; sharedComponentValueIndex < archetype->NumSharedComponents; ++sharedComponentValueIndex)
+                {
+                    var sharedComponentIndex = sharedComponentValues[sharedComponentValueIndex];
+                    if (map.TryGetValue(sharedComponentIndex, out var refCounter))
+                    {
+                        map[sharedComponentIndex] = ++refCounter;
+                    }
+                    else
+                    {
+                        map.Add(sharedComponentIndex, 1);
+                    }
+                }
+            }
+
+            // Move all shared components that are being referenced
+            var kvps = map.GetKeyValueArrays(Allocator.Temp);
+            for (int i = 0; i < kvps.Length; i++)
+            {
+                var sharedComponentIndex = kvps.Keys[i];
+                int dstIndex;
+
+                // * remove refcount based on refcount table
+                // * -1 because CloneSharedComponentNonDefault above adds 1 refcount
+                int srcRefCount = kvps.Values[i];
+                if (Entities.EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
+                {
+                    dstIndex = EntityComponentStore->CloneSharedComponentNonDefault(srcEntityComponentStore, sharedComponentIndex);
+                    EntityComponentStore->AddSharedComponentReference_Unmanaged(dstIndex, srcRefCount - 1);
+                    srcEntityComponentStore->RemoveSharedComponentReference_Unmanaged(sharedComponentIndex, srcRefCount);
+                    EntityComponentStore->IncrementSharedComponentVersion_Unmanaged(dstIndex);
+                }
+                else
+                {
+                    dstIndex = ManagedComponentStore.CloneSharedComponentNonDefault(srcManagedComponents, sharedComponentIndex);
+                    ManagedComponentStore.AddSharedComponentReference_Managed(dstIndex, srcRefCount - 1);
+                    srcManagedComponents.RemoveSharedComponentReference_Managed(sharedComponentIndex, srcRefCount);
+                    ManagedComponentStore.IncrementSharedComponentVersion_Managed(dstIndex);
+                }
+
+                map[sharedComponentIndex] = dstIndex;
+            }
+
+            kvps.Dispose();
+            return map;
+        }
+
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public int InsertSharedComponentAssumeNonDefault(TypeIndex typeIndex, int hashCode, object sharedComponent)
+        {
+            if (TypeManager.IsManagedSharedComponent(typeIndex))
+            {
+                return ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, sharedComponent);
+            }
+            else
+            {
+#if !UNITY_DOTSRUNTIME
+                /*
+                 * this is actually used in hybrid to read unmanaged shared components, but it is NOT called in dotsrt
+                 */
+                var sharedComponentAddr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(sharedComponent, out var gcHandle) + TypeManager.ObjectOffset;
+                var index = EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, sharedComponentAddr, null);
+                UnsafeUtility.ReleaseGCObject(gcHandle);
+                return index;
+#else
+                throw new InvalidOperationException("This API is not compatible with DotsRuntime when used with an unmanaged shared component, you must a dedicated _Unmanaged API instead.");
+#endif
+            }
+        }
+
+        [GenerateTestsForBurstCompatibility]
+        public int InsertSharedComponent_Unmanaged(TypeIndex typeIndex, int hashCode, void* newData, void* defaultValue)
+        {
+            var sharedComponentIndex = EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, newData, defaultValue);
+            if (sharedComponentIndex != 0)
+                m_ManagedReferenceIndexList.Add(sharedComponentIndex);
+            return sharedComponentIndex;
+        }
+
+        [GenerateTestsForBurstCompatibility]
+        public void SetSharedComponentData_Unmanaged(
+            Entity entity,
+            TypeIndex typeIndex,
+            void* componentData,
+            void* componentDataDefaultValue,
+            in SystemHandle originSystem = default)
+        {
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            UnityEngine.Assertions.Assert.IsFalse(TypeManager.IsManagedSharedComponent(typeIndex));
+            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+
+            var newSharedComponentDataIndex = InsertSharedComponent_Unmanaged(typeIndex, 0, componentData, componentDataDefaultValue);
+            EntityComponentStore->SetSharedComponentDataIndex(entity, componentType, newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_SetSharedComponent(in originSystem, &entity, 1, componentType.TypeIndex, componentData, TypeManager.GetTypeInfo(componentType.TypeIndex).TypeSize);
+#endif
+        }
+
+        [GenerateTestsForBurstCompatibility]
+        public void SetSharedComponentData_Unmanaged(
+            NativeArray<Entity> entities,
+            TypeIndex typeIndex,
+            void* componentData,
+            void* componentDataDefaultValue,
+            in SystemHandle originSystem = default)
+        {
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            UnityEngine.Assertions.Assert.IsFalse(TypeManager.IsManagedSharedComponent(typeIndex));
+            EntityComponentStore->AssertEntityHasComponent(entities, componentType);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+
+            var newSharedComponentDataIndex = InsertSharedComponent_Unmanaged(typeIndex, 0, componentData, componentDataDefaultValue);
+            StructuralChange.SetSharedComponentDataIndexWithBurst(EntityComponentStore, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, componentType,
+                newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_SetSharedComponent(in originSystem, in entities, componentType.TypeIndex, componentData, TypeManager.GetTypeInfo(componentType.TypeIndex).TypeSize);
+#endif
+        }
+
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
+        public T GetSharedComponentData_Unmanaged<T>(Entity entity) where T : unmanaged, ISharedComponentData
+        {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            UnityEngine.Assertions.Assert.IsFalse(TypeManager.IsManagedSharedComponent(typeIndex));
+            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+
+            var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
+            return GetSharedComponentData_Unmanaged<T>(sharedComponentIndex);
+        }
+
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
+        public T GetSharedComponentData_Unmanaged<T>(int sharedComponentIndex) where T : unmanaged
+        {
+            Assert.IsTrue(Entities.EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex));
+
+            var res = default(T);
+            if (sharedComponentIndex != 0)
+            {
+                EntityComponentStore->GetSharedComponentData_Unmanaged(sharedComponentIndex, TypeManager.GetTypeIndex<T>(), UnsafeUtility.AddressOf(ref res));
+            }
+
+            return res;
+        }
+
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
+        public int GetSharedComponentVersion_Unmanaged<T>(T sharedData) where T : unmanaged
+        {
+            var ti = TypeManager.GetTypeIndex<T>();
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(ti));
+            var res = default(T);
+            return EntityComponentStore->GetSharedComponentVersion_Unmanaged(ti, UnsafeUtility.AddressOf(ref sharedData), UnsafeUtility.AddressOf(ref res));
+        }
+
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public bool AllSharedComponentReferencesAreFromChunks(EntityComponentStore* entityComponentStore)
+        {
+            var refCounts = new UnsafeParallelHashMap<int, int>(64, Allocator.Temp);
+            for (var i = 0; i < entityComponentStore->m_Archetypes.Length; ++i)
+            {
+                var archetype = entityComponentStore->m_Archetypes.Ptr[i];
+                var chunkCount = archetype->Chunks.Count;
+                for (int j = 0; j < archetype->NumSharedComponents; ++j)
+                {
+                    var values = archetype->Chunks.GetSharedComponentValueArrayForType(j);
+                    for (var ci = 0; ci < chunkCount; ++ci)
+                    {
+                        var sharedComponentIndex = values[ci];
+                        if (refCounts.TryGetValue(sharedComponentIndex, out var rc))
+                        {
+                            refCounts[sharedComponentIndex] = rc + 1;
+                        }
+                        else
+                        {
+                            refCounts.Add(sharedComponentIndex, 1);
+                        }
+                    }
+                }
+            }
+
+            if (ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(refCounts) == false)
+                return false;
+
+            return EntityComponentStore->AllSharedComponentReferencesAreFromChunks(refCounts);
+        }
+
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public void CopySharedComponents(EntityDataAccess* srcEntityDataAccess, int* sharedComponentIndices, int sharedComponentIndicesCount)
+        {
+            var srcEntityComponentStore = srcEntityDataAccess->EntityComponentStore;
+            var dstEntityComponentStore = EntityComponentStore;
+            var srcManagedComponents = srcEntityDataAccess->ManagedComponentStore;
+            var dstManagedComponents = ManagedComponentStore;
+
+            for (var i = 0; i != sharedComponentIndicesCount; i++)
+            {
+                var sharedComponentIndex = sharedComponentIndices[i];
+                if (sharedComponentIndex == 0)
+                    continue;
+
+                int dstIndex;
+                if (Entities.EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
+                {
+                    dstIndex = dstEntityComponentStore->CloneSharedComponentNonDefault(srcEntityComponentStore, sharedComponentIndex);
+                }
+                else
+                {
+                    dstIndex = dstManagedComponents.CloneSharedComponentNonDefault(srcManagedComponents, sharedComponentIndex);
+                }
+
+                sharedComponentIndices[i] = dstIndex;
             }
         }
 
@@ -1268,142 +2319,25 @@ namespace Unity.Entities
             if (EntityComponentStore->ManagedChangesTracker.Empty)
                 return;
 
-            bool monoDitIt = false;
-            PlaybackManagedDirectly(ref monoDitIt);
-            if (monoDitIt)
+            bool monoDidIt = false;
+            PlaybackManagedDirectly(ref monoDidIt);
+            if (monoDidIt)
                 return;
 
             fixed (void* self = &this)
             {
-                new FunctionPointer<PlaybackManagedDelegate>(s_ManagedPlaybackTrampoline.Data).Invoke((IntPtr) self);
+                new FunctionPointer<PlaybackManagedDelegate>(s_ManagedPlaybackTrampoline.Data).Invoke((IntPtr)self);
             }
-        }
-
-        /// <summary>
-        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
-        /// </summary>
-        /// <remarks>
-        /// Entities must be fully destroyed, if system state components keep it alive it still counts as not yet destroyed.
-        /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
-        /// </remarks>
-        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created and destroyed.</param>
-        /// <param name="createdEntities">The entities that were created.</param>
-        /// <param name="destroyedEntities">The entities that were destroyed.</param>
-        public JobHandle GetCreatedAndDestroyedEntitiesAsync(NativeList<int> state, NativeList<Entity> createdEntities,
-            NativeList<Entity> destroyedEntities)
-        {
-            var jobHandle = Entities.EntityComponentStore.GetCreatedAndDestroyedEntities(EntityComponentStore, state,
-                createdEntities, destroyedEntities, true);
-            DependencyManager->AddDependency(null, 0, null, 0, jobHandle);
-
-            return jobHandle;
-        }
-
-        /// <summary>
-        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
-        /// </summary>
-        /// <remarks>
-        /// Entities must be fully destroyed, if system state components keep it alive it still counts as not yet destroyed.
-        /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
-        /// </remarks>
-        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created and destroyed.</param>
-        /// <param name="createdEntities">The entities that were created.</param>
-        /// <param name="destroyedEntities">The entities that were destroyed.</param>
-        public void GetCreatedAndDestroyedEntities(NativeList<int> state, NativeList<Entity> createdEntities,
-            NativeList<Entity> destroyedEntities)
-        {
-            Entities.EntityComponentStore.GetCreatedAndDestroyedEntities(EntityComponentStore, state, createdEntities,
-                destroyedEntities, false);
-        }
-
-        [NotBurstCompatible]
-        public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
-        {
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
-            return GetSharedComponentData<T>(sharedComponentIndex);
-        }
-
-        [NotBurstCompatible]
-        public void SetSharedComponentData<T>(Entity entity, T componentData, in SystemHandleUntyped originSystem = default)
-            where T : struct, ISharedComponentData
-        {
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var componentType = ComponentType.FromTypeIndex(typeIndex);
-            var newSharedComponentDataIndex = InsertSharedComponent(componentData);
-            EntityComponentStore->SetSharedComponentDataIndex(entity, componentType, newSharedComponentDataIndex);
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordSetSharedComponentData(in m_WorldUnmanaged, in originSystem, &entity, 1, &typeIndex, 1);
-#endif
-        }
-
-        /// <summary>
-        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
-        /// </summary>
-        /// <param name="entity"></param>
-        /// <param name="typeIndex"></param>
-        /// <param name="hashCode"></param>
-        /// <param name="componentData"></param>
-        [NotBurstCompatible]
-        public void SetSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(Entity entity, int typeIndex,
-            int hashCode, object componentData, in SystemHandleUntyped originSystem = default)
-        {
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            var newSharedComponentDataIndex = 0;
-            if (componentData != null) // null means default
-                newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex,
-                    hashCode, componentData);
-            var componentType = ComponentType.FromTypeIndex(typeIndex);
-            EntityComponentStore->SetSharedComponentDataIndex(entity, componentType, newSharedComponentDataIndex);
-
-            m_ManagedReferenceIndexList.Add(newSharedComponentDataIndex);
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordSetSharedComponentData(in m_WorldUnmanaged, in originSystem, &entity, 1, &typeIndex, 1);
-#endif
-        }
-
-        [NotBurstCompatible]
-        public void SetSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(NativeArray<Entity> entities,
-            int typeIndex, int hashCode, object componentData, in SystemHandleUntyped originSystem = default)
-        {
-            if (entities.Length == 0)
-                return;
-
-            var type = ComponentType.FromTypeIndex(typeIndex);
-            EntityComponentStore->AssertEntityHasComponent(entities, type);
-
-            var newSharedComponentDataIndex = 0;
-            if (componentData != null) // null means default
-                newSharedComponentDataIndex = ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex,
-                    hashCode, componentData);
-
-            for (int i = 0; i < entities.Length; i++)
-            {
-                EntityComponentStore->SetSharedComponentDataIndex(entities[i], type, newSharedComponentDataIndex);
-            }
-
-            m_ManagedReferenceIndexList.Add(newSharedComponentDataIndex);
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordSetSharedComponentData(in m_WorldUnmanaged, in originSystem, (Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length, &typeIndex, 1);
-#endif
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        [BurstCompatible(GenericTypeArguments = new[] {typeof(BurstCompatibleBufferElement)},
-            CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] {typeof(BurstCompatibleBufferElement)},
+            CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
         public DynamicBuffer<T> GetBuffer<T>(Entity entity, AtomicSafetyHandle safety,
-            AtomicSafetyHandle arrayInvalidationSafety, bool isReadOnly = false) where T : struct, IBufferElementData
+            AtomicSafetyHandle arrayInvalidationSafety, bool isReadOnly = false) where T : unmanaged, IBufferElementData
 #else
-        [BurstCompatible(GenericTypeArguments = new[] {typeof(BurstCompatibleBufferElement)})]
-        public DynamicBuffer<T> GetBuffer<T>(Entity entity, bool isReadOnly = false) where T : struct, IBufferElementData
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] {typeof(BurstCompatibleBufferElement)})]
+        public DynamicBuffer<T> GetBuffer<T>(Entity entity, bool isReadOnly = false) where T : unmanaged, IBufferElementData
 #endif
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -1446,8 +2380,8 @@ namespace Unity.Entities
 #endif
         }
 
-        public void SetBufferRaw(Entity entity, int componentTypeIndex, BufferHeader* tempBuffer, int sizeInChunk,
-            in SystemHandleUntyped originSystem = default)
+        public void SetBufferRaw(Entity entity, TypeIndex componentTypeIndex, BufferHeader* tempBuffer, int sizeInChunk,
+            in SystemHandle originSystem = default)
         {
             if (!IsInExclusiveTransaction)
                 DependencyManager->CompleteReadAndWriteDependency(componentTypeIndex);
@@ -1455,18 +2389,14 @@ namespace Unity.Entities
             EntityComponentStore->AssertEntityHasComponent(entity, componentTypeIndex);
 
             EntityComponentStore->SetBufferRaw(entity, componentTypeIndex, tempBuffer, sizeInChunk);
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordSetBuffer(in m_WorldUnmanaged, in originSystem, &entity, 1, &componentTypeIndex, 1);
-#endif
         }
 
-        public EntityArchetype GetEntityOnlyArchetype()
+        public EntityArchetype GetEntityAndSimulateArchetype()
         {
-            if (!m_EntityOnlyArchetype.Valid)
-                m_EntityOnlyArchetype = CreateArchetype(null, 0);
+            if (!m_EntityAndSimulateOnlyArchetype.Valid)
+                m_EntityAndSimulateOnlyArchetype = CreateArchetype((ComponentType*) null, 0, true);
 
-            return m_EntityOnlyArchetype;
+            return m_EntityAndSimulateOnlyArchetype;
         }
 
         /// <summary>
@@ -1476,7 +2406,7 @@ namespace Unity.Entities
         /// <param name="outputEntities"></param>
         /// <param name="count"></param>
         internal void InstantiateInternalDuringStructuralChange(Entity srcEntity, Entity* outputEntities, int count,
-            in SystemHandleUntyped originSystem = default)
+            in SystemHandle originSystem = default)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (count < 0)
@@ -1486,19 +2416,25 @@ namespace Unity.Entities
             EntityComponentStore->AssertCanInstantiateEntities(srcEntity, outputEntities, count);
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginCreateEntity(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
 #endif
-            {
-                StructuralChange.InstantiateEntities(EntityComponentStore, &srcEntity, outputEntities, count);
-            }
+
+            StructuralChange.InstantiateEntities(EntityComponentStore, &srcEntity, outputEntities, count);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordCreateEntity(in m_WorldUnmanaged, in originSystem, outputEntities, count, null, 0); //TODO: component types
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_CreateEntity(in originSystem, outputEntities, count);
 #endif
         }
 
         internal void InstantiateInternalDuringStructuralChange(Entity* srcEntities, Entity* outputEntities, int count,
-            int outputCount, bool removePrefab, in SystemHandleUntyped originSystem = default)
+            int outputCount, bool removePrefab, in SystemHandle originSystem = default)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (count < 0)
@@ -1509,14 +2445,20 @@ namespace Unity.Entities
             EntityComponentStore->AssertCanInstantiateEntities(srcEntities, count, removePrefab);
 
 #if ENABLE_PROFILER
-            using (var scope = StructuralChangesProfiler.BeginCreateEntity(m_WorldUnmanaged))
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
 #endif
-            {
-                EntityComponentStore->InstantiateEntities(srcEntities, outputEntities, count, removePrefab);
-            }
+
+            EntityComponentStore->InstantiateEntities(srcEntities, outputEntities, count, removePrefab);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesProfiler.End();
+#endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordCreateEntity(in m_WorldUnmanaged, in originSystem, outputEntities, outputCount, null, 0); //TODO: component types
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_CreateEntity(in originSystem, outputEntities, outputCount);
 #endif
         }
 
@@ -1539,9 +2481,9 @@ namespace Unity.Entities
                 globalSystemVersion, globalSystemVersion);
         }
 
-        [BurstCompatible(GenericTypeArguments = new[] {typeof(BurstCompatibleBufferElement)})]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] {typeof(BurstCompatibleBufferElement)})]
         public BufferTypeHandle<T> GetBufferTypeHandle<T>(bool isReadOnly)
-            where T : struct, IBufferElementData
+            where T : unmanaged, IBufferElementData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -1554,59 +2496,21 @@ namespace Unity.Entities
 #endif
         }
 
-        [NotBurstCompatible]
-        public void GetAllUniqueSharedComponents<T>(List<T> sharedComponentValues)
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public void GetAllUniqueSharedComponents<T>(List<T> sharedComponentValues, List<int> sharedComponentIndices, List<int> sharedComponentVersions)
             where T : struct, ISharedComponentData
         {
-            ManagedComponentStore.GetAllUniqueSharedComponents_Managed(sharedComponentValues);
+            ManagedComponentStore.GetAllUniqueSharedComponents_Managed(sharedComponentValues, sharedComponentIndices, sharedComponentVersions);
         }
 
-        [NotBurstCompatible]
-        public void GetAllUniqueSharedComponents<T>(List<T> sharedComponentValues, List<int> sharedComponentIndices)
-            where T : struct, ISharedComponentData
+        public bool HasBlobReferences(int sharedComponentIndex)
         {
-            ManagedComponentStore.GetAllUniqueSharedComponents_Managed(sharedComponentValues, sharedComponentIndices);
+            return TypeManager.GetTypeInfo(
+                    Entities.EntityComponentStore.GetComponentTypeFromSharedComponentIndex(sharedComponentIndex))
+                .HasBlobAssetRefs;
         }
 
-        [NotBurstCompatible]
-        public int InsertSharedComponent<T>(T newData) where T : struct
-        {
-            var index = ManagedComponentStore.InsertSharedComponent_Managed(newData);
-            m_ManagedReferenceIndexList.Add(index);
-            return index;
-        }
-
-        [NotBurstCompatible]
-        public int GetSharedComponentVersion<T>(T sharedData) where T : struct
-        {
-            return ManagedComponentStore.GetSharedComponentVersion_Managed(sharedData);
-        }
-
-        [NotBurstCompatible]
-        public T GetSharedComponentData<T>(int sharedComponentIndex) where T : struct
-        {
-            return ManagedComponentStore.GetSharedComponentData_Managed<T>(sharedComponentIndex);
-        }
-
-        [NotBurstCompatible]
-        public void AddSharedComponentReference(int sharedComponentIndex, int numRefs = 1)
-        {
-            ManagedComponentStore.AddSharedComponentReference_Managed(sharedComponentIndex, numRefs);
-        }
-
-        [NotBurstCompatible]
-        public void RemoveSharedComponentReference(int sharedComponentIndex, int numRefs = 1)
-        {
-            ManagedComponentStore.RemoveSharedComponentReference_Managed(sharedComponentIndex, numRefs);
-        }
-
-        [NotBurstCompatible]
-        public NativeArray<int> MoveAllSharedComponents(ManagedComponentStore srcManagedComponents, Allocator allocator)
-        {
-            return ManagedComponentStore.MoveAllSharedComponents_Managed(srcManagedComponents, allocator);
-        }
-
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
         public NativeArray<int> MoveSharedComponents(ManagedComponentStore srcManagedComponents,
             NativeArray<ArchetypeChunk> chunks, Allocator allocator)
         {
@@ -1634,7 +2538,7 @@ namespace Unity.Entities
         /// <remarks>For performance, entity names only exist when running in the Unity Editor.</remarks>
         /// <param name="entity">The Entity object of the entity of interest.</param>
         /// <returns>The entity name.</returns>
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Returns managed string")]
         public string GetName(Entity entity)
         {
             return EntityComponentStore->GetName(entity);
@@ -1651,30 +2555,279 @@ namespace Unity.Entities
         /// <remarks>For performance, entity names only exist when running in the Unity Editor.</remarks>
         /// <param name="entity">The Entity object of the entity to name.</param>
         /// <param name="name">The name to assign.</param>
-        [NotBurstCompatible]
-        public void SetName(Entity entity, string name)
+        public void SetName(Entity entity, in FixedString64Bytes name)
         {
-            EntityComponentStore->SetName(entity, name);
-        }
-
-        public void SetName(Entity entity, FixedString64Bytes name)
-        {
-            EntityComponentStore->SetName(entity, name);
+            EntityComponentStore->SetName(entity, in name);
         }
 
         /// <summary>
-        /// Waits for all Jobs to complete.
+        /// Waits for all tracked jobs to complete.
         /// </summary>
-        /// <remarks>Calling CompleteAllJobs() blocks the main thread until all currently running Jobs finish.</remarks>
-        public void CompleteAllJobs()
+        /// <remarks>Calling <see cref="CompleteAllTrackedJobs"/> blocks the main thread until all currently running tracked Jobs finish.</remarks>
+        /// <remarks>Tracked JobHandles for this world include every systems' resulting JobHandle directly after their OnUpdate</remarks>
+        public void CompleteAllTrackedJobs()
         {
             DependencyManager->CompleteAllJobsAndInvalidateArrays();
         }
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_CreateEntity(in SystemHandle originSystem, Entity* entities, int entityCount, TypeIndex* types = null, int typeCount = 0)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.CreateEntity,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                entities: entities,
+                entityCount: entityCount,
+                types: types,
+                typeCount: typeCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_CreateEntity(in SystemHandle originSystem, in NativeArray<Entity> entities, TypeIndex* types = null, int typeCount = 0) =>
+            JournalAddRecord_CreateEntity(in originSystem, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, types, typeCount);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_CreateEntity(in SystemHandle originSystem, ArchetypeChunk* chunks, int chunkCount, TypeIndex* types = null, int typeCount = 0)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.CreateEntity,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                chunks: chunks,
+                chunkCount: chunkCount,
+                types: types,
+                typeCount: typeCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_CreateEntity(in SystemHandle originSystem, in NativeArray<ArchetypeChunk> chunks, TypeIndex* types = null, int typeCount = 0) =>
+            JournalAddRecord_CreateEntity(in originSystem, (ArchetypeChunk*)chunks.GetUnsafeReadOnlyPtr(), chunks.Length, types, typeCount);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_DestroyEntity(in SystemHandle originSystem, Entity* entities, int entityCount)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.DestroyEntity,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                entities: entities,
+                entityCount: entityCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_DestroyEntity(in SystemHandle originSystem, in NativeArray<Entity> entities) =>
+            JournalAddRecord_DestroyEntity(in originSystem, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_DestroyEntity(in SystemHandle originSystem, ArchetypeChunk* chunks, int chunkCount)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.DestroyEntity,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                chunks: chunks,
+                chunkCount: chunkCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_DestroyEntity(in SystemHandle originSystem, in NativeArray<ArchetypeChunk> chunks) =>
+            JournalAddRecord_DestroyEntity(in originSystem, (ArchetypeChunk*)chunks.GetUnsafeReadOnlyPtr(), chunks.Length);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_AddComponent(in SystemHandle originSystem, Entity* entities, int entityCount, TypeIndex* types, int typeCount)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.AddComponent,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                entities: entities,
+                entityCount: entityCount,
+                types: types,
+                typeCount: typeCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_AddComponent(in SystemHandle originSystem, in NativeArray<Entity> entities, TypeIndex* types, int typeCount) =>
+            JournalAddRecord_AddComponent(in originSystem, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, types, typeCount);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_AddComponent(in SystemHandle originSystem, ArchetypeChunk* chunks, int chunkCount, TypeIndex* types, int typeCount)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.AddComponent,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                chunks: chunks,
+                chunkCount: chunkCount,
+                types: types,
+                typeCount: typeCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_AddComponent(in SystemHandle originSystem, in NativeArray<ArchetypeChunk> chunks, TypeIndex* types, int typeCount) =>
+            JournalAddRecord_AddComponent(in originSystem, (ArchetypeChunk*)chunks.GetUnsafeReadOnlyPtr(), chunks.Length, types, typeCount);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_RemoveComponent(in SystemHandle originSystem, Entity* entities, int entityCount, TypeIndex* types, int typeCount)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.RemoveComponent,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                entities: entities,
+                entityCount: entityCount,
+                types: types,
+                typeCount: typeCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_RemoveComponent(in SystemHandle originSystem, in NativeArray<Entity> entities, TypeIndex* types, int typeCount) =>
+            JournalAddRecord_RemoveComponent(in originSystem, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, types, typeCount);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_RemoveComponent(in SystemHandle originSystem, ArchetypeChunk* chunks, int chunkCount, TypeIndex* types, int typeCount)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.RemoveComponent,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                chunks: chunks,
+                chunkCount: chunkCount,
+                types: types,
+                typeCount: typeCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_RemoveComponent(in SystemHandle originSystem, in NativeArray<ArchetypeChunk> chunks, TypeIndex* types, int typeCount) =>
+            JournalAddRecord_RemoveComponent(in originSystem, (ArchetypeChunk*)chunks.GetUnsafeReadOnlyPtr(), chunks.Length, types, typeCount);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetComponentEnabled(in SystemHandle originSystem, Entity* entities, int entityCount, TypeIndex* types, int typeCount, bool value)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: value ? EntitiesJournaling.RecordType.EnableComponent : EntitiesJournaling.RecordType.DisableComponent,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                entities: entities,
+                entityCount: entityCount,
+                types: types,
+                typeCount: typeCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetComponentEnabled(in SystemHandle originSystem, in NativeArray<Entity> entities, TypeIndex* types, int typeCount, bool value) =>
+            JournalAddRecord_SetComponentEnabled(in originSystem, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, types, typeCount, value);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetComponentEnabled(in SystemHandle originSystem, ArchetypeChunk* chunks, int chunkCount, TypeIndex* types, int typeCount, bool value)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: value ? EntitiesJournaling.RecordType.EnableComponent : EntitiesJournaling.RecordType.DisableComponent,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                chunks: chunks,
+                chunkCount: chunkCount,
+                types: types,
+                typeCount: typeCount);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetComponentEnabled(in SystemHandle originSystem, in NativeArray<ArchetypeChunk> chunks, TypeIndex* types, int typeCount, bool value) =>
+            JournalAddRecord_SetComponentEnabled(in originSystem, (ArchetypeChunk*)chunks.GetUnsafeReadOnlyPtr(), chunks.Length, types, typeCount, value);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetSharedComponent(in SystemHandle originSystem, Entity* entities, int entityCount, TypeIndex typeIndex, void* data, int dataLength)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.SetSharedComponentData,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                entities: entities,
+                entityCount: entityCount,
+                types: &typeIndex,
+                typeCount: 1,
+                data: data,
+                dataLength: dataLength);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetSharedComponent(in SystemHandle originSystem, in NativeArray<Entity> entities, TypeIndex typeIndex, void* data, int dataLength) =>
+            JournalAddRecord_SetSharedComponent(in originSystem, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, typeIndex, data, dataLength);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetSharedComponent(in SystemHandle originSystem, ArchetypeChunk* chunks, int chunkCount, TypeIndex typeIndex, void* data, int dataLength)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.SetSharedComponentData,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                chunks: chunks,
+                chunkCount: chunkCount,
+                types: &typeIndex,
+                typeCount: 1,
+                data: data,
+                dataLength: dataLength);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetSharedComponent(in SystemHandle originSystem, in NativeArray<ArchetypeChunk> chunks, TypeIndex typeIndex, void* data, int dataLength) =>
+            JournalAddRecord_SetSharedComponent(in originSystem, (ArchetypeChunk*)chunks.GetUnsafeReadOnlyPtr(), chunks.Length, typeIndex, data, dataLength);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetSharedComponentManaged(in SystemHandle originSystem, Entity* entities, int entityCount, TypeIndex typeIndex)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.SetSharedComponentData,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                entities: entities,
+                entityCount: entityCount,
+                types: &typeIndex,
+                typeCount: 1);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetSharedComponentManaged(in SystemHandle originSystem, in NativeArray<Entity> entities, TypeIndex typeIndex) =>
+            JournalAddRecord_SetSharedComponentManaged(in originSystem, (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, typeIndex);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetSharedComponentManaged(in SystemHandle originSystem, ArchetypeChunk* chunks, int chunkCount, TypeIndex typeIndex)
+        {
+            EntitiesJournaling.AddRecord(
+                recordType: EntitiesJournaling.RecordType.SetSharedComponentData,
+                worldSequenceNumber: m_WorldUnmanaged.SequenceNumber,
+                executingSystem: m_WorldUnmanaged.ExecutingSystem,
+                originSystem: in originSystem,
+                chunks: chunks,
+                chunkCount: chunkCount,
+                types: &typeIndex,
+                typeCount: 1);
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public void JournalAddRecord_SetSharedComponentManaged(in SystemHandle originSystem, in NativeArray<ArchetypeChunk> chunks, TypeIndex typeIndex) =>
+            JournalAddRecord_SetSharedComponentManaged(in originSystem, (ArchetypeChunk*)chunks.GetUnsafeReadOnlyPtr(), chunks.Length, typeIndex);
+#endif
     }
 
     static unsafe partial class EntityDataAccessManagedComponentExtensions
     {
-        internal static int* GetManagedComponentIndex(ref this EntityDataAccess dataAccess, Entity entity, int typeIndex)
+        internal static int* GetManagedComponentIndex(ref this EntityDataAccess dataAccess, Entity entity, TypeIndex typeIndex)
         {
             dataAccess.EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
 
@@ -1701,16 +2854,7 @@ namespace Unity.Entities
             return (T)dataAccess.ManagedComponentStore.GetManagedComponent(index);
         }
 
-        public static object Debugger_GetComponentObject(ref this EntityDataAccess dataAccess, Entity entity, ComponentType componentType)
-        {
-            int* ptr = (int*)EntityComponentStore.Debugger_GetComponentDataWithTypeRO(dataAccess.EntityComponentStore, entity, componentType.TypeIndex);
-            if (ptr == null)
-                return null;
-            return dataAccess.ManagedComponentStore.Debugger_GetManagedComponent(*ptr);
-        }
-
-
-        public static void SetComponentObject(ref this EntityDataAccess dataAccess, Entity entity, ComponentType componentType, object componentObject, in SystemHandleUntyped originSystem = default)
+        public static void SetComponentObject(ref this EntityDataAccess dataAccess, Entity entity, ComponentType componentType, object componentObject, in SystemHandle originSystem = default)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (!componentType.IsManagedComponent)
@@ -1720,10 +2864,6 @@ namespace Unity.Entities
 #endif
             var ptr = dataAccess.GetManagedComponentIndex(entity, componentType.TypeIndex);
             dataAccess.ManagedComponentStore.UpdateManagedComponentValue(ptr, componentObject, ref *dataAccess.EntityComponentStore);
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.RecordSetComponentObject(in dataAccess.m_WorldUnmanaged, in originSystem, &entity, 1, &componentType.TypeIndex, 1);
-#endif
         }
     }
 }

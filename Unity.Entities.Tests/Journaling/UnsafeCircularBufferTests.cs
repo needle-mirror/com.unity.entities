@@ -10,7 +10,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_Init_ClearMemory()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Temp, NativeArrayOptions.ClearMemory);
             for (var i = 0; i < buffer.Count; ++i)
                 Assert.AreEqual(0, UnsafeUtility.ReadArrayElement<int>(buffer.Ptr, i));
         }
@@ -18,7 +18,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_Capacity()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Temp);
             Assert.AreEqual(5, buffer.Capacity);
 
             buffer.PushBack(1);
@@ -37,7 +37,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_Count()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Temp);
             Assert.AreEqual(0, buffer.Count);
 
             buffer.PushBack(1);
@@ -80,7 +80,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_IsEmpty()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(2, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(2, Allocator.Temp);
             Assert.IsTrue(buffer.IsEmpty);
 
             buffer.PushBack(1);
@@ -99,7 +99,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_IsFull()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(2, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(2, Allocator.Temp);
             Assert.IsFalse(buffer.IsFull);
 
             buffer.PushBack(1);
@@ -118,7 +118,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_FrontIndex()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(2, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(2, Allocator.Temp);
             Assert.AreEqual(0, buffer.FrontIndex);
 
             buffer.PushBack(1);
@@ -149,7 +149,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_BackIndex()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(2, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(2, Allocator.Temp);
             Assert.AreEqual(0, buffer.BackIndex);
 
             buffer.PushBack(1);
@@ -180,7 +180,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_Indexer()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Temp);
 
             Assert.AreEqual(1, buffer[0]);
             Assert.AreEqual(2, buffer[1]);
@@ -195,7 +195,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_ElementAt()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Temp);
 
             Assert.AreEqual(1, buffer.ElementAt(0));
             Assert.AreEqual(2, buffer.ElementAt(1));
@@ -218,7 +218,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_Front()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Temp);
 
             Assert.AreEqual(1, buffer.Front());
 
@@ -232,7 +232,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_Back()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Temp);
 
             Assert.AreEqual(5, buffer.Back());
 
@@ -246,7 +246,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_PushFront()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Temp);
 
             Assert.IsTrue(buffer.PushFront(1));
             Assert.AreEqual(1, buffer.Count);
@@ -282,7 +282,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_PushFront_WithCount()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Temp);
 
             Assert.IsTrue(buffer.PushFront(new[] { 1, 2, 3 }));
             Assert.AreEqual(3, buffer.Count);
@@ -308,7 +308,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_PushBack()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Temp);
 
             Assert.IsTrue(buffer.PushBack(1));
             Assert.AreEqual(1, buffer.Count);
@@ -344,7 +344,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_PushBack_WithCount()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(5, Allocator.Temp);
 
             Assert.IsTrue(buffer.PushBack(new[] { 1, 2, 3 }));
             Assert.AreEqual(3, buffer.Count);
@@ -370,7 +370,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_PopFront()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Temp);
 
             Assert.IsTrue(buffer.PopFront());
             Assert.AreEqual(4, buffer.Count);
@@ -406,7 +406,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_PopFront_WithCount()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Temp);
 
             Assert.IsFalse(buffer.PopFront(6));
             Assert.AreEqual(5, buffer.Count);
@@ -442,7 +442,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_PopBack()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Temp);
 
             Assert.IsTrue(buffer.PopBack());
             Assert.AreEqual(4, buffer.Count);
@@ -478,7 +478,7 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         [Test]
         public void UnsafeCircularBufferT_PopBack_WithCount()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Temp);
 
             Assert.IsFalse(buffer.PopBack(6));
             Assert.AreEqual(5, buffer.Count);
@@ -512,9 +512,72 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         }
 
         [Test]
+        public void UnsafeCircularBufferT_Unwind_Unwrapped()
+        {
+            using var buffer = new UnsafeCircularBuffer<int>(15, Allocator.Temp);
+            buffer.PushBack(new int[] { 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+            buffer.PopFront(3);
+
+            buffer.Unwind();
+            Assert.AreEqual(10, buffer.Count);
+            Assert.AreEqual(1, buffer[0]);
+            Assert.AreEqual(2, buffer[1]);
+            Assert.AreEqual(3, buffer[2]);
+            Assert.AreEqual(4, buffer[3]);
+            Assert.AreEqual(5, buffer[4]);
+            Assert.AreEqual(6, buffer[5]);
+            Assert.AreEqual(7, buffer[6]);
+            Assert.AreEqual(8, buffer[7]);
+            Assert.AreEqual(9, buffer[8]);
+            Assert.AreEqual(10, buffer[9]);
+        }
+
+        [Test]
+        public void UnsafeCircularBufferT_Unwind_WrappedFrontSmall()
+        {
+            using var buffer = new UnsafeCircularBuffer<int>(15, Allocator.Temp);
+            buffer.PushBack(new int[] { 5, 6, 7, 8, 9, 10 });
+            buffer.PushFront(new int[] { 1, 2, 3, 4 });
+
+            buffer.Unwind();
+            Assert.AreEqual(10, buffer.Count);
+            Assert.AreEqual(1, buffer[0]);
+            Assert.AreEqual(2, buffer[1]);
+            Assert.AreEqual(3, buffer[2]);
+            Assert.AreEqual(4, buffer[3]);
+            Assert.AreEqual(5, buffer[4]);
+            Assert.AreEqual(6, buffer[5]);
+            Assert.AreEqual(7, buffer[6]);
+            Assert.AreEqual(8, buffer[7]);
+            Assert.AreEqual(9, buffer[8]);
+            Assert.AreEqual(10, buffer[9]);
+        }
+
+        [Test]
+        public void UnsafeCircularBufferT_Unwind_WrappedBackSmall()
+        {
+            using var buffer = new UnsafeCircularBuffer<int>(15, Allocator.Temp);
+            buffer.PushBack(new int[] { 7, 8, 9, 10 });
+            buffer.PushFront(new int[] { 1, 2, 3, 4, 5, 6 });
+
+            buffer.Unwind();
+            Assert.AreEqual(10, buffer.Count);
+            Assert.AreEqual(1, buffer[0]);
+            Assert.AreEqual(2, buffer[1]);
+            Assert.AreEqual(3, buffer[2]);
+            Assert.AreEqual(4, buffer[3]);
+            Assert.AreEqual(5, buffer[4]);
+            Assert.AreEqual(6, buffer[5]);
+            Assert.AreEqual(7, buffer[6]);
+            Assert.AreEqual(8, buffer[7]);
+            Assert.AreEqual(9, buffer[8]);
+            Assert.AreEqual(10, buffer[9]);
+        }
+
+        [Test]
         public void UnsafeCircularBufferT_Clear()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Temp);
 
             Assert.AreEqual(5, buffer.Count);
             Assert.IsFalse(buffer.IsEmpty);
@@ -525,29 +588,129 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
         }
 
         [Test]
-        public void UnsafeCircularBufferT_ToNativeArray()
+        public void UnsafeCircularBufferT_ToNativeArray_Unwrapped()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(15, Allocator.Temp);
+            buffer.PushBack(new int[] { 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+            buffer.PopFront(3);
 
-            using (var array = buffer.ToNativeArray(Allocator.Persistent))
-            {
-                Assert.AreEqual(5, array.Length);
-                Assert.AreEqual(1, array[0]);
-                Assert.AreEqual(2, array[1]);
-                Assert.AreEqual(3, array[2]);
-                Assert.AreEqual(4, array[3]);
-                Assert.AreEqual(5, array[4]);
-            }
+            using var array = buffer.ToNativeArray(Allocator.Temp);
+            Assert.AreEqual(10, array.Length);
+            Assert.AreEqual(1, array[0]);
+            Assert.AreEqual(2, array[1]);
+            Assert.AreEqual(3, array[2]);
+            Assert.AreEqual(4, array[3]);
+            Assert.AreEqual(5, array[4]);
+            Assert.AreEqual(6, array[5]);
+            Assert.AreEqual(7, array[6]);
+            Assert.AreEqual(8, array[7]);
+            Assert.AreEqual(9, array[8]);
+            Assert.AreEqual(10, array[9]);
         }
 
         [Test]
-        public void UnsafeCircularBufferT_ToArray()
+        public void UnsafeCircularBufferT_ToNativeArray_WrappedFrontSmall()
         {
-            using var buffer = new UnsafeCircularBuffer<int>(new[] { 1, 2, 3, 4, 5 }, Allocator.Persistent);
+            using var buffer = new UnsafeCircularBuffer<int>(15, Allocator.Temp);
+            buffer.PushBack(new int[] { 5, 6, 7, 8, 9, 10 });
+            buffer.PushFront(new int[] { 1, 2, 3, 4 });
+
+            using var array = buffer.ToNativeArray(Allocator.Temp);
+            Assert.AreEqual(10, array.Length);
+            Assert.AreEqual(1, array[0]);
+            Assert.AreEqual(2, array[1]);
+            Assert.AreEqual(3, array[2]);
+            Assert.AreEqual(4, array[3]);
+            Assert.AreEqual(5, array[4]);
+            Assert.AreEqual(6, array[5]);
+            Assert.AreEqual(7, array[6]);
+            Assert.AreEqual(8, array[7]);
+            Assert.AreEqual(9, array[8]);
+            Assert.AreEqual(10, array[9]);
+        }
+
+        [Test]
+        public void UnsafeCircularBufferT_ToNativeArray_WrappedBackSmall()
+        {
+            using var buffer = new UnsafeCircularBuffer<int>(15, Allocator.Temp);
+            buffer.PushBack(new int[] { 7, 8, 9, 10 });
+            buffer.PushFront(new int[] { 1, 2, 3, 4, 5, 6 });
+
+            using var array = buffer.ToNativeArray(Allocator.Temp);
+            Assert.AreEqual(10, array.Length);
+            Assert.AreEqual(1, array[0]);
+            Assert.AreEqual(2, array[1]);
+            Assert.AreEqual(3, array[2]);
+            Assert.AreEqual(4, array[3]);
+            Assert.AreEqual(5, array[4]);
+            Assert.AreEqual(6, array[5]);
+            Assert.AreEqual(7, array[6]);
+            Assert.AreEqual(8, array[7]);
+            Assert.AreEqual(9, array[8]);
+            Assert.AreEqual(10, array[9]);
+        }
+
+        [Test]
+        public void UnsafeCircularBufferT_ToArray_Unwrapped()
+        {
+            using var buffer = new UnsafeCircularBuffer<int>(15, Allocator.Temp);
+            buffer.PushBack(new int[] { 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+            buffer.PopFront(3);
 
             var array = buffer.ToArray();
-            Assert.AreEqual(5, array.Length);
-            Assert.AreEqual(new[] { 1, 2, 3, 4, 5 }, array);
+            Assert.AreEqual(10, array.Length);
+            Assert.AreEqual(1, array[0]);
+            Assert.AreEqual(2, array[1]);
+            Assert.AreEqual(3, array[2]);
+            Assert.AreEqual(4, array[3]);
+            Assert.AreEqual(5, array[4]);
+            Assert.AreEqual(6, array[5]);
+            Assert.AreEqual(7, array[6]);
+            Assert.AreEqual(8, array[7]);
+            Assert.AreEqual(9, array[8]);
+            Assert.AreEqual(10, array[9]);
+        }
+
+        [Test]
+        public void UnsafeCircularBufferT_ToArray_WrappedFrontSmall()
+        {
+            using var buffer = new UnsafeCircularBuffer<int>(15, Allocator.Temp);
+            buffer.PushBack(new int[] { 5, 6, 7, 8, 9, 10 });
+            buffer.PushFront(new int[] { 1, 2, 3, 4 });
+
+            var array = buffer.ToArray();
+            Assert.AreEqual(10, array.Length);
+            Assert.AreEqual(1, array[0]);
+            Assert.AreEqual(2, array[1]);
+            Assert.AreEqual(3, array[2]);
+            Assert.AreEqual(4, array[3]);
+            Assert.AreEqual(5, array[4]);
+            Assert.AreEqual(6, array[5]);
+            Assert.AreEqual(7, array[6]);
+            Assert.AreEqual(8, array[7]);
+            Assert.AreEqual(9, array[8]);
+            Assert.AreEqual(10, array[9]);
+        }
+
+        [Test]
+        public void UnsafeCircularBufferT_ToArray_WrappedBackSmall()
+        {
+            using var buffer = new UnsafeCircularBuffer<int>(15, Allocator.Temp);
+            buffer.PushBack(new int[] { 7, 8, 9, 10 });
+            buffer.PushFront(new int[] { 1, 2, 3, 4, 5, 6 });
+
+            var array = buffer.ToArray();
+            Assert.AreEqual(10, array.Length);
+            Assert.AreEqual(1, array[0]);
+            Assert.AreEqual(2, array[1]);
+            Assert.AreEqual(3, array[2]);
+            Assert.AreEqual(4, array[3]);
+            Assert.AreEqual(5, array[4]);
+            Assert.AreEqual(6, array[5]);
+            Assert.AreEqual(7, array[6]);
+            Assert.AreEqual(8, array[7]);
+            Assert.AreEqual(9, array[8]);
+            Assert.AreEqual(10, array[9]);
         }
     }
 }

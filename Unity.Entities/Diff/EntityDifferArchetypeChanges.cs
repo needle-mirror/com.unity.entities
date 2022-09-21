@@ -90,9 +90,9 @@ namespace Unity.Entities
         /// Builds a mapping of <see cref="Chunk.SequenceNumber"/> to it's <see cref="ArchetypeChunk"/>.
         /// </summary>
         [BurstCompile]
-        struct BuildChunkSequenceNumberMap : IJobParallelFor
+        struct BuildChunkSequenceNumberMap : IJobParallelForDefer
         {
-            [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
+            [ReadOnly] public NativeList<ArchetypeChunk> Chunks;
             [WriteOnly] public NativeParallelHashMap<ulong, ArchetypeChunk>.ParallelWriter ChunksBySequenceNumber;
             public void Execute(int index) => ChunksBySequenceNumber.TryAdd(Chunks[index].m_Chunk->SequenceNumber, Chunks[index]);
         }
@@ -105,8 +105,8 @@ namespace Unity.Entities
         [BurstCompile]
         struct GatherArchetypeChunkChanges : IJob
         {
-            [ReadOnly] public NativeArray<ArchetypeChunk> SrcChunks;
-            [ReadOnly] public NativeArray<ArchetypeChunk> DstChunks;
+            [ReadOnly] public NativeList<ArchetypeChunk> SrcChunks;
+            [ReadOnly] public NativeList<ArchetypeChunk> DstChunks;
             [ReadOnly] public NativeParallelHashMap<ulong, ArchetypeChunk> SrcChunksBySequenceNumber;
             [WriteOnly] public NativeList<ArchetypeChunk> CreatedChunks;
             [WriteOnly] public NativeList<ArchetypeChunkChangeFlags> CreatedChunkFlags;
@@ -212,20 +212,23 @@ namespace Unity.Entities
         /// A chunk is considered unchanged if the <see cref="Chunk.SequenceNumber"/> matches and all type change versions match.
         /// </remarks>
         internal static ArchetypeChunkChanges GetArchetypeChunkChanges(
-            NativeArray<ArchetypeChunk> srcChunks,
-            NativeArray<ArchetypeChunk> dstChunks,
+            NativeList<ArchetypeChunk> srcChunks,
+            NativeList<ArchetypeChunk> dstChunks,
+            int maxSrcChunkCount,
             Allocator allocator,
             out JobHandle jobHandle,
             JobHandle dependsOn = default)
         {
             var archetypeChunkChanges = new ArchetypeChunkChanges(allocator);
-            var srcChunksBySequenceNumber = new NativeParallelHashMap<ulong, ArchetypeChunk>(srcChunks.Length, Allocator.TempJob);
+            // srcChunks and dstChunks are being written by a job, so accessing any of their members would be a race condition.
+            // All we can do is pass them to dependent jobs to consume their contents.
+            var srcChunksBySequenceNumber = new NativeParallelHashMap<ulong, ArchetypeChunk>(maxSrcChunkCount, Allocator.TempJob);
 
             var buildChunkSequenceNumberMap = new BuildChunkSequenceNumberMap
             {
                 Chunks = srcChunks,
                 ChunksBySequenceNumber = srcChunksBySequenceNumber.AsParallelWriter()
-            }.Schedule(srcChunks.Length, 64, dependsOn);
+            }.Schedule(srcChunks, 64, dependsOn);
 
             var gatherArchetypeChunkChanges = new GatherArchetypeChunkChanges
             {

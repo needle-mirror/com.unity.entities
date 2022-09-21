@@ -23,8 +23,6 @@ namespace Unity.Entities
      unsafe partial struct ECBInterop
     {
 
-#if !UNITY_IOS
-
         [BurstDiscard]
         private static void CheckDelegate(ref bool useDelegate)
         {
@@ -47,17 +45,18 @@ namespace Unity.Entities
             public static _dlg_ProcessChainChunk _bfp_ProcessChainChunk;
             public delegate void _dlg_RemoveManagedReferences(IntPtr mgr, IntPtr sharedIndex, int count);
             public static object _gcDefeat_RemoveManagedReferences;
+            public delegate void _dlg_ProcessManagedCommand(IntPtr processor, int processorType, IntPtr header);
+            public static object _gcDefeat_ProcessManagedCommand;
         }
 
         struct TagType_RemoveManagedReferences {};
         public static readonly SharedStatic<IntPtr> _bfp_RemoveManagedReferences = SharedStatic<IntPtr>.GetOrCreate<TagType_RemoveManagedReferences>();
+        struct TagType_ProcessManagedCommand {};
+        public static readonly SharedStatic<IntPtr> _bfp_ProcessManagedCommand = SharedStatic<IntPtr>.GetOrCreate<TagType_ProcessManagedCommand>();
 
-#endif
-
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Uses managed delegates")]
         internal static void Initialize()
         {
-#if !UNITY_IOS
             if (Managed._initialized)
                 return;
             Managed._initialized = true;
@@ -67,24 +66,25 @@ namespace Unity.Entities
             Managed._gcDefeat_RemoveManagedReferences = delegateObject;
             _bfp_RemoveManagedReferences.Data = Marshal.GetFunctionPointerForDelegate(delegateObject);
         }
+        {
+            Managed._dlg_ProcessManagedCommand delegateObject = _wrapper_ProcessManagedCommand;
+            Managed._gcDefeat_ProcessManagedCommand = delegateObject;
+            _bfp_ProcessManagedCommand.Data = Marshal.GetFunctionPointerForDelegate(delegateObject);
+        }
 
-#endif
         }
 
         internal  static void ProcessChainChunk (void* walker, int processorType, ECBChainPlaybackState* chainStates, int currentChain, int nextChain)
         {
-#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_ProcessChainChunk(walker, processorType, chainStates, currentChain, nextChain);
                 return;
             }
-#endif
 
             _ProcessChainChunk(walker, processorType, chainStates, currentChain, nextChain);
         }
 
-#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_ProcessChainChunk))]
         private static void _mono_to_burst_ProcessChainChunk(IntPtr walker, int processorType, IntPtr chainStates, int currentChain, int nextChain)
@@ -97,12 +97,10 @@ namespace Unity.Entities
         {
             Managed._bfp_ProcessChainChunk((IntPtr) walker, processorType, (IntPtr) chainStates, currentChain, nextChain);
         }
-#endif
 
 
         internal static void RemoveManagedReferences (EntityDataAccess* mgr, int* sharedIndex, int count)
         {
-#if !UNITY_IOS
             if (!UseDelegate())
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -114,16 +112,34 @@ namespace Unity.Entities
                 fp.Invoke((IntPtr) mgr, (IntPtr) sharedIndex, count);
                 return;
             }
-#endif
             _RemoveManagedReferences(mgr, sharedIndex, count);
         }
 
-#if !UNITY_IOS
         [MonoPInvokeCallback(typeof(Managed._dlg_RemoveManagedReferences))]
-#endif
         private static void _wrapper_RemoveManagedReferences (IntPtr mgr, IntPtr sharedIndex, int count)
         {
             _RemoveManagedReferences((EntityDataAccess*)mgr, (int*)sharedIndex, count);
+        }
+        internal static void ProcessManagedCommand (void* processor, int processorType, BasicCommand* header)
+        {
+            if (!UseDelegate())
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if( _bfp_ProcessManagedCommand.Data == IntPtr.Zero)
+                    throw new InvalidOperationException("Burst Interop Classes must be initialized manually");
+#endif
+
+                var fp = new FunctionPointer<Managed._dlg_ProcessManagedCommand>(_bfp_ProcessManagedCommand.Data);
+                fp.Invoke((IntPtr) processor, processorType, (IntPtr) header);
+                return;
+            }
+            _ProcessManagedCommand(processor, processorType, header);
+        }
+
+        [MonoPInvokeCallback(typeof(Managed._dlg_ProcessManagedCommand))]
+        private static void _wrapper_ProcessManagedCommand (IntPtr processor, int processorType, IntPtr header)
+        {
+            _ProcessManagedCommand((void*)processor, processorType, (BasicCommand*)header);
         }
 
 

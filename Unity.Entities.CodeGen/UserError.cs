@@ -37,7 +37,7 @@ namespace Unity.Entities.CodeGen
 
             if (errorCode.Contains("ICE"))
             {
-                messageData = messageData + " Seeing this error indicates a bug in the dots compiler. We'd appreciate a bug report (About->Report a Bug...). Thnx! <3";
+                messageData = messageData + " Seeing this error indicates a bug in the DOTS source generators. We'd appreciate a bug report (About->Report a Bug...). Thnx! <3";
             }
 
             var errorType = type == DiagnosticType.Error ? "error" : "warning";

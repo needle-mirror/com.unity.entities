@@ -5,6 +5,9 @@ using Unity.Entities.CodeGen.Tests;
 
 namespace Unity.Entities.CodeGen.SourceGenerators.Tests
 {
+#if UNITY_2021_1_OR_NEWER
+    [Ignore("2021.1 no longer supports UnityEditor.Scripting.Compilers.CSharpLanguage which these tests rely on.")]
+#endif
     [TestFixture]
     public class JobEntityNoErrorTests : SourceGenTests
     {
@@ -17,7 +20,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
 
         protected override string[] DefaultUsings { get; } =
         {
-            "System", "Unity.Entities", "Unity.Collections", "Unity.Entities.CodeGen.Tests"
+            "System", "Unity.Entities", "Unity.Collections", "Unity.Entities.CodeGen.Tests", "Unity.Burst"
         };
 
         [Test]
@@ -267,61 +270,5 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
             AssertProducesNoError(source, DefaultUsings, true);
         }
 
-        [Test]
-        public void InnerNamespaceUsing()
-        {
-            var source = @"
-            namespace SomeNameSpace {
-                using Unity.Entities;
-                public partial struct SomeJob : IJobEntity {
-                    public void Execute() {}
-                }
-            }";
-            AssertProducesNoError(source, new string[]{}, true);
-        }
-
-        [Test]
-        public void JobInStruct()
-        {
-            var source = @"
-            using Unity.Entities;
-            public partial struct SomeOuter {
-                public partial struct SomeJob : IJobEntity {
-                    public void Execute() {}
-                }
-            }";
-            AssertProducesNoError(source, new string[]{}, true);
-
-        }
-
-        [Test]
-        public void JobInClass()
-        {
-            var source = @"
-            using Unity.Entities;
-            public partial class SomeOuter {
-                public partial struct SomeJob : IJobEntity {
-                    public void Execute() {}
-                }
-            }";
-            AssertProducesNoError(source, new string[]{}, true);
-        }
-
-        [Test]
-        public void TwoJobs()
-        {
-            var source = @"
-            using Unity.Entities;
-            public partial struct SomeOuter {
-                public partial struct SomeJobA : IJobEntity {
-                    public void Execute() {}
-                }
-                public partial struct SomeJobB : IJobEntity {
-                    public void Execute() {}
-                }
-            }";
-            AssertProducesNoError(source,new string[]{}, true);
-
-        }
     }
 }

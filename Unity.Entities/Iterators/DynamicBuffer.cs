@@ -23,7 +23,7 @@ namespace Unity.Entities
     [NativeContainer]
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(DynamicBufferDebugView<>))]
-    public unsafe struct DynamicBuffer<T> : IEnumerable<T>, INativeList<T> where T : struct
+    public unsafe struct DynamicBuffer<T> : IQueryTypeParameter, IEnumerable<T>, INativeList<T> where T : unmanaged
     {
         [NativeDisableUnsafePtrRestriction]
         [NoAlias]
@@ -38,11 +38,8 @@ namespace Unity.Entities
         internal int m_SafetyReadOnlyCount;
         internal int m_SafetyReadWriteCount;
 
-        [MarshalAs(UnmanagedType.U1)]
-        internal bool m_IsReadOnly;
-
-        [MarshalAs(UnmanagedType.U1)]
-        internal bool m_useMemoryInitPattern;
+        internal byte m_IsReadOnly;
+        internal byte m_useMemoryInitPattern;
         internal byte m_memoryInitPattern;
 #endif
 
@@ -54,9 +51,9 @@ namespace Unity.Entities
             m_Safety1 = arrayInvalidationSafety;
             m_SafetyReadOnlyCount = isReadOnly ? 2 : 0;
             m_SafetyReadWriteCount = isReadOnly ? 0 : 2;
-            m_IsReadOnly = isReadOnly;
+            m_IsReadOnly = (byte)(isReadOnly ? 1 : 0);
             m_InternalCapacity = internalCapacity;
-            m_useMemoryInitPattern = useMemoryInitPattern;
+            m_useMemoryInitPattern = (byte)(useMemoryInitPattern ? 1 : 0);
             m_memoryInitPattern = memoryInitPattern;
         }
 
@@ -84,6 +81,7 @@ namespace Unity.Entities
             }
             set
             {
+                //@TODO: This is unexpected...
                 ResizeUninitialized(value);
             }
         }
@@ -107,13 +105,13 @@ namespace Unity.Entities
             }
             set
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (value < Length)
                     throw new InvalidOperationException($"Capacity {value} can't be set smaller than Length {Length}");
 #endif
                 CheckWriteAccessAndInvalidateArrayAliases();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                BufferHeader.SetCapacity(m_Buffer, value, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern, m_memoryInitPattern, m_InternalCapacity);
+                BufferHeader.SetCapacity(m_Buffer, value, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern == 1, m_memoryInitPattern, m_InternalCapacity);
 #else
                 BufferHeader.SetCapacity(m_Buffer, value, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0, m_InternalCapacity);
 #endif
@@ -195,10 +193,10 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Return a reference to the element at index.
+        /// Gets the reference to the element at the given index.
         /// </summary>
         /// <param name="index">The zero-based index.</param>
-        /// <returns></returns>
+        /// <returns>Returns the reference to the element at the index.</returns>
         public ref T ElementAt(int index)
         {
             CheckWriteAccess();
@@ -207,7 +205,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Increases the buffer capacity and length.
+        /// Sets the length of this buffer, increasing the capacity if necessary.
         /// </summary>
         /// <remarks>If <paramref name="length"/> is less than the current
         /// length of the buffer, the length of the buffer is reduced while the
@@ -220,6 +218,29 @@ namespace Unity.Entities
         {
             EnsureCapacity(length);
             m_Buffer->Length = length;
+        }
+
+        /// <summary>
+        /// Sets the length of this buffer, increasing the capacity if necessary.
+        /// </summary>
+        /// <remarks>If <paramref name="length"/> is less than the current
+        /// length of the buffer, the length of the buffer is reduced while the
+        /// capacity remains unchanged.</remarks>
+        /// <param name="length">The new length of this buffer.</param>
+        /// <param name="options">Whether to clear any newly allocated bytes to all zeroes.</param>
+        public void Resize(int length, NativeArrayOptions options)
+        {
+            EnsureCapacity(length);
+
+            var oldLength = m_Buffer->Length;
+            m_Buffer->Length = length;
+            if (options == NativeArrayOptions.ClearMemory && oldLength < length)
+            {
+                var num = length - oldLength;
+                byte* ptr = BufferHeader.GetElementPointer(m_Buffer);
+                var sizeOf = UnsafeUtility.SizeOf<T>();
+                UnsafeUtility.MemClear(ptr + oldLength * sizeOf, num * sizeOf);
+            }
         }
 
         /// <summary>
@@ -238,7 +259,7 @@ namespace Unity.Entities
         {
             CheckWriteAccessAndInvalidateArrayAliases();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern, m_memoryInitPattern);
+            BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern == 1, m_memoryInitPattern);
 #else
             BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0);
 #endif
@@ -492,13 +513,13 @@ namespace Unity.Entities
         /// <returns>A dynamic buffer of the reinterpreted type.</returns>
         /// <exception cref="InvalidOperationException">If the reinterpreted type is a different
         /// size than the original.</exception>
-        public DynamicBuffer<U> Reinterpret<U>() where U : struct
+        public DynamicBuffer<U> Reinterpret<U>() where U : unmanaged
         {
             AssertReinterpretSizesMatch<U>();
             // NOTE: We're forwarding the internal capacity along to this aliased, type-punned buffer.
             // That's OK, because if mutating operations happen they are all still the same size.
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new DynamicBuffer<U>(m_Buffer, m_Safety0, m_Safety1, m_IsReadOnly, m_useMemoryInitPattern, m_memoryInitPattern, m_InternalCapacity);
+            return new DynamicBuffer<U>(m_Buffer, m_Safety0, m_Safety1, m_IsReadOnly == 1, m_useMemoryInitPattern == 1, m_memoryInitPattern, m_InternalCapacity);
 #else
             return new DynamicBuffer<U>(m_Buffer, m_InternalCapacity);
 #endif
@@ -511,6 +532,7 @@ namespace Unity.Entities
         /// the buffer memory has not been reallocated. Several dynamic buffer operations,
         /// such as <see cref="Add"/> and <see cref="TrimExcess"/> can result in
         /// buffer reallocation.</remarks>
+        /// <returns>A NativeArray view of this buffer.</returns>
         /// <example>
         /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.asnativearray"/>
         /// </example>
@@ -555,7 +577,7 @@ namespace Unity.Entities
         /// <returns>A native array containing copies of the buffer elements.</returns>
         public NativeArray<T> ToNativeArray(Allocator allocator)
         {
-            return new NativeArray<T>(AsNativeArray(), allocator);
+            return CollectionHelper.CreateNativeArray<T>(AsNativeArray(), allocator);
         }
 
         /// <summary>
@@ -567,7 +589,7 @@ namespace Unity.Entities
         /// <param name="v">The native array containing the elements to copy.</param>
         public void CopyFrom(NativeArray<T> v)
         {
-            //todo remove workaround: See https://unity3d.atlassian.net/browse/DOTS-1454
+            //todo remove workaround: See DOTS-1454
             ResizeUninitialized(v.Length);
             NativeSlice<T> vs = new NativeSlice<T>(v);
             vs.CopyTo(AsNativeArray());
@@ -611,7 +633,7 @@ namespace Unity.Entities
         /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.copyfrom.array"/>
         /// </example>
         /// <param name="v">A C# array containing the elements to copy.</param>
-        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="ArgumentNullException">Thrown if the given array is empty.</exception>
         public void CopyFrom(T[] v)
         {
             if (v == null)
@@ -636,7 +658,7 @@ namespace Unity.Entities
         }
     }
 
-    internal sealed class DynamicBufferDebugView<T>  where T : struct
+    internal sealed class DynamicBufferDebugView<T>  where T : unmanaged
     {
 #if !NET_DOTS
         private DynamicBuffer<T> _buffer;

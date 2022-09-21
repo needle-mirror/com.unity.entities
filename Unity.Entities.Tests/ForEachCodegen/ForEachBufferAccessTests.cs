@@ -15,7 +15,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [SetUp]
         public void SetUp()
         {
-            TestSystem = World.GetOrCreateSystem<SystemBase_TestSystem>();
+            TestSystem = World.GetOrCreateSystemManaged<SystemBase_TestSystem>();
 
             var myArch = m_Manager.CreateArchetype(
                 ComponentType.ReadWrite<EcsTestDataEntity>(),
@@ -66,32 +66,32 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
-            public void GetBufferFromGetBufferFromEntity_GetsValueFromBuffer(Entity entity, ScheduleType scheduleType)
+            public void GetBufferFromGetBufferLookup_GetsValueFromBuffer(Entity entity, ScheduleType scheduleType)
             {
                 switch (scheduleType)
                 {
                     case ScheduleType.Run:
-                        Entities.ForEach((ref EcsTestData td) => { td.value = GetBufferFromEntity<EcsIntElement>(true)[entity][0].Value; }).Run();
+                        Entities.ForEach((ref EcsTestData td) => { td.value = GetBufferLookup<EcsIntElement>(true)[entity][0].Value; }).Run();
                         break;
                     case ScheduleType.Schedule:
-                        Entities.ForEach((ref EcsTestData td) => { td.value = GetBufferFromEntity<EcsIntElement>(true)[entity][0].Value; }).Schedule();
+                        Entities.ForEach((ref EcsTestData td) => { td.value = GetBufferLookup<EcsIntElement>(true)[entity][0].Value; }).Schedule();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        Entities.ForEach((ref EcsTestData td) => { td.value = GetBufferFromEntity<EcsIntElement>(true)[entity][0].Value; }).ScheduleParallel();
+                        Entities.ForEach((ref EcsTestData td) => { td.value = GetBufferLookup<EcsIntElement>(true)[entity][0].Value; }).ScheduleParallel();
                         break;
                 }
 
                 Dependency.Complete();
             }
 
-            public void AddToBufferThroughGetBufferFromEntity_AddsValueToBuffer(Entity entity, ScheduleType scheduleType)
+            public void AddToBufferThroughGetBufferLookup_AddsValueToBuffer(Entity entity, ScheduleType scheduleType)
             {
                 switch (scheduleType)
                 {
                     case ScheduleType.Run:
                         Entities.ForEach((ref EcsTestDataEntity tde) =>
                         {
-                            var bfe = GetBufferFromEntity<EcsIntElement>(false);
+                            var bfe = GetBufferLookup<EcsIntElement>(false);
                             bfe[entity].Clear();
                             bfe[entity].Add(new EcsIntElement(){ Value = 2 });
                         }).Run();
@@ -99,7 +99,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     case ScheduleType.Schedule:
                         Entities.ForEach((ref EcsTestDataEntity tde) =>
                         {
-                            var bfe = GetBufferFromEntity<EcsIntElement>(false);
+                            var bfe = GetBufferLookup<EcsIntElement>(false);
                             bfe[entity].Clear();
                             bfe[entity].Add(new EcsIntElement(){ Value = 2 });
                         }).Schedule();
@@ -109,7 +109,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     case ScheduleType.ScheduleParallel:
                         Entities.ForEach((ref EcsTestDataEntity tde) =>
                         {
-                            var bfe = GetBufferFromEntity<EcsIntElement>(false);
+                            var bfe = GetBufferLookup<EcsIntElement>(false);
                             bfe[entity].Clear();
                             bfe[entity].Add(new EcsIntElement(){ Value = 2 });
                         }).ScheduleParallel();
@@ -120,25 +120,25 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
-            static int GetBufferValueByMethod(BufferFromEntity<EcsIntElement> bfe, Entity entity)
+            static int GetBufferValueByMethod(BufferLookup<EcsIntElement> bfe, Entity entity)
             {
                 return bfe[entity][0].Value;
             }
 
-            public void GetBufferThroughGetBufferFromEntityPassedToMethod_GetsValueFromBuffer(Entity entity)
+            public void GetBufferThroughGetBufferLookupPassedToMethod_GetsValueFromBuffer(Entity entity)
             {
-                Entities.ForEach((ref EcsTestDataEntity td) => { td.value0 = GetBufferValueByMethod(GetBufferFromEntity<EcsIntElement>(true), entity); }).Run();
+                Entities.ForEach((ref EcsTestDataEntity td) => { td.value0 = GetBufferValueByMethod(GetBufferLookup<EcsIntElement>(true), entity); }).Run();
             }
 
-            static void AddToBufferByMethod(BufferFromEntity<EcsIntElement> bfe, Entity entity, int value)
+            static void AddToBufferByMethod(BufferLookup<EcsIntElement> bfe, Entity entity, int value)
             {
                 bfe[entity].Clear();
                 bfe[entity].Add(new EcsIntElement() { Value = value });
             }
 
-            public void AddToBufferThroughGetBufferFromEntityPassedToMethod_AddsToBuffer(Entity entity)
+            public void AddToBufferThroughGetBufferLookupPassedToMethod_AddsToBuffer(Entity entity)
             {
-                Entities.ForEach((ref EcsTestDataEntity td) => { AddToBufferByMethod(GetBufferFromEntity<EcsIntElement>(false), entity, 2); }).Run();
+                Entities.ForEach((ref EcsTestDataEntity td) => { AddToBufferByMethod(GetBufferLookup<EcsIntElement>(false), entity, 2); }).Run();
             }
 
             public void MultipleGetBuffers_GetsValuesFromBuffers()
@@ -181,7 +181,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }
             }
 
-            public void GetBufferFromEntityInEntitiesForEachWithNestedCaptures_BufferAccessWorks()
+            public void GetBufferLookupInEntitiesForEachWithNestedCaptures_BufferAccessWorks()
             {
                 var outerCapture = 2;
                 {
@@ -191,9 +191,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     {
                         outerCapture = 10;
 
-                        var bfeRead = GetBufferFromEntity<EcsIntElement>(true);
+                        var bfeRead = GetBufferLookup<EcsIntElement>(true);
                         var val = bfeRead[tde.value1][0].Value;
-                        var bfeWrite = GetBufferFromEntity<EcsIntElement>(false);
+                        var bfeWrite = GetBufferLookup<EcsIntElement>(false);
                         bfeWrite[entity].Clear();
 
                         bfeWrite[entity].Add(new EcsIntElement() { Value = val * innerCapture * outerCapture });
@@ -209,17 +209,17 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     var a = 0;
                     if (data.value < 100)
                     {
-                        if (GetBufferFromEntity<EcsIntElement>().HasComponent(e))
+                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
                             a++;
-                        if (GetBufferFromEntity<EcsIntElement>().HasComponent(e))
+                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
                             a++;
-                        if (GetBufferFromEntity<EcsIntElement>().HasComponent(e))
+                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
                             a++;
-                        if (GetBufferFromEntity<EcsIntElement>().HasComponent(e))
+                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
                             a++;
-                        if (GetBufferFromEntity<EcsIntElement>().HasComponent(e))
+                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
                             a++;
-                        if (GetBufferFromEntity<EcsIntElement>().HasComponent(e))
+                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
                             a++;
                     }
                     data.value = a;
@@ -250,6 +250,24 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
                 return default;
             }
+
+            public void HasBuffer(Entity entity, ScheduleType scheduleType)
+            {
+                switch (scheduleType)
+                {
+                    case ScheduleType.Run:
+                        Entities.ForEach((ref EcsTestData td) => { td.value = HasBuffer<EcsIntElement>(entity) ? 333 : 0; }).Run();
+                        break;
+                    case ScheduleType.Schedule:
+                        Entities.ForEach((ref EcsTestData td) => { td.value = HasBuffer<EcsIntElement>(entity) ? 333 : 0; }).Schedule();
+                        break;
+                    case ScheduleType.ScheduleParallel:
+                        Entities.ForEach((ref EcsTestData td) => { td.value = HasBuffer<EcsIntElement>(entity) ? 333 : 0; }).ScheduleParallel();
+                        break;
+                }
+
+                Dependency.Complete();
+            }
         }
 
         [Test]
@@ -260,30 +278,30 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void GetBufferFromGetBufferFromEntity_GetsValueFromBuffer([Values] ScheduleType scheduleType)
+        public void GetBufferFromGetBufferLookup_GetsValueFromBuffer([Values] ScheduleType scheduleType)
         {
-            TestSystem.GetBufferFromGetBufferFromEntity_GetsValueFromBuffer(TestEntity2, scheduleType);
+            TestSystem.GetBufferFromGetBufferLookup_GetsValueFromBuffer(TestEntity2, scheduleType);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 
         [Test]
-        public void AddToBufferThroughGetBufferFromEntity_AddsValueToBuffer([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType)
+        public void AddToBufferThroughGetBufferLookup_AddsValueToBuffer([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType)
         {
-            TestSystem.AddToBufferThroughGetBufferFromEntity_AddsValueToBuffer(TestEntity1, scheduleType);
+            TestSystem.AddToBufferThroughGetBufferLookup_AddsValueToBuffer(TestEntity1, scheduleType);
             Assert.AreEqual(2, m_Manager.GetBuffer<EcsIntElement>(TestEntity1)[0].Value);
         }
 
         [Test]
-        public void GetBufferThroughGetBufferFromEntityPassedToMethod_GetsValueFromBuffer()
+        public void GetBufferThroughGetBufferLookupPassedToMethod_GetsValueFromBuffer()
         {
-            TestSystem.GetBufferThroughGetBufferFromEntityPassedToMethod_GetsValueFromBuffer(TestEntity2);
+            TestSystem.GetBufferThroughGetBufferLookupPassedToMethod_GetsValueFromBuffer(TestEntity2);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestDataEntity>(TestEntity1).value0);
         }
 
         [Test]
-        public void AddToBufferThroughGetBufferFromEntityPassedToMethod_AddsToBuffer()
+        public void AddToBufferThroughGetBufferLookupPassedToMethod_AddsToBuffer()
         {
-            TestSystem.AddToBufferThroughGetBufferFromEntityPassedToMethod_AddsToBuffer(TestEntity1);
+            TestSystem.AddToBufferThroughGetBufferLookupPassedToMethod_AddsToBuffer(TestEntity1);
             Assert.AreEqual(2, m_Manager.GetBuffer<EcsIntElement>(TestEntity1)[0].Value);
         }
 
@@ -309,9 +327,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void GetBufferFromEntityInEntitiesForEachWithNestedCaptures_BufferAccessWorks()
+        public void GetBufferLookupInEntitiesForEachWithNestedCaptures_BufferAccessWorks()
         {
-            TestSystem.GetBufferFromEntityInEntitiesForEachWithNestedCaptures_BufferAccessWorks();
+            TestSystem.GetBufferLookupInEntitiesForEachWithNestedCaptures_BufferAccessWorks();
             Assert.AreEqual(200, m_Manager.GetBuffer<EcsIntElement>(TestEntity1)[0].Value);
         }
 
@@ -330,6 +348,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.CallsBufferAccessMethodAndExecutesStaticMethodWithBurst_CompilesAndRuns().Complete();
             Assert.AreEqual(42, m_Manager.GetBuffer<EcsIntElement>(TestEntity1)[0].Value);
+        }
+
+        [Test]
+        public void HasBuffer_InvokedInsideEntitiesForEach([Values] ScheduleType scheduleType)
+        {
+            TestSystem.HasBuffer(TestEntity2, scheduleType);
+            Assert.AreEqual(333, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
+        }
+
+        [Test]
+        public void EntityManager_HasBuffer([Values] ScheduleType scheduleType)
+        {
+            Assert.IsTrue(TestSystem.EntityManager.HasBuffer<EcsIntElement>(TestEntity1));
+            Assert.IsTrue(TestSystem.EntityManager.HasBuffer<EcsIntElement>(TestEntity2));
         }
     }
 }

@@ -1,4 +1,6 @@
+using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -18,6 +20,7 @@ namespace Doc.CodeSamples.Tests
 
     #region full-chunk-example
 
+    [RequireMatchingQueriesForUpdate]
     public partial class ChunkComponentExamples : SystemBase
     {
         private EntityQuery ChunksWithChunkComponentA;
@@ -34,17 +37,16 @@ namespace Doc.CodeSamples.Tests
         }
 
         [BurstCompile]
-        struct ChunkComponentCheckerJob : IJobEntityBatch
+        struct ChunkComponentCheckerJob : IJobChunk
         {
             public ComponentTypeHandle<ChunkComponentA> ChunkComponentATypeHandle;
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var compValue
-                    = batchInChunk.GetChunkComponentData(ChunkComponentATypeHandle);
-                //...
+                var compValue = chunk.GetChunkComponentData(ChunkComponentATypeHandle);
                 var squared = compValue.Value * compValue.Value;
-                batchInChunk.SetChunkComponentData(ChunkComponentATypeHandle,
-                    new ChunkComponentA() { Value = squared });
+
+                chunk.SetChunkComponentData(ChunkComponentATypeHandle, new ChunkComponentA() { Value = squared });
             }
         }
 
@@ -68,6 +70,7 @@ namespace Doc.CodeSamples.Tests
         public AABB Value;
     }
 
+    [RequireMatchingQueriesForUpdate]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     [UpdateBefore(typeof(UpdateAABBSystem))]
     public partial class AddAABBSystem : SystemBase
@@ -97,6 +100,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
 
+    [RequireMatchingQueriesForUpdate]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class UpdateAABBSystem : SystemBase
     {
@@ -115,30 +119,33 @@ namespace Doc.CodeSamples.Tests
         }
 
         [BurstCompile]
-        struct AABBJob : IJobEntityBatch
+        struct AABBJob : IJobChunk
         {
             [ReadOnly]
             public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandleInfo;
             public ComponentTypeHandle<ChunkAABB> ChunkAabbTypeHandleInfo;
             public uint L2WChangeVersion;
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                Assert.IsFalse(useEnabledMask);
+
                 bool chunkHasChanges
-                    = batchInChunk.DidChange(LocalToWorldTypeHandleInfo,
-                                      L2WChangeVersion);
+                    = chunk.DidChange(LocalToWorldTypeHandleInfo,
+                        L2WChangeVersion);
 
                 if (!chunkHasChanges)
                     return; // early out if the chunk transforms haven't changed
 
                 NativeArray<LocalToWorld> transforms
-                    = batchInChunk.GetNativeArray<LocalToWorld>(LocalToWorldTypeHandleInfo);
+                    = chunk.GetNativeArray<LocalToWorld>(LocalToWorldTypeHandleInfo);
                 UnityEngine.Bounds bounds = new UnityEngine.Bounds();
                 bounds.center = transforms[0].Position;
                 for (int i = 1; i < transforms.Length; i++)
                 {
                     bounds.Encapsulate(transforms[i].Position);
                 }
-                batchInChunk.SetChunkComponentData(
+                chunk.SetChunkComponentData(
                     ChunkAabbTypeHandleInfo,
                     new ChunkAABB() { Value = bounds.ToAABB() });
             }
@@ -226,7 +233,7 @@ namespace Doc.CodeSamples.Tests
                 #region read-chunk-component
 
                 NativeArray<ArchetypeChunk> chunks
-                    = ChunksWithChunkComponentA.CreateArchetypeChunkArray(
+                    = ChunksWithChunkComponentA.ToArchetypeChunkArray(
                         Allocator.TempJob);
 
                 foreach (var chunk in chunks)

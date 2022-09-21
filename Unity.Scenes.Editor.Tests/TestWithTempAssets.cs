@@ -13,14 +13,7 @@ namespace Unity.Scenes.Editor.Tests
 
         public void SetUp()
         {
-            string path;
-            do
-            {
-                path = Path.GetRandomFileName();
-            }
-            while (AssetDatabase.IsValidFolder(Path.Combine("Assets", path)));
-
-            var guid = AssetDatabase.CreateFolder("Assets", path);
+            var guid = AssetDatabase.CreateFolder("Assets", nameof(TestWithTempAssets));
             TempAssetDir = AssetDatabase.GUIDToAssetPath(guid);
         }
 

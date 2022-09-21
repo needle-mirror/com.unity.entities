@@ -167,7 +167,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                     {
-                        var cmds = new EntityCommandBuffer(Allocator.TempJob);
+                        var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                         FillWithEcsTestData(cmds, kCreateLoopCount);
                         ecbs.Add(cmds);
                     }
@@ -211,7 +211,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                     {
-                        var cmds = new EntityCommandBuffer(Allocator.TempJob);
+                        var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                         FillWithEcsTestDataWithEntity(cmds, kCreateLoopCount);
                         ecbs.Add(cmds);
                     }
@@ -255,7 +255,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                     {
-                        var cmds = new EntityCommandBuffer(Allocator.TempJob);
+                        var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                         Entity e0 = cmds.CreateEntity();
                         cmds.AddComponent(e0, new EcsTestDataWithEntity {value = -1, entity = e0 });
                         FillWithEcsTestData(cmds, kCreateLoopCount);
@@ -292,7 +292,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithDestroyEntityCommands(ecb, entities);
                     }
@@ -304,11 +304,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -328,15 +328,15 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithDestroyEntityCommands(ecb, entities);
                     }
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -359,11 +359,11 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -381,12 +381,12 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                     FillWithCreateEntityCommands(ecb, size);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -410,12 +410,12 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                     prefabEntity = m_Manager.CreateEntity(archetype1);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -433,13 +433,13 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                     prefabEntity = m_Manager.CreateEntity(archetype1);
                     FillWithInstantiateEntityCommands(ecb, size, prefabEntity);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -455,7 +455,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithAddComponentCommands(ecb, entities, typeof(EcsTestData2));
                     }
@@ -467,11 +467,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -491,15 +491,15 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithAddComponentCommands(ecb, entities, typeof(EcsTestData2));
                     }
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -515,7 +515,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithSetComponentCommands(ecb, entities);
                     }
@@ -527,11 +527,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -551,15 +551,15 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithSetComponentCommands(ecb, entities);
                     }
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -575,7 +575,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithRemoveComponentCommands(ecb, entities);
                     }
@@ -587,11 +587,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -611,15 +611,15 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithRemoveComponentCommands(ecb, entities);
                     }
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -638,7 +638,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithEcsTestSharedComp(ecb, entities);
                     }
@@ -650,11 +650,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -674,15 +674,15 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithEcsTestSharedComp(ecb, entities);
                     }
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -699,7 +699,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithEcsTestManagedComp(ecb, entities);
                     }
@@ -711,11 +711,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -735,15 +735,15 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithEcsTestManagedComp(ecb, entities);
                     }
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -761,7 +761,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithSetEcsTestSharedComp(ecb, entities);
                     }
@@ -773,11 +773,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype2);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -797,15 +797,15 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype2);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithSetEcsTestSharedComp(ecb, entities);
                     }
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -822,7 +822,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithSetEcsTestManagedComp(ecb, entities);
                     }
@@ -834,11 +834,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype3);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -858,15 +858,15 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype3);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    using (var entities = group.ToEntityArray(Allocator.TempJob))
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                    using (var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         FillWithSetEcsTestManagedComp(ecb, entities);
                     }
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -893,11 +893,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -917,12 +917,12 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                     ecb.AddComponentForEntityQuery(group, typeof(EcsTestData2));
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -947,11 +947,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -971,12 +971,12 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                     ecb.RemoveComponentForEntityQuery(group, typeof(EcsTestData));
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -1001,11 +1001,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -1025,12 +1025,12 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                     ecb.DestroyEntitiesForEntityQuery(group);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -1055,11 +1055,11 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -1079,12 +1079,12 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                     ecb.AddSharedComponentForEntityQuery(group, new EcsTestSharedComp {value = 1});
                 })
                 .CleanUp(() =>
                 {
-                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
+                    using (var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         m_Manager.DestroyEntity(entities);
                     }
@@ -1112,8 +1112,8 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
-                    entities = m_Manager.CreateEntity(archetype1, size, Allocator.TempJob);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    entities = m_Manager.CreateEntity(archetype1, size, World.UpdateAllocator.ToAllocator);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
@@ -1135,13 +1135,13 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
-                    var allEntities = m_Manager.CreateEntity(archetype1, 2*size, Allocator.TempJob);
-                    entities = CollectionHelper.CreateNativeArray<Entity>(size, Allocator.TempJob,
+                    var allEntities = m_Manager.CreateEntity(archetype1, 2*size, World.UpdateAllocator.ToAllocator);
+                    entities = CollectionHelper.CreateNativeArray<Entity>(size, World.UpdateAllocator.ToAllocator,
                         NativeArrayOptions.UninitializedMemory);
                     for (int i = 0; i < size; ++i)
                         entities[i] = allEntities[2 * i];
                     allEntities.Dispose();
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
@@ -1162,8 +1162,8 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
-                    entities = m_Manager.CreateEntity(archetype1, size, Allocator.TempJob);
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    entities = m_Manager.CreateEntity(archetype1, size, World.UpdateAllocator.ToAllocator);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {
@@ -1184,13 +1184,13 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
-                    var allEntities = m_Manager.CreateEntity(archetype1, 2*size, Allocator.TempJob);
-                    entities = CollectionHelper.CreateNativeArray<Entity>(size, Allocator.TempJob,
+                    var allEntities = m_Manager.CreateEntity(archetype1, 2*size, World.UpdateAllocator.ToAllocator);
+                    entities = CollectionHelper.CreateNativeArray<Entity>(size, World.UpdateAllocator.ToAllocator,
                         NativeArrayOptions.UninitializedMemory);
                     for (int i = 0; i < size; ++i)
                         entities[i] = allEntities[2 * i];
                     allEntities.Dispose();
-                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 })
                 .CleanUp(() =>
                 {

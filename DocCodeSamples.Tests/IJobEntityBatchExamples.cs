@@ -10,15 +10,15 @@ using NUnit.Framework;
 // The files in this namespace are used to compile/test the code samples in the documentation.
 namespace Doc.CodeSamples.Tests
 {
-
+#pragma warning disable 618 // IJobEntityBatch is obsolete
     #region basic-ijobentitybatch
 
-    [GenerateAuthoringComponent]
     public struct ExpensiveTarget : IComponentData
     {
         public Entity entity;
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class BatchedChaserSystem : SystemBase
     {
         private EntityQuery query; // Initialized in Oncreate()
@@ -27,7 +27,7 @@ namespace Doc.CodeSamples.Tests
         private struct BatchedChaserSystemJob : IJobEntityBatch
         {
             // Read-write data in the current chunk
-            public ComponentTypeHandle<Translation> PositionTypeHandleAccessor;
+            public ComponentTypeHandle<ObjectPosition> PositionTypeHandleAccessor;
 
             // Read-only data in the current chunk
             [ReadOnly]
@@ -36,7 +36,7 @@ namespace Doc.CodeSamples.Tests
             // Read-only data stored (potentially) in other chunks
             [ReadOnly]
             //[NativeDisableParallelForRestriction]
-            public ComponentDataFromEntity<LocalToWorld> EntityPositions;
+            public ComponentLookup<LocalToWorld> EntityPositions;
 
             // Non-entity data
             public float deltaTime;
@@ -46,7 +46,7 @@ namespace Doc.CodeSamples.Tests
                 // Within Execute(), the scope of the ArchetypeChunk is limited to the current batch.
                 // For example, these NativeArrays will have Length = batchInChunk.BatchEntityCount,
                 // where batchInChunk.BatchEntityCount may be less than the full chunk entity count.
-                NativeArray<Translation> positions = batchInChunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
+                NativeArray<ObjectPosition> positions = batchInChunk.GetNativeArray<ObjectPosition>(PositionTypeHandleAccessor);
                 NativeArray<Target> targets = batchInChunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
 
                 for (int i = 0; i < positions.Length; i++)
@@ -56,28 +56,26 @@ namespace Doc.CodeSamples.Tests
                     float3 chaserPosition = positions[i].Value;
 
                     float3 displacement = (targetPosition - chaserPosition);
-                    positions[i] = new Translation { Value = chaserPosition + displacement * deltaTime };
+                    positions[i] = new ObjectPosition { Value = chaserPosition + displacement * deltaTime };
                 }
             }
         }
 
         protected override void OnCreate()
         {
-            query = this.GetEntityQuery(typeof(Translation), ComponentType.ReadOnly<Target>());
+            query = this.GetEntityQuery(typeof(ObjectPosition), ComponentType.ReadOnly<Target>());
         }
 
         protected override void OnUpdate()
         {
             var job = new BatchedChaserSystemJob();
-            job.PositionTypeHandleAccessor = this.GetComponentTypeHandle<Translation>(false);
+            job.PositionTypeHandleAccessor = this.GetComponentTypeHandle<ObjectPosition>(false);
             job.TargetTypeHandleAccessor = this.GetComponentTypeHandle<Target>(true);
 
-            job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
-            job.deltaTime = this.Time.DeltaTime;
+            job.EntityPositions = SystemAPI.GetComponentLookup<LocalToWorld>(true);
+            job.deltaTime = SystemAPI.Time.DeltaTime;
 
-            // In cases where relatively few entities are being processed, and the processing per entity is relatively
-            // expensive, using ScheduleGranularity.Entity can lead to better load balancing of work among worker threads.
-            this.Dependency = job.ScheduleParallel(query, ScheduleGranularity.Entity, default, this.Dependency);
+            this.Dependency = job.ScheduleParallel(query, this.Dependency);
         }
     }
     #endregion
@@ -91,7 +89,7 @@ namespace Doc.CodeSamples.Tests
     public struct UpdateTranslationFromVelocityJob : IJobEntityBatch
     {
         public ComponentTypeHandle<VelocityVector> velocityTypeHandle;
-        public ComponentTypeHandle<Translation> translationTypeHandle;
+        public ComponentTypeHandle<ObjectPosition> translationTypeHandle;
         public float DeltaTime;
 
         [BurstCompile]
@@ -99,7 +97,7 @@ namespace Doc.CodeSamples.Tests
         {
             NativeArray<VelocityVector> velocityVectors =
                 batchInChunk.GetNativeArray(velocityTypeHandle);
-            NativeArray<Translation> translations =
+            NativeArray<ObjectPosition> translations =
                 batchInChunk.GetNativeArray(translationTypeHandle);
 
             for(int i = 0; i < batchInChunk.Count; i++)
@@ -108,13 +106,14 @@ namespace Doc.CodeSamples.Tests
                 float3 velocity = velocityVectors[i].Value;
                 float3 newTranslation = translation + velocity * DeltaTime;
 
-                translations[i] = new Translation() { Value = newTranslation };
+                translations[i] = new ObjectPosition() { Value = newTranslation };
             }
         }
     }
     #endregion
 
     #region schedule-job
+    [RequireMatchingQueriesForUpdate]
     public partial class UpdateTranslationFromVelocitySystem : SystemBase
     {
         EntityQuery query;
@@ -125,7 +124,7 @@ namespace Doc.CodeSamples.Tests
             var description = new EntityQueryDesc()
             {
                 All = new ComponentType[]
-                       {ComponentType.ReadWrite<Translation>(),
+                       {ComponentType.ReadWrite<ObjectPosition>(),
                         ComponentType.ReadOnly<VelocityVector>()}
             };
             query = this.GetEntityQuery(description);
@@ -140,7 +139,7 @@ namespace Doc.CodeSamples.Tests
             // Set the job component type handles
             // "this" is your SystemBase subclass
             updateFromVelocityJob.translationTypeHandle
-                = this.GetComponentTypeHandle<Translation>(false);
+                = this.GetComponentTypeHandle<ObjectPosition>(false);
             updateFromVelocityJob.velocityTypeHandle
                 = this.GetComponentTypeHandle<VelocityVector>(true);
 
@@ -159,7 +158,7 @@ namespace Doc.CodeSamples.Tests
     {
         public ComponentTypeHandle<VelocityVector> velocityTypeHandle;
         #region component-handle
-        public ComponentTypeHandle<Translation> translationTypeHandle;
+        public ComponentTypeHandle<ObjectPosition> translationTypeHandle;
         #endregion
         public ComponentTypeHandle<Rotation> rotationTypeHandle;
         public ComponentTypeHandle<LocalToWorld> l2wTypeHandle;
@@ -171,7 +170,7 @@ namespace Doc.CodeSamples.Tests
             NativeArray<VelocityVector> velocityVectors =
                 batchInChunk.GetNativeArray(velocityTypeHandle);
             #region component-array
-            NativeArray<Translation> translations =
+            NativeArray<ObjectPosition> translations =
                 batchInChunk.GetNativeArray(translationTypeHandle);
             #endregion
             for (int i = 0; i < batchInChunk.Count; i++)
@@ -180,7 +179,7 @@ namespace Doc.CodeSamples.Tests
                 float3 velocity = velocityVectors[i].Value;
                 float3 newTranslation = translation + velocity * DeltaTime;
 
-                translations[i] = new Translation() { Value = newTranslation };
+                translations[i] = new ObjectPosition() { Value = newTranslation };
             }
 
             #region batch-has-component
@@ -213,6 +212,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class OneLinerSystem : SystemBase
     {
         EntityQuery query;
@@ -222,7 +222,7 @@ namespace Doc.CodeSamples.Tests
             var description = new EntityQueryDesc()
             {
                 All = new ComponentType[]
-                       {ComponentType.ReadWrite<Translation>(),
+                       {ComponentType.ReadWrite<ObjectPosition>(),
                         ComponentType.ReadOnly<VelocityVector>()}
             };
             query = this.GetEntityQuery(description);
@@ -235,7 +235,7 @@ namespace Doc.CodeSamples.Tests
             #region component-set-handle
             // "this" is your SystemBase subclass
             updateFromVelocityJob.translationTypeHandle
-                = this.GetComponentTypeHandle<Translation>(false);
+                = this.GetComponentTypeHandle<ObjectPosition>(false);
             #endregion
             updateFromVelocityJob.rotationTypeHandle
                 = this.GetComponentTypeHandle<Rotation>(false);
@@ -280,6 +280,7 @@ namespace Doc.CodeSamples.Tests
     #endregion
 
     #region skip-unchanged-batches-system
+    [RequireMatchingQueriesForUpdate]
     public partial class UpdateDataOnChangeSystem : SystemBase {
 
         EntityQuery query;
@@ -310,6 +311,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
     #endregion
+    [RequireMatchingQueriesForUpdate]
     public partial class UpdateFilteredDataSystem : SystemBase
     {
 
@@ -351,5 +353,5 @@ namespace Doc.CodeSamples.Tests
         }
 
     }
-
+#pragma warning restore 618 // IJobEntityBatch is obsolete
 }

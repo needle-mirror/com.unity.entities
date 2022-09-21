@@ -2,6 +2,9 @@ using System;
 using Unity.Entities;
 using Unity.Mathematics;
 
+#if !ENABLE_TRANSFORM_V1
+#else
+
 namespace Unity.Transforms
 {
     [Serializable]
@@ -16,3 +19,5 @@ namespace Unity.Transforms
         public float3 Position => new float3(Value.c3.x, Value.c3.y, Value.c3.z);
     }
 }
+
+#endif

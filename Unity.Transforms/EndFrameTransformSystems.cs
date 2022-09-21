@@ -3,75 +3,95 @@ using Unity.Entities;
 
 namespace Unity.Transforms
 {
-    
-    
-    [UnityEngine.ExecuteAlways]
+    /// <summary>
+    /// A system group containing systems that process entity transformation data. 
+    /// </summary>
+    /// <remarks>
+    /// This group includes systems that update any entity transformation hierarchies, compute up-to-date <see cref="LocalToWorldTransform"/> values
+    /// for all entities not in world-space, or compute <see cref="LocalToWorld"/> matrices.
+    /// </remarks>
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     public class TransformSystemGroup : ComponentSystemGroup
     {
     }
 
+#if !ENABLE_TRANSFORM_V1
+#else
+    /// <inheritdoc cref="ParentSystem"/>
     [Obsolete("Use ParentSystem. (UnityUpgradable) -> ParentSystem", true)]
     public struct EndFrameParentSystem
     {
     }
+#endif
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     public partial struct ParentSystem : ISystem
     {
     }
-    
+
+#if !ENABLE_TRANSFORM_V1
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
+    public partial struct TransformToMatrixSystem : ISystem
+    {
+    }
+#else
+    /// <inheritdoc cref="CompositeScaleSystem"/>
     [Obsolete("Use CompositeScaleSystem. (UnityUpgradable) -> CompositeScaleSystem", true)]
     public struct EndFrameCompositeScaleSystem
     {
     }
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     public partial struct CompositeScaleSystem : ISystem
     {
     }
-    
+
+    /// <inheritdoc cref="RotationEulerSystem"/>
     [Obsolete("Use RotationEulerSystem. (UnityUpgradable) -> RotationEulerSystem", true)]
     public struct EndFrameRotationEulerSystem
     {
     }
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     public partial struct RotationEulerSystem : ISystem
     {
     }
-    
+
+    /// <inheritdoc cref="PostRotationEulerSystem"/>
     [Obsolete("Use PostRotationEulerSystem. (UnityUpgradable) -> PostRotationEulerSystem", true)]
     public struct EndFramePostRotationEulerSystem
     {
     }
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     public partial struct PostRotationEulerSystem : ISystem
     {
     }
-    
+
+    /// <inheritdoc cref="CompositeRotationSystem"/>
     [Obsolete("Use CompositeRotationSystem. (UnityUpgradable) -> CompositeRotationSystem", true)]
     public struct EndFrameCompositeRotationSystem
     {
     }
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     [UpdateAfter(typeof(RotationEulerSystem))]
     public partial struct CompositeRotationSystem : ISystem
     {
     }
-    
+
+    /// <inheritdoc cref="TRSToLocalToWorldSystem"/>
     [Obsolete("Use TRSToLocalToWorldSystem. (UnityUpgradable) -> TRSToLocalToWorldSystem", true)]
     public struct EndFrameTRSToLocalToWorldSystem
     {
     }
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     [UpdateAfter(typeof(CompositeRotationSystem))]
     [UpdateAfter(typeof(CompositeScaleSystem))]
@@ -79,26 +99,28 @@ namespace Unity.Transforms
     public partial struct TRSToLocalToWorldSystem : ISystem
     {
     }
-    
+
+    /// <inheritdoc cref="ParentScaleInverseSystem"/>
     [Obsolete("Use ParentScaleInverseSystem. (UnityUpgradable) -> ParentScaleInverseSystem", true)]
     public struct EndFrameParentScaleInverseSystem
     {
     }
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     [UpdateAfter(typeof(ParentSystem))]
     [UpdateAfter(typeof(CompositeRotationSystem))]
     public partial struct ParentScaleInverseSystem : ISystem
     {
     }
-    
+
+    /// <inheritdoc cref="TRSToLocalToParentSystem"/>
     [Obsolete("Use TRSToLocalToParentSystem. (UnityUpgradable) -> TRSToLocalToParentSystem", true)]
     public struct EndFrameTRSToLocalToParentSystem
     {
     }
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     [UpdateAfter(typeof(CompositeRotationSystem))]
     [UpdateAfter(typeof(CompositeScaleSystem))]
@@ -106,29 +128,32 @@ namespace Unity.Transforms
     public partial struct TRSToLocalToParentSystem : ISystem
     {
     }
-    
+
+    /// <inheritdoc cref="LocalToParentSystem"/>
     [Obsolete("Use LocalToParentSystem. (UnityUpgradable) -> LocalToParentSystem", true)]
     public struct EndFrameLocalToParentSystem
     {
     }
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     [UpdateAfter(typeof(TRSToLocalToParentSystem))]
     public partial struct LocalToParentSystem : ISystem
     {
     }
-    
+
+    /// <inheritdoc cref="WorldToLocalSystem"/>
     [Obsolete("Use WorldToLocalSystem. (UnityUpgradable) -> WorldToLocalSystem", true)]
     public struct EndFrameWorldToLocalSystem
     {
     }
 
-    [UnityEngine.ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
     [UpdateAfter(typeof(TRSToLocalToWorldSystem))]
     [UpdateAfter(typeof(LocalToParentSystem))]
     public partial struct WorldToLocalSystem : ISystem
     {
     }
+#endif
 }

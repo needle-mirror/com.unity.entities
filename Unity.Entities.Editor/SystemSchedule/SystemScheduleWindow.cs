@@ -1,7 +1,7 @@
 using System;
 using Unity.Profiling;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Serialization.Editor;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -71,12 +71,15 @@ namespace Unity.Entities.Editor
         Label m_EntityHeaderLabel;
         Label m_TimeHeaderLabel;
 
-        [MenuItem(Constants.MenuItems.SystemScheduleWindow, false, Constants.MenuItems.WindowPriority)]
+        [MenuItem(Constants.MenuItems.SystemScheduleWindow, false, Constants.MenuItems.SystemScheduleWindowPriority)]
         static void OpenWindow()
         {
             var window = GetWindow<SystemScheduleWindow>();
             window.Show();
         }
+
+        public SystemScheduleWindow() : base(Analytics.Window.Systems)
+        { }
 
         /// <summary>
         /// Build the GUI for the system window.
@@ -136,7 +139,7 @@ namespace Unity.Entities.Editor
 
             AddSearchIcon(rightSide, UssClasses.DotsEditorCommon.SearchIcon);
 
-            var dropdownSettings = CreateDropdownSettings(UssClasses.DotsEditorCommon.SettingsIcon);
+            var dropdownSettings = InspectorUtility.CreateDropdownSettings(UssClasses.DotsEditorCommon.SettingsIcon);
             AppendOptionMenu(dropdownSettings.menu);
 
             UpdateWorldSelectorDisplay();

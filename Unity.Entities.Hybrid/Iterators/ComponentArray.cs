@@ -1,33 +1,34 @@
 using System;
 using System.Reflection;
-
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
+    /// <summary>
+    /// Variants of EntityQuery methods that support managed components
+    /// </summary>
     public static class EntityQueryExtensionsForComponentArray
     {
-        public unsafe static T[] ToComponentArray<T>(this EntityQuery group) where T : Component
+        /// <summary>
+        /// Gather values of a component from all entities that match a query into a managed array.
+        /// </summary>
+        /// <param name="query">The query whose entities should have their <typeparamref name="T"/> values gathered.</param>
+        /// <typeparam name="T">The managed component type to gather</typeparam>
+        /// <returns>A managed array of <typeparamref name="T"/> values for all entities that match the query.</returns>
+        public unsafe static T[] ToComponentArray<T>(this EntityQuery query) where T: class
         {
-            int entityCount = group.CalculateEntityCount();
-            var arr = new T[entityCount];
-
-            var iterator = group.GetArchetypeChunkIterator();
-            var indexInEntityQuery = group.GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>());
-
-            var entityCounter = 0;
-            var mcs = group._GetImpl()->_Access->ManagedComponentStore;
-            while (iterator.MoveNext())
+            var entities = query.ToEntityArray(Allocator.Temp);
+            int entityCount = entities.Length;
+            var arr = new T[entities.Length];
+            var eda = *(query._GetImpl()->_Access);
+            var componentType = ComponentType.ReadOnly<T>();
+            for (int i = 0; i < entityCount; ++i)
             {
-                var chunk = iterator.CurrentArchetypeChunk;
-                for (int entityIndex = 0; entityIndex < chunk.Count; ++entityIndex)
-                {
-                    arr[entityCounter++] = (T)iterator.GetManagedObject(mcs, indexInEntityQuery, entityIndex);
-                }
+                arr[i] = eda.GetComponentObject<T>(entities[i], componentType);
             }
-
             return arr;
         }
     }

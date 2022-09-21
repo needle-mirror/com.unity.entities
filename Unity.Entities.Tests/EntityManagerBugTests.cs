@@ -105,7 +105,7 @@ namespace Unity.Entities.Tests
                 None = Array.Empty<ComponentType>(),
                 All = m_OurTypes,
             });
-            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             EntityTypeHandle entityTypeHandle = m_Manager.GetEntityTypeHandle();
@@ -183,7 +183,7 @@ namespace Unity.Entities.Tests
         {
             ComponentType[] types = {typeof(Issue476Data)};
             var group = m_Manager.CreateEntityQuery(types);
-            var temp = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var temp = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
         }
     }

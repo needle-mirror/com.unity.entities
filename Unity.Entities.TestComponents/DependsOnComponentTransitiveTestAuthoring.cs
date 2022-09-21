@@ -3,19 +3,10 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [AddComponentMenu("")]
-    public class DependsOnComponentTransitiveTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class DependsOnComponentTransitiveTestAuthoring : MonoBehaviour
     {
         public int SelfValue;
         public DependsOnComponentTransitiveTestAuthoring Dependency;
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
-        {
-            conversionSystem.DeclareDependency(gameObject, Dependency);
-            dstManager.AddComponentData(entity, new Component
-            {
-                Value = FindValue(this)
-            });
-        }
-
         static int FindValue(DependsOnComponentTransitiveTestAuthoring a)
         {
             int dist = 0;
@@ -31,5 +22,29 @@ namespace Unity.Entities.Tests
         {
             public int Value;
         }
+
+        class Baker : Baker<DependsOnComponentTransitiveTestAuthoring>
+        {
+            int FindValue(DependsOnComponentTransitiveTestAuthoring a)
+            {
+                int dist = 0;
+                while (DependsOn(a.Dependency) != null)
+                {
+                    a = a.Dependency;
+                    dist++;
+                }
+                return a.SelfValue + dist;
+            }
+
+            public override void Bake(DependsOnComponentTransitiveTestAuthoring authoring)
+            {
+                AddComponent(new Component
+                {
+                    Value = FindValue(authoring)
+                });
+            }
+        }
     }
+
+
 }

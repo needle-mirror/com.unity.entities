@@ -7,6 +7,10 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
 {
     // We suppress the CS0282 warning around partial structs with fields in the case of source-generated types
     // (with our PartialStructWarningSuppressor), but we pass through other warnings not around our specific types.
+
+#if UNITY_2021_1_OR_NEWER
+    [Ignore("2021.1 no longer supports UnityEditor.Scripting.Compilers.CSharpLanguage which these tests rely on.")]
+#endif
     [TestFixture]
     public class PartialStructWarningSuppressorTests : SourceGenTests
     {
@@ -69,7 +73,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
                     public float _yetAnotherField;
                 }";
 
-            AssertProducesError(source, "CS0282", Enumerable.Empty<string>(), null, true);
+            AssertProducesError(source, "CS0282", Enumerable.Empty<string>(),Enumerable.Empty<string>(), null, true);
         }
     }
 }

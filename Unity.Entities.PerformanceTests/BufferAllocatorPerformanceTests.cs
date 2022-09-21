@@ -29,7 +29,7 @@ namespace Unity.Entities.PerformanceTests
                     .MeasurementCount(measureCount)
                     .SetUp(() =>
                     {
-                        allocator = new BufferAllocatorHeap(bufferCount * bufferBytes, bufferBytes, Allocator.TempJob);
+                        allocator = new BufferAllocatorHeap(bufferCount * bufferBytes, bufferBytes, RwdAllocator.ToAllocator);
                         setup(allocator);
                     })
                     .CleanUp(() => { allocator.Dispose(); })
@@ -46,7 +46,7 @@ namespace Unity.Entities.PerformanceTests
                     .MeasurementCount(measureCount)
                     .SetUp(() =>
                     {
-                        allocator = new BufferAllocator(bufferCount * bufferBytes, bufferBytes, Allocator.TempJob);
+                        allocator = new BufferAllocator(bufferCount * bufferBytes, bufferBytes, RwdAllocator.ToAllocator);
                         setup(allocator);
                     })
                     .CleanUp(() => { allocator.Dispose(); })
@@ -105,7 +105,7 @@ namespace Unity.Entities.PerformanceTests
         public static void FreeRandomly()
         {
             const int kBufferCount = 4096;
-            var indices = new NativeArray<int>(kBufferCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var indices = CollectionHelper.CreateNativeArray<int>(kBufferCount, RwdAllocator.ToAllocator, NativeArrayOptions.UninitializedMemory);
 
             RunPerformanceTest(kBufferBytes, kBufferCount, 1, 10, (allocator) =>
             {

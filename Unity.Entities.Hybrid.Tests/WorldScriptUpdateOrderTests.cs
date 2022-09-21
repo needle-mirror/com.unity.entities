@@ -25,9 +25,9 @@ namespace Unity.Entities.Tests
             DefaultWorldInitialization.Initialize("Test World", true);
 
             var newWorld = new World("WorldA");
-            newWorld.CreateSystem<InitializationSystemGroup>();
-            newWorld.CreateSystem<SimulationSystemGroup>();
-            newWorld.CreateSystem<PresentationSystemGroup>();
+            newWorld.CreateSystemManaged<InitializationSystemGroup>();
+            newWorld.CreateSystemManaged<SimulationSystemGroup>();
+            newWorld.CreateSystemManaged<PresentationSystemGroup>();
             Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(newWorld));
 
             ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(newWorld);
@@ -47,7 +47,7 @@ namespace Unity.Entities.Tests
         {
             using (var world = new World("Test World"))
             {
-                world.CreateSystem<InitializationSystemGroup>();
+                world.CreateSystemManaged<InitializationSystemGroup>();
                 var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
                 Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
             }
@@ -58,7 +58,7 @@ namespace Unity.Entities.Tests
         {
             using (var world = new World("Test World"))
             {
-                world.CreateSystem<InitializationSystemGroup>();
+                world.CreateSystemManaged<InitializationSystemGroup>();
                 var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
                 ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(world, ref playerLoop);
                 Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
@@ -70,7 +70,7 @@ namespace Unity.Entities.Tests
         {
             using (var world = new World("Test World"))
             {
-                world.CreateSystem<InitializationSystemGroup>();
+                world.CreateSystemManaged<InitializationSystemGroup>();
                 var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
                 ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(world, ref playerLoop);
                 Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
@@ -82,7 +82,7 @@ namespace Unity.Entities.Tests
         {
             using (var world = new World("Test World"))
             {
-                world.CreateSystem<InitializationSystemGroup>();
+                world.CreateSystemManaged<InitializationSystemGroup>();
                 var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
                 ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(world, ref playerLoop);
                 Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
@@ -97,8 +97,8 @@ namespace Unity.Entities.Tests
             using (var worldA = new World("Test World A"))
             using (var worldB = new World("Test World B"))
             {
-                worldA.CreateSystem<InitializationSystemGroup>();
-                worldB.CreateSystem<InitializationSystemGroup>();
+                worldA.CreateSystemManaged<InitializationSystemGroup>();
+                worldB.CreateSystemManaged<InitializationSystemGroup>();
                 var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
                 ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(worldA, ref playerLoop);
                 Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
@@ -114,8 +114,8 @@ namespace Unity.Entities.Tests
             using (var worldA = new World("Test World A"))
             using (var worldB = new World("Test World B"))
             {
-                worldA.CreateSystem<InitializationSystemGroup>();
-                worldB.CreateSystem<InitializationSystemGroup>();
+                worldA.CreateSystemManaged<InitializationSystemGroup>();
+                worldB.CreateSystemManaged<InitializationSystemGroup>();
                 var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
                 ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(worldA, ref playerLoop);
                 ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(worldB, ref playerLoop);
@@ -145,7 +145,7 @@ namespace Unity.Entities.Tests
         {
             using (var world = new World("Test World"))
             {
-                var sys = world.CreateSystem<TestSystem>();
+                var sys = world.CreateSystemManaged<TestSystem>();
                 var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
                 Assert.That(
                     () => ScriptBehaviourUpdateOrder.AppendSystemToPlayerLoop(sys, ref playerLoop,
@@ -196,7 +196,7 @@ namespace Unity.Entities.Tests
             using (var world = new World("Test World"))
             {
                 var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
-                var sys = world.CreateSystem<TestSystem>();
+                var sys = world.CreateSystemManaged<TestSystem>();
                 Type targetStageType = typeof(PreLateUpdate.LegacyAnimationUpdate);
                 ScriptBehaviourUpdateOrder.AppendSystemToPlayerLoop(sys, ref playerLoop, targetStageType);
                 ValidatePostAppendPlayerLoop(playerLoop, targetStageType, sys);
@@ -209,7 +209,7 @@ namespace Unity.Entities.Tests
             using (var world = new World("Test World"))
             {
                 // world must have at least one of the default top-level groups to add
-                var initSysGroup = world.CreateSystem<InitializationSystemGroup>();
+                var initSysGroup = world.CreateSystemManaged<InitializationSystemGroup>();
 
                 Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(world));
                 ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(world);

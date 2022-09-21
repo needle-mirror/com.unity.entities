@@ -1,704 +1,559 @@
-# Upgrading from Entities 0.17 to Entities 0.51
+# Upgrading from Entities 0.51 to 1.0
 
-To upgrade to Entities 0.51 from 0.17 you'll need to do the following:
+To upgrade from Entities 0.51 to 1.0, you need to do the following:
 
-**Entities**
+* [Update Transforms in your project](#update-transforms-in-your-project)
+* [Update conversions in your project](#update-conversions-in-your-project)
+* [Remove GenerateAuthoringComponent](#remove-generateauthoringcomponent)
+* [Update code that gets and creates a world's systems](#update-code-that-gets-and-creates-a-worlds-systems)
+* [Remove Entities.ForEach in ISystem-based systems](#remove-entitiesforeach-in-isystem-based-systems)
+* [Update IJobChunk to handle enableable components](#update-ijobchunk-to-handle-enableable-components)
+* [Convert IJobEntityBatch and IJobEntityBatchWithIndex to IJobChunk](#convert-ijobentitybatch-and-ijobentitybatchwithindex-to-ijobchunk)
+* [Rename asynchronous EntityQuery gather-scatter methods](#rename-asynchronous-entityquery-gather-scatter-methods)
+* [Convert IJobEntityBatch and IJobEntityBatchWithIndex to IJobChunk](#convert-ijobentitybatch-and-ijobentitybatchwithindex-to-ijobchunk)
+* [Update system state components to cleanup components](#update-system-state-components-to-cleanup-components)
+* [Update TypeManager code to use TypeIndex instead of int](#update-typemanager-code-to-use-typeindex-instead-of-int)
+* [Update EntityCommandBufferSystem that have direct access](#update-entitycommandbuffersystem-that-have-direct-access)
+* [Change system update code](#change-system-update-code)
+* [Rename EntityQueryDescBuilder](#rename-entityquerydescbuilder)
+* [Update SystemBase.Time and SystemState.Time](#update-systembasetime-and-systemstatetime)
+* [Add the Entities Graphics package to your project](#add-the-entities-graphics-package-to-your-project)
 
-* [Rename FixedList128 to FixedList128Bytes](#fixedlist)
-* [Add partial keyword to all SystemBase, ISystem, and ISystemBase types](#partial)
-* [Upgrade JobComponentSystem to SystemBase](#systembase)
-* [Rename ISystemBase to ISystem](#isystem)
-* [Replace IJobForEach with IJobEntity](#ijobentity)
-* [Remove DOTS Editor package](#editor)
-* [Remove Audio package](#audio)
-* [Remove Animations package](#animations)
-* [Use string literals with Entities.WithName](#efewithname)
-* [Remove nested Entities.ForEach](#nestedefe)
-* [Add a reference to the Jobs package for Unity.Entities.RegisterGenericJobTypeAttribute](#genericjob)
-* [Ensure Entities.WithReadOnly has valid parameters](#withreadonly)
-* [Remove platform-specific Platforms packages and add com.unity.platforms](#platforms)
+**Removed**
+* [Auto Generate Lighting mode removed](#auto-generate-lighting-mode-removed)
 
-**Netcode for Entities**
+## Update Transforms in your project
 
-* [Remove GhostCollectionAuthoringComponent](#ghostcollection)
-* [Move UpdateInWorld.TargetWorld to a top-level enum](#updateinworld)
-* [Source-generators replace code-generation](#sourcecode)
+The default way that Transforms work in Entities 1.0 has changed. This section contains information on how to upgrade your project to work with the new Transforms. For further information on how Transforms work in Entities, see the [Transforms in Entities](transforms-intro.md) documentation. 
 
-**Hybrid Renderer**
+The Transform system is under active development and subject to change up until the 1.0 release. The original, deprecated transform system is available via the `ENABLE_TRANSFORM_V1` define until then.
 
-* [Remove Hybrid Renderer V1](#hybrid)
-
-**Physics**
-
-* [Update TriggerEventSystem from JobComponentSystem to SystemBase](#physics)
-
-## Entities 
-<a name="fixedlist"></a>
-
-### Rename FixedList128 to FixedList128Bytes
-
-`FixedList128` has been renamed to `FixedList128Bytes`. All other sizes and  `FixedStrings` have been similarly renamed. This change more accurately reflects that the struct takes up 128 bytes, rather than having 128 elements. 
-
-When the Script Updater runs, it automatically renames any usage of renamed APIs for you. If you've hard-coded any of these names in your code, you'll need to update them manually.
-
-<a name="partial"></a>
-
-### Add partial keyword to all SystemBase, ISystem, and ISystemBase types
-
-Entities' internal code generation mechanism has changed from IL post-processing to Source Generators. This means you can see the underlying code that the ECS framework generates, and debug it accordingly. You can see this code in your project's `/Temp/GeneratedCode` folder. Because of this, the generated code must be valid C# and the `partial` keyword is needed to augment system types.
-
-Unity generates an error for all types of this kind that don't have the appropriate keyword. You can manually add the keyword, or you can use the Editor feature below to automatically add them to all your system types (make sure to save your work before enabling this).
-
-To auto update your project’s systems with this keyword:
-1. Save your project.
-1. Go to **DOTS &gt; DOTS Compiler &gt; Add missing partial keyword to systems**
-1. Let Unity recompile source files.
-1. Disable the **Add missing partial keyword to systems** setting
-
->[!IMPORTANT]
->Remember to disable this setting from the menu, or else Unity  continues to overwrite your files with added partial keywords on compilation .
-
-<a name="systembase"></a>
-## Upgrade JobComponentSystem to SystemBase 
-
-The `JobComponentSystem `type has been fully removed and is replaced by `SystemBase`. `SystemBase` is tested internally with both unit and performance tests, gives more options for scheduling, and does implicit job ordering by default. More information can be found below and in the [SystemBase](xref:Unity.Entities.SystemBase) section of the manual. SystemBase has been previously released and doesn't have new semantics. 
-
-#### Implicit job scheduling: convert JobComponentSystem types to use the Dependency field
-
-You don't have to explicitly use dependencies when scheduling jobs inside of a system. ECS holds the current dependency that the system tracks in a Dependency field and uses it implicitly when scheduling `Entities.ForEach` or `Job.WithCode`. This means that `OnUpdate` now neither takes a `JobHandle` nor returns a `JobHandle`. Instead, ECS sets the Dependency to the input dependency before `OnUpdate` begins and uses it for the next System when the `OnUpdate` ends.  
-
-All `Entities.ForEach` and `Job.WithCode` scheduling methods have versions that both take and return, or don't take or return a `JobHandle`. This means you must convert existing `JobComponentSystem` types to use the Dependency field, rather than using the input dependency parameter and returning one.
-
-#### Sequential and parallel scheduling: Schedule Entities.ForEach as intended
-
-`Entities.ForEach` now has both a `Schedule` and `ScheduleParallel` method that differentiates between sequential and parallel scheduling. All new job types also follow this pattern. This means you must make sure that you've scheduled all `Entities.ForEach` jobs with the intended method.
-
-The previous `JobComponentSystem` type was unable to schedule work to happen sequentially and not in parallel. It can be useful to be able to schedule work to happen off the main thread, but still in sequential order. This makes it easier to understand how the work happens, and gives the safety system more freedom when scheduling.
-
-To upgrade to `SystemBase` from `JobComponentSystem`: 
-
-1. Change the inherited type from `JobComponentSystem` to `SystemBase`. Make sure you've marked the type with the `partial` keyword. For more information on how to do this, see the upgrade entry about [adding partial keywords to SystemBase types](#partial).
-1. Change the method signature of `OnUpdate` to no longer take or return a `JobHandle`. It should now use the `void` return type and no longer return a `JobHandle`.
-1. Change any place that the input dependency was used or returned, to use the Dependency field on `SystemBase`. This might mean you need to change some logic of your system’s `OnUpdate` method.
-1. Change any uses of `Entities.ForEach(...).Schedule` to `Entities.ForEach(...).ScheduleParallel` if you would like to keep parallel execution.
-
-Before:
+### UniformScaleTransform
+All transforms now contain a [`UniformScaleTransform`](xref:Unity.Transforms.UniformScaleTransform) struct:
 
 ```c#
-public partial class RotationSpeedSystem_ForEach : JobComponentSystem
-{
-    protected override JobHandle OnUpdate(JobHandle inputDeps)
+public struct UniformScaleTransform
     {
-        return Entities
-            .ForEach((ref Rotation rotation, in RotationSpeed rotationSpeed) => 
-            { 
-            })
-            .Schedule(inputDeps);
+        public float3 Position;
+        public float Scale;
+        public quaternion Rotation;
     }
+
+public struct LocalToWorldTransform : IComponentData
+    {
+        UniformScaleTransform Value;
+    }
+```
+
+### Equivalence
+Translation, Rotation, and Scale components are now combined into a single [`LocalToWorldTransform`](xref:Unity.Transforms.LocalToWorldTransform) component like so:
+
+* Translation: `LocalToWorldTransform.Value.Position`
+* Rotation: `LocalToWorldTransform.Value.Rotation`
+* Scale: `LocalToWorldTransform.Value.Scale`
+
+The following is an example of how to convert your code to use the `LocalToWorldTransform` component:
+
+```c#
+// BEFORE
+void Execute(ref Translation translation)
+    {
+        translation.Value += math.up();
+    }
+
+// AFTER
+void Execute(ref LocalToWorldTransform transform)
+    {
+        transform.Value.Position += math.up();
+    }
+```
+
+### Scale
+
+The `NonUniformScale` component has been removed, and there isn't an equivalent. Non-uniform scaling isn't supported in the transform hierarchy. To non-uniformly scale the geometry, use a [`PostTransformMatrix`](xref:Unity.Transforms.PostTransformMatrix) before it's passed on to rendering.
+
+### Relativity
+
+The `LocalToWorldTransform` component is always in world space. If there is a parent, the `LocalToParentTransform` component is always relative to that parent. When present, the `LocalToParentTransform` component updates the `LocalToWorldTransform` component.
+
+Previously, the Translation, Rotation, and Scale components changed their relativity when used in a hierarchy. Without a parent, Translation, Rotation, and Scale were in world space. With a parent, they were relative to that parent.
+
+[`Parent`](xref:Unity.Transforms.Parent) and [`LocalToParentTransform`](xref:Unity.Transforms.LocalToParentTransform) components always go together. Whenever you add or remove a `Parent` component, you should also add or remove a `LocalToParentTransform` component.
+
+### Initialization
+
+The following is an example of how to initialize the `LocalToWorldTransform` and `LocalToParentTransform` components:
+
+```c#
+// BEFORE
+var t = new Translation { Value = new float3(1, 2, 3) };
+
+// AFTER
+var t = new LocalToWorldTransform { Value = UniformScaleTransform.FromPosition(1, 2, 3) };
+```
+
+To see the full list of initializer variations available, see the API documentation for [`UniformScaleTransform`](xref:Unity.Transforms.UniformScaleTransform).
+
+You must initialize all transforms. The C# default behavior to initialize a struct with all zeroes is an invalid transform. Where necessary, use [`UniformScaleTransform.Identity`](xref:Unity.Transforms.UniformScaleTransform.Identity) as a default value, like so:
+
+```c#
+var t = new LocalToWorldTransform { Value = UniformScaleTransform.Identity };
+```
+## Update conversions in your project
+
+The previous conversion system has been replaced with Baking. For more information, see the documentation on [Baking](baking.md)
+
+Bakers are close to `IConvertGameObjectToEntity` and are where you directly interface with the Unity objects, such as your authoring component. Bakers are also where dependencies are implicitly or explicitly captured, and all components added are capable of automatically being reverted if a Baker re-runs. A Baker can only add components to the primary entity that it's baking and the additional entities created by itself.
+
+### Basic Baker
+This example shows how to change the usage of `IConvertGameObjectToEntity` to a Baker:
+
+```c#
+public struct MyComponent : IComponentData
+{
+   public float Value;
+}
+
+// BEFORE
+public class MyMonoBehaviour : MonoBehaviour, IConvertGameObjectToEntity
+{
+    public float value;
+
+    public void Convert(Entity entity, EntityManager dstManager,
+        GameObjectConversionSystem conversionSystem)
+    {
+        dstManager.AddComponentData(entity, new MyComponent {Value = value});
+    }
+}
+
+
+// AFTER
+public class MyMonoBehaviour : MonoBehaviour
+{
+   public float value;
+}
+
+public class MyBaker : Baker<MyMonoBehaviour>
+{
+   public override void Bake(MyMonoBehaviour authoring)
+   {
+       AddComponent(new MyComponent {Value = authoring.value} );
+   }
 }
 ```
 
-After:
+The code inside the Baker is almost the same as the one in Convert with the following exceptions:
+
+* You access the data via the authoring parameter.
+* You don’t need to specify the `EntityManager`.
+* Because you're adding a component to the primary entity, you don’t need to specify it.
+
+A Baker can also be inside a `MyMonoBehaviour` class or in a completely separate file.
+
+### Prefabs in Bakers
+Previously, to declare and convert Prefabs you had to implement the `IDeclareReferencedPrefabs` interface. Now you just need to call `GetEntity` in the Baker:
 
 ```c#
-public partial class RotationSpeedSystem_ForEach : SystemBase
+public struct MyComponent : IComponentData
 {
-    protected override void OnUpdate()
-    {
-        Entities
-            .ForEach((ref Rotation rotation, in RotationSpeed rotationSpeed) => 
-            { 
-            })
-            .ScheduleParallel();
-    }
+   public Entity Prefab;
+}
+
+public class MyMonoBehaviour : MonoBehaviour
+{
+   public GameObject prefab;
+}
+
+public class MyBaker : Baker<MyMonoBehaviour>
+{
+   public override void Bake(MyMonoBehaviour authoring)
+   {
+       AddComponent(new MyComponent { Prefab = GetEntity(authoring.prefab) } );
+   }
 }
 ```
 
-<a name="isystem"></a>
+### Runtime conversion
+Runtime Conversion will be fully removed for 1.0 and the only way to use Baking is through Sub Scenes. This means that `ConvertToEntity` and `GameObjectConversionUtility.ConvertGameObjectHierarchy` don’t work with Baking.
 
-### Rename ISystemBase to ISystem
+## Remove GenerateAuthoringComponent
 
-`ISystemBase` is obsolete, and replaced by the `ISystem` interface. You should change all usages of `ISystemBase` to `ISystem`. You can optionally use the script updater to change the name for you once you reload Unity, and accept the prompt that appears stating for you to backup.
+`GenerateAuthoringComponent` has been removed and you need to use a regular MonoBehaviour and Baker instead. 
 
-You can continue to use ISystemBase in old code, but it will be removed and unsupported in a future version of Entities.
+To migrate without losing the data in the scenes, you need to write the MonoBehaviours before upgrading to 1.0. These are the steps to preserve the data. Make sure the scripts aren't compiled until you complete step 2:
 
-To upgrade ISystemBase to ISystem either:
-
-* Refresh Unity, and let the script updater run, which updates the naming for you. A back-up prompt appears beforehand, so you can decide whether you want to do it manually.
-* Or, change the code from:
+1. Remove `[GenerateAuthoringComponent]` from your component.
     ```c#
-    partial struct ExampleSystem : ISystemBase
+    //[GenerateAuthoringComponent]
+    public struct MyComponent : IComponentData
     {
-      public void OnCreate(ref SystemState state){}
-      public void OnDestroy(ref SystemState state){}
-      public void OnUpdate(ref SystemState state){}
+        public float Value;
     }
     ```
-    to:
+1. In the same file where you got your `IComponentData`, write your `MonoBehaviour`. This can be done manually or by copy and pasting the generated code.
     ```c#
-    partial struct ExampleSystem : ISystem
+    //[GenerateAuthoringComponent]
+    public struct MyComponent : IComponentData
     {
-      public void OnCreate(ref SystemState state){}
-      public void OnDestroy(ref SystemState state){}
-      public void OnUpdate(ref SystemState state){}
+        public float Value;
+    }
+
+    public class MyComponentAuthoring : MonoBehaviour
+    {
+        public float Value;
+    }
+    ```
+1. At this point, errors and warnings appear in the Unity Editor. Ignore them and carry on to step 4. The errors look like:
+    ```
+    'MyComponent' is missing the class attribute 'ExtensionOfNativeClass'!
+    GameObject (named 'GameObject') references runtime script in scene file. Fixing!
+    ```
+1. In the Unity Editor, rename the file to match the name of your new `MonoBehaviour`. This preserves the information in the .meta file. In the case of the sample, the file needs to be renamed to `MyComponentAuthoring.cs`. The previous errors should be gone now and your data should have been preserved.
+1. After upgrading to 1.0, you need to write the Baker for that new `MonoBehaviour`. The final file in the example will look like this (`MyComponentAuthoring.cs`):
+    ```c#
+    public struct MyComponent : IComponentData
+    {
+        public float Value;
+    }
+
+    public class MyComponentAuthoring : MonoBehaviour
+    {
+        public float Value;
+    }
+
+    public class MyComponentAuthoringBaker : Baker<MyComponentAuthoring>
+    {
+    public override void Bake(MyComponentAuthoring authoring)
+    {
+        AddComponent(new MyComponent
+        {
+            Value = authoring.Value
+        });       
+    }
     }
     ```
 
-<a name="ijobentity"></a>
+## Update code that gets and creates a world's systems
 
-### Replace IJobForEach with IJobEntity
+Previously, World methods for accessing particular systems would return a direct reference to the system instance. This includes `GetExistingSystem`, `GetOrCreateSystem`, and `CreateSystem`.
 
-`IJobForEach` has been removed. You should use `IJobEntity` instead, which works more like a job, and more like `Entities.ForEach`. It's easier to support because it generates the underlying `IJobEntityBatch`. To summarize the changes:
+They now they return a `SystemHandle` rather than a direct reference. 
 
-* You can no longer use `IJobForEach`.
-* Use `IJobEntity`, with job attributes, implicit scheduling, and query generation instead.
-* If you’re still using `ComponentSystem`, the removal of `IJobForEach` means you have to use `IJobEntityBatch` manually.
+If you have code that accesses system data directly, you should move system-associated data into a component. These components can exist in either a singleton entity, or they can belong to a system-associated entity through `EntityManager.GetComponentData<T>(SystemHandle)` and similar methods. The latter is recommended when data lifetime should be tied to the system lifetime. 
 
-`IJobEntity` has code reusability: for example, if you want to copy an array of Entity positions, you can make a function to copy and schedule it with different `NativeArray`structs. 
+This change enables Burst compiled `ISystem` systems to do all the things that `SystemBase` systems that aren't Burst compiled can do. 
 
-`IJobEntity` has an `Execute` function, similar to a job. Also, each parameter describes a Component, similar to `Entities.ForEach`, and you can use the `in` and `ref` keywords to describe its access pattern. This means that you can use the `in` keyword to directly get a read-only reference, rather than writing `[ReadOnly] ref`.
+To access managed system instances directly, replace the following calls:
+* `GetExistingSystem` to `GetExistingSystemManaged`
+* `GetOrCreateSystem` to `GetOrCreateSystemManaged`
+* `CreateSystem` to `CreateSystemManaged`
 
-You can also use all job attributes. Like `Entities.ForEach` in `SystemBase`, this feature does implicit job scheduling. The limit is that `IJobEntity` currently only works in `SystemBase`. It has an overload for both queries, and a job handle. In cases where you don’t specify a query, it makes one implicitly that matches the signature of the execute function. 
- 
-To upgrade your IJobForEach implementation do the following:
+## Remove Entities.ForEach in ISystem-based systems
 
-1. Remove `IJobForEach` and replace it with `IJobEntity`.
-1. Add the `partial` keyword to the struct.
-1. Change `[ReadOnly] ref` to `in`.
-1. Remove any scheduling code in systems.
-1. Make sure that any scheduling happens from a variable and not from the instantiation directly. For example, don't do this:
-    ```c#
-    new EntityRotationJob 
-    {
-      dt = Time.deltaTime 
-    }.Schedule();
-    ```
-    Do this instead:
-    ```c#
-    var job = new EntityRotationJob 
+`Entities.ForEach` is deprecated in ISystem-based systems. There are now two APIs you can use to iterate over entities: [`IJobEntity`](xref:Unity.Entities.IJobEntity) and [`Query<T>`](xref:Unity.Entities.SystemAPI.Query*).
+
+The `IJobEntity` job interface was introduced in 0.50. For information on how to use this interface, see the documentation on [Iterating over data with IJobEntity](iterating-data-ijobentity.md).
+
+To iterate directly over an enumerable that gives access to component data or aspects with [`Query<T>`](xref:Unity.Entities.SystemAPI.Query*) you can use an idiomatic C# foreach statement:
+
+```c#
+foreach (var (myAspect, myWriteData, myReadData) in Query<MyAspect,RefRW<WriteComponent>, RefRO<ReadComponent>>())
     { 
-      dt = Time.deltaTime 
-    };
-    job.Schedule();
-    ```
-1. To upgrade an `IJobForEachWithEntity`, use a parameter of type `Entity`, similar to what you would do with `Entities.ForEach`. If you also want the Index, use the `[EntityInQueryIndex]` attribute on an `int` parameter. For example, you would change the following code:
+    // Do stuff; 
+    }
+ ```
+
+The Query method is part of the `SystemAPI` helper class. Use a static statement at the top of the source file to implicitly reference this:
+
+```c#
+using static Unity.Entities.SystemAPI;
+```
+
+### Limitations
+
+* Code in the `foreach` body always runs on the main thread (until `foreach` is supported inside `IJobEntity`).
+* You must use the `RefRO` and `RefRW` generic types to iterate through components. `RefRO` indicates read-only access and `RefRW` indicates read-write.
+* You can iterate up to 8 aspects or components in the same `foreach` statement.
+* You can't query dynamic buffers in a `foreach` statement.
+* You can't save a query in a variable, field, or property and then reuse it multiple times.
+* You can only perform a `foreach` iteration over a `Query<T>()` inside a method that has a `ref SystemState` parameter.
+
+## Update IJobChunk to handle enableable components
+
+[IJobChunk](xref:Unity.Entities.IJobChunk) now supports [enableable components](components-enableable.md). When an `IJobChunk` implementation iterates over the entities in a chunk, you must now identify and skip over individual entities with disabled components that cause them not to match the job’s `EntityQuery`. As such, you must update all existing `IJobChunk` implementations to handle enableable components.
+
+The parameters passed to [`IJobChunk.Execute()`](xref:Unity.Entities.IJobChunk.Execute*) have changed:
+
+* The `chunkIndex` parameter is now called `unfilteredChunkIndex`, to emphasize that it's the index of the chunk within the list of all chunks that match the job’s query.
+* A new `chunkEnabledMask` parameter is now provided, which contains a 128-bit mask that describes which of the chunk’s entities match the job’s query, and should be processed.
+* A new `useEnabledMask` parameter is now provided, which indicates whether the `chunkEnabledMask` parameter contains valid data.
+* The `firstEntityIndex` parameter is removed. This value was expensive to calculate, and most `IJobChunk` implementations don't use this parameter. If you have any jobs that use this value as a sort key when recording an `EntityCommandBuffer`, you should use `unfilteredChunkIndex` instead. If you need this value for example, to read or write per-entity data to or from a tightly packed array, see the [upgrade information below](#jobs-that-need-firstentityindex).
+
+For more information on these parameters, see the [`IJobChunk.Execute()`](xref:Unity.Entities.IJobChunk.Execute*) API documentation.
+
+### Required updates
+To upgrade an existing IJobChunk implementation:
+
+1. Change the signature of the `Execute()` method:
     ```c#
-    struct CopyPositionsJob : 
-    IJobForEachWithEntity<Translation>
+    // Old signature
+    void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+    // New signature
+    void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+    ```
+1. If the job contains a loop over the chunk’s entities, update the loop to skip entities that don’t match the job’s query. The new [`ChunkEntityEnumerator`](xref:Unity.Entities.ChunkEntityEnumerator) helper encapsulates all the necessary logic:
+    ```c#
+    // Old loop
+    for(int i=0, chunkEntityCount=chunk.Count; i < chunkEntityCount; ++i)
     {
-      public NativeArray<float3> Positions;
-     
-      public void Execute(
-        Entity entity, int index, 
-        [ReadOnly] ref LocalToWorld localToWorld)
-      {
-        Positions[index] = localToWorld.Position;
-      }
+    }
+    // New loop
+    var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
+    while(enumerator.NextEntityIndex(out int i))
+    {
     }
     ```
-    To this:
+1. The overhead of `ChunkEntityEnumerator` is as low as possible, so you can leave in the original for loop in cases where you are certain that the `EntityQuery` used to schedule the job doesn't contain any enableable components. However, it's best practice to add an assert that fires if this precondition ever changes:
     ```c#
-    partial struct CopyPositionsJob : 
-    IJobEntity
+    // Loop where enableable components are not needed
+    Assert.IsFalse(useEnabledMask); 
+    // This job is not written to handle enableable components
+    for(int i=0, chunkEntityCount=chunk.Count; i < chunkEntityCount; ++i)
     {
-      public NativeArray<float3> Positions;
-      
-      public void Execute(
-        [EntityInQueryIndex] int index, 
-        in LocalToWorld localToWorld)
-      {
-        Positions[index] = localToWorld.Position;
-      }
     }
     ```
-A full example of the `IJobForEach` conversion is below:
+1. At all call sites where the job is scheduled, change `job.Schedule(query,dependsOn)` to `job.ScheduleParallel(query, dependsOn)`. Without this change, the job compiles and runs, but its execution happens on a single worker thread instead of “going wide” across multiple worker threads in parallel. **Important:** The `dependsOn` parameter is no longer optional: most jobs should already have an explicit input dependency, but if they don't, pass `default`.
 
-Old code:
-```c#
-[BurstCompile]
-struct EntityRotationJob : 
-IJobForEach<Rotation, RotationSpeed>
-{
-  public float dt;
- 
-  public void Execute(
-      ref Rotation rotation, 
-      [ReadOnly] ref RotationSpeed speed)
-  {
-      rotation.value = math.mul(
-          math.normalize(rotation.value), 
-          quaternion.axisAngle(
-              math.up(), 
-              speed.speed * dt));
-  }
-}
- 
-struct RotationSystem : JobComponentSystem 
-{
-  protected override JobHandle OnUpdate(
-    JobHandle inputDeps)
-  {
-      var job = new EntityRotationJob 
-      {
-          dt = Time.deltaTime 
-      };
-      return job.Schedule(this, inputDeps);
-  } 
-}
+### Jobs that need firstEntityIndex
+By default, `IJobChunk` no longer passes the `firstEntityIndex` parameter to its `Execute()` method. This is because most `IJobChunk` operations don't use this parameter, and it requires a prefix sum operation to compute which isn't performant. The two most common use cases for `firstEntityIndex` were as a `sortKey` parameter when recording an `EntityCommandBuffer`, and as an index into an array of per-entity data that the job is reading or writing.
 
-      
-```
+You can now use `chunkIndex` or `unfilteredChunkIndex` as an `EntityCommandBuffer` sort key. For more information, see the [`IJobChunk.Execute()`](xref:Unity.Entities.IJobChunk.Execute*) API documentation.
 
-New code:
-```c#
-[BurstCompile]
-partial struct EntityRotationJob : 
-IJobEntity
-{
-  public float dt;
- 
-  public void Execute(
-      ref Rotation rotation, 
-      in RotationSpeed speed)
-  {
-      rotation.value = math.mul(
-          math.normalize(rotation.value), 
-          quaternion.axisAngle(
-              math.up(), 
-              speed.speed * dt));
-  }
-}
- 
-struct RotationSystem : SystemBase 
-{
-  protected override void OnUpdate()
-  
-  {
-      var job = new EntityRotationJob 
-      { 
-          dt = Time.deltaTime 
-      };
-      job.Schedule(); 
-      // Note: Schedule has to be called 
-      // from variable for sourcegen to work
-  }
-}        
-```
-
-<a name="editor"></a>
-
-### Remove DOTS Editor package
-
-Remove any references to the DOTS Editor package (com.unity.dots.editor). The package has been merged into the Entities package, and any previous version will conflict and cause compilation errors.
-
-<a name="audio"></a>
-
-### Remove Audio package
-
-The Audio package (com.unity.audio) isn't supported. You should remove the package and any related scripts from your project.
-
-<a name="animations"></a>
-
-### Remove Animations package
-
-The Animations package (com.unity.animations) isn't supported. You should remove the package and any related scripts from your project.
-
-<a name="#efewithname"></a>
-
-### Use string literals with Entities.WithName
-
-In previous versions, you could use string constants with `Entities.WithName`, but the requirement is now more strict and only string literals will work.
-
-What used to work before:
-```c#
-const string name = "SomeName";
-Entities
-    .WithName(name)
-    .ForEach((ref LocalToWorld ltw) =>
-{
-    // ...
-}).Schedule();
-```
-
-The above code now triggers the following error:
->error DC0008: The argument to WithName needs to be a literal value.
-
-To upgrade, do the following instead:
-```c#
-Entities
-    .WithName("SomeName")
-    .ForEach((ref LocalToWorld ltw) =>
-{
-    // ...
-}).Schedule();
-```
-
-<a name="nestedefe"></a>
-
-## Remove nested Entities.ForEach
-
-Having an `Entities.ForEach` within another `Entities.ForEach` was never intended nor supported. In previous versions, the following syntax would compile and eventually work:
+For jobs that need the `firstEntityIndex` value for any other reason, use the optional helper function [`EntityQuery.CalculateBaseEntityIndexArrayAsync()`](xref:Unity.Entities.EntityQuery.CalculateBaseEntityIndexArrayAsync*) to compute the index for each chunk. You should call this method directly  before scheduling the job that needs `firstEntityIndex`, and use the same `EntityQuery` that schedules the job, plus whatever input dependency the job requires. You can then pass the resulting array of per-chunk indices into the user job:
 
 ```c#
-Entities.WithoutBurst().ForEach((MyComponent a) =>
-{
-    Entities.ForEach((MyComponent b) =>
+NativeArray<int> chunkBaseEntityIndices = query.CalculateBaseEntityIndexArrayAsync(
+	Allocator.TempJob, myJobInputDependency, out JobHandle baseIndexJobHandle);
+JobHandle myJobHandle = new MyJob
     {
-
-    }).Run();
-}).Run();
+        ChunkBaseEntityIndices = chunkBaseEntityIndices,
+        // other job fields here
+    }.ScheduleParallel(query, baseIndexJobHandle);
 ```
 
-This is now properly rejected by the compiler with the following error:
-
->error DC0029: Entities.ForEach Lambda expression has a nested Entities.ForEach Lambda expression. Only a single Entities.ForEach Lambda expression is currently supported.
-
-<a name="genericjob"></a>
-
-## Add a reference to the Jobs package if using Unity.Entities.RegisterGenericJobTypeAttribute
-
-Assemblies that require `Unity.Entities.RegisterGenericJobTypeAttribute` need a reference to the Unity.Jobs assembly.
-
-<a name="withreadonly"></a>
-
-## Ensure Entities.WithReadOnly has valid parameters
-
-In previous versions of the Entities package, some invalid uses of `Entities.WithReadOnly` would not cause an error.
+In the user job, you can use a chunk's unfilteredChunkIndex to look up the baseEntityIndex for each chunk. You must mark the array as `[DeallocateOnJobCompletion]` to prevent a memory leak. You can compute the index of a given entity in the query like so:
 
 ```c#
-NativeArray<float> someArray = new NativeArray<float>(123, Allocator.Temp);
-float someValue = 1;
-Entities
-    .WithReadOnly(someArray) // error : someArray is not used in the lambda
-    .WithReadOnly(someValue) // error : someValue is not a native container
-    .ForEach((MyComponent a) =>
+struct MyJob : IJobChunk
 {
-}).Run();
-```
-
-In the current version, the example above doesn't compile and throws the following error instead:
-
-> error DC0012: Entities.WithReadOnly is called with an invalid argument XXX. You can only use Entities.WithReadOnly on local variables that are captured inside the lambda. Please assign the field to a local variable and use that instead.
-
-<a name="platforms"></a>
-
-### Remove platform-specific Platforms packages and add com.unity.platforms
-
-The platform-specific com.unity.platforms packages have been removed. You should remove the following platform-specific packages from your project: 
-
-* com.unity.platforms.android
-* com.unity.platforms.desktop
-* com.unity.platforms.ios
-* com.unity.platforms.linux
-* com.unity.platforms.macos
-* com.unity.platforms.web
-* com.unity.platforms.windows
-
-To build your project, you should use the com.unity.platforms package, which uses Build Configuration assets to build your project. For further information, see the documentation on [Building an Entities project](ecs_building_projects.md).
-
-## Netcode for Entities
-
-<a name="ghostcollection"></a>
-
-### Remove GhostCollectionAuthoringComponent
-
-Ghost collections no longer require any special setup. They only require that the Entity Prefab is loaded on both the client and server.
-
-If you currently have a `GhostCollectionAuthoringComponent` with two Prefabs, a player and an item the custom component for that would look like this:
-
-```c#
-[GenerateAuthoringComponent]
-public struct CustomSpawner : IComponentData
-{
-   public Entity Player;
-   public Entity Item;
+	[ReadOnly] [DeallocateOnJobCompletion] public NativeArray<int> ChunkBaseEntityIndices;
+	// other job fields here
+	public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex,
+		bool useEnabledMask, in v128 chunkEnabledMask)
+	{
+		int baseEntityIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
+		int validEntitiesInChunk = 0;
+		var enumerator = new ChunkEntityEnumerator(useEnabledMask,
+			chunkEnabledMask, chunk.Count);
+		while(enumerator.NextEntityIndex(out int i))
+		{
+			// INCORRECT: may count entities that do not match the query
+			int incorrectEntityInQueryIndex = baseEntityIndex + i;
+			// CORRECT: gives the index of the entity relative to all matching entities
+			int entityInQueryIndex = baseEntityIndex + validEntitiesInChunk;
+			++validEntitiesInChunk;
+		}
+	}
 }
 ```
 
-To upgrade this code, replace the `GhostCollectionAuthoringComponent` with `CustomSpawner` in the scene data and make sure the player and item references point to the correct Prefabs.
+## Convert IJobEntityBatch and IJobEntityBatchWithIndex to IJobChunk
 
-The spawner component doesn't need to reference pre-spawned ghosts which are never instantiated at runtime.
+The `IJobEntityBatch` and `IJobEntityBatchWithIndex` job types have been removed. You must convert existing implementations of these job types to [`IJobChunk`](xref:Unity.Entities.IJobChunk), which has been rewritten to efficiently support [enableable components](components-enableable.md). This migration is similar to the information in the [Update IJobChunk](#required-updates) section of this upgrade guide:
 
-The code to spawn a ghost changes to:
+1. Change the job struct to implement `IJobChunk` instead of `IJobEntityBatch` or `IJobEntityBatchWithIndex`
+1. Update the signature of `Execute()`. The old parameter names are slightly different, but they map to the same `chunkIndex` and f`irstEntityIndex` parameters of the old `IJobChunk` API.
+1. Update any loops over entities to use `ChunkEntityEnumerator` (if enableable components might be present), or a raw for loop with an assert (if not).
+
+You don't need to change `Schedule(query,dependsOn)` to `ScheduleParallel(query,dependsOn)`. `IJobEntityBatch.Schedule()` and `IJobEntityBatchWithIndex.Schedule()` already have the same semantics as the new `IJobChunk` API.
+
+For `IJobEntityBatchWithIndex`, see the information in the [Jobs that need firstEntityIndex](#jobs-that-need-firstentityindex) section of this upgrade guide.
+
+## Rename asynchronous EntityQuery gather-scatter methods
+
+The following methods in the [`EntityQuery`](xref:Unity.Entities.EntityQuery) namespace have been renamed:
+
+* `ToEntityArrayAsync`: Renamed to [`ToEntityListAsync`](xref:Unity.Entities.EntityQuery.ToEntityListAsync*).
+* `ToComponentDataArrayAsync`: Renamed to [`ToComponentDataListAsync`](xref:Unity.Entities.EntityQuery.ToComponentDataListAsync*).
+* `CopyFromComponentDataArrayAsync`: Renamed to [`CopyFromComponentDataListAsync`](xref:Unity.Entities.EntityQuery.CopyFromComponentDataListAsync*).
+
+This is a result of the new [enableable components](components-enableable.md) feature. The set of entities that match an EntityQuery might depend on the results of a previously-scheduled job if the query references any enableable components. The asynchronous gather operations (previously `EntityQuery.ToEntityArrayAsync` and `EntityQuery.ToComponentArrayAsync`) now return a `NativeList` rather than a `NativeArray`. This is because the final length of a list that has enableable components can't be known until the gather job completes. A `NativeList` can be returned to the caller before its final size is known, unlike a `NativeArray`, whose size needs to be set at array creation time. So, the asynchronous methods have been renamed to reflect this.
+
+To upgrade existing calls to these methods:
+
+1. Change the method name to its new one.
+1. Change the return type from `NativeArray<T>` to `NativeList<T>`
+1. Optionally, pass an additional input dependency `JobHandle`. The scheduled gather-scatter job automatically depends on any previously registered jobs which have write access to the query's enableable components. If you need additional input dependencies, you can pass them as an optional `additionalInputDep` parameter.
+1. If you want to access the output `NativeList` (including reading any of its fields), you need to either wait for the gather job to complete, or pass the list to a follow up job. This is because attempting to access the list triggers a safety error. If you create a follow up job, make sure it expects a `NativeList` rather than a `NativeArray`. If the follow up job is an `IJobParallelFor`, you should convert it to `IJobParallelForDefer`, which supports scheduling with a `NativeList`. 
+1. Change `[DeallocateOnJobCompletion]` attributes to an allocator that doesn't require allocations to be explicitly disposed, such as`World.UpdateAllocator.ToAllocator`. If you can't do this, then schedule a follow up job with `list.Dispose(JobHandle)` to asynchronously dispose the list once it's no longer required. For example:
+    ```c#
+    // old code
+    struct ProcessHealthArrayJob : IJobParallelFor
+    {
+        [DeallocateOnJobCompletion] public NativeArray<Health> HealthArray;
+        void Execute(int i)
+        {
+            // process HealthArray[i] here
+        }
+    }
+    // inside system.OnUpdate()
+    NativeArray<Health> healthArray = query.ToComponentDataArrayAsync(Allocator.TempJob,
+        out JobHandle gatherJob);
+    var processJob = new ProcessHealthArrayJob{ HealthArray = healthArray }
+        .Schedule(healthArray.Count, 64, gatherJob);
+
+    // new code
+    struct ProcessHealthJob : IJobParallelForDefer
+    {
+        public NativeList<Health> HealthList;
+        void Execute(int i)
+        {
+            // process HealthList[i] here
+        }
+    }
+    // inside system.OnUpdate()
+    NativeList<Health> healthList =
+        query.ToComponentDataListAsync(World.UpdateAllocator.ToAllocator, out JobHandle gatherJob);
+    var processJob = new ProcessHealthListJob{ HealthList = healthList }
+        .Schedule(healthList, gatherJob);
+    ```
+
+## Update system state components to cleanup components
+
+The following APIs have been renamed:
+
+* `ISystemStateComponentData` renamed to [`ICleanupComponentData`](xref:Unity.Entities.ICleanupComponentData)
+* `ISystemStateSharedComponentData` renamed to [`ICleanupSharedComponentData`](xref:Unity.Entities.ICleanupSharedComponentData)
+* `ISystemStateBufferElementData` renamed to [`ICleanupBufferElementData`](xref:Unity.Entities.ICleanupBufferElementData)
+
+You should replace all occurrences of these if the script updater doesn't automatically handle them following. Using the old type names won’t function properly and should trigger warnings.
+
+## Update TypeManager code to use TypeIndex instead of int
+
+`TypeManager` now uses `TypeIndex` to represent a type index, rather than an int. This provides better type-safety, and less confusion on how the int should be used in code paths. `TypeIndex` implicitly converts the int back and forth, so this has little impact on existing code, however this conversion has a performance cost. You should therefore upgrade any code that uses into to prefer `TypeIndex` instead.
+
+You must manually update any code that uses an `int*` for an indirection to a type index, or array of type indices to `TypeIndex*`.
+
+## Update EntityCommandBufferSystem that have direct access
+
+`EntityCommandBufferSystem` has been updated so that if you want to play back a particular `EntityCommandBufferSystem`, you can now Burst compile it.
+
+Previously, you couldn't Burst compile an entity command buffer that would get played back by a particular `EntityCommandBufferSystem` because it directly accessed the `EntityCommandBufferSystem`. For example:
+
 ```c#
-EntityManager.Instantiate(GetSingleton<CustomSpawner>().Player);
-```
-
-<a name="updateinworld"></a>
-
-### Move UpdateInWorld.TargetWorld to a top-level enum
-
-The target world enum for the `UpdateInWorld` attribute has been moved to a top-level enum. Replace all references to `UpdateInWorld.TargetWorld` to `TargetWorld`. The enum value stays the same, so for example you would replace `UpdateInWorld.TargetWorld.Client` with `TargetWorld.Client`.
-
-<a name="updateinworld"></a>
-
-### Change LagCompensation from opt-in to opt-out
-
-The component `DisableLagCompensation` no longer exists: if you were previously using it you can remove it.
-
-If you are using lag compensation you must add a new singleton entity with a `LagCompensationConfig` component to opt-in to lag compensation through `PhysicsWorldHistory`.
-
-<a name="sourcecode"></a>
-
-### Source-generators replace code-generation 
-
-The code generation for Netcode for Entities has been rewritten to use roslyn based source generators. You must delete the `Assets/NetCodeGenerated` folder when upgrading to this version. If you don't remove it, you might encounter compilation errors. 
-
-If your project uses Modifiers or templates to customize the code-generation you must take some extra steps:
-
-#### Custom templates
-Create a new folder inside your project and add an assembly reference to NetCode. For example:
-```
-+ CodeGenCustomization/
-    + NetCodeRef/
-   	    NetCode.asmref
-    + Templates/
-   	    Templates.asmdef (has NETCODE_CODEGEN_TEMPLATES define constraints)
-```
-
-These folders contain your project's templates and subtypes definition. The steps are outlined below, and you can find further information in the [Netcode documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest).
-
-#### Re-implementing template registration
-Create a new file and add a partial class for the `UserDefinedTemplates` inside the folder with the `netcode.asmref` (`NetCodeRef `in the example).
-
-Then, implement the `static partial void RegisterTemplates(...)` method. You will register your templates in this method.
-
-```c#
-using System.Collections.Generic;
-namespace Unity.NetCode.Generators
+public void OnUpdate(ref SystemState state)  // ‘state’ unused in this example
 {
-   public static partial class UserDefinedTemplates
-   {
-       static partial void RegisterTemplates(List<TypeRegistryEntry> templates, string defaultRootPath)
-       {
-           templates.AddRange(new[]{
- 
-               new TypeRegistryEntry
-               {
-                   Type = "Unity.Mathematics.float3",
-                   SubType = Unity.NetCode.GhostFieldSubType.Translation2d,
-                   Quantized = true,
-                   Smoothing = SmoothingAction.InterpolateAndExtrapolate,
-                   SupportCommand = false,
-                   Composite = false,
-                   Template = "Assets/Samples/NetCodeGen/Templates/Translation2d.cs",
-                   TemplateOverride = "",
-               },
-           }
-       }
-   }
+    var ecb = World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>()
+        .CreateCommandBuffer();
+    var deferredEntity = ecb.CreateEntity();
+    ecb.AddComponentData(deferredEntity, new myData(42, 255));
 }
 ```
 
-#### Subtype definition
-If your template uses sub-types (as in the example above), you need to add a partial class for `Unity.NetCode.GhostFieldSubType` inside the Netcode assembly reference folder. For example:
+To do the same thing and Burst compile it, you can use `SystemAPI` do the following: 
 
 ```c#
-namespace Unity.NetCode
+[BurstCompile]
+public void OnUpdate(ref SystemState state)
 {
-   static public partial class GhostFieldSubType
-   {
-       public const int MySubType = 1;
-   }
+    var ecb = SystemAPI.GetSingleton
+        <EndSimulationEntityCommandBufferSystem.Singleton>()
+        .CreateCommandBuffer(state.WorldUnmanaged);
+    var deferredEntity = ecb.CreateEntity();
+    ecb.AddComponentData(deferredEntity, new myData(42, 255));
 }
 ```
+While the nested singleton type has been implemented for built in top-level entities `ComponentSystemGroup`s, you need to define the singleton type and implementation in any `EntityCommandBufferSystems` you've defined to follow the same design.
 
-The new subtypes will be available in your project everywhere you  reference the `Unity.NetCode` assembly.
+## Change system update code 
 
-#### GhostComponentModifiers
-`ComponentModifiers` have been removed. You should use the `GhostComponentVariation` attribute to create a ghost component variant instead.
+Systems have been changed so that they update by default.
 
-To upgrade, create a new file that contains your variants in an assembly that has visibility or access to the types you want to add a variation for. Then, for each modifier, create its respective variant implementation as in the following example:
+Previously, systems would early-out before calling `OnUpdate` if none of the entity queries created by the system matched any entities (as determined by calling `EntityQuery.IsEmptyNoFilter`), unless you used the `AlwaysUpdateSystem` attribute.
 
-```c#
- // Old modifier
- new GhostComponentModifier
- {
-     typeFullName = "Unity.Transforms.Translation",
-     attribute = new GhostComponentAttribute{PrefabType = GhostPrefabType.All, OwnerPredictedSendType = GhostSendType.All, SendDataForChildEntity = false},
-     fields = new[]
-     {
-         new GhostFieldModifier
-         {
-             name = "Value",
-             attribute = new GhostFieldAttribute{Quantization = 100, Smoothing=SmoothingAction.InterpolateAndExtrapolate}
-         }
-     },
-     entityIndex = 0
- };
- 
-// The new variant
-[GhostComponentVariation(typeof(Translation))]
-[GhostComponent(SendDataForChildEntity = false)]
-public struct MyTranslationVariant
-{
- [GhostField(Quantization=100, Smoothing=SmoothingAction.InterpolateAndExtrapolate)] public float3 Value;
-}
-```
+If you con't make any changes to your code, some systems might call `OnUpdate` when they wouldn't before. This causes a decrease in performance, because the early-out is used to avoid overhead of updating a system when it hasn't any work to do. It might also cause exceptions if the implementation of these systems assumes that certain components exist, based on the previous behavior.
 
-You must also declare these variants as the default to use for that Component. You must implement the `RegisterDefaultVariants` method to create a concrete system implementation for the `DefaultVariantSystemBase`. There are no particular restrictions on where to put this System. 
+To maintain the previous behavior, review each system:
+
+1. If the system has any calls to `RequireForUpdate` in `OnCreate`, you don't need to make any changes.
+1. If the system doesn't make any calls to `GetEntityQuery`, then you don't need to make any changes. 
+    * Calls to `GetSingleton`, `SetSingleton`, `HasSingleton`, and similar, make calls to `GetEntityQuery` internally.
+    * Source generation from `Entities.ForEach` or `IJobEntity` can generate calls to `GetEntityQuery`.
+1. If the system uses the obsolete `[AlwaysUpdateSystem]` attribute, remove it.
+1. If none of the above are true, add the `[RequireMatchingQueriesForUpdate]` attribute.
+
+For the best performance, you should specify the system update requirements explicitly with `RequireForUpdate` and `RequireAnyForUpdate`, and provide the minimal number of required queries or components.
+
+## Rename EntityQueryDescBuilder
+
+`EntityQueryDescBuilder` has been renamed to `EntityQueryBuilder`, and its methods have been changed to match the syntax. `EntityQueryBuilder` is now the recommended method to create an `EntityQuery`, because it's Burst-compatible and more performant than other options, even if it isn't Burst compiled. 
+
+Previous methods such as `EntityQueryDesc` and `GetEntityQuery(ComponentType[])` will be removed in a future version of Entities.
+
+For example, you can rewrite a query in a system inheriting from `SystemBase` like so:
 
 ```c#
-class MyDefaultVariantSystem : DefaultVariantSystemBase
-{
-   protected override void RegisterDefaultVariants(Dictionary<ComponentType, System.Type> defaultVariants)
-   {
-       defaultVariants.Add(new ComponentType(typeof(Translation)), typeof(MyTranslationVariant));
-       ...
-   }
-}
+/// Old way
+var query = GetEntityQuery(typeof(Translation), typeof(Rotation));
+
+/// New way
+var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<Translation, Rotation>().Build(this);
 ```
 
-<a name="hybrid"></a>
-
-## Hybrid Renderer
-
-### Remove Hybrid Renderer V1
-
-Hybrid Renderer V1 has been removed from the code base. Hybrid Renderer V2 is enabled by default, so you no longer need the `ENABLE_HYBRID_RENDERER_V2` scripting define.
-
-If your project used the Hybrid Renderer V1, you need to convert it to use the [Universal Render Pipeline](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest), or the [High Definition Render Pipeline](https://docs.unity3d.com/Packages/com.unity.render-pipelines.high-definition@latest). This is because the built in render pipeline isn't supported by Hybrid Renderer V2.
-
-<a name="physics"></a>
-
-## Physics
-
-### Update TriggerEventSystem from JobComponentSystem to SystemBase
-
-When declaring an Entity inside `ITriggerEventsJob > Execute`, use:
+This is an example of a more complex query:
 
 ```c#
-Entity entityA = triggerEvent.EntityA;
+/// Old way
+var query2 = GetEntityQuery(
+    new EntityQueryDesc
+    {
+        All = new[]
+        {
+            ComponentType.ReadWrite<LocalToWorld>(),
+            ComponentType.ReadOnly<Translation>(),
+            ComponentType.ReadOnly<Rotation>(),
+        },
+        None = new[]
+        {
+            ComponentType.ReadOnly<Parent>(),
+            ComponentType.ReadOnly<Child>(),
+        }
+    });
+
+
+/// New way
+var query2 = new EntityQueryBuilder(Allocator.Temp)
+    .WithAllRW<LocalToWorld>()
+    .WithAll<Translation, Rotation>()
+    .WithNone<Parent, Child>()
+    .Build(this);
 ```
 
-Instead of:
+## Update SystemBase.Time and SystemState.Time
 
-```c#
-Entity entityA = triggerEvent.Entities.EntityA;
-```
+`SystemBase.Time` and `SystemState.Time` are now deprecated and you should use `SystemAPI.Time `instead. Previously `SystemBase.Time` and `SystemState.Time` acted as aliases for `World.Time`. You should now use`SystemAPI.Time` which works in both `ISystem` and `SystemBase`. In cases where you can’t do that, because you’re outside a system, get hold of the world instead either as `World` or `WorldUnmanged`, which both have a `Time` property.
 
-You also no longer need to use `BuildPhysicsWorld`. Previously, `BuildPhysicsWorld` was used like this:
+## Add the Entities Graphics package to your project
 
-```c#
-   protected override void OnCreate()
-   {
-       base.OnCreate();
-       buildPhysicsWorld = World.GetOrCreateSystem<BuildPhysicsWorld>();
-       stepPhysicsWorld = World.GetOrCreateSystem<StepPhysicsWorld>();
-       commandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-   }
-```
+The Hybrid Rendering package (com.unity.rendering.hybrid) has been renamed to Entities Graphics (com.unity.entities.graphics) for consistency. The Hybrid Renderer still exists as an empty utility package with a dependency on Entities Graphics so you won't encounter any problem. However, you should add the Entities Graphics package to your project directly to avoid any errors in the future when the Hybrid Renderer package is removed completely.
 
-To upgrade it, use the following code:
+If your project uses stock hybrid rendering you don't need to change your code. If you're using hybrid rendering classes or structs in your custom code, you might need to rename some classes. As a rule of thumb, any `Hybrid` in a class, struct, or enum has been replaced with `EntitiesGraphics`. For example, `UpdateOldHybridChunksJob` is now `UpdateOldEntitiesGraphicsChunksJob`.
 
-```c#
-   protected override void OnCreate()
-   {
-       stepPhysicsWorld = World.GetOrCreateSystem<StepPhysicsWorld>();
-       commandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-   }
-```
+For further information upgrading to Entities Graphics, see the [Entities Graphics upgrade guide](https://docs.unity3d.com/Packages/com.unity.entities.graphics@1.0/manual/upgrade-guide.html). 
 
-The following code shows the difference between using `ITriggerEventJob` with `JobComponentSystem` or `SystemBase`. 
+## Auto Generate Lighting mode removed
 
-**JobComponentSystem example:**
+From Unity Editor version 2022.2 and later, the **Auto Generate** mode in the Lighting window is unavailable with the Entities package. 
 
-```c#
-public class PickupOnTriggerSystem : JobComponentSystem
-{
-   private BuildPhysicsWorld buildPhysicsWorld;
-   private StepPhysicsWorld stepPhysicsWorld;
-   private EndSimulationEntityCommandBufferSystem commandBufferSystem;
- 
-   protected override void OnCreate()
-   {
-       base.OnCreate();
-       buildPhysicsWorld = World.GetOrCreateSystem<BuildPhysicsWorld>();
-       stepPhysicsWorld = World.GetOrCreateSystem<StepPhysicsWorld>();
-       commandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-   }
- 
-   protected override JobHandle OnUpdate(JobHandle inputDependencies)
-   {
-       var job = new PickupOnTriggerSystemJob();
-       job.allPickups = GetComponentDataFromEntity<PickupTag>(true);
-       job.allPlayers = GetComponentDataFromEntity<PlayerTag>(true);
-       job.entityCommandBuffer = commandBufferSystem.CreateCommandBuffer();
- 
-       JobHandle jobHandle = job.Schedule(stepPhysicsWorld.Simulation,
-           inputDependencies);
-       commandBufferSystem.AddJobHandleForProducer(jobHandle);
-       return jobHandle;
-   }
- 
-   [BurstCompile]
-   struct PickupOnTriggerSystemJob : ITriggerEventsJob
-   {
-       [ReadOnly] public ComponentDataFromEntity<PickupTag> allPickups;
-       [ReadOnly] public ComponentDataFromEntity<PlayerTag> allPlayers;
-       public EntityCommandBuffer entityCommandBuffer;
- 
-       public void Execute(TriggerEvent triggerEvent)
-       {
-           Entity entityA = triggerEvent.EntityA;
-           Entity entityB = triggerEvent.EntityB;
-           if (allPickups.HasComponent(entityA) && allPickups.HasComponent(entityB))
-               return;
- 
-           if (allPickups.HasComponent(entityA) && allPlayers.HasComponent(entityB))
-               entityCommandBuffer.DestroyEntity(entityA);
-           else if (allPlayers.HasComponent(entityA) && allPickups.HasComponent(entityB))
-               entityCommandBuffer.DestroyEntity(entityB);
-       }
-   }
-}
-```
+This is because when you generate lighting in a project, the Unity Editor opens all loaded subscenes, which might slow down Editor performance. On demand baking is still available and is the recommended way of generating lighting.
 
-**SystemBase example:**
-
-```c#
-public partial class PickupOnTriggerSystem : SystemBase
-{
-   private StepPhysicsWorld stepPhysicsWorld;
-   private EndSimulationEntityCommandBufferSystem commandBufferSystem;
- 
-   protected override void OnCreate()
-   {
-       stepPhysicsWorld = World.GetOrCreateSystem<StepPhysicsWorld>();
-       commandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-   }
- 
-   protected override void OnUpdate()
-   {
-       var job = new PickupOnTriggerSystemJob
-       {
-           allPickups = GetComponentDataFromEntity<PickupTag>(true),
-           allPlayers = GetComponentDataFromEntity<PlayerTag>(true),
-           entityCommandBuffer = commandBufferSystem.CreateCommandBuffer()
-       };
-       Dependency = job.Schedule(stepPhysicsWorld.Simulation, Dependency);
-       commandBufferSystem.AddJobHandleForProducer(Dependency);
-   }
-  
-   [BurstCompile]
-   struct PickupOnTriggerSystemJob : ITriggerEventsJob
-   {
-       [ReadOnly] public ComponentDataFromEntity<PickupTag> allPickups;
-       [ReadOnly] public ComponentDataFromEntity<PlayerTag> allPlayers;
-       public EntityCommandBuffer entityCommandBuffer;
- 
-       public void Execute(TriggerEvent triggerEvent)
-       {
-           Entity entityA = triggerEvent.EntityA;
-           Entity entityB = triggerEvent.EntityB;
-           if (allPickups.HasComponent(entityA) && allPickups.HasComponent(entityB))
-               return;
-           
-           if (allPickups.HasComponent(entityA) && allPlayers.HasComponent(entityB))
-               entityCommandBuffer.DestroyEntity(entityA);
-           else if (allPlayers.HasComponent(entityA) && allPickups.HasComponent(entityB))
-               entityCommandBuffer.DestroyEntity(entityB);
-       }
-   }
-}
-```

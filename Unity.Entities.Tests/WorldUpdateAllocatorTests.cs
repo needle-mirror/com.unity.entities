@@ -17,8 +17,8 @@ namespace Unity.Entities.Tests
             base.Setup();
             m_world = new World("WorldUpdateAllocatorTests", WorldFlags.Simulation);
             var system = m_world.GetOrCreateSystem<WorldUpdateAllocatorResetSystem>();
-            var group = m_world.GetOrCreateSystem<InitializationSystemGroup>();
-            group.AddSystemToUpdateList(system.Handle);
+            var group = m_world.GetOrCreateSystemManaged<InitializationSystemGroup>();
+            group.AddSystemToUpdateList(system);
             group.SortSystems();
         }
 
@@ -152,6 +152,7 @@ namespace Unity.Entities.Tests
             m_world.UpdateAllocator.AllocateNativeList<byte>(capacity);
             m_world.Update();
         }
+
 
         [Test]
         public unsafe void WorldUpdateAllocatorNoOverflow()

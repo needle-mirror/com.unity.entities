@@ -144,7 +144,7 @@ namespace Unity.Entities.Editor
             }
         }
         
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(FixedString64Bytes), typeof(FixedString64Bytes) })]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(FixedString64Bytes), typeof(FixedString64Bytes) })]
         internal static bool Contains<TSource, TPattern>(TSource source, TPattern pattern)
             where TSource: unmanaged, IUTF8Bytes, INativeList<byte>, IEquatable<TSource>
             where TPattern: unmanaged, IUTF8Bytes, INativeList<byte>, IEquatable<TPattern>

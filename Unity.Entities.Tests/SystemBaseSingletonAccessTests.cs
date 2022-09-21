@@ -14,7 +14,7 @@ namespace Unity.Entities.Tests
         [SetUp]
         public void SetUp()
         {
-            TestSystem = World.GetOrCreateSystem<SystemBase_TestSystem>();
+            TestSystem = World.GetOrCreateSystemManaged<SystemBase_TestSystem>();
         }
 
         public partial class SystemBase_TestSystem : SystemBase
@@ -51,6 +51,39 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
             }
 
+            public void GetSingletonRW_ByRef_Modifies_Singleton()
+            {
+                EntityManager.CreateEntity(typeof(EcsTestData));
+
+                ref var singleton = ref GetSingletonRW<EcsTestData>().ValueRW;
+                singleton.value = 10;
+                Assert.AreEqual(10, SystemAPI.GetSingleton<EcsTestData>().value);
+
+                GetSingletonRW<EcsTestData>().ValueRW.value = 33;
+                Assert.AreEqual(33, SystemAPI.GetSingleton<EcsTestData>().value);
+
+                ref var s1 = ref GetSingletonRW<EcsTestData>().ValueRW;
+                s1.value = 42;
+
+                ref var s2 = ref GetSingletonRW<EcsTestData>().ValueRW;
+                s2.value = 31;
+                Assert.AreEqual(s2.value, s1.value);
+            }
+
+            public void GetSingletonRW_ByValue_DoesNot_Modify_Singleton()
+            {
+                const int expected = 42;
+                var e = EntityManager.CreateEntity(typeof(EcsTestData));
+                EntityManager.SetComponentData(e, new EcsTestData
+                {
+                    value = expected
+                });
+
+                var singleton = GetSingletonRW<EcsTestData>().ValueRW;
+                singleton.value = 10;
+                Assert.AreEqual(expected, SystemAPI.GetSingleton<EcsTestData>().value);
+            }
+
             public void GetSetSingletonInSystem()
             {
                 EntityManager.CreateEntity(typeof(SystemBase_TestSystem.SingletonDataInSystem));
@@ -59,7 +92,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(10, GetSingleton<SystemBase_TestSystem.SingletonDataInSystem>().value);
             }
 
-            T GenericMethodWithSingletonAccess<T>(T value) where T : struct, IComponentData
+            T GenericMethodWithSingletonAccess<T>(T value) where T : unmanaged, IComponentData
             {
                 SetSingleton(value);
                 return GetSingleton<T>();
@@ -91,17 +124,17 @@ namespace Unity.Entities.Tests
             public void SingletonMethodsWithValidFilter_GetsAndSets()
             {
                 var queryWithFilter1 = EntityManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-                queryWithFilter1.SetSharedComponentFilter(new SharedData1(1));
+                queryWithFilter1.SetSharedComponentFilterManaged(new SharedData1(1));
                 var queryWithFilter2 = EntityManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-                queryWithFilter2.SetSharedComponentFilter(new SharedData1(2));
+                queryWithFilter2.SetSharedComponentFilterManaged(new SharedData1(2));
 
                 var entity1 = EntityManager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
                 EntityManager.SetComponentData(entity1, new EcsTestData(-1));
-                EntityManager.SetSharedComponentData(entity1, new SharedData1(1));
+                EntityManager.SetSharedComponentManaged(entity1, new SharedData1(1));
 
                 var entity2 = EntityManager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
                 EntityManager.SetComponentData(entity2, new EcsTestData(-1));
-                EntityManager.SetSharedComponentData(entity2, new SharedData1(2));
+                EntityManager.SetSharedComponentManaged(entity2, new SharedData1(2));
 
                 Assert.DoesNotThrow(() => queryWithFilter1.SetSingleton(new EcsTestData(1)));
                 Assert.DoesNotThrow(() => queryWithFilter2.SetSingleton(new EcsTestData(2)));
@@ -122,14 +155,14 @@ namespace Unity.Entities.Tests
             public void SingletonMethodsWithInvalidFilter_Throws()
             {
                 var queryWithFilterMissingEntity = EntityManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-                queryWithFilterMissingEntity.SetSharedComponentFilter(new SharedData1(1));
+                queryWithFilterMissingEntity.SetSharedComponentFilterManaged(new SharedData1(1));
                 var queryWithFilterWithAdditionalEntity = EntityManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-                queryWithFilterWithAdditionalEntity.SetSharedComponentFilter(new SharedData1(2));
+                queryWithFilterWithAdditionalEntity.SetSharedComponentFilterManaged(new SharedData1(2));
 
                 var entity1 = EntityManager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
-                EntityManager.SetSharedComponentData(entity1, new SharedData1(2));
+                EntityManager.SetSharedComponentManaged(entity1, new SharedData1(2));
                 var entity2 = EntityManager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
-                EntityManager.SetSharedComponentData(entity2, new SharedData1(2));
+                EntityManager.SetSharedComponentManaged(entity2, new SharedData1(2));
 
                 Assert.Throws<InvalidOperationException>(() => queryWithFilterMissingEntity.GetSingleton<EcsTestData>());
                 Assert.Throws<InvalidOperationException>(() => queryWithFilterMissingEntity.SetSingleton(new EcsTestData(1)));
@@ -185,7 +218,7 @@ namespace Unity.Entities.Tests
 
             public void RequireSingletonWorks()
             {
-                RequireSingletonForUpdate<EcsTestData>();
+                RequireForUpdate<EcsTestData>();
                 GetEntityQuery(typeof(EcsTestData2));
 
                 EntityManager.CreateEntity(typeof(EcsTestData2));
@@ -276,126 +309,72 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SystemBase_SingletonGetterAndSetter()
-        {
-            TestSystem.SingletonPropertyGetterAndSetter();
-        }
+        public void SystemBase_SingletonGetterAndSetter() => TestSystem.SingletonPropertyGetterAndSetter();
 
         [Test]
-        public void SystemBase_GetSetSingleton()
-        {
-            TestSystem.GetSetSingleton();
-        }
+        public void SystemBase_GetSetSingleton() => TestSystem.GetSetSingleton();
 
         [Test]
-        public void SystemBase_GetSetSingletonInSystem()
-        {
-            TestSystem.GetSetSingletonInSystem();
-        }
+        public void SystemBase_GetSingletonRW_ByRef_Modifies_Singleton() => TestSystem.GetSingletonRW_ByRef_Modifies_Singleton();
+        [Test]
+        public void SystemBase_GetSingletonRW_ByValue_DoesNot_Modify_Singleton() => TestSystem.GetSingletonRW_ByValue_DoesNot_Modify_Singleton();
 
         [Test]
-        public void SystemBase_GetSetSingletonWithGenericParameter()
-        {
-            TestSystem.GetSetSingletonWithGenericParameter();
-        }
+        public void SystemBase_GetSetSingletonInSystem() => TestSystem.GetSetSingletonInSystem();
 
         [Test]
-        public void SystemBase_SingletonAccessInGenericMethodWithInParameter()
-        {
-            TestSystem.GetSingletonInGenericMethodWithInParameter();
-        }
+        public void SystemBase_GetSetSingletonWithGenericParameter() => TestSystem.GetSetSingletonWithGenericParameter();
 
         [Test]
-        public void SystemBase_SingletonMethodsWithValidFilter_GetsAndSets()
-        {
-            TestSystem.SingletonMethodsWithValidFilter_GetsAndSets();
-        }
+        public void SystemBase_SingletonAccessInGenericMethodWithInParameter() => TestSystem.GetSingletonInGenericMethodWithInParameter();
 
         [Test]
-        public void SystemBase_SingletonMethodsWithInvalidFilter_Throws()
-        {
-            TestSystem.SingletonMethodsWithInvalidFilter_Throws();
-        }
+        public void SystemBase_SingletonMethodsWithValidFilter_GetsAndSets() => TestSystem.SingletonMethodsWithValidFilter_GetsAndSets();
 
         [Test]
-        public void SystemBase_GetSetSingletonMultipleComponents()
-        {
-            TestSystem.GetSetSingletonMultipleComponents();
-        }
+        public void SystemBase_SingletonMethodsWithInvalidFilter_Throws() => TestSystem.SingletonMethodsWithInvalidFilter_Throws();
 
         [Test]
-        public void SystemBase_GetSetSingletonInEntitiesForEach()
-        {
-            TestSystem.GetSetSingletonInEntitiesForEach();
-        }
+        public void SystemBase_GetSetSingletonMultipleComponents() => TestSystem.GetSetSingletonMultipleComponents();
 
         [Test]
-        public void SystemBase_GetSetSingletonZeroThrows()
-        {
-            TestSystem.GetSetSingletonZeroThrows();
-        }
+        public void SystemBase_GetSetSingletonInEntitiesForEach() => TestSystem.GetSetSingletonInEntitiesForEach();
 
         [Test]
-        public void SystemBase_GetSetSingletonMultipleThrows()
-        {
-            TestSystem.GetSetSingletonMultipleThrows();
-        }
+        public void SystemBase_GetSetSingletonZeroThrows() => TestSystem.GetSetSingletonZeroThrows();
 
         [Test]
-        public void SystemBase_RequireSingletonWorks()
-        {
-            TestSystem.RequireSingletonWorks();
-        }
+        public void SystemBase_GetSetSingletonMultipleThrows() => TestSystem.GetSetSingletonMultipleThrows();
 
         [Test]
-        public void SystemBase_HasSingletonWorks()
-        {
-            TestSystem.HasSingletonWorks();
-        }
+        public void SystemBase_RequireSingletonWorks() => TestSystem.RequireSingletonWorks();
 
         [Test]
-        public void SystemBase_HasSingleton_ReturnsTrueWithEntityWithOnlyComponent()
-        {
-            TestSystem.HasSingleton_ReturnsTrueWithEntityWithOnlyComponent();
-        }
+        public void SystemBase_HasSingletonWorks() => TestSystem.HasSingletonWorks();
 
         [Test]
-        public void SystemBase_GetSingletonEntityWorks()
-        {
-            TestSystem.GetSingletonEntityWorks();
-        }
+        public void SystemBase_HasSingleton_ReturnsTrueWithEntityWithOnlyComponent() => TestSystem.HasSingleton_ReturnsTrueWithEntityWithOnlyComponent();
 
         [Test]
-        public void SystemBase_GetSingletonThroughQueryWorks()
-        {
-            TestSystem.GetSingletonThroughQueryWorks();
-        }
+        public void SystemBase_GetSingletonEntityWorks() => TestSystem.GetSingletonEntityWorks();
 
         [Test]
-        public void SystemBase_SetSingletonWithExpressionWithPreprocessorTriviaWorks()
-        {
-            TestSystem.SetSingletonWithExpressionWithPreprocessorTriviaWorks();
-        }
+        public void SystemBase_GetSingletonThroughQueryWorks() => TestSystem.GetSingletonThroughQueryWorks();
 
         [Test]
-        public void SystemBase_GetSingletonWithGenericThrows()
-        {
+        public void SystemBase_SetSingletonWithExpressionWithPreprocessorTriviaWorks() => TestSystem.SetSingletonWithExpressionWithPreprocessorTriviaWorks();
+
+        [Test]
+        public void SystemBase_GetSingletonWithGenericThrows() =>
             // Will now throw exception around not knowing component types at compile time instead of crashing
             Assert.Throws<ArgumentException>(()=>TestSystem.GetSingletonWithGenericThrows());
-        }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        public void SystemBase_GetSetSingleton_ManagedComponents()
-        {
-            TestSystem.GetSetSingleton_ManagedComponents();
-        }
+        public void SystemBase_GetSetSingleton_ManagedComponents() => TestSystem.GetSetSingleton_ManagedComponents();
 
         [Test]
-        public void SystemBase_HasSingletonWorks_ManagedComponents()
-        {
-            TestSystem.HasSingletonWorks_ManagedComponents();
-        }
+        public void SystemBase_HasSingletonWorks_ManagedComponents() => TestSystem.HasSingletonWorks_ManagedComponents();
 
 #endif
     }

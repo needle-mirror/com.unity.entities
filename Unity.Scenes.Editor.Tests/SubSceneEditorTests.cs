@@ -15,7 +15,7 @@ public class SubSceneEditorTests
     [OneTimeSetUp]
     public void SetUp()
     {
-        var guid = AssetDatabase.CreateFolder("Assets", Path.GetRandomFileName());
+        var guid = AssetDatabase.CreateFolder("Assets", nameof(SubSceneEditorTests));
         m_TempAssetDir = AssetDatabase.GUIDToAssetPath(guid);
     }
 

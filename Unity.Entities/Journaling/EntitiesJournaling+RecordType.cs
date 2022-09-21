@@ -16,10 +16,16 @@ namespace Unity.Entities
             DestroyEntity,
             AddComponent,
             RemoveComponent,
+            EnableComponent,
+            DisableComponent,
             SetComponentData,
             SetSharedComponentData,
             SetComponentObject,
-            SetBuffer
+            SetBuffer,
+            GetComponentDataRW,
+            GetComponentObjectRW,
+            GetBufferRW,
+            BakingRecord,
         }
     }
 }

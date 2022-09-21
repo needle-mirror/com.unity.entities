@@ -17,31 +17,43 @@ namespace Unity.Scenes
     public struct ResourceMetaData
     {
         /// <summary>
-        /// For scenes, if AutoLoad is true, the scene will be loaded when the player starts
+        /// For scenes, if AutoLoad is true, the scene will be loaded when the player starts.
         /// </summary>
         [Flags]
         public enum Flags
         {
+            /// <summary>
+            /// Doesn't automatically load the scene.
+            /// </summary>
             None = 0,
+            /// <summary>
+            /// Loads the scene when the player starts.
+            /// </summary>
             AutoLoad = 1
         }
 
         /// <summary>
-        /// Currently Scene types are supported, assetbundles will need to be supported when dependencies are implemented
+        /// Currently Scene types are supported, assetbundles will need to be supported when dependencies are implemented.
         /// </summary>
         public enum Type
         {
+            /// <summary>
+            /// The resource type is not supported.
+            /// </summary>
             Unknown,
+            /// <summary>
+            /// The resource is a Scene.
+            /// </summary>
             Scene,
         }
 
         /// <summary>
-        /// The guid of the asset
+        /// The guid of the asset.
         /// </summary>
         public Hash128 ResourceId;
 
         /// <summary>
-        /// Flags to control the behavior of the asset
+        /// Flags to control the behavior of the asset.
         /// </summary>
         public Flags ResourceFlags;
 
@@ -87,7 +99,7 @@ namespace Unity.Scenes
                     return resources[i].ResourceId;
 
                 // TODO: All of these should die so we have a 100% consistent use of paths. Why do we need this at all?
-                // TODO: https://unity3d.atlassian.net/browse/DOTS-3330
+                // TODO: DOTS-3330
                 var currentPathWithoutExtension = GetFileNameWithoutExtension(currentPath);
                 if (path == currentPathWithoutExtension)
                 {
@@ -112,6 +124,11 @@ namespace Unity.Scenes
             return default;
         }
 
+        /// <summary>
+        /// Gets the path of a resource from a GUID.
+        /// </summary>
+        /// <param name="guid">The GUID of the resource.</param>
+        /// <returns>Returns the path of the resource.</returns>
         public string GetPathFromGUID(Hash128 guid)
         {
             for (int i = 0; i < paths.Length; i++)

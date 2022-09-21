@@ -23,8 +23,6 @@ namespace Unity.Entities
      unsafe partial struct EntityQueryImpl
     {
 
-#if !UNITY_IOS
-
         [BurstDiscard]
         private static void CheckDelegate(ref bool useDelegate)
         {
@@ -54,12 +52,9 @@ namespace Unity.Entities
         struct TagType_FreeCachedState {};
         public static readonly SharedStatic<IntPtr> _bfp_FreeCachedState = SharedStatic<IntPtr>.GetOrCreate<TagType_FreeCachedState>();
 
-#endif
-
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Uses managed delegates")]
         internal static void Initialize()
         {
-#if !UNITY_IOS
             if (Managed._initialized)
                 return;
             Managed._initialized = true;
@@ -74,13 +69,11 @@ namespace Unity.Entities
             _bfp_FreeCachedState.Data = Marshal.GetFunctionPointerForDelegate(delegateObject);
         }
 
-#endif
         }
 
 
         internal static void ResetFilter (EntityQueryImpl* self)
         {
-#if !UNITY_IOS
             if (!UseDelegate())
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -92,20 +85,16 @@ namespace Unity.Entities
                 fp.Invoke((IntPtr) self);
                 return;
             }
-#endif
             _ResetFilter(self);
         }
 
-#if !UNITY_IOS
         [MonoPInvokeCallback(typeof(Managed._dlg_ResetFilter))]
-#endif
         private static void _wrapper_ResetFilter (IntPtr self)
         {
             _ResetFilter((EntityQueryImpl*)self);
         }
         internal static void FreeCachedState (EntityQueryImpl* self)
         {
-#if !UNITY_IOS
             if (!UseDelegate())
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -117,13 +106,10 @@ namespace Unity.Entities
                 fp.Invoke((IntPtr) self);
                 return;
             }
-#endif
             _FreeCachedState(self);
         }
 
-#if !UNITY_IOS
         [MonoPInvokeCallback(typeof(Managed._dlg_FreeCachedState))]
-#endif
         private static void _wrapper_FreeCachedState (IntPtr self)
         {
             _FreeCachedState((EntityQueryImpl*)self);

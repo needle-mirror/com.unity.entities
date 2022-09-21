@@ -57,9 +57,9 @@ namespace Unity.Entities.Tests
 #if !UNITY_PORTABLE_TEST_RUNNER
         // https://unity3d.atlassian.net/browse/DOTSR-1432
         [TestCaseGeneric(typeof(EcsTestData))]
-        [TestCaseGeneric(typeof(EcsState1))]
+        [TestCaseGeneric(typeof(EcsCleanup1))]
         unsafe public void CreateZeroEntities<TComponent>()
-            where TComponent : struct, IComponentData
+            where TComponent : unmanaged, IComponentData
         {
             var array = new NativeArray<Entity>(0, Allocator.Temp);
             m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(TComponent)), array);
@@ -162,15 +162,14 @@ namespace Unity.Entities.Tests
 #if !(UNITY_DOTSRUNTIME && (UNITY_WEBGL || UNITY_LINUX)) // https://unity3d.atlassian.net/browse/DOTSR-2039 for web
         //https://unity3d.atlassian.net/browse/DOTSR-2653 for linux
         [Test]
+        [Ignore("TODO(DOTS-5601): optimize performance and add checks that ensure memory consumption is in reasonable range")]
         public void CreateEntity_CreateAlmostTooManyEntities()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             var capacity = archetype.ChunkCapacity;
-            var almostTooManyEntities = EntityComponentStore.k_MaximumEntitiesPerWorld / capacity * capacity;
+            var almostTooManyEntities = ((EntityComponentStore.k_MaximumEntitiesPerWorld / capacity) * capacity) - 1;
             Assert.IsTrue(almostTooManyEntities == (int) almostTooManyEntities);
-            var entities = m_Manager.CreateEntity(archetype, (int)almostTooManyEntities, Allocator.Persistent);
-            m_Manager.DestroyEntity(entities);
-            entities.Dispose();
+            Assert.DoesNotThrow(() => m_Manager.CreateEntity(archetype, (int)almostTooManyEntities));
         }
 #endif
 
@@ -366,14 +365,14 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedComp>(entity));
 
-            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+            Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(entity).value);
 
             m_Manager.RemoveComponent<EcsTestData2>(entity);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
             Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedComp>(entity));
 
-            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+            Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(entity).value);
 
             m_Manager.RemoveComponent<EcsTestSharedComp>(entity);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
@@ -412,63 +411,63 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddRemoveSystemStateComponent()
+        public void AddRemoveCleanupComponent()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
             var entity = m_Manager.CreateEntity(archetype);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
-            Assert.IsFalse(m_Manager.HasComponent<EcsState1>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsCleanup1>(entity));
 
-            m_Manager.AddComponent<EcsState1>(entity);
+            m_Manager.AddComponent<EcsCleanup1>(entity);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
-            Assert.IsTrue(m_Manager.HasComponent<EcsState1>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsCleanup1>(entity));
 
-            Assert.AreEqual(0, m_Manager.GetComponentData<EcsState1>(entity).Value);
+            Assert.AreEqual(0, m_Manager.GetComponentData<EcsCleanup1>(entity).Value);
 
             m_Manager.RemoveComponent<EcsTestData2>(entity);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
             Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
-            Assert.IsTrue(m_Manager.HasComponent<EcsState1>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsCleanup1>(entity));
 
-            Assert.AreEqual(0, m_Manager.GetComponentData<EcsState1>(entity).Value);
+            Assert.AreEqual(0, m_Manager.GetComponentData<EcsCleanup1>(entity).Value);
 
-            m_Manager.RemoveComponent<EcsState1>(entity);
+            m_Manager.RemoveComponent<EcsCleanup1>(entity);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
             Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
-            Assert.IsFalse(m_Manager.HasComponent<EcsState1>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsCleanup1>(entity));
         }
 
         [Test]
-        public void AddRemoveSystemStateSharedComponent()
+        public void AddRemoveCleanupSharedComponent()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
             var entity = m_Manager.CreateEntity(archetype);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
-            Assert.IsFalse(m_Manager.HasComponent<EcsStateShared1>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsCleanupShared1>(entity));
 
-            m_Manager.AddComponent<EcsStateShared1>(entity);
+            m_Manager.AddComponent<EcsCleanupShared1>(entity);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
-            Assert.IsTrue(m_Manager.HasComponent<EcsStateShared1>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsCleanupShared1>(entity));
 
-            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsStateShared1>(entity).Value);
+            Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<EcsCleanupShared1>(entity).Value);
 
             m_Manager.RemoveComponent<EcsTestData2>(entity);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
             Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
-            Assert.IsTrue(m_Manager.HasComponent<EcsStateShared1>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsCleanupShared1>(entity));
 
-            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsStateShared1>(entity).Value);
+            Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<EcsCleanupShared1>(entity).Value);
 
-            m_Manager.RemoveComponent<EcsStateShared1>(entity);
+            m_Manager.RemoveComponent<EcsCleanupShared1>(entity);
             Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
             Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
-            Assert.IsFalse(m_Manager.HasComponent<EcsStateShared1>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsCleanupShared1>(entity));
         }
 
         [Test]
@@ -477,7 +476,7 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
             var entity = m_Manager.CreateEntity(archetype);
 
-            m_Manager.RemoveComponent(entity, new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData4)));
+            m_Manager.RemoveComponent(entity, new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData4)));
             Assert.AreEqual(m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData3)), m_Manager.GetChunk(entity).Archetype);
             m_Manager.DestroyEntity(entity);
         }
@@ -488,7 +487,7 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
             var entity = m_Manager.CreateEntity(archetype);
 
-            m_Manager.RemoveComponent(entity, new ComponentTypes());
+            m_Manager.RemoveComponent(entity, new ComponentTypeSet());
             Assert.AreEqual(archetype, m_Manager.GetChunk(entity).Archetype);
             m_Manager.DestroyEntity(entity);
         }
@@ -499,7 +498,7 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
             var entity = m_Manager.CreateEntity(archetype);
 
-            m_Manager.RemoveComponent(entity, new ComponentTypes(typeof(EcsTestTag), typeof(EcsTestData4)));
+            m_Manager.RemoveComponent(entity, new ComponentTypeSet(typeof(EcsTestTag), typeof(EcsTestData4)));
             Assert.AreEqual(archetype, m_Manager.GetChunk(entity).Archetype);
             m_Manager.DestroyEntity(entity);
         }
@@ -509,14 +508,14 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1), typeof(SharedData2));
             var entity = m_Manager.CreateEntity(archetype);
-            m_Manager.SetSharedComponentData(entity, new SharedData1() { value = 5});
-            m_Manager.SetSharedComponentData(entity, new SharedData2() { value = 9});
+            m_Manager.SetSharedComponentManaged(entity, new SharedData1() { value = 5});
+            m_Manager.SetSharedComponentManaged(entity, new SharedData2() { value = 9});
 
-            m_Manager.RemoveComponent(entity, new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData4)));
+            m_Manager.RemoveComponent(entity, new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData4)));
             Assert.AreEqual(m_Manager.CreateArchetype(typeof(EcsTestData), typeof(SharedData1), typeof(SharedData2)),
                 m_Manager.GetChunk(entity).Archetype);
-            Assert.AreEqual(5, m_Manager.GetSharedComponentData<SharedData1>(entity).value);
-            Assert.AreEqual(9, m_Manager.GetSharedComponentData<SharedData2>(entity).value);
+            Assert.AreEqual(5, m_Manager.GetSharedComponentManaged<SharedData1>(entity).value);
+            Assert.AreEqual(9, m_Manager.GetSharedComponentManaged<SharedData2>(entity).value);
             m_Manager.DestroyEntity(entity);
         }
 
@@ -591,10 +590,10 @@ namespace Unity.Entities.Tests
             // This exposed a bug in AddComponent
             m_Manager.CreateArchetype(typeof(EcsTestData4));
 
-            var typesToAdd = new ComponentTypes(new ComponentType[] {typeof(EcsTestData3), typeof(EcsTestData2)});
-            m_Manager.AddComponents(entity, typesToAdd);
+            var typesToAdd = new ComponentTypeSet(new ComponentType[] {typeof(EcsTestData3), typeof(EcsTestData2)});
+            m_Manager.AddComponent(entity, typesToAdd);
 
-            var expectedTotalTypes = new ComponentTypes(new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData)});
+            var expectedTotalTypes = new ComponentTypeSet(new ComponentType[] {typeof(Simulate), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData)});
             var actualTotalTypes = m_Manager.GetComponentTypes(entity);
 
             Assert.AreEqual(expectedTotalTypes.Length, actualTotalTypes.Length);
@@ -605,7 +604,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public unsafe void AddComponentsWorks_WithUnmanagedComponentTypesConstructor()
+        public unsafe void AddComponent_Multiple_WithUnmanagedComponentTypeSetConstructor_Works()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype);
@@ -614,11 +613,11 @@ namespace Unity.Entities.Tests
             // This exposed a bug in AddComponent
             m_Manager.CreateArchetype(typeof(EcsTestData4));
 
-            var typesToAdd = new ComponentTypes(new FixedList128Bytes<ComponentType>
+            var typesToAdd = new ComponentTypeSet(new FixedList128Bytes<ComponentType>
                 {typeof(EcsTestData3), typeof(EcsTestData2)});
-            m_Manager.AddComponents(entity, typesToAdd);
+            m_Manager.AddComponent(entity, typesToAdd);
 
-            var expectedTotalTypes = new ComponentTypes(new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData)});
+            var expectedTotalTypes = new ComponentTypeSet(new ComponentType[] {typeof(Simulate), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData)});
             var actualTotalTypes = m_Manager.GetComponentTypes(entity);
 
             Assert.AreEqual(expectedTotalTypes.Length, actualTotalTypes.Length);
@@ -678,16 +677,16 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddComponentsWithTypeIndicesWorks()
+        public void AddComponent_WithTypeIndices_Works()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype);
 
-            var typesToAdd = new ComponentTypes(typeof(EcsTestData3), typeof(EcsTestData2));
+            var typesToAdd = new ComponentTypeSet(typeof(EcsTestData3), typeof(EcsTestData2));
 
-            m_Manager.AddComponents(entity, typesToAdd);
+            m_Manager.AddComponent(entity, typesToAdd);
 
-            var expectedTotalTypes = new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData));
+            var expectedTotalTypes = new ComponentTypeSet(typeof(Simulate), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData));
 
             var actualTotalTypes = m_Manager.GetComponentTypes(entity);
 
@@ -732,21 +731,21 @@ namespace Unity.Entities.Tests
 #endif
 
         [Test]
-        public void AddComponentsWithSharedComponentsWorks()
+        public void AddComponent_WithSharedComponents_Works()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var entity = m_Manager.CreateEntity(archetype);
 
             var sharedComponentValue = new EcsTestSharedComp(1337);
-            m_Manager.SetSharedComponentData(entity, sharedComponentValue);
+            m_Manager.SetSharedComponentManaged(entity, sharedComponentValue);
 
-            var typesToAdd = new ComponentTypes(typeof(EcsTestData3), typeof(EcsTestSharedComp2), typeof(EcsTestData2));
+            var typesToAdd = new ComponentTypeSet(typeof(EcsTestData3), typeof(EcsTestSharedComp2));
 
-            m_Manager.AddComponents(entity, typesToAdd);
+            m_Manager.AddComponent(entity, typesToAdd);
 
-            Assert.AreEqual(m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity), sharedComponentValue);
+            Assert.AreEqual(m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(entity), sharedComponentValue);
 
-            var expectedTotalTypes = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2),
+            var expectedTotalTypes = new ComponentTypeSet(typeof(Simulate), typeof(EcsTestData),
                 typeof(EcsTestData3), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
 
             var actualTotalTypes = m_Manager.GetComponentTypes(entity);
@@ -759,11 +758,11 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void InstantiateWithSystemStateComponent()
+        public void InstantiateWithCleanupComponent()
         {
             for (int i = 0; i < 1000; ++i)
             {
-                var src = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsState1), typeof(EcsTestData2));
+                var src = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsCleanup1), typeof(EcsTestData2));
 
                 m_Manager.SetComponentData(src, new EcsTestData {value = i * 123});
                 m_Manager.SetComponentData(src, new EcsTestData2 {value0 = i * 456, value1 = i * 789});
@@ -774,7 +773,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(i * 456, m_Manager.GetComponentData<EcsTestData2>(dst).value0);
                 Assert.AreEqual(i * 789, m_Manager.GetComponentData<EcsTestData2>(dst).value1);
 
-                Assert.IsFalse(m_Manager.HasComponent<EcsState1>(dst));
+                Assert.IsFalse(m_Manager.HasComponent<EcsCleanup1>(dst));
             }
         }
 
@@ -790,38 +789,38 @@ namespace Unity.Entities.Tests
         }
 
         [TypeManager.ForcedMemoryOrderingAttribute(1)]
-        struct EcsSharedStateForcedOrder : ISystemStateSharedComponentData
+        struct EcsCleanupSharedForcedOrder : ICleanupSharedComponentData
         {
             public int Value;
 
-            public EcsSharedStateForcedOrder(int value)
+            public EcsCleanupSharedForcedOrder(int value)
             {
                 Value = value;
             }
         }
 
         [Test]
-        public void InstantiateWithSharedSystemStateComponent()
+        public void InstantiateWithCleanupSharedComponent()
         {
             var srcEntity = m_Manager.CreateEntity();
 
             var sharedValue = new EcsSharedForcedOrder(123);
-            var systemValue = new EcsSharedStateForcedOrder(234);
+            var systemValue = new EcsCleanupSharedForcedOrder(234);
 
-            m_Manager.AddSharedComponentData(srcEntity, sharedValue);
-            m_Manager.AddSharedComponentData(srcEntity, systemValue);
+            m_Manager.AddSharedComponentManaged(srcEntity, sharedValue);
+            m_Manager.AddSharedComponentManaged(srcEntity, systemValue);
 
             var versionSharedBefore = m_Manager.GetSharedComponentOrderVersion(sharedValue);
             var versionSystemBefore = m_Manager.GetSharedComponentOrderVersion(systemValue);
 
             var dstEntity = m_Manager.Instantiate(srcEntity);
-            var sharedValueCopied = m_Manager.GetSharedComponentData<EcsSharedForcedOrder>(dstEntity);
+            var sharedValueCopied = m_Manager.GetSharedComponentManaged<EcsSharedForcedOrder>(dstEntity);
 
             var versionSharedAfter = m_Manager.GetSharedComponentOrderVersion(sharedValue);
             var versionSystemAfter = m_Manager.GetSharedComponentOrderVersion(systemValue);
 
             Assert.IsTrue(m_Manager.HasComponent<EcsSharedForcedOrder>(dstEntity));
-            Assert.IsFalse(m_Manager.HasComponent<EcsSharedStateForcedOrder>(dstEntity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsCleanupSharedForcedOrder>(dstEntity));
 
             Assert.AreEqual(sharedValue, sharedValueCopied);
 
@@ -891,15 +890,15 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity();
 
-            m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestTag>()));
+            m_Manager.AddComponent(entity, new ComponentTypeSet(ComponentType.ReadWrite<EcsTestTag>()));
             var archetypeBefore = m_Manager.GetChunk(entity).Archetype;
-            m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestTag>()));
+            m_Manager.AddComponent(entity, new ComponentTypeSet(ComponentType.ReadWrite<EcsTestTag>()));
             var archetypeAfter = m_Manager.GetChunk(entity).Archetype;
             Assert.AreEqual(archetypeBefore, archetypeAfter);
 
-            m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestData>()));
+            m_Manager.AddComponent(entity, new ComponentTypeSet(ComponentType.ReadWrite<EcsTestData>()));
             archetypeBefore = m_Manager.GetChunk(entity).Archetype;
-            m_Manager.AddComponents(entity, new ComponentTypes(ComponentType.ReadWrite<EcsTestData>()));
+            m_Manager.AddComponent(entity, new ComponentTypeSet(ComponentType.ReadWrite<EcsTestData>()));
             archetypeAfter = m_Manager.GetChunk(entity).Archetype;
             Assert.AreEqual(archetypeBefore, archetypeAfter);
         }
@@ -939,8 +938,8 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity();
 
-            var added0 = m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp());
-            var added1 = m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp());
+            var added0 = m_Manager.AddSharedComponentManaged(entity, new EcsTestSharedComp());
+            var added1 = m_Manager.AddSharedComponentManaged(entity, new EcsTestSharedComp());
 
             Assert.That(added0, Is.True);
             Assert.That(added1, Is.False);
@@ -961,8 +960,8 @@ namespace Unity.Entities.Tests
 
             m_Manager.AddComponentData(entity, new EcsTestData(1));
             m_Manager.AddComponentData(entity, new EcsTestData2(2));
-            m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp(3));
-            m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp3(4));
+            m_Manager.AddSharedComponentManaged(entity, new EcsTestSharedComp(3));
+            m_Manager.AddSharedComponentManaged(entity, new EcsTestSharedComp3(4));
             var newArchetype = m_Manager.CreateArchetype(typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp2));
 
             m_Manager.SetArchetype(entity, newArchetype);
@@ -970,31 +969,31 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
             Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData3>(entity).value0);
-            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsTestSharedComp2>(entity).value0);
-            Assert.AreEqual(4, m_Manager.GetSharedComponentData<EcsTestSharedComp3>(entity).value0);
+            Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<EcsTestSharedComp2>(entity).value0);
+            Assert.AreEqual(4, m_Manager.GetSharedComponentManaged<EcsTestSharedComp3>(entity).value0);
         }
 
         [Test]
         public void SetArchetypeRemovingStateComponentThrows()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsState1));
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsCleanup1));
             Assert.Throws<ArgumentException>(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype(typeof(EcsTestData))));
             Assert.Throws<ArgumentException>(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype()));
-            Assert.Throws<ArgumentException>(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype(typeof(EcsStateTag1))));
+            Assert.Throws<ArgumentException>(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype(typeof(EcsCleanupTag1))));
         }
 
         [Test]
         public void SetArchetypePreservingStateComponentNoThrows()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsState1));
-            Assert.DoesNotThrow(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype(typeof(EcsState1))));
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsCleanup1));
+            Assert.DoesNotThrow(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype(typeof(EcsCleanup1))));
         }
 
         [Test]
         public void SetArchetypeAddingStateComponent()
         {
-            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsState1));
-            var newArchetype = m_Manager.CreateArchetype(typeof(EcsState1), typeof(EcsStateTag1));
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsCleanup1));
+            var newArchetype = m_Manager.CreateArchetype(typeof(EcsCleanup1), typeof(EcsCleanupTag1));
             m_Manager.SetArchetype(entity, newArchetype);
             Assert.AreEqual(newArchetype, m_Manager.GetChunk(entity).Archetype);
         }
@@ -1192,7 +1191,7 @@ namespace Unity.Entities.Tests
         {
             var a = m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestData>());
 
-            using (var entities = m_Manager.GetAllEntities(Allocator.Temp, EntityManager.GetAllEntitiesOptions.ExcludeMeta))
+            using (var entities = m_Manager.GetAllEntities(Allocator.Temp))
             {
                 CollectionAssert.AreEquivalent(new[] {a}, entities);
             }
@@ -1201,6 +1200,46 @@ namespace Unity.Entities.Tests
             {
                 var meta = m_Manager.Debug.GetMetaChunkEntity(a);
                 CollectionAssert.AreEquivalent(new[] {a, meta}, entities);
+            }
+        }
+
+        [Test]
+        public void EntityManager_GetAllEntities_WithAndWithoutSystemEntities()
+        {
+            var a = m_Manager.CreateEntity(ComponentType.ReadWrite<SystemInstance>());
+            var b = m_Manager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+
+            using (var entities = m_Manager.GetAllEntities(Allocator.Temp))
+            {
+                CollectionAssert.AreEquivalent(new[] { b }, entities);
+            }
+
+            using (var entities = m_Manager.GetAllEntities(Allocator.Temp, EntityManager.GetAllEntitiesOptions.IncludeSystems))
+            {
+                CollectionAssert.AreEquivalent(new[] { a, b }, entities);
+            }
+        }
+
+        [Test]
+        public void EntityManager_UniversalQueryVsUniversalQueryWithSystems()
+        {
+            var a = m_Manager.CreateEntity(ComponentType.ReadWrite<SystemInstance>());
+            var b = m_Manager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+
+            using (var entities = m_Manager.GetAllEntities(Allocator.Temp))
+            {
+                using (var universalEntities = m_Manager.UniversalQuery.ToEntityArray(Allocator.Temp))
+                {
+                    CollectionAssert.AreEquivalent(universalEntities, entities);
+                }
+            }
+
+            using (var entities = m_Manager.GetAllEntities(Allocator.Temp, EntityManager.GetAllEntitiesOptions.IncludeSystems))
+            {
+                using (var universalEntities = m_Manager.UniversalQueryWithSystems.ToEntityArray(Allocator.Temp))
+                {
+                    CollectionAssert.AreEquivalent(universalEntities, entities);
+                }
             }
         }
     }

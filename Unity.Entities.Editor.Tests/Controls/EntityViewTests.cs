@@ -1,4 +1,4 @@
-﻿#if !DOTS_DISABLE_DEBUG_NAMES
+#if !DOTS_DISABLE_DEBUG_NAMES
 using NUnit.Framework;
 using Unity.Collections;
 using UnityEngine.UIElements;
@@ -12,7 +12,7 @@ namespace Unity.Entities.Editor.Tests
         {
             using var world = new World("EntityViewTestWorld");
             var archetype = world.EntityManager.CreateArchetype(typeof(EntityGuid));
-            using var entities = world.EntityManager.CreateEntity(archetype, 2, Allocator.TempJob);
+            using var entities = world.EntityManager.CreateEntity(archetype, 2, world.UpdateAllocator.ToAllocator);
             for (var i = 0; i < entities.Length; i++)
             {
                 world.EntityManager.SetName(entities[i], $"EntityViewTest_Entity{i}");

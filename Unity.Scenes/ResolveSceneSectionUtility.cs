@@ -70,10 +70,12 @@ namespace Unity.Scenes
         {
 #if UNITY_EDITOR
             var sceneName = sceneMetaData.SceneName.ToString();
-            entityManager.SetName(sceneEntity, $"Scene: {sceneName}");
+            var sceneNameFs = new FixedString64Bytes();
+            FixedStringMethods.CopyFromTruncated(ref sceneNameFs, $"Scene: {sceneNameFs}"); // Long scene names are truncated.
+            entityManager.SetName(sceneEntity, sceneNameFs);
 #endif
             // Resolve first (Even if the file doesn't exist we want to stop continuously trying to load the section)
-             entityManager.AddComponents(sceneEntity, new ComponentTypes(typeof(ResolvedSectionEntity), typeof(LinkedEntityGroup)));
+             entityManager.AddComponent(sceneEntity, new ComponentTypeSet(typeof(ResolvedSectionEntity), typeof(LinkedEntityGroup)));
              entityManager.GetBuffer<LinkedEntityGroup>(sceneEntity).Add(sceneEntity);
 
             // If auto-load is enabled
@@ -90,7 +92,9 @@ namespace Unity.Scenes
                 var sectionEntity = sectionEntities[i];
                 var sectionIndex = sceneMetaData.Sections[i].SubSectionIndex;
 #if UNITY_EDITOR
-                entityManager.SetName(sectionEntity, $"SceneSection: {sceneName} ({sectionIndex})");
+                var sceneNameFs32 = new FixedString32Bytes(); // Ensure the sectionIndex fits too.
+                FixedStringMethods.CopyFromTruncated(ref sceneNameFs32, sceneName);
+                entityManager.SetName(sectionEntity, $"SceneSection: {sceneNameFs32} ({sectionIndex})");
 #endif
 
                 if (loadSections)
@@ -103,7 +107,10 @@ namespace Unity.Scenes
                 entityManager.SetComponentData(sectionEntity, new SceneEntityReference { SceneEntity = sceneEntity });
                 entityManager.SetComponentData(sectionEntity, sectionPaths[i]);
 
-                entityManager.AddSharedComponentData(sectionEntity, headerBlobOwner);
+                entityManager.AddSharedComponent(sectionEntity, headerBlobOwner);
+
+                if (entityManager.HasComponent<SceneTag>(sceneEntity))
+                    entityManager.AddSharedComponent(sectionEntity, entityManager.GetSharedComponent<SceneTag>(sceneEntity));
 
                 AddSectionMetadataComponents(sectionEntity, ref sceneMetaData.SceneSectionCustomMetadata[i], entityManager);
 
@@ -209,7 +216,7 @@ namespace Unity.Scenes
                 var customTypeIndex = TypeManager.GetTypeIndexFromStableTypeHash(metadata.StableTypeHash);
 
                 // Couldn't find the type...
-                if (customTypeIndex == -1)
+                if (customTypeIndex == TypeIndex.Null)
                 {
                     UnityEngine.Debug.LogError(
                         $"Couldn't import SceneSection metadata, couldn't find the type to deserialize with stable hash {metadata.StableTypeHash}");

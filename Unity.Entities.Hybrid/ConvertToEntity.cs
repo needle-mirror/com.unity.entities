@@ -9,6 +9,7 @@ namespace Unity.Entities
 {
     [DisallowMultipleComponent]
     [AddComponentMenu("DOTS/Convert To Entity")]
+    [Obsolete("Runtime Conversion will be removed in DOTS 1.0")]
     public class ConvertToEntity : MonoBehaviour
     {
         public enum Mode
@@ -21,20 +22,29 @@ namespace Unity.Entities
 
         void Awake()
         {
+#if UNITY_EDITOR
+            if (gameObject.scene.isSubScene)
+                return;
+#endif
+
             if (World.DefaultGameObjectInjectionWorld != null)
             {
-                var system = World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<ConvertToEntitySystem>();
+                var system = World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<ConvertToEntitySystem>();
                 system.AddToBeConverted(World.DefaultGameObjectInjectionWorld, this);
             }
             else
             {
-                UnityEngine.Debug.LogWarning($"{nameof(ConvertToEntity)} failed because there is no {nameof(World.DefaultGameObjectInjectionWorld)}", this);
+                UnityEngine.Debug.LogWarning(
+                    $"{nameof(ConvertToEntity)} failed because there is no {nameof(World.DefaultGameObjectInjectionWorld)}",
+                    this);
             }
         }
     }
 
     [UpdateInGroup(typeof(InitializationSystemGroup))]
-    public class ConvertToEntitySystem : ComponentSystem
+    [WorldSystemFilter(WorldSystemFilterFlags.LocalSimulation)]
+    [Obsolete("Runtime Conversion will be removed in DOTS 1.0")]
+    public partial class ConvertToEntitySystem : SystemBase
     {
         Dictionary<World, List<ConvertToEntity>> m_ToBeConverted = new Dictionary<World, List<ConvertToEntity>>();
 
@@ -43,16 +53,15 @@ namespace Unity.Entities
         protected override void OnCreate()
         {
             base.OnCreate();
-            BlobAssetStore = new BlobAssetStore();
+            BlobAssetStore = new BlobAssetStore(128);
         }
 
         protected override void OnDestroy()
         {
             base.OnDestroy();
-            if (BlobAssetStore != null)
+            if (BlobAssetStore.IsCreated)
             {
                 BlobAssetStore.Dispose();
-                BlobAssetStore = null;
             }
         }
 
@@ -83,6 +92,7 @@ namespace Unity.Entities
             return mode == ConvertToEntity.Mode.ConvertAndInjectGameObject;
         }
 
+        static List<Component> s_ComponentsCache = new List<Component>();
         static void AddRecurse(EntityManager manager, Transform transform, HashSet<Transform> toBeDetached, List<Transform> toBeInjected)
         {
             if (transform.GetComponent<StopConvertToEntity>() != null)
@@ -91,7 +101,8 @@ namespace Unity.Entities
                 return;
             }
 
-            GameObjectEntity.AddToEntityManager(manager, transform.gameObject);
+            GameObjectConversionMappingSystem.CreateGameObjectEntity(manager, transform.gameObject, s_ComponentsCache);
+            s_ComponentsCache.Clear();
 
             if (IsConvertAndInject(transform.gameObject))
             {
@@ -110,7 +121,7 @@ namespace Unity.Entities
             var entity = mappingSystem.GetPrimaryEntity(transform.gameObject);
             foreach (var com in transform.GetComponents<Component>())
             {
-                if (com is GameObjectEntity || com is ConvertToEntity || com is StopConvertToEntity)
+                if (com is ConvertToEntity || com is StopConvertToEntity)
                     continue;
 
                 mappingSystem.DstEntityManager.AddComponentObject(entity, com);
@@ -132,10 +143,9 @@ namespace Unity.Entities
 
                     var settings = new GameObjectConversionSettings(
                         convertToWorld.Key,
-                        GameObjectConversionUtility.ConversionFlags.AssignName);
+                        GameObjectConversionUtility.ConversionFlags.AssignName,
+                        BlobAssetStore);
                     settings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
-
-                    settings.BlobAssetStore = BlobAssetStore;
 
                     using (var gameObjectWorld = settings.CreateConversionWorld())
                     {
@@ -175,7 +185,7 @@ namespace Unity.Entities
 
                         GameObjectConversionUtility.Convert(gameObjectWorld);
 
-                        var mappingSystem = gameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
+                        var mappingSystem = gameObjectWorld.GetExistingSystemManaged<GameObjectConversionMappingSystem>();
                         foreach (var convert in toBeInjected)
                             InjectOriginalComponents(mappingSystem, convert);
                     }

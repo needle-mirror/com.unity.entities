@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityCommandBufferDebugView_CreateEntity_ContainsExpectedData()
         {
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var ent = ecb.CreateEntity();
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -32,7 +32,7 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.CreateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+            Assert.AreEqual(32, cmdView.TotalSizeInBytes);
 
             var createCmdView = cmdView as EntityCommandBuffer.CreateCommandView;
             Assert.IsFalse(createCmdView.EntityArchetype.Valid);
@@ -45,7 +45,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_CreateEntityFromArchetype_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var ent = ecb.CreateEntity(archetype);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -55,7 +55,7 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.CreateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+            Assert.AreEqual(32, cmdView.TotalSizeInBytes);
 
             var createCmdView = cmdView as EntityCommandBuffer.CreateCommandView;
             Assert.AreEqual(archetype, createCmdView.EntityArchetype);
@@ -68,7 +68,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_Instantiate_ContainsExpectedData()
         {
             var prefab = m_Manager.CreateEntity(typeof(EcsTestData), typeof(Prefab));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var ent = ecb.Instantiate(prefab);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -91,7 +91,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_InstantiateToArray_ContainsExpectedData()
         {
             var prefab = m_Manager.CreateEntity(typeof(EcsTestData), typeof(Prefab));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             using var entities = CollectionHelper.CreateNativeArray<Entity>(5, World.UpdateAllocator.ToAllocator);
             ecb.Instantiate(prefab, entities);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -115,7 +115,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_DestroyEntity_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.DestroyEntity(ent);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -138,7 +138,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AddBuffer_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var buf = ecb.AddBuffer<EcsIntElement>(ent);
             buf.Add(17);
             buf.Add(23);
@@ -170,7 +170,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AddBufferWithEntityFixup_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var ent2 = ecb.CreateEntity(); // need deferred entity to force fix-up
             var ent3 = ecb.CreateEntity(); // need deferred entity to force fix-up
             var buf = ecb.AddBuffer<EcsComplexEntityRefElement>(ent);
@@ -206,7 +206,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_SetBuffer_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsIntElement));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var buf = ecb.SetBuffer<EcsIntElement>(ent);
             buf.Add(17);
             buf.Add(23);
@@ -237,7 +237,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_SetBufferWithEntityFixup_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsComplexEntityRefElement));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var ent2 = ecb.CreateEntity(); // need deferred entity to force fix-up
             var ent3 = ecb.CreateEntity(); // need deferred entity to force fix-up
             var buf = ecb.SetBuffer<EcsComplexEntityRefElement>(ent);
@@ -273,7 +273,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AppendToBuffer_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsIntElement));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.AppendToBuffer(ent, new EcsIntElement { Value = 17 });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -303,7 +303,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AppendToBufferWithEntityFixup_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsComplexEntityRefElement));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var ent2 = ecb.CreateEntity(); // need deferred entity to force fix-up
             ecb.AppendToBuffer(ent, new EcsComplexEntityRefElement { Dummy = 17, Entity = ent2 });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -335,7 +335,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AddComponentWithValue_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity();
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var value = new EcsTestData { value = 17 };
             ecb.AddComponent(ent, value);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -364,7 +364,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AddComponentWithEntityFixup_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity();
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var ent2 = ecb.CreateEntity(); // need deferred entity to force fix-up
             var value = new EcsTestDataEntity { value0 = 17, value1 = ent2 };
             ecb.AddComponent(ent, value);
@@ -396,7 +396,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AddComponent_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity();
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.AddComponent<EcsTestData>(ent);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -424,7 +424,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AddComponentType_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity();
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.AddComponent(ent, ComponentType.ReadWrite<EcsTestData>());
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -452,8 +452,8 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AddComponentTypes_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity();
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
-            var componentTypes = new ComponentTypes(typeof(EcsTestData),
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            var componentTypes = new ComponentTypeSet(typeof(EcsTestData),
                 typeof(EcsTestData2), typeof(EcsTestData3));
             ecb.AddComponent(ent, componentTypes);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -472,20 +472,150 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, entityCmdView.BatchCount);
 
             var multiComponentCmdView = cmdView as EntityCommandBuffer.EntityMultipleComponentsCommandView;
-            Assert.AreEqual(componentTypes.Length, multiComponentCmdView.Types.Length);
+            Assert.AreEqual(componentTypes.Length, multiComponentCmdView.TypeSet.Length);
             for (int i = 0; i < componentTypes.Length; ++i)
             {
-                Assert.AreEqual(componentTypes.GetTypeIndex(i), multiComponentCmdView.Types.GetTypeIndex(i));
+                Assert.AreEqual(componentTypes.GetTypeIndex(i), multiComponentCmdView.TypeSet.GetTypeIndex(i));
             }
 
             Assert.AreEqual("Add 3 Components",multiComponentCmdView.ToString());
         }
 
         [Test]
+        public void EntityCommandBufferDebugView_AddComponentForLinkedEntityGroup_ContainsExpectedData()
+        {
+            var rootEntity = m_Manager.CreateEntity(typeof(Prefab), typeof(LinkedEntityGroup));
+            var array = m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(EcsTestData)), 10, World.UpdateAllocator.ToAllocator);
+
+            var linkedBuffer = m_Manager.AddBuffer<LinkedEntityGroup>(rootEntity);
+            for (var i = 0; i < 10; i++)
+            {
+                linkedBuffer.Add(new LinkedEntityGroup {Value = array[i]});
+            }
+
+            var mask = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>()).GetEntityQueryMask();
+
+            using EntityCommandBuffer ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            ecb.AddComponentForLinkedEntityGroup(rootEntity, mask, new EcsTestData2(42));
+            var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
+
+            var commands = ecbView.Commands;
+            Assert.AreEqual(1, commands.Length);
+
+            var cmdView = commands[0];
+            Assert.AreEqual(ECBCommand.AddComponentLinkedEntityGroup, cmdView.CommandType);
+            Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+            Assert.AreEqual(64, cmdView.TotalSizeInBytes);
+
+            var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
+            Assert.AreEqual(rootEntity, entityCmdView.Entity);
+            Assert.AreEqual(0, entityCmdView.IdentityIndex);
+            Assert.AreEqual(1, entityCmdView.BatchCount);
+
+            var componentCmdView = cmdView as EntityCommandBuffer.EntityComponentCommandView;
+
+            Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestData2>(), componentCmdView.ComponentTypeIndex);
+            Assert.AreEqual(sizeof(EcsTestData2), componentCmdView.ComponentSize);
+            var actualValue = (EcsTestData2)componentCmdView.ComponentValue;
+            Assert.AreEqual(42, actualValue.value0);
+            Assert.AreEqual(42, actualValue.value1);
+            Assert.AreEqual("Add EcsTestData2 Component for LinkedEntityGroup", componentCmdView.ToString());
+
+            var maskCmdView = cmdView as EntityCommandBuffer.EntityQueryMaskCommandView;
+            Assert.AreEqual(mask.Index, maskCmdView.Mask.Index);
+            Assert.AreEqual(mask.Mask, maskCmdView.Mask.Mask);
+            Assert.AreEqual("Add EcsTestData2 Component for LinkedEntityGroup", componentCmdView.ToString());
+        }
+
+        [Test]
+        public void EntityCommandBufferDebugView_SetComponentForLinkedEntityGroup_ContainsExpectedData()
+        {
+            var rootEntity = m_Manager.CreateEntity(typeof(Prefab), typeof(LinkedEntityGroup));
+            var array = m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(EcsTestData)), 10, World.UpdateAllocator.ToAllocator);
+
+            var linkedBuffer = m_Manager.AddBuffer<LinkedEntityGroup>(rootEntity);
+            for (var i = 0; i < 10; i++)
+            {
+                linkedBuffer.Add(new LinkedEntityGroup {Value = array[i]});
+            }
+
+            var mask = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>()).GetEntityQueryMask();
+
+            var value = new EcsTestData { value = 42 };
+            using EntityCommandBuffer ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            ecb.SetComponentForLinkedEntityGroup(rootEntity, mask, value);
+            var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
+
+            var commands = ecbView.Commands;
+            Assert.AreEqual(1, commands.Length);
+
+            var cmdView = commands[0];
+            Assert.AreEqual(ECBCommand.SetComponentLinkedEntityGroup, cmdView.CommandType);
+            Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+            Assert.AreEqual(64, cmdView.TotalSizeInBytes);
+
+            var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
+            Assert.AreEqual(rootEntity, entityCmdView.Entity);
+            Assert.AreEqual(0, entityCmdView.IdentityIndex);
+            Assert.AreEqual(1, entityCmdView.BatchCount);
+
+            var componentCmdView = cmdView as EntityCommandBuffer.EntityComponentCommandView;
+
+            Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestData>(), componentCmdView.ComponentTypeIndex);
+            Assert.AreEqual(sizeof(EcsTestData), componentCmdView.ComponentSize);
+            Assert.AreEqual(value, (EcsTestData)componentCmdView.ComponentValue);
+            Assert.AreEqual("Set EcsTestData Component for LinkedEntityGroup", componentCmdView.ToString());
+
+            var maskCmdView = cmdView as EntityCommandBuffer.EntityQueryMaskCommandView;
+            Assert.AreEqual(mask.Index, maskCmdView.Mask.Index);
+            Assert.AreEqual(mask.Mask, maskCmdView.Mask.Mask);
+            Assert.AreEqual("Set EcsTestData Component for LinkedEntityGroup", componentCmdView.ToString());
+        }
+
+        [Test]
+        public void EntityCommandBufferDebugView_ReplaceComponentForLinkedEntityGroup_ContainsExpectedData()
+        {
+            var rootEntity = m_Manager.CreateEntity(typeof(Prefab), typeof(LinkedEntityGroup));
+            var array = m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(EcsTestData)), 10,
+                World.UpdateAllocator.ToAllocator);
+
+            var linkedBuffer = m_Manager.AddBuffer<LinkedEntityGroup>(rootEntity);
+            for (var i = 0; i < 10; i++)
+            {
+                linkedBuffer.Add(new LinkedEntityGroup {Value = array[i]});
+            }
+
+            var value = new EcsTestData {value = 42};
+            using EntityCommandBuffer ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            ecb.ReplaceComponentForLinkedEntityGroup(rootEntity, value);
+            var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
+
+            var commands = ecbView.Commands;
+            Assert.AreEqual(1, commands.Length);
+
+            var cmdView = commands[0];
+            Assert.AreEqual(ECBCommand.ReplaceComponentLinkedEntityGroup, cmdView.CommandType);
+            Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+
+            var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
+            Assert.AreEqual(rootEntity, entityCmdView.Entity);
+            Assert.AreEqual(0, entityCmdView.IdentityIndex);
+            Assert.AreEqual(1, entityCmdView.BatchCount);
+
+            var componentCmdView = cmdView as EntityCommandBuffer.EntityComponentCommandView;
+
+            Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestData>(), componentCmdView.ComponentTypeIndex);
+            Assert.AreEqual(sizeof(EcsTestData), componentCmdView.ComponentSize);
+            Assert.AreEqual(value, (EcsTestData) componentCmdView.ComponentValue);
+            Assert.AreEqual("Replace EcsTestData Component for LinkedEntityGroup", componentCmdView.ToString());
+        }
+
+        [Test]
         public void EntityCommandBufferDebugView_SetComponentWithValue_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var value = new EcsTestData { value = 17 };
             ecb.SetComponent(ent, value);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -514,7 +644,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_SetComponentWithEntityFixup_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestDataEntity));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var ent2 = ecb.CreateEntity(); // need deferred entity to force fix-up
             var value = new EcsTestDataEntity { value0 = 17, value1 = ent2 };
             ecb.SetComponent(ent, value);
@@ -542,12 +672,53 @@ namespace Unity.Entities.Tests
             Assert.AreEqual("Set EcsTestDataEntity Component",componentCmdView.ToString());
         }
 
+        [Test]
+        public void EntityCommandBufferDebugView_SetEntityEnabled_ContainsExpectedData()
+        {
+            var ent = m_Manager.CreateEntity(typeof(EcsTestData));
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            ecb.SetEnabled(ent, true);
+            ecb.SetEnabled(ent, false);
+            var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
+
+            var commands = ecbView.Commands;
+            Assert.AreEqual(2, commands.Length);
+
+            var enabledCommand = commands[0];
+            Assert.AreEqual(ECBCommand.SetEntityEnabled, enabledCommand.CommandType);
+            Assert.AreEqual(ecb.MainThreadSortKey, enabledCommand.SortKey);
+            Assert.AreEqual(32, enabledCommand.TotalSizeInBytes);
+
+            var enabledEntityCmdView = enabledCommand as EntityCommandBuffer.EntityCommandView;
+            Assert.AreEqual(ent, enabledEntityCmdView.Entity);
+            Assert.AreEqual(0, enabledEntityCmdView.IdentityIndex);
+            Assert.AreEqual(1, enabledEntityCmdView.BatchCount);
+
+            var enabledCmdView = enabledCommand as EntityCommandBuffer.EntityEnabledCommandView;
+            Assert.AreEqual(1, enabledCmdView.IsEnabled);
+            Assert.AreEqual($"Set Entity ({ent.Index},{ent.Version}) to Enabled",enabledCmdView.ToString());
+
+            var disabledCommand = commands[1];
+            Assert.AreEqual(ECBCommand.SetEntityEnabled, disabledCommand.CommandType);
+            Assert.AreEqual(ecb.MainThreadSortKey, disabledCommand.SortKey);
+            Assert.AreEqual(32, disabledCommand.TotalSizeInBytes);
+
+            var disabledEntityCmdView = disabledCommand as EntityCommandBuffer.EntityCommandView;
+            Assert.AreEqual(ent, disabledEntityCmdView.Entity);
+            Assert.AreEqual(0, disabledEntityCmdView.IdentityIndex);
+            Assert.AreEqual(1, disabledEntityCmdView.BatchCount);
+
+            var disabledCmdView = disabledCommand as EntityCommandBuffer.EntityEnabledCommandView;
+            Assert.AreEqual(0, disabledCmdView.IsEnabled);
+            Assert.AreEqual($"Set Entity ({ent.Index},{ent.Version}) to Disabled",disabledCmdView.ToString());
+        }
+
 #if !DOTS_DISABLE_DEBUG_NAMES
         [Test]
         public void EntityCommandBufferDebugView_SetName_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var name = new FixedString64Bytes("Test Name");
             ecb.SetName(ent, name);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -575,7 +746,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_RemoveComponent_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.RemoveComponent<EcsTestData>(ent);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -603,7 +774,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_RemoveComponentType_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.RemoveComponent(ent, ComponentType.ReadWrite<EcsTestData>());
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -630,11 +801,11 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityCommandBufferDebugView_RemoveComponentTypes_ContainsExpectedData()
         {
-            var componentTypes = new ComponentTypes(typeof(EcsTestData),
+            var componentTypes = new ComponentTypeSet(typeof(EcsTestData),
                 typeof(EcsTestData2), typeof(EcsTestData3));
             var ent = m_Manager.CreateEntity();
-            m_Manager.AddComponents(ent, componentTypes);
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            m_Manager.AddComponent(ent, componentTypes);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.RemoveComponent(ent, componentTypes);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -652,10 +823,10 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, entityCmdView.BatchCount);
 
             var multiComponentCmdView = cmdView as EntityCommandBuffer.EntityMultipleComponentsCommandView;
-            Assert.AreEqual(componentTypes.Length, multiComponentCmdView.Types.Length);
+            Assert.AreEqual(componentTypes.Length, multiComponentCmdView.TypeSet.Length);
             for (int i = 0; i < componentTypes.Length; ++i)
             {
-                Assert.AreEqual(componentTypes.GetTypeIndex(i), multiComponentCmdView.Types.GetTypeIndex(i));
+                Assert.AreEqual(componentTypes.GetTypeIndex(i), multiComponentCmdView.TypeSet.GetTypeIndex(i));
             }
             Assert.AreEqual("Remove 3 Components",multiComponentCmdView.ToString());
         }
@@ -665,10 +836,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.AddComponentForEntityQuery<EcsTestData2>(query);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -681,7 +852,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(56, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -705,10 +876,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.AddComponentForEntityQuery(query, ComponentType.ReadWrite<EcsTestData2>());
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -721,7 +892,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(56, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -745,10 +916,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.AddComponentForEntityQuery(query, new EcsTestData2 { value0 = 17, value1 = 23 });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -761,7 +932,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(64, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -786,13 +957,13 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AddComponentTypesForEntityQuery_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
-            var componentTypes = new ComponentTypes(typeof(EcsTestData2),
+            var componentTypes = new ComponentTypeSet(typeof(EcsTestData2),
                 typeof(EcsTestData3), typeof(EcsTestData4));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.AddComponentForEntityQuery(query, componentTypes);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -805,7 +976,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(120, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -819,10 +990,10 @@ namespace Unity.Entities.Tests
 
             var multiEntityAndComponentsCmdView =
                 cmdView as EntityCommandBuffer.MultipleEntitiesAndComponentsCommandView;
-            Assert.AreEqual(componentTypes.Length, multiEntityAndComponentsCmdView.Types.Length);
+            Assert.AreEqual(componentTypes.Length, multiEntityAndComponentsCmdView.TypeSet.Length);
             for (int i = 0; i < componentTypes.Length; ++i)
             {
-                Assert.AreEqual(componentTypes.GetTypeIndex(i), multiEntityAndComponentsCmdView.Types.GetTypeIndex(i));
+                Assert.AreEqual(componentTypes.GetTypeIndex(i), multiEntityAndComponentsCmdView.TypeSet.GetTypeIndex(i));
             }
 
             Assert.AreEqual("Add 3 Components to 10 Entities",multiEntityCmdView.ToString());
@@ -833,10 +1004,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.AddSharedComponentForEntityQuery(query, new EcsTestSharedComp { value = 17 });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -844,12 +1015,12 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, commands.Length);
 
             var cmdView = commands[0];
-            Assert.AreEqual(ECBCommand.AddSharedComponentWithValueForMultipleEntities, cmdView.CommandType);
+            Assert.AreEqual(ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(72, cmdView.TotalSizeInBytes);
+            Assert.AreEqual(80, cmdView.TotalSizeInBytes);
 
-            var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandView_WithUnmanagedSharedValue;
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -862,14 +1033,14 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEquivalent(entities.ToArray(), actualEntities.ToArray());
 
             var multiEntityComponentObjectCmdView =
-                cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandWithObjectView;
+                cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandView_WithUnmanagedSharedValue;
             Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestSharedComp>(),
                 multiEntityComponentObjectCmdView.ComponentTypeIndex);
             //Assert.AreEqual(760342523, multiEntityComponentObjectCmdView.HashCode); // hash value not consistent
-            var actualValue = (EcsTestSharedComp)multiEntityComponentObjectCmdView.GetBoxedObject();
+            var actualValue = (EcsTestSharedComp)multiEntityComponentObjectCmdView.ComponentValue;
             Assert.AreEqual(17, actualValue.value);
 
-            Assert.AreEqual("Add EcsTestSharedComp Component to 10 Entities",multiEntityCmdView.ToString());
+            Assert.AreEqual("Add EcsTestSharedComp Unmanaged Shared Component to 10 Entities",multiEntityCmdView.ToString());
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -878,10 +1049,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             const string stringValue = "TestValue";
             ecb.AddComponentObjectForEntityQuery(query, new EcsTestManagedComponent { value = stringValue });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -895,7 +1066,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(72, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -922,10 +1093,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestManagedComponent));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             const string stringValue = "TestValue";
             ecb.SetComponentObjectForEntityQuery(query, new EcsTestManagedComponent { value = stringValue });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -939,7 +1110,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(72, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -967,10 +1138,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.SetSharedComponentForEntityQuery(query, new EcsTestSharedComp { value = 17 });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -978,12 +1149,12 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, commands.Length);
 
             var cmdView = commands[0];
-            Assert.AreEqual(ECBCommand.SetSharedComponentValueForMultipleEntities, cmdView.CommandType);
+            Assert.AreEqual(ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(72, cmdView.TotalSizeInBytes);
+            Assert.AreEqual(80, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -996,13 +1167,13 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEquivalent(entities.ToArray(), actualEntities.ToArray());
 
             var multiEntityComponentObjectCmdView =
-                cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandWithObjectView;
+                cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandView_WithUnmanagedSharedValue;
             Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestSharedComp>(),
                 multiEntityComponentObjectCmdView.ComponentTypeIndex);
             //Assert.AreEqual(760342523, multiEntityComponentObjectCmdView.HashCode); // hash value not consistent
-            var actualValue = (EcsTestSharedComp)multiEntityComponentObjectCmdView.GetBoxedObject();
+            var actualValue = (EcsTestSharedComp) multiEntityComponentObjectCmdView.ComponentValue;
             Assert.AreEqual(17, actualValue.value);
-            Assert.AreEqual("Set EcsTestSharedComp Component to 10 Entities",multiEntityCmdView.ToString());
+            Assert.AreEqual("Set EcsTestSharedComp Unmanaged Shared Component from 10 Entities",multiEntityCmdView.ToString());
         }
 
         [Test]
@@ -1010,10 +1181,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.RemoveComponentForEntityQuery(query, ComponentType.ReadWrite<EcsTestData>());
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -1026,7 +1197,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(56, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -1050,10 +1221,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.RemoveComponentForEntityQuery<EcsTestData>(query);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -1066,7 +1237,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(56, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -1090,13 +1261,13 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData),
                 typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
-            var componentTypes = new ComponentTypes(typeof(EcsTestData2),
+            var componentTypes = new ComponentTypeSet(typeof(EcsTestData2),
                 typeof(EcsTestData3), typeof(EcsTestData4));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.RemoveComponentForEntityQuery(query, componentTypes);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -1109,7 +1280,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(120, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -1123,10 +1294,10 @@ namespace Unity.Entities.Tests
 
             var multiEntityAndComponentsCmdView =
                 cmdView as EntityCommandBuffer.MultipleEntitiesAndComponentsCommandView;
-            Assert.AreEqual(componentTypes.Length, multiEntityAndComponentsCmdView.Types.Length);
+            Assert.AreEqual(componentTypes.Length, multiEntityAndComponentsCmdView.TypeSet.Length);
             for (int i = 0; i < componentTypes.Length; ++i)
             {
-                Assert.AreEqual(componentTypes.GetTypeIndex(i), multiEntityAndComponentsCmdView.Types.GetTypeIndex(i));
+                Assert.AreEqual(componentTypes.GetTypeIndex(i), multiEntityAndComponentsCmdView.TypeSet.GetTypeIndex(i));
             }
 
             Assert.AreEqual("Remove 3 Components from 10 Entities",multiEntityCmdView.ToString());
@@ -1137,10 +1308,10 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
-            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             ecb.DestroyEntitiesForEntityQuery(query);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
@@ -1153,7 +1324,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(48, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
-            Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
+            Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
             Assert.AreEqual(entityCount, multiEntityCmdView.EntitiesCount);
             Assert.IsTrue(multiEntityCmdView.SkipDeferredEntityLookup);
             var actualEntities =
@@ -1171,7 +1342,7 @@ namespace Unity.Entities.Tests
         public void EntityCommandBufferDebugView_AddSharedComponent_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity();
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var value = new EcsTestSharedComp { value = 17 };
             ecb.AddSharedComponent(ent, value);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -1180,28 +1351,28 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, commands.Length);
 
             var cmdView = commands[0];
-            Assert.AreEqual(ECBCommand.AddSharedComponentData, cmdView.CommandType);
+            Assert.AreEqual(ECBCommand.AddUnmanagedSharedComponentData, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(56, cmdView.TotalSizeInBytes);
+            Assert.AreEqual(48, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
             Assert.AreEqual(0, entityCmdView.IdentityIndex);
             Assert.AreEqual(1, entityCmdView.BatchCount);
 
-            var sharedComponentCmdView = cmdView as EntityCommandBuffer.EntitySharedComponentCommandView;
+            var sharedComponentCmdView = cmdView as EntityCommandBuffer.EntityUnmanagedSharedComponentCommandView;
             Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestSharedComp>(), sharedComponentCmdView.ComponentTypeIndex);
             //Assert.AreEqual(760342523, sharedComponentCmdView.HashCode); // hash value not consistent
-            var actualValue = (EcsTestSharedComp)sharedComponentCmdView.GetBoxedObject();
+            var actualValue = (EcsTestSharedComp) sharedComponentCmdView.ComponentValue;
             Assert.AreEqual(17, actualValue.value);
-            Assert.AreEqual("Add EcsTestSharedComp SharedComponentData",sharedComponentCmdView.ToString());
+            Assert.AreEqual("Add EcsTestSharedComp UnmanagedSharedComponentData",sharedComponentCmdView.ToString());
         }
 
         [Test]
         public void EntityCommandBufferDebugView_SetSharedComponent_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestSharedComp));
-            using var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             var value = new EcsTestSharedComp { value = 17 };
             ecb.SetSharedComponent(ent, value);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
@@ -1210,21 +1381,21 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, commands.Length);
 
             var cmdView = commands[0];
-            Assert.AreEqual(ECBCommand.SetSharedComponentData, cmdView.CommandType);
+            Assert.AreEqual(ECBCommand.SetUnmanagedSharedComponentData, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(56, cmdView.TotalSizeInBytes);
+            Assert.AreEqual(48, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
             Assert.AreEqual(0, entityCmdView.IdentityIndex);
             Assert.AreEqual(1, entityCmdView.BatchCount);
 
-            var sharedComponentCmdView = cmdView as EntityCommandBuffer.EntitySharedComponentCommandView;
+            var sharedComponentCmdView = cmdView as EntityCommandBuffer.EntityUnmanagedSharedComponentCommandView;//EntitySharedComponentCommandView;
             Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestSharedComp>(), sharedComponentCmdView.ComponentTypeIndex);
             //Assert.AreEqual(760342523, sharedComponentCmdView.HashCode); // hash value not consistent
-            var actualValue = (EcsTestSharedComp)sharedComponentCmdView.GetBoxedObject();
+            var actualValue = (EcsTestSharedComp)sharedComponentCmdView.ComponentValue;
             Assert.AreEqual(17, actualValue.value);
-            Assert.AreEqual("Set EcsTestSharedComp SharedComponentData",sharedComponentCmdView.ToString());
+            Assert.AreEqual("Set EcsTestSharedComp UnmanagedSharedComponentData",sharedComponentCmdView.ToString());
         }
     }
 #endif

@@ -128,14 +128,18 @@ namespace Unity.Entities.Tests
                         var testValue = testValues[prototypeIndex];
                         foreach (var duplicate in duplicates[prototypeIndex])
                         {
-                            Assert.That(verifiedDuplicates, Has.None.EqualTo(duplicate));
+                            if (verifiedDuplicates.Contains(duplicate))
+                                Assert.That(verifiedDuplicates, Has.None.EqualTo(duplicate));
                             verifiedDuplicates.Add(duplicate);
 
                             var b = m_Manager.GetBuffer<MockElement>(duplicate);
-                            Assert.That(
-                                Enumerable.Range(0, b.Length).Select(i => b[i].Value).ToArray(), Is.EqualTo(testValue),
-                                $"Invalid data for duplicate of prototype {prototypeIndex} on iteration {iteration}."
-                            );
+                            for (int bIdx = 0; bIdx < b.Length; bIdx++)
+                            {
+                                if (b[bIdx].Value != testValue[bIdx])
+                                {
+                                    Assert.AreEqual(b[bIdx].Value, testValue[bIdx], $"Invalid data for duplicate of prototype {prototypeIndex} on iteration {iteration}.");
+                                }
+                            }
                         }
                     }
                 }

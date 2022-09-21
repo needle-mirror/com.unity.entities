@@ -23,26 +23,25 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(e, testData);
                 if ((i & 0x01) == 0)
                 {
-                    m_Manager.AddSharedComponentData(e, evenShared);
+                    m_Manager.AddSharedComponent(e, evenShared);
                 }
                 else
                 {
-                    m_Manager.AddSharedComponentData(e, oddShared);
+                    m_Manager.AddSharedComponent(e, oddShared);
                 }
             }
         }
 
         void ActionEvenOdd(Action<int, EntityQuery> even, Action<int, EntityQuery> odd)
         {
-            var uniqueTypes = new List<SharedData1>(10);
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
             group.CompleteDependency();
 
-            m_Manager.GetAllUniqueSharedComponentData(uniqueTypes);
+            m_Manager.GetAllUniqueSharedComponents<SharedData1>(out var uniqueValues, Allocator.Temp);
 
-            for (int sharedIndex = 0; sharedIndex != uniqueTypes.Count; sharedIndex++)
+            for (int sharedIndex = 0; sharedIndex != uniqueValues.Length; sharedIndex++)
             {
-                var sharedData = uniqueTypes[sharedIndex];
+                var sharedData = uniqueValues[sharedIndex];
                 group.SetSharedComponentFilter(sharedData);
                 var version = m_Manager.GetSharedComponentOrderVersion(sharedData);
 
@@ -153,7 +152,7 @@ namespace Unity.Entities.Tests
             ActionEvenOdd((version, group) =>
             {
                 var entityType = m_Manager.GetEntityTypeHandle();
-                var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+                var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
                 var firstEntity = chunks[0].GetNativeArray(entityType);
                 m_Manager.DestroyEntity(firstEntity);
             }, (version, group) => {});
@@ -161,13 +160,13 @@ namespace Unity.Entities.Tests
             ActionEvenOdd(
                 (version, group) =>
                 {
-                    var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+                    var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
                     for (int i = 0; i < chunks.Length; i++)
                         Assert.Greater(1, chunks[i].GetOrderVersion());
                 },
                 (version, group) =>
                 {
-                    var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+                    var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
                     for (int i = 0; i < chunks.Length; i++)
                         Assert.AreEqual(1, chunks[i].GetOrderVersion());
                 });
@@ -227,7 +226,7 @@ namespace Unity.Entities.Tests
         public void SetSharedComponent()
         {
             var entity = m_Manager.CreateEntity(typeof(SharedData1), typeof(SharedData2));
-            m_Manager.SetSharedComponentData(entity, new SharedData1(1));
+            m_Manager.SetSharedComponentManaged(entity, new SharedData1(1));
 
             Assert.LessOrEqual(2, m_Manager.GetComponentOrderVersion<SharedData2>());
             Assert.LessOrEqual(2, m_Manager.GetComponentOrderVersion<SharedData1>());
@@ -240,7 +239,7 @@ namespace Unity.Entities.Tests
             var sharedData = new SharedData1(1);
 
             var destroyEntity = m_Manager.CreateEntity(typeof(SharedData1));
-            m_Manager.SetSharedComponentData(destroyEntity, sharedData);
+            m_Manager.SetSharedComponentManaged(destroyEntity, sharedData);
             /*var dontDestroyEntity = */ m_Manager.Instantiate(destroyEntity);
 
             Assert.LessOrEqual(2, m_Manager.GetSharedComponentOrderVersion(sharedData));
@@ -250,17 +249,56 @@ namespace Unity.Entities.Tests
             Assert.LessOrEqual(3, m_Manager.GetSharedComponentOrderVersion(sharedData));
         }
 
+        #if !NET_DOTS
         [Test]
-        public void GetSharedComponentOrderVersionIncrementing([Values(0, 1)]int value)
+        public void GetSharedComponentOrderVersionIncrementingWithManaged([Values(0, 1)]int value)
         {
             int unaffectedSharedValue = 15;
-            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new SharedData1(unaffectedSharedValue));
+            m_Manager.AddSharedComponentManaged(m_Manager.CreateEntity(), new ManagedSharedData2(unaffectedSharedValue));
+            var unaffectedVersion = m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(unaffectedSharedValue));
+
+            var v0 = m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(value));
+
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponentManaged(entity, new ManagedSharedData2(value));
+            var v1 = m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(value));
+            Assert.Greater(v1, v0);
+
+            m_Manager.RemoveComponent<ManagedSharedData2>(entity);
+            var v2 = m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(value));
+            Assert.Greater(v2, v1);
+
+            m_Manager.AddSharedComponentManaged(entity, new ManagedSharedData2(value));
+            var v3 = m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(value));
+            Assert.Greater(v3, v2);
+
+            var clone = m_Manager.Instantiate(entity);
+            var v4 = m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(value));
+            Assert.Greater(v4, v3);
+
+            m_Manager.DestroyEntity(clone);
+            var v5 = m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(value));
+            Assert.Greater(v5, v4);
+
+            m_Manager.DestroyEntity(entity);
+            var v6 = m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(value));
+            Assert.Greater(v6, v5);
+
+            Assert.AreEqual(unaffectedVersion, m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(unaffectedSharedValue)));
+        }
+#endif
+
+        [Test]
+        public void GetUnmanagedSharedComponentOrderVersionIncrementing([Values(0, 1)]int value)
+        {
+            int unaffectedSharedValue = 15;
+            m_Manager.AddSharedComponentManaged(m_Manager.CreateEntity(), new SharedData1(unaffectedSharedValue));
             var unaffectedVersion = m_Manager.GetSharedComponentOrderVersion(new SharedData1(unaffectedSharedValue));
 
             var v0 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
 
             var entity = m_Manager.CreateEntity();
-            m_Manager.AddSharedComponentData(entity, new SharedData1(value));
+            m_Manager.AddSharedComponentManaged(entity, new SharedData1(value));
             var v1 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
             Assert.Greater(v1, v0);
 
@@ -268,7 +306,7 @@ namespace Unity.Entities.Tests
             var v2 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
             Assert.Greater(v2, v1);
 
-            m_Manager.AddSharedComponentData(entity, new SharedData1(value));
+            m_Manager.AddSharedComponentManaged(entity, new SharedData1(value));
             var v3 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
             Assert.Greater(v3, v2);
 
@@ -295,7 +333,7 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
 
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var chunks = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator))
+            using (var chunks = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator))
             {
                 Assert.AreEqual(1, chunks.Length);
                 Assert.AreEqual(10, chunks[0].GetOrderVersion());

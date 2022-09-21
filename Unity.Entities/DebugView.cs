@@ -1,10 +1,11 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unity.Collections;
-using Unity.Jobs.LowLevel.Unsafe;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Collections.NotBurstCompatible;
+using Unity.Core;
 
 namespace Unity.Entities
 {
@@ -54,137 +55,30 @@ namespace Unity.Entities
 #endif
     }
 
-    public struct SharedComponentView
+    internal class Component_E
     {
-#if !NET_DOTS
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        public ComponentType Type;
-        public object Value;
-
-        public SharedComponentView(int typeIndex, int valueIndex)
+        public Component_E(in object value, bool enabled)
         {
-            Type = ComponentType.FromTypeIndex(typeIndex);
-            Value = null;
-            var world = GetCurrentWorld();
-            if (TypeManager.IsSharedComponentType(typeIndex))
-            {
-                if (world != null && world.IsCreated)
-                {
-                    Value = world.EntityManager.GetSharedComponentDataBoxed(valueIndex, typeIndex);
-                }
-            }
+            Value = value;
+            Enabled = enabled;
         }
-
         public override string ToString()
         {
-            return Type.ToString();
+            var enabledStr = Enabled ? "Enabled" : "Disabled";
+            var valueString = Value.ToString();
+            var typeName = Value.GetType().ToString();
+
+            if (valueString == typeName)
+                return $"{typeName} ({enabledStr})";
+            else
+                return $"{typeName} ({enabledStr}) {valueString}";
         }
 
-        // Utility to guess which World is currently "active", based on the following heuristic:
-        // - if a World has a system executing, return that one.
-        // - if the default World exists, return that one.
-        // - otherwise, return null.
-        public static World GetCurrentWorld()
-        {
-            if (!JobsUtility.IsExecutingJob)
-            {
-                foreach (var world in World.All)
-                {
-                    if (world.Unmanaged.ExecutingSystem != default)
-                        return world;
-                }
-            }
+        public bool Enabled;
 
-            if (World.DefaultGameObjectInjectionWorld != null && World.DefaultGameObjectInjectionWorld.IsCreated)
-                return World.DefaultGameObjectInjectionWorld;
-
-            return null;
-        }
-#endif
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        public object Value;
     }
-
-    sealed unsafe class DebugViewUtility
-    {
-#if !NET_DOTS
-        [DebuggerDisplay("{name} {entity} Components: {components.Count}")]
-        public struct Components
-        {
-            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-            public string name;
-            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-            public Entity entity;
-            [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
-            public List<object> components;
-        }
-
-        public static object GetComponent(void* pointer, Type type)
-        {
-            if (typeof(IBufferElementData).IsAssignableFrom(type))
-            {
-                var listType = typeof(List<>);
-                var constructedListType = listType.MakeGenericType(type);
-                var instance = (IList)Activator.CreateInstance(constructedListType);
-                var size = Marshal.SizeOf(type);
-                BufferHeader* header = (BufferHeader*)pointer;
-                var begin = BufferHeader.GetElementPointer(header);
-                for (var i = 0; i < header->Length; ++i)
-                {
-                    var item = begin + (size * i);
-                    instance.Add(Marshal.PtrToStructure((IntPtr)item, type));
-                }
-                return instance;
-            }
-            if (typeof(IComponentData).IsAssignableFrom(type) || typeof(Entity).IsAssignableFrom(type))
-            {
-                return Marshal.PtrToStructure((IntPtr)pointer, type);
-            }
-            return null;
-        }
-
-        public static Components GetComponents(EntityManager m, Entity e)
-        {
-            Components components = new Components();
-            components.entity = e;
-            components.components = new List<object>();
-            if (!m.Exists(e))
-                return components;
-#if !DOTS_DISABLE_DEBUG_NAMES
-            components.name = m.GetName(e);
-            components.components.Add(components.name);
-#endif
-            var access = m.GetCheckedEntityDataAccess();
-            var ecs = access->EntityComponentStore;
-            var mcs = access->ManagedComponentStore;
-
-            ecs->GetChunk(e, out var chunk, out var chunkIndex);
-            if (chunk == null)
-                return components;
-            var archetype = chunk->Archetype;
-            var types = chunk->Archetype->TypesCount;
-            for (var i = 0; i < types; ++i)
-            {
-                var componentType = chunk->Archetype->Types[i];
-                if (componentType.IsSharedComponent)
-                {
-                    var sharedComponentIndex = ecs->GetSharedComponentDataIndex(e, componentType.TypeIndex);
-                    var sharedComponent = mcs.GetSharedComponentDataBoxed(sharedComponentIndex, componentType.TypeIndex);
-                    components.components.Add(sharedComponent);
-                }
-                else
-                {
-                    ref readonly var typeInfo = ref TypeManager.GetTypeInfo(componentType.TypeIndex);
-                    var type = TypeManager.GetType(typeInfo.TypeIndex);
-                    var offset = archetype->Offsets[i];
-                    var size = archetype->SizeOfs[i];
-                    var pointer = chunk->Buffer + (offset + size * chunkIndex);
-                    components.components.Add(GetComponent(pointer, type));
-                }
-            }
-            return components;
-        }
-#endif //!NET_DOTS
-    }
-
 
     sealed class EntityManagerDebugView
     {
@@ -195,89 +89,74 @@ namespace Unity.Entities
             m_target = target;
         }
 
-        public Entity[] Entities
+        unsafe public Entity_[] Entities
         {
             get
             {
-                var entities = m_target.GetAllEntities(Allocator.Temp, EntityManager.GetAllEntitiesOptions.IncludeMeta);
-                var result = entities.ToArray();
-                entities.Dispose();
+                var query = m_target.UniversalQueryWithSystems._Debugger_GetImpl();
+                if (query == null)
+                    return null;
+                var entity = new List<Entity>();
+                if (!query->Debugger_GetData(entity, null))
+                    return null;
+
+                var result = Entity_.ResolveArray(new DebuggerDataAccess(m_target.World), entity);
                 return result;
             }
         }
 
-        public struct CountAndCapacityView
+        public static string CountAndCapacityViewStr(long count, long capacity, string scope)
         {
-            public long Count;
-            public long Capacity;
-            [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-            public string Scope;
-            public override string ToString()
-            {
-                float currentUsage = Count / (float)Capacity;
-                //When to show % utilization. e.g. Would not be useful for worlds only using a few ten thousand entites
-                float threshold = 0.01f;
-                if (currentUsage > threshold)
-                    return $"{Count} ({currentUsage:P2} {Scope} capacity)";
-
-                return $"{Count}";
-            }
+            double currentUsage = (double)count / (double)capacity;
+            return $"{count} ({currentUsage:P2} {scope} capacity {capacity})";
         }
 
-        public EntityArchetype[] EntityArchetypes
+        public EntityArchetype[] Archetypes
         {
             get
             {
                 var entityArchetypes = new NativeList<EntityArchetype>(Allocator.Temp);
                 m_target.GetAllArchetypes(entityArchetypes);
 
-                var result = entityArchetypes.ToArray();
+                var result = entityArchetypes.ToArrayNBC();
                 entityArchetypes.Dispose();
                 return result;
             }
         }
 
-        public CountAndCapacityView NumEntities
+        public EntityArchetype[] ArchetypesUsed
         {
             get
             {
-                var entities = m_target.GetAllEntities(Allocator.Temp, EntityManager.GetAllEntitiesOptions.IncludeMeta);
-                var result = new CountAndCapacityView
+                using var entityArchetypes = new NativeList<EntityArchetype>(Allocator.Temp);
+                m_target.GetAllArchetypes(entityArchetypes);
+
+                var validArchetypes = new List<EntityArchetype>();
+                foreach (var arch in entityArchetypes)
                 {
-                    Count = entities.Length,
-                    Capacity = EntityComponentStore.k_MaximumEntitiesPerWorld,
-                    Scope = "World"
-                };
-                entities.Dispose();
-                return result;
+                    if (arch.ChunkCount != 0)
+                        validArchetypes.Add(arch);
+                }
+                return validArchetypes.ToArray();
             }
         }
 
-        public int NumChunks
+        public string NumEntities
         {
             get
             {
-                var chunks = m_target.GetAllChunks();
-                var result = chunks.Length;
-                chunks.Dispose();
-                return result;
+                var entities = Entities;
+                return CountAndCapacityViewStr(entities.Length, EntityComponentStore.k_MaximumEntitiesPerWorld, "World");
             }
         }
-
-        public CountAndCapacityView NumEntityNames
+        public string NumEntityNames
         {
             get
             {
-                var result = new CountAndCapacityView
-                {
-                    Count = EntityNameStorage.s_State.Data.entries,
-                    Capacity = EntityNameStorage.kMaxEntries,
-                    Scope = "Global"
-                };
-                return result;
+                return CountAndCapacityViewStr(EntityNameStorage.s_State.Data.entries, EntityNameStorage.kMaxEntries, "Global");
             }
         }
-
+        public World World => m_target.World;
 #endif //!NET_DOTS
     }
 
@@ -290,23 +169,23 @@ namespace Unity.Entities
             m_world = world;
         }
 
-        public List<ComponentSystemBase> AllSystems
+        public List<SystemDebugView> AllSystems
         {
             get
             {
-                var systems = m_world.Systems;
-                List<ComponentSystemBase> result = new List<ComponentSystemBase>();
-
-               for(int i = 0; i < systems.Count; i++)
-                    result.Add(systems[i]);
+                var result = new List<SystemDebugView>();
+                using var systems = m_world.Unmanaged.GetAllSystems(Allocator.TempJob);
+                for (int i = 0; i < systems.Length; i++)
+                   result.Add(new SystemDebugView(systems[i]));
 
                 return result;
             }
         }
 
-        public ComponentSystemBase InitializationSystemGroup => m_world.GetExistingSystem<InitializationSystemGroup>();
-        public ComponentSystemBase SimulationSystemGroup => m_world.GetExistingSystem<SimulationSystemGroup>();
-        public ComponentSystemBase PresentationSystemGroup => m_world.GetExistingSystem<PresentationSystemGroup>();
+        public ComponentSystemBase InitializationSystemGroup => m_world.GetExistingSystemManaged<InitializationSystemGroup>();
+        public ComponentSystemBase SimulationSystemGroup => m_world.GetExistingSystemManaged<SimulationSystemGroup>();
+        public ComponentSystemBase PresentationSystemGroup => m_world.GetExistingSystemManaged<PresentationSystemGroup>();
+        public EntityManager EntityManager => m_world.EntityManager;
 #endif //#!NET_DOTS
     }
     sealed class ArchetypeChunkDebugView
@@ -318,72 +197,39 @@ namespace Unity.Entities
             m_ArchetypeChunk = ArchetypeChunk;
         }
 
-        public unsafe EntityArchetype Archetype => new EntityArchetype
-        {
-            Archetype = m_ArchetypeChunk.m_Chunk->Archetype,
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            _DebugComponentStore = m_ArchetypeChunk.m_EntityComponentStore
-#endif
-        };
+        public unsafe EntityArchetype Archetype => new EntityArchetype(m_ArchetypeChunk.m_Chunk->Archetype);
 
-        public unsafe ComponentType[] ComponentTypes
+
+        public unsafe Entity_[] Entities
         {
             get
             {
                 var chunk = m_ArchetypeChunk.m_Chunk;
                 if (chunk == null)
-                    return new ComponentType[0];
-                var types = chunk->Archetype->TypesCount;
-                var result = new ComponentType[types];
-                for (var i = 0; i < types; ++i)
-                {
-                    var componentType = chunk->Archetype->Types[i];
-                    if (componentType.IsSharedComponent)
-                        continue;
-                    result[i] = componentType.ToComponentType();
-                }
+                    return null;
 
-                return result;
-            }
-        }
-
-        public unsafe Entity[] Entities
-        {
-            get
-            {
-                var chunk = m_ArchetypeChunk.m_Chunk;
-                if (chunk == null)
-                    return new Entity[0];
-
-                var archetype = chunk->Archetype;
-                var buffer = chunk->Buffer;
                 var length = m_ArchetypeChunk.Count;
+                var result = new Entity_[length];
 
-                var result = new Entity[length];
-                var startOffset = archetype->Offsets[0] + m_ArchetypeChunk.m_BatchStartEntityIndex * archetype->SizeOfs[0];
-
-                var entityPtr = (Entity*) (buffer + startOffset);
-
+                var entityPtr = (Entity*) ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, 0);
+                entityPtr += m_ArchetypeChunk.m_BatchStartEntityIndex;
                 for (int i = 0; i < length; i++)
-                {
-                    result[i] = entityPtr[i];
-                }
+                    result[i] = new Entity_(m_ArchetypeChunk.m_EntityComponentStore, entityPtr[i], false);
 
                 return result;
-
             }
         }
 
-        public unsafe SharedComponentView[] SharedComponents
+        public unsafe object[] SharedComponents
         {
             get
             {
                 var chunk = m_ArchetypeChunk.m_Chunk;
                 if (chunk == null)
-                    return new SharedComponentView[0];
+                    return new object[0];
 
                 var archetype = chunk->Archetype;
-                SharedComponentView[] result = new SharedComponentView[archetype->NumSharedComponents];
+                object[] result = new object[archetype->NumSharedComponents];
                 var types = chunk->Archetype->TypesCount;
                 int sharedIter = 0;
                 for (var i = 0; i < types; ++i)
@@ -391,8 +237,7 @@ namespace Unity.Entities
                     var componentType = chunk->Archetype->Types[i];
                     if (componentType.IsSharedComponent)
                     {
-                        result[sharedIter] = new SharedComponentView(componentType.TypeIndex,
-                            chunk->SharedComponentValues[sharedIter]);
+                        result[sharedIter] = new DebuggerDataAccess(m_ArchetypeChunk.m_EntityComponentStore).GetSharedComponentDataBoxed(chunk->SharedComponentValues[sharedIter], componentType.TypeIndex);
                         sharedIter++;
                     }
                 }
@@ -400,42 +245,36 @@ namespace Unity.Entities
             }
         }
 
-        public unsafe Entity ChunkComponent
+        public unsafe Entity_ ChunkComponent
         {
             get
             {
                 var chunk = m_ArchetypeChunk.m_Chunk;
                 if (chunk == null)
-                    return Entity.Null;
+                    return Entity_.Null;
 
-                return m_ArchetypeChunk.m_Chunk->metaChunkEntity;
+                return new Entity_(m_ArchetypeChunk.m_EntityComponentStore, m_ArchetypeChunk.m_Chunk->metaChunkEntity, false);
             }
         }
 
-        public struct ComponentTypeVersionView
-        {
-            public ComponentType Type;
-            public uint Version;
 
-            public override string ToString()
-            {
-                return $"{Type} {Version}";
-            }
-        }
-        public unsafe ComponentTypeVersionView[] ChangeVersions
+        public unsafe ComponentType_[] ComponentTypes
         {
             get
             {
                 var chunk = m_ArchetypeChunk.m_Chunk;
                 if (chunk == null)
-                    return new ComponentTypeVersionView[0];
+                    return null;
 
                 var archetype = chunk->Archetype;
-                ComponentTypeVersionView[] result = new ComponentTypeVersionView[archetype->TypesCount];
+                ComponentType_[] result = new ComponentType_[archetype->TypesCount];
                 for (var i = 0; i < archetype->TypesCount; ++i)
                 {
-                    result[i].Type = archetype->Types[i].ToComponentType();
+                    var componentType = archetype->Types[i].ToComponentType();
+                    result[i].Type = componentType;
                     result[i].Version = chunk->GetChangeVersion(i);
+                    result[i].IsEnableable = TypeManager.IsEnableable(componentType.TypeIndex);
+                    result[i].NumDisabledEntitiesInChunk = chunk->Archetype->Chunks.GetChunkDisabledCountForType(i, chunk->ListIndex);
                 }
 
                 return result;
@@ -456,6 +295,22 @@ namespace Unity.Entities
 #endif //!NET_DOTS
     }
 
+    struct ComponentType_
+    {
+        public ComponentType Type;
+        public uint          Version;
+        public bool          IsEnableable;
+        public int           NumDisabledEntitiesInChunk;
+
+        public override string ToString()
+        {
+            if (IsEnableable)
+                return $"{Type} {Version} ({NumDisabledEntitiesInChunk} Disabled)";
+            else
+                return $"{Type} {Version}";
+        }
+    }
+
     sealed class EntityArchetypeDebugView
     {
 #if !NET_DOTS
@@ -471,7 +326,7 @@ namespace Unity.Entities
             {
                 var archetype = m_EntityArchetype.Archetype;
                 if (archetype == null)
-                    return new ComponentType[0];
+                    return null;
                 var types = archetype->TypesCount;
 
                 var result = new ComponentType[types];
@@ -500,12 +355,12 @@ namespace Unity.Entities
             {
                 var archetype = m_EntityArchetype.Archetype;
                 if (archetype == null)
-                    return new ChunkReport();
+                    return default;
 
                 var numChunks = m_EntityArchetype.ChunkCount;
 
                 if (numChunks <= 0)
-                    return new ChunkReport();
+                    return default;
 
                 var result = new ChunkReport
                 {
@@ -534,11 +389,13 @@ namespace Unity.Entities
                 List<ArchetypeChunk> result = new List<ArchetypeChunk>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 var archetype = m_EntityArchetype.Archetype;
+                if (archetype == null)
+                    return null;
                 var chunkCount = archetype->Chunks.Count;
                 for (int i = 0; i < chunkCount; i++)
                 {
                     var srcChunk = archetype->Chunks[i];
-                    result.Add(new ArchetypeChunk(srcChunk, m_EntityArchetype._DebugComponentStore));
+                    result.Add(new ArchetypeChunk(srcChunk, m_EntityArchetype.Archetype->EntityComponentStore));
                 }
 #endif
                 return result;
@@ -551,7 +408,7 @@ namespace Unity.Entities
             {
                 var archetype = m_EntityArchetype.Archetype;
                 if (archetype == null)
-                    return new int[0];
+                    return null;
                 int[] result = new int[archetype->TypesCount];
                 Marshal.Copy((IntPtr)archetype->Offsets, result, 0, archetype->TypesCount);
                 return result;
@@ -564,7 +421,7 @@ namespace Unity.Entities
             {
                 var archetype = m_EntityArchetype.Archetype;
                 if (archetype == null)
-                    return new int[0];
+                    return null;
                 int[] result = new int[archetype->TypesCount];
                 Marshal.Copy((IntPtr)archetype->SizeOfs, result, 0, archetype->TypesCount);
                 return result;
@@ -597,25 +454,25 @@ namespace Unity.Entities
             {
                 unsafe
                 {
-                    var impl = m_EntityQuery._GetImpl();
+                    var impl = m_EntityQuery._Debugger_GetImpl();
                     return impl == null ? default : impl->GetEntityQueryDesc();
                 }
             }
         }
 
-        public unsafe Entity[] MatchingEntities
+        public unsafe Entity_[] MatchingEntities
         {
             get
             {
-                var impl = m_EntityQuery._GetImpl();
+                var impl = m_EntityQuery._Debugger_GetImpl();
                 if (impl == null)
-                    return new Entity[0];
+                    return null;
 
-                var entities = impl->ToEntityArrayImmediate(Allocator.TempJob, m_EntityQuery);
-                var result = entities.ToArray();
-                entities.Dispose();
+                var entity = new List<Entity>();
+                if (!impl->Debugger_GetData(entity, null))
+                    return null;
 
-                return result;
+                return Entity_.ResolveArray(new DebuggerDataAccess(impl->_Access->EntityComponentStore), entity);
             }
         }
 
@@ -623,30 +480,14 @@ namespace Unity.Entities
         {
             get
             {
-                var impl = m_EntityQuery._GetImpl();
+                var impl = m_EntityQuery._Debugger_GetImpl();
                 if (impl == null)
-                    return default;
-                // We explicitly do NOT access the MatchingChunkCache here, or anything that might implicitly trigger
-                // a chunk cache update. Debug views should never mutate the objects they're viewing!
-                // TODO(https://unity3d.atlassian.net/browse/DOTS-4623): based on the resolution to this issue, this API usage may need to change.
-                var chunkIterator = m_EntityQuery.GetArchetypeChunkIterator();
-                var chunkList = new List<ArchetypeChunk>();
-                while (chunkIterator.MoveNext())
-                {
-                    chunkList.Add(chunkIterator.CurrentArchetypeChunk);
-                }
-                return chunkList;
-            }
-        }
+                    return null;
 
-        public unsafe bool IsMatchingChunkCacheValid
-        {
-            get
-            {
-                var impl = m_EntityQuery._GetImpl();
-                if (impl == null)
-                    return false;
-                return impl->_QueryData->MatchingChunkCache.IsCacheValid;
+                var chunks = new List<ArchetypeChunk>();
+                if (!impl->Debugger_GetData(null, chunks))
+                    return null;
+                return chunks;
             }
         }
 
@@ -659,7 +500,7 @@ namespace Unity.Entities
             }
         }
 
-        public unsafe SharedComponentView[] SharedFilter
+        public unsafe object[] SharedFilter
         {
             get
             {
@@ -667,13 +508,13 @@ namespace Unity.Entities
                 if (impl == null)
                     return default;
                 int numFilterValues = impl->_Filter.Shared.Count;
-                SharedComponentView[] result = new SharedComponentView[numFilterValues];
+                object[] result = new object[numFilterValues];
                 for (var i = 0; i < numFilterValues; ++i)
                 {
                     int valueIndex = impl->_Filter.Shared.SharedComponentIndex[i];
                     int indexInQuery = impl->_Filter.Shared.IndexInEntityQuery[i];
                     var typeIndex = impl->_QueryData->RequiredComponents[indexInQuery].TypeIndex;
-                    result[i] = new SharedComponentView(typeIndex, valueIndex);
+                    result[i] = new DebuggerDataAccess(impl->_Access->EntityComponentStore).GetSharedComponentDataBoxed(valueIndex, typeIndex);
                 }
                 return result;
             }
@@ -687,52 +528,99 @@ namespace Unity.Entities
 #endif //!NET_DOTS
     }
 
-    struct SystemView
+    class SystemDebugView
     {
 #if !NET_DOTS
-        public readonly SystemHandleUntyped m_unmanagedSystem;
-        public readonly ComponentSystemBase m_managedSystem;
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        readonly World               m_World;
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        readonly SystemHandle m_unmanagedSystem;
 
-        public SystemView(SystemHandleUntyped mUnmanagedSystem)
+        public SystemDebugView(SystemHandle mUnmanagedSystem)
         {
             m_unmanagedSystem = mUnmanagedSystem;
-            m_managedSystem = null;
+
+            m_World = null;
+            foreach (var w in World.s_AllWorlds)
+            {
+                if (w.SequenceNumber == m_unmanagedSystem.m_WorldSeqNo)
+                    m_World = w;
+            }
         }
 
-        public SystemView(ComponentSystemBase mManagedSystem)
+        unsafe public SystemDebugView(ComponentSystemBase mManagedSystem)
         {
-            m_managedSystem = mManagedSystem;
-            m_unmanagedSystem = new SystemHandleUntyped();
+            if (mManagedSystem != null && mManagedSystem.World != null && mManagedSystem.World.IsCreated)
+            {
+                m_World = mManagedSystem.World;
+                m_unmanagedSystem = mManagedSystem.CheckedState()->SystemHandle;
+            }
+            else
+            {
+                m_unmanagedSystem = default;
+                m_World = null;
+            }
+        }
+
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        unsafe public object UserData
+        {
+            get
+            {
+                var state = m_World.Unmanaged.ResolveSystemState(m_unmanagedSystem);
+                if (state->m_SystemPtr != null)
+                {
+                    var type = m_World.Unmanaged.GetTypeOfSystem(m_unmanagedSystem);
+                    if (type == null)
+                        return null;
+
+                    var obj = Activator.CreateInstance(type);
+                    if (obj == null)
+                        return null;
+
+                    var gcHandle = GCHandle.Alloc(obj, GCHandleType.Pinned);
+                    UnsafeUtility.MemCpy((void*)gcHandle.AddrOfPinnedObject(), state->m_SystemPtr, Marshal.SizeOf(type));
+                    gcHandle.Free();
+
+                    return obj;
+                }
+                else
+                {
+                    return state->ManagedSystem;
+                }
+            }
+        }
+
+        unsafe public SystemState_ SystemState
+        {
+            get
+            {
+                if (m_World == null)
+                    return null;
+
+                return SystemState_.FromPointer(m_World.Unmanaged.ResolveSystemState(m_unmanagedSystem));
+            }
+        }
+
+        public Type Type
+        {
+            get
+            {
+                if (m_World == null)
+                    return null;
+                return m_World.Unmanaged.GetTypeOfSystem(m_unmanagedSystem);
+            }
         }
 
         public override string ToString()
         {
-            string result = "";
+            if (m_World == null)
+                return "World has been disposed";
 
-            if (m_managedSystem != null)
-            {
-                result = "(Managed) " + m_managedSystem.GetType().Name;
-            }
-            else
-            {
-                //find the system's world
-                World world = null;
-                foreach (var w in World.s_AllWorlds)
-                {
-                    if (w.SequenceNumber == m_unmanagedSystem.m_WorldSeqNo)
-                        world = w;
-                }
-
-                if (world == null)
-                    result = "";
-                else
-                {
-                    result = "(Unmanaged) " + world.Unmanaged.GetTypeOfSystem(m_unmanagedSystem).Name;
-                }
-
-            }
-
-            return result;
+            var type = m_World.Unmanaged.GetTypeOfSystem(m_unmanagedSystem);
+            if (type == null)
+                return "System has been disposed";
+            return type.Name;
         }
 #endif //!NET_DOTS
     }
@@ -747,23 +635,23 @@ namespace Unity.Entities
             m_componentSystemGroup = mComponentSystemGroup;
         }
 
-        public SystemView[] Systems
+        public SystemDebugView[] Systems
         {
             get
             {
                 var numSystems = m_componentSystemGroup.m_MasterUpdateList.Length;
-                var systems = new SystemView[numSystems];
+                var systems = new SystemDebugView[numSystems];
 
                 for (int i = 0; i < numSystems; i++)
                 {
                     var updateIndex = m_componentSystemGroup.m_MasterUpdateList[i];
                     if (updateIndex.IsManaged)
                     {
-                        systems[i] = new SystemView(m_componentSystemGroup.m_systemsToUpdate[updateIndex.Index]);
+                        systems[i] = new SystemDebugView(m_componentSystemGroup.m_managedSystemsToUpdate[updateIndex.Index]);
                     }
                     else
                     {
-                        systems[i] = new SystemView(m_componentSystemGroup.m_UnmanagedSystemsToUpdate[updateIndex.Index]);
+                        systems[i] = new SystemDebugView(m_componentSystemGroup.m_UnmanagedSystemsToUpdate[updateIndex.Index]);
                     }
                 }
 
@@ -777,21 +665,69 @@ namespace Unity.Entities
 #endif //!NET_DOTS
     }
 
-    sealed class SystemStateDebugView
+    sealed unsafe class SystemState_
     {
 #if !NET_DOTS
-        private SystemState m_systemState;
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        SystemHandle _SystemHandle;
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        World               _World;
 
-        public SystemStateDebugView(SystemState systemState)
+        public SystemState_(ref SystemState systemState)
         {
-            m_systemState = systemState;
+            _SystemHandle = systemState.SystemHandle;
+            _World = systemState.World;
+        }
+
+        public static SystemState_ FromPointer(SystemState* systemState)
+        {
+            if (systemState != null)
+                return new SystemState_(ref *systemState);
+            else
+                return null;
+        }
+
+        public EntityManager EntityManager => _World.EntityManager;
+
+        static string GetName(SystemHandle handle, World world)
+        {
+            if (world == null || !world.IsCreated)
+                return null;
+
+            var state = world.Unmanaged.ResolveSystemState(handle);
+            if (state == null)
+                return null;
+
+            return state->DebugName.ToString();
+        }
+
+        //NOTE: Dependency property is specifically not exposed since the getter modifies state.
+
+        public SystemDebugView Data => new SystemDebugView(_SystemHandle);
+
+        public TimeData Time => Resolve()->World.Time;
+        public uint LastSystemVersion => Resolve()->LastSystemVersion;
+        public uint GlobalSystemVersion => Resolve()->GlobalSystemVersion;
+
+        public bool Enabled => Resolve()->Enabled;
+        private bool RequireMatchingQueriesForUpdate => Resolve()->RequireMatchingQueriesForUpdate;
+
+        SystemState* Resolve()
+        {
+            if (_World == null || !_World.IsCreated)
+                throw new NullReferenceException("World is null");
+
+            var state = _World.Unmanaged.ResolveSystemState(_SystemHandle);
+            if (state == null)
+                throw new NullReferenceException("SystemState is null");
+            return state;
         }
 
         public List<EntityQuery> EntityQueries
         {
             get
             {
-                var unsafeQueries = m_systemState.EntityQueries;
+                var unsafeQueries = Resolve()->EntityQueries;
                 var result = new List<EntityQuery>();
                 foreach(var query in unsafeQueries)
                     result.Add(query);
@@ -804,29 +740,29 @@ namespace Unity.Entities
             get
             {
                 var result = new List<ComponentType>();
-
-
-                foreach (var type in m_systemState.m_JobDependencyForReadingSystems)
-                {
+                foreach (var type in Resolve()->m_JobDependencyForReadingSystems)
                     result.Add(ComponentType.ReadOnly(type));
-                }
 
                 return result;
             }
         }
+
         public List<ComponentType> ReadWriteTypes
         {
             get
             {
                 var result = new List<ComponentType>();
-
-                foreach (var type in m_systemState.m_JobDependencyForWritingSystems)
-                {
+                foreach (var type in Resolve()->m_JobDependencyForWritingSystems)
                     result.Add(ComponentType.ReadWrite(type));
-                }
 
                 return result;
             }
+        }
+
+
+        public override string ToString()
+        {
+            return GetName(_SystemHandle, _World);
         }
 
 #endif //!NET_DOTS

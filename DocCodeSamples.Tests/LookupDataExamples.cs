@@ -11,11 +11,12 @@ using NUnit.Framework;
 namespace Doc.CodeSamples.Tests
 {
     #region lookup-foreach
+    [RequireMatchingQueriesForUpdate]
     public partial class TrackingSystem : SystemBase
     {
         protected override void OnUpdate()
         {
-            float deltaTime = this.Time.DeltaTime;
+            float deltaTime = SystemAPI.Time.DeltaTime;
 
             Entities
                 .ForEach((ref Rotation orientation,
@@ -28,18 +29,15 @@ namespace Doc.CodeSamples.Tests
                         return;
 
                     // Look up the entity data
-                    LocalToWorld targetTransform
-                        = GetComponent<LocalToWorld>(target.entity);
+                    LocalToWorld targetTransform = GetComponent<LocalToWorld>(target.entity);
                     float3 targetPosition = targetTransform.Position;
 
                     // Calculate the rotation
                     float3 displacement = targetPosition - transform.Position;
                     float3 upReference = new float3(0, 1, 0);
-                    quaternion lookRotation =
-                        quaternion.LookRotationSafe(displacement, upReference);
+                    quaternion lookRotation = quaternion.LookRotationSafe(displacement, upReference);
 
-                    orientation.Value =
-                        math.slerp(orientation.Value, lookRotation, deltaTime);
+                    orientation.Value = math.slerp(orientation.Value, lookRotation, deltaTime);
                 })
                 .ScheduleParallel();
         }
@@ -51,12 +49,13 @@ namespace Doc.CodeSamples.Tests
     {
         public float Value;
     }
+    [RequireMatchingQueriesForUpdate]
     public partial class BufferLookupSystem : SystemBase
     {
         protected override void OnUpdate()
         {
-            BufferFromEntity<BufferData> buffersOfAllEntities
-                = this.GetBufferFromEntity<BufferData>(true);
+            BufferLookup<BufferData> buffersOfAllEntities
+                = this.GetBufferLookup<BufferData>(true);
 
             Entities
                 .ForEach((ref Rotation orientation,
@@ -64,12 +63,11 @@ namespace Doc.CodeSamples.Tests
                 in Target target) =>
                 {
                     // Check to make sure the target Entity with this buffer type still exists
-                    if (!buffersOfAllEntities.HasComponent(target.entity))
+                    if (!buffersOfAllEntities.HasBuffer(target.entity))
                         return;
 
                     // Get a reference to the buffer
-                    DynamicBuffer<BufferData> bufferOfOneEntity =
-                        buffersOfAllEntities[target.entity];
+                    DynamicBuffer<BufferData> bufferOfOneEntity = buffersOfAllEntities[target.entity];
 
                     // Use the data in the buffer
                     float avg = 0;
@@ -84,65 +82,68 @@ namespace Doc.CodeSamples.Tests
         }
     }
     #endregion
-    #region lookup-ijobchunk
 
+    #region lookup-ijobchunk
+    [RequireMatchingQueriesForUpdate]
     public partial class MoveTowardsEntitySystem : SystemBase
     {
         private EntityQuery query;
 
         [BurstCompile]
-        private struct MoveTowardsJob : IJobEntityBatch
+        private partial struct MoveTowardsJob : IJobEntity
         {
-            // Read-write data in the current chunk
-            public ComponentTypeHandle<Translation> PositionTypeHandleAccessor;
-
-            // Read-only data in the current chunk
-            [ReadOnly]
-            public ComponentTypeHandle<Target> TargetTypeHandleAccessor;
 
             // Read-only data stored (potentially) in other chunks
+            #region lookup-ijobchunk-declare
             [ReadOnly]
-            public ComponentDataFromEntity<LocalToWorld> EntityPositions;
+            public ComponentLookup<LocalToWorld> EntityPositions;
+            #endregion
 
             // Non-entity data
             public float deltaTime;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+#if !ENABLE_TRANSFORM_V1
+            public void Execute(ref LocalToWorldTransform transform, in Target target, in LocalToWorld entityPosition)
+#else
+            public void Execute(Translation position, in Target target, in LocalToWorld entityPosition)
+#endif
             {
-                // Get arrays of the components in chunk
-                NativeArray<Translation> positions
-                    = batchInChunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
-                NativeArray<Target> targets
-                    = batchInChunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
+                // Get the target Entity object
+                Entity targetEntity = target.entity;
 
-                for (int i = 0; i < positions.Length; i++)
+                // Check that the target still exists
+                if (!EntityPositions.HasComponent(targetEntity))
+                    return;
+
+                // Update translation to move the chasing enitity toward the target
+                float3 targetPosition = entityPosition.Position;
+#if !ENABLE_TRANSFORM_V1
+                float3 chaserPosition = transform.Value.Position;
+
+                float3 displacement = targetPosition - chaserPosition;
+                transform.Value.Position = chaserPosition + displacement * deltaTime;
+#else
+                float3 chaserPosition = position.Value;
+
+                float3 displacement = targetPosition - chaserPosition;
+                position = new Translation
                 {
-                    // Get the target Entity object
-                    Entity targetEntity = targets[i].entity;
-
-                    // Check that the target still exists
-                    if (!EntityPositions.HasComponent(targetEntity))
-                        continue;
-
-                    // Update translation to move the chasing enitity toward the target
-                    float3 targetPosition = EntityPositions[targetEntity].Position;
-                    float3 chaserPosition = positions[i].Value;
-
-                    float3 displacement = targetPosition - chaserPosition;
-                    positions[i] = new Translation
-                    {
-                        Value = chaserPosition + displacement * deltaTime
-                    };
-                }
+                    Value = chaserPosition + displacement * deltaTime
+                };
+#endif
             }
         }
 
         protected override void OnCreate()
         {
-            // Select all entities that have Translation and Target Componentx
+            // Select all entities that have Translation and Target Component
             query = this.GetEntityQuery
                 (
+#if !ENABLE_TRANSFORM_V1
+                    typeof(LocalToWorldTransform),
+#else
                     typeof(Translation),
+#endif
                     ComponentType.ReadOnly<Target>()
                 );
         }
@@ -152,101 +153,83 @@ namespace Doc.CodeSamples.Tests
             // Create the job
             var job = new MoveTowardsJob();
 
-            // Set the chunk data accessors
-            job.PositionTypeHandleAccessor =
-                this.GetComponentTypeHandle<Translation>(false);
-            job.TargetTypeHandleAccessor =
-                this.GetComponentTypeHandle<Target>(true);
-
             // Set the component data lookup field
-            job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
+            job.EntityPositions = GetComponentLookup<LocalToWorld>(true);
 
             // Set non-ECS data fields
-            job.deltaTime = this.Time.DeltaTime;
+            job.deltaTime = SystemAPI.Time.DeltaTime;
 
             // Schedule the job using Dependency property
-            this.Dependency = job.ScheduleParallel(query, this.Dependency);
+            Dependency = job.ScheduleParallel(query, Dependency);
         }
     }
     #endregion
 
+    [RequireMatchingQueriesForUpdate]
     public partial class Snippets : SystemBase
     {
         private EntityQuery query;
         protected override void OnCreate()
         {
-            // Select all entities that have Translation and Target Componentx
+            // Select all entities that have Translation and Target Component
+#if !ENABLE_TRANSFORM_V1
+            query = this.GetEntityQuery(typeof(LocalToWorldTransform), ComponentType.ReadOnly<Target>());
+#else
             query = this.GetEntityQuery(typeof(Translation), ComponentType.ReadOnly<Target>());
+#endif
         }
 
         [BurstCompile]
-        private struct ChaserSystemJob : IJobEntityBatch
+        private partial struct ChaserSystemJob : IJobEntity
         {
-            // Read-write data in the current chunk
-            public ComponentTypeHandle<Translation> PositionTypeHandleAccessor;
-
-            // Read-only data in the current chunk
-            [ReadOnly]
-            public ComponentTypeHandle<Target> TargetTypeHandleAccessor;
-
-            // Read-only data stored (potentially) in other chunks
-            #region lookup-ijobchunk-declare
-
-            [ReadOnly]
-            public ComponentDataFromEntity<LocalToWorld> EntityPositions;
-            #endregion
-
             // Non-entity data
             public float deltaTime;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            [ReadOnly]
+            public ComponentLookup<LocalToWorld> EntityPositions;
+
+#if !ENABLE_TRANSFORM_V1
+            public void Execute(ref LocalToWorldTransform transform, in Target target, in LocalToWorld entityPosition)
+#else
+            public void Execute(ref Translation position, in Target target, in LocalToWorld entityPosition)
+#endif
             {
-                // Get arrays of the components in chunk
-                NativeArray<Translation> positions
-                    = batchInChunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
-                NativeArray<Target> targets
-                    = batchInChunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
+                var targetEntity = target.entity;
 
-                for (int i = 0; i < positions.Length; i++)
-                {
-                    // Get the target Entity object
-                    Entity targetEntity = targets[i].entity;
+                // Check that the target still exists
+                if (!EntityPositions.HasComponent(targetEntity))
+                    return;
 
-                    // Check that the target still exists
-                    if (!EntityPositions.HasComponent(targetEntity))
-                        continue;
-
-                    // Update translation to move the chasing enitity toward the target
-                    #region lookup-ijobchunk-read
-
-                    float3 targetPosition = EntityPositions[targetEntity].Position;
-                    #endregion
-                    float3 chaserPosition = positions[i].Value;
-
-                    float3 displacement = targetPosition - chaserPosition;
-                    positions[i] = new Translation { Value = chaserPosition + displacement * deltaTime };
-                }
+                // Update translation to move the chasing enitity toward the target
+                #region lookup-ijobchunk-read
+                float3 targetPosition = entityPosition.Position;
+#if !ENABLE_TRANSFORM_V1
+                float3 chaserPosition = transform.Value.Position;
+#else
+                float3 chaserPosition = position.Value;
+#endif
+                float3 displacement = targetPosition - chaserPosition;
+                float3 newPosition = chaserPosition + displacement * deltaTime;
+#if !ENABLE_TRANSFORM_V1
+                transform.Value.Position = newPosition;
+#else
+                position = new Translation { Value = newPosition };
+#endif
+                #endregion
             }
         }
 
+        #region lookup-ijobchunk-set
         protected override void OnUpdate()
         {
-            // Create the job
-            #region lookup-ijobchunk-set
-
             var job = new ChaserSystemJob();
-            job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
-            #endregion
-            // Set the chunk data accessors
-            job.PositionTypeHandleAccessor = this.GetComponentTypeHandle<Translation>(false);
-            job.TargetTypeHandleAccessor = this.GetComponentTypeHandle<Target>(true);
-
 
             // Set non-ECS data fields
-            job.deltaTime = this.Time.DeltaTime;
+            job.deltaTime = SystemAPI.Time.DeltaTime;
 
             // Schedule the job using Dependency property
-            this.Dependency = job.ScheduleParallel(query, this.Dependency);
+            Dependency = job.ScheduleParallel(query, this.Dependency);
         }
+        #endregion
     }
 }

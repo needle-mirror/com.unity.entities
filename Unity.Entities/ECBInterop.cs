@@ -15,12 +15,43 @@ namespace Unity.Entities
             {
                 for (var i = 0; i < count; i++)
                 {
-                    mgr->ManagedComponentStore.RemoveSharedComponentReference_Managed(sharedIndex[i]);
+                    var sharedComponentIndex = sharedIndex[i];
+                    if (EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
+                    {
+                        mgr->EntityComponentStore->RemoveSharedComponentReference_Unmanaged(sharedComponentIndex);
+                    }
+                    else
+                    {
+                        mgr->ManagedComponentStore.RemoveSharedComponentReference_Managed(sharedComponentIndex);
+                    }
                 }
             }
             catch (Exception e)
             {
                 Debug.LogException(e);
+            }
+        }
+
+
+        [BurstMonoInteropMethod]
+        [BurstDiscard]
+        internal static unsafe void _ProcessManagedCommand(void* processor, int processorType, BasicCommand* header)
+        {
+            if (processorType == (int)EntityCommandBuffer.ECBProcessorType.PlaybackProcessor)
+            {
+                EntityCommandBuffer.ProcessManagedCommand((EntityCommandBuffer.PlaybackProcessor*) processor, header);
+            }
+            else if (processorType == (int)EntityCommandBuffer.ECBProcessorType.DebugViewProcessor)
+            {
+                EntityCommandBuffer.ProcessManagedCommand((EntityCommandBuffer.DebugViewProcessor*) processor, header);
+            }
+            else if (processorType == (int) EntityCommandBuffer.ECBProcessorType.PlaybackWithTraceProcessor)
+            {
+                EntityCommandBuffer.ProcessManagedCommand((EntityCommandBuffer.PlaybackWithTraceProcessor*) processor, header);
+            }
+            else if (processorType == (int) EntityCommandBuffer.ECBProcessorType.PrePlaybackValidationProcessor)
+            {
+                EntityCommandBuffer.ProcessManagedCommand((EntityCommandBuffer.PrePlaybackValidationProcessor*) processor, header);
             }
         }
 
@@ -37,6 +68,16 @@ namespace Unity.Entities
             {
                 var debugViewWalker = (EntityCommandBuffer.EcbWalker<EntityCommandBuffer.DebugViewProcessor>*) walker;
                 debugViewWalker->ProcessChain(chainStates, currentChain, nextChain);
+            }
+            else if (processorType == (int) EntityCommandBuffer.ECBProcessorType.PlaybackWithTraceProcessor)
+            {
+                var playbackWithTraceWalker = (EntityCommandBuffer.EcbWalker<EntityCommandBuffer.PlaybackWithTraceProcessor>*) walker;
+                playbackWithTraceWalker->ProcessChain(chainStates, currentChain, nextChain);
+            }
+            else if (processorType == (int) EntityCommandBuffer.ECBProcessorType.PrePlaybackValidationProcessor)
+            {
+                var prePlaybackValidationWalker = (EntityCommandBuffer.EcbWalker<EntityCommandBuffer.PrePlaybackValidationProcessor>*) walker;
+                prePlaybackValidationWalker->ProcessChain(chainStates, currentChain, nextChain);
             }
         }
 

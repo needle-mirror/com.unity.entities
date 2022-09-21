@@ -9,21 +9,43 @@ using UnityObject = UnityEngine.Object;
 
 namespace Unity.Scenes
 {
+    /// <summary>
+    /// Utility class for serializing and deserializing <see cref="World"/> objects and the associated UnityEngine.Object references.
+    /// </summary>
     [MovedFrom(true, "Unity.Entities.Serialization", "Unity.Entities.Hybrid")]
     public static class SerializeUtilityHybrid
     {
+        /// <summary>
+        /// Serializes a <see cref="World"/> using a <see cref="BinaryWriter"/>.
+        /// </summary>
+        /// <param name="manager">The <see cref="EntityManager"/> of the serialized world.</param>
+        /// <param name="writer">The serialization object.</param>
+        /// <param name="objRefs">Contains the UnityEngine.Object references extracted during serialization.</param>
         public static void Serialize(EntityManager manager, BinaryWriter writer, out ReferencedUnityObjects objRefs)
         {
             SerializeUtility.SerializeWorld(manager, writer, out var referencedObjects);
             SerializeObjectReferences((UnityEngine.Object[])referencedObjects, out objRefs);
         }
 
+        /// <summary>
+        /// Serializes a <see cref="World"/> using a <see cref="BinaryWriter"/>.
+        /// </summary>
+        /// <param name="manager">The <see cref="EntityManager"/> of the serialized world.</param>
+        /// <param name="writer">The serialization object.</param>
+        /// <param name="objRefs">Contains the UnityEngine.Object references extracted during serialization.</param>
+        /// <param name="entityRemapInfos">Entity remapping which is applied during serialization.</param>
         public static void Serialize(EntityManager manager, BinaryWriter writer, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {
             SerializeUtility.SerializeWorld(manager, writer, out var referencedObjects, entityRemapInfos);
             SerializeObjectReferences((UnityEngine.Object[])referencedObjects, out objRefs);
         }
 
+        /// <summary>
+        /// Deserializes a <see cref="World"/> object.
+        /// </summary>
+        /// <param name="manager">The <see cref="EntityManager"/> of the deserialized world.</param>
+        /// <param name="reader">The deserialization object.</param>
+        /// <param name="objRefs">The UnityEngine.Object references that are patched in during deserialization.</param>
         public static void Deserialize(EntityManager manager, BinaryReader reader, ReferencedUnityObjects objRefs)
         {
             DeserializeObjectReferences(objRefs, out var objectReferences);
@@ -32,6 +54,11 @@ namespace Unity.Scenes
             manager.EndExclusiveEntityTransaction();
         }
 
+        /// <summary>
+        /// Serializes an array of UnityEngine.Object references as a ScriptableObject.
+        /// </summary>
+        /// <param name="referencedObjects">The array of UnityEngine.Object references.</param>
+        /// <param name="objRefs">The ScriptableObject containing the serialized result.</param>
         public static void SerializeObjectReferences(UnityEngine.Object[] referencedObjects, out ReferencedUnityObjects objRefs)
         {
             objRefs = null;
@@ -60,6 +87,11 @@ namespace Unity.Scenes
             }
         }
 
+        /// <summary>
+        /// Deserializes a <see cref="ReferencedUnityObjects"/> object, returning the array of UnityEngine.Object references.
+        /// </summary>
+        /// <param name="objRefs">The serialized UnityEngine.Object references.</param>
+        /// <param name="objectReferences">The array of UnityEngine.Object references to be applied on the deserialized <see cref="World"/> object.</param>
         public static void DeserializeObjectReferences(ReferencedUnityObjects objRefs, out UnityEngine.Object[] objectReferences)
         {
             if (objRefs == null)

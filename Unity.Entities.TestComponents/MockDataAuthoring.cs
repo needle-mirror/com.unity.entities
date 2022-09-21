@@ -4,16 +4,30 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [AddComponentMenu("")]
-    public class MockDataAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class MockDataAuthoring : MonoBehaviour
     {
         public int Value;
+    }
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+    public class MockDataAuthoringBaker : Baker<MockDataAuthoring>
+    {
+        public override void Bake(MockDataAuthoring authoring)
         {
-            dstManager.AddComponentData(entity, new MockData
+            AddComponent(new MockData{Value = authoring.Value});
+        }
+    }
+
+    [DisableAutoCreation]
+    public class MockDataAuthoringBaker_WithAdditionalEntities : Baker<MockDataAuthoring>
+    {
+        public override void Bake(MockDataAuthoring authoring)
+        {
+            AddComponent(new MockData{Value = authoring.Value});
+            for (int i = 0; i < authoring.Value; i++)
             {
-                Value = Value
-            });
+                var entity = CreateAdditionalEntity();
+                AddComponent(entity, new MockData{Value = i+1});
+            }
         }
     }
 

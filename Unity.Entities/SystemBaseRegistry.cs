@@ -20,7 +20,10 @@ namespace Unity.Entities
         // Maintain a reference to any burst->managed delegate wrapper so they are not collected
         internal fixed ulong GCDefeat1[6];
 
-        internal int PresentFunctionBits;
+        internal ushort PresentFunctionBits;
+        internal ushort BurstFunctionBits;
+
+
 
         internal unsafe void Dispose()
         {
@@ -43,7 +46,6 @@ namespace Unity.Entities
     {
         private UnsafeParallelHashMap<long, int> m_TypeHashToIndex;
         private UnsafeList<UnmanagedComponentSystemDelegates> m_Delegates;
-        private UnsafeList<FixedString64Bytes> m_DebugNames;
 
         public bool Constructed => m_Delegates.Ptr != null;
 
@@ -51,12 +53,10 @@ namespace Unity.Entities
         {
             m_TypeHashToIndex = new UnsafeParallelHashMap<long, int>(64, Allocator.Persistent);
             m_Delegates = new UnsafeList<UnmanagedComponentSystemDelegates>(64, Allocator.Persistent);
-            m_DebugNames = new UnsafeList<FixedString64Bytes>(64, Allocator.Persistent);
         }
 
         internal void Dispose()
         {
-
             if (Constructed)
             {
                 for (int i = 0; i < m_Delegates.Length; ++i)
@@ -64,7 +64,6 @@ namespace Unity.Entities
                     m_Delegates[i].Dispose();
                 }
 
-                m_DebugNames.Dispose();
                 m_Delegates.Dispose();
                 m_TypeHashToIndex.Dispose();
             }
@@ -72,16 +71,10 @@ namespace Unity.Entities
             this = default;
         }
 
-        internal int AddSystemType(long typeHash, FixedString64Bytes debugName, UnmanagedComponentSystemDelegates delegates)
+        internal int AddSystemType(long typeHash, UnmanagedComponentSystemDelegates delegates)
         {
             if (m_TypeHashToIndex.TryGetValue(typeHash, out int index))
             {
-                if (m_DebugNames[index] != debugName)
-                {
-                    Debug.LogError($"Type hash {typeHash} for {debugName} collides with {m_DebugNames[index]}. Skipping this type. Rename the type to avoid the collision.");
-                    return -1;
-                }
-
                 m_Delegates[index] = delegates;
                 return index;
             }
@@ -89,7 +82,6 @@ namespace Unity.Entities
             {
                 int newIndex = m_Delegates.Length;
                 m_TypeHashToIndex.Add(typeHash, newIndex);
-                m_DebugNames.Add(debugName);
                 m_Delegates.Add(delegates);
                 return newIndex;
             }
@@ -100,18 +92,17 @@ namespace Unity.Entities
             return m_TypeHashToIndex.TryGetValue(typeHash, out index);
         }
 
-        internal FixedString64Bytes GetSystemDebugName(int index)
+        internal ref readonly UnmanagedComponentSystemDelegates GetSystemDelegates(int index)
         {
-            return m_DebugNames[index];
-        }
-
-        internal UnmanagedComponentSystemDelegates GetSystemDelegates(int index)
-        {
-            return m_Delegates[index];
+            return ref m_Delegates.Ptr[index];
         }
     }
 
-    [BurstCompatible]
+    /// <summary>
+    /// Internal class used by codegen (as such it is necessary to be public). For registering unmanaged systems
+    /// prefer <seealso cref="World.AddSystem"/>
+    /// </summary>
+    [GenerateTestsForBurstCompatibility]    
     public static class SystemBaseRegistry
     {
         class Managed
@@ -139,23 +130,14 @@ namespace Unity.Entities
                 throw new InvalidOperationException("type registry is not initialized");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        private static void ThrowSystemTypeIsNotRegistered()
-        {
-            throw new ArgumentException("System type is not registered");
-        }
-
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         internal static int GetSystemTypeMetaIndex(long typeHash)
         {
             ref var data = ref s_Data.Data;
             AssertTypeRegistryInitialized(in data);
 
             if (!data.FindSystemMetaIndex(typeHash, out int index))
-            {
-                ThrowSystemTypeIsNotRegistered();
-            }
-
+                index = -1;
             return index;
         }
 
@@ -168,7 +150,7 @@ namespace Unity.Entities
             public int m_BurstCompileBits;
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Takes managed Type")]
         public static unsafe void AddUnmanagedSystemType(Type type, long typeHash, ForwardingFunc onCreate, ForwardingFunc onUpdate,
             ForwardingFunc onDestroy, ForwardingFunc onStartRunning, ForwardingFunc onStopRunning, ForwardingFunc onCreateForCompiler,
             string debugName, int burstCompileBits)
@@ -209,7 +191,7 @@ namespace Unity.Entities
             });
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Uses managed delegate")]
         static void SelectManagedFn(out ulong result, ulong burstFn, ForwardingFunc managedFn)
         {
             if (burstFn != 0)
@@ -222,7 +204,7 @@ namespace Unity.Entities
             }
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Uses managed delegate")]
         static void SelectBurstFn(out ulong result, out ulong defeatGc, ulong burstFn, ForwardingFunc managedFn)
         {
             if (burstFn != default)
@@ -257,7 +239,7 @@ namespace Unity.Entities
             }
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Uses managed delegates")]
         public unsafe static void InitializePendingTypes()
         {
             if (Managed.s_PendingRegistrations == null)
@@ -265,20 +247,19 @@ namespace Unity.Entities
 
             foreach (var r in Managed.s_PendingRegistrations)
             {
-                var debugName = r.m_DebugName;
                 var burstCompileBits = r.m_BurstCompileBits;
-
-                FixedString64Bytes debugNameFixed = new FixedString64Bytes(debugName);
                 var delegates = default(UnmanagedComponentSystemDelegates);
 
-                int functionBit = 1;
+                ushort functionBit = 1;
+                delegates.BurstFunctionBits = 0;
                 for (int i = 0; i < r.m_Functions.Length; ++i, functionBit <<= 1)
                 {
                     var dlg = r.m_Functions[i];
 
                     if (dlg != null)
                     {
-                        ulong burstFunc = (burstCompileBits & functionBit) != 0 ? (ulong)BurstCompiler.CompileFunctionPointer(dlg).Value : 0;
+                        var useBurstFunction = (burstCompileBits & functionBit) != 0;
+                        ulong burstFunc = useBurstFunction ? (ulong)BurstCompiler.CompileFunctionPointer(dlg).Value : 0;
 
                         // Select what to call when calling into a system from managed code.
                         SelectManagedFn(out delegates.ManagedFunctions[i], burstFunc, dlg);
@@ -287,11 +268,13 @@ namespace Unity.Entities
                         SelectBurstFn(out delegates.BurstFunctions[i], out delegates.GCDefeat1[i], burstFunc, dlg);
 
                         delegates.PresentFunctionBits |= functionBit;
+                        if (useBurstFunction)
+                            delegates.BurstFunctionBits |= functionBit;
                     }
                 }
 
                 Managed.s_StructTypes.Add(r.m_Type);
-                s_Data.Data.AddSystemType(r.m_TypeHash, debugNameFixed, delegates);
+                s_Data.Data.AddSystemType(r.m_TypeHash, delegates);
             }
 
             Managed.s_PendingRegistrations = null;
@@ -303,6 +286,7 @@ namespace Unity.Entities
             status = false;
         }
 
+        [Burst.CompilerServices.IgnoreWarning(1371)]
         private static unsafe void CallForwardingFunction(SystemState* systemState, int functionIndex)
         {
             var metaIndex = systemState->UnmanagedMetaIndex;
@@ -329,6 +313,49 @@ namespace Unity.Entities
             }
         }
 
+        internal static unsafe ref readonly UnmanagedComponentSystemDelegates GetDelegates(SystemState* systemState)
+        {
+            var metaIndex = systemState->UnmanagedMetaIndex;
+            return ref s_Data.Data.GetSystemDelegates(metaIndex);
+        }
+
+        // Returns if OnUpdate is going to use burst.
+        // This method is unfortunately only an approximation.
+        // It doesn't work if:
+        // * Burst failed to compile
+        // * Burst has completed compilation of the method yet
+        // Unfortunately there is no way to get this data from burst yet.
+        // BUR-1651
+        internal static bool IsOnUpdateUsingBurst(in UnmanagedComponentSystemDelegates delegates)
+        {
+            bool isBurst = true;
+            CheckBurst(ref isBurst);
+
+            return isBurst & (delegates.BurstFunctionBits & 2) != 0;
+        }
+
+        [GenerateTestsForBurstCompatibility]
+        [Burst.CompilerServices.IgnoreWarning(1371)]
+        internal static unsafe void CallOnUpdate(in UnmanagedComponentSystemDelegates delegates, SystemState* systemState)
+        {
+            bool isBurst = true;
+            CheckBurst(ref isBurst);
+
+            if (isBurst)
+            {
+                // Burst: we're calling either directly into Burst code, or we are calling into a managed wrapper.
+                // In any case, creating the function pointer from the IntPtr is free.
+                new FunctionPointer<ForwardingFunc>((IntPtr)delegates.BurstFunctions[1]).Invoke((IntPtr)systemState->m_SystemPtr, (IntPtr)systemState);
+            }
+            else
+            {
+                // We're in managed land. We may be calling into either a managed routine, or into Burst code.
+                // We have a managed delegate GCHandle ready to go.
+                var delegatePtr = (IntPtr)delegates.ManagedFunctions[1];
+                ForwardToManaged(delegatePtr, systemState, systemState->m_SystemPtr);
+            }
+        }
+
         [BurstDiscard]
         private static unsafe void ForwardToManaged(IntPtr delegateIntPtr, SystemState* systemState, void* systemPointer)
         {
@@ -336,49 +363,43 @@ namespace Unity.Entities
             ((ForwardingFunc)h.Target)((IntPtr)systemPointer, (IntPtr)systemState);
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnCreate(SystemState* systemState)
         {
             CallForwardingFunction(systemState, 0);
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnUpdate(SystemState* systemState)
         {
             CallForwardingFunction(systemState, 1);
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnDestroy(SystemState* systemState)
         {
             CallForwardingFunction(systemState, 2);
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnStartRunning(SystemState* systemState)
         {
             CallForwardingFunction(systemState, 3);
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnStopRunning(SystemState* systemState)
         {
             CallForwardingFunction(systemState, 4);
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnCreateForCompiler(SystemState* systemState)
         {
             CallForwardingFunction(systemState, 5);
         }
 
-        [BurstCompatible]
-        internal static FixedString64Bytes GetDebugName(int metaIndex)
-        {
-            return s_Data.Data.GetSystemDebugName(metaIndex);
-        }
-
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("returns managed Type")]
         internal static Type GetStructType(int metaIndex)
         {
             return Managed.s_StructTypes[metaIndex];

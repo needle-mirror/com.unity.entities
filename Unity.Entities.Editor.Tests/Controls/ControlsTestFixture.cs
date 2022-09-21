@@ -14,9 +14,9 @@ namespace Unity.Entities.Editor.Tests
         public void SetUp()
         {
             m_TestWorld = new World("Relationship Test world");
-            var group = m_TestWorld.GetOrCreateSystem<SimulationSystemGroup>();
-            m_SystemA = m_TestWorld.GetOrCreateSystem<TestSystemsForControls.SystemA>();
-            m_SystemB = m_TestWorld.GetOrCreateSystem<TestSystemsForControls.SystemB>();
+            var group = m_TestWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            m_SystemA = m_TestWorld.GetOrCreateSystemManaged<TestSystemsForControls.SystemA>();
+            m_SystemB = m_TestWorld.GetOrCreateSystemManaged<TestSystemsForControls.SystemB>();
             group.AddSystemToUpdateList(m_SystemA);
             group.AddSystemToUpdateList(m_SystemB);
             group.SortSystems();

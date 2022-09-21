@@ -1,7 +1,7 @@
 using JetBrains.Annotations;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Serialization;
 using UnityEditor;
 using UnityEngine;
@@ -51,7 +51,7 @@ namespace Unity.Entities.Editor
     }
 
     [UsedImplicitly]
-    class SystemQueriesInspector : Inspector<SystemQueries>
+    class SystemQueriesInspector : PropertyInspector<SystemQueries>
     {
         public override VisualElement Build()
         {
@@ -60,7 +60,7 @@ namespace Unity.Entities.Editor
             var queries = Target.QueriesFromSystem;
             if (queries.Length == 0)
             {
-                var noQueryLabel = new Label(L10n.Tr("No Queries"));
+                var noQueryLabel = new Label(L10n.Tr("No Queries."));
                 noQueryLabel.AddToClassList(UssClasses.Content.SystemInspector.SystemQueriesEmpty);
                 root.Add(noQueryLabel);
             }

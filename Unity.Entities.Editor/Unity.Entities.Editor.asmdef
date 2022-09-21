@@ -16,9 +16,8 @@
         "Unity.Mathematics",
         "Unity.Profiling.Core",
         "Unity.Properties",
-        "Unity.Properties.Editor",
-        "Unity.Properties.UI",
-        "Unity.Properties.UI.Editor",
+        "Unity.Platforms.UI",
+        "Unity.Platforms.UI.Editor",
         "Unity.Scenes",
         "Unity.Scenes.Editor",
         "Unity.Serialization",
@@ -43,6 +42,31 @@
             "name": "com.unity.quicksearch",
             "expression": "2.1.0-preview.4",
             "define": "QUICKSEARCH_AVAILABLE"
+        },
+        {
+            "name": "com.unity.cinemachine.dots",
+            "expression": "0.60.0-preview.81",
+            "define": "ENABLE_TRANSFORM_V1"
+        },
+        {
+            "name": "com.unity.stableid",
+            "expression": "0.60.0-preview.91",
+            "define": "ENABLE_TRANSFORM_V1"
+        },
+        {
+            "name": "com.unity.physics",
+            "expression": "0.60.0-preview.88",
+            "define": "ENABLE_TRANSFORM_V1"
+        },
+        {
+            "name": "com.unity.2d.entities.physics",
+            "expression": "0.5.0-preview.1",
+            "define": "ENABLE_TRANSFORM_V1"
+        },
+        {
+            "name": "com.unity.netcode",
+            "expression": "0.62.0-preview.1",
+            "define": "ENABLE_TRANSFORM_V1"
         }
     ],
     "noEngineReferences": false

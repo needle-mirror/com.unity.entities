@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
@@ -8,6 +9,14 @@ namespace Unity.Entities.Editor
         public static void Show(this VisualElement v) => SetVisibility(v, true);
         public static void Hide(this VisualElement v) => SetVisibility(v, false);
         public static void SetVisibility(this VisualElement v, bool isVisible) => v.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+        public static void ToggleVisibility(this VisualElement v)
+        {
+            if (v.style.display == DisplayStyle.Flex)
+                v.style.display = DisplayStyle.None;
+            else
+                v.style.display = DisplayStyle.Flex;
+        }
+        public static bool IsVisible(this VisualElement v) => v.style.display == DisplayStyle.Flex;
 
         public static void ForceUpdateBindings(this VisualElement element)
         {
@@ -86,6 +95,21 @@ namespace Unity.Entities.Editor
 
             outChildIndexes.Clear();
             return false;
+        }
+
+        internal static TElement WithIconPrefix<TElement>(this TElement element, string name) where TElement : VisualElement
+        {
+            Resources.Templates.DotsEditorCommon.AddStyles(element);
+
+            var icon = new VisualElement();
+            icon.style.backgroundImage = UnityEditor.EditorGUIUtility.IconContent(name).image as Texture2D;
+            icon.AddToClassList("icon-prefix");
+
+            // Try to find a label and insert the icon just before it.
+            var label = element.Q(className: "unity-label");
+            var index = element.IndexOf(label);
+            element.Insert(index, icon);
+            return element;
         }
     }
 }

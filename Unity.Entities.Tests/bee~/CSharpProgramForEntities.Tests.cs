@@ -1,3 +1,4 @@
+using Bee.Core;
 using JetBrains.Annotations;
 using NiceIO;
 using Bee.NativeProgramSupport;
@@ -18,7 +19,7 @@ class CustomizerForEntitiesTests : DotsRuntimeCSharpProgramCustomizer
 
             foreach (var filePath in dataPath.Files(true))
             {
-                program.SupportFiles.Add(filePath);
+                program.SupportFiles.Add(new DeployableFile(filePath));
             }
         }
     }

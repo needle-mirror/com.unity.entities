@@ -5,35 +5,38 @@ using UnityEngine;
 namespace Unity.Scenes.Editor.Tests
 {
     [AddComponentMenu("")]
-    [ConverterVersion("unity", 1)]
-    public class SubSceneLoadTestBlobAssetAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class SubSceneLoadTestBlobAssetAuthoring : MonoBehaviour
     {
         public bool UseNullBlobAsset;
         public int Int;
         public int PtrInt;
         public string String;
         public string[] Strings;
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+    }
+
+    public struct SubSceneLoadTestBlobAssetComponent : IComponentData
+    {
+        public BlobAssetReference<SubSceneLoadTestBlobAsset> BlobAsset;
+    }
+
+    public class SubsceneLoadTestBlobAssetBaker : Baker<SubSceneLoadTestBlobAssetAuthoring>
+    {
+        public override void Bake(SubSceneLoadTestBlobAssetAuthoring authoring)
         {
-            if (UseNullBlobAsset)
+            if (authoring.UseNullBlobAsset)
             {
-                dstManager.AddComponentData(entity, new Component
+                AddComponent(GetEntity(authoring), new SubSceneLoadTestBlobAssetComponent
                 {
                     BlobAsset = BlobAssetReference<SubSceneLoadTestBlobAsset>.Null
                 });
             }
             else
             {
-                dstManager.AddComponentData(entity, new Component
+                AddComponent(GetEntity(authoring), new SubSceneLoadTestBlobAssetComponent()
                 {
-                    BlobAsset = SubSceneLoadTestBlobAsset.Make(Int, PtrInt, String, Strings)
+                    BlobAsset = SubSceneLoadTestBlobAsset.Make(authoring.Int, authoring.PtrInt, authoring.String, authoring.Strings)
                 });
             }
-        }
-
-        public struct Component : IComponentData
-        {
-            public BlobAssetReference<SubSceneLoadTestBlobAsset> BlobAsset;
         }
     }
 }

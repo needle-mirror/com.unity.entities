@@ -1,9 +1,9 @@
 using System;
-using Unity.Properties.Editor;
+using Unity.Properties;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Unity.Properties.UI.Internal
+namespace Unity.Platforms.UI
 {
     partial class DisplayContent
     {
@@ -113,7 +113,7 @@ namespace Unity.Properties.UI.Internal
                 m_ContentNotReadyRoot.RemoveFromHierarchy();
 
                 var visitor = new SetTargetVisitor {Content = Content, InspectionContext = InspectionContext, Inspector = m_ContentRoot};
-                PropertyContainer.Visit(ref value, visitor);;
+                PropertyContainer.Accept(visitor, ref value);
                 m_Root.contentContainer.Add(m_ContentRoot);
             }
             catch (Exception ex)

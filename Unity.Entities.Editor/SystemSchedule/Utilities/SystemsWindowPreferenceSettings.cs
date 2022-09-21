@@ -1,6 +1,6 @@
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor
         }
 
         [UsedImplicitly]
-        class Inspector : Inspector<SystemsWindowPreferenceSettings>
+        class Inspector : PropertyInspector<SystemsWindowPreferenceSettings>
         {
             public override VisualElement Build()
             {

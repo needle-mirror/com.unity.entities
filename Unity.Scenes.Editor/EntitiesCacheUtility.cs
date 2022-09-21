@@ -34,12 +34,6 @@ namespace Unity.Scenes
                 AssetDatabase.CreateAsset(entitySceneDependency, globalEntitySceneDependencyPath);
             }
         }
-
-        [MenuItem("DOTS/Clear Entities Cache(s)", false, 1000)]
-        static void ClearEntitiesCache()
-        {
-            ClearEntitiesCacheWindow.OpenWindow();
-        }
     }
     #endif
 }

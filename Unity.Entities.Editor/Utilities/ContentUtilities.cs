@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Unity.Properties.Editor;
-using Unity.Properties.UI;
+using Unity.Properties;
+using Unity.Platforms.UI;
 using UnityEditor;
 
 namespace Unity.Entities.Editor
@@ -69,6 +69,15 @@ namespace Unity.Entities.Editor
                 ApplyInspectorStyling = false,
                 UseDefaultMargins = false
             });
+        }
+
+        public static string NicifyTypeName(string typeName)
+        {
+            return ObjectNames.NicifyVariableName(typeName.Replace("<", "[").Replace(">", "]"))
+                .Replace("_", " | ")
+                .Replace(".", " | ")
+                .Replace("[", "<")
+                .Replace("]", ">");
         }
     }
 }

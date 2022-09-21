@@ -63,7 +63,7 @@ namespace Unity.Entities.Editor
             menu.AddItem(new GUIContent($"{k_CopyPrefix}All"), false, () => { EditorGUIUtility.systemCopyBuffer = JsonSerialization.ToJson(value); });
             menu.AddSeparator(k_CopyPrefix);
             var visitor = new GenericMenuCopyVisitor(menu);
-            PropertyContainer.Visit(value, visitor);
+            PropertyContainer.Accept(visitor, ref value);
         }
 
         public static void AddCopyValue<TValue>(this DropdownMenu menu, TValue value)
@@ -71,7 +71,7 @@ namespace Unity.Entities.Editor
             menu.AppendAction($"{k_CopyPrefix}All", action => { EditorGUIUtility.systemCopyBuffer = JsonSerialization.ToJson(value); });
             menu.AppendSeparator(k_CopyPrefix);
             var visitor = new DropdownMenuCopyVisitor(menu);
-            PropertyContainer.Visit(value, visitor);
+            PropertyContainer.Accept(visitor, ref value);
         }
     }
 }

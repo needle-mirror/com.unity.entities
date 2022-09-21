@@ -10,6 +10,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 using Unity.Profiling;
+using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
@@ -45,7 +46,7 @@ namespace Unity.Entities
         public BasicCommand Header;
         public EntityNode Entities;
         public int EntitiesCount;
-        public Allocator Allocator;
+        public AllocatorManager.AllocatorHandle Allocator;
         public int SkipDeferredEntityLookup;
     }
 
@@ -53,15 +54,26 @@ namespace Unity.Entities
     internal unsafe struct MultipleEntitiesComponentCommand
     {
         public MultipleEntitiesCommand Header;
-        public int ComponentTypeIndex;
+        public TypeIndex ComponentTypeIndex;
         public int ComponentSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct MultipleEntitiesCommand_WithUnmanagedSharedComponent
+    {
+        public MultipleEntitiesCommand Header;
+        public TypeIndex ComponentTypeIndex;
+        public int ComponentSize;
+        public int HashCode;
+        public int IsDefault;
+        public int SkipDeferredEntityLookup;
     }
 
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct MultipleEntitiesComponentCommandWithObject
     {
         public MultipleEntitiesCommand Header;
-        public int ComponentTypeIndex;
+        public TypeIndex ComponentTypeIndex;
         public int HashCode;
         public EntityComponentGCNode GCNode;
 
@@ -77,23 +89,29 @@ namespace Unity.Entities
     internal struct MultipleEntitiesAndComponentsCommand
     {
         public MultipleEntitiesCommand Header;
-        public ComponentTypes Types;
+        public ComponentTypeSet TypeSet;
     }
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct EntityComponentCommand
     {
         public EntityCommand Header;
-        public int ComponentTypeIndex;
+        public TypeIndex ComponentTypeIndex;
         public int ComponentSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct EntityEnabledCommand
+    {
+        public EntityCommand Header;
+        public byte IsEnabled;
     }
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct EntityComponentEnabledCommand
     {
-        public EntityCommand Header;
-        public int ComponentTypeIndex;
-        public byte IsEnabled;
+        public EntityEnabledCommand Header;
+        public TypeIndex ComponentTypeIndex;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -104,85 +122,33 @@ namespace Unity.Entities
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    internal struct EntityQueryMaskCommand
+    {
+        public EntityComponentCommand Header;
+        public EntityQueryMask Mask;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     internal struct EntityMultipleComponentsCommand
     {
         public EntityCommand Header;
-        public ComponentTypes Types;
+        public ComponentTypeSet TypeSet;
     }
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct EntityBufferCommand
     {
         public EntityCommand Header;
-        public int ComponentTypeIndex;
+        public TypeIndex ComponentTypeIndex;
         public int ComponentSize;
         public BufferHeaderNode BufferNode;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct EntityQueryCommand
-    {
-        public BasicCommand Header;
-        public unsafe EntityQueryData* QueryData;
-        public EntityQueryFilter EntityQueryFilter;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-        public unsafe EntityComponentStore* Store;
-#endif
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct EntityQueryComponentCommand
-    {
-        public EntityQueryCommand Header;
-        public int ComponentTypeIndex;
-
-        public int ComponentSize;
-        // Data follows if command has an associated component payload
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct EntityQueryMultipleComponentsCommand
-    {
-        public EntityQueryCommand Header;
-        public ComponentTypes Types;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe struct EntityQueryManagedComponentCommand
-    {
-        public EntityQueryCommand Header;
-        public int ComponentTypeIndex;
-        public EntityComponentGCNode GCNode;
-
-        internal object GetBoxedObject()
-        {
-            if (GCNode.BoxedObject.IsAllocated)
-                return GCNode.BoxedObject.Target;
-            return null;
-        }
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe struct EntityQuerySharedComponentCommand
-    {
-        public EntityQueryCommand Header;
-        public int ComponentTypeIndex;
-        public int HashCode;
-        public EntityComponentGCNode GCNode;
-
-        internal object GetBoxedObject()
-        {
-            if (GCNode.BoxedObject.IsAllocated)
-                return GCNode.BoxedObject.Target;
-            return null;
-        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct EntityManagedComponentCommand
     {
         public EntityCommand Header;
-        public int ComponentTypeIndex;
+        public TypeIndex ComponentTypeIndex;
         public EntityComponentGCNode GCNode;
 
         internal object GetBoxedObject()
@@ -194,10 +160,20 @@ namespace Unity.Entities
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct EntityUnmanagedSharedComponentCommand
+    {
+        public EntityCommand Header;
+        public TypeIndex ComponentTypeIndex;
+        public int HashCode;
+        public int IsDefault;
+    }
+
+
+    [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct EntitySharedComponentCommand
     {
         public EntityCommand Header;
-        public int ComponentTypeIndex;
+        public TypeIndex ComponentTypeIndex;
         public int HashCode;
         public EntityComponentGCNode GCNode;
 
@@ -250,7 +226,7 @@ namespace Unity.Entities
         public int m_LastSortKey;
         public bool m_CanBurstPlayback;
 
-        internal static void InitChain(EntityCommandBufferChain* chain, Allocator allocator)
+        internal static void InitChain(EntityCommandBufferChain* chain, AllocatorManager.AllocatorHandle allocator)
         {
             chain->m_Cleanup = (ChainCleanup*)Memory.Unmanaged.Allocate(sizeof(ChainCleanup), sizeof(ChainCleanup), allocator);
             chain->m_Cleanup->CleanupList = null;
@@ -366,7 +342,7 @@ namespace Unity.Entities
             // Thus, m_Heap[size] is a valid element (specifically, the final element in the heap)
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (i < BaseIndex || i > m_Size)
-                Assert.IsTrue(false, "heap index " + i + " is out of range with size=" + m_Size);
+                Assert.IsTrue(false, $"heap index {i} is out of range with size={m_Size}");
 #endif
             ECBChainHeapElement val = m_Heap[i];
             while (i <= m_Size / 2)
@@ -401,6 +377,7 @@ namespace Unity.Entities
         RemoveMultipleComponents,
         SetComponent,
         SetComponentWithEntityFixUp,
+        SetEntityEnabled,
         SetComponentEnabled,
         SetName,
 
@@ -414,8 +391,17 @@ namespace Unity.Entities
         AddManagedComponentData,
         SetManagedComponentData,
 
+        AddComponentLinkedEntityGroup,
+        SetComponentLinkedEntityGroup,
+        ReplaceComponentLinkedEntityGroup,
+
         AddSharedComponentData,
         SetSharedComponentData,
+
+        AddUnmanagedSharedComponentData,
+        SetUnmanagedSharedComponentData,
+        AddUnmanagedSharedComponentValueForMultipleEntities,
+        SetUnmanagedSharedComponentValueForMultipleEntities,
 
         AddComponentForMultipleEntities,
         AddComponentObjectForMultipleEntities,
@@ -476,7 +462,7 @@ namespace Unity.Entities
 
         public int m_MinimumChunkSize;
 
-        public Allocator m_Allocator;
+        public AllocatorManager.AllocatorHandle m_Allocator;
 
         public PlaybackPolicy m_PlaybackPolicy;
 
@@ -606,6 +592,61 @@ namespace Unity.Entities
             }
         }
 
+        internal void AddLinkedEntityGroupComponentCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, EntityQueryMask mask, Entity e, T component) where T : unmanaged, IComponentData
+        {
+            var ctype = ComponentType.ReadWrite<T>();
+            if (ctype.IsZeroSized)
+            {
+                AddLinkedEntityGroupTypeCommand(chain, sortKey, op, mask, e, ctype);
+                return;
+            }
+
+            // NOTE: This has to be sizeof not TypeManager.SizeInChunk since we use UnsafeUtility.CopyStructureToPtr
+            //       even on zero size components.
+            var typeSize = UnsafeUtility.SizeOf<T>();
+            var sizeNeeded = Align(sizeof(EntityQueryMaskCommand) + typeSize, ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+            var cmd = (EntityQueryMaskCommand*)Reserve(chain, sortKey, sizeNeeded);
+
+            cmd->Header.Header.Header.CommandType = op;
+            cmd->Header.Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.Header.SortKey = chain->m_LastSortKey;
+            cmd->Header.Header.Entity = e;
+            cmd->Header.Header.IdentityIndex = 0;
+            cmd->Header.Header.BatchCount = 1;
+            cmd->Header.ComponentTypeIndex = ctype.TypeIndex;
+            cmd->Header.ComponentSize = typeSize;
+            cmd->Mask = mask;
+
+            byte* data = (byte*)(cmd + 1);
+            UnsafeUtility.CopyStructureToPtr(ref component, data);
+
+            //TODO DOTS-5586: Add support for component data with fixup
+            if (RequiresEntityFixUp(data, ctype.TypeIndex))
+            {
+                throw new ArgumentException("This component value passed to this command contains a reference to a temporary Entity, which is not currently supported.");
+            }
+        }
+
+        internal void AddLinkedEntityGroupTypeCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, EntityQueryMask mask, Entity e, ComponentType t)
+        {
+            var sizeNeeded = Align(sizeof(EntityQueryMaskCommand), ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+            var data = (EntityQueryMaskCommand*)Reserve(chain, sortKey, sizeNeeded);
+
+            data->Header.Header.Header.CommandType = op;
+            data->Header.Header.Header.TotalSize = sizeNeeded;
+            data->Header.Header.Header.SortKey = chain->m_LastSortKey;
+            data->Header.Header.Entity = e;
+            data->Header.Header.IdentityIndex = 0;
+            data->Header.Header.BatchCount = 1;
+            data->Header.ComponentTypeIndex = t.TypeIndex;
+            data->Header.ComponentSize = 0;
+            data->Mask = mask;
+        }
+
         internal void AddMultipleEntityCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, int firstIndex, int count, Entity e, bool batchable)
         {
             if (batchable &&
@@ -629,7 +670,7 @@ namespace Unity.Entities
             }
         }
 
-        internal bool RequiresEntityFixUp(byte* data, int typeIndex)
+        internal bool RequiresEntityFixUp(byte* data, TypeIndex typeIndex)
         {
             if (!TypeManager.HasEntityReferences(typeIndex))
                 return false;
@@ -645,7 +686,7 @@ namespace Unity.Entities
             return false;
         }
 
-        internal void AddEntityComponentCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, T component) where T : struct, IComponentData
+        internal void AddEntityComponentCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, T component) where T : unmanaged, IComponentData
         {
             var ctype = ComponentType.ReadWrite<T>();
             if (ctype.IsZeroSized)
@@ -680,15 +721,21 @@ namespace Unity.Entities
                     cmd->Header.Header.CommandType = ECBCommand.AddComponentWithEntityFixUp;
                 else if (op == ECBCommand.SetComponent)
                     cmd->Header.Header.CommandType = ECBCommand.SetComponentWithEntityFixUp;
+                else if (op == ECBCommand.ReplaceComponentLinkedEntityGroup) //TODO DOTS-5586: Add support for component data with fixup
+                    throw new ArgumentException("This component value passed to this command contains a reference to a temporary Entity, which is not currently supported.");
             }
         }
 
-        internal void AddEntityComponentEnabledCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, int typeIndex, bool value)
+        internal void UnsafeAddEntityComponentCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, TypeIndex typeIndex, int typeSize, void* componentDataPtr)
         {
-            var sizeNeeded = Align(sizeof(EntityComponentEnabledCommand), ALIGN_64_BIT);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            UnityEngine.Assertions.Assert.AreEqual(TypeManager.GetTypeInfo(typeIndex).TypeSize, typeSize, "Type size does not match TypeManager's size!");
+            UnityEngine.Assertions.Assert.IsTrue(componentDataPtr != null, "componentDataPtr is null!");
+#endif
+            var sizeNeeded = Align(sizeof(EntityComponentCommand) + typeSize, ALIGN_64_BIT);
 
             ResetCommandBatching(chain);
-            var cmd = (EntityComponentEnabledCommand*)Reserve(chain, sortKey, sizeNeeded);
+            var cmd = (EntityComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
 
             cmd->Header.Header.CommandType = op;
             cmd->Header.Header.TotalSize = sizeNeeded;
@@ -697,7 +744,54 @@ namespace Unity.Entities
             cmd->Header.IdentityIndex = 0;
             cmd->Header.BatchCount = 1;
             cmd->ComponentTypeIndex = typeIndex;
+            cmd->ComponentSize = typeSize;
+
+            byte* data = (byte*)(cmd + 1);
+            UnsafeUtility.MemCpy(data, componentDataPtr, typeSize);
+
+            if (RequiresEntityFixUp(data, typeIndex))
+            {
+                if (op == ECBCommand.AddComponent)
+                    cmd->Header.Header.CommandType = ECBCommand.AddComponentWithEntityFixUp;
+                else if (op == ECBCommand.SetComponent)
+                    cmd->Header.Header.CommandType = ECBCommand.SetComponentWithEntityFixUp;
+                else if (op == ECBCommand.ReplaceComponentLinkedEntityGroup) //TODO DOTS-5586: Add support for component data with fixup
+                    throw new ArgumentException("This component value passed to this command contains a reference to a temporary Entity, which is not currently supported.");
+            }
+        }
+
+        internal void AddEntityEnabledCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e,
+            bool value)
+        {
+            var sizeNeeded = Align(sizeof(EntityEnabledCommand), ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+            var cmd = (EntityEnabledCommand*)Reserve(chain, sortKey, sizeNeeded);
+
+            cmd->Header.Header.CommandType = op;
+            cmd->Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.SortKey = chain->m_LastSortKey;
+            cmd->Header.Entity = e;
+            cmd->Header.IdentityIndex = 0;
+            cmd->Header.BatchCount = 1;
             cmd->IsEnabled = value ? (byte)1 : (byte)0;
+        }
+
+        internal void AddEntityComponentEnabledCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, TypeIndex typeIndex, bool value)
+        {
+            var sizeNeeded = Align(sizeof(EntityComponentEnabledCommand), ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+            var cmd = (EntityComponentEnabledCommand*)Reserve(chain, sortKey, sizeNeeded);
+
+            cmd->Header.Header.Header.CommandType = op;
+            cmd->Header.Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.Header.SortKey = chain->m_LastSortKey;
+            cmd->Header.Header.Entity = e;
+            cmd->Header.Header.IdentityIndex = 0;
+            cmd->Header.Header.BatchCount = 1;
+            cmd->ComponentTypeIndex = typeIndex;
+            cmd->Header.IsEnabled = value ? (byte)1 : (byte)0;
         }
 
         internal void AddEntityNameCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, in FixedString64Bytes name)
@@ -782,7 +876,7 @@ namespace Unity.Entities
             data->ComponentSize = 0;
         }
 
-        internal void AddEntityComponentTypesCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, ComponentTypes t)
+        internal void AddEntityComponentTypesCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, ComponentTypeSet t)
         {
             var sizeNeeded = Align(sizeof(EntityMultipleComponentsCommand), ALIGN_64_BIT);
 
@@ -795,13 +889,13 @@ namespace Unity.Entities
             data->Header.Entity = e;
             data->Header.IdentityIndex = 0;
             data->Header.BatchCount = 1;
-            data->Types = t;
+            data->TypeSet = t;
         }
 
         internal bool AppendMultipleEntitiesCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op,
             EntityQuery entityQuery)
         {
-            var entities = entityQuery.ToEntityArray(m_Allocator);
+            var entities = entityQuery.ToEntityArray(m_Allocator.ToAllocator);
             if (entities.Length == 0)
             {
                 entities.Dispose();
@@ -810,7 +904,7 @@ namespace Unity.Entities
             var result = AppendMultipleEntitiesCommand(chain, sortKey, op,
                 (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, false);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Dispose(ref entities.m_Safety, ref entities.m_DisposeSentinel); // dispose safety handle, but we'll dispose of the actual data in playback
+            AtomicSafetyHandle.DisposeHandle(ref entities.m_Safety); // dispose safety handle, but we'll dispose of the actual data in playback
 #endif
             return result;
         }
@@ -838,9 +932,9 @@ namespace Unity.Entities
         }
 
         internal bool AppendMultipleEntitiesComponentCommandWithValue<T>(EntityCommandBufferChain* chain, int sortKey,
-            ECBCommand op, EntityQuery entityQuery, T component) where T : struct, IComponentData
+            ECBCommand op, EntityQuery entityQuery, T component) where T : unmanaged, IComponentData
         {
-            var entities = entityQuery.ToEntityArray(m_Allocator); // disposed in playback
+            var entities = entityQuery.ToEntityArray(m_Allocator.ToAllocator); // disposed in playback
             if (entities.Length == 0)
             {
                 entities.Dispose();
@@ -849,12 +943,12 @@ namespace Unity.Entities
             var result = AppendMultipleEntitiesComponentCommandWithValue(chain, sortKey, op,
                 (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, false, component);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Dispose(ref entities.m_Safety, ref entities.m_DisposeSentinel); // dispose safety handle, but we'll dispose of the actual data in playback
+            AtomicSafetyHandle.DisposeHandle(ref entities.m_Safety); // dispose safety handle, but we'll dispose of the actual data in playback
 #endif
             return result;
         }
         internal bool AppendMultipleEntitiesComponentCommandWithValue<T>(EntityCommandBufferChain* chain, int sortKey,
-            ECBCommand op, Entity* entities, int entityCount, bool mayContainDeferredEntities, T component) where T : struct, IComponentData
+            ECBCommand op, Entity* entities, int entityCount, bool mayContainDeferredEntities, T component) where T : unmanaged, IComponentData
         {
             var ctype = ComponentType.ReadWrite<T>();
             if (ctype.IsZeroSized)
@@ -881,7 +975,7 @@ namespace Unity.Entities
             cmd->ComponentSize = typeSize;
 
             byte* componentData = (byte*)(cmd + 1);
-            // TODO(https://unity3d.atlassian.net/browse/DOTS-3465)
+            // TODO(DOTS-3465)
             Assert.IsFalse(RequiresEntityFixUp(componentData, ctype.TypeIndex),
                 "This component value passed to this command contains a reference to a temporary Entity, which is not currently supported.");
             UnsafeUtility.CopyStructureToPtr(ref component, componentData);
@@ -891,7 +985,7 @@ namespace Unity.Entities
         internal bool AppendMultipleEntitiesComponentCommandWithObject(EntityCommandBufferChain* chain, int sortKey,
             ECBCommand op, EntityQuery entityQuery, object boxedComponent, ComponentType ctype)
         {
-            var entities = entityQuery.ToEntityArray(m_Allocator);
+            var entities = entityQuery.ToEntityArray(m_Allocator.ToAllocator);
             if (entities.Length == 0)
             {
                 entities.Dispose();
@@ -900,7 +994,7 @@ namespace Unity.Entities
             var result = AppendMultipleEntitiesComponentCommandWithObject(chain, sortKey, op,
                 (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, false, boxedComponent, ctype);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Dispose(ref entities.m_Safety, ref entities.m_DisposeSentinel); // dispose safety handle, but we'll dispose of the actual data in playback
+            AtomicSafetyHandle.DisposeHandle(ref entities.m_Safety); // dispose safety handle, but we'll dispose of the actual data in playback
 #endif
             return result;
         }
@@ -912,7 +1006,6 @@ namespace Unity.Entities
             ResetCommandBatching(chain);
 
             var cmd = (MultipleEntitiesComponentCommandWithObject*)Reserve(chain, sortKey, sizeNeeded);
-            chain->m_CanBurstPlayback = false;
 
             cmd->Header.Entities.Ptr = entities;
             cmd->Header.Entities.Prev = chain->m_Cleanup->EntityArraysCleanupList;
@@ -927,7 +1020,7 @@ namespace Unity.Entities
             cmd->Header.Header.SortKey = chain->m_LastSortKey;
             cmd->ComponentTypeIndex = ctype.TypeIndex;
 
-            // TODO(https://unity3d.atlassian.net/browse/DOTS-3465): if boxedComponent contains Entity references to temporary Entities, they will not currently be fixed up.
+            // TODO(DOTS-3465): if boxedComponent contains Entity references to temporary Entities, they will not currently be fixed up.
 
             if (boxedComponent != null)
             {
@@ -947,7 +1040,7 @@ namespace Unity.Entities
             int sortKey, ECBCommand op, EntityQuery entityQuery, int hashCode,
             object boxedComponent) where T : struct, ISharedComponentData
         {
-            var entities = entityQuery.ToEntityArray(m_Allocator);
+            var entities = entityQuery.ToEntityArray(m_Allocator.ToAllocator);
             if (entities.Length == 0)
             {
                 entities.Dispose();
@@ -957,13 +1050,22 @@ namespace Unity.Entities
                 (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, false, hashCode,
                 boxedComponent);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Dispose(ref entities.m_Safety, ref entities.m_DisposeSentinel); // dispose safety handle, but we'll dispose of the actual data in playback
+            AtomicSafetyHandle.DisposeHandle(ref entities.m_Safety); // dispose safety handle, but we'll dispose of the actual data in playback
+
 #endif
             return result;
         }
-        internal bool AppendMultipleEntitiesComponentCommandWithSharedValue<T>(EntityCommandBufferChain* chain,
-            int sortKey, ECBCommand op, Entity* entities, int entityCount, bool mayContainDeferredEntities, int hashCode,
-            object boxedComponent) where T : struct, ISharedComponentData
+
+        internal bool AppendMultipleEntitiesComponentCommandWithSharedValue<T>(
+            EntityCommandBufferChain* chain,
+            int sortKey,
+            ECBCommand op,
+            Entity* entities,
+            int entityCount,
+            bool mayContainDeferredEntities,
+            int hashCode,
+            object boxedComponent)
+            where T : struct, ISharedComponentData
         {
             var ctype = ComponentType.ReadWrite<T>();
             var sizeNeeded = Align(sizeof(MultipleEntitiesComponentCommandWithObject), ALIGN_64_BIT);
@@ -971,7 +1073,6 @@ namespace Unity.Entities
             ResetCommandBatching(chain);
 
             var cmd = (MultipleEntitiesComponentCommandWithObject*)Reserve(chain, sortKey, sizeNeeded);
-            chain->m_CanBurstPlayback = false;
 
             cmd->Header.Entities.Ptr = entities;
             cmd->Header.Entities.Prev = chain->m_Cleanup->EntityArraysCleanupList;
@@ -987,7 +1088,7 @@ namespace Unity.Entities
             cmd->ComponentTypeIndex = ctype.TypeIndex;
             cmd->HashCode = hashCode;
 
-            // TODO(https://unity3d.atlassian.net/browse/DOTS-3465): if boxedComponent contains Entity references to temporary Entities, they will not currently be fixed up.
+            // TODO(DOTS-3465): if boxedComponent contains Entity references to temporary Entities, they will not currently be fixed up.
 
             if (boxedComponent != null)
             {
@@ -1003,10 +1104,95 @@ namespace Unity.Entities
             return true;
         }
 
-        internal bool AppendMultipleEntitiesComponentCommand(EntityCommandBufferChain* chain, int sortKey,
-            ECBCommand op, EntityQuery entityQuery, ComponentType t)
+        internal bool AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+            EntityCommandBufferChain* chain,
+            int sortKey,
+            ECBCommand op,
+            EntityQuery entityQuery,
+            bool mayContainDeferredEntities,
+            int hashCode,
+            void* componentAddr)
+            where T : struct, ISharedComponentData
         {
-            var entities = entityQuery.ToEntityArray(m_Allocator); // disposed in playback
+
+            var entities = entityQuery.ToEntityArray(m_Allocator.ToAllocator);
+            if (entities.Length == 0)
+            {
+                entities.Dispose();
+                return false;
+            }
+
+            AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                chain,
+                sortKey,
+                op,
+                (Entity*)entities.GetUnsafeReadOnlyPtr(),
+                entities.Length,
+                mayContainDeferredEntities,
+                hashCode,
+                componentAddr);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.DisposeHandle(ref entities.m_Safety); // dispose safety handle, but we'll dispose of the actual data in playback
+#endif
+            return true;
+        }
+
+        internal bool AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+            EntityCommandBufferChain* chain,
+            int sortKey,
+            ECBCommand op,
+            Entity* entities,
+            int entityCount,
+            bool mayContainDeferredEntities,
+            int hashCode,
+            void* componentAddr) where T : struct, ISharedComponentData
+        {
+            var ctype = ComponentType.ReadWrite<T>();
+            var typeSize = UnsafeUtility.SizeOf<T>();
+            var sizeNeeded = Align(sizeof(MultipleEntitiesCommand_WithUnmanagedSharedComponent) + typeSize, ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+
+            var cmd = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*) Reserve(chain, sortKey, sizeNeeded);
+
+            cmd->Header.Entities.Ptr = entities;
+            cmd->Header.Entities.Prev = chain->m_Cleanup->EntityArraysCleanupList;
+            chain->m_Cleanup->EntityArraysCleanupList = &(cmd->Header.Entities);
+
+            cmd->Header.EntitiesCount = entityCount;
+            cmd->Header.Allocator = m_Allocator;
+            cmd->Header.SkipDeferredEntityLookup = mayContainDeferredEntities ? 0 : 1;
+
+            cmd->Header.Header.CommandType = op;
+            cmd->Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.SortKey = chain->m_LastSortKey;
+            cmd->ComponentTypeIndex = ctype.TypeIndex;
+            cmd->ComponentSize = typeSize;
+            cmd->HashCode = hashCode;
+            cmd->IsDefault = componentAddr == null ? 1 : 0;
+
+            byte* data = (byte*) (cmd + 1);
+            if (componentAddr != null)
+            {
+                UnsafeUtility.MemCpy(data, componentAddr, typeSize);
+            }
+            else
+            {
+                UnsafeUtility.MemSet(data, 0, typeSize);
+            }
+
+            return true;
+        }
+
+        internal bool AppendMultipleEntitiesComponentCommand(
+            EntityCommandBufferChain* chain,
+            int sortKey,
+            ECBCommand op,
+            EntityQuery entityQuery,
+            ComponentType t)
+        {
+            var entities = entityQuery.ToEntityArray(m_Allocator.ToAllocator); // disposed in playback
             if (entities.Length == 0)
             {
                 entities.Dispose();
@@ -1015,7 +1201,7 @@ namespace Unity.Entities
             var result = AppendMultipleEntitiesComponentCommand(chain, sortKey, op,
                 (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, false, t);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Dispose(ref entities.m_Safety, ref entities.m_DisposeSentinel); // dispose safety handle, but we'll dispose of the actual data in playback
+            AtomicSafetyHandle.DisposeHandle(ref entities.m_Safety); // dispose safety handle, but we'll dispose of the actual data in playback
 #endif
             return result;
         }
@@ -1044,9 +1230,9 @@ namespace Unity.Entities
         }
 
         internal bool AppendMultipleEntitiesMultipleComponentsCommand(EntityCommandBufferChain* chain, int sortKey,
-            ECBCommand op, EntityQuery entityQuery, ComponentTypes t)
+            ECBCommand op, EntityQuery entityQuery, ComponentTypeSet t)
         {
-            var entities = entityQuery.ToEntityArray(m_Allocator); // disposed in playback
+            var entities = entityQuery.ToEntityArray(m_Allocator.ToAllocator); // disposed in playback
             if (entities.Length == 0)
             {
                 entities.Dispose();
@@ -1055,12 +1241,12 @@ namespace Unity.Entities
             var result = AppendMultipleEntitiesMultipleComponentsCommand(chain, sortKey, op,
                 (Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length, false, t);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Dispose(ref entities.m_Safety, ref entities.m_DisposeSentinel); // dispose safety handle, but we'll dispose of the actual data in playback
+            AtomicSafetyHandle.DisposeHandle(ref entities.m_Safety); // dispose safety handle, but we'll dispose of the actual data in playback
 #endif
             return result;
         }
         internal bool AppendMultipleEntitiesMultipleComponentsCommand(EntityCommandBufferChain* chain, int sortKey,
-            ECBCommand op, Entity* entities, int entityCount, bool mayContainDeferredEntities, ComponentTypes t)
+            ECBCommand op, Entity* entities, int entityCount, bool mayContainDeferredEntities, ComponentTypeSet t)
         {
             var sizeNeeded = Align(sizeof(MultipleEntitiesAndComponentsCommand), ALIGN_64_BIT);
 
@@ -1079,7 +1265,7 @@ namespace Unity.Entities
             cmd->Header.Header.TotalSize = sizeNeeded;
             cmd->Header.Header.SortKey = chain->m_LastSortKey;
 
-            cmd->Types = t;
+            cmd->TypeSet = t;
             return true;
         }
 
@@ -1091,7 +1277,6 @@ namespace Unity.Entities
 
             ResetCommandBatching(chain);
             var data = (EntitySharedComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
-            chain->m_CanBurstPlayback = false;
 
             data->Header.Header.CommandType = op;
             data->Header.Header.TotalSize = sizeNeeded;
@@ -1102,7 +1287,7 @@ namespace Unity.Entities
             data->ComponentTypeIndex = typeIndex;
             data->HashCode = hashCode;
 
-            // TODO(https://unity3d.atlassian.net/browse/DOTS-3465): if boxedComponent contains Entity references to temporary Entities, they will not currently be fixed up.
+            // TODO(DOTS-3465): if boxedComponent contains Entity references to temporary Entities, they will not currently be fixed up.
 
             if (boxedObject != null)
             {
@@ -1114,6 +1299,40 @@ namespace Unity.Entities
             else
             {
                 data->GCNode.BoxedObject = new GCHandle();
+            }
+        }
+
+        internal void AddEntityUnmanagedSharedComponentCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, int hashCode, void* componentData)
+            where T : struct
+        {
+            // NOTE: This has to be sizeof not TypeManager.SizeInChunk since we use UnsafeUtility.CopyStructureToPtr
+            //       even on zero size components.
+            var typeSize = UnsafeUtility.SizeOf<T>();
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var sizeNeeded = Align(sizeof(EntityUnmanagedSharedComponentCommand) + typeSize, ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+            var cmd = (EntityUnmanagedSharedComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
+
+            cmd->Header.Header.CommandType = op;
+            cmd->Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.SortKey = chain->m_LastSortKey;
+            cmd->Header.Entity = e;
+            cmd->Header.IdentityIndex = 0;
+            cmd->Header.BatchCount = 1;
+            cmd->ComponentTypeIndex = typeIndex;
+            cmd->HashCode = hashCode;
+            cmd->IsDefault = componentData == null ? 1 : 0;
+
+            byte* data = (byte*)(cmd + 1);
+
+            if (componentData != null)
+            {
+                UnsafeUtility.MemCpy(data, componentData, typeSize);
+            }
+            else
+            {
+                UnsafeUtility.MemSet(data, 0, typeSize);
             }
         }
 
@@ -1160,9 +1379,9 @@ namespace Unity.Entities
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        public DynamicBuffer<T> CreateBufferCommand<T>(ECBCommand commandType, EntityCommandBufferChain* chain, int sortKey, Entity e, AtomicSafetyHandle bufferSafety, AtomicSafetyHandle arrayInvalidationSafety) where T : struct, IBufferElementData
+        public DynamicBuffer<T> CreateBufferCommand<T>(ECBCommand commandType, EntityCommandBufferChain* chain, int sortKey, Entity e, AtomicSafetyHandle bufferSafety, AtomicSafetyHandle arrayInvalidationSafety) where T : unmanaged, IBufferElementData
 #else
-        public DynamicBuffer<T> CreateBufferCommand<T>(ECBCommand commandType, EntityCommandBufferChain* chain, int sortKey, Entity e) where T : struct, IBufferElementData
+        public DynamicBuffer<T> CreateBufferCommand<T>(ECBCommand commandType, EntityCommandBufferChain* chain, int sortKey, Entity e) where T : unmanaged, IBufferElementData
 #endif
         {
             int internalCapacity;
@@ -1225,6 +1444,17 @@ namespace Unity.Entities
     }
 
     /// <summary>
+    /// This attribute should be added to a public method in the `EntityCommandBuffer` class iff the following conditions are fulfilled:
+    /// 1. The method is allowed to run inside of the Entities.ForEach() lambda function (one exception would be Playback(), since we do not
+    /// want entity command buffers to be played back inside of Entities.ForEach());
+    /// 2. Source-generation of the method when used inside Entities.ForEach() has been implemented.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method)]
+    internal class SupportedInEntitiesForEach : Attribute
+    {
+    }
+
+    /// <summary>
     ///     A thread-safe command buffer that can buffer commands that affect entities and components for later playback.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -1241,9 +1471,21 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction] internal EntityCommandBufferData* m_Data;
 
         internal int SystemID;
-        internal SystemHandleUntyped OriginSystemHandle;
+        internal SystemHandle OriginSystemHandle;
+        internal int PassedPrePlaybackValidation; // non-zero if pre-playback validation ran on this ECB successfully; zero if it failed or didn't run at all.
 
-        private static int ms_CommandBufferIDAllocator = 0;
+        private struct ECBIDAllocator
+        {
+            public static readonly SharedStatic<int> Ref = SharedStatic<int>.GetOrCreate<EntityCommandBuffer, ECBIDAllocator>();
+        }
+
+        static readonly SharedStatic<int> _ms_CommandBufferIDAllocator = ECBIDAllocator.Ref;
+
+        internal static int ms_CommandBufferIDAllocator
+        {
+            get => _ms_CommandBufferIDAllocator.Data;
+            set => _ms_CommandBufferIDAllocator.Data = value;
+        }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private AtomicSafetyHandle m_Safety0;
@@ -1251,9 +1493,6 @@ namespace Unity.Entities
         private AtomicSafetyHandle m_ArrayInvalidationSafety;
         private int m_SafetyReadOnlyCount;
         private int m_SafetyReadWriteCount;
-
-        [NativeSetClassTypeToNullOnSchedule]
-        private DisposeSentinel m_DisposeSentinel;
 
         internal void WaitForWriterJobs()
         {
@@ -1263,14 +1502,12 @@ namespace Unity.Entities
         }
 
         private static readonly SharedStatic<int> s_staticSafetyId = SharedStatic<int>.GetOrCreate<EntityCommandBuffer>();
-        [BurstDiscard]
-        private static void CreateStaticSafetyId()
-        {
-            s_staticSafetyId.Data = AtomicSafetyHandle.NewStaticSafetyId<EntityCommandBuffer>();
-        }
 #endif
+#if !UNITY_DOTSRUNTIME
+        // TODO(michalb): bugfix for https://jira.unity3d.com/browse/BUR-1767, remove when burst is upgraded to 1.7.2.
         static readonly ProfilerMarker k_ProfileEcbPlayback = new ProfilerMarker("EntityCommandBuffer.Playback");
-
+        static readonly ProfilerMarker k_ProfileEcbDispose = new ProfilerMarker("EntityCommandBuffer.Dispose");
+#endif
         /// <summary>
         ///     Allows controlling the size of chunks allocated from the temp job allocator to back the command buffer.
         /// </summary>
@@ -1298,6 +1535,9 @@ namespace Unity.Entities
             set { if (m_Data != null) m_Data->m_ShouldPlayback = value; }
         }
 
+        /// <summary>
+        /// Returns true if the <see cref="EntityCommandBuffer"/> has not been initialized or no commands have been recorded.
+        /// </summary>
         public bool IsEmpty => (m_Data == null) ? true : m_Data->m_RecordedChainCount == 0;
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -1325,9 +1565,8 @@ namespace Unity.Entities
         ///  Creates a new command buffer.
         /// </summary>
         /// <param name="label">Memory allocator to use for chunks and data</param>
-        [NotBurstCompatible]
         public EntityCommandBuffer(Allocator label)
-            : this(label, 1, PlaybackPolicy.SinglePlayback)
+            : this(label, PlaybackPolicy.SinglePlayback)
         {
         }
 
@@ -1336,9 +1575,8 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="label">Memory allocator to use for chunks and data</param>
         /// <param name="playbackPolicy">Specifies if the EntityCommandBuffer can be played a single time or more than once.</param>
-        [NotBurstCompatible]
         public EntityCommandBuffer(Allocator label, PlaybackPolicy playbackPolicy)
-            : this(label, 1, playbackPolicy)
+        : this((AllocatorManager.AllocatorHandle)label, playbackPolicy)
         {
         }
 
@@ -1346,14 +1584,8 @@ namespace Unity.Entities
         ///  Creates a new command buffer.
         /// </summary>
         /// <param name="label">Memory allocator to use for chunks and data</param>
-        /// <param name="disposeSentinelStackDepth">
-        /// Specify how many stack frames to skip when reporting memory leaks.
-        /// -1 will disable leak detection
-        /// 0 or positive values
-        /// </param>
         /// <param name="playbackPolicy">Specifies if the EntityCommandBuffer can be played a single time or more than once.</param>
-        [NotBurstCompatible]
-        internal EntityCommandBuffer(Allocator label, int disposeSentinelStackDepth, PlaybackPolicy playbackPolicy)
+        public EntityCommandBuffer(AllocatorManager.AllocatorHandle label, PlaybackPolicy playbackPolicy)
         {
             m_Data = (EntityCommandBufferData*)Memory.Unmanaged.Allocate(sizeof(EntityCommandBufferData), UnsafeUtility.AlignOf<EntityCommandBufferData>(), label);
             m_Data->m_Allocator = label;
@@ -1371,47 +1603,48 @@ namespace Unity.Entities
             m_Data->m_RecordedChainCount = 0;
 
             SystemID = 0;
+            PassedPrePlaybackValidation = 0;
             OriginSystemHandle = default;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (disposeSentinelStackDepth >= 0 && !AllocatorManager.IsCustomAllocator(label))
-            {
-                DisposeSentinel.Create(out m_Safety0, out m_DisposeSentinel, disposeSentinelStackDepth, label);
-            }
-            else
-            {
-                m_DisposeSentinel = null;
-                m_Safety0 = AtomicSafetyHandle.Create();
-            }
+            m_Safety0 = CollectionHelper.CreateSafetyHandle(label);
 
             // Used for all buffers returned from the API, so we can invalidate them once Playback() has been called.
             m_BufferSafety = AtomicSafetyHandle.Create();
             // Used to invalidate array aliases to buffers
             m_ArrayInvalidationSafety = AtomicSafetyHandle.Create();
 
+            label.AddSafetyHandle(m_Safety0); // so that when allocator rewinds, this handle will invalidate
+            label.AddSafetyHandle(m_BufferSafety); // so that when allocator rewinds, this handle will invalidate
+            label.AddSafetyHandle(m_ArrayInvalidationSafety); // so that when allocator rewinds, this handle will invalidate
+
             m_SafetyReadOnlyCount = 0;
             m_SafetyReadWriteCount = 3;
 
-            if (s_staticSafetyId.Data == 0)
-            {
-                CreateStaticSafetyId();
-            }
-            AtomicSafetyHandle.SetStaticSafetyId(ref m_Safety0, s_staticSafetyId.Data);
-            AtomicSafetyHandle.SetStaticSafetyId(ref m_BufferSafety, s_staticSafetyId.Data);
-            AtomicSafetyHandle.SetStaticSafetyId(ref m_ArrayInvalidationSafety, s_staticSafetyId.Data);
+            CollectionHelper.SetStaticSafetyId(ref m_Safety0, ref s_staticSafetyId.Data, "Unity.Entities.EntityCommandBuffer");
+            AtomicSafetyHandle.SetStaticSafetyId(ref m_BufferSafety, s_staticSafetyId.Data); // uses id created above
+            AtomicSafetyHandle.SetStaticSafetyId(ref m_ArrayInvalidationSafety, s_staticSafetyId.Data); // uses id created above
 #endif
             m_Data->m_Entity = new Entity();
             m_Data->m_Entity.Version = m_Data->m_CommandBufferID;
             m_Data->m_BufferWithFixups.Reset();
         }
 
+        /// <summary>
+        /// Is true if the <see cref="EntityCommandBuffer"/> has been initialized correctly.
+        /// </summary>
         public bool IsCreated   { get { return m_Data != null; } }
 
-        [NotBurstCompatible]
+        /// <summary>
+        /// Deals with freeing and releasing unmanaged memory allocated by the entity command buffer.
+        /// </summary>
         public void Dispose()
         {
+#if !UNITY_DOTSRUNTIME
+            k_ProfileEcbDispose.Begin();
+#endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            DisposeSentinel.Dispose(ref m_Safety0, ref m_DisposeSentinel);
+            CollectionHelper.DisposeSafetyHandle(ref m_Safety0);
             AtomicSafetyHandle.Release(m_ArrayInvalidationSafety);
             AtomicSafetyHandle.Release(m_BufferSafety);
 #endif
@@ -1433,6 +1666,9 @@ namespace Unity.Entities
                 Memory.Unmanaged.Free(m_Data, m_Data->m_Allocator);
                 m_Data = null;
             }
+#if !UNITY_DOTSRUNTIME
+            k_ProfileEcbDispose.End();
+#endif
         }
 
         private void FreeChain(EntityCommandBufferChain* chain, PlaybackPolicy playbackPolicy, bool didPlayback)
@@ -1442,13 +1678,9 @@ namespace Unity.Entities
                 return;
             }
 
-            var cleanup_list = chain->m_Cleanup->CleanupList;
-            while (cleanup_list != null)
-            {
-                cleanup_list->BoxedObject.Free();
-                cleanup_list = cleanup_list->Prev;
-            }
-            chain->m_Cleanup->CleanupList = null;
+            CleanupManaged(chain);
+            if (chain->m_Cleanup->CleanupList != null)
+                throw new ArgumentException("Managed object cleanup failed, are you Disposing an EntityCommandBuffer that had managed commands from bursted code?");
 
             // Buffers played in ecbs which can be played back more than once are always copied during playback.
             if (playbackPolicy == PlaybackPolicy.MultiPlayback || !didPlayback)
@@ -1492,15 +1724,30 @@ namespace Unity.Entities
             }
         }
 
+        [BurstDiscard]
+        private static void CleanupManaged(EntityCommandBufferChain* chain)
+        {
+            var cleanup_list = chain->m_Cleanup->CleanupList;
+            while (cleanup_list != null)
+            {
+                cleanup_list->BoxedObject.Free();
+                cleanup_list = cleanup_list->Prev;
+            }
+
+            chain->m_Cleanup->CleanupList = null;
+        }
+
         internal int MainThreadSortKey => Int32.MaxValue;
         private const bool kBatchableCommand = true;
 
         /// <summary>Records a command to create an entity with specified archetype.</summary>
+        /// <remarks>Behavior at Playback: This command will throw an error if the archetype contains the <see cref="Prefab"/> tag.</remarks>
         /// <param name="archetype">The archetype of the new entity.</param>
         /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
         /// <exception cref="ArgumentException">Throws if the archetype is null.</exception>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public Entity CreateEntity(EntityArchetype archetype)
         {
             archetype.CheckValidEntityArchetype();
@@ -1511,6 +1758,7 @@ namespace Unity.Entities
         /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public Entity CreateEntity()
         {
             EntityArchetype archetype = new EntityArchetype();
@@ -1534,6 +1782,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentNullException"> Thrown if Entity e is null and if safety checks are enabled.</exception>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public Entity Instantiate(Entity e)
         {
             CheckEntityNotNull(e);
@@ -1553,6 +1802,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentNullException"> Thrown if Entity e is null and if safety checks are enabled.</exception>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void Instantiate(Entity e, NativeArray<Entity> entities)
         {
             CheckEntityNotNull(e);
@@ -1570,11 +1820,12 @@ namespace Unity.Entities
         }
 
         /// <summary>Records a command to destroy an entity.</summary>
-        /// <remarks>Behavior at Playback: This command will throw an error if the entity is still deferred or was destroyed between recording and playback.
-        /// </remarks>
+        /// <remarks>Behavior at Playback: This command will throw an error if the entity is still deferred or was destroyed between recording and playback,
+        /// or if the entity has the <see cref="Prefab"/> tag.</remarks>
         /// <param name="e">The entity to destroy.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void DestroyEntity(Entity e)
         {
             EnforceSingleThreadOwnership();
@@ -1584,11 +1835,12 @@ namespace Unity.Entities
 
         /// <summary>Records a command to destroy a NativeArray of entities.</summary>
         /// <remarks>Behavior at Playback: This command will do nothing if entities has a count of 0.
-        /// This command will throw an error if any of the entities are still deferred or were destroyed between recording and playback.
-        /// </remarks>
+        /// This command will throw an error if any of the entities are still deferred, were destroyed between recording and playback,
+        /// or if any of the entities have the <see cref="Prefab"/> tag.</remarks>
         /// <param name="entities">The NativeArray of entities to destroy.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void DestroyEntity(NativeArray<Entity> entities)
         {
             EnforceSingleThreadOwnership();
@@ -1607,7 +1859,8 @@ namespace Unity.Entities
         /// <returns>The <see cref="DynamicBuffer{T}"/> that will be added when the command plays back.</returns>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public DynamicBuffer<T> AddBuffer<T>(Entity e) where T : struct, IBufferElementData
+        [SupportedInEntitiesForEach]
+        public DynamicBuffer<T> AddBuffer<T>(Entity e) where T : unmanaged, IBufferElementData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -1626,7 +1879,8 @@ namespace Unity.Entities
         /// <returns>The <see cref="DynamicBuffer{T}"/> that will be set when the command plays back.</returns>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public DynamicBuffer<T> SetBuffer<T>(Entity e) where T : struct, IBufferElementData
+        [SupportedInEntitiesForEach]
+        public DynamicBuffer<T> SetBuffer<T>(Entity e) where T : unmanaged, IBufferElementData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -1645,6 +1899,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void AppendToBuffer<T>(Entity e, T element) where T : struct, IBufferElementData
         {
             EnforceSingleThreadOwnership();
@@ -1655,13 +1910,14 @@ namespace Unity.Entities
         /// <summary> Records a command to add component of type T to an entity. </summary>
         /// <remarks>Behavior at Playback: If the entity already has this type of component, the value will just be set.
         /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-        /// if T is type Entity, or adding this componentType makes the archetype too large.</remarks>
+        /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
         /// <param name="e"> The entity to have the component added. </param>
         /// <param name="component">The value to add on the new component in playback for the entity.</param>
         /// <typeparam name="T"> The type of component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddComponent<T>(Entity e, T component) where T : struct, IComponentData
+        [SupportedInEntitiesForEach]
+        public void AddComponent<T>(Entity e, T component) where T : unmanaged, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -1671,13 +1927,14 @@ namespace Unity.Entities
         /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
         /// <remarks>Behavior at Playback: If any entity already has this type of component, the value will just be set.
         /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-        /// if T is type Entity, or adding this componentType makes the archetype too large.</remarks>
+        /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component added. </param>
         /// <param name="component">The value to add on the new component in playback for all entities in the NativeArray.</param>
         /// <typeparam name="T"> The type of component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddComponent<T>(NativeArray<Entity> entities, T component) where T : struct, IComponentData
+        [SupportedInEntitiesForEach]
+        public void AddComponent<T>(NativeArray<Entity> entities, T component) where T : unmanaged, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -1689,12 +1946,13 @@ namespace Unity.Entities
         /// <summary> Records a command to add component of type T to an entity. </summary>
         /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
         /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-        /// if T is type Entity, or adding this componentType makes the archetype too large.</remarks>
+        /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
         /// <param name="e"> The entity to have the component added. </param>
         /// <typeparam name="T"> The type of component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddComponent<T>(Entity e) where T : struct, IComponentData
+        [SupportedInEntitiesForEach]
+        public void AddComponent<T>(Entity e) where T : unmanaged, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -1704,12 +1962,13 @@ namespace Unity.Entities
         /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
         /// <remarks>Behavior at Playback: If an entity already has this component, it will be skipped.
         /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-        /// if T is type Entity, or adding this componentType makes the archetype too large.</remarks>
+        /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component added. </param>
         /// <typeparam name="T"> The type of component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddComponent<T>(NativeArray<Entity> entities) where T : struct, IComponentData
+        [SupportedInEntitiesForEach]
+        public void AddComponent<T>(NativeArray<Entity> entities) where T : unmanaged, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -1721,11 +1980,12 @@ namespace Unity.Entities
         /// <summary> Records a command to add a component to an entity. </summary>
         /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
         /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-        /// if component type is type Entity, or adding this componentType makes the archetype too large.</remarks>
+        /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
         /// <param name="e"> The entity to get the additional component. </param>
         /// <param name="componentType"> The type of component to add. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void AddComponent(Entity e, ComponentType componentType)
         {
             EnforceSingleThreadOwnership();
@@ -1733,14 +1993,32 @@ namespace Unity.Entities
             m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, componentType);
         }
 
+        /// <summary> Records a command to add a component to an entity. </summary>
+        /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
+        /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
+        /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
+        /// <param name="typeIndex"> The TypeIndex of the component being set. </param>
+        /// <param name="typeSize"> The Size of the type of the component being set. </param>
+        /// <param name="componentDataPtr"> The pointer to the data of the component to be copied. </param>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        internal void UnsafeAddComponent(Entity e, TypeIndex typeIndex, int typeSize, void* componentDataPtr)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            m_Data->UnsafeAddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, typeIndex, typeSize, componentDataPtr);
+        }
+
         /// <summary> Records a command to add a component to a NativeArray of entities. </summary>
         /// <remarks>Behavior at Playback: If an entity already has this component, it will be skipped.
         /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-        /// if component type is type Entity, or adding this componentType makes the archetype too large.</remarks>
+        /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component added. </param>
         /// <param name="componentType"> The type of component to add. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void AddComponent(NativeArray<Entity> entities, ComponentType componentType)
         {
             EnforceSingleThreadOwnership();
@@ -1754,60 +2032,124 @@ namespace Unity.Entities
         /// <summary> Records a command to add one or more components to an entity. </summary>
         /// <remarks>Behavior at Playback: It is not an error to include a component type that the entity already has.
         /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-        /// if any component type is type Entity, or adding a component type makes the archetype too large.</remarks>
+        /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
         /// <param name="e"> The entity to get additional components. </param>
-        /// <param name="componentTypes"> The types of components to add. </param>
+        /// <param name="componentTypeSet"> The types of components to add. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddComponent(Entity e, ComponentTypes componentTypes)
+        [SupportedInEntitiesForEach]
+        public void AddComponent(Entity e, ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentTypesCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddMultipleComponents, e, componentTypes);
+            m_Data->AddEntityComponentTypesCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddMultipleComponents, e, componentTypeSet);
         }
 
         /// <summary> Records a command to add one or more components to a NativeArray of entities. </summary>
         /// <remarks>Behavior at Playback: It is not an error to include a component type that any of the entities already have.
         /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-        /// if any component type is type Entity, or adding a component type makes the archetype too large.</remarks>
+        /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the components added. </param>
-        /// <param name="componentTypes"> The types of components to add. </param>
+        /// <param name="componentTypeSet"> The types of components to add. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddComponent(NativeArray<Entity> entities, ComponentTypes componentTypes)
+        [SupportedInEntitiesForEach]
+        public void AddComponent(NativeArray<Entity> entities, ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
             m_Data->AppendMultipleEntitiesMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.AddMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, componentTypes);
+                ECBCommand.AddMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, componentTypeSet);
         }
 
         /// <summary> Records a command to set a component value on an entity.</summary>
         /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, if the entity doesn't have the component type, or if T is zero sized.</remarks>
+        /// if this entity is still deferred, if the entity doesn't have the component type,
+        /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
         /// <param name="e"> The entity to set the component value of. </param>
         /// <param name="component"> The component value to set. </param>
         /// <typeparam name="T"> The type of component to set. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void SetComponent<T>(Entity e, T component) where T : struct, IComponentData
+        [SupportedInEntitiesForEach]
+        public void SetComponent<T>(Entity e, T component) where T : unmanaged, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetComponent, e, component);
         }
 
-        // TODO(https://unity3d.atlassian.net/browse/DOTS-4242): make these methods public once enabled bits support is complete
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
-        internal void SetComponentEnabled<T>(Entity e, bool value)
+        /// <summary> Records a command to set a component value on an entity.</summary>
+        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// if this entity is still deferred, if the entity doesn't have the component type,
+        /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
+        /// <param name="e"> The entity to set the component value of. </param>
+        /// <param name="typeIndex"> The TypeIndex of the component being set. </param>
+        /// <param name="typeSize"> The Size of the type of the component being set. </param>
+        /// <param name="componentDataPtr"> The pointer to the data of the component to be copied. </param>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        internal void UnsafeSetComponent(Entity e, TypeIndex typeIndex, int typeSize, void* componentDataPtr)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            m_Data->UnsafeAddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetComponent, e, typeIndex, typeSize, componentDataPtr);
+        }
+
+        /// <summary>
+        /// Records a command to add or remove the <see cref="Disabled"/> component. By default EntityQuery does not include entities containing the Disabled component.
+        /// Enabled entities are processed by systems, disabled entities are not.
+        ///
+        /// If the entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component, the entire group will be enabled or disabled.
+        /// </summary>
+        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// if the entity has the <see cref="Prefab"/> tag, or if this entity is still deferred.</remarks>
+        /// <param name="e">The entity whose component should be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        [GenerateTestsForBurstCompatibility]
+        public void SetEnabled(Entity e, bool value)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+
+            m_Data->AddEntityEnabledCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetEntityEnabled, e, value);
+        }
+
+        /// <summary>
+        /// Records a command to enable or disable a <see cref="ComponentType"/> on the specified <see cref="Entity"/>. This operation
+        /// does not cause a structural change, or affect the value of the component. For the purposes
+        /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
+        /// </summary>
+        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
+        /// <typeparam name="T">The component type to enable or disable. This type must implement the
+        /// <see cref="IEnableableComponent"/> interface.</typeparam>
+        /// <param name="e">The entity whose component should be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
+        [SupportedInEntitiesForEach]
+        public void SetComponentEnabled<T>(Entity e, bool value) where T : struct, IEnableableComponent
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AddEntityComponentEnabledCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.SetComponentEnabled, e, TypeManager.GetTypeIndex<T>(), value);
         }
-        internal void SetComponentEnabled(Entity e, ComponentType componentType, bool value)
+        /// <summary>
+        /// Records a command to enable or disable a <see cref="ComponentType"/> on the specified <see cref="Entity"/>. This operation
+        /// does not cause a structural change, or affect the value of the component. For the purposes
+        /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
+        /// </summary>
+        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
+        /// <param name="e">The entity whose component should be enabled or disabled.</param>
+        /// <param name="componentType">The component type to enable or disable. This type must implement the
+        /// <see cref="IEnableableComponent"/> interface.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        [SupportedInEntitiesForEach]
+        public void SetComponentEnabled(Entity e, ComponentType componentType, bool value)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -1817,11 +2159,12 @@ namespace Unity.Entities
 
         /// <summary> Records a command to set a name of an entity if Debug Names is enabled.</summary>
         /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, or if the EntityNameStore has reached its limit.</remarks>
+        /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the EntityNameStore has reached its limit.</remarks>
         /// <param name="e"> The entity to set the name value of. </param>
         /// <param name="name"> The name to set. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void SetName(Entity e, in FixedString64Bytes name)
         {
 #if !DOTS_DISABLE_DEBUG_NAMES
@@ -1834,11 +2177,12 @@ namespace Unity.Entities
         /// <summary> Records a command to remove component of type T from an entity. </summary>
         /// <remarks> Behavior at Playback: It is not an error if the entity doesn't have component T.
         /// Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, or if T is type Entity.</remarks>
+        /// if this entity is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="e"> The entity to have the component removed. </param>
         /// <typeparam name="T"> The type of component to remove. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void RemoveComponent<T>(Entity e)
         {
             RemoveComponent(e, ComponentType.ReadWrite<T>());
@@ -1847,11 +2191,12 @@ namespace Unity.Entities
         /// <summary> Records a command to remove component of type T from a NativeArray of entities. </summary>
         /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have component T.
         /// Will throw an error if one of these entities is destroyed before playback,
-        /// if one of these entities is still deferred, or if T is type Entity.</remarks>
+        /// if one of these entities is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component removed. </param>
         /// <typeparam name="T"> The type of component to remove. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void RemoveComponent<T>(NativeArray<Entity> entities)
         {
             RemoveComponent(entities, ComponentType.ReadWrite<T>());
@@ -1860,11 +2205,12 @@ namespace Unity.Entities
         /// <summary> Records a command to remove a component from an entity. </summary>
         /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have the component type.
         /// Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, or if the component type is Entity.</remarks>
+        /// if this entity is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="e"> The entity to have the component removed. </param>
         /// <param name="componentType"> The type of component to remove. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void RemoveComponent(Entity e, ComponentType componentType)
         {
             EnforceSingleThreadOwnership();
@@ -1876,11 +2222,12 @@ namespace Unity.Entities
         /// <summary> Records a command to remove one or more components from a NativeArray of entities. </summary>
         /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have the component type.
         /// Will throw an error if one of these entities is destroyed before playback,
-        /// if one of these entities is still deferred, or if the component type is Entity.</remarks>
+        /// if one of these entities is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component removed. </param>
         /// <param name="componentType"> The type of component to remove. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void RemoveComponent(NativeArray<Entity> entities, ComponentType componentType)
         {
             EnforceSingleThreadOwnership();
@@ -1893,34 +2240,36 @@ namespace Unity.Entities
         /// <summary> Records a command to remove one or more components from an entity. </summary>
         /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have one of the component types.
         /// Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, or if any of the component types are Entity.</remarks>
+        /// if this entity is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="e"> The entity to have components removed. </param>
-        /// <param name="componentTypes"> The types of components to remove. </param>
+        /// <param name="componentTypeSet"> The types of components to remove. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void RemoveComponent(Entity e, ComponentTypes componentTypes)
+        [SupportedInEntitiesForEach]
+        public void RemoveComponent(Entity e, ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AddEntityComponentTypesCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.RemoveMultipleComponents, e, componentTypes);
+                ECBCommand.RemoveMultipleComponents, e, componentTypeSet);
         }
 
         /// <summary> Records a command to remove one or more components from a NativeArray of entities. </summary>
         /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have one of the component types.
         /// Will throw an error if one of these entities is destroyed before playback,
-        /// if one of these entities is still deferred, or if any of the component types are Entity.</remarks>
+        /// if one of these entities is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="entities"> The NativeArray of entities to have components removed. </param>
-        /// <param name="componentTypes"> The types of components to remove. </param>
+        /// <param name="componentTypeSet"> The types of components to remove. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void RemoveComponent(NativeArray<Entity> entities, ComponentTypes componentTypes)
+        [SupportedInEntitiesForEach]
+        public void RemoveComponent(NativeArray<Entity> entities, ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
             m_Data->AppendMultipleEntitiesMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.RemoveMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, componentTypes);
+                ECBCommand.RemoveMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, componentTypeSet);
         }
 
         /// <summary>Records a command to add a component to all entities matching a query.</summary>
@@ -1935,6 +2284,7 @@ namespace Unity.Entities
         /// <param name="componentType">The type of component to add.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void AddComponentForEntityQuery(EntityQuery entityQuery, ComponentType componentType)
         {
             EnforceSingleThreadOwnership();
@@ -1955,6 +2305,7 @@ namespace Unity.Entities
         /// <typeparam name="T"> The type of component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void AddComponentForEntityQuery<T>(EntityQuery entityQuery)
         {
             AddComponentForEntityQuery(entityQuery, ComponentType.ReadWrite<T>());
@@ -1973,7 +2324,8 @@ namespace Unity.Entities
         /// <typeparam name="T"> The type of component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddComponentForEntityQuery<T>(EntityQuery entityQuery, T value) where T : struct, IComponentData
+        [SupportedInEntitiesForEach]
+        public void AddComponentForEntityQuery<T>(EntityQuery entityQuery, T value) where T : unmanaged, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -1990,18 +2342,19 @@ namespace Unity.Entities
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities to which the components are added. </param>
-        /// <param name="componentTypes">The types of components to add.</param>
+        /// <param name="componentTypeSet">The types of components to add.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddComponentForEntityQuery(EntityQuery entityQuery, ComponentTypes componentTypes)
+        [SupportedInEntitiesForEach]
+        public void AddComponentForEntityQuery(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AppendMultipleEntitiesMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.AddMultipleComponentsForMultipleEntities, entityQuery, componentTypes);
+                ECBCommand.AddMultipleComponentsForMultipleEntities, entityQuery, componentTypeSet);
         }
 
-        /// <summary> Records a command to add a shared component to all entities matching a query.</summary>
+        /// <summary> Records a command to add a possibly-managed shared component to all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
         /// Entities which already have the component type will have the component set to the value.
@@ -2014,16 +2367,79 @@ namespace Unity.Entities
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+        [SupportedInEntitiesForEach]
+        public void AddSharedComponentForEntityQueryManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 
-            int hashCode;
-            if (IsDefaultObject(ref component, out hashCode))
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentWithValueForMultipleEntities, entityQuery, hashCode, null);
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+            var isDefaultObject = IsDefaultObject(ref component, out var hashCode);
+
+            if (isManaged)
+            {
+                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.AddSharedComponentWithValueForMultipleEntities,
+                    entityQuery,
+                    hashCode,
+                    isDefaultObject ? null : component);
+            }
             else
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentWithValueForMultipleEntities, entityQuery, hashCode, component);
+            {
+                var componentAddr = UnsafeUtility.AddressOf(ref component);
+                var entities = entityQuery.ToEntityArray(Allocator.Temp);
+                m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
+                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                    entityQuery,
+                    containsDeferredEntities, // is this right? --elliotc, 09/17/2021
+                    hashCode,
+                    isDefaultObject ? null : componentAddr);
+            }
+        }
+
+
+        /// <summary> Records a command to add a unmanaged shared component to all entities matching a query.</summary>
+        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
+        ///
+        /// Entities which already have the component type will have the component set to the value.
+        ///
+        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// playback will perform invalid and unsafe memory access.)
+        /// </remarks>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
+        /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        public void AddSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component)
+            where T : unmanaged, ISharedComponentData
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(typeIndex));
+#endif
+            var isDefaultObject = IsDefaultObjectUnmanaged(ref component, out var hashCode);
+
+            var componentAddr = UnsafeUtility.AddressOf(ref component);
+            var entities = entityQuery.ToEntityArray(Allocator.Temp);
+            m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
+            m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                &m_Data->m_MainThreadChain,
+                MainThreadSortKey,
+                ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                entityQuery,
+                containsDeferredEntities,
+                hashCode,
+                isDefaultObject ? null : componentAddr);
         }
 
         /// <summary> Records a command to add a hybrid component and set its value for all entities matching a query.</summary>
@@ -2039,12 +2455,13 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         /// <exception cref="ArgumentNullException">Throws if componentData is null.</exception>
+        [SupportedInEntitiesForEach]
         public void AddComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOGS_DEBUG
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (componentData == null)
                 throw new ArgumentNullException(nameof(componentData));
 #endif
@@ -2057,9 +2474,9 @@ namespace Unity.Entities
         /// <summary> Records a command to set a hybrid component value for all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback or
-        /// if any entity does not have the component type at playback. Playback Entities which already have the component type will have the component set to the value.
-        /// </remarks>
+        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback,
+        /// if any entity has the <see cref="Prefab"/> tag, or if any entity does not have the component type at playback.
+        /// Playback Entities which already have the component type will have the component set to the value.</remarks>
         /// <exception cref="InvalidOperationException">Thrown in playback if one or more of the entities does not have the component type or has been destroyed. (With safety checks disabled,
         /// playback will perform invalid and unsafe memory access.).</exception>
         /// <param name="entityQuery"> The query specifying which entities to set the component value for.</param>
@@ -2067,6 +2484,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         /// <exception cref="ArgumentNullException">Throws if componentData is null.</exception>
+        [SupportedInEntitiesForEach]
         public void SetComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
         {
             EnforceSingleThreadOwnership();
@@ -2082,12 +2500,13 @@ namespace Unity.Entities
                 ECBCommand.SetComponentObjectForMultipleEntities, entityQuery, componentData, type);
         }
 
-        /// <summary> Records a command to set a shared component value on all entities matching a query.</summary>
+        /// <summary> Records a command to set a possibly-managed shared component value on all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
         /// Fails if any of the entities do not have the type of shared component. [todo: should it be required that the component type is included in the query?]
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback or
+        /// if any entity has the <see cref="Prefab"/> tag. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
@@ -2095,16 +2514,75 @@ namespace Unity.Entities
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void SetSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+        [SupportedInEntitiesForEach]
+        public void SetSharedComponentForEntityQueryManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 
-            int hashCode;
-            if (IsDefaultObject(ref component, out hashCode))
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetSharedComponentValueForMultipleEntities, entityQuery, hashCode, null);
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+            var isDefaultObject = IsDefaultObject(ref component, out var hashCode);
+
+            if (isManaged)
+            {
+                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetSharedComponentValueForMultipleEntities,
+                    entityQuery,
+                    hashCode,
+                    isDefaultObject ? null : component);
+            }
             else
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetSharedComponentValueForMultipleEntities, entityQuery, hashCode, component);
+            {
+                var componentAddr = UnsafeUtility.AddressOf(ref component);
+                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                    entityQuery,
+                    false, // is this right? --elliotc, 09/17/2021
+                    hashCode,
+                    isDefaultObject ? null : componentAddr);
+            }
+        }
+
+        /// <summary> Records a command to set an unmanaged shared component value on all entities matching a query.</summary>
+        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
+        ///
+        /// Fails if any of the entities do not have the type of shared component. [todo: should it be required that the component type is included in the query?]
+        ///
+        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback or
+        /// if any entity has the <see cref="Prefab"/> tag. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// playback will perform invalid and unsafe memory access.)
+        /// </remarks>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
+        /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        public void SetSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component)
+            where T : unmanaged, ISharedComponentData
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(typeIndex));
+#endif
+            var isDefaultObject = IsDefaultObjectUnmanaged(ref component, out var hashCode);
+
+            var componentAddr = UnsafeUtility.AddressOf(ref component);
+            m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                &m_Data->m_MainThreadChain,
+                MainThreadSortKey,
+                ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                entityQuery,
+                false,
+                hashCode,
+                isDefaultObject ? null : componentAddr);
         }
 
         /// <summary>Records a command to remove a component from all entities matching a query.</summary>
@@ -2119,6 +2597,7 @@ namespace Unity.Entities
         /// <param name="componentType">The types of component to remove.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void RemoveComponentForEntityQuery(EntityQuery entityQuery, ComponentType componentType)
         {
             EnforceSingleThreadOwnership();
@@ -2139,6 +2618,7 @@ namespace Unity.Entities
         /// <typeparam name="T"> The type of component to remove. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void RemoveComponentForEntityQuery<T>(EntityQuery entityQuery)
         {
             RemoveComponentForEntityQuery(entityQuery, ComponentType.ReadWrite<T>());
@@ -2153,15 +2633,16 @@ namespace Unity.Entities
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
-        /// <param name="componentTypes">The types of components to remove.</param>
+        /// <param name="componentTypeSet">The types of components to remove.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, ComponentTypes componentTypes)
+        [SupportedInEntitiesForEach]
+        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AppendMultipleEntitiesMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.RemoveMultipleComponentsForMultipleEntities, entityQuery, componentTypes);
+                ECBCommand.RemoveMultipleComponentsForMultipleEntities, entityQuery, componentTypeSet);
         }
 
         /// <summary>Records a command to destroy all entities matching a query.</summary>
@@ -2173,6 +2654,7 @@ namespace Unity.Entities
         /// <param name="entityQuery">The query specifying the entities to destroy.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public void DestroyEntitiesForEntityQuery(EntityQuery entityQuery)
         {
             EnforceSingleThreadOwnership();
@@ -2189,88 +2671,377 @@ namespace Unity.Entities
             return TypeManager.Equals(ref defaultValue, ref component);
         }
 
-        /// <summary> Records a command to add a shared component value on an entity.</summary>
+        static bool IsDefaultObjectUnmanaged<T>(ref T component, out int hashCode) where T : unmanaged, ISharedComponentData
+        {
+            var defaultValue = default(T);
+
+            hashCode = TypeManager.GetHashCodeWithBurst(UnsafeUtility.AddressOf(ref component), TypeManager.GetTypeIndex<T>());
+            return TypeManager.EqualsWithBurst(UnsafeUtility.AddressOf(ref defaultValue),
+                UnsafeUtility.AddressOf(ref component),
+                TypeManager.GetTypeIndex<T>());
+        }
+
+        /// <summary> Records a command to add a possibly-managed shared component value on an entity.</summary>
         /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
         /// or adding a component type makes the archetype too large.</remarks>
         /// <param name="e"> The entity to add the shared component value to. </param>
-        /// <param name="component"> The shared component value to add. </param>
+        /// <param name="sharedComponent"> The shared component value to add. </param>
         /// <typeparam name="T"> The type of shared component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddSharedComponent<T>(Entity e, T component) where T : struct, ISharedComponentData
+        [SupportedInEntitiesForEach]
+        public void AddSharedComponentManaged<T>(Entity e, T sharedComponent) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 
-            int hashCode;
-            if (IsDefaultObject(ref component, out hashCode))
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentData, e, hashCode, null);
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+            var isDefaultObject = IsDefaultObject(ref sharedComponent, out var hashCode);
+
+            if (isManaged)
+            {
+                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.AddSharedComponentData,
+                    e,
+                    hashCode,
+                    isDefaultObject ? null : sharedComponent);
+            }
             else
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentData, e, hashCode, component);
+            {
+                var componentData = UnsafeUtility.AddressOf(ref sharedComponent);
+                m_Data->AddEntityUnmanagedSharedComponentCommand<T>(&m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.AddUnmanagedSharedComponentData,
+                    e,
+                    hashCode,
+                    isDefaultObject ? null : componentData);
+            }
         }
 
-        /// <summary> Records a command to add a shared component value on a NativeArray of entities.</summary>
+
+        /// <summary> Records a command to add an unmanaged shared component value on an entity.</summary>
+        /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// if this entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
+        /// or adding a component type makes the archetype too large.</remarks>
+        /// <param name="e"> The entity to add the shared component value to. </param>
+        /// <param name="sharedComponent"> The shared component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to add. </typeparam>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        public void AddSharedComponent<T>(Entity e, T sharedComponent) where T : unmanaged, ISharedComponentData
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+
+            var componentAddr = UnsafeUtility.AddressOf(ref sharedComponent);
+
+            var isDefaultObject = IsDefaultObjectUnmanaged(ref sharedComponent, out var hashCode);
+            m_Data->AddEntityUnmanagedSharedComponentCommand<T>(&m_Data->m_MainThreadChain,
+                MainThreadSortKey,
+                ECBCommand.AddUnmanagedSharedComponentData,
+                e,
+                hashCode,
+                isDefaultObject ? null : componentAddr);
+        }
+
+        /// <summary> Records a command to add a possibly-managed shared component value on a NativeArray of entities.</summary>
         /// <remarks>Behavior at Playback: Will throw an error if any entity is destroyed before playback,
         /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
         /// or adding a component type makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to add the shared component value to. </param>
-        /// <param name="component"> The shared component value to add. </param>
+        /// <param name="sharedComponent"> The shared component value to add. </param>
         /// <typeparam name="T"> The type of shared component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void AddSharedComponent<T>(NativeArray<Entity> entities, T component) where T : struct, ISharedComponentData
+        [SupportedInEntitiesForEach]
+        public void AddSharedComponentManaged<T>(NativeArray<Entity> entities, T sharedComponent) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 
-            int hashCode;
             var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
-            if (IsDefaultObject(ref component, out hashCode))
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentWithValueForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, hashCode, null);
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+            var isDefaultObject = IsDefaultObject(ref sharedComponent, out var hashCode);
+            if (isManaged)
+            {
+                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.AddSharedComponentWithValueForMultipleEntities,
+                    entitiesCopy,
+                    entities.Length,
+                    containsDeferredEntities,
+                    hashCode,
+                    isDefaultObject ? null : sharedComponent);
+            }
             else
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentWithValueForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, hashCode, component);
+            {
+                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                    entitiesCopy,
+                    entities.Length,
+                    containsDeferredEntities,
+                    hashCode,
+                    isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+            }
         }
 
-        /// <summary> Records a command to set a shared component value on an entity.</summary>
+        /// <summary> Records a command to add an unmanaged shared component value on a NativeArray of entities.</summary>
+        /// <remarks>Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+        /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
+        /// or adding a component type makes the archetype too large.</remarks>
+        /// <param name="entities"> The NativeArray of entities to add the shared component value to. </param>
+        /// <param name="sharedComponent"> The shared component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to add. </typeparam>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        public void AddSharedComponent<T>(NativeArray<Entity> entities, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+
+            var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
+            var isDefaultObject = IsDefaultObjectUnmanaged(ref sharedComponent, out var hashCode);
+
+            m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                &m_Data->m_MainThreadChain,
+                MainThreadSortKey,
+                ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                entitiesCopy,
+                entities.Length,
+                containsDeferredEntities,
+                hashCode,
+                isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+        }
+
+        /// <summary> Records a command to set a possibly-managed shared component value on an entity.</summary>
         /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, or if the entity doesn't have the shared component type.</remarks>
+        /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
         /// <param name="e"> The entity to set the shared component value of. </param>
-        /// <param name="component"> The shared component value to set. </param>
+        /// <param name="sharedComponent"> The shared component value to set. </param>
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void SetSharedComponent<T>(Entity e, T component) where T : struct, ISharedComponentData
+        [SupportedInEntitiesForEach]
+        public void SetSharedComponentManaged<T>(Entity e, T sharedComponent) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 
-            int hashCode;
-            if (IsDefaultObject(ref component, out hashCode))
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetSharedComponentData, e, hashCode, null);
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+            var isDefaultObject = IsDefaultObject(ref sharedComponent, out var hashCode);
+
+            if (isManaged)
+            {
+                m_Data->AddEntitySharedComponentCommand<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetSharedComponentData,
+                    e,
+                    hashCode,
+                    isDefaultObject ? null : sharedComponent);
+            }
             else
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetSharedComponentData, e, hashCode, component);
+            {
+                var componentAddr = UnsafeUtility.AddressOf(ref sharedComponent);
+                m_Data->AddEntityUnmanagedSharedComponentCommand<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetUnmanagedSharedComponentData,
+                    e,
+                    hashCode,
+                    isDefaultObject ? null : componentAddr);
+            }
         }
 
-        /// <summary> Records a command to set a shared component value on a NativeArray of entities.</summary>
-        /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
-        /// if any entity is still deferred, or if any entity doesn't have the shared component type.</remarks>
-        /// <param name="entities"> The NativeArray of entities to set the shared component value of. </param>
-        /// <param name="component"> The shared component value to set. </param>
+        /// <summary> Records a command to set an unmanaged shared component value on an entity.</summary>
+        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
+        /// <param name="e"> The entity to set the shared component value of. </param>
+        /// <param name="sharedComponent"> The shared component value to set. </param>
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public void SetSharedComponent<T>(NativeArray<Entity> entities, T component) where T : struct, ISharedComponentData
+        [SupportedInEntitiesForEach]
+        public void SetSharedComponent<T>(Entity e, T sharedComponent) where T : unmanaged, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 
-            int hashCode;
+            var isDefaultObject = IsDefaultObjectUnmanaged(ref sharedComponent, out var hashCode);
+
+            var componentAddr = UnsafeUtility.AddressOf(ref sharedComponent);
+            m_Data->AddEntityUnmanagedSharedComponentCommand<T>(
+                &m_Data->m_MainThreadChain,
+                MainThreadSortKey,
+                ECBCommand.SetUnmanagedSharedComponentData,
+                e,
+                hashCode,
+                isDefaultObject ? null : componentAddr);
+        }
+
+        /// <summary> Records a command to set a possibly-managed shared component value on a NativeArray of entities.</summary>
+        /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+        /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
+        /// <param name="entities"> The NativeArray of entities to set the shared component value of. </param>
+        /// <param name="sharedComponent"> The shared component value to set. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        public void SetSharedComponentManaged<T>(NativeArray<Entity> entities, T sharedComponent)
+            where T : struct, ISharedComponentData
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+            var isDefaultObject = IsDefaultObject(ref sharedComponent, out var hashCode);
+
             var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
-            if (IsDefaultObject(ref component, out hashCode))
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetSharedComponentValueForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, hashCode, null);
+            if (isManaged)
+            {
+                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetSharedComponentValueForMultipleEntities,
+                    entitiesCopy,
+                    entities.Length,
+                    containsDeferredEntities,
+                    hashCode,
+                    isDefaultObject ? (object)null : sharedComponent);
+            }
             else
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetSharedComponentValueForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, hashCode, component);
+            {
+                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                    entitiesCopy,
+                    entities.Length,
+                    containsDeferredEntities,
+                    hashCode,
+                    isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+            }
+        }
+
+        /// <summary> Records a command to set an unmanaged shared component value on a NativeArray of entities.</summary>
+        /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+        /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
+        /// <param name="entities"> The NativeArray of entities to set the shared component value of. </param>
+        /// <param name="sharedComponent"> The shared component value to set. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        public void SetSharedComponent<T>(NativeArray<Entity> entities, T sharedComponent)
+            where T : unmanaged, ISharedComponentData
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+
+            var isDefaultObject = IsDefaultObjectUnmanaged(ref sharedComponent, out var hashCode);
+
+            var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
+
+            m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                &m_Data->m_MainThreadChain,
+                MainThreadSortKey,
+                ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                entitiesCopy,
+                entities.Length,
+                containsDeferredEntities,
+                hashCode,
+                isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+        }
+
+        /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
+        /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
+        /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+        /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
+        /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
+        /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
+        /// Note that EntityQueryMask ignores all query filtering (including chunk filtering and enableable components),
+        /// and may thus match more entities than expected.</param>
+        /// <param name="component"> The component value to set. </param>
+        /// <typeparam name="T"> The type of component to add.</typeparam>
+        /// <exception cref="ArgumentException">Throws if the component has a reference to a deferred entity, requiring fixup within the command buffer.</exception>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        public void AddComponentForLinkedEntityGroup<T>(Entity e, EntityQueryMask mask, T component) where T : unmanaged, IComponentData
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            m_Data->AddLinkedEntityGroupComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                ECBCommand.AddComponentLinkedEntityGroup, mask, e, component);
+        }
+
+        /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
+        /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
+        /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+        /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
+        /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
+        /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
+        /// Note that EntityQueryMask ignores all query filtering (including chunk filtering and enableable components),
+        /// and may thus match more entities than expected.</param>
+        /// <param name="componentType"> The component type to add. </param>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        public void AddComponentForLinkedEntityGroup(Entity e, EntityQueryMask mask, ComponentType componentType)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            m_Data->AddLinkedEntityGroupTypeCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponentLinkedEntityGroup, mask, e, componentType);
+        }
+
+        /// <summary>Records a command that sets a component for an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
+        /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
+        /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+        /// if the entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if any of the matching linked entities do not already have the component.</remarks>
+        /// <param name="e">The entity whose LinkedEntityGroup will be modified by this command.</param>
+        /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to set the component for.
+        /// Note that EntityQueryMask ignores all query filtering (including chunk filtering and enableable components),
+        /// and may thus match more entities than expected.</param>
+        /// <param name="component"> The component value to set. </param>
+        /// <typeparam name="T"> The type of component to add.</typeparam>
+        /// <exception cref="ArgumentException">Throws if the component has a reference to a deferred entity, requiring fixup within the command buffer.</exception>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        public void SetComponentForLinkedEntityGroup<T>(Entity e, EntityQueryMask mask, T component) where T : unmanaged, IComponentData
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            m_Data->AddLinkedEntityGroupComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                ECBCommand.SetComponentLinkedEntityGroup, mask, e, component);
+        }
+
+        /// <summary>Records a command that replaces a component value for an entity's <see cref="LinkedEntityGroup"/>.
+        /// Entities in the <see cref="LinkedEntityGroup"/> that don't have the component will be skipped safely.</summary>
+        /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback or
+        /// if the entity is still deferred.</remarks>
+        /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
+        /// <param name="component"> The component value to set. </param>
+        /// <typeparam name="T"> The type of component to add.</typeparam>
+        /// <exception cref="ArgumentException">Throws if the component has a reference to a deferred entity, requiring fixup within the command buffer.</exception>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        public void ReplaceComponentForLinkedEntityGroup<T>(Entity e, T component) where T : unmanaged, IComponentData
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                ECBCommand.ReplaceComponentLinkedEntityGroup, e, component);
         }
 
         /// <summary>
@@ -2301,8 +3072,7 @@ namespace Unity.Entities
             if (m_Data != null && m_Data->m_DidPlayback && m_Data->m_PlaybackPolicy == PlaybackPolicy.SinglePlayback)
             {
                 throw new InvalidOperationException(
-                    "Attempt to call Playback() on an EntityCommandBuffer that has already been played back. " +
-                    "EntityCommandBuffers created with the SinglePlayback policy can only be played back once.");
+                    "Attempt to call Playback() on an EntityCommandBuffer that has already been played back.\nEntityCommandBuffers created with the SinglePlayback policy can only be played back once.");
             }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -2310,18 +3080,46 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_ArrayInvalidationSafety);
 #endif
 
+#if !UNITY_DOTSRUNTIME
             k_ProfileEcbPlayback.Begin();
-
-            var walker = new EcbWalker<PlaybackProcessor>(default, ECBProcessorType.PlaybackProcessor);
-            walker.processor.Init(mgr, m_Data, in OriginSystemHandle);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            walker.processor.ecbSafetyHandle = m_Safety0;
 #endif
-            walker.WalkChains(this);
-            walker.processor.Cleanup();
+
+            if (ENABLE_PRE_PLAYBACK_VALIDATION)
+            {
+                var walker = new EcbWalker<PrePlaybackValidationProcessor>(default, ECBProcessorType.PrePlaybackValidationProcessor);
+                walker.processor.Init(mgr, m_Data, in OriginSystemHandle);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                walker.processor.playbackProcessor.ecbSafetyHandle = m_Safety0;
+#endif
+                walker.WalkChains(this);
+                walker.processor.Cleanup();
+                PassedPrePlaybackValidation = 1;
+            }
+            else if (PLAYBACK_WITH_TRACE)
+            {
+                var walker = new EcbWalker<PlaybackWithTraceProcessor>(default, ECBProcessorType.PlaybackWithTraceProcessor);
+                walker.processor.Init(mgr, m_Data, in OriginSystemHandle);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                walker.processor.playbackProcessor.ecbSafetyHandle = m_Safety0;
+#endif
+                walker.WalkChains(this);
+                walker.processor.Cleanup();
+            }
+            else
+            {
+                var walker = new EcbWalker<PlaybackProcessor>(default, ECBProcessorType.PlaybackProcessor);
+                walker.processor.Init(mgr, m_Data, in OriginSystemHandle);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                walker.processor.ecbSafetyHandle = m_Safety0;
+#endif
+                walker.WalkChains(this);
+                walker.processor.Cleanup();
+            }
 
             m_Data->m_DidPlayback = true;
+#if !UNITY_DOTSRUNTIME
             k_ProfileEcbPlayback.End();
+#endif
         }
 
         // This enum is used by the ECBInterop to allow us to have generic chain walking code
@@ -2330,7 +3128,9 @@ namespace Unity.Entities
         internal enum ECBProcessorType
         {
             PlaybackProcessor,
-            DebugViewProcessor
+            DebugViewProcessor,
+            PlaybackWithTraceProcessor,
+            PrePlaybackValidationProcessor,
         }
 
         internal interface IEcbProcessor
@@ -2344,6 +3144,7 @@ namespace Unity.Entities
             public void AddMultipleComponents(BasicCommand* header);
             public void AddComponentWithEntityFixUp(BasicCommand* header);
             public void SetComponent(BasicCommand* header);
+            public void SetEnabled(BasicCommand* header);
             public void SetComponentEnabled(BasicCommand* header);
             public void SetName(BasicCommand* header);
             public void SetComponentWithEntityFixUp(BasicCommand* header);
@@ -2358,14 +3159,68 @@ namespace Unity.Entities
             public void AddMultipleComponentsForMultipleEntities(BasicCommand* header);
             public void RemoveMultipleComponentsForMultipleEntities(BasicCommand* header);
             public void DestroyMultipleEntities(BasicCommand* header);
+            public void AddComponentLinkedEntityGroup(BasicCommand* header);
+            public void SetComponentLinkedEntityGroup(BasicCommand* header);
+            public void ReplaceComponentLinkedEntityGroup(BasicCommand* header);
             public void AddManagedComponentData(BasicCommand* header);
-            public void AddSharedComponentData(BasicCommand* header);
             public void AddComponentObjectForMultipleEntities(BasicCommand* header);
             public void SetComponentObjectForMultipleEntities(BasicCommand* header);
+            public void AddSharedComponentData(BasicCommand* header);
             public void AddSharedComponentWithValueForMultipleEntities(BasicCommand* header);
             public void SetSharedComponentValueForMultipleEntities(BasicCommand* header);
             public void SetManagedComponentData(BasicCommand* header);
             public void SetSharedComponentData(BasicCommand* header);
+            public void AddUnmanagedSharedComponentData(BasicCommand* header);
+            public void SetUnmanagedSharedComponentData(BasicCommand* header);
+            public void AddUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header);
+            public void SetUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header);
+
+            public ECBProcessorType ProcessorType { get; }
+        }
+
+        internal static void ProcessManagedCommand<T>(T* processor, BasicCommand* header) where T : unmanaged, IEcbProcessor
+        {
+            switch ((ECBCommand)header->CommandType)
+            {
+                case ECBCommand.AddManagedComponentData:
+                    processor->AddManagedComponentData(header);
+                    break;
+
+                case ECBCommand.AddSharedComponentData:
+                    processor->AddSharedComponentData(header);
+                    break;
+
+                case ECBCommand.AddComponentObjectForMultipleEntities:
+                    processor->AddComponentObjectForMultipleEntities(header);
+                    break;
+
+                case ECBCommand.SetComponentObjectForMultipleEntities:
+                    processor->SetComponentObjectForMultipleEntities(header);
+                    break;
+
+                case ECBCommand.AddSharedComponentWithValueForMultipleEntities:
+                    processor->AddSharedComponentWithValueForMultipleEntities(header);
+                    break;
+
+                case ECBCommand.SetSharedComponentValueForMultipleEntities:
+                    processor->SetSharedComponentValueForMultipleEntities(header);
+                    break;
+
+                case ECBCommand.SetManagedComponentData:
+                    processor->SetManagedComponentData(header);
+                    break;
+
+                case ECBCommand.SetSharedComponentData:
+                    processor->SetSharedComponentData(header);
+                    break;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                default:
+                {
+                    throw new InvalidOperationException($"Invalid command type {(ECBCommand)header->CommandType} not recognized.");
+                }
+#endif
+            }
         }
 
         internal struct EcbWalker<T> where T: unmanaged, IEcbProcessor {
@@ -2427,8 +3282,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                     if (data->m_RecordedChainCount != initialChainCount)
                         Assert.IsTrue(false,
-                            "RecordedChainCount (" + data->m_RecordedChainCount + ") != initialChainCount (" +
-                            initialChainCount + ")");
+                            $"RecordedChainCount ({data->m_RecordedChainCount}) != initialChainCount ({initialChainCount}");
 #endif
 
                     using (ECBChainPriorityQueue chainQueue = new ECBChainPriorityQueue(chainStates,
@@ -2441,12 +3295,10 @@ namespace Unity.Entities
                             ECBChainHeapElement nextElem = chainQueue.Peek();
 
                             var chunk = chainStates[currentElem.ChainIndex].Chunk;
+                            var off = chainStates[currentElem.ChainIndex].Offset;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                             if (chunk == null)
                                 Assert.IsTrue(false, $"chainStates[{currentElem.ChainIndex}].Chunk is null.");
-#endif
-                            var off = chainStates[currentElem.ChainIndex].Offset;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                             if (off < 0 || off >= chunk->Used)
                                 Assert.IsTrue(false, $"chainStates[{currentElem.ChainIndex}].Offset is invalid: {off}. Should be between 0 and {chunk->Used}");
 #endif
@@ -2504,16 +3356,10 @@ namespace Unity.Entities
                             return;
                         }
 
-                        var foundCommand = ProcessUnmanagedCommand(header);
-
-                        // foundCommand will be false if either:
-                        // 1) We are inside of Burst and therefore need to call the non-Burst function pointer
-                        // 2) It's a managed command and we are not inside of Burst
-                        if (!foundCommand)
+                        var processed = ProcessUnmanagedCommand(header);
+                        if (!processed)
                         {
-                            var didExecuteManaged = false;
-                            ProcessManagedCommand(header, ref didExecuteManaged);
-                            ThrowIfPlaybackManagedCommandWasUsedFromBurstedCommandBuffer(didExecuteManaged);
+                            ECBInterop.ProcessManagedCommand(UnsafeUtility.AddressOf(ref processor), (int)processor.ProcessorType, header);
                         }
 
                         off += header->TotalSize;
@@ -2540,8 +3386,24 @@ namespace Unity.Entities
             {
                 switch ((ECBCommand)header->CommandType)
                 {
+                    case ECBCommand.InstantiateEntity:
+                        processor.InstantiateEntity(header);
+                        return true;
+                    case ECBCommand.CreateEntity:
+                        processor.CreateEntity(header);
+                        return true;
                     case ECBCommand.DestroyEntity:
                         processor.DestroyEntity(header);
+                        return true;
+
+                    case ECBCommand.AddComponent:
+                        processor.AddComponent(header);
+                        return true;
+                    case ECBCommand.AddMultipleComponents:
+                        processor.AddMultipleComponents(header);
+                        return true;
+                    case ECBCommand.AddComponentWithEntityFixUp:
+                        processor.AddComponentWithEntityFixUp(header);
                         return true;
 
                     case ECBCommand.RemoveComponent:
@@ -2552,41 +3414,27 @@ namespace Unity.Entities
                         processor.RemoveMultipleComponents(header);
                         return true;
 
-                    case ECBCommand.CreateEntity:
-                        processor.CreateEntity(header);
-                        return true;
-
-                    case ECBCommand.InstantiateEntity:
-                        processor.InstantiateEntity(header);
-                        return true;
-
-                    case ECBCommand.AddComponent:
-                        processor.AddComponent(header);
-                        return true;
-
-                    case ECBCommand.AddMultipleComponents:
-                        processor.AddMultipleComponents(header);
-                        return true;
-
-                    case ECBCommand.AddComponentWithEntityFixUp:
-                        processor.AddComponentWithEntityFixUp(header);
-                        return true;
-
                     case ECBCommand.SetComponent:
                         processor.SetComponent(header);
+                        return true;
+
+                    case ECBCommand.SetComponentWithEntityFixUp:
+                        processor.SetComponentWithEntityFixUp(header);
+                        return true;
+
+                    case ECBCommand.SetEntityEnabled:
+                        processor.SetEnabled(header);
                         return true;
 
                     case ECBCommand.SetComponentEnabled:
                         processor.SetComponentEnabled(header);
                         return true;
 
+
                     case ECBCommand.SetName:
                         processor.SetName(header);
                         return true;
 
-                    case ECBCommand.SetComponentWithEntityFixUp:
-                        processor.SetComponentWithEntityFixUp(header);
-                        return true;
 
                     case ECBCommand.AddBuffer:
                         processor.AddBuffer(header);
@@ -2631,57 +3479,34 @@ namespace Unity.Entities
                     case ECBCommand.DestroyMultipleEntities:
                         processor.DestroyMultipleEntities(header);
                         return true;
+
+                    case ECBCommand.AddUnmanagedSharedComponentData:
+                        processor.AddUnmanagedSharedComponentData(header);
+                        return true;
+                    case ECBCommand.SetUnmanagedSharedComponentData:
+                        processor.SetUnmanagedSharedComponentData(header);
+                        return true;
+                    case ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities:
+                        processor.AddUnmanagedSharedComponentValueForMultipleEntities(header);
+                        return true;
+                    case ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities:
+                        processor.SetUnmanagedSharedComponentValueForMultipleEntities(header);
+                        return true;
+
+                    case ECBCommand.AddComponentLinkedEntityGroup:
+                        processor.AddComponentLinkedEntityGroup(header);
+                        return true;
+
+                    case ECBCommand.SetComponentLinkedEntityGroup:
+                        processor.SetComponentLinkedEntityGroup(header);
+                        return true;
+
+                    case ECBCommand.ReplaceComponentLinkedEntityGroup:
+                        processor.ReplaceComponentLinkedEntityGroup(header);
+                        return true;
                 }
 
                 return false;
-            }
-
-            [BurstDiscard]
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private void ProcessManagedCommand(BasicCommand* header, ref bool didExecuteMethod)
-            {
-                didExecuteMethod = true;
-                switch ((ECBCommand)header->CommandType)
-                {
-                    case ECBCommand.AddManagedComponentData:
-                        processor.AddManagedComponentData(header);
-                        break;
-
-                    case ECBCommand.AddSharedComponentData:
-                        processor.AddSharedComponentData(header);
-                        break;
-
-                    case ECBCommand.AddComponentObjectForMultipleEntities:
-                        processor.AddComponentObjectForMultipleEntities(header);
-                        break;
-
-                    case ECBCommand.SetComponentObjectForMultipleEntities:
-                        processor.SetComponentObjectForMultipleEntities(header);
-                        break;
-
-                    case ECBCommand.AddSharedComponentWithValueForMultipleEntities:
-                        processor.AddSharedComponentWithValueForMultipleEntities(header);
-                        break;
-
-                    case ECBCommand.SetSharedComponentValueForMultipleEntities:
-                        processor.SetSharedComponentValueForMultipleEntities(header);
-                        break;
-
-                    case ECBCommand.SetManagedComponentData:
-                        processor.SetManagedComponentData(header);
-                        break;
-
-                    case ECBCommand.SetSharedComponentData:
-                        processor.SetSharedComponentData(header);
-                        break;
-
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                    default:
-                    {
-                        throw new InvalidOperationException("Invalid command not recognized for EntityCommandBuffer.");
-                    }
-    #endif
-                }
             }
         }
 
@@ -2694,17 +3519,17 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             public AtomicSafetyHandle ecbSafetyHandle; // used for temporary NativeArray views created & destroyed during playback
 #endif
-            public bool isFirstPlayback;
+            public byte isFirstPlayback;
             public int entityCount;
             public int bufferCount;
-            public SystemHandleUntyped originSystem;
-            private bool trackStructuralChanges;
+            public SystemHandle originSystem;
+            private byte trackStructuralChanges;
 
-            public void Init(EntityDataAccess* entityDataAccess, EntityCommandBufferData* data, in SystemHandleUntyped originSystemHandle)
+            public void Init(EntityDataAccess* entityDataAccess, EntityCommandBufferData* data, in SystemHandle originSystemHandle)
             {
                 mgr = entityDataAccess;
                 playbackPolicy = data->m_PlaybackPolicy;
-                isFirstPlayback = !data->m_DidPlayback;
+                isFirstPlayback = (byte)(data->m_DidPlayback ? 0 : 1);
                 originSystem = originSystemHandle;
 
                 // Don't begin/end structural changes unless at least one command was recorded.
@@ -2713,7 +3538,7 @@ namespace Unity.Entities
                 if (data->m_RecordedChainCount > 0)
                 {
                     archetypeChanges = mgr->BeginStructuralChanges();
-                    trackStructuralChanges = true;
+                    trackStructuralChanges = 1;
                 }
 
                 // Play back the recorded commands in increasing sortKey order
@@ -2746,21 +3571,21 @@ namespace Unity.Entities
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (bufferCount != playbackState.LastBuffer)
-                    Assert.IsTrue(false, "bufferCount (" + bufferCount + ") != playbackState.LastBuffer (" + playbackState.LastBuffer + ")");
+                    Assert.IsTrue(false, $"bufferCount ({bufferCount}) != playbackState.LastBuffer ({playbackState.LastBuffer})");
 #endif
                 for (int i = 0; i < playbackState.LastBuffer; i++)
                 {
                     ECBSharedPlaybackState.BufferWithFixUp* fixup = playbackState.BuffersWithFixUp + i;
                     EntityBufferCommand* cmd = fixup->cmd;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                    if (mgr->Exists(entity) && mgr->HasComponent(entity, TypeManager.GetType(cmd->ComponentTypeIndex)))
+                    if (mgr->Exists(entity) && mgr->HasComponent(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex)))
                         FixupBufferContents(mgr, cmd, entity, playbackState);
                 }
 
                 Memory.Unmanaged.Free(playbackState.CreateEntityBatch, Allocator.Temp);
                 Memory.Unmanaged.Free(playbackState.BuffersWithFixUp, Allocator.Temp);
 
-                if (trackStructuralChanges)
+                if (trackStructuralChanges != 0)
                 {
                     mgr->EndStructuralChanges(ref archetypeChanges);
                 }
@@ -2787,19 +3612,24 @@ namespace Unity.Entities
             {
                 var cmd = (EntityMultipleComponentsCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                var componentTypes = cmd->Types;
+                var componentTypes = cmd->TypeSet;
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                EntitiesJournaling.RecordRemoveComponent(in mgr->m_WorldUnmanaged, in originSystem, &entity, 1, componentTypes.Types, componentTypes.Length);
+                if (Burst.CompilerServices.Hint.Unlikely(mgr->EntityComponentStore->m_RecordToJournal != 0))
+                    mgr->JournalAddRecord_RemoveComponent(in originSystem, &entity, 1, componentTypes.Types, componentTypes.Length);
 #endif
 
 #if ENABLE_PROFILER
-                using (var scope = StructuralChangesProfiler.BeginRemoveComponent(mgr->m_WorldUnmanaged))
+                if (StructuralChangesProfiler.Enabled)
+                    StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in mgr->m_WorldUnmanaged);
 #endif
-                {
-                    // TODO(DOTS-4174): Go through EntityDataAccess, Add EntitiesJournaling call
-                    mgr->EntityComponentStore->RemoveMultipleComponentsWithValidation(entity, componentTypes);
-                }
+                // TODO(DOTS-4174): Go through EntityDataAccess, Add EntitiesJournaling call
+                mgr->EntityComponentStore->RemoveMultipleComponentsWithValidation(entity, componentTypes);
+
+#if ENABLE_PROFILER
+                if (StructuralChangesProfiler.Enabled)
+                    StructuralChangesProfiler.End();
+#endif
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2809,19 +3639,7 @@ namespace Unity.Entities
                 EntityArchetype at = cmd->Archetype;
 
                 if (!at.Valid)
-                {
-                    ComponentTypeInArchetype* typesInArchetype = stackalloc ComponentTypeInArchetype[1];
-
-                    var cachedComponentCount = EntityDataAccess.FillSortedArchetypeArray(typesInArchetype, null, 0);
-
-                    // Lookup existing archetype (cheap)
-                    EntityArchetype entityArchetype = mgr->CreateArchetypeDuringStructuralChange(typesInArchetype, cachedComponentCount);;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                    entityArchetype._DebugComponentStore = mgr->EntityComponentStore;
-#endif
-
-                    at = entityArchetype;
-                }
+                    at = mgr->GetEntityAndSimulateArchetype();
 
                 int index = -cmd->IdentityIndex - 1;
 
@@ -2855,25 +3673,31 @@ namespace Unity.Entities
             {
                 var cmd = (EntityMultipleComponentsCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                var componentTypes = cmd->Types;
+                var componentTypes = cmd->TypeSet;
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                EntitiesJournaling.RecordAddComponent(in mgr->m_WorldUnmanaged, in originSystem, &entity, 1, componentTypes.Types, componentTypes.Length);
+                if (Burst.CompilerServices.Hint.Unlikely(mgr->EntityComponentStore->m_RecordToJournal != 0))
+                    mgr->JournalAddRecord_AddComponent(in originSystem, &entity, 1, componentTypes.Types, componentTypes.Length);
 #endif
 
 #if ENABLE_PROFILER
-                using (var scope = StructuralChangesProfiler.BeginAddComponent(mgr->m_WorldUnmanaged))
+                if (StructuralChangesProfiler.Enabled)
+                    StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in mgr->m_WorldUnmanaged);
 #endif
-                {
-                    // TODO(DOTS-4174): Go through EntityDataAccess, Add EntitiesJournaling call
-                    mgr->EntityComponentStore->AddMultipleComponentsWithValidation(entity, componentTypes);
-                }
+
+                // TODO(DOTS-4174): Go through EntityDataAccess, Add EntitiesJournaling call
+                mgr->EntityComponentStore->AddMultipleComponentsWithValidation(entity, componentTypes);
+
+#if ENABLE_PROFILER
+                if (StructuralChangesProfiler.Enabled)
+                    StructuralChangesProfiler.End();
+#endif
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddComponentWithEntityFixUp(BasicCommand* header)
             {
-                AssertSinglePlayback((ECBCommand)header->CommandType, isFirstPlayback);
+                AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityComponentCommand*)header;
                 var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
@@ -2891,11 +3715,19 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void SetEnabled(BasicCommand* header)
+            {
+                var cmd = (EntityEnabledCommand*)header;
+                var entity = SelectEntity(cmd->Header.Entity, playbackState);
+                mgr->SetEnabled(entity, cmd->IsEnabled != 0);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetComponentEnabled(BasicCommand* header)
             {
                 var cmd = (EntityComponentEnabledCommand*)header;
-                var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                mgr->SetComponentEnabled(entity, cmd->ComponentTypeIndex, cmd->IsEnabled != 0);
+                var entity = SelectEntity(cmd->Header.Header.Entity, playbackState);
+                mgr->SetComponentEnabled(entity, cmd->ComponentTypeIndex, cmd->Header.IsEnabled != 0);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2903,13 +3735,13 @@ namespace Unity.Entities
             {
                 var cmd = (EntityNameCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                mgr->SetName(entity, cmd->Name);
+                mgr->SetName(entity, in cmd->Name);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetComponentWithEntityFixUp(BasicCommand* header)
             {
-                AssertSinglePlayback((ECBCommand)header->CommandType, isFirstPlayback);
+                AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityComponentCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
@@ -2922,11 +3754,12 @@ namespace Unity.Entities
                 var cmd = (EntityBufferCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->AddComponentDuringStructuralChange(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), in originSystem);
-
                 if (playbackPolicy == PlaybackPolicy.SinglePlayback)
+                {
                     mgr->SetBufferRaw(entity, cmd->ComponentTypeIndex,
                         &cmd->BufferNode.TempBuffer,
                         cmd->ComponentSize, in originSystem);
+                }
                 else
                 {
                     // copy the buffer to ensure that no two entities point to the same buffer from the ECB
@@ -2940,7 +3773,7 @@ namespace Unity.Entities
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddBufferWithEntityFixUp(BasicCommand* header)
             {
-                AssertSinglePlayback((ECBCommand)header->CommandType, isFirstPlayback);
+                AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityBufferCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
@@ -2955,8 +3788,10 @@ namespace Unity.Entities
                 var cmd = (EntityBufferCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 if (playbackPolicy == PlaybackPolicy.SinglePlayback)
+                {
                     mgr->SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer,
                         cmd->ComponentSize, in originSystem);
+                }
                 else
                 {
                     // copy the buffer to ensure that no two entities point to the same buffer from the ECB
@@ -2969,7 +3804,7 @@ namespace Unity.Entities
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetBufferWithEntityFixUp(BasicCommand* header)
             {
-                AssertSinglePlayback((ECBCommand)header->CommandType, isFirstPlayback);
+                AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityBufferCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
@@ -2982,7 +3817,6 @@ namespace Unity.Entities
             {
                 var cmd = (EntityComponentCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-
                 CheckBufferExistsOnEntity(mgr->EntityComponentStore, entity, cmd);
 
                 // TODO(DOTS-4174): Go through EntityDataAccess
@@ -3002,11 +3836,10 @@ namespace Unity.Entities
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AppendToBufferWithEntityFixUp(BasicCommand* header)
             {
-                AssertSinglePlayback((ECBCommand)header->CommandType, isFirstPlayback);
+                AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityComponentCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-
                 CheckBufferExistsOnEntity(mgr->EntityComponentStore, entity, cmd);
 
                 // TODO(DOTS-4174): Go through EntityDataAccess
@@ -3046,8 +3879,8 @@ namespace Unity.Entities
             {
                 var cmd = (MultipleEntitiesComponentCommand*)header;
                 var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
-                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
 
+                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
                 if (cmd->Header.SkipDeferredEntityLookup == 0)
                 {
                     for (int len = entities.Length, i = 0; i < len; ++i)
@@ -3072,8 +3905,8 @@ namespace Unity.Entities
             {
                 var cmd = (MultipleEntitiesComponentCommand*)header;
                 var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
-                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
 
+                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
                 if (cmd->Header.SkipDeferredEntityLookup == 0)
                 {
                     for (int len = entities.Length, i = 0; i < len; ++i)
@@ -3082,6 +3915,7 @@ namespace Unity.Entities
                             entities[i] = SelectEntity(entities[i], playbackState);
                     }
                 }
+
                 mgr->RemoveComponentDuringStructuralChange(entities, componentType, in originSystem);
             }
 
@@ -3089,8 +3923,8 @@ namespace Unity.Entities
             public void AddMultipleComponentsForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesAndComponentsCommand*)header;
-                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
 
+                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
                 if (cmd->Header.SkipDeferredEntityLookup == 0)
                 {
                     for (int len = entities.Length, i = 0; i < len; ++i)
@@ -3099,15 +3933,16 @@ namespace Unity.Entities
                             entities[i] = SelectEntity(entities[i], playbackState);
                     }
                 }
-                mgr->AddMultipleComponentsDuringStructuralChange(entities, cmd->Types, in originSystem);
+
+                mgr->AddMultipleComponentsDuringStructuralChange(entities, cmd->TypeSet, in originSystem);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void RemoveMultipleComponentsForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesAndComponentsCommand*)header;
-                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
 
+                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
                 if (cmd->Header.SkipDeferredEntityLookup == 0)
                 {
                     for (int len = entities.Length, i = 0; i < len; ++i)
@@ -3116,15 +3951,16 @@ namespace Unity.Entities
                             entities[i] = SelectEntity(entities[i], playbackState);
                     }
                 }
-                mgr->RemoveMultipleComponentsDuringStructuralChange(entities, cmd->Types, in originSystem);
+
+                mgr->RemoveMultipleComponentsDuringStructuralChange(entities, cmd->TypeSet, in originSystem);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void DestroyMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesCommand*)header;
-                CreateTemporaryNativeArrayView(cmd->Entities.Ptr, cmd->EntitiesCount, out var entities);
 
+                CreateTemporaryNativeArrayView(cmd->Entities.Ptr, cmd->EntitiesCount, out var entities);
                 if (cmd->SkipDeferredEntityLookup == 0)
                 {
                     for (int len = entities.Length, i = 0; i < len; ++i)
@@ -3133,7 +3969,32 @@ namespace Unity.Entities
                             entities[i] = SelectEntity(entities[i], playbackState);
                     }
                 }
+
                 mgr->DestroyEntityDuringStructuralChange(entities, in originSystem);
+            }
+
+            public void AddComponentLinkedEntityGroup(BasicCommand* header)
+            {
+                var cmd = (EntityQueryMaskCommand*) header;
+                var entity = SelectEntity(cmd->Header.Header.Entity, playbackState);
+                mgr->AddComponentForLinkedEntityGroup(entity, cmd->Mask, cmd->Header.ComponentTypeIndex, cmd + 1,
+                    cmd->Header.ComponentSize);
+            }
+
+            public void SetComponentLinkedEntityGroup(BasicCommand* header)
+            {
+                var cmd = (EntityQueryMaskCommand*) header;
+                var entity = SelectEntity(cmd->Header.Header.Entity, playbackState);
+                mgr->SetComponentForLinkedEntityGroup(entity, cmd->Mask, cmd->Header.ComponentTypeIndex, cmd + 1,
+                    cmd->Header.ComponentSize);
+            }
+
+            public void ReplaceComponentLinkedEntityGroup(BasicCommand* header)
+            {
+                var cmd = (EntityComponentCommand*) header;
+                var entity = SelectEntity(cmd->Header.Entity, playbackState);
+                mgr->ReplaceComponentForLinkedEntityGroup(entity, cmd->ComponentTypeIndex, cmd + 1,
+                    cmd->ComponentSize);
             }
 
             [BurstDiscard]
@@ -3142,7 +4003,6 @@ namespace Unity.Entities
             {
                 var cmd = (EntityManagedComponentCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-
                 var addedManaged = mgr->AddComponentDuringStructuralChange(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), in originSystem);
                 if (addedManaged)
                 {
@@ -3158,14 +4018,34 @@ namespace Unity.Entities
                 mgr->SetComponentObject(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), box, in originSystem);
             }
 
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddUnmanagedSharedComponentData(BasicCommand* header)
+            {
+                var cmd = (EntityUnmanagedSharedComponentCommand*)header;
+                var entity = SelectEntity(cmd->Header.Entity, playbackState);
+                var tmp = new NativeArray<Entity>(1, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+                tmp[0] = entity;
+                mgr->AddSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(
+                    tmp,
+                    cmd->ComponentTypeIndex,
+                    cmd->HashCode,
+                    cmd->IsDefault == 0 ? ((void*) (cmd + 1)) : null);
+                CommitStructuralChanges(mgr, ref archetypeChanges);
+            }
+
             [BurstDiscard]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddSharedComponentData(BasicCommand* header)
             {
-                var cmd = (EntitySharedComponentCommand*)header;
+                var cmd = (EntitySharedComponentCommand*) header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                var addedShared = mgr->AddSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(entity, cmd->ComponentTypeIndex, cmd->HashCode,
-                    cmd->GetBoxedObject(), in originSystem);
+                var addedShared = mgr->AddSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(
+                    entity,
+                    cmd->ComponentTypeIndex,
+                    cmd->HashCode,
+                    cmd->GetBoxedObject(),
+                    in originSystem);
                 if (addedShared)
                 {
                     CommitStructuralChanges(mgr, ref archetypeChanges);
@@ -3177,6 +4057,7 @@ namespace Unity.Entities
             public void AddComponentObjectForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommandWithObject*)header;
+
                 var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
                 CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
                 if (cmd->Header.SkipDeferredEntityLookup == 0)
@@ -3187,7 +4068,6 @@ namespace Unity.Entities
                             entities[i] = SelectEntity(entities[i], playbackState);
                     }
                 }
-
                 mgr->AddComponentDuringStructuralChange(entities, componentType, in originSystem);
 
                 CommitStructuralChanges(mgr, ref archetypeChanges);
@@ -3210,6 +4090,7 @@ namespace Unity.Entities
             public void SetComponentObjectForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommandWithObject*)header;
+
                 var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
                 CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
                 if (cmd->Header.SkipDeferredEntityLookup == 0)
@@ -3244,7 +4125,7 @@ namespace Unity.Entities
             public void AddSharedComponentWithValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommandWithObject*)header;
-                var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
+
                 CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
                 if (cmd->Header.SkipDeferredEntityLookup == 0)
                 {
@@ -3271,7 +4152,7 @@ namespace Unity.Entities
             public void SetSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommandWithObject*)header;
-                var ecs = mgr->EntityComponentStore;
+
                 CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
                 if (cmd->Header.SkipDeferredEntityLookup == 0)
                 {
@@ -3288,7 +4169,6 @@ namespace Unity.Entities
 
                 for (int len = entities.Length, i = 0; i < len; i++)
                 {
-                    // TODO: we aren't yet doing fix-up for Entity fields (see DOTS-3465)
                     var e = entities[i];
                     mgr->SetSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(e, typeIndex,
                         hashcode, boxedObject, in originSystem);
@@ -3317,8 +4197,68 @@ namespace Unity.Entities
                 mgr->SetComponentObject(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), cmd->GetBoxedObject(), in originSystem);
             }
 
-            [BurstDiscard]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void SetUnmanagedSharedComponentData(BasicCommand* header)
+            {
+                var cmd = (EntityUnmanagedSharedComponentCommand*) header;
+                var entity = SelectEntity(cmd->Header.Entity, playbackState);
+                var tmp = new NativeArray<Entity>(1, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+                tmp[0] = entity;
+                mgr->SetSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(
+                    tmp,
+                    cmd->ComponentTypeIndex,
+                    cmd->HashCode,
+                    (cmd->IsDefault == 0) ? (cmd + 1) : null);
+            }
+
+            public void AddUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header)
+            {
+                var cmd = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*)header;
+
+                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
+                if (cmd->Header.SkipDeferredEntityLookup == 0)
+                {
+                    for (int len = entities.Length, i = 0; i < len; ++i)
+                    {
+                        if (entities[i].Index < 0)
+                            entities[i] = SelectEntity(entities[i], playbackState);
+                    }
+                }
+
+                var hashcode = cmd->HashCode;
+                var typeIndex = cmd->ComponentTypeIndex;
+                mgr->AddSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(
+                    entities,
+                    typeIndex,
+                    hashcode,
+                    cmd + 1);
+
+                CommitStructuralChanges(mgr, ref archetypeChanges);
+            }
+
+            public void SetUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header)
+            {
+                var cmd = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*)header;
+
+                CreateTemporaryNativeArrayView(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, out var entities);
+                if (cmd->Header.SkipDeferredEntityLookup == 0)
+                {
+                    for (int len = entities.Length, i = 0; i < len; ++i)
+                    {
+                        if (entities[i].Index < 0)
+                            entities[i] = SelectEntity(entities[i], playbackState);
+                    }
+                }
+
+                mgr->SetSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(
+                    entities,
+                    cmd->ComponentTypeIndex,
+                    cmd->HashCode,
+                    cmd + 1);
+            }
+
+            public ECBProcessorType ProcessorType => ECBProcessorType.PlaybackProcessor;
+
             public void SetSharedComponentData(BasicCommand* header)
             {
                 var cmd = (EntitySharedComponentCommand*)header;
@@ -3378,12 +4318,12 @@ namespace Unity.Entities
             archetypeChanges = mgr->BeginStructuralChanges();
         }
 
-        private static void FixupComponentData(byte* data, int typeIndex, ECBSharedPlaybackState playbackState)
+        private static void FixupComponentData(byte* data, TypeIndex typeIndex, ECBSharedPlaybackState playbackState)
         {
             FixupComponentData(data, 1, typeIndex, playbackState);
         }
 
-        private static void FixupComponentData(byte* data, int count, int typeIndex, ECBSharedPlaybackState playbackState)
+        private static void FixupComponentData(byte* data, int count, TypeIndex typeIndex, ECBSharedPlaybackState playbackState)
         {
             ref readonly var componentTypeInfo = ref TypeManager.GetTypeInfo(typeIndex);
 
@@ -3406,7 +4346,7 @@ namespace Unity.Entities
         }
 
 #if !NET_DOTS
-        class FixupManagedComponent : Unity.Properties.PropertyVisitor, Properties.Adapters.IVisit<Entity>
+        class FixupManagedComponent : Unity.Properties.PropertyVisitor, Unity.Properties.IVisitPropertyAdapter<Entity>
         {
             [ThreadStatic]
             public static FixupManagedComponent _CachedVisitor;
@@ -3424,10 +4364,10 @@ namespace Unity.Entities
                     FixupManagedComponent._CachedVisitor = visitor = new FixupManagedComponent();
 
                 visitor.PlaybackState = state;
-                Unity.Properties.PropertyContainer.Visit(ref obj, visitor);
+                Unity.Properties.PropertyContainer.Accept(visitor, ref obj);
             }
 
-            Unity.Properties.VisitStatus Properties.Adapters.IVisit<Entity>.Visit<TContainer>(Unity.Properties.Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
+            void Unity.Properties.IVisitPropertyAdapter<Entity>.Visit<TContainer>(in Unity.Properties.VisitContext<TContainer, Entity> context, ref TContainer container, ref Entity value)
             {
                 if (value.Index < 0)
                 {
@@ -3435,8 +4375,6 @@ namespace Unity.Entities
                     Entity real = *(PlaybackState.CreateEntityBatch + index);
                     value = real;
                 }
-
-                return Unity.Properties.VisitStatus.Stop;
             }
         }
 #endif
@@ -3469,13 +4407,6 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        private static void ThrowIfPlaybackManagedCommandWasUsedFromBurstedCommandBuffer(bool didExecuteManagedPlayack)
-        {
-            if (!didExecuteManagedPlayack)
-                throw new InvalidOperationException("PlaybackManagedCommand can't be used from a bursted command buffer playback");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void CheckBufferExistsOnEntity(EntityComponentStore* mgr, Entity entity, EntityComponentCommand* cmd)
         {
             if (!mgr->HasComponent(entity, cmd->ComponentTypeIndex))
@@ -3493,7 +4424,7 @@ namespace Unity.Entities
 #endif
         }
 
-        static BufferHeader CloneBuffer(BufferHeader* srcBuffer, int componentTypeIndex)
+        static BufferHeader CloneBuffer(BufferHeader* srcBuffer, TypeIndex componentTypeIndex)
         {
             BufferHeader clone = new BufferHeader();
             BufferHeader.Initialize(&clone, 0);
@@ -3519,9 +4450,9 @@ namespace Unity.Entities
             parallelWriter.m_SafetyReadOnlyCount = 0;
             parallelWriter.m_SafetyReadWriteCount = 3;
 
-            if (m_Data->m_Allocator == Allocator.Temp)
+            if (m_Data->m_Allocator.ToAllocator == Allocator.Temp)
             {
-                throw new InvalidOperationException($"{nameof(EntityCommandBuffer.ParallelWriter)} can not use Allocator.Temp; use Allocator.TempJob instead");
+                throw new InvalidOperationException($"{nameof(EntityCommandBuffer.ParallelWriter)} can not use Allocator.Temp; use the EntityCommandBufferSystem's RewindableAllocator instead");
             }
 #endif
             parallelWriter.m_Data = m_Data;
@@ -3573,10 +4504,11 @@ namespace Unity.Entities
             private EntityCommandBufferChain* ThreadChain => (m_ThreadIndex >= 0) ? &m_Data->m_ThreadedChains[m_ThreadIndex] : &m_Data->m_MainThreadChain;
 
             /// <summary>Records a command to create an entity with specified archetype.</summary>
+            /// <remarks>Behavior at Playback: This command will throw an error if the archetype contains the <see cref="Prefab"/> tag.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="archetype">The archetype of the new entity.</param>
             /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
             /// <exception cref="ArgumentException">Throws if the archetype is null.</exception>
@@ -3590,8 +4522,8 @@ namespace Unity.Entities
             /// <summary>Records a command to create an entity with no components.</summary>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
             public Entity CreateEntity(int sortKey)
@@ -3625,8 +4557,8 @@ namespace Unity.Entities
             /// Behavior at Playback: This command will throw an error if the source entity was destroyed before playback.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity prefab.</param>
             /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
             /// <exception cref="ArgumentNullException"> Thrown if Entity e is null and if safety checks are enabled.</exception>
@@ -3648,8 +4580,8 @@ namespace Unity.Entities
             /// Behavior at Playback: This command will throw an error if the source entity was destroyed before playback.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity prefab.</param>
             /// <param name="entities">The NativeArray of entities that will be populated with realized entities when this EntityCommandBuffer is played back.</param>
             /// <exception cref="ArgumentNullException"> Thrown if Entity e is null and if safety checks are enabled.</exception>
@@ -3672,12 +4604,12 @@ namespace Unity.Entities
 
 
             /// <summary>Records a command to destroy an entity.</summary>
-            /// <remarks>Behavior at Playback: This command will throw an error if any of the entities are still deferred or were destroyed between recording and playback.
-            /// </remarks>
+            /// <remarks>Behavior at Playback: This command will throw an error if any of the entities are still deferred or were destroyed between recording and playback,
+            /// or if the entity has the <see cref="Prefab"/> tag.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity to destroy.</param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
             public void DestroyEntity(int sortKey, Entity e)
@@ -3689,12 +4621,12 @@ namespace Unity.Entities
 
             /// <summary>Records a command to destroy a NativeArray of entities.</summary>
             /// <remarks>Behavior at Playback: This command will do nothing if entities has a count of 0.
-            /// This command will throw an error if any of the entities are still deferred or were destroyed between recording and playback.
-            /// </remarks>
+            /// This command will throw an error if any of the entities are still deferred or were destroyed between recording and playback,
+            /// or if any of the entities have the <see cref="Prefab"/> tag.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities">The NativeArray of entities to destroy.</param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
             public void DestroyEntity(int sortKey, NativeArray<Entity> entities)
@@ -3708,35 +4640,55 @@ namespace Unity.Entities
             /// <summary> Records a command to add component of type T to an entity. </summary>
             /// <remarks>Behavior at Playback: If the entity already has this type of component, the value will just be set.
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-            /// if T is type Entity, or adding this componentType makes the archetype too large.</remarks>
+            /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the component added. </param>
             /// <param name="component">The value to add on the new component in playback for the entity.</param>
             /// <typeparam name="T"> The type of component to add. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddComponent<T>(int sortKey, Entity e, T component) where T : struct, IComponentData
+            public void AddComponent<T>(int sortKey, Entity e, T component) where T : unmanaged, IComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 m_Data->AddEntityComponentCommand(chain, sortKey, ECBCommand.AddComponent, e, component);
             }
 
+            /// <summary> Records a command to add a component to an entity. </summary>
+            /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
+            /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
+            /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="typeIndex"> The TypeIndex of the component being set. </param>
+            /// <param name="typeSize"> The Size of the type of the component being set. </param>
+            /// <param name="componentDataPtr"> The pointer to the data of the component to be copied. </param>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+            internal void UnsafeAddComponent(int sortKey, Entity e, TypeIndex typeIndex, int typeSize, void* componentDataPtr)
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+                m_Data->UnsafeAddEntityComponentCommand(chain, sortKey, ECBCommand.AddComponent, e, typeIndex, typeSize, componentDataPtr);
+            }
+
             /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
             /// <remarks>Behavior at Playback: If any entity already has this type of component, the value will just be set.
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-            /// if T is type Entity, or adding this componentType makes the archetype too large.</remarks>
+            /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component added. </param>
             /// <param name="component">The value to add on the new component in playback for all entities in the NativeArray.</param>
             /// <typeparam name="T"> The type of component to add. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddComponent<T>(int sortKey, NativeArray<Entity> entities, T component) where T : struct, IComponentData
+            public void AddComponent<T>(int sortKey, NativeArray<Entity> entities, T component) where T : unmanaged, IComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -3748,15 +4700,15 @@ namespace Unity.Entities
             /// <summary> Records a command to add component of type T to an entity. </summary>
             /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-            /// if T is type Entity, or adding this componentType makes the archetype too large.</remarks>
+            /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the component added. </param>
             /// <typeparam name="T"> The type of component to add. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddComponent<T>(int sortKey, Entity e) where T : struct, IComponentData
+            public void AddComponent<T>(int sortKey, Entity e) where T : unmanaged, IComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -3766,15 +4718,15 @@ namespace Unity.Entities
             /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
             /// <remarks>Behavior at Playback: If an entity already has this component, it will be skipped.
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-            /// if T is type Entity, or adding this componentType makes the archetype too large.</remarks>
+            /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component added. </param>
             /// <typeparam name="T"> The type of component to add. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddComponent<T>(int sortKey, NativeArray<Entity> entities) where T : struct, IComponentData
+            public void AddComponent<T>(int sortKey, NativeArray<Entity> entities) where T : unmanaged, IComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -3787,11 +4739,11 @@ namespace Unity.Entities
             /// <summary> Records a command to add a component to an entity. </summary>
             /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-            /// if component type is type Entity, or adding this componentType makes the archetype too large.</remarks>
+            /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to get the additional component. </param>
             /// <param name="componentType"> The type of component to add. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -3805,11 +4757,11 @@ namespace Unity.Entities
             /// <summary> Records a command to add a component to a NativeArray of entities. </summary>
             /// <remarks>Behavior at Playback: If an entity already has this component, it will be skipped.
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-            /// if component type is type Entity, or adding this componentType makes the archetype too large.</remarks>
+            /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component added. </param>
             /// <param name="componentType"> The type of component to add. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -3825,39 +4777,39 @@ namespace Unity.Entities
             /// <summary> Records a command to add one or more components to an entity. </summary>
             /// <remarks>Behavior at Playback: It is not an error to include a component type that the entity already has.
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-            /// if any component type is type Entity, or adding a component type makes the archetype too large.</remarks>
+            /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to get additional components. </param>
-            /// <param name="types"> The types of components to add. </param>
+            /// <param name="typeSet"> The types of components to add. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddComponent(int sortKey, Entity e, ComponentTypes types)
+            public void AddComponent(int sortKey, Entity e, ComponentTypeSet typeSet)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentTypesCommand(chain, sortKey,ECBCommand.AddMultipleComponents, e, types);
+                m_Data->AddEntityComponentTypesCommand(chain, sortKey,ECBCommand.AddMultipleComponents, e, typeSet);
             }
 
             /// <summary> Records a command to add one or more components to a NativeArray of entities. </summary>
             /// <remarks>Behavior at Playback: It is not an error to include a component type that any of the entities already have.
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-            /// if any component type is type Entity, or adding a component type makes the archetype too large.</remarks>
+            /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the components added. </param>
-            /// <param name="types"> The types of components to add. </param>
+            /// <param name="typeSet"> The types of components to add. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddComponent(int sortKey, NativeArray<Entity> entities, ComponentTypes types)
+            public void AddComponent(int sortKey, NativeArray<Entity> entities, ComponentTypeSet typeSet)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
                 m_Data->AppendMultipleEntitiesMultipleComponentsCommand(chain, sortKey,
-                    ECBCommand.AddMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, types);
+                    ECBCommand.AddMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, typeSet);
             }
 
             /// <summary>Records a command to add a dynamic buffer to an entity.</summary>
@@ -3866,13 +4818,13 @@ namespace Unity.Entities
             /// or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity to add the dynamic buffer to.</param>
             /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
             /// <returns>The <see cref="DynamicBuffer{T}"/> that will be added when the command plays back.</returns>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public DynamicBuffer<T> AddBuffer<T>(int sortKey, Entity e) where T : struct, IBufferElementData
+            public DynamicBuffer<T> AddBuffer<T>(int sortKey, Entity e) where T : unmanaged, IBufferElementData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -3888,13 +4840,13 @@ namespace Unity.Entities
             /// if this entity is still deferred, or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity to set the dynamic buffer on.</param>
             /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
             /// <returns>The <see cref="DynamicBuffer{T}"/> that will be set when the command plays back.</returns>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public DynamicBuffer<T> SetBuffer<T>(int sortKey, Entity e) where T : struct, IBufferElementData
+            public DynamicBuffer<T> SetBuffer<T>(int sortKey, Entity e) where T : unmanaged, IBufferElementData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -3910,8 +4862,8 @@ namespace Unity.Entities
             /// if this entity is still deferred, or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity to which the dynamic buffer belongs.</param>
             /// <param name="element">The new element to add to the <see cref="DynamicBuffer{T}"/> component.</param>
             /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
@@ -3927,32 +4879,83 @@ namespace Unity.Entities
 
             /// <summary> Records a command to set a component value on an entity.</summary>
             /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-            /// if this entity is still deferred, if the entity doesn't have the component type, or if T is zero sized.</remarks>
+            /// if this entity is still deferred, if the entity doesn't have the component type,
+            /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to set the component value of. </param>
             /// <param name="component"> The component value to set. </param>
             /// <typeparam name="T"> The type of component to set. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void SetComponent<T>(int sortKey, Entity e, T component) where T : struct, IComponentData
+            public void SetComponent<T>(int sortKey, Entity e, T component) where T : unmanaged, IComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 m_Data->AddEntityComponentCommand(chain, sortKey, ECBCommand.SetComponent, e, component);
             }
 
-            // TODO(https://unity3d.atlassian.net/browse/DOTS-4242): make these methods public once enabled bits support is complete
-            [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
-            internal void SetComponentEnabled<T>(int sortKey, Entity e, bool value) where T: struct, IEnableableComponent
+            /// <summary> Records a command to set a component value on an entity.</summary>
+            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// if this entity is still deferred, if the entity doesn't have the component type,
+            /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e"> The entity to set the component value of. </param>
+            /// <param name="typeIndex"> The TypeIndex of the component being set. </param>
+            /// <param name="typeSize"> The Size of the type of the component being set. </param>
+            /// <param name="componentDataPtr"> The pointer to the data of the component to be copied. </param>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+            internal void UnsafeSetComponent(int sortKey, Entity e, TypeIndex typeIndex, int typeSize, void* componentDataPtr)
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+                m_Data->UnsafeAddEntityComponentCommand(chain, sortKey, ECBCommand.SetComponent, e, typeIndex, typeSize, componentDataPtr);
+            }
+
+            /// <summary>
+            /// Records a command to enable or disable a <see cref="ComponentType"/> on the specified <see cref="Entity"/>. This operation
+            /// does not cause a structural change, or affect the value of the component. For the purposes
+            /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
+            /// </summary>
+            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
+            /// <typeparam name="T">The component type to enable or disable. This type must implement the
+            /// <see cref="IEnableableComponent"/> interface.</typeparam>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e">The entity whose component should be enabled or disabled.</param>
+            /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+            [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
+            public void SetComponentEnabled<T>(int sortKey, Entity e, bool value) where T: struct, IEnableableComponent
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 m_Data->AddEntityComponentEnabledCommand(chain, sortKey,
                     ECBCommand.SetComponentEnabled, e, TypeManager.GetTypeIndex<T>(), value);
             }
-            internal void SetComponentEnabled(int sortKey, Entity e, ComponentType componentType, bool value)
+            /// <summary>
+            /// Records a command to enable or disable a <see cref="ComponentType"/> on the specified <see cref="Entity"/>. This operation
+            /// does not cause a structural change, or affect the value of the component. For the purposes
+            /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
+            /// </summary>
+            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e">The entity whose component should be enabled or disabled.</param>
+            /// <param name="componentType">The component type to enable or disable. This type must implement the
+            /// <see cref="IEnableableComponent"/> interface.</param>
+            /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+            public void SetComponentEnabled(int sortKey, Entity e, ComponentType componentType, bool value)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -3962,11 +4965,11 @@ namespace Unity.Entities
 
             /// <summary> Records a command to set a name of an entity if Debug Names is enabled.</summary>
             /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-            /// if this entity is still deferred, or if the EntityNameStore has reached its limit.</remarks>
+            /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the EntityNameStore has reached its limit.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to set the name value of. </param>
             /// <param name="name"> The name to set. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -3980,11 +4983,11 @@ namespace Unity.Entities
             /// <summary> Records a command to remove component of type T from an entity. </summary>
             /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have component T.
             /// Will throw an error if this entity is destroyed before playback,
-            /// if this entity is still deferred, or if T is type Entity.</remarks>
+            /// if this entity is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the component removed. </param>
             /// <typeparam name="T"> The type of component to remove. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -3996,11 +4999,11 @@ namespace Unity.Entities
             /// <summary> Records a command to remove component of type T from a NativeArray of entities. </summary>
             /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have component T.
             /// Will throw an error if one of these entities is destroyed before playback,
-            /// if one of these entities is still deferred, or if T is type Entity.</remarks>
+            /// if one of these entities is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component removed. </param>
             /// <typeparam name="T"> The type of component to remove. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -4012,11 +5015,11 @@ namespace Unity.Entities
             /// <summary> Records a command to remove a component from an entity. </summary>
             /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have the component type.
             /// Will throw an error if this entity is destroyed before playback,
-            /// if this entity is still deferred, or if the component type is Entity.</remarks>
+            /// if this entity is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the component removed. </param>
             /// <param name="componentType"> The type of component to remove. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -4030,11 +5033,11 @@ namespace Unity.Entities
             /// <summary> Records a command to remove one or more components from a NativeArray of entities. </summary>
             /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have the component type.
             /// Will throw an error if one of these entities is destroyed before playback,
-            /// if one of these entities is still deferred, or if the component type is Entity.</remarks>
+            /// if one of these entities is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component removed. </param>
             /// <param name="componentType"> The type of component to remove. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -4050,39 +5053,39 @@ namespace Unity.Entities
             /// <summary> Records a command to remove one or more components from an entity. </summary>
             /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have one of the component types.
             /// Will throw an error if this entity is destroyed before playback,
-            /// if this entity is still deferred, or if any of the component types are Entity.</remarks>
+            /// if this entity is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the components removed. </param>
-            /// <param name="types"> The types of components to remove. </param>
+            /// <param name="typeSet"> The types of components to remove. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void RemoveComponent(int sortKey, Entity e, ComponentTypes types)
+            public void RemoveComponent(int sortKey, Entity e, ComponentTypeSet typeSet)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentTypesCommand(chain, sortKey,ECBCommand.RemoveMultipleComponents, e, types);
+                m_Data->AddEntityComponentTypesCommand(chain, sortKey,ECBCommand.RemoveMultipleComponents, e, typeSet);
             }
 
             /// <summary> Records a command to remove one or more components from a NativeArray of entities. </summary>
             /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have one of the component types.
             /// Will throw an error if one of these entities is destroyed before playback,
-            /// if one of these entities is still deferred, or if any of the component types are Entity.</remarks>
+            /// if one of these entities is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have components removed. </param>
-            /// <param name="types"> The types of components to remove. </param>
+            /// <param name="typeSet"> The types of components to remove. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void RemoveComponent(int sortKey, NativeArray<Entity> entities, ComponentTypes types)
+            public void RemoveComponent(int sortKey, NativeArray<Entity> entities, ComponentTypeSet typeSet)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
                 m_Data->AppendMultipleEntitiesMultipleComponentsCommand(chain, sortKey,
-                    ECBCommand.RemoveMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, types);
+                    ECBCommand.RemoveMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, typeSet);
             }
 
             /// <summary> Records a command to add a shared component value on an entity.</summary>
@@ -4091,144 +5094,458 @@ namespace Unity.Entities
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to add the shared component value to. </param>
-            /// <param name="component"> The shared component value to add. </param>
+            /// <param name="sharedComponent"> The shared component value to add. </param>
             /// <typeparam name="T"> The type of shared component to add. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddSharedComponent<T>(int sortKey, Entity e, T component) where T : struct, ISharedComponentData
+            public void AddSharedComponentManaged<T>(int sortKey, Entity e, T sharedComponent) where T : struct, ISharedComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
 
                 int hashCode;
-                if (IsDefaultObject(ref component, out hashCode))
+                if (IsDefaultObject(ref sharedComponent, out hashCode))
                     m_Data->AddEntitySharedComponentCommand<T>(chain, sortKey, ECBCommand.AddSharedComponentData, e, hashCode, null);
                 else
-                    m_Data->AddEntitySharedComponentCommand<T>(chain, sortKey, ECBCommand.AddSharedComponentData, e, hashCode, component);
+                    m_Data->AddEntitySharedComponentCommand<T>(chain, sortKey, ECBCommand.AddSharedComponentData, e, hashCode, sharedComponent);
             }
 
-            /// <summary> Records a command to add a shared component value on a NativeArray of entities.</summary>
+            /// <summary> Records a command to add an unmanaged shared component value on an entity.</summary>
+            /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// if this entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
+            /// or adding a component type makes the archetype too large.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e"> The entity to add the shared component value to. </param>
+            /// <param name="sharedComponent"> The shared component value to add. </param>
+            /// <typeparam name="T"> The type of shared component to add. </typeparam>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            public void AddSharedComponent<T>(int sortKey, Entity e, T sharedComponent)
+                where T : unmanaged, ISharedComponentData
+            {
+                CheckWriteAccess();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                var typeIndex = TypeManager.GetTypeIndex<T>();
+                var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+                UnityEngine.Assertions.Assert.IsFalse(isManaged, $"{sharedComponent}: is managed and was passed to AddSharedComponentUnmanaged");
+#endif
+                var componentData = IsDefaultObjectUnmanaged(ref sharedComponent, out var hashCode)
+                    ? null
+                    : UnsafeUtility.AddressOf(ref sharedComponent);
+                m_Data->AddEntityUnmanagedSharedComponentCommand<T>(ThreadChain, sortKey, ECBCommand.AddUnmanagedSharedComponentData, e, hashCode, componentData);
+            }
+
+            /// <summary> Records a command to add a possibly-managed shared component value on a NativeArray of entities.</summary>
             /// <remarks>Behavior at Playback: Will throw an error if any entity is destroyed before playback,
             /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to add the shared component value to. </param>
-            /// <param name="component"> The shared component value to add. </param>
+            /// <param name="sharedComponent"> The shared component value to add. </param>
             /// <typeparam name="T"> The type of shared component to add. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddSharedComponent<T>(int sortKey, NativeArray<Entity> entities, T component) where T : struct, ISharedComponentData
+            public void AddSharedComponentManaged<T>(int sortKey, NativeArray<Entity> entities, T sharedComponent) where T : struct, ISharedComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
 
                 int hashCode;
                 var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
-                if (IsDefaultObject(ref component, out hashCode))
-                    m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(chain, sortKey, ECBCommand.AddSharedComponentWithValueForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, hashCode, null);
+                var isdefault = IsDefaultObject(ref sharedComponent, out hashCode);
+
+                if (TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<T>()))
+                {
+                    m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(
+                        chain,
+                        sortKey,
+                        ECBCommand.AddSharedComponentWithValueForMultipleEntities,
+                        entitiesCopy,
+                        entities.Length,
+                        containsDeferredEntities,
+                        hashCode,
+                        isdefault ? (object) null : sharedComponent);
+
+                }
                 else
-                    m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(chain, sortKey, ECBCommand.AddSharedComponentWithValueForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, hashCode, component);
+                {
+                    m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                        chain,
+                        sortKey,
+                        ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                        entitiesCopy,
+                        entities.Length,
+                        containsDeferredEntities,
+                        hashCode,
+                        isdefault ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+                }
+            }
+
+            /// <summary> Records a command to add an unmanaged shared component value on a NativeArray of entities.</summary>
+            /// <remarks>Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+            /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
+            /// or adding a component type makes the archetype too large.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="entities"> The NativeArray of entities to add the shared component value to. </param>
+            /// <param name="sharedComponent"> The shared component value to add. </param>
+            /// <typeparam name="T"> The type of shared component to add. </typeparam>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            public void AddSharedComponent<T>(int sortKey, NativeArray<Entity> entities, T sharedComponent)
+                where T : unmanaged, ISharedComponentData
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+
+                int hashCode;
+                var entitiesCopy =
+                    m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
+                var isdefault = IsDefaultObjectUnmanaged(ref sharedComponent, out hashCode);
+
+                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                    chain,
+                    sortKey,
+                    ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                    entitiesCopy,
+                    entities.Length,
+                    containsDeferredEntities,
+                    hashCode,
+                    isdefault ? null : UnsafeUtility.AddressOf(ref sharedComponent));
             }
 
             /// <summary> Records a command to set a shared component value on an entity.</summary>
             /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-            /// if this entity is still deferred, or if the entity doesn't have the shared component type.</remarks>
+            /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to set the shared component value of. </param>
-            /// <param name="component"> The shared component value to set. </param>
+            /// <param name="sharedComponent"> The shared component value to set. </param>
             /// <typeparam name="T"> The type of shared component to set. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void SetSharedComponent<T>(int sortKey, Entity e, T component) where T : struct, ISharedComponentData
+            public void SetSharedComponentManaged<T>(int sortKey, Entity e, T sharedComponent) where T : struct, ISharedComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
 
                 int hashCode;
-                if (IsDefaultObject(ref component, out hashCode))
-                    m_Data->AddEntitySharedComponentCommand<T>(chain, sortKey, ECBCommand.SetSharedComponentData, e, hashCode, null);
+
+                var typeIndex = TypeManager.GetTypeIndex<T>();
+                var isDefaultObject = IsDefaultObject(ref sharedComponent, out hashCode);
+                var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+                if (isManaged)
+                {
+                    m_Data->AddEntitySharedComponentCommand<T>(
+                        chain,
+                        sortKey,
+                        ECBCommand.SetSharedComponentData,
+                        e,
+                        hashCode,
+                        isDefaultObject ? (object) null : sharedComponent);
+                }
                 else
-                    m_Data->AddEntitySharedComponentCommand<T>(chain, sortKey, ECBCommand.SetSharedComponentData, e, hashCode, component);
+                {
+                    m_Data->AddEntityUnmanagedSharedComponentCommand<T>(
+                        chain,
+                        sortKey,
+                        ECBCommand.SetUnmanagedSharedComponentData,
+                        e,
+                        hashCode,
+                        isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+                }
+            }
+
+            /// <summary> Records a command to set an unmanaged shared component value on an entity.</summary>
+            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e"> The entity to set the shared component value of. </param>
+            /// <param name="sharedComponent"> The shared component value to set. </param>
+            /// <typeparam name="T"> The type of shared component to set. </typeparam>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            public void SetSharedComponent<T>(int sortKey, Entity e, T sharedComponent) where T : unmanaged, ISharedComponentData
+            {
+                CheckWriteAccess();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                var typeIndex = TypeManager.GetTypeIndex<T>();
+                var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+                UnityEngine.Assertions.Assert.IsFalse(isManaged, $"{sharedComponent}: is managed and was passed to SetSharedComponentUnmanaged");
+#endif
+                var componentData = IsDefaultObjectUnmanaged(ref sharedComponent, out var hashCode) ? null : UnsafeUtility.AddressOf(ref sharedComponent);
+                m_Data->AddEntityUnmanagedSharedComponentCommand<T>(
+                    ThreadChain,
+                    sortKey,
+                    ECBCommand.SetUnmanagedSharedComponentData,
+                    e,
+                    hashCode,
+                    componentData);
             }
 
             /// <summary> Records a command to set a shared component value on a NativeArray of entities.</summary>
             /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
-            /// if any entity is still deferred, or if any entity doesn't have the shared component type.</remarks>
+            /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobEntityBatch"/>
-            /// pass the 'batchIndex' value from <see cref="IJobEntityBatch.Execute(ArchetypeChunk, int)"/>.</param>
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to set the shared component value of. </param>
-            /// <param name="component"> The shared component value to set. </param>
+            /// <param name="sharedComponent"> The shared component value to set. </param>
             /// <typeparam name="T"> The type of shared component to set. </typeparam>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void SetSharedComponent<T>(int sortKey, NativeArray<Entity> entities, T component) where T : struct, ISharedComponentData
+            public void SetSharedComponentManaged<T>(int sortKey, NativeArray<Entity> entities, T sharedComponent) where T : struct, ISharedComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
 
                 int hashCode;
                 var entitiesCopy = m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
-                if (IsDefaultObject(ref component, out hashCode))
-                    m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(chain, sortKey, ECBCommand.SetSharedComponentValueForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, hashCode, null);
+                var isDefaultObject = IsDefaultObject(ref sharedComponent, out hashCode);
+
+                if (TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<T>()))
+                {
+                    m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(
+                        chain,
+                        sortKey,
+                        ECBCommand.SetSharedComponentValueForMultipleEntities,
+                        entitiesCopy,
+                        entities.Length,
+                        containsDeferredEntities,
+                        hashCode,
+                        isDefaultObject ? default : sharedComponent);
+                }
                 else
-                    m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(chain, sortKey, ECBCommand.SetSharedComponentValueForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, hashCode, component);
+                {
+                    m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                        chain,
+                        sortKey,
+                        ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                        entitiesCopy,
+                        entities.Length,
+                        containsDeferredEntities,
+                        hashCode,
+                        isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+                }
+            }
+
+            /// <summary> Records a command to set a shared component value on a NativeArray of entities.</summary>
+            /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+            /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="entities"> The NativeArray of entities to set the shared component value of. </param>
+            /// <param name="sharedComponent"> The shared component value to set. </param>
+            /// <typeparam name="T"> The type of shared component to set. </typeparam>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            public void SetSharedComponent<T>(int sortKey, NativeArray<Entity> entities, T sharedComponent)
+                where T : unmanaged, ISharedComponentData
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+
+                int hashCode;
+                var entitiesCopy =
+                    m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
+                var isDefaultObject = IsDefaultObjectUnmanaged(ref sharedComponent, out hashCode);
+
+                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                    chain,
+                    sortKey,
+                    ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                    entitiesCopy,
+                    entities.Length,
+                    containsDeferredEntities,
+                    hashCode,
+                    isDefaultObject ? null : UnsafeUtility.AddressOf(ref sharedComponent));
+            }
+
+            /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
+            /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
+            /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+            /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
+            /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
+            /// Note that EntityQueryMask ignores all query filtering (including chunk filtering and enableable components),
+            /// and may thus match more entities than expected.</param>
+            /// <param name="component"> The component value to set. </param>
+            /// <typeparam name="T"> The type of component to add.</typeparam>
+            /// <exception cref="ArgumentException">Throws if the component has a reference to a deferred entity, requiring fixup within the command buffer.</exception>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+            public void AddComponentForLinkedEntityGroup<T>(int sortKey, Entity e, EntityQueryMask mask, T component) where T : unmanaged, IComponentData
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+
+                m_Data->AddLinkedEntityGroupComponentCommand(chain, sortKey, ECBCommand.AddComponentLinkedEntityGroup, mask, e, component);
+            }
+
+            /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
+            /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
+            /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+            /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
+            /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
+            /// Note that EntityQueryMask ignores all query filtering (including chunk filtering and enableable components),
+            /// and may thus match more entities than expected.</param>
+            /// <param name="componentType"> The component type to add. </param>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+            public void AddComponentForLinkedEntityGroup(int sortKey, Entity e, EntityQueryMask mask, ComponentType componentType)
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+
+                m_Data->AddLinkedEntityGroupTypeCommand(chain, sortKey, ECBCommand.AddComponentLinkedEntityGroup, mask, e, componentType);
+            }
+
+            /// <summary>Records a command that sets a component for an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
+            /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
+            /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+            /// if the entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if any of the matching linked entities do not already have the component.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
+            /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to set the component for.
+            /// Note that EntityQueryMask ignores all query filtering (including chunk filtering and enableable components),
+            /// and may thus match more entities than expected.</param>
+            /// <param name="component"> The component value to set. </param>
+            /// <typeparam name="T"> The type of component to add.</typeparam>
+            /// <exception cref="ArgumentException">Throws if the component has a reference to a deferred entity, requiring fixup within the command buffer.</exception>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+            public void SetComponentForLinkedEntityGroup<T>(int sortKey, Entity e, EntityQueryMask mask, T component) where T : unmanaged, IComponentData
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+
+                m_Data->AddLinkedEntityGroupComponentCommand(chain, sortKey, ECBCommand.SetComponentLinkedEntityGroup, mask, e, component);
+            }
+
+            /// <summary>Records a command that replaces a component value for an entity's <see cref="LinkedEntityGroup"/>.
+            /// Entities in the <see cref="LinkedEntityGroup"/> that don't have the component will be skipped safely.</summary>
+            /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback or
+            /// if the entity is still deferred.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
+            /// <param name="component"> The component value to set. </param>
+            /// <typeparam name="T"> The type of component to add.</typeparam>
+            /// <exception cref="ArgumentException">Throws if the component has a reference to a deferred entity, requiring fixup within the command buffer.</exception>
+            /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+            /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+            public void ReplaceComponentForLinkedEntityGroup<T>(int sortKey, Entity e, T component) where T : unmanaged, IComponentData
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+
+                m_Data->AddEntityComponentCommand(chain, sortKey, ECBCommand.ReplaceComponentLinkedEntityGroup, e, component);
             }
         }
     }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
+    /// <summary>
+    /// Provides additional methods for using managed components with an EntityCommandBuffer.
+    /// </summary>
     public static unsafe class EntityCommandBufferManagedComponentExtensions
     {
         /// <summary> Records a command to add and set a managed component for an entity.</summary>
         /// <remarks>Behavior at Playback: If the entity already has this type of component, the value will just be set.
         /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
         /// or adding this componentType makes the archetype too large.</remarks>
+        /// <param name="ecb"> This entity command buffer.</param>
         /// <param name="e"> The entity to set the component value on.</param>
         /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of component to add.</typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public static void AddComponent<T>(this EntityCommandBuffer ecb, Entity e, T component) where T : class, IComponentData
+        [SupportedInEntitiesForEach]
+        public static void AddComponent<T>(this EntityCommandBuffer ecb, Entity e, T component) where T : class
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
             AddEntityComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, component);
-            ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
         }
 
         /// <summary> Records a command to add a managed component for an entity.</summary>
         /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
         /// if this entity is still deferred, or adding this componentType makes the archetype too large.</remarks>
+        /// <param name="ecb"> This entity command buffer.</param>
         /// <param name="e"> The entity to set the component value on.</param>
+        /// <typeparam name="T"> The type of component to add.</typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        public static void AddComponent<T>(this EntityCommandBuffer ecb, Entity e) where T : class, IComponentData
+        [SupportedInEntitiesForEach]
+        public static void AddComponent<T>(this EntityCommandBuffer ecb, Entity e) where T : class
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
             ecb.m_Data->AddEntityComponentTypeCommand(&ecb.m_Data->m_MainThreadChain, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, ComponentType.ReadWrite<T>());
-            ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
         }
 
         /// <summary> Records a command to set a managed component for an entity.</summary>
         /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, or if the entity doesn't have the shared component type.</remarks>
+        /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
+        /// <param name="ecb"> This entity command buffer.</param>
         /// <param name="e"> The entity to set the component value on.</param>
         /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of component to set.</typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public static void SetComponent<T>(this EntityCommandBuffer ecb, Entity e, T component) where T : class, IComponentData
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
             AddEntityComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.SetManagedComponentData, e, component);
-            ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
+        }
+
+        /// <summary>
+        /// Records a command to enable or disable a <see cref="ComponentType"/> on the specified <see cref="Entity"/>. This operation
+        /// does not cause a structural change, or affect the value of the component. For the purposes
+        /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
+        /// </summary>
+        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
+        /// <typeparam name="T">The component type to enable or disable. This type must implement the
+        /// <see cref="IEnableableComponent"/> interface.</typeparam>
+        /// <param name="ecb"> This entity command buffer.</param>
+        /// <param name="e">The entity whose component should be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        [SupportedInEntitiesForEach]
+        public static void SetComponentEnabled<T>(this EntityCommandBuffer ecb, Entity e, bool value) where T : class, IEnableableComponent
+        {
+            ecb.EnforceSingleThreadOwnership();
+            ecb.AssertDidNotPlayback();
+            ecb.m_Data->AddEntityComponentEnabledCommand(&ecb.m_Data->m_MainThreadChain, ecb.MainThreadSortKey,
+                ECBCommand.SetComponentEnabled, e, TypeManager.GetTypeIndex<T>(), value);
         }
 
         /// <summary> Records a command to add a managed component and set its value for all entities matching a query.</summary>
@@ -4238,10 +5555,13 @@ namespace Unity.Entities
         /// </remarks>
         /// <exception cref="InvalidOperationException">Thrown in playback if one or more of the entities has been destroyed. (With safety checks disabled,
         /// playback will perform invalid and unsafe memory access.).</exception>
+        /// <param name="ecb"> This entity command buffer.</param>
         /// <param name="query"> The query specifying which entities to add the component value to.</param>
         /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of component to add.</typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public static void AddComponentForEntityQuery<T>(this EntityCommandBuffer ecb, EntityQuery query, T component) where T : class, IComponentData
         {
             ecb.AddComponentObjectForEntityQuery(query, component);
@@ -4254,16 +5574,19 @@ namespace Unity.Entities
         /// </remarks>
         /// <exception cref="InvalidOperationException">Thrown in playback if one or more of the entities does not have the component type or has been destroyed. (With safety checks disabled,
         /// playback will perform invalid and unsafe memory access.).</exception>
+        /// <param name="ecb"> This entity command buffer.</param>
         /// <param name="query"> The query specifying which entities to set the component value for.</param>
         /// <param name="component"> The component value to set.</param>
+        /// <typeparam name="T"> The type of component to set.</typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
         public static void SetComponentForEntityQuery<T>(this EntityCommandBuffer ecb, EntityQuery query, T component) where T : class, IComponentData
         {
             ecb.SetComponentObjectForEntityQuery(query, component);
         }
 
-        internal static void AddEntityComponentCommandFromMainThread<T>(EntityCommandBufferData* ecbd, int sortKey, ECBCommand op, Entity e, T component) where T : class, IComponentData
+        internal static void AddEntityComponentCommandFromMainThread<T>(EntityCommandBufferData* ecbd, int sortKey, ECBCommand op, Entity e, T component) where T : class
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var sizeNeeded = EntityCommandBufferData.Align(sizeof(EntityManagedComponentCommand), 8);

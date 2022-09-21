@@ -1,16 +1,12 @@
 .preferences-setting
 {
     flex-shrink: 0;
-    margin-top: 21px;
+    margin-top: 15px; /* 21px "optical": compensates for line height and general block model spacing */
 }
 
 .preferences-setting__name
 {
-    padding: 0px;
-    margin: 1px 0px;
-    height: 19px;
-    font-size: 12px;
-    -unity-text-align: middle-left;
+    padding: 0;
     -unity-font-style: bold;
 }
 

@@ -21,10 +21,10 @@ namespace Unity.Entities
             return true;
         }
 
-        public void AddComponents(Entity entity, ComponentTypes componentTypes)
+        public void AddComponent(Entity entity, ComponentTypeSet componentTypeSet)
         {
             var chunk = GetChunk(entity);
-            var newArchetype = GetArchetypeWithAddedComponents(chunk->Archetype, componentTypes);
+            var newArchetype = GetArchetypeWithAddedComponents(chunk->Archetype, componentTypeSet);
             if (newArchetype == chunk->Archetype)  // none were removed
                 return;
             var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponents(chunk, newArchetype);
@@ -41,10 +41,10 @@ namespace Unity.Entities
             return true;
         }
 
-        public void RemoveComponents(Entity entity, ComponentTypes componentTypes)
+        public void RemoveComponent(Entity entity, ComponentTypeSet componentTypeSet)
         {
             var chunk = GetChunk(entity);
-            var newArchetype = GetArchetypeWithRemovedComponents(chunk->Archetype, componentTypes);
+            var newArchetype = GetArchetypeWithRemovedComponents(chunk->Archetype, componentTypeSet);
             if (newArchetype == chunk->Archetype)  // none were removed
                 return;
             var archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponents(chunk, newArchetype);
@@ -62,11 +62,11 @@ namespace Unity.Entities
             return true;
         }
 
-        bool AddComponents(EntityBatchInChunk entityBatchInChunk, ComponentTypes componentTypes)
+        bool AddComponents(EntityBatchInChunk entityBatchInChunk, ComponentTypeSet componentTypeSet)
         {
             var srcChunk = entityBatchInChunk.Chunk;
 
-            var dstArchetype = GetArchetypeWithAddedComponents(srcChunk->Archetype, componentTypes);
+            var dstArchetype = GetArchetypeWithAddedComponents(srcChunk->Archetype, componentTypeSet);
             if (dstArchetype == srcChunk->Archetype)  // none were added
                 return false;
 
@@ -89,11 +89,11 @@ namespace Unity.Entities
             return true;
         }
 
-        bool RemoveComponents(EntityBatchInChunk entityBatchInChunk, ComponentTypes componentTypes)
+        bool RemoveComponents(EntityBatchInChunk entityBatchInChunk, ComponentTypeSet componentTypeSet)
         {
             var srcChunk = entityBatchInChunk.Chunk;
 
-            var dstArchetype = GetArchetypeWithRemovedComponents(srcChunk->Archetype, componentTypes);
+            var dstArchetype = GetArchetypeWithRemovedComponents(srcChunk->Archetype, componentTypeSet);
             if (dstArchetype == srcChunk->Archetype)  // none were removed
                 return false;
 
@@ -130,7 +130,7 @@ namespace Unity.Entities
             }
         }
 
-        public void AddComponents(ArchetypeChunk* chunks, int chunkCount, ComponentTypes componentTypes)
+        public void AddComponents(ArchetypeChunk* chunks, int chunkCount, ComponentTypeSet componentTypeSet)
         {
             Archetype* prevArchetype = null;
             Archetype* dstArchetype = null;
@@ -142,7 +142,7 @@ namespace Unity.Entities
 
                 if (prevArchetype != srcArchetype)
                 {
-                    dstArchetype = GetArchetypeWithAddedComponents(srcArchetype, componentTypes);
+                    dstArchetype = GetArchetypeWithAddedComponents(srcArchetype, componentTypeSet);
                     prevArchetype = srcArchetype;
                 }
 
@@ -181,7 +181,7 @@ namespace Unity.Entities
             }
         }
 
-        public void RemoveComponents(ArchetypeChunk* chunks, int chunkCount, ComponentTypes componentTypes)
+        public void RemoveComponents(ArchetypeChunk* chunks, int chunkCount, ComponentTypeSet componentTypeSet)
         {
             Archetype* prevArchetype = null;
             Archetype* dstArchetype = null;
@@ -193,7 +193,7 @@ namespace Unity.Entities
 
                 if (prevArchetype != chunk->Archetype)
                 {
-                    dstArchetype = GetArchetypeWithRemovedComponents(srcArchetype, componentTypes);
+                    dstArchetype = GetArchetypeWithRemovedComponents(srcArchetype, componentTypeSet);
                     prevArchetype = chunk->Archetype;
                 }
 
@@ -215,22 +215,22 @@ namespace Unity.Entities
                 AddComponent(sortedEntityBatchList->Ptr[i], type, existingSharedComponentIndex);
         }
 
-        public void AddComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ref ComponentTypes types)
+        public void AddComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ref ComponentTypeSet typeSet)
         {
-            Assert.IsFalse(types.ChunkComponentCount > 0);
+            Assert.IsFalse(typeSet.ChunkComponentCount > 0);
 
             // Reverse order so that batch indices do not change while iterating.
             for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
-                AddComponents(sortedEntityBatchList->Ptr[i], types);
+                AddComponents(sortedEntityBatchList->Ptr[i], typeSet);
         }
 
-        public void RemoveComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ref ComponentTypes types)
+        public void RemoveComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ref ComponentTypeSet typeSet)
         {
-            Assert.IsFalse(types.ChunkComponentCount > 0);
+            Assert.IsFalse(typeSet.ChunkComponentCount > 0);
 
             // Reverse order so that batch indices do not change while iterating.
             for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
-                RemoveComponents(sortedEntityBatchList->Ptr[i], types);
+                RemoveComponents(sortedEntityBatchList->Ptr[i], typeSet);
         }
 
         public void RemoveComponent(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ComponentType type)
@@ -242,88 +242,18 @@ namespace Unity.Entities
                 RemoveComponent(sortedEntityBatchList->Ptr[i], type);
         }
 
-        [Obsolete("Please use AddComponent. (RemovedAfter 2021-07-10)")]
-        public bool AddComponentWithValidation(Entity entity, ComponentType componentType)
+        public void AddMultipleComponentsWithValidation(Entity entity, ComponentTypeSet componentTypeSet)
         {
-            if (HasComponent(entity, componentType))
-                return false;
-
-            AssertCanAddComponent(entity, componentType);
-            AddComponent(entity, componentType);
-
-            return true;
-        }
-
-        public void AddMultipleComponentsWithValidation(Entity entity, ComponentTypes componentTypes)
-        {
-            AssertCanAddComponents(entity, componentTypes);
-            AddComponents(entity, componentTypes);
+            AssertCanAddComponents(entity, componentTypeSet);
+            AddComponent(entity, componentTypeSet);
         }
 
 
-        [Obsolete("Please use AddComponent. (RemovedAfter 2021-07-10)")]
-        public void AddComponentWithValidation(UnsafeCachedChunkList cache, UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
-            ComponentType componentType, ComponentDependencyManager* dependencyManager)
-        {
-            AssertCanAddComponent(archetypeList, componentType);
-
-            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager);
-            if (chunks.Length > 0)
-            {
-                //@TODO the fast path for a chunk that contains a single entity is only possible if the chunk doesn't have a Locked Entity Order
-                //but we should still be allowed to add zero sized components to chunks with a Locked Entity Order, even ones that only contain a single entity
-
-                /*
-                if ((chunks.Length == 1) && (chunks[0].Count == 1))
-                {
-                    var entityPtr = (Entity*) chunks[0].m_Chunk->Buffer;
-                    StructuralChange.AddComponentEntity(EntityComponentStore, entityPtr, componentType.TypeIndex);
-                }
-                else
-                {
-                */
-                AddComponent((ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType);
-                /*
-                }
-                */
-            }
-
-            chunks.Dispose();
-        }
-
-        [Obsolete("Please use RemoveComponent. (RemovedAfter 2021-07-10)")]
-        public bool RemoveComponentWithValidation(Entity entity, ComponentType componentType)
+        public void RemoveMultipleComponentsWithValidation(Entity entity, ComponentTypeSet componentTypeSet)
         {
             ValidateEntity(entity);
-            AssertCanRemoveComponent(componentType);
-            var removed = RemoveComponent(entity, componentType);
-
-            return removed;
-        }
-
-        public void RemoveMultipleComponentsWithValidation(Entity entity, ComponentTypes componentTypes)
-        {
-            ValidateEntity(entity);
-            AssertCanRemoveComponents(componentTypes);
-            RemoveComponents(entity, componentTypes);
-        }
-
-        [Obsolete("Please use RemoveComponent. (RemovedAfter 2021-07-10)")]
-        public void RemoveComponentWithValidation(UnsafeCachedChunkList cache, UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
-            ComponentType componentType, ComponentDependencyManager* dependencyManager)
-        {
-            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager);
-            RemoveComponent((ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType);
-            chunks.Dispose();
-        }
-
-        [Obsolete("Please use RemoveComponent. (RemovedAfter 2021-07-10)")]
-        public void RemoveComponentWithValidation(Collections.NativeArray<ArchetypeChunk> chunks, ComponentType componentType)
-        {
-            if (chunks.Length == 0)
-                return;
-
-            RemoveComponent((ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType);
+            AssertCanRemoveComponents(componentTypeSet);
+            RemoveComponent(entity, componentTypeSet);
         }
 
         public void SetSharedComponentDataIndex(Entity entity, ComponentType componentType, int dstSharedComponentDataIndex)
@@ -377,7 +307,7 @@ namespace Unity.Entities
 
         void Move(Chunk* srcChunk, ref ArchetypeChunkFilter archetypeChunkFilter)
         {
-            if (archetypeChunkFilter.Archetype->SystemStateCleanupComplete)
+            if (archetypeChunkFilter.Archetype->CleanupComplete)
             {
                 ChunkDataUtility.Deallocate(srcChunk);
                 return;
@@ -399,13 +329,13 @@ namespace Unity.Entities
 
         void Move(EntityBatchInChunk entityBatchInChunk, ref ArchetypeChunkFilter archetypeChunkFilter)
         {
-            var systemStateCleanupComplete = archetypeChunkFilter.Archetype->SystemStateCleanupComplete;
+            var cleanupComplete = archetypeChunkFilter.Archetype->CleanupComplete;
 
             var srcChunk = entityBatchInChunk.Chunk;
             var srcRemainingCount = entityBatchInChunk.Count;
             var startIndex = entityBatchInChunk.StartIndex;
 
-            if ((srcRemainingCount == srcChunk->Count) && systemStateCleanupComplete)
+            if ((srcRemainingCount == srcChunk->Count) && cleanupComplete)
             {
                 ChunkDataUtility.Deallocate(srcChunk);
                 return;
@@ -426,10 +356,11 @@ namespace Unity.Entities
 
         /// <summary>
         /// Move subset of chunk data into another chunk.
-        /// - Chunks can be of same archetype (but differ by shared component values)
-        /// - Returns number moved. Caller handles if less than indicated in srcBatch.
         /// </summary>
-        /// <returns></returns>
+        /// <remarks>
+        /// Chunks can be of same archetype (but differ by shared component values).
+        /// </remarks>
+        /// <returns>Returns the number moved. Caller handles if less than indicated in srcBatch.</returns>
         int Move(in EntityBatchInChunk srcBatch, Chunk* dstChunk)
         {
             var srcChunk = srcBatch.Chunk;

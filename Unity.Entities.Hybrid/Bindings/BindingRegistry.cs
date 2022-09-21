@@ -2,8 +2,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
-using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEditor;
@@ -33,13 +33,22 @@ namespace Unity.Entities
             typeof(float2),typeof(int2),typeof(bool2),
             typeof(float3),typeof(int3),typeof(bool3),
             typeof(float4),typeof(int4),typeof(bool4),
+            typeof(Vector3), typeof(quaternion)
         };
 
-
-        struct FieldProperties
+        internal struct RuntimeFieldProperties
         {
             public int FieldOffset;
             public int FieldSize;
+            public Type FieldType;
+        }
+
+        // Binds a runtime field property to an authoring field name
+        internal struct ReverseBinding
+        {
+            public string AuthoringFieldName;
+            public TypeIndex ComponentTypeIndex;
+            public RuntimeFieldProperties FieldProperties;
         }
 
         /// <summary>
@@ -63,16 +72,26 @@ namespace Unity.Entities
         /// <summary>
         /// Field offset and size associated with the type and name of a runtime ComponentData.
         /// </summary>
-        static Dictionary<(Type, string), FieldProperties> s_RuntimeFieldProperties =
-            new Dictionary<(Type, string), FieldProperties>();
+        static Dictionary<(Type, string), RuntimeFieldProperties> s_RuntimeFieldProperties =
+            new Dictionary<(Type, string), RuntimeFieldProperties>();
+
+        /// <summary>
+        /// Maps an association of runtime property fields with their authoring field name to an Authoring Type to be able to support live properties in the Editor
+        /// </summary>
+        internal static Dictionary<Type, List<ReverseBinding>> s_AuthoringToRuntimeBinding = new Dictionary<Type, List<ReverseBinding>>();
 
         static BindingRegistry() =>
             Initialize();
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Initialize()
         {
             // Function is called at DomainReload
+
+            // Make sure the TypeManager is initialized
+            TypeManager.Initialize();
+
+            // Clear reverse binding mapping to clean old fields
+            s_AuthoringToRuntimeBinding.Clear();
 
             // Gather all registered runtime fields
             var registeredFields = TypeCache.GetFieldsWithAttribute<RegisterBindingAttribute>();
@@ -94,7 +113,6 @@ namespace Unity.Entities
                     Register(attr.ComponentType, attr.ComponentField, field.DeclaringType, authoringField);
                 }
             }
-
         }
 
         // Register binding of a runtime field with an authoring field
@@ -104,9 +122,11 @@ namespace Unity.Entities
             Assert.IsTrue(typeof(Component).IsAssignableFrom(authoringComponent));
             Assert.IsTrue(typeof(IComponentData).IsAssignableFrom(runtimeComponent));
 
+            var typeIndex = TypeManager.GetTypeIndex(runtimeComponent);
+            Assert.IsTrue(typeIndex.Value != 1);
+
             (Type, string) runtimeKey = (runtimeComponent, runtimeField);
             (Type, string) authoringValue = (authoringComponent, authoringField);
-
 
             // TODO: Validation checks on authoringComponent type and authoringField
             // - Check if field is public, serialized and not decorated with a NotKeyable attribute
@@ -116,9 +136,13 @@ namespace Unity.Entities
             //   need to instantiate a GameObject. We don't care about the path, only animatable fields of Component type.
             //   Having this would minimize the amount of reflection we'd have to do in C# altogether for validation.
 
+            bool extractedProperties = ExtractFieldProperties(runtimeKey, out var fieldProps);
+            if (!extractedProperties) // Should we keep continuing?
+                Debug.LogError($"No compatible binding for {authoringComponent}. ('{runtimeComponent}'.'{runtimeField}' => {authoringField}");
+
             if (!s_RuntimeFieldProperties.ContainsKey(runtimeKey))
             {
-                if (ExtractFieldProperties(runtimeKey, out var fieldProps))
+                if (extractedProperties)
                     s_RuntimeFieldProperties.Add(runtimeKey, fieldProps);
             }
 
@@ -144,6 +168,19 @@ namespace Unity.Entities
                 else
                     s_RuntimeFieldNames[runtimeComponent] = new HashSet<string>() {runtimeField};
             }
+
+            if (!s_AuthoringToRuntimeBinding.TryGetValue(authoringComponent, out var lookup))
+            {
+                if (extractedProperties)
+                    s_AuthoringToRuntimeBinding[authoringComponent] = lookup = new List<ReverseBinding>();
+            }
+
+            if (extractedProperties && lookup.Where(x => x.AuthoringFieldName == authoringField).ToArray().Length == 0)
+                lookup.Add(new ReverseBinding() {
+                    AuthoringFieldName = authoringField,
+                    ComponentTypeIndex = typeIndex,
+                    FieldProperties = fieldProps
+                });
         }
 
         // Checks if a runtime type has any authoring bindings
@@ -164,6 +201,16 @@ namespace Unity.Entities
 
             return (null, string.Empty);
         }
+
+        internal static List<ReverseBinding> GetReverseBindings(Type authoringType)
+        {
+            Assert.IsTrue(typeof(Component).IsAssignableFrom(authoringType));
+
+            if (s_AuthoringToRuntimeBinding.TryGetValue(authoringType, out var reverseBindings))
+                return reverseBindings;
+            return null;
+        }
+
 
         // Get all registered fields of a runtime type
         public static HashSet<string> GetFields(Type type)
@@ -199,18 +246,19 @@ namespace Unity.Entities
                 $"Field [{fieldName}] from component type [{type}] has not been registered.");
         }
 
-        static bool ExtractFieldProperties((Type, string) field, out FieldProperties data)
+        static bool ExtractFieldProperties((Type, string) field, out RuntimeFieldProperties data)
         {
             data = default;
 
             Type type = field.Item1;
+
+            if (!type.IsValueType)
+                return false;
+
             foreach (var name in field.Item2.Split('.'))
             {
                 var fieldInfo = type.GetField(name, k_FieldFlags);
                 if (fieldInfo == null)
-                    return false;
-
-                if (!type.IsValueType)
                     return false;
 
                 data.FieldOffset += UnsafeUtility.GetFieldOffset(fieldInfo);
@@ -218,11 +266,10 @@ namespace Unity.Entities
             }
 
             data.FieldSize = UnsafeUtility.SizeOf(type);
+            data.FieldType = type;
 
             return true;
         }
-
-
     }
 }
 

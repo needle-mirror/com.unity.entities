@@ -13,7 +13,7 @@ The Entities Structural Changes Profiler module has four chart categories which 
 * **Adding Components**
 * **Removing Components**
 
-For more information about structural changes, see [Creating Entities and Adding and removing Components](ecs_entities.md).
+For more information about structural changes, see [Structural changes concepts](concepts-structural-changes.md).
 
 ## Module details pane
 
@@ -28,5 +28,4 @@ When you select the module, the details pane at the bottom of the Profiler windo
 ## Additional resources
 
 * [Profiler window](https://docs.unity3d.com/Manual/Profiler.html)
-* [Creating Entities](ecs_entities.md)
-* [Adding and removing Components](ecs_entities.md#adding-components).
+* [Structural changes concepts](concepts-structural-changes.md)

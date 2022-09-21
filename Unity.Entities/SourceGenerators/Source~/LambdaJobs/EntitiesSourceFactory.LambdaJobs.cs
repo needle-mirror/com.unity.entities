@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
+using static Unity.Entities.SourceGen.LambdaJobs.LambdaParamDescription_EntityCommandBuffer;
 
 namespace Unity.Entities.SourceGen.LambdaJobs
 {
@@ -15,30 +16,35 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             public static StructDeclarationSyntax JobStructFor(LambdaJobDescription description)
             {
                 var template = $@"
-			    {Common.GeneratedLineTriviaToGeneratedSource}
+			    {TypeCreationHelpers.GeneratedLineTriviaToGeneratedSource}
                 {Common.NoAliasAttribute(description)}
                 {Common.BurstCompileAttribute(description)}
                 {(description.NeedsUnsafe ? "unsafe " : string.Empty)}struct {description.JobStructName}
                 {JobInterface()}
                 {{
                     {(description.IsForDOTSRuntime ? IJobBaseMethods(description) : string.Empty)}
+                    {(description.NeedsEntityInQueryIndex ? ChunkBaseEntityIndicesField() : string.Empty)}
                     {RunWithoutJobSystemDelegateFields(description).EmitIfTrue(description.NeedsJobFunctionPointers)}
-                    {EntitiesJournaling_VariableFields(description)}
+                    {StructSystemFields()}
                     {CapturedVariableFields()}
                     {DeclarationsForLocalFunctionsUsed()}
                     {TypeHandleFields().EmitIfTrue(!description.WithStructuralChanges)}
-                    {AdditionalDataFromEntityFields()}
+                    {AdditionalDataLookupFields()}
                     {MethodsForLocalFunctions()}
+                    {GenerateProfilerMarker(description)}
 
-                    {(!description.WithStructuralChangesAndLambdaBodyInSystem ? OriginalLambdaBody() : string.Empty)}
+                    {(description.WithStructuralChangesAndLambdaBodyInSystem ? string.Empty : OriginalLambdaBody())}
 
                     {ExecuteMethod()}
                     {DisposeOnCompletionMethod()}
 
                     {RunWithoutJobSystemMethod(description).EmitIfTrue(description.NeedsJobFunctionPointers)}
-                    {EntitiesJournaling_RecordChunkMethod(description)}
-                    {EntitiesJournaling_RecordEntityMethod(description)}
                 }}";
+
+                static string ChunkBaseEntityIndicesField() =>
+                    @"[Unity.Collections.ReadOnly]
+                    [Unity.Collections.DeallocateOnJobCompletion]
+                    public Unity.Collections.NativeArray<int> __ChunkBaseEntityIndices;";
 
                 var jobStructDeclaration = (StructDeclarationSyntax) SyntaxFactory.ParseMemberDeclaration(template);
 
@@ -63,7 +69,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     description.LambdaParameters.Select(param => param.StructuralChanges_GetTypeIndex(description))
                         .SeparateByNewLine();
 
-                // var rotationOriginal = _rotationFromEntity[entity]; var rotation = rotationOriginal;
+                // var rotationOriginal = _rotationLookup[entity]; var rotation = rotationOriginal;
                 static string StructuralChanges_ReadLambdaParams(LambdaJobDescription description) =>
                     description.LambdaParameters.Select(param => param.StructuralChanges_ReadLambdaParam())
                         .SeparateByNewLine();
@@ -73,72 +79,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     description.LambdaParameters.Select(param => param.StructuralChanges_WriteBackLambdaParam())
                         .SeparateByNewLine();
 
-                static string EntitiesJournaling_VariableFields(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled && description.HasJournalingRecordableParameters ?
-                        new[] {
-                            $@"[Unity.Collections.ReadOnly] public ulong __worldSequenceNumber;",
-                            $@"[Unity.Collections.ReadOnly] public Unity.Entities.SystemHandleUntyped __executingSystem;"
-                        }.SeparateByNewLine() : string.Empty;
-
-                static string EntitiesJournaling_RecordChunkMethod(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled && description.HasJournalingRecordableChunkParameters ?
-                        $@"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-                        void EntitiesJournaling_RecordChunk(in ArchetypeChunk chunk, {EntitiesJournaling_RecordChunkMethodParams(description)})
-                        {{
-                            {EntitiesJournaling_RecordChunkSetComponent(description)}
-                        }}" : string.Empty;
-
-                static string EntitiesJournaling_RecordChunkMethodParams(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled && description.HasJournalingRecordableChunkParameters ?
-                        description.LambdaParameters
-                            .Select(param => param.EntitiesJournaling_RecordChunkMethodParams())
-                            .SeparateByComma() : string.Empty;
-
-                static string EntitiesJournaling_RecordChunk(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled && description.HasJournalingRecordableChunkParameters ?
-                        $@"if (Unity.Entities.EntitiesJournaling.Enabled)
-                            EntitiesJournaling_RecordChunk(in chunk, {EntitiesJournaling_RecordChunkArguments(description)});" : string.Empty;
-
-                static string EntitiesJournaling_RecordChunkArguments(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled && description.HasJournalingRecordableChunkParameters ?
-                        description.LambdaParameters
-                            .Select(param => param.EntitiesJournaling_RecordChunkArguments())
-                            .SeparateByComma() : string.Empty;
-
-                static string EntitiesJournaling_RecordChunkSetComponent(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled ?
-                        description.LambdaParameters.Select(param => param.EntitiesJournaling_RecordChunkSetComponent())
-                            .SeparateByNewLine() : string.Empty;
-
-                static string EntitiesJournaling_RecordEntityMethod(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled && description.HasJournalingRecordableEntityParameters ?
-                        $@"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-                        void EntitiesJournaling_RecordEntity(in Entity entity, {EntitiesJournaling_RecordEntityMethodParams(description)})
-                        {{
-                            {EntitiesJournaling_RecordEntitySetComponent(description)}
-                        }}" : string.Empty;
-
-                static string EntitiesJournaling_RecordEntityMethodParams(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled && description.HasJournalingRecordableEntityParameters ?
-                        description.LambdaParameters
-                            .Select(param => param.EntitiesJournaling_RecordEntityMethodParams())
-                            .SeparateByComma() : string.Empty;
-
-                static string EntitiesJournaling_RecordEntity(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled && description.HasJournalingRecordableEntityParameters ?
-                        $@"if (Unity.Entities.EntitiesJournaling.Enabled)
-                            EntitiesJournaling_RecordEntity(in entity, {EntitiesJournaling_RecordEntityArguments(description)});" : string.Empty;
-
-                static string EntitiesJournaling_RecordEntityArguments(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled && description.HasJournalingRecordableEntityParameters ?
-                        description.LambdaParameters
-                            .Select(param => param.EntitiesJournaling_RecordEntityArguments())
-                            .SeparateByComma() : string.Empty;
-
-                static string EntitiesJournaling_RecordEntitySetComponent(LambdaJobDescription description) =>
-                    description.HasJournalingEnabled ?
-                        description.LambdaParameters.Select(param => param.EntitiesJournaling_RecordEntitySetComponent())
-                            .SeparateByNewLine() : string.Empty;
+                string StructSystemFields() =>
+                    description.NeedsTimeData ? "public Unity.Core.TimeData __Time;" : string.Empty;
 
                 // public [ReadOnly] CapturedFieldType capturedFieldName;
                 // Need to also declare these for variables used by local methods
@@ -155,38 +97,39 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 string DeclarationsForLocalFunctionsUsed() => description.LocalFunctionUsedInLambda.Select(localMethod => localMethod.localFunction.ToString()).SeparateByNewLine();
 
                 // public ComponentTypeHandle<ComponentType> _rotationTypeAccessor;
-                string TypeHandleFields() => description.LambdaParameters.Select(param => param.FieldInGeneratedJobEntityBatchType())
+                string TypeHandleFields() => description.LambdaParameters.Select(param => param.FieldInGeneratedJobChunkType())
                     .SeparateByNewLine();
 
-                // public Unity.Entities.ComponentDataFromEntity<ComponentType> _rotationDataFromEntity;
-                string AdditionalDataFromEntityFields() =>
+                // public Unity.Entities.ComponentLookup<ComponentType> _rotationLookup;
+                string AdditionalDataLookupFields() =>
                     description.AdditionalFields
-                        .Select(dataFromEntityField => ToFieldDeclaration(dataFromEntityField).ToString())
+                        .Select(dataLookupField => dataLookupField.ToFieldDeclaration().ToString())
                         .SeparateByNewLine();
 
                 // void OriginalLambdaBody(ref ComponentType1 component1, in ComponentType2 component2) {}";
                 string OriginalLambdaBody() => $@"
                 {"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]".EmitIfTrue(description.Burst.IsEnabled)}
                 void OriginalLambdaBody({description.LambdaParameters.Select(param => param.LambdaBodyMethodParameter(description.Burst.IsEnabled)).SeparateByComma()}) {{}}
-                {Common.GeneratedLineTriviaToGeneratedSource}";
+                {TypeCreationHelpers.GeneratedLineTriviaToGeneratedSource}";
 
                 // OriginalLambdaBody(ref Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AsRef<ComponentType1>(componentArray1 + i), *(componentArray2 + i));
                 string PerformLambda()
                 {
                     var result = string.Empty;
 
-                    result += description.LambdaParameters.Select(param => param.LambdaBodyParameterSetup())
-                        .SeparateBySemicolonAndNewLine();
+                    result += description.LambdaParameters.Select(param => param.LambdaBodyParameterSetup()).SeparateBySemicolonAndNewLine();
 
                     if (description.WithStructuralChangesAndLambdaBodyInSystem)
                         result +=
                             $@"__this.{description.LambdaBodyMethodName}({description.LambdaParameters.Select(param => param.StructuralChanges_LambdaBodyParameter()).SeparateByCommaAndNewLine()});";
                     else if (description.WithStructuralChanges)
                         result +=
-                            $@"OriginalLambdaBody({description.LambdaParameters.Select(param => param.StructuralChanges_LambdaBodyParameter()).SeparateByCommaAndNewLine()});";
+                            $@"OriginalLambdaBody({description.LambdaParameters.Select(param => param.StructuralChanges_LambdaBodyParameter())
+                                .SeparateByCommaAndNewLine()});";
                     else
                         result +=
-                            $@"OriginalLambdaBody({description.LambdaParameters.Select(param => param.LambdaBodyParameter()).SeparateByCommaAndNewLine()});";
+                            $@"OriginalLambdaBody({description.LambdaParameters.Select(param => param.LambdaBodyParameter())
+                                .SeparateByCommaAndNewLine()});";
 
                     return result;
                 }
@@ -201,6 +144,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         {PerformLambda()}
                     }}";
 
+                /*
                 string ExecuteMethodDefault() => $@"
                     public void Execute(Unity.Entities.ArchetypeChunk chunk, int batchIndex)
                     {{
@@ -211,12 +155,76 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         {{
                             {PerformLambda()}
                         }}
+                    }}";
+                */
 
-                        {EntitiesJournaling_RecordChunk(description)}
+                string ExecuteMethodDefault() => $@"
+                        [global::System.Runtime.CompilerServices.CompilerGenerated]
+                        public void Execute(in ArchetypeChunk chunk, int batchIndex, bool useEnabledMask, in Unity.Burst.Intrinsics.v128 chunkEnabledMask)
+                        {{
+                            {GetChunkNativeArrays(description)}
+                            int chunkEntityCount = chunk.ChunkEntityCount;
+                            {"int matchingEntityCount = 0;".EmitIfTrue(description.NeedsEntityInQueryIndex)}
+                            if (!useEnabledMask)
+                            {{
+                                for(var entityIndex = 0; entityIndex < chunkEntityCount; ++entityIndex)
+                                {{
+                                    {"var entityInQueryIndex = __ChunkBaseEntityIndices[batchIndex] + matchingEntityCount++;".EmitIfTrue(description.NeedsEntityInQueryIndex)}
+                                    {PerformLambda()}
+                                }}
+                            }}
+                            else
+                            {{
+                                int edgeCount = Unity.Mathematics.math.countbits(chunkEnabledMask.ULong0 ^ (chunkEnabledMask.ULong0 << 1)) +
+                                                Unity.Mathematics.math.countbits(chunkEnabledMask.ULong1 ^ (chunkEnabledMask.ULong1 << 1)) - 1;
+                                bool useRanges = edgeCount <= 4;
+                                if (useRanges)
+                                {{
+                                    var enabledMask = chunkEnabledMask;
+                                    int entityIndex = 0;
+                                    int batchEndIndex = 0;
+                                    while (EnabledBitUtility.GetNextRange(ref enabledMask, ref entityIndex, ref batchEndIndex))
+                                    {{
+                                        while (entityIndex < batchEndIndex)
+                                        {{
+                                            {"var entityInQueryIndex = __ChunkBaseEntityIndices[batchIndex] + matchingEntityCount++;".EmitIfTrue(description.NeedsEntityInQueryIndex)}
+                                            {PerformLambda()}
+                                            entityIndex++;
+                                        }}
+                                    }}
+                                }}
+                                else
+                                {{
+                                    ulong mask64 = chunkEnabledMask.ULong0;
+                                    int count = Unity.Mathematics.math.min(64, chunkEntityCount);
+                                    for (var entityIndex = 0; entityIndex < count; ++entityIndex)
+                                    {{
+                                        if ((mask64 & 1) != 0)
+                                        {{
+                                            {"var entityInQueryIndex = __ChunkBaseEntityIndices[batchIndex] + matchingEntityCount++;".EmitIfTrue(description.NeedsEntityInQueryIndex)}
+                                            {PerformLambda()}
+                                        }}
+                                        mask64 >>= 1;
+                                    }}
+                                    mask64 = chunkEnabledMask.ULong1;
+                                    for (var entityIndex = 64; entityIndex < chunkEntityCount; ++entityIndex)
+                                    {{
+                                        if ((mask64 & 1) != 0)
+                                        {{
+                                            {"var entityInQueryIndex = __ChunkBaseEntityIndices[batchIndex] + matchingEntityCount++;".EmitIfTrue(description.NeedsEntityInQueryIndex)}
+                                            {PerformLambda()}
+                                        }}
+                                        mask64 >>= 1;
+                                    }}
+                                }}
+                           }}
                     }}";
 
+                /*
                 string ExecuteMethodWithEntityInQueryIndex() =>
                     $@"
+                    public void Execute(in Unity.Entities.ArchetypeChunk chunk,
+                        int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
                     public void Execute(Unity.Entities.ArchetypeChunk chunk, int batchIndex, int indexOfFirstEntityInQuery)
                     {{
                         {GetChunkNativeArrays(description)}
@@ -227,16 +235,15 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                             int entityInQueryIndex = indexOfFirstEntityInQuery + entityIndex;
                             {PerformLambda()}
                         }}
-
-                        {EntitiesJournaling_RecordChunk(description)}
                     }}";
+                    */
 
                 string ExecuteMethodForStructuralChanges() =>
                     $@"
                     public void RunWithStructuralChange(Unity.Entities.EntityQuery query)
                     {{
-                        {Common.GeneratedLineTriviaToGeneratedSource}
-                        var mask = __this.EntityManager.GetEntityQueryMask(query);
+                        {TypeCreationHelpers.GeneratedLineTriviaToGeneratedSource}
+                        var mask = query.GetEntityQueryMask();
                         Unity.Entities.InternalCompilerInterface.UnsafeCreateGatherEntitiesResult(ref query, out var gatherEntitiesResult);
                         {StructuralChanges_GetTypeIndices(description)}
 
@@ -246,12 +253,11 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                             for (int entityIndex = 0; entityIndex != entityCount; entityIndex++)
                             {{
                                 var entity = Unity.Entities.InternalCompilerInterface.UnsafeGetEntityFromGatheredEntities(ref gatherEntitiesResult, entityIndex);
-                                if (mask.Matches(entity))
+                                if (mask.MatchesIgnoreFilter(entity))
                                 {{
                                     {StructuralChanges_ReadLambdaParams(description)}
                                     {PerformLambda()}
                                     {StructuralChanges_WriteBackLambdaParams(description)}
-                                    {EntitiesJournaling_RecordEntity(description)}
                                 }}
                             }}
                         }}
@@ -265,20 +271,19 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     $@"
                     public void RunWithStructuralChange(Unity.Entities.EntityQuery query, NativeArray<Entity> withEntities)
                     {{
-                        {Common.GeneratedLineTriviaToGeneratedSource}
-                        var mask = __this.EntityManager.GetEntityQueryMask(query);
+                        {TypeCreationHelpers.GeneratedLineTriviaToGeneratedSource}
+                        var mask = query.GetEntityQueryMask();
                         {StructuralChanges_GetTypeIndices(description)}
 
                         int entityCount = withEntities.Length;
                         for (int entityIndex = 0; entityIndex != entityCount; entityIndex++)
                         {{
                             var entity = withEntities[entityIndex];
-                            if (mask.Matches(entity))
+                            if (mask.MatchesIgnoreFilter(entity))
                             {{
                                 {StructuralChanges_ReadLambdaParams(description)}
                                 {PerformLambda()}
                                 {StructuralChanges_WriteBackLambdaParams(description)}
-                                {EntitiesJournaling_RecordEntity(description)}
                             }}
                         }}
                     }}";
@@ -287,12 +292,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 {
                     if (description.LambdaJobKind == LambdaJobKind.Job)
                         return ExecuteMethodForJob();
-                    if (description.WithStructuralChanges && description.WithFilterEntityArray == null)
+                    if (description.WithStructuralChanges)
                         return ExecuteMethodForStructuralChanges();
                     if (description.WithStructuralChanges && description.WithFilterEntityArray != null)
                         return ExecuteMethodForStructuralChangesWithEntities();
-                    if (description.NeedsEntityInQueryIndex)
-                        return ExecuteMethodWithEntityInQueryIndex();
                     return ExecuteMethodDefault();
                 }
 
@@ -330,11 +333,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     if (description.LambdaJobKind == LambdaJobKind.Job)
                         jobInterface = " : Unity.Jobs.IJob";
                     else if (!description.WithStructuralChanges)
-                    {
-                        jobInterface = description.NeedsEntityInQueryIndex
-                            ? " : Unity.Entities.IJobEntityBatchWithIndex"
-                            : " : Unity.Entities.IJobEntityBatch";
-                    }
+                        jobInterface = " : Unity.Entities.IJobChunk";
 
                     if (!string.IsNullOrEmpty(jobInterface) && description.IsForDOTSRuntime)
                         jobInterface += ", Unity.Jobs.IJobBase";
@@ -348,10 +347,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     {
                         case LambdaJobKind.Entities:
                         {
-                            string type =
-                                description.NeedsEntityInQueryIndex
-                                    ? "Unity.Entities.JobEntityBatchIndexExtensions"
-                                    : "Unity.Entities.JobEntityBatchExtensions";
+                            var jobInterfaceType = "Unity.Entities.InternalCompilerInterface.JobChunkInterface";
 
                             return
                                 description.WithFilterEntityArray != null
@@ -363,7 +359,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                         {EnterTempMemoryScope(description)}
                                         try
                                         {{
-                                            {type}.RunWithoutJobsInternal(ref Unity.Entities.InternalCompilerInterface.UnsafeAsRef<{description.JobStructName}>(jobPtr), ref query, limitToEntityArrayPtr, limitToEntityArrayLength);
+                                            {jobInterfaceType}.RunWithoutJobsInternal(ref Unity.Entities.InternalCompilerInterface.UnsafeAsRef<{description.JobStructName}>(jobPtr), ref query, limitToEntityArrayPtr, limitToEntityArrayLength);
                                         }}
                                         finally
                                         {{
@@ -373,12 +369,12 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                     : $@"
                                     {Common.BurstCompileAttribute(description)}
                                     {Common.MonoPInvokeCallbackAttributeAttribute(description)}
-                                    public static void RunWithoutJobSystem(ref Unity.Entities.ArchetypeChunkIterator archetypeChunkIterator, global::System.IntPtr jobPtr)
+                                    public static void RunWithoutJobSystem(ref Unity.Entities.EntityQuery query, global::System.IntPtr jobPtr)
                                     {{
                                         {EnterTempMemoryScope(description)}
                                         try
                                         {{
-                                            {type}.RunWithoutJobsInternal(ref Unity.Entities.InternalCompilerInterface.UnsafeAsRef<{description.JobStructName}>(jobPtr), ref archetypeChunkIterator);
+                                            {jobInterfaceType}.RunWithoutJobsInternal(ref Unity.Entities.InternalCompilerInterface.UnsafeAsRef<{description.JobStructName}>(jobPtr), ref query);
                                         }}
                                         finally
                                         {{
@@ -421,8 +417,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 {
                     var delegateName = description.LambdaJobKind switch
                     {
-                        LambdaJobKind.Entities when description.WithFilterEntityArray != null => "Unity.Entities.InternalCompilerInterface.JobEntityBatchRunWithoutJobSystemDelegateLimitEntities",
-                        LambdaJobKind.Entities => "Unity.Entities.InternalCompilerInterface.JobEntityBatchRunWithoutJobSystemDelegate",
+                        LambdaJobKind.Entities when description.WithFilterEntityArray != null => "Unity.Entities.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegateLimitEntities",
+                        LambdaJobKind.Entities => "Unity.Entities.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegate",
                         LambdaJobKind.Job => "Unity.Entities.InternalCompilerInterface.JobRunWithoutJobSystemDelegate",
                         _ => throw new ArgumentOutOfRangeException()
                     };
@@ -453,22 +449,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
 
                     return fieldDeclaration;
-                }
-
-                static FieldDeclarationSyntax ToFieldDeclaration(
-                    DataFromEntityFieldDescription dataFromEntityFieldDescription)
-                {
-                    var dataFromEntityType = (dataFromEntityFieldDescription.AccessorDataType ==
-                                              LambdaJobsPatchableMethod.AccessorDataType.ComponentDataFromEntity)
-                        ? "ComponentDataFromEntity"
-                        : "BufferFromEntity";
-
-                    var accessAttribute = dataFromEntityFieldDescription.IsReadOnly
-                        ? "[Unity.Collections.ReadOnly]"
-                        : string.Empty;
-                    var template =
-                        $@"{accessAttribute} public {dataFromEntityType}<{dataFromEntityFieldDescription.Type.ToFullName()}> {dataFromEntityFieldDescription.FieldName};";
-                    return (FieldDeclarationSyntax) SyntaxFactory.ParseMemberDeclaration(template);
                 }
 
                 static string IJobBaseMethods(LambdaJobDescription description)
@@ -539,6 +519,34 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         throw new global::System.NotImplementedException();
                     }" : "");
                 }
+
+                static string GenerateProfilerMarker(LambdaJobDescription description)
+                {
+                    if (!description.ProfilerEnabled || description.IsForDOTSRuntime)
+                        return "";
+                    string marker = "public static readonly Unity.Profiling.ProfilerMarker s_ProfilerMarker = new Unity.Profiling.ProfilerMarker(";
+                    if (description.Schedule.Mode == ScheduleMode.Run)
+                    {
+                        if (description.Burst.IsEnabled)
+                            marker +=
+                                "new Unity.Profiling.ProfilerCategory(\"Burst\", Unity.Profiling.ProfilerCategoryColor.BurstJobs), ";
+                        marker += "\"";
+                        marker += description.Name;
+                        marker += "\");\n";
+                    }
+                    else
+                    {
+                        marker += "\"";
+                        marker += description.Name;
+                        if (description.Schedule.Mode == ScheduleMode.Schedule)
+                            marker += ".Schedule";
+                        else
+                            marker += ".ScheduleParallel";
+                        marker += "\");\n";
+                    }
+
+                    return marker;
+                }
             }
 
             public static MethodDeclarationSyntax LambdaBodyMethodFor(LambdaJobDescription description)
@@ -551,23 +559,58 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
             public static MethodDeclarationSyntax CreateExecuteMethod(LambdaJobDescription description)
             {
+                var temporaryEcbCreation = CreateTemporaryEcb(description);
+
+                bool addJobHandleForProducer = description.EntityCommandBufferParameter is {Playback: {IsImmediate: false}}
+                                               && description.EntityCommandBufferParameter.Playback.ScheduleMode != ScheduleMode.Run;
+
                 var dependencyArg = (description.InStructSystem) ? $"{description.SystemStateParameterName}.Dependency" : "Dependency";
                 var completeDependencyStatement = (description.InStructSystem) ? $"{description.SystemStateParameterName}.CompleteDependency();" : "CompleteDependency();";
+                var emitProfilerMarker = description.ProfilerEnabled && !description.IsForDOTSRuntime;
 
                 var template =
                     $@"{(description.NeedsUnsafe ? "unsafe " : string.Empty)} {ReturnType()} {description.ExecuteInSystemMethodName}({ExecuteMethodParams()})
                     {{
                         {ComponentTypeHandleFieldUpdate()}
+                        {ComponentLookupFieldUpdate()}
+                        {temporaryEcbCreation.Code}
                         var __job = new {description.JobStructName}
                         {{
-                            {JobStructFieldAssignment()}
+                            {JobStructFieldAssignments().SeparateByCommaAndNewLine()}
                         }};
                         {Common.SharedComponentFilterInvocations(description)}
+                        {"Unity.Jobs.JobHandle __jobHandle;".EmitIfTrue(description.Schedule.DependencyArgument != null)}
+                        {CalculateChunkBaseEntityIndices()}
+                        {$"using ({description.JobStructName}.s_ProfilerMarker.Auto()) {{".EmitIfTrue(emitProfilerMarker)}
                         {ScheduleInvocation()}
+                        {"}".EmitIfTrue(emitProfilerMarker)}
                         {DisposeOnCompletionInvocation()}
+                        {$"{description.EntityCommandBufferParameter?.GeneratedEcbFieldNameInSystemBaseType}.AddJobHandleForProducer(Dependency);".EmitIfTrue(addJobHandleForProducer)}
+                        {$"{TemporaryJobEntityCommandBufferVariableName}.Playback(EntityManager);".EmitIfTrue(temporaryEcbCreation.Success)}
+                        {$"{TemporaryJobEntityCommandBufferVariableName}.Dispose();".EmitIfTrue(temporaryEcbCreation.Success)}
                         {WriteBackCapturedVariablesAssignments()}
                         {"return __jobHandle;".EmitIfTrue(description.Schedule.DependencyArgument != null)}
                     }}";
+
+                string CalculateChunkBaseEntityIndices()
+                {
+                    if (!description.NeedsEntityInQueryIndex)
+                        return string.Empty;
+
+                    if (description.Schedule.Mode == ScheduleMode.Run)
+                        return $"__job.__ChunkBaseEntityIndices = {description.EntityQueryFieldName}.CalculateBaseEntityIndexArray(Unity.Collections.Allocator.TempJob);";
+
+                    if (description.Schedule.DependencyArgument != null)
+                        return @$"
+                            Unity.Collections.NativeArray<int> {description.ChunkBaseEntityIndexFieldName} = {description.EntityQueryFieldName}.CalculateBaseEntityIndexArrayAsync(Unity.Collections.Allocator.TempJob, __inputDependency, out __inputDependency);
+                            __job.__ChunkBaseEntityIndices = {description.ChunkBaseEntityIndexFieldName};";
+                    else
+                        return @$"
+                            Unity.Jobs.JobHandle outHandle;
+                            Unity.Collections.NativeArray<int> {description.ChunkBaseEntityIndexFieldName} = {description.EntityQueryFieldName}.CalculateBaseEntityIndexArrayAsync(Unity.Collections.Allocator.TempJob, Dependency, out outHandle);
+                            __job.__ChunkBaseEntityIndices = {description.ChunkBaseEntityIndexFieldName};
+                            Dependency = outHandle;";
+                }
 
                 return (MethodDeclarationSyntax) SyntaxFactory.ParseMemberDeclaration(template);
 
@@ -596,51 +639,45 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                     foreach (var argument in description.AdditionalVariablesCapturedForScheduling)
                         paramStrings.Add($@"{argument.Symbol.GetSymbolTypeName()} {argument.Name}");
-                    
+
                     if (description.InStructSystem)
                         paramStrings.Add($"ref SystemState {description.SystemStateParameterName}");
 
                     return paramStrings.Distinct().SeparateByComma();
                 }
 
-                string JobStructFieldAssignment()
+                IEnumerable<string> JobStructFieldAssignments()
                 {
-                    var allAssignments = new List<string>();
-                    if (description.HasJournalingEnabled && description.HasJournalingRecordableParameters)
-                    {
-                        if (description.InStructSystem)
-                        {
-                            allAssignments.Add($"__worldSequenceNumber = {description.SystemStateParameterName}.WorldUnmanaged.SequenceNumber");
-                            allAssignments.Add($"__executingSystem = {description.SystemStateParameterName}.SystemHandleUntyped");
-                        }
-                        else
-                        {
-                            allAssignments.Add($"__worldSequenceNumber = this.World.SequenceNumber");
-                            allAssignments.Add($"__executingSystem = this.SystemHandleUntyped");
-                        }
-                    }
-                    allAssignments.AddRange(description.VariablesCaptured.Select(variable =>
-                        $@"{variable.VariableFieldName} = {variable.OriginalVariableName}"));
+                    foreach (var capturedVariable in description.VariablesCaptured)
+                        yield return $@"{capturedVariable.VariableFieldName} = {capturedVariable.OriginalVariableName}";
+
                     if (!description.WithStructuralChanges)
-                        allAssignments.AddRange(description.LambdaParameters.Select(param => param.FieldAssignmentInGeneratedJobEntityBatchType(description)));
-                    allAssignments.AddRange(description.AdditionalFields.Select(field => field.JobStructAssign()));
-                    return allAssignments.SeparateByCommaAndNewLine();
+                        foreach (var param in description.LambdaParameters)
+                            yield return $"{param.FieldAssignmentInGeneratedJobChunkType(description)}";
+
+                    var systemStateAccess = description.SystemStateParameterName == null ? string.Empty : $"{description.SystemStateParameterName}.";
+                    foreach (var field in description.AdditionalFields)
+                        yield return field.JobStructAssign(systemStateAccess);
+
+                    if (description.NeedsTimeData)
+                        yield return $"__Time = {systemStateAccess}WorldUnmanaged.Time";
                 }
 
-                string ComponentTypeHandleFieldUpdate() {
-                    var setupStrings = new List<string>();
-                    if (description is LambdaJobDescription lambdaJobDescription)
-                    {
-                        foreach (var lambdaParameter in lambdaJobDescription.LambdaParameters)
-                        {
-                            var componentTypeHandleSetupString = lambdaParameter.ComponentTypeHandleUpdateInvocation(lambdaJobDescription);
-                            if (!string.IsNullOrEmpty(componentTypeHandleSetupString))
-                            {
-                                setupStrings.Add(componentTypeHandleSetupString);
-                            }
-                        }
-                    }
-                    return setupStrings.SeparateByNewLine();
+                string ComponentTypeHandleFieldUpdate() =>
+                    description
+                        .LambdaParameters
+                        .OfType<IParamRequireUpdate>()
+                        .Select(c => c.FormatUpdateInvocation(description))
+                        .SeparateByNewLine();
+
+                string ComponentLookupFieldUpdate()
+                {
+                    //for now, only the ComponentLookup and BufferLookup will be provided update methods
+                    return description.AdditionalFields
+                        .Where(c => c.AccessorDataType != LambdaJobsPatchableMethod.AccessorDataType.EntityStorageInfoLookup)
+                        .Select(c => c.FormatUpdateInvocation(description))
+                        .SeparateByNewLine();
+
                 }
 
                 string ScheduleJobInvocation()
@@ -666,19 +703,16 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                         {setupFunctionPointer}
                                         Unity.Entities.InternalCompilerInterface.UnsafeRunIJob(ref __job, __functionPointer);";
                             }
-                            else
-                            {
-                                return $@"
+                            return $@"
                                         {completeDependencyStatement.EmitIfTrue(description.IsInSystemBase)}
                                         __job.Execute();";
-                            }
                         }
 
                         case ScheduleMode.Schedule:
                         {
                             return
                                 description.Schedule.DependencyArgument != null
-                                    ? "var __jobHandle = Unity.Jobs.IJobExtensions.Schedule(__job, __inputDependency);"
+                                    ? "__jobHandle = Unity.Jobs.IJobExtensions.Schedule(__job, __inputDependency);"
                                     : $"{dependencyArg} = Unity.Jobs.IJobExtensions.Schedule(__job, {dependencyArg});";
                         }
                     }
@@ -689,10 +723,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                 string ScheduleEntitiesInvocation()
                 {
-                    string EntityQueryParameter()
-                    {
-                        return $"{description.EntityQueryFieldName}";
-                    }
+                    string EntityQueryParameter() => $"{description.EntityQueryFieldName}";
 
                     string OutputOptionalEntityArrayParameter(ArgumentSyntax entityArray)
                     {
@@ -702,26 +733,27 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         // the only ScheduleParallel signature available with a granularity parameter we can use here is
                         // ScheduleParallel(job, query, granularity, entity array)
                         // to call it, entity array must be set to "default"
-                        if (description.WithScheduleGranularityArgumentSyntaxes.Count > 0)
-                        {
-                            return $", default";
-                        }
-                        return "";
+                        return description.WithScheduleGranularityArgumentSyntaxes.Count > 0 ? ", default" : "";
                     }
 
-                    string OutputOptionalGranularityParameter()
+                    string OutputOptionalGranularityParameter() =>
+                        description.WithScheduleGranularityArgumentSyntaxes.Count > 0 ? $", {description.WithScheduleGranularityArgumentSyntaxes[0]}" : "";
+
+                    string OutputOptionalChunkBaseIndexArrayParameter()
                     {
-                        if (description.WithScheduleGranularityArgumentSyntaxes.Count > 0)
-                        {
-                            return $", {description.WithScheduleGranularityArgumentSyntaxes[0]}";
-                        }
-                        return "";
+                        // If the job requires entityInQueryIndex, the array of per-chunk base entity indices must be passed as
+                        // the last parameter of ScheduleParallel() in order to call JobsUtility.PatchBufferMinMaxRanges()
+                        bool needsEntityInQueryIndex = description.NeedsEntityInQueryIndex;
+                        bool isScheduleParallel = (description.Schedule.Mode == ScheduleMode.ScheduleParallel);
+                        return (needsEntityInQueryIndex && isScheduleParallel) ? $", {description.ChunkBaseEntityIndexFieldName}" : "";
                     }
 
-                    string JobEntityBatchExtensionType() =>
-                        description.NeedsEntityInQueryIndex
-                            ? "Unity.Entities.JobEntityBatchIndexExtensions"
-                            : "Unity.Entities.JobEntityBatchExtensions";
+                    // Certain schedule paths require .Schedule/.Run calls that aren't in the IJobChunk public API,
+                    // and only appear in InternalCompilerInterface
+                    string JobChunkExtensionType() =>
+                        (description.Schedule.Mode == ScheduleMode.Run || (description.Schedule.Mode == ScheduleMode.ScheduleParallel && description.NeedsEntityInQueryIndex))
+                            ? "Unity.Entities.InternalCompilerInterface.JobChunkInterface"
+                            : "Unity.Entities.JobChunkExtensions";
 
                     switch (description.Schedule.Mode)
                     {
@@ -737,9 +769,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                 __job.RunWithStructuralChange({description.EntityQueryFieldName}{entityArray});";
                             }
 
-                            else if (description.Burst.IsEnabled)
+                            if (description.Burst.IsEnabled)
                             {
-                                var scheduleMethod = description.NeedsEntityInQueryIndex ? "UnsafeRunJobEntityBatchWithIndex" : "UnsafeRunJobEntityBatch";
+                                var scheduleMethod = "UnsafeRunJobChunk";
 
                                 var additionalSetup = description.InStructSystem
                                     ? @$"var __functionPointer = Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobCompilerEnabled
@@ -757,38 +789,36 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                 {additionalSetup}
                                 Unity.Entities.InternalCompilerInterface.{scheduleMethod}({scheduleArguments});";
                             }
-                            else
-                            {
-                                return
-                                    description.WithFilterEntityArray != null
-                                        ? $@"
+
+                            return
+                                /*
+                                description.WithFilterEntityArray != null
+                                    ? $@"
                                             {completeDependencyStatement.EmitIfTrue(description.IsInSystemBase)}
-                                            {JobEntityBatchExtensionType()}.RunWithoutJobs(ref __job, {description.EntityQueryFieldName}, __entityArray);"
-                                        : $@"
+                                            {JobChunkExtensionType()}.RunByRefWithoutJobs(ref __job, {description.EntityQueryFieldName}, __entityArray);"
+                                    :*/ $@"
                                             {completeDependencyStatement.EmitIfTrue(description.IsInSystemBase)}
-                                            {JobEntityBatchExtensionType()}.RunWithoutJobs(ref __job, {description.EntityQueryFieldName});";
-                            }
+                                            {JobChunkExtensionType()}.RunByRefWithoutJobs(ref __job, {description.EntityQueryFieldName});";
                         }
 
                         case ScheduleMode.Schedule:
                         {
                             return
                                 description.Schedule.DependencyArgument != null
-                                    ? $@"var __jobHandle = {JobEntityBatchExtensionType()}.Schedule(__job, {EntityQueryParameter()}{OutputOptionalEntityArrayParameter(description.WithFilterEntityArray)}, __inputDependency);"
-                                    : $@"{dependencyArg} = {JobEntityBatchExtensionType()}.Schedule(__job, {EntityQueryParameter()}{OutputOptionalEntityArrayParameter(description.WithFilterEntityArray)}, {dependencyArg});";
+                                    ? $@"__jobHandle = {JobChunkExtensionType()}.Schedule(__job, {EntityQueryParameter()}{OutputOptionalEntityArrayParameter(description.WithFilterEntityArray)}, __inputDependency);"
+                                    : $@"{dependencyArg} = {JobChunkExtensionType()}.Schedule(__job, {EntityQueryParameter()}{OutputOptionalEntityArrayParameter(description.WithFilterEntityArray)}, {dependencyArg});";
                         }
 
                         case ScheduleMode.ScheduleParallel:
                         {
                             return
                                 description.Schedule.DependencyArgument != null
-                                    ? $@"var __jobHandle = {JobEntityBatchExtensionType()}.ScheduleParallel(__job, {EntityQueryParameter()}{OutputOptionalGranularityParameter()}{OutputOptionalEntityArrayParameter(description.WithFilterEntityArray)}, __inputDependency);"
-                                    : $@"{dependencyArg} = {JobEntityBatchExtensionType()}.ScheduleParallel(__job, {EntityQueryParameter()}{OutputOptionalGranularityParameter()}{OutputOptionalEntityArrayParameter(description.WithFilterEntityArray)}, {dependencyArg});";
+                                    ? $@"__jobHandle = {JobChunkExtensionType()}.ScheduleParallel(__job, {EntityQueryParameter()}{OutputOptionalGranularityParameter()}{OutputOptionalEntityArrayParameter(description.WithFilterEntityArray)}, __inputDependency{OutputOptionalChunkBaseIndexArrayParameter()});"
+                                    : $@"{dependencyArg} = {JobChunkExtensionType()}.ScheduleParallel(__job, {EntityQueryParameter()}{OutputOptionalGranularityParameter()}{OutputOptionalEntityArrayParameter(description.WithFilterEntityArray)}, {dependencyArg}{OutputOptionalChunkBaseIndexArrayParameter()});";
                         }
                     }
 
-                    throw new InvalidOperationException(
-                        "Can't create ScheduleJobInvocation for invalid lambda description");
+                    throw new InvalidOperationException("Can't create ScheduleJobInvocation for invalid lambda description");
                 }
 
                 string ScheduleInvocation()
@@ -801,9 +831,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 string WriteBackCapturedVariablesAssignments()
                 {
                     if (description.Schedule.Mode != ScheduleMode.Run)
-                    {
                         return string.Empty;
-                    }
 
                     return
                         description
@@ -828,8 +856,15 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     description.Schedule.DependencyArgument != null ? "Unity.Jobs.JobHandle" : "void";
             }
 
-
-            public static string GenericParameterConstraints(LambdaJobDescription _) => string.Empty;
+            private static (bool Success, string Code) CreateTemporaryEcb(LambdaJobDescription description)
+            {
+                if (description.EntityCommandBufferParameter == null)
+                    return (false, string.Empty);
+                return
+                    description.EntityCommandBufferParameter.Playback.IsImmediate
+                    ? (true, $"Unity.Entities.EntityCommandBuffer {TemporaryJobEntityCommandBufferVariableName} = new EntityCommandBuffer(this.World.UpdateAllocator.ToAllocator);")
+                        : (false, string.Empty);
+            }
         }
     }
 }

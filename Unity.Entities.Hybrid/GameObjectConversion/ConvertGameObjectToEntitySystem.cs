@@ -18,7 +18,7 @@ namespace Unity.Entities
 
 namespace Unity.Entities.Conversion
 {
-    class ConvertGameObjectToEntitySystem : GameObjectConversionSystem
+    partial class ConvertGameObjectToEntitySystem : GameObjectConversionSystem
     {
         void Convert(Transform transform, List<IConvertGameObjectToEntity> convertibles)
         {
@@ -50,10 +50,10 @@ namespace Unity.Entities.Conversion
         {
             var convertibles = new List<IConvertGameObjectToEntity>();
 
-            Entities.ForEach((Transform transform) => Convert(transform, convertibles));
+            Entities.ForEach((Transform transform) => Convert(transform, convertibles)).WithoutBurst().Run();
             convertibles.Clear();
 
-            Entities.ForEach((RectTransform transform) => Convert(transform, convertibles));
+            Entities.ForEach((RectTransform transform) => Convert(transform, convertibles)).WithoutBurst().Run();
         }
     }
 }

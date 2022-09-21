@@ -393,7 +393,7 @@ namespace Unity.Entities.Conversion
     }
 
     [DebuggerTypeProxy(typeof(MultiListEnumeratorDebugView<>))]
-    public struct MultiListEnumerator<T> : IEnumerable<T>, IEnumerator<T> where T : unmanaged
+    internal struct MultiListEnumerator<T> : IEnumerable<T>, IEnumerator<T> where T : unmanaged
     {
         MultiListEnumerator<T, MultiListNativeArrayData<T>> m_Enumerator;
 

@@ -1,6 +1,5 @@
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Properties.Editor;
 
 namespace Unity.Entities.Editor
 {

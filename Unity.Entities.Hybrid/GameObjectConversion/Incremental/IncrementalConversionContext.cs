@@ -56,7 +56,7 @@ namespace Unity.Entities.Conversion
 
         void FilterOutValidObjects(NativeList<int> instanceIds)
         {
-            var objs = InstanceIdToObject(instanceIds);
+            var objs = InstanceIdToObject(instanceIds.AsArray());
             for (int i = instanceIds.Length - 1; i >= 0; i--)
             {
                 if (objs[i] == null)
@@ -79,9 +79,6 @@ namespace Unity.Entities.Conversion
             public NativeArray<int> ReconvertHierarchyInstanceIds;
             public NativeList<int> RemovedInstanceIds;
 
-            delegate void Exec(void* ptr);
-
-            static FunctionPointer<Exec> _burstFunction;
             static readonly ProfilerMarker Marker = new ProfilerMarker(nameof(RemoveFromHierarchy));
 
             [BurstCompile]
@@ -105,10 +102,8 @@ namespace Unity.Entities.Conversion
             {
                 var data = this;
                 void* ptr = UnsafeUtility.AddressOf(ref data);
-                if (!_burstFunction.IsCreated)
-                    _burstFunction = BurstCompiler.CompileFunctionPointer<Exec>(Execute);
                 Marker.Begin();
-                _burstFunction.Invoke(ptr);
+                Execute(ptr);
                 Marker.End();
             }
         }
@@ -144,7 +139,7 @@ namespace Unity.Entities.Conversion
                                 //  - Either we failed because the parent was already deleted and this child must also be deleted,
                                 //  - Or we failed because the child was never in the hierarchy to begin with, in which case we
                                 //    should track it
-                                var objs = InstanceIdToObject(changeFailed);
+                                var objs = InstanceIdToObject(changeFailed.AsArray());
                                 for (int i = 0; i < objs.Count; i++)
                                 {
                                     var go = objs[i] as GameObject;
@@ -167,11 +162,11 @@ namespace Unity.Entities.Conversion
 
                             using (var visitedInstances = new NativeParallelHashSet<int>(0, Allocator.TempJob))
                             {
-                                Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(changeFailed, visitedInstances);
+                                Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(changeFailed.AsArray(), visitedInstances);
                                 CopyToList(visitedInstances, outData.RemovedInstanceIds);
                             }
 
-                            IncrementalHierarchyFunctions.Remove(Hierarchy, changeFailed);
+                            IncrementalHierarchyFunctions.Remove(Hierarchy, changeFailed.AsArray());
                         }
                     }
                 }
@@ -199,7 +194,7 @@ namespace Unity.Entities.Conversion
                 if (!requiresCleanConversion.IsEmpty)
                 {
                     var gameObjectIsNew = new HashSet<GameObject>();
-                    CollectNewGameObjects(Scene, ref Hierarchy, requiresCleanConversion, gameObjectIsNew);
+                    CollectNewGameObjects(Scene, ref Hierarchy, requiresCleanConversion.AsArray(), gameObjectIsNew);
                     using (_registerNewInstancesMarker.Auto())
                     {
                         foreach (var go in gameObjectIsNew)
@@ -344,13 +339,13 @@ namespace Unity.Entities.Conversion
         {
             using (var conversionRequests = new NativeList<int>(Allocator.TempJob))
             {
-                conversionRequests.AddRange(conversionData.ReconvertSingleRequests);
+                conversionRequests.AddRange(conversionData.ReconvertSingleRequests.AsArray());
 
 
                 using (var visitedInstances = new NativeParallelHashSet<int>(0, Allocator.TempJob))
                 {
                     Hierarchy.AsReadOnly()
-                        .CollectHierarchyInstanceIdsAsync(conversionData.ReconvertHierarchyRequests, visitedInstances)
+                        .CollectHierarchyInstanceIdsAsync(conversionData.ReconvertHierarchyRequests.AsArray(), visitedInstances)
                         .Complete();
                     CopyToList(visitedInstances, conversionRequests);
                 }
@@ -366,17 +361,17 @@ namespace Unity.Entities.Conversion
                 {
                     Dependencies = Dependencies,
                     Dependents = dependentInstanceIds,
-                    ChangedAssets = conversionData.ChangedAssets,
-                    DeletedAssets = conversionData.DeletedAssets,
+                    ChangedAssets = conversionData.ChangedAssets.AsArray(),
+                    DeletedAssets = conversionData.DeletedAssets.AsArray(),
                     ChangedInstanceIds = conversionRequests,
-                    DeletedInstanceIds = conversionData.RemovedInstanceIds,
+                    DeletedInstanceIds = conversionData.RemovedInstanceIds.AsArray(),
                 }.Run();
 
                 new ClearDependencies
                 {
                     Dependencies = Dependencies,
                     ChangedInstances = dependentInstanceIds,
-                    DeletedInstances = conversionData.RemovedInstanceIds
+                    DeletedInstances = conversionData.RemovedInstanceIds.AsArray()
                 }.Run();
                 return dependentInstanceIds;
             }

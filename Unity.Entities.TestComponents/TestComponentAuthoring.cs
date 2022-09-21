@@ -2,26 +2,11 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
-    [ConverterVersion("sschoener", 1)]
     [AddComponentMenu("")]
-    public class TestComponentAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class TestComponentAuthoring : MonoBehaviour
     {
         public int IntValue;
         public Material Material;
-
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
-        {
-            dstManager.AddComponentData(entity, new UnmanagedTestComponent
-            {
-                IntValue = IntValue
-            });
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
-            dstManager.AddComponentObject(entity, new ManagedTestComponent
-            {
-                Material = Material
-            });
-#endif
-        }
 
 #if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
         public class ManagedTestComponent : IComponentData
@@ -32,6 +17,23 @@ namespace Unity.Entities.Tests
         public struct UnmanagedTestComponent : IComponentData
         {
             public int IntValue;
+        }
+
+        class Baker : Baker<TestComponentAuthoring>
+        {
+            public override void Bake(TestComponentAuthoring authoring)
+            {
+                AddComponent(new TestComponentAuthoring.UnmanagedTestComponent
+                {
+                    IntValue = authoring.IntValue
+                });
+#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+                AddComponentObject(new TestComponentAuthoring.ManagedTestComponent
+                {
+                    Material = authoring.Material
+                });
+#endif
+            }
         }
     }
 }

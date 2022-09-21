@@ -1,34 +1,53 @@
 #if ENABLE_PROFILER
 using System;
+using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Profiling.LowLevel.Unsafe;
-using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
     static partial class StructuralChangesProfiler
     {
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
-        public readonly unsafe struct Scope : IDisposable
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
+        public readonly unsafe struct Scope
         {
             readonly bool m_Initialized;
             readonly long m_StartTimestamp;
             readonly StructuralChangeType m_Type;
-            readonly TimeCounter m_Counter;
             readonly ulong m_WorldSequenceNumber;
-            readonly SystemHandleUntyped m_ExecutingSystem;
+            readonly SystemHandle m_ExecutingSystem;
+            readonly TimeCounter m_Counter;
 
-            public Scope(StructuralChangeType type, TimeCounter counter, WorldUnmanaged world)
+            public Scope(StructuralChangeType type, in WorldUnmanaged world)
             {
-                m_Initialized = true;
                 m_StartTimestamp = ProfilerUnsafeUtility.Timestamp;
                 m_Type = type;
-                m_Counter = counter;
                 m_WorldSequenceNumber = world.SequenceNumber;
                 m_ExecutingSystem = world.ExecutingSystem;
+                switch (type)
+                {
+                    case StructuralChangeType.CreateEntity:
+                        m_Counter = s_CreateEntityCounter;
+                        break;
+                    case StructuralChangeType.DestroyEntity:
+                        m_Counter = s_DestroyEntityCounter;
+                        break;
+                    case StructuralChangeType.AddComponent:
+                        m_Counter = s_AddComponentCounter;
+                        break;
+                    case StructuralChangeType.RemoveComponent:
+                        m_Counter = s_RemoveComponentCounter;
+                        break;
+                    case StructuralChangeType.SetSharedComponent:
+                        m_Counter = s_SetSharedComponentCounter;
+                        break;
+                    default:
+                        throw new NotImplementedException($"Structural change type {type} not implemented.");
+                }
+                m_Initialized = true;
             }
 
-            public void Dispose()
+            public void Flush()
             {
                 if (!m_Initialized)
                     return;
@@ -36,25 +55,34 @@ namespace Unity.Entities
                 var elapsed = GetElapsedNanoseconds(m_StartTimestamp);
                 m_Counter.Value += elapsed;
 
-                SharedStructuralChangesData.Ref.Data.Add(new StructuralChangeData(m_Type, elapsed, m_WorldSequenceNumber, m_ExecutingSystem));
+                s_StructuralChanges.Add(new StructuralChangeData(m_Type, elapsed, m_WorldSequenceNumber, in m_ExecutingSystem));
             }
         }
 
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
-        public static Scope BeginCreateEntity(WorldUnmanaged world) =>
-            Initialized && Profiler.enabled ? new Scope(StructuralChangeType.CreateEntity, SharedCreateEntityCounter.Ref.Data, world) : default;
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void Begin(StructuralChangeType structuralChangeType, in WorldUnmanaged world)
+        {
+            if (!s_Initialized) // Enabled test is done at call site
+                return;
 
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
-        public static Scope BeginDestroyEntity(WorldUnmanaged world) =>
-            Initialized && Profiler.enabled ? new Scope(StructuralChangeType.DestroyEntity, SharedDestroyEntityCounter.Ref.Data, world) : default;
+            s_Scopes.Add(new Scope(structuralChangeType, in world));
+        }
 
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
-        public static Scope BeginAddComponent(WorldUnmanaged world) =>
-            Initialized && Profiler.enabled ? new Scope(StructuralChangeType.AddComponent, SharedAddComponentCounter.Ref.Data, world) : default;
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static void End()
+        {
+            if (!s_Initialized) // Enabled test is done at call site
+                return;
 
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
-        public static Scope BeginRemoveComponent(WorldUnmanaged world) =>
-            Initialized && Profiler.enabled ? new Scope(StructuralChangeType.RemoveComponent, SharedRemoveComponentCounter.Ref.Data, world) : default;
+            if (s_Scopes.Length > 0)
+            {
+                var lastIndex = s_Scopes.Length - 1;
+                s_Scopes.ElementAt(lastIndex).Flush();
+                s_Scopes.RemoveAt(lastIndex);
+            }
+        }
 
         static long GetElapsedNanoseconds(long startTimestamp)
         {

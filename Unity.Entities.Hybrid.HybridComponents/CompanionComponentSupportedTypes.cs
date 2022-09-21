@@ -23,6 +23,7 @@ namespace Unity.Entities.Conversion
             typeof(MeshRenderer),
             typeof(SpriteRenderer),
             typeof(VisualEffect),
+            typeof(AudioSource),
 #if PARTICLE_SYSTEM_MODULE
             typeof(ParticleSystem),
             typeof(ParticleSystemRenderer),
@@ -39,7 +40,7 @@ namespace Unity.Entities.Conversion
             typeof(HDAdditionalReflectionData),
             typeof(DecalProjector),
             typeof(PlanarReflectionProbe),
-            typeof(DensityVolume),
+            typeof(LocalVolumetricFog),
 #if PROBEVOLUME_CONVERSION
             typeof(ProbeVolume),
 #endif

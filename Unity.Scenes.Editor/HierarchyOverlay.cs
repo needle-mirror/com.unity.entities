@@ -1,7 +1,9 @@
 using System.Linq;
+using System.Collections.Generic;
 using Unity.Scenes;
 using Unity.Scenes.Editor;
 using UnityEngine;
+using SubSceneUtility = Unity.Scenes.Editor.SubSceneUtility;
 
 namespace UnityEditor.UI
 {
@@ -44,9 +46,44 @@ namespace UnityEditor.UI
                             subScenes = new[] { subScene };
 
                         if (wantsLoaded)
-                            SubSceneInspectorUtility.EditScene(subScenes);
+                        {
+                            SubSceneUtility.EditScene(subScenes);
+                        }
                         else
+                        {
+                            // find child scenes
+                            HashSet<SubScene> seenSubScene = new HashSet<SubScene>();
+                            List<SubScene> subscenesToUnload = new List<SubScene>();
+
+                            Stack<SubScene> subSceneStack = new Stack<SubScene>();
+                            foreach (SubScene ss in subScenes)
+                                subSceneStack.Push(ss);
+
+                            while (subSceneStack.Count>0)
+                            {
+                                SubScene itr = subSceneStack.Pop();
+                                if (seenSubScene.Contains(itr) || !itr.EditingScene.isLoaded)
+                                    continue;
+
+                                seenSubScene.Add(itr);
+                                subscenesToUnload.Add(itr);
+
+                                if (itr.SceneAsset != null)
+                                {
+                                    foreach (GameObject ssGameObject in itr.EditingScene.GetRootGameObjects())
+                                    {
+                                        foreach (SubScene childSubScene in ssGameObject.GetComponentsInChildren<SubScene>())
+                                            subSceneStack.Push(childSubScene);
+                                    }
+                                }
+                            }
+
+                            // process children before parents
+                            subScenes = subscenesToUnload.ToArray();
+                            System.Array.Reverse(subScenes);
+
                             SubSceneInspectorUtility.CloseAndAskSaveIfUserWantsTo(subScenes);
+                        }
                     }
 
                     if (buttonRect.Contains(evt.mousePosition))

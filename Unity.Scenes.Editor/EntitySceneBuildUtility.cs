@@ -5,7 +5,9 @@ using System.Linq;
 using GameObjectConversion;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Collections.NotBurstCompatible;
 using Unity.Entities;
+using Unity.Entities.Conversion;
 using Unity.Entities.Serialization;
 using UnityEditor;
 using UnityEditor.Build.Content;
@@ -19,6 +21,7 @@ using BuildCompression = UnityEngine.BuildCompression;
 using BuildPipeline = UnityEditor.BuildPipeline;
 using Hash128 = Unity.Entities.Hash128;
 using UnityEditor.Experimental;
+using UnityEngine;
 
 namespace Unity.Scenes.Editor
 {
@@ -35,7 +38,7 @@ namespace Unity.Scenes.Editor
                 var requiresRefresh = false;
                 foreach(var sceneGuid in sceneGuids)
                 {
-                    var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGuid, buildConfigurationGuid, false, out var thisRequiresRefresh);
+                    var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGuid, buildConfigurationGuid, false, LiveConversionSettings.IsBakingEnabled, LiveConversionSettings.IsBuiltinBuildsEnabled, out var thisRequiresRefresh);
                     sceneBuildConfigGuids.Add(guid);
                     requiresRefresh |= thisRequiresRefresh;
                     artifactKeys.Add(sceneGuid, new ArtifactKey(guid, typeof(SubSceneImporter)));
@@ -46,12 +49,12 @@ namespace Unity.Scenes.Editor
 
                 foreach (var sceneGuid in sceneGuids)
                 {
-                    SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGuid, buildConfigurationGuid, false, out var thisRequiresRefresh);
+                    SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGuid, buildConfigurationGuid, false, LiveConversionSettings.IsBakingEnabled, LiveConversionSettings.IsBuiltinBuildsEnabled, out var thisRequiresRefresh);
                     if(thisRequiresRefresh)
                         Debug.LogWarning("Refresh failed");
                 }
 
-                AssetDatabaseExperimental.ProduceArtifactsAsync(sceneBuildConfigGuids.ToArray(), typeof(SubSceneImporter));
+                AssetDatabaseExperimental.ProduceArtifactsAsync(sceneBuildConfigGuids.ToArrayNBC(), typeof(SubSceneImporter));
                 sceneGuids.Clear();
 
                 foreach (var sceneBuildConfigGuid in sceneBuildConfigGuids)
@@ -126,6 +129,7 @@ namespace Unity.Scenes.Editor
             var binaryExt = EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesBinary);
             string conversionLogExtension = EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesConversionLog);
             string globalUsgExt = EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesGlobalUsage);
+            string exportedTypes = EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesExportedTypes);
 
             var group = BuildPipeline.GetBuildTargetGroup(target);
             var parameters = new BundleBuildParameters(target, @group, WorkingBuildDir)
@@ -136,6 +140,7 @@ namespace Unity.Scenes.Editor
             var artifactHashes = new UnityEngine.Hash128[entitySceneArtifacts.Length];
             AssetDatabaseCompatibility.ProduceArtifactsRefreshIfNecessary(entitySceneArtifacts, artifactHashes);
 
+            List<(Hash128, string)> sceneGuidExportedTypePaths = new List<(Hash128, string)>();
             for (int i = 0; i != entitySceneArtifacts.Length; i++)
             {
                 var sceneGuid = sceneGuids[i];
@@ -202,6 +207,10 @@ namespace Unity.Scenes.Editor
                             }
                         });
                     }
+                    else if (ext == exportedTypes)
+                    {
+                        sceneGuidExportedTypePaths.Add((sceneGuid, artifactPath));
+                    }
                 }
 
                 if (!foundEntityHeader)
@@ -209,6 +218,8 @@ namespace Unity.Scenes.Editor
                     Debug.LogError($"Failed to build EntityScene for '{AssetDatabaseCompatibility.GuidToPath(sceneGuid)}'");
                 }
             }
+
+            WriteExportedTypesDebugLog(sceneGuidExportedTypePaths);
 
             if (content.CustomAssets.Count <= 0)
                 return;
@@ -251,6 +262,40 @@ namespace Unity.Scenes.Editor
         }
 
         internal static Action<Dictionary<Hash128, Dictionary<SceneSection, List<Hash128>>>> PostBuildCallback;
+
+        internal static string GetExportedTypesLogsFilePath()
+        {
+            return Application.dataPath + "/../Logs/" + SerializeUtility.k_ExportedTypesDebugLogFileName;
+        }
+
+        internal static void WriteExportedTypesDebugLog(IEnumerable<(Hash128 sceneGuid, string entitiesExportedTypesPath)> scenes)
+        {
+            StreamWriter writer = File.CreateText(GetExportedTypesLogsFilePath());
+
+            // Write all types
+            writer.WriteLine($"::All Types in TypeManager (by stable hash)::");
+            IEnumerable<TypeManager.TypeInfo> typesToWrite = TypeManager.AllTypes;
+            var debugTypeHashes = typesToWrite.OrderBy(ti => ti.StableTypeHash)
+                .Where(ti => ti.Type != null).Select(ti =>
+                    $"0x{ti.StableTypeHash:x16} - {ti.StableTypeHash,22} - {ti.Type.FullName}");
+            foreach(var type in debugTypeHashes)
+                writer.WriteLine(type);
+            writer.WriteLine("\n");
+
+            // Write all exported types per scene
+            foreach(var scene in scenes)
+            {
+                var srcLogFile = File.ReadLines(scene.entitiesExportedTypesPath);
+                writer.WriteLine($"Exported Types (by stable hash) for scene: {scene.sceneGuid.ToString()}");
+                foreach (var line in srcLogFile)
+                {
+                    if(line.StartsWith("0x"))
+                        writer.WriteLine(line);
+                }
+                writer.WriteLine("\n");
+            }
+            writer.Close();
+        }
 
         static void UpdateSceneMetaDataDependencies(ref BlobAssetReference<SceneMetaData> sceneMetaData, Dictionary<SceneSection, List<Hash128>> sceneDependencyData, string outPath)
         {

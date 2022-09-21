@@ -3,10 +3,19 @@ using Unity.Collections;
 
 namespace Unity.Entities.Editor
 {
+    [Flags]
+    enum HierarchyNodeFlags
+    {
+        None = 0,
+        ChildrenRequireSorting = 1 << 0,
+        IsPrefabStage = 1 << 1,
+        Disabled = 1 << 2
+    }
+
     /// <summary>
     /// The <see cref="HierarchyNode"/> represents a high level node which can be used to mutate the state of the hierarchy.
     /// </summary>
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     readonly partial struct HierarchyNode : IEquatable<HierarchyNode>
     {
         readonly HierarchyNodeStore m_Hierarchy;
@@ -52,6 +61,10 @@ namespace Unity.Entities.Editor
 
         public HierarchyNode[] GetChildren()
             => m_Hierarchy.GetChildren(m_Handle);
+
+        public HierarchyNodeFlags GetFlags()
+            => m_Hierarchy.GetFlags(m_Handle);
+
         public bool Equals(HierarchyNode other)
             => m_Handle.Equals(other.m_Handle);
 

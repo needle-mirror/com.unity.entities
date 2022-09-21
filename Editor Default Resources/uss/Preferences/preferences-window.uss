@@ -1,16 +1,17 @@
 .preferences-window
 {
-    padding: 10px;
+    padding: 10px 0 0 0;
 }
 
 .preferences-window__title
 {
-    padding: 0px;
+    margin-top: 1px; /* Aligned with *most* other views. */
+    padding: 0 10px 0 10px;
     font-size: 20px;
-    -unity-text-align: middle-left;
     -unity-font-style: bold;
 }
 
 .preferences-window__settings
 {
+    padding: 0 10px 0 10px;
 }

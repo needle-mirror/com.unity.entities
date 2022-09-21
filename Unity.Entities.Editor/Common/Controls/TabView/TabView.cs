@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine.UIElements;
 
@@ -5,6 +6,8 @@ namespace Unity.Entities.Editor
 {
     class TabView : BindableElement, INotifyValueChanged<int>
     {
+        class TabViewFactory : UxmlFactory<TabView, UxmlTraits> { }
+
         static readonly string s_UssClassName = "tab-view";
         static readonly string s_TabHeaderClassName = "tab-view__tab-header";
         static readonly string s_TabContentClassName = "tab-view__tab-content";
@@ -14,11 +17,11 @@ namespace Unity.Entities.Editor
 
         public override VisualElement contentContainer { get; }
 
-        VisualElement m_Header;
-        VisualElement m_Content;
+        readonly VisualElement m_Header;
+        readonly VisualElement m_Content;
         int m_Index;
 
-        IEnumerable<TabContent> m_Tabs;
+        readonly List<TabContent> m_Tabs = new List<TabContent>();
 
         public TabView()
         {
@@ -62,7 +65,8 @@ namespace Unity.Entities.Editor
             get => m_Tabs;
             set
             {
-                m_Tabs = value;
+                m_Tabs.Clear();
+                m_Tabs.AddRange(value);
                 m_Header.Clear();
                 m_Content.Clear();
 
@@ -96,6 +100,16 @@ namespace Unity.Entities.Editor
                 ResetTabs();
         }
 
+        internal void Internal_AddTab(TabContent content)
+        {
+            if (content == null)
+                throw new ArgumentNullException(nameof(content));
+
+            AddTab(content);
+            ResetTabs();
+            SetValueWithoutNotify(0);
+        }
+
         void SetVisibility(VisualElement content, bool isVisible)
         {
             var tabContent = (TabContent)content;
@@ -113,8 +127,12 @@ namespace Unity.Entities.Editor
                 if (evt.target == content)
                     tab.text = evt.newValue;
             });
-            m_Header.contentContainer.Add(tab);
-            m_Content.contentContainer.Add(content);
+
+            if (!m_Header.contentContainer.Contains(tab))
+                m_Header.contentContainer.Add(tab);
+
+            if (!m_Content.contentContainer.Contains(content))
+                m_Content.contentContainer.Add(content);
         }
 
         void ResetTabs()
@@ -122,8 +140,21 @@ namespace Unity.Entities.Editor
             m_Index = -1;
             for (var i = 0; i < m_Content.childCount; ++i)
             {
-                m_Header[i].AddToClassList(s_DisabledClassName);
+                if (i < m_Header.childCount)
+                    m_Header[i].AddToClassList(s_DisabledClassName);
+
                 SetVisibility(m_Content[i], false);
+            }
+        }
+
+        public void SwitchTab(string tabName)
+        {
+            for (var i = 0; i < m_Tabs.Count; i++)
+            {
+                if (!m_Tabs[i].TabName.Equals(tabName, StringComparison.InvariantCultureIgnoreCase))
+                    continue;
+
+                value = i;
             }
         }
     }

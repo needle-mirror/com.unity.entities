@@ -14,25 +14,12 @@ namespace Doc.CodeSamples.Tests
             #region sceneloading_101
 
             // Note: calling GetSceneGUID is slow, please keep reading for a proper example.
-            var sceneSystem = World.GetExistingSystem<SceneSystem>();
-            var guid = sceneSystem.GetSceneGUID("Assets/Scenes/SampleScene.unity");
-            var sceneEntity = sceneSystem.LoadSceneAsync(guid);
+            var guid = SceneSystem.GetSceneGUID(ref World.Unmanaged.GetExistingSystemState<SceneSystem>(), "Assets/Scenes/SampleScene.unity");
+            var sceneEntity = SceneSystem.LoadSceneAsync(World.Unmanaged, guid);
 
             #endregion
         }
     }
-
-#if !UNITY_2020_2_OR_NEWER
-// This is a hack to make the documentation compile with 2020.1 even though it uses the 2020.2 API
-    static class AssetDatabase
-    {
-        public static string GetAssetPath(Object assetObject)
-            => UnityEditor.AssetDatabase.GetAssetPath(assetObject);
-
-        public static UnityEditor.GUID GUIDFromAssetPath(string assetPath)
-            => new UnityEditor.GUID(UnityEditor.AssetDatabase.AssetPathToGUID(assetPath));
-    }
-#endif
 
     #region sceneloader_component
 
@@ -44,16 +31,18 @@ namespace Doc.CodeSamples.Tests
 
 #if UNITY_EDITOR
     // Authoring component, a SceneAsset can only be used in the Editor
-    public class SceneLoaderAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class SceneLoaderAuthoring : MonoBehaviour
     {
         public UnityEditor.SceneAsset Scene;
 
-        public void Convert(Entity entity, EntityManager dstManager,
-            GameObjectConversionSystem conversionSystem)
+        class Baker : Baker<SceneLoaderAuthoring>
         {
-            var path = AssetDatabase.GetAssetPath(Scene);
-            var guid = AssetDatabase.GUIDFromAssetPath(path);
-            dstManager.AddComponentData(entity, new SceneLoader {Guid = guid});
+            public override void Bake(SceneLoaderAuthoring authoring)
+            {
+                var path = AssetDatabase.GetAssetPath(authoring.Scene);
+                var guid = AssetDatabase.GUIDFromAssetPath(path);
+                AddComponent(new SceneLoader { Guid = guid });
+            }
         }
     }
 #endif
@@ -62,14 +51,13 @@ namespace Doc.CodeSamples.Tests
 
     #region sceneloadersystem
 
+    [RequireMatchingQueriesForUpdate]
     public partial class SceneLoaderSystem : SystemBase
     {
-        private SceneSystem m_SceneSystem;
         private EntityQuery m_NewRequests;
 
         protected override void OnCreate()
         {
-            m_SceneSystem = World.GetExistingSystem<SceneSystem>();
             m_NewRequests = GetEntityQuery(typeof(SceneLoader));
         }
 
@@ -79,7 +67,7 @@ namespace Doc.CodeSamples.Tests
 
             for (int i = 0; i < requests.Length; i += 1)
             {
-                m_SceneSystem.LoadSceneAsync(requests[i].Guid);
+                SceneSystem.LoadSceneAsync(World.Unmanaged, requests[i].Guid);
             }
 
             requests.Dispose();
@@ -91,16 +79,17 @@ namespace Doc.CodeSamples.Tests
 
     #region setsection
 
-    public class SceneSection123Authoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class SceneSection123Authoring : MonoBehaviour
     {
-        public void Convert(Entity entity, EntityManager dstManager
-            , GameObjectConversionSystem conversionSystem)
+        class Baker : Baker<SceneSection123Authoring>
         {
-            // This affects a single entity.
-            // For a recursive approach, see `SceneSectionComponent`.
-            var sceneSection = dstManager.GetSharedComponentData<SceneSection>(entity);
-            sceneSection.Section = 123;
-            dstManager.SetSharedComponentData(entity, sceneSection);
+            // TODO: This doesn't work with Baking, as it relied on ordering
+            public override void Bake(SceneSection123Authoring authoring)
+            {
+                // This affects a single entity.
+                // For a recursive approach, see `SceneSectionComponent`.
+                SetSharedComponent(GetEntity(), new SceneSection{Section = 123});
+            }
         }
     }
 
@@ -114,9 +103,8 @@ namespace Doc.CodeSamples.Tests
 
             #region sceneloading_resolveonly
 
-            var sceneSystem = World.GetExistingSystem<SceneSystem>();
             var loadParameters = new SceneSystem.LoadParameters {Flags = SceneLoadFlags.DisableAutoLoad};
-            var sceneEntity = sceneSystem.LoadSceneAsync(sceneGuid, loadParameters);
+            var sceneEntity = SceneSystem.LoadSceneAsync(World.Unmanaged, sceneGuid, loadParameters);
 
             #endregion
         }
@@ -151,8 +139,7 @@ namespace Doc.CodeSamples.Tests
 
             #region sceneloading_unloadscene
 
-            var sceneSystem = World.GetExistingSystem<SceneSystem>();
-            sceneSystem.UnloadScene(sceneEntity);
+            SceneSystem.UnloadScene(World.Unmanaged, sceneEntity);
 
             #endregion
 
@@ -160,8 +147,8 @@ namespace Doc.CodeSamples.Tests
 
             #region sceneloading_isstuffloaded
 
-            var sceneLoaded = sceneSystem.IsSceneLoaded(sceneEntity);
-            var sectionLoaded = sceneSystem.IsSectionLoaded(sceneSectionEntity);
+            var sceneLoaded = SceneSystem.IsSceneLoaded(World.Unmanaged, sceneEntity);
+            var sectionLoaded = SceneSystem.IsSectionLoaded(World.Unmanaged, sceneSectionEntity);
 
             #endregion
         }

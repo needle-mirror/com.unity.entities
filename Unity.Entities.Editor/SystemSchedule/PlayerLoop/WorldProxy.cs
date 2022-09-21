@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Unity.Entities.Editor
 {
-    public class WorldProxy : IEquatable<WorldProxy>
+    class WorldProxy : IEquatable<WorldProxy>
     {
         public readonly ulong SequenceNumber;
 
@@ -107,15 +107,12 @@ namespace Unity.Entities.Editor
             throw new InvalidProgramException($"Couldn't find system ${sys} in World");
         }
 
-        internal int FindSystemIndexFor(SystemHandleUntyped systemProxy)
+        internal int FindSystemIndexFor(SystemHandle systemProxy)
         {
             for (var i = 0; i < m_SystemData.Count; i++)
             {
-                var systemData = m_SystemData[i];
-                if (systemData.Managed == null && systemData.WorldSystemHandle.Equals(systemProxy))
-                {
+                if (m_SystemData[i].WorldSystemHandle.Equals(systemProxy))
                     return i;
-                }
             }
 
             throw new InvalidProgramException($"Couldn't find unmanaged system in World");

@@ -18,7 +18,7 @@ namespace Unity.Editor.Legacy
         {
             readonly RuntimeComponentsDrawer m_Drawer;
             public PathScope(RuntimeComponentsDrawer context) => m_Drawer = context;
-            public void Dispose() => m_Drawer.m_Path.Pop();
+            public void Dispose() => m_Drawer.m_Path = PropertyPath.Pop(m_Drawer.m_Path);
         }
 
         static readonly GUIContent s_PropertyLabelContent = new GUIContent();
@@ -45,17 +45,17 @@ namespace Unity.Editor.Legacy
         /// <summary>
         /// Set of components that are currently selected in the UI.
         /// </summary>
-        readonly HashSet<int> m_SelectedComponentTypes = new HashSet<int>();
+        readonly HashSet<TypeIndex> m_SelectedComponentTypes = new HashSet<TypeIndex>();
 
         /// <summary>
         /// Property path maintained as we visit. This is used to resolve mixed values across all containers.
         /// </summary>
-        readonly PropertyPath m_Path = new PropertyPath();
+        PropertyPath m_Path = new PropertyPath();
 
         /// <summary>
         /// Invoked when the user clicks the deselect component button.
         /// </summary>
-        public event Action<int> OnDeselectComponent;
+        public event Action<TypeIndex> OnDeselectComponent;
 
         public RuntimeComponentsDrawer()
         {
@@ -80,7 +80,7 @@ namespace Unity.Editor.Legacy
         /// Sets the component types which should be drawn.
         /// </summary>
         /// <param name="components"></param>
-        public void SetComponentTypes(IEnumerable<int> components)
+        public void SetComponentTypes(IEnumerable<TypeIndex> components)
         {
             m_SelectedComponentTypes.Clear();
 
@@ -102,7 +102,7 @@ namespace Unity.Editor.Legacy
 
             var target = m_Targets.First();
 
-            PropertyContainer.Visit(ref target, this);
+            PropertyContainer.Accept(this, ref target);
         }
 
         /// <summary>
@@ -112,7 +112,7 @@ namespace Unity.Editor.Legacy
         {
             if (!BeginProperty(property, value)) return;
 
-            property.Visit(this, ref value);
+            PropertyContainer.Accept(this, ref value);
 
             EndProperty(property);
         }
@@ -129,9 +129,20 @@ namespace Unity.Editor.Legacy
 
             if (count <= k_BufferPageLength)
             {
-                for (var i = 0; i < count; i++)
+                var properties = PropertyBag.GetPropertyBag<TCollection>();
+
+                if (properties is IIndexedProperties<TCollection> indexed)
                 {
-                    property.Visit(this, ref value, i);
+                    for (var i = 0; i < count; i++)
+                    {
+                        if (indexed.TryGetProperty(ref value, i, out var p))
+                        {
+                            using (new AttributesScope(p, property))
+                            {
+                                p.Accept(this, ref value);
+                            }
+                        }
+                    }
                 }
             }
             else
@@ -147,9 +158,21 @@ namespace Unity.Editor.Legacy
                 var start = scrollData.Page * k_BufferPageLength;
                 var end = (scrollData.Page + 1) * k_BufferPageLength;
 
-                for (var index = start; index < end && index < count; index++)
+                var properties = PropertyBag.GetPropertyBag<TCollection>();
+
+                if (properties is IIndexedProperties<TCollection> indexed)
                 {
-                    property.Visit(this, ref value, index);
+
+                    for (var index = start; index < end && index < count; index++)
+                    {
+                        if (indexed.TryGetProperty(ref value, index, out var p))
+                        {
+                            using (new AttributesScope(p, property))
+                            {
+                                p.Accept(this, ref value);
+                            }
+                        }
+                    }
                 }
 
                 scrollData.OnGUI();
@@ -172,7 +195,7 @@ namespace Unity.Editor.Legacy
             {
                 LabelField("Size", value.Count, false);
                 EditorGUI.indentLevel++;
-                property.Visit(this, ref value);
+                PropertyContainer.Accept(this, ref value);
                 EditorGUI.indentLevel--;
             }
 
@@ -183,7 +206,6 @@ namespace Unity.Editor.Legacy
         {
             if (!BeginProperty(property, value)) return;
 
-
             if (IsMixedSize<TDictionary, KeyValuePair<TKey, TValue>>(value))
             {
                 EditorGUILayout.LabelField(property.Name, "No support for mixed value dictionary.");
@@ -192,7 +214,7 @@ namespace Unity.Editor.Legacy
             {
                 LabelField("Size", value.Count, false);
                 EditorGUI.indentLevel++;
-                property.Visit(this, ref value);
+                PropertyContainer.Accept(this, ref value);
                 EditorGUI.indentLevel--;
             }
 
@@ -241,16 +263,16 @@ namespace Unity.Editor.Legacy
                 }
 
                 // Always use the name when dealing with component types. Even if they are indexable.
-                m_Path.PushName(property.Name);
+                m_Path = PropertyPath.AppendName(m_Path, property.Name);
             }
             else
             {
-                m_Path.PushProperty(property);
+                m_Path = PropertyPath.AppendProperty(m_Path, property);
 
                 if (IsMixedType<TValue>(value))
                 {
                     EditorGUILayout.LabelField(new GUIContent(GetDisplayName(property)), Bridge.EditorGUIBridge.mixedValueContent);
-                    m_Path.Pop();
+                    m_Path = PropertyPath.Pop(m_Path);
                     return false;
                 }
 
@@ -265,7 +287,7 @@ namespace Unity.Editor.Legacy
         {
             EditorGUI.indentLevel--;
 
-            m_Path.Pop();
+            m_Path = PropertyPath.Pop(m_Path);
 
             if (typeof(TContainer) == typeof(EntityContainer))
             {
@@ -285,11 +307,11 @@ namespace Unity.Editor.Legacy
             return null;
         }
 
-        static string GetComponentCategory(int t)
+        static string GetComponentCategory(TypeIndex t)
         {
-            if (TypeManager.IsManagedComponent(t)) return "(Managed)";
-            if (TypeManager.IsSharedComponentType(t)) return "(Shared)";
-            return TypeManager.IsBuffer(t) ? "(Buffer)" : string.Empty;
+            if (t.IsManagedComponent) return "(Managed)";
+            if (t.IsSharedComponentType) return "(Shared)";
+            return t.IsBuffer ? "(Buffer)" : string.Empty;
         }
 
         /// <summary>
@@ -341,13 +363,13 @@ namespace Unity.Editor.Legacy
 
         PathScope MakePathScope(string name)
         {
-            m_Path.PushName(name);
+            m_Path = PropertyPath.AppendName(m_Path, name);
             return new PathScope(this);
         }
 
         PathScope MakePathScope(IProperty property)
         {
-            m_Path.PushProperty(property);
+            m_Path = PropertyPath.AppendProperty(m_Path, property);
             return new PathScope(this);
         }
 

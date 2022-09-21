@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Unity.Scenes.Editor
 {
-    [ExecuteAlways]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     [UpdateBefore(typeof(SceneSystemGroup))]
     class LiveConversionEditorSystemGroup : ComponentSystemGroup

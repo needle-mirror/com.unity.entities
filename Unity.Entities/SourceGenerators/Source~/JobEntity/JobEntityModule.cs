@@ -7,92 +7,23 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
 using Unity.Entities.SourceGen.SystemGeneratorCommon;
 
-/*
-    JobEntityGenerator and JobEntityModule (A System Generator Module) work together to provide the IJobEntity feature.
-
-    For an explanation of the feature, see: https://unity.slack.com/archives/CQ811KGJJ/p1620212365031500
-
-    -- JobEntityGenerator --
-    A user writes an IJobEntity with `partial`:
-
-    public partial struct MyJob : IJobEntity
-    {
-        public void Execute(ref Translation translation, in Velocity velocity)
-        {
-            ...
-        }
-    }
-
-    The **JobEntityGenerator** will generate code that extends MyJob into a working IJobEntityBatch:
-
-    //Generated
-    public partial struct MyJob : IJobEntity, IJobEntityBatch
-    {
-        ComponentTypeHandle<Translation> __TranslationTypeHandle;
-        [ReadOnly]
-        ComponentTypeHandle<Velocity> __VelocityTypeHandle;
-
-        public void Execute(ArchetypeChunk batch, int batchIndex)
-        {
-            var translationData = UnsafeGetChunkNativeArrayIntPtr<Rotation>(batch, __TranslationTypeHandle);
-            var velocityData  = UnsafeGetChunkNativeArrayIntPtr<Rotation>(batch, __VelocityTypeHandle);
-            int count = batch.Count;
-            for (int i = 0; i < count; ++i)
-            {
-                ref var translationData__ref = ref UnsafeGetRefToNativeArrayPtrElement<Translation>(translationData, i);
-                ref var velocityData__ref = ref UnsafeGetRefToNativeArrayPtrElement<Velocity>(velocityData, i);
-                Execute(ref translationData__ref, in velocityData__ref);
-            }
-        }
-    }
-
-    -- JobEntityModule --
-    A user wants to create and schedule an IJobEntity, so after writing the above struct they write this in a System:
-    public partial MySystem : SystemBase
-    {
-        public void OnUpdate()
-        {
-            var myJob = new MyJob();
-            Dependency = myJob.Schedule(Dependency);
-        }
-    }
-
-    In this case, **JobEntityModule** will generate changes to the System to allow this generated job to be scheduled normally:
-
-    // Generated
-    public partial class MySystem : SystemBase
-    {
-        protected void __OnUpdate_2C361387()
-        {
-            var myJob = new MyJob();
-            Dependency = __ScheduleViaJobEntityBatchExtension_0(myJob, __query_0, 1, Dependency);
-        }
-
-        public JobHandle __ScheduleViaJobEntityBatchExtension_0(MyJob job, EntityQuery entityQuery, int batchesPerChunk, JobHandle dependency)
-        {
-            Unity_Transforms_Translation_RW_ComponentTypeHandle.Update(this);
-            Velocity_RO_ComponentTypeHandle.Update(this);
-            job.__TranslationTypeHandle = Unity_Transforms_Translation_RW_ComponentTypeHandle;
-            job.__VelocityTypeHandle = Velocity_RO_ComponentTypeHandle;
-            return JobEntityBatchExtensions.Schedule(job, entityQuery, dependency);
-        }
-    }
-
-    This is why we have two different generators. One is about generating the extension to your job struct and the other is generating the new callsite in a system.
-    JobEntityGenerator- extending Job struct (once per struct)
-    JobEntityModule- extending callsite in System (once per Job invocation in a system)
-*/
-
 namespace Unity.Entities.SourceGen.JobEntity
 {
     public class JobEntityModule : ISystemModule
     {
-        List<(SyntaxNode SyntaxNode, TypeDeclarationSyntax SystemType)> m_Candidates = new List<(SyntaxNode SyntaxNode, TypeDeclarationSyntax SystemType)>();
-        Dictionary<TypeDeclarationSyntax, List<MemberAccessExpressionSyntax>> m_JobEntityInvocationCandidates = new Dictionary<TypeDeclarationSyntax, List<MemberAccessExpressionSyntax>>();
+        Dictionary<TypeDeclarationSyntax, List<JobEntityCandidate>> m_JobEntityInvocationCandidates = new Dictionary<TypeDeclarationSyntax, List<JobEntityCandidate>>();
         List<TypeDeclarationSyntax> nonPartialJobEntityTypes = new List<TypeDeclarationSyntax>();
 
-        public IEnumerable<(SyntaxNode SyntaxNode, TypeDeclarationSyntax SystemType)> Candidates => m_Candidates;
-        public bool RequiresReferenceToBurst => false;
+        public IEnumerable<(SyntaxNode SyntaxNode, TypeDeclarationSyntax SystemType)> Candidates
+        {
+            get
+            {
+                foreach (var kvp in m_JobEntityInvocationCandidates)
+                    foreach (var candidate in kvp.Value)
+                        yield return (candidate.Node, kvp.Key);
+            }
+        }
+        public bool RequiresReferenceToBurst => true;
 
         enum ScheduleMode
         {
@@ -102,12 +33,6 @@ namespace Unity.Entities.SourceGen.JobEntity
             ScheduleParallelByRef,
             Run,
             RunByRef
-        }
-
-        enum ExtensionType
-        {
-            Batch,
-            BatchIndex
         }
 
         public void OnReceiveSyntaxNode(SyntaxNode node)
@@ -120,32 +45,37 @@ namespace Unity.Entities.SourceGen.JobEntity
 
                 if (Enum.GetNames(typeof(ScheduleMode)).Contains(schedulingMethodName))
                 {
-                    var containingType = node.Ancestors().OfType<TypeDeclarationSyntax>().First();
+                    var containingType = node.AncestorOfKind<TypeDeclarationSyntax>();
 
                     // Discard if no base type, meaning it can't possible inherit from a System
                     if (containingType.BaseList == null || containingType.BaseList.Types.Count == 0)
                         return;
-                    m_JobEntityInvocationCandidates.Add(containingType, memberAccessExpressionSyntax);
-                    m_Candidates.Add((node, containingType));
+                    m_JobEntityInvocationCandidates.Add(containingType, new JobEntityCandidate(memberAccessExpressionSyntax));
                 }
             }
         }
 
+        readonly struct JobEntityCandidate : ISystemCandidate
+        {
+            public JobEntityCandidate(MemberAccessExpressionSyntax node) => MemberAccessExpressionSyntax = node;
+            public string CandidateTypeName => "IJobEntity";
+            public MemberAccessExpressionSyntax MemberAccessExpressionSyntax { get; }
+            public SyntaxNode Node => MemberAccessExpressionSyntax;
+        }
+
         static (bool IsCandidate, bool IsExtensionMethodUsed) IsIJobEntityCandidate(TypeInfo typeInfo)
         {
-            if (typeInfo.Type.InheritsFromInterface("Unity.Entities.IJobEntity"))
-            {
-                return (IsCandidate: typeInfo.Type.InheritsFromInterface("Unity.Entities.IJobEntity"), IsExtensionMethodUsed: false);
-            }
+            return typeInfo.Type.InheritsFromInterface("Unity.Entities.IJobEntity")
+                ? (IsCandidate: true, IsExtensionMethodUsed: false)
+                : (IsCandidate: typeInfo.Type.ToFullName() == "Unity.Entities.IJobEntityExtensions", IsExtensionMethodUsed: true);
 
             // IsExtensionMethodUsed is ignored if IsCandidate is false, so we don't need to test the same thing twice
-            return (IsCandidate: typeInfo.Type.ToFullName() == "Unity.Entities.IJobEntityExtensions", IsExtensionMethodUsed: true);
         }
 
         static (ExpressionSyntax Argument, INamedTypeSymbol Symbol)
             GetJobEntitySymbolPassedToExtensionMethod(MemberAccessExpressionSyntax candidate, SemanticModel semanticModel)
         {
-            var arguments = candidate.Ancestors().OfType<InvocationExpressionSyntax>().First()
+            var arguments = candidate.AncestorOfKind<InvocationExpressionSyntax>()
                 .ChildNodes().OfType<ArgumentListSyntax>().SelectMany(a => a.Arguments);
             var jobEntityArgument = GetJobEntityArgumentPassedToExtensionMethod(arguments);
 
@@ -187,49 +117,54 @@ namespace Unity.Entities.SourceGen.JobEntity
             return (jobSymbol: (INamedTypeSymbol)typeInfo.Type, PassedArgument: candidate.Expression);
         }
 
-        public bool GenerateSystemType(SystemGeneratorContext context)
+        public bool RegisterChangesInSystem(SystemDescription systemDescription)
         {
             foreach (var nonPartialType in nonPartialJobEntityTypes)
-                JobEntityGeneratorErrors.SGJE0004(context, nonPartialType.GetLocation(), nonPartialType.Identifier.ValueText);
+                JobEntityGeneratorErrors.SGJE0004(systemDescription, nonPartialType.GetLocation(), nonPartialType.Identifier.ValueText);
 
-            var candidates = m_JobEntityInvocationCandidates[context.SystemType];
+            var candidates = m_JobEntityInvocationCandidates[systemDescription.SystemTypeSyntax];
 
             for (var i = 0; i < candidates.Count; i++)
             {
                 var candidate = candidates[i];
 
-                ExpressionSyntax jobEntityInstance = candidate.Expression is IdentifierNameSyntax identifierNameSyntax ? identifierNameSyntax : null;
-                jobEntityInstance ??= candidate.Expression as ObjectCreationExpressionSyntax;
+                ExpressionSyntax jobEntityInstance = candidate.MemberAccessExpressionSyntax.Expression as IdentifierNameSyntax;
+                jobEntityInstance ??= candidate.MemberAccessExpressionSyntax.Expression as ObjectCreationExpressionSyntax;
 
-                var typeInfo = context.SemanticModel.GetTypeInfo(jobEntityInstance);
+                var typeInfo = systemDescription.SemanticModel.GetTypeInfo(jobEntityInstance);
                 var (isCandidate, isExtensionMethodUsed) = IsIJobEntityCandidate(typeInfo);
 
                 if (!isCandidate)
                     continue;
 
-                if (typeInfo.Type?.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is TypeDeclarationSyntax typeDeclarationSyntax)
+                if (typeInfo.Type?.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is TypeDeclarationSyntax declaringSystemType)
                 {
-                    bool isPartial = typeDeclarationSyntax.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
-                    if (!isPartial)
+                    if (!declaringSystemType.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
                     {
-                        JobEntityGeneratorErrors.SGJE0004(context, typeDeclarationSyntax.GetLocation(), typeDeclarationSyntax.Identifier.ValueText);
+                        JobEntityGeneratorErrors.SGJE0004(systemDescription, declaringSystemType.GetLocation(), declaringSystemType.Identifier.ValueText);
                         continue;
                     }
                 }
 
                 var (jobEntityType, jobArgumentUsedInSchedulingMethod) =
-                    GetIJobEntityTypeDeclarationAndArgument(candidate, context.SemanticModel, typeInfo, isExtensionMethodUsed);
+                    GetIJobEntityTypeDeclarationAndArgument(candidate.MemberAccessExpressionSyntax, systemDescription.SemanticModel, typeInfo, isExtensionMethodUsed);
 
-                var jobEntityDesc = new JobEntityDescription(jobEntityType, context);
-                if (!jobEntityDesc.Valid) continue;
+                var jobEntityDesc = new JobEntityDescription(jobEntityType, systemDescription);
+                if (jobEntityDesc.Invalid) continue;
 
-                var queryTypes = new List<(INamedTypeSymbol, bool)>();
+                var queryTypes = new List<Query>();
                 var jobEntityAssignments = new List<(JobEntityParam, string)>();
 
                 foreach (var param in jobEntityDesc.UserExecuteMethodParams)
                 {
                     if(param.IsQueryableType)
-                        queryTypes.Add(((INamedTypeSymbol)param.TypeSymbol, param.IsReadOnly));
+                        queryTypes.Add(
+                            new Query
+                            {
+                                IsReadOnly = param.IsReadOnly,
+                                Type = QueryType.All,
+                                TypeSymbol = param is JobEntityParam_DynamicBuffer ? ((INamedTypeSymbol)param.TypeSymbol).TypeArguments.First() : param.TypeSymbol
+                            });
 
                     // Managed types do not use
                     if (!param.RequiresTypeHandleFieldInSystemBase)
@@ -240,38 +175,83 @@ namespace Unity.Entities.SourceGen.JobEntity
                         continue;
                     }
 
-                    var componentTypeField = context.GetOrCreateComponentTypeField(param.TypeSymbol, param.IsReadOnly);
-                    jobEntityAssignments.Add((param, componentTypeField));
+                    var typeField = param is JobEntityParam_Entity
+                        ? systemDescription.GetOrCreateEntityTypeHandleField(param.TypeSymbol)
+                        : systemDescription.GetOrCreateTypeHandleField(param.TypeSymbol, param.IsReadOnly);
+                    jobEntityAssignments.Add((param, typeField));
                 }
 
-                var generatedQueryField = context.GetOrCreateQueryField(new EntityQueryDescription(
-                        queryTypes.Concat(jobEntityDesc.QueryAllTypes).ToArray(),
-                        jobEntityDesc.QueryAnyTypes.ToArray(),
-                        jobEntityDesc.QueryNoneTypes.ToArray(),
-                        jobEntityDesc.QueryChangeFilterTypes.ToArray(),
-                        jobEntityDesc.EntityQueryOptions));
+                var generatedQueryField = systemDescription.GetOrCreateQueryField(
+                    new SingleArchetypeQueryFieldDescription(
+                        new Archetype(
+                            queryTypes.Concat(jobEntityDesc.QueryAllTypes).ToArray(),
+                            jobEntityDesc.QueryAnyTypes,
+                            jobEntityDesc.QueryNoneTypes,
+                            options: jobEntityDesc.EntityQueryOptions),
+                        changeFilterTypes: jobEntityDesc.QueryChangeFilterTypes));
 
-                var invocationExpression = candidate.Parent as InvocationExpressionSyntax;
-                var (entityQuery, dependency, scheduleMode) = GetArguments(context, isExtensionMethodUsed, invocationExpression, candidate.Name.Identifier.ValueText, generatedQueryField);
+                var invocationExpression = candidate.MemberAccessExpressionSyntax.Parent as InvocationExpressionSyntax;
+                var (entityQuery, dependency, scheduleMode) = GetArguments(systemDescription, isExtensionMethodUsed, invocationExpression, candidate.MemberAccessExpressionSyntax.Name.Identifier.ValueText, generatedQueryField);
 
-                var (syntax, name) = CreateSchedulingMethod(jobEntityAssignments, jobEntityDesc.FullTypeName, scheduleMode,
-                    i, jobEntityDesc.HasEntityInQueryIndex() ? ExtensionType.BatchIndex : ExtensionType.Batch, jobEntityDesc);
+                if (!(scheduleMode == ScheduleMode.Run || scheduleMode == ScheduleMode.RunByRef)) // Schedule or ScheduleParallel
+                {
+                    var sgje0014S = new HashSet<string>();
+                    var sgje0015S = new HashSet<string>();
+                    foreach (var userExecuteMethodParam in jobEntityDesc.UserExecuteMethodParams)
+                    {
+                        switch (userExecuteMethodParam)
+                        {
+                            case JobEntityParam_SharedComponent sharedComponent: // Error if managed sharedcomponent is scheduled
+                                if (sharedComponent.RequiresEntityManagerAccess)
+                                    sgje0014S.Add(GetParameterName(sharedComponent.ParameterSymbol));
+                                break;
+                            case JobEntityParam_ManagedComponent managedComponent:
+                                if (managedComponent.isUnityEngineComponent) { // Error if UnityEngine components are scheduled instead of run
+                                    sgje0015S.Add(GetParameterName(managedComponent.ParameterSymbol));
+                                } else { // Error if managed component is scheduled
+                                    sgje0014S.Add(GetParameterName(managedComponent.ParameterSymbol));
+                                }
+                                break;
+                        }
+                    }
 
-                context.NewMembers.Add(syntax);
+                    if (sgje0014S.Any())
+                        JobEntityGeneratorErrors.SGJE0014(systemDescription, candidate.Node.GetLocation(), jobEntityDesc.FullTypeName, sgje0014S.SeparateByCommaAndSpace());
+                    if (sgje0015S.Any())
+                        JobEntityGeneratorErrors.SGJE0015(systemDescription, candidate.Node.GetLocation(), jobEntityDesc.FullTypeName, sgje0014S.SeparateByCommaAndSpace());
+                }
+
+                var isByRef = scheduleMode == ScheduleMode.RunByRef || scheduleMode == ScheduleMode.ScheduleByRef || scheduleMode == ScheduleMode.ScheduleParallelByRef;
+                var (syntax, name) = CreateSchedulingMethod(jobEntityAssignments, jobEntityDesc.FullTypeName, scheduleMode, i, jobEntityDesc, systemDescription.SystemType, isByRef);
+
+                systemDescription.NewMiscellaneousMembers.Add(syntax);
 
                 // Generate code for callsite
-                var shouldAddDependencySnippet = dependency == null;
-                shouldAddDependencySnippet &= !(scheduleMode == ScheduleMode.Run || scheduleMode == ScheduleMode.RunByRef);
-                shouldAddDependencySnippet &= !(invocationExpression.Parent is MemberAccessExpressionSyntax); // Support e.g. SomeJob.Schedule().Complete()
 
-                context.ReplaceNodeInMethod(invocationExpression,
-                    SyntaxFactory.ParseExpression($"{"Dependency =".EmitIfTrue(shouldAddDependencySnippet)} {name}({jobArgumentUsedInSchedulingMethod}, {entityQuery}, {dependency ?? "Dependency"})"));
+
+                var systemStateParameterResult = systemDescription.TryGetSystemStateParameterName(candidate);
+                if (!systemStateParameterResult.Success)
+                    continue;
+
+
+                var shouldAddDependencySnippetAtAssignment = dependency == null;
+                shouldAddDependencySnippetAtAssignment &= !(scheduleMode == ScheduleMode.Run || scheduleMode == ScheduleMode.RunByRef);
+                shouldAddDependencySnippetAtAssignment &= !(invocationExpression.Parent is MemberAccessExpressionSyntax); // Support e.g. SomeJob.Schedule().Complete()
+
+                var dependencySnippet = $"{systemStateParameterResult.SystemStateName}.Dependency";
+
+                systemDescription.ReplaceNodeNonNested(
+                    invocationExpression,
+                    SyntaxFactory.ParseExpression($"{(dependencySnippet+"=").EmitIfTrue(shouldAddDependencySnippetAtAssignment)} {name}({"ref ".EmitIfTrue(isByRef)}{jobArgumentUsedInSchedulingMethod}, {entityQuery}, {dependency ?? dependencySnippet}, ref {systemStateParameterResult.SystemStateName})"));
             }
 
             return true;
         }
 
-        public bool ShouldRun(ParseOptions parseOptions) => true;
+        static string GetParameterName(IParameterSymbol parameterSymbol)
+            => parameterSymbol.DeclaringSyntaxReferences.First().GetSyntax() is ParameterSyntax {Identifier: var i}
+            ? i.ValueText
+            : parameterSymbol.ToDisplayString();
 
         enum ArgumentType
         {
@@ -281,7 +261,7 @@ namespace Unity.Entities.SourceGen.JobEntity
         }
 
         static (string EntityQuery, string Dependency, ScheduleMode ScheduleMode) GetArguments(
-            SystemGeneratorContext context, bool isExtensionMethodUsed, InvocationExpressionSyntax invocationExpression, string methodName, string defaultEntityQueryName)
+            SystemDescription context, bool isExtensionMethodUsed, InvocationExpressionSyntax invocationExpression, string methodName, string defaultEntityQueryName)
         {
             var entityQueryArgument = defaultEntityQueryName;
             string dependencyArgument = null;
@@ -336,7 +316,7 @@ namespace Unity.Entities.SourceGen.JobEntity
             };
         }
 
-        static (ArgumentType Type, string Value) ParseUnnamedArgument(ArgumentSyntax argument, int argumentPosition, bool isExtensionMethodUsed, bool methodOverloadAcceptsDependencyAsOnlyArgument, SystemGeneratorContext context)
+        static (ArgumentType Type, string Value) ParseUnnamedArgument(ArgumentSyntax argument, int argumentPosition, bool isExtensionMethodUsed, bool methodOverloadAcceptsDependencyAsOnlyArgument, SystemDescription context)
         {
             switch (argumentPosition+(isExtensionMethodUsed?0:1))
             {
@@ -374,47 +354,53 @@ namespace Unity.Entities.SourceGen.JobEntity
             _ => default
         };
 
-        static (MemberDeclarationSyntax Syntax, string Name) CreateSchedulingMethod(
-            IReadOnlyCollection<(JobEntityParam, string)> assignments, string fullTypeName, ScheduleMode scheduleMode, int methodId, ExtensionType extensionType, JobEntityDescription jobEntityDescription)
+        static (MemberDeclarationSyntax Syntax, string Name) CreateSchedulingMethod(IReadOnlyCollection<(JobEntityParam, string)> assignments, string fullTypeName, ScheduleMode scheduleMode,
+            int methodId, JobEntityDescription jobEntityDescription, SystemType systemType, bool isByRef)
         {
             var containsReturn = !(scheduleMode == ScheduleMode.Run || scheduleMode == ScheduleMode.RunByRef);
 
-            var methodName = extensionType switch
-            {
-                ExtensionType.BatchIndex => $"__ScheduleViaJobEntityBatchIndexExtension_{methodId}",
-                ExtensionType.Batch => $"__ScheduleViaJobEntityBatchExtension_{methodId}",
-                _ => throw new ArgumentOutOfRangeException(nameof(extensionType), extensionType, null)
-            };
+            var methodName = $"__ScheduleViaJobChunkExtension_{methodId}";
 
-            var staticExtensionsClass = extensionType switch
-            {
-                ExtensionType.BatchIndex => "JobEntityBatchIndexExtensions",
-                ExtensionType.Batch => "JobEntityBatchExtensions",
-                _ => throw new ArgumentOutOfRangeException(nameof(extensionType), extensionType, null)
-            };
+            bool hasManagedComponents = jobEntityDescription.HasManagedComponents();
+            bool isRunWithoutJobs = (scheduleMode == ScheduleMode.Run || scheduleMode == ScheduleMode.RunByRef) &&
+                                    hasManagedComponents;
 
-            var methodAndArguments = GetMethodAndArguments(scheduleMode, jobEntityDescription.HasManagedComponents());
+            bool hasEntityInQueryIndex = jobEntityDescription.HasEntityInQueryIndex();
+            bool needsInternalScheduleParallel =
+                (scheduleMode == ScheduleMode.ScheduleParallel || scheduleMode == ScheduleMode.ScheduleParallelByRef) &&
+                hasEntityInQueryIndex;
+            // Certain schedule paths require .Schedule/.Run calls that aren't in the IJobChunk public API,
+            // and only appear in InternalCompilerInterface
+            var staticExtensionsClass = (isRunWithoutJobs || needsInternalScheduleParallel)
+                ? "InternalCompilerInterface.JobChunkInterface" : "JobChunkExtensions";
+
+            var methodAndArguments = GetMethodAndArguments(scheduleMode, hasManagedComponents, jobEntityDescription.HasEntityInQueryIndex());
             var returnType = containsReturn ? "Unity.Jobs.JobHandle" : "void";
             var returnExpression = $"{"return ".EmitIfTrue(containsReturn)}Unity.Entities.{staticExtensionsClass}.{methodAndArguments};";
 
+            var needsEntityManager = jobEntityDescription.GetEntityManagerPermissionNeeded();
+
             var method =
                 $@"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                    {returnType} {methodName}({fullTypeName} job, Unity.Entities.EntityQuery entityQuery, Unity.Jobs.JobHandle dependency)
+                    {returnType} {methodName}({"ref ".EmitIfTrue(isByRef)}{fullTypeName} job, Unity.Entities.EntityQuery entityQuery, Unity.Jobs.JobHandle dependency, ref Unity.Entities.SystemState state)
                     {{
                         {GenerateUpdateCalls(assignments).SeparateBySemicolonAndNewLine()};{Environment.NewLine}
-                        {GenerateAssignments(assignments).SeparateBySemicolonAndNewLine()};{Environment.NewLine}
+                        {GenerateAssignments(assignments, needsEntityManager).SeparateBySemicolonAndNewLine()};{Environment.NewLine}
+                        {GeneratePreHelperJob(hasEntityInQueryIndex,scheduleMode).EmitIfTrue(hasEntityInQueryIndex)}
                         {returnExpression};
                     }}";
 
             return (Syntax: (MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(method), Name: methodName);
         }
 
-        static string GetMethodAndArguments(ScheduleMode scheduleMode, bool hasManagedComponent) =>
+        static string GetMethodAndArguments(ScheduleMode scheduleMode, bool hasManagedComponent, bool needsEntityInQueryIndex) =>
             scheduleMode switch
             {
                 ScheduleMode.Schedule => "Schedule(job, entityQuery, dependency)",
                 ScheduleMode.ScheduleByRef => "ScheduleByRef(ref job, entityQuery, dependency)",
+                ScheduleMode.ScheduleParallel when needsEntityInQueryIndex => "ScheduleParallel(job, entityQuery, dependency, baseEntityIndexArray)",
                 ScheduleMode.ScheduleParallel => "ScheduleParallel(job, entityQuery, dependency)",
+                ScheduleMode.ScheduleParallelByRef when needsEntityInQueryIndex => "ScheduleParallelByRef(ref job, entityQuery, dependency, baseEntityIndexArray)",
                 ScheduleMode.ScheduleParallelByRef => "ScheduleParallelByRef(ref job, entityQuery, dependency)",
                 ScheduleMode.Run when hasManagedComponent => "RunWithoutJobs(ref job, entityQuery)",
                 ScheduleMode.Run => "Run(job, entityQuery)",
@@ -427,17 +413,48 @@ namespace Unity.Entities.SourceGen.JobEntity
         {
             return assignments
                 .Where(assignment => assignment.JobEntityFieldToAssignTo.RequiresTypeHandleFieldInSystemBase)
-                .Select(assignment => $"{assignment.ComponentTypeField}.Update(this)");
+                .Select(assignment => $"{assignment.ComponentTypeField}.Update(ref state)");
         }
 
-        static IEnumerable<string> GenerateAssignments(IEnumerable<(JobEntityParam JobEntityFieldToAssignTo, string AssignmentValue)> assignments)
+        static IEnumerable<string> GenerateAssignments(IEnumerable<(JobEntityParam JobEntityFieldToAssignTo, string AssignmentValue)> assignments, bool needsEntityManager)
         {
             var valueTuples = assignments as (JobEntityParam JobEntityFieldToAssignTo, string AssignmentValue)[] ?? assignments.ToArray();
-            if (valueTuples.Any(assignment => assignment.JobEntityFieldToAssignTo.RequiresEntityManagerAccess))
-                yield return "job.__EntityManager = EntityManager";
+            if (needsEntityManager)
+                yield return $"job.__EntityManager = state.EntityManager";
 
             foreach (var (jobEntityFieldToAssignTo, assignmentValue) in valueTuples)
-                yield return $"job.{jobEntityFieldToAssignTo.FieldName} = {assignmentValue}";
+            {
+                if (jobEntityFieldToAssignTo.RequiresTypeHandleFieldInSystemBase)
+                    yield return $"job.{jobEntityFieldToAssignTo.FieldName} = {assignmentValue}";
+                else
+                    yield return $"job.{jobEntityFieldToAssignTo.FieldName} = state.{assignmentValue}";
+            }
         }
+
+        static string GeneratePreHelperJob(bool hasEntityInQueryIndex, ScheduleMode scheduleMode)
+        {
+            if (!hasEntityInQueryIndex) return "";
+
+            const string runReturn = @"var baseEntityIndexArray =  entityQuery.CalculateBaseEntityIndexArray(Unity.Collections.Allocator.TempJob);
+           job.__ChunkBaseEntityIndices = baseEntityIndexArray;";
+
+            const string dependReturn = @"var baseEntityIndexArray = entityQuery.CalculateBaseEntityIndexArrayAsync(Unity.Collections.Allocator.TempJob, dependency, out var indexDependency);
+                job.__ChunkBaseEntityIndices = baseEntityIndexArray;
+                 dependency = indexDependency;";
+
+            var output = scheduleMode switch
+            {
+                ScheduleMode.Schedule => dependReturn,
+                ScheduleMode.ScheduleByRef => dependReturn,
+                ScheduleMode.ScheduleParallel => dependReturn,
+                ScheduleMode.ScheduleParallelByRef => dependReturn,
+                ScheduleMode.Run => runReturn,
+                ScheduleMode.RunByRef => runReturn,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+
+            return output;
+        }
+
     }
 }

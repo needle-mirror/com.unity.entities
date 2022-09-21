@@ -17,7 +17,7 @@ namespace Unity.Entities
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
 
-        internal bool IsComponentEnabled(Entity entity, int typeIndex)
+        internal bool IsComponentEnabled(Entity entity, TypeIndex typeIndex)
         {
             var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
             var archetype = chunk->Archetype;
@@ -29,14 +29,14 @@ namespace Unity.Entities
 
         internal bool IsComponentEnabled(Chunk* chunk, int indexInChunk, int typeIndexInArchetype)
         {
-            // the bit array size is padded up to 64 bits, so we validate we're not indexing outside the valid data.
+            // the bitmask size is always 128 bits, so make sure we're not indexing outside the chunk's capacity.
             Assert.IsTrue(indexInChunk < chunk->Capacity);
 
-            var isComponentEnabled = ChunkDataUtility.GetComponentEnabledRO(chunk, typeIndexInArchetype);
+            var isComponentEnabled = ChunkDataUtility.GetEnabledRefRO(chunk, typeIndexInArchetype);
             return isComponentEnabled.IsSet(indexInChunk);
         }
 
-        internal void SetComponentEnabled(Entity entity, int typeIndex, bool value)
+        internal void SetComponentEnabled(Entity entity, TypeIndex typeIndex, bool value)
         {
             var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
             var archetype = chunk->Archetype;
@@ -53,7 +53,7 @@ namespace Unity.Entities
             // the bit array size is padded up to 64 bits, so we validate we're not indexing outside the valid data.
             Assert.IsTrue(indexInChunk < chunk->Capacity);
 
-            var bits = ChunkDataUtility.GetComponentEnabledRW(chunk, typeIndexInArchetype);
+            var bits = ChunkDataUtility.GetEnabledRefRW(chunk, typeIndexInArchetype, out var ptrChunkDisabledCount);
             var numStridesIntoBits = (indexInChunk / 64);
             var pBits = bits.Ptr + numStridesIntoBits;
             var indexInPBits = indexInChunk - (numStridesIntoBits * 64);
@@ -75,8 +75,49 @@ namespace Unity.Entities
 
             // do we need increment or decrement?
             var adjustment = math.select(1, -1, value);
-            var ptr = archetype->Chunks.GetPointerToChunkDisabledCountForType(typeIndexInArchetype, chunk->ListIndex);
-            Interlocked.Add(ref UnsafeUtility.AsRef<int>(ptr), adjustment);
+            Interlocked.Add(ref UnsafeUtility.AsRef<int>(ptrChunkDisabledCount), adjustment);
+        }
+
+        /// <summary>
+        /// Get a pointer to the component type index enabled bits of the chunk the entity is part of.
+        /// Also returns a pointer to the chunk's disable counter.
+        /// Will update the chunk version
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="typeIndex"></param>
+        /// <param name="globalSystemVersion"></param>
+        /// <param name="indexInBitField"></param>
+        /// <param name="ptrChunkDisabledCount"></param>
+        /// <returns></returns>
+        public ulong* GetEnabledRawRW(Entity entity, TypeIndex typeIndex, uint globalSystemVersion, out int indexInBitField, out int* ptrChunkDisabledCount)
+        {
+            AssertEntityHasComponent(entity, typeIndex);
+            var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
+            var archetype = chunk->Archetype;
+            indexInBitField = m_EntityInChunkByEntity[entity.Index].IndexInChunk;
+            var typeOffset = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
+            return ChunkDataUtility.GetEnabledRefRW(m_EntityInChunkByEntity[entity.Index].Chunk, typeOffset, globalSystemVersion, out ptrChunkDisabledCount).Ptr;
+        }
+
+        /// <summary>
+        /// Get a pointer to the component type index enabled bits of the chunk the entity is part of.
+        /// Also returns a pointer to the chunk's disable counter
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="typeIndex"></param>
+        /// <param name="globalSystemVersion"></param>
+        /// <param name="indexInBitField"></param>
+        /// <param name="ptrChunkDisabledCount"></param>
+        /// <returns></returns>
+        public ulong* GetEnabledRawRO(Entity entity, TypeIndex typeIndex, out int indexInBitField, out int* ptrChunkDisabledCount)
+        {
+            AssertEntityHasComponent(entity, typeIndex);
+            var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
+            var archetype = chunk->Archetype;
+            var typeOffset = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
+            indexInBitField = m_EntityInChunkByEntity[entity.Index].IndexInChunk;
+            ptrChunkDisabledCount = archetype->Chunks.GetPointerToChunkDisabledCountForType(typeOffset, chunk->ListIndex);
+            return ChunkDataUtility.GetEnabledRefRO(chunk, typeOffset).Ptr;
         }
 
         //                              | ChangeVersion | OrderVersion |
@@ -162,10 +203,10 @@ namespace Unity.Entities
             // Compute the number of things that need to moved and patched.
             int patchCount = Math.Min(batchCount, chunk->Count - indexInChunk - batchCount);
 
+            ChunkDataUtility.RemoveFromEnabledBitsHierarchicalData(chunk, indexInChunk, batchCount);
             if (0 == patchCount)
             {
                 // if we're not patching, we still need to clear the padding bits for the entities we destroyed
-                ChunkDataUtility.RemoveFromEnabledBitsHierarchicalData(chunk, indexInChunk, batchCount);
                 ChunkDataUtility.ClearPaddingBits(chunk, indexInChunk, batchCount);
                 return;
             }
@@ -180,7 +221,6 @@ namespace Unity.Entities
             var startIndex = chunk->Count - patchCount;
             ChunkDataUtility.Copy(chunk, startIndex, chunk, indexInChunk, patchCount);
             ChunkDataUtility.CloneEnabledBits(chunk, startIndex, chunk, indexInChunk, patchCount);
-
             var clearStartIndex = chunk->Count - batchCount;
             ChunkDataUtility.ClearPaddingBits(chunk, clearStartIndex, batchCount);
         }

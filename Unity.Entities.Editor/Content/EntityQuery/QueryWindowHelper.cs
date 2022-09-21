@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using Unity.Editor.Bridge;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,6 +14,8 @@ namespace Unity.Entities.Editor
         public static void OpenNewWindow(World world, EntityQuery query, SystemProxy systemProxy, int queryOrder, EntityQueryContentTab tab)
         {
             var windowName = L10n.Tr("Query");
+
+            Analytics.SendEditorEvent(Analytics.Window.Query, Analytics.EventType.WindowOpen);
 
             var wnd = SelectionUtility.CreateWindow(new EntityQueryContentProvider
             {

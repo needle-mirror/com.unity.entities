@@ -12,7 +12,7 @@ namespace Unity.Entities
         public struct SafetyErrorDetails
         {
             internal int m_ProblematicSystemId;
-            internal int m_ProblematicTypeIndex;
+            internal TypeIndex m_ProblematicTypeIndex;
             internal int m_ReaderIndex;
             internal AtomicSafetyHandle m_ProblematicHandle;
             internal bool IsWrite => m_ReaderIndex == -1;
@@ -29,7 +29,7 @@ namespace Unity.Entities
                 var managed = ptr->ManagedSystem;
                 if (managed != null)
                 {
-                    return TypeManager.GetSystemName(managed.GetType());
+                    return TypeManager.GetSystemName(managed.GetType()).ToString();
                 }
 
                 return ptr->DebugName.ToString();
@@ -38,9 +38,9 @@ namespace Unity.Entities
             internal string FormatToString()
             {
                 string systemName = GetSystemTypeNameFromSystemId(m_ProblematicSystemId);
-                int type = m_ProblematicTypeIndex;
+                var type = m_ProblematicTypeIndex;
                 AtomicSafetyHandle h = m_ProblematicHandle;
-                string errorTail = 
+                string errorTail =
                     "but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, " +
                     "the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.";
 
@@ -52,7 +52,7 @@ namespace Unity.Entities
         }
 
         internal static bool FindSystemSchedulingErrors(
-            int currentSystemId, ref UnsafeList<int> readingSystems, ref UnsafeList<int> writingSystems,
+            int currentSystemId, ref UnsafeList<TypeIndex> readingSystems, ref UnsafeList<TypeIndex> writingSystems,
             ComponentDependencyManager* dependencyManager, out SafetyErrorDetails details)
         {
             details = default;
@@ -60,6 +60,7 @@ namespace Unity.Entities
             const int kMaxHandles = 256;
             JobHandle* handles = stackalloc JobHandle[kMaxHandles];
             int* systemIds = stackalloc int[kMaxHandles];
+
 #if !UNITY_DOTSRUNTIME
             int mappingCount = Math.Min(JobsUtility.GetSystemIdMappings(handles, systemIds, kMaxHandles), kMaxHandles);
 #else
@@ -106,7 +107,7 @@ namespace Unity.Entities
             return false;
         }
 
-        static bool CheckJobDependencies(JobHandle* handles, int* systemIds, int mappingCount, ref SafetyErrorDetails details, int type, ComponentDependencyManager* dependencyManager)
+        static bool CheckJobDependencies(JobHandle* handles, int* systemIds, int mappingCount, ref SafetyErrorDetails details, TypeIndex type, ComponentDependencyManager* dependencyManager)
         {
             var h = dependencyManager->Safety.GetSafetyHandle(type, true);
 
@@ -143,21 +144,13 @@ namespace Unity.Entities
 
         private static int FindSystemId(JobHandle jobHandle, int* systemIds, JobHandle* handles, int mappingCount)
         {
-            #if !UNITY_DOTSRUNTIME
             for (int i = 0; i < mappingCount; ++i)
             {
                 JobHandle candidate = handles[i];
-                if (candidate.jobGroup == jobHandle.jobGroup && candidate.version == jobHandle.version)
+                if (candidate.Equals(jobHandle))
                     return systemIds[i];
             }
-            #else
-            for (int i = 0; i < mappingCount; ++i)
-            {
-                JobHandle candidate = handles[i];
-                if (candidate.JobGroup == jobHandle.JobGroup && candidate.Version == jobHandle.Version)
-                    return systemIds[i];
-            }
-            #endif
+
             return -1;
         }
     }

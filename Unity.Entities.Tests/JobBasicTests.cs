@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using NUnit.Framework;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -10,6 +11,20 @@ using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
+    public enum JobRunType
+    {
+        Schedule,
+        ScheduleByRef,
+        Run,
+        RunByRef,
+        RunWithoutJobs,
+    }
+
+    public struct JobRunTypeComp : IComponentData
+    {
+        public JobRunType type;
+    }
+
     // These are very basic tests. As we bring up the Tiny system,
     // it's useful to have super simple tests to make sure basics
     // are working.
@@ -398,7 +413,7 @@ namespace Unity.Entities.Tests
         public struct MultiHashWriterParallelFor : IJobParallelFor
         {
             [WriteOnly]
-            public NativeParallelMultiHashMap<int, int>.ParallelWriter result;
+            public NativeMultiHashMap<int, int>.ParallelWriter result;
 
             [WriteOnly]
             public NativeParallelHashMap<int, bool>.ParallelWriter threadMap;
@@ -585,15 +600,18 @@ namespace Unity.Entities.Tests
             }
         }
 
-        public struct SimpleChunkJob : IJobChunk
+        internal struct SimpleChunkJob : IJobChunk
         {
             public ComponentTypeHandle<EcsTestData> TestTypeHandle;
 
             [ReadOnly]
             public NativeList<int> listOfInt;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                // This job is not written to support queries with enableable component types.
+                Assert.IsFalse(useEnabledMask);
+
                 NativeArray<EcsTestData> chunkData = chunk.GetNativeArray(TestTypeHandle);
 
                 for (int i = 0; i < chunk.Count; ++i)
@@ -604,7 +622,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void TestSimpleIJobChunk([Values(0, 1, 2, 3)] int mode, [Values(1, 100)] int n)
+        public void TestSimpleIJobChunk([Values(0, 1, 2)] int mode, [Values(1, 100)] int n)
         {
             NativeArray<Entity> eArr = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(n, ref World.UpdateAllocator);
             var arch = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -627,15 +645,12 @@ namespace Unity.Entities.Tests
             switch (mode)
             {
                 case 0:
-                    job.Schedule(query).Complete();
+                    job.Schedule(query, default).Complete();
                     break;
                 case 1:
-                    job.ScheduleParallel(query).Complete();
+                    job.ScheduleParallel(query, default).Complete();
                     break;
                 case 2:
-                    job.ScheduleSingle(query).Complete();
-                    break;
-                case 3:
                     job.Run(query);
                     break;
             }

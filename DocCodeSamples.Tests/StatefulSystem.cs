@@ -11,18 +11,19 @@ namespace Doc.CodeSamples.Tests
         public int Lifetime;
     }
 
-    public struct StateComponentB : ISystemStateComponentData
+    public struct StateComponentB : ICleanupComponentData
     {
         public int State;
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class StatefulSystem : SystemBase
     {
         private EntityCommandBufferSystem ecbSource;
 
         protected override void OnCreate()
         {
-            ecbSource = World.GetExistingSystem<EndSimulationEntityCommandBufferSystem>();
+            ecbSource = World.GetExistingSystemManaged<EndSimulationEntityCommandBufferSystem>();
 
             // Create some test entities
             // This runs on the main thread, but it is still faster to use a command buffer
@@ -51,7 +52,7 @@ namespace Doc.CodeSamples.Tests
                 .ForEach(
                     (Entity entity, int entityInQueryIndex, in GeneralPurposeComponentA gpA) =>
                     {
-                    // Add an ISystemStateComponentData instance
+                    // Add an ICleanupComponentData instance
                     parallelWriterECB.AddComponent<StateComponentB>
                         (
                             entityInQueryIndex,
@@ -95,7 +96,7 @@ namespace Doc.CodeSamples.Tests
                 .ForEach(
                     (Entity entity, int entityInQueryIndex) =>
                     {
-                    // This system is responsible for removing any ISystemStateComponentData instances it adds
+                    // This system is responsible for removing any ICleanupComponentData instances it adds
                     // Otherwise, the entity is never truly destroyed.
                     parallelWriterECB.RemoveComponent<StateComponentB>(entityInQueryIndex, entity);
                     })

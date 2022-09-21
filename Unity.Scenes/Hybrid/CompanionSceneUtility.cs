@@ -60,6 +60,9 @@ namespace Unity.Entities
         static void CreateCompanionScenes()
         {
             var previewSceneFlags = PreviewSceneFlags.AllowMonoBehaviourEvents | PreviewSceneFlags.AllowCamerasForRendering | PreviewSceneFlags.IsPreviewScene;
+#if UNITY_2022_1_OR_NEWER
+            previewSceneFlags |= PreviewSceneFlags.AllowAutoPlayAudioSources;
+#endif
             _companionScene = EditorSceneManager.NewPreviewScene(true, previewSceneFlags);
             var companionSceneCullingMask = SceneCullingMasks.DefaultSceneCullingMask;
             _companionScene.name = "CompanionScene";

@@ -13,7 +13,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [SetUp]
         public void SetUp()
         {
-            TestSystem = World.GetOrCreateSystem<SimpleJobSystem>();
+            TestSystem = World.GetOrCreateSystemManaged<SimpleJobSystem>();
         }
 
         [Test]
@@ -39,8 +39,30 @@ namespace Unity.Entities.Tests.ForEachCodegen
             });
         }
 
+        [Test]
+        public void NoError_WithCodeComponentLookup()
+        {
+            TestSystem.WithCodeComponentLookup();
+        }
+
+        [Test]
+        public void NoError_WithBufferLookup()
+        {
+            TestSystem.WithBufferLookup();
+        }
+
         public partial class SimpleJobSystem : SystemBase
         {
+            public struct FooElement : IBufferElementData
+            {
+                public int Value;
+            }
+
+            public struct FooComponent : IComponentData
+            {
+                public int Value;
+            };
+
             protected override void OnUpdate() {}
 
             static void SetValues(Collections.NativeArray<int> myArray, int value)
@@ -68,6 +90,35 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     testArray[0] = 1;
                 }).Schedule();
                 Dependency.Complete();
+            }
+
+            public void WithCodeComponentLookup()
+            {
+                var e = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(e, new FooComponent { Value = 0 });
+
+                Job.WithCode(() =>
+                {
+                    var lookup = GetComponentLookup<FooComponent>(false);
+                    lookup[e] = new FooComponent { Value = 1 };
+                }).Run();
+
+                FooComponent fooComponent = EntityManager.GetComponentData<FooComponent>(e);
+                Assert.AreEqual(fooComponent.Value, 1);
+            }
+
+            public void WithBufferLookup()
+            {
+                var e = EntityManager.CreateEntity();
+                EntityManager.AddBuffer<FooElement>(e);
+
+                Job.WithCode(() =>
+                {
+                    var bfe = GetBufferLookup<FooElement>(false);
+                    bfe[e].Add(new FooElement { Value = 1 });
+                }).Run();
+
+                Assert.AreEqual(GetBufferLookup<FooElement>(true)[e][0].Value, 1);
             }
         }
     }

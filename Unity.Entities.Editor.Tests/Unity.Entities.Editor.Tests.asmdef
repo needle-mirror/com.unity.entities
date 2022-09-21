@@ -12,14 +12,15 @@
         "Unity.InternalAPIEngineBridge.002",
         "Unity.Mathematics",
         "Unity.Properties",
-        "Unity.Properties.Editor",
-        "Unity.Properties.UI",
-        "Unity.Properties.UI.Editor",
+        "Unity.Platforms.UI",
+        "Unity.Platforms.UI.Editor",
         "Unity.Scenes",
         "Unity.Scenes.Editor",
         "Unity.Serialization",
         "Unity.Serialization.Editor",
-        "Unity.Transforms"
+        "Unity.Transforms",
+        "Unity.Entities.Hybrid.Tests",
+        "Unity.Entities.TestComponents"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"

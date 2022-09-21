@@ -7,18 +7,20 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
 
+#if !ENABLE_TRANSFORM_V1
+#else
+
 namespace Unity.Transforms
 {
     [UpdateInGroup(typeof(ConversionSetupGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-    [AlwaysUpdateSystem]
     partial class TransformIncrementalConversionSystem : SystemBase
     {
         private IncrementalChangesSystem m_Incremental;
         protected override void OnCreate()
         {
             base.OnCreate();
-            m_Incremental = World.GetExistingSystem<IncrementalChangesSystem>();
+            m_Incremental = World.GetExistingSystemManaged<IncrementalChangesSystem>();
             m_Incremental.DeclareComponentDependencyTracking<Transform>();
         }
 
@@ -52,12 +54,11 @@ namespace Unity.Transforms
             var ecb = new EntityCommandBuffer(Allocator.TempJob);
             var patchingJob = new UpdateConvertedTransforms
             {
-                Rotation = dstEntityManager.GetComponentDataFromEntity<Rotation>(),
-                Translation = dstEntityManager.GetComponentDataFromEntity<Translation>(),
-                LocalToWorld = dstEntityManager.GetComponentDataFromEntity<LocalToWorld>(),
-                NonUniformScale = dstEntityManager.GetComponentDataFromEntity<NonUniformScale>(),
-                CopyTransformFromRoot = dstEntityManager.GetComponentDataFromEntity<CopyTransformFromPrimaryEntityTag>(true),
-                Parent = dstEntityManager.GetComponentDataFromEntity<Parent>(true),
+                Rotation = dstEntityManager.GetComponentLookup<Rotation>(),
+                Translation = dstEntityManager.GetComponentLookup<Translation>(),
+                LocalToWorld = dstEntityManager.GetComponentLookup<LocalToWorld>(),
+                NonUniformScale = dstEntityManager.GetComponentLookup<NonUniformScale>(),
+                Parent = dstEntityManager.GetComponentLookup<Parent>(true),
                 ConvertedEntities = m_Incremental.ConvertedEntities,
                 Hierarchy = m_Incremental.SceneHierarchy.Hierarchy,
                 ChangedIndices = localToWorldIndices,
@@ -78,22 +79,21 @@ namespace Unity.Transforms
             [ReadOnly] public NativeParallelHashMap<int, bool> ChangedIndices;
 
             [NativeDisableParallelForRestriction]
-            public ComponentDataFromEntity<LocalToWorld> LocalToWorld;
+            public ComponentLookup<LocalToWorld> LocalToWorld;
 
             [NativeDisableParallelForRestriction]
-            public ComponentDataFromEntity<Translation> Translation;
+            public ComponentLookup<Translation> Translation;
 
             [NativeDisableParallelForRestriction]
-            public ComponentDataFromEntity<Rotation> Rotation;
+            public ComponentLookup<Rotation> Rotation;
 
             [NativeDisableParallelForRestriction]
-            public ComponentDataFromEntity<NonUniformScale> NonUniformScale;
+            public ComponentLookup<NonUniformScale> NonUniformScale;
 
             public EntityCommandBuffer.ParallelWriter Ecb;
 
             [ReadOnly] public ConvertedEntitiesAccessor ConvertedEntities;
-            [ReadOnly] public ComponentDataFromEntity<CopyTransformFromPrimaryEntityTag> CopyTransformFromRoot;
-            [ReadOnly] public ComponentDataFromEntity<Parent> Parent;
+            [ReadOnly] public ComponentLookup<Parent> Parent;
 
             public void Execute(int index, TransformAccess transform)
             {
@@ -109,8 +109,9 @@ namespace Unity.Transforms
                         continue;
 
                     // check whether this is a primary entity or needs to have its transform copied from the primary
-                    if (!isFirst && !CopyTransformFromRoot.HasComponent(e))
+                    if (!isFirst)
                         continue;
+
                     isFirst = false;
 
                     LocalToWorld[e] = new LocalToWorld {Value = transform.localToWorldMatrix};
@@ -161,3 +162,5 @@ namespace Unity.Transforms
         }
     }
 }
+
+#endif

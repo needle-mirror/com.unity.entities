@@ -1,9 +1,10 @@
+using Unity.Burst;
 using Unity.Collections;
-using UnityEngine;
 
 namespace Unity.Entities
 {
-    [ExecuteAlways]
+    [RequireMatchingQueriesForUpdate]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     partial class RetainBlobAssetSystem : SystemBase
     {
@@ -17,7 +18,7 @@ namespace Unity.Entities
 
             Entities.WithNone<BlobAssetOwner>().WithoutBurst().WithStructuralChanges().ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetBatchPtr retainPtr) =>
             {
-                if (retain.FramesToRetainBlobAssets-- == 0)
+                if (retain.FramesToRetainBlobAssets-- <= 0)
                 {
                     BlobAssetBatch.Release(retainPtr.BlobAssetBatchPtr);
                     EntityManager.RemoveComponent<RetainBlobAssets>(e);
@@ -27,7 +28,7 @@ namespace Unity.Entities
 
             Entities.WithNone<BlobAssetOwner>().WithoutBurst().WithStructuralChanges().ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetPtr retainPtr) =>
             {
-                if (retain.FramesToRetainBlobAssets-- == 0)
+                if (retain.FramesToRetainBlobAssets-- <= 0)
                 {
                     retainPtr.BlobAsset->Invalidate();
                     Memory.Unmanaged.Free(retainPtr.BlobAsset, Allocator.Persistent);
@@ -42,7 +43,7 @@ namespace Unity.Entities
             Entities.ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetBatchPtr retainPtr) =>
             {
                 BlobAssetBatch.Release(retainPtr.BlobAssetBatchPtr);
-            }).Run();;
+            }).Run();
 
             Entities.ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetPtr retainPtr) =>
             {

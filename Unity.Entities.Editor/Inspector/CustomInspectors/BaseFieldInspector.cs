@@ -1,9 +1,9 @@
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Inspectors
 {
-    abstract class BaseFieldInspector<TField, TFieldValue, TValue> : Inspector<TValue>
+    abstract class BaseFieldInspector<TField, TFieldValue, TValue> : PropertyInspector<TValue>
         where TField : BaseField<TFieldValue>, new()
     {
         protected TField m_Field;
@@ -17,6 +17,8 @@ namespace Unity.Entities.Editor.Inspectors
                 tooltip = Tooltip,
                 bindingPath = "."
             };
+
+            InspectorUtility.AddRuntimeBar(m_Field);
             return m_Field;
         }
     }

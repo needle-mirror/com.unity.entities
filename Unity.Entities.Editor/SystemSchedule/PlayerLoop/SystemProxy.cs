@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Properties.Editor;
+using Unity.Properties;
 
 namespace Unity.Entities.Editor
 {
@@ -35,7 +35,7 @@ namespace Unity.Entities.Editor
             BelongToCurrentWorld = belongToCurrentWorld;
         }
 
-        public SystemProxy(SystemHandleUntyped h, World w, WorldProxy worldProxy, bool belongToCurrentWorld = true)
+        public SystemProxy(SystemHandle h, World w, WorldProxy worldProxy, bool belongToCurrentWorld = true)
         {
             WorldProxy = worldProxy;
             SystemIndex = WorldProxy.FindSystemIndexFor(h);

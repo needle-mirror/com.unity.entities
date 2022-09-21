@@ -1,13 +1,10 @@
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.LowLevel;
 using Unity.Entities.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 namespace Unity.Entities
 {
@@ -16,62 +13,97 @@ namespace Unity.Entities
         /// <summary>
         /// Journaling state data container.
         /// </summary>
-        [StructLayout(LayoutKind.Sequential)]
         unsafe struct JournalingState : IDisposable
         {
-            readonly int m_EntityTypeIndex;
-            ulong m_RecordIndex;
+            // One buffer is allocated per EntityComponentStore
+            const int k_SystemVersionBufferSize = 1024 * 1024;
+
+            struct SystemVersionHandle
+            {
+                public uint Version;
+                public SystemHandle Handle;
+            }
+
+            struct SystemVersionNode
+            {
+                public EntityComponentStore* Store;
+                public UnsafeCircularBuffer<SystemVersionHandle>* Buffer;
+                public SystemVersionNode* NextNode;
+            };
+
             UnsafeCircularBuffer<Record> m_Records;
             UnsafeCircularBuffer<byte> m_Buffer;
+            SystemVersionNode* m_SystemVersionNodes;
+            SystemVersionNode* m_LastSystemVersionNode;
             SpinLock m_Lock;
-            bool m_Enabled;
-            bool m_Initialized;
+            ulong m_RecordIndex;
+            int m_ErrorFailedResolveCount;
 
-            internal bool Enabled
+            internal JournalingState(int capacityInBytes)
             {
-                get => m_Enabled;
-                set => m_Enabled = value;
-            }
-
-            internal JournalingState(bool enabled, int capacityInBytes)
-            {
-                m_EntityTypeIndex = TypeManager.GetTypeIndex<Entity>();
-                m_RecordIndex = 0;
-                m_Records = new UnsafeCircularBuffer<Record>(capacityInBytes / 2 / sizeof(Record), Allocator.Persistent);
-                m_Buffer = new UnsafeCircularBuffer<byte>(capacityInBytes / 2, Allocator.Persistent);
+                var ratio = (float)sizeof(Record) / sizeof(Header);
+                var recordsCapacity = 1 << math.floorlog2((int)(capacityInBytes * ratio) / sizeof(Record)); // previous power of 2
+                var bufferCapacity = capacityInBytes - (recordsCapacity * sizeof(Record));
+                m_Records = new UnsafeCircularBuffer<Record>(recordsCapacity, Allocator.Persistent);
+                m_Buffer = new UnsafeCircularBuffer<byte>(bufferCapacity, Allocator.Persistent);
+                m_SystemVersionNodes = null;
+                m_LastSystemVersionNode = null;
                 m_Lock = new SpinLock();
-                m_Enabled = enabled;
-                m_Initialized = true;
+                m_RecordIndex = 0;
+                m_ErrorFailedResolveCount = 10;
             }
+
+            internal int RecordCount => m_Records.Count;
+            internal ulong RecordIndex => m_RecordIndex;
+            internal ulong UsedBytes => (ulong)((float)m_Buffer.Count / m_Buffer.Capacity * AllocatedBytes);
+            internal ulong AllocatedBytes => ((ulong)m_Records.Capacity * (ulong)sizeof(Record)) + (ulong)m_Buffer.Capacity;
 
             public void Dispose()
             {
-                m_Records.Dispose();
+                var node = m_SystemVersionNodes;
+                while (node != null)
+                {
+                    node->Buffer->Dispose();
+                    AllocatorManager.Free(Allocator.Persistent, node->Buffer);
+
+                    var nextNode = node->NextNode;
+                    AllocatorManager.Free(Allocator.Persistent, node);
+                    node = nextNode;
+                }
+                m_SystemVersionNodes = null;
+                m_LastSystemVersionNode = null;
                 m_Buffer.Dispose();
+                m_Records.Dispose();
                 m_RecordIndex = 0;
-                m_Initialized = false;
             }
 
-            [NotBurstCompatible]
-            internal IEnumerable<RecordView> GetRecords(bool blocking)
+            internal RecordViewArray GetRecords(Ordering ordering, bool blocking)
             {
-                if (!m_Initialized)
-                    yield break;
-
                 var locked = m_Lock.TryAcquire(blocking);
                 try
                 {
                     if (!locked)
                         throw new InvalidOperationException("Record buffer is currently locked for write.");
 
-                    using (var buffer = m_Buffer.ToNativeArray(Allocator.Temp))
+                    var bufferFrontIndex = m_Buffer.FrontIndex;
+                    if (bufferFrontIndex != 0)
                     {
+                        // Unwind circular buffers for linear access
+                        m_Records.Unwind();
+                        m_Buffer.Unwind();
+
+                        // Patch records position after unwind
+                        var sizeOf = UnsafeUtility.SizeOf<Record>();
                         for (var i = 0; i < m_Records.Count; ++i)
                         {
-                            var record = m_Records.ElementAt(i);
-                            yield return GetRecordView(in record, in buffer);
+                            var recordPtr = m_Records.Ptr + i;
+                            var position = recordPtr->Position - bufferFrontIndex;
+                            if (position < 0)
+                                position = m_Buffer.Capacity + position;
+                            *recordPtr = new Record(position, recordPtr->Length);
                         }
                     }
+                    return new RecordViewArray(m_RecordIndex, in m_Records, in m_Buffer, ordering);
                 }
                 finally
                 {
@@ -80,121 +112,46 @@ namespace Unity.Entities
                 }
             }
 
-            [NotBurstCompatible]
-            RecordView GetRecordView(in Record record, in NativeArray<byte> buffer)
+            internal void PushBack(EntityComponentStore* store, uint version, in SystemHandle handle)
             {
-                var recordOffset = record.Position - m_Buffer.FrontIndex;
-                if (recordOffset < 0)
-                    recordOffset = m_Buffer.Capacity + recordOffset;
-
-                // Get header
-                var bufferPtr = (byte*)buffer.GetUnsafeReadOnlyPtr();
-                var headerOffset = bufferPtr + recordOffset;
-                var header = UnsafeUtility.AsRef<Header>(headerOffset);
-
-                // Get entities array
-                var entitiesOffset = headerOffset + sizeof(Header);
-                var entitiesLength = sizeof(Entity) * record.EntityCount;
-                var entities = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Entity>(entitiesOffset, record.EntityCount, Allocator.None);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref entities, AtomicSafetyHandle.GetTempMemoryHandle());
-#endif
-
-                // Get type index array
-                var typesOffset = entitiesOffset + entitiesLength;
-                var typesLength = sizeof(int) * record.TypeCount;
-                var types = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(typesOffset, record.TypeCount, Allocator.None);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref types, AtomicSafetyHandle.GetTempMemoryHandle());
-#endif
-
-                // Get component data
-                var dataOffset = typesOffset + typesLength;
-                var dataLength = record.DataLength;
-                var data = GetRecordData(record.RecordType, typesLength > 0 ? types[0] : 0, dataOffset, dataLength);
-
-                return new RecordView(record.Index, record.RecordType, record.FrameIndex, header.WorldSequenceNumber, header.ExecutingSystem, header.OriginSystem, entities.ToArray(), types.Select(ComponentType.FromTypeIndex).ToArray(), data);
-            }
-
-            static object GetRecordData(RecordType recordType, int typeIndex, byte* dataPtr, int dataLength)
-            {
-                var data = default(object);
-                switch (recordType)
-                {
-                    case RecordType.SetComponentData:
-                    {
-                        var type = TypeManager.GetType(typeIndex);
-                        if (type == null)
-                            break;
-
-                        var typeInfo = TypeManager.GetTypeInfo(typeIndex);
-                        if (dataLength == typeInfo.SizeInChunk)
-                        {
-                            data = CreateInstanceFromDataPtr(type, dataPtr, typeInfo.SizeInChunk);
-                        }
-                        else if (dataLength > typeInfo.SizeInChunk)
-                        {
-                            var count = dataLength / typeInfo.SizeInChunk;
-                            data = Activator.CreateInstance(type.MakeArrayType(), new object[] { count });
-                            for (var i = 0; i < count; ++i)
-                                ((IList)data)[i] = CreateInstanceFromDataPtr(type, dataPtr + (i * typeInfo.SizeInChunk), typeInfo.SizeInChunk);
-                        }
-                        break;
-                    }
-                    case RecordType.SetSharedComponentData:
-                        //TODO
-                        break;
-                    case RecordType.SetComponentObject:
-                        //TODO
-                        break;
-                    case RecordType.SystemAdded:
-                    case RecordType.SystemRemoved:
-                    {
-                        data = new SystemView(UnsafeUtility.AsRef<SystemHandleUntyped>(dataPtr));
-                        break;
-                    }
-                    default:
-                        break;
-                }
-                return data;
-            }
-
-            static object CreateInstanceFromDataPtr(Type type, void* dataPtr, int dataLength)
-            {
-                var data = Activator.CreateInstance(type);
-                var handle = GCHandle.Alloc(data, GCHandleType.Pinned);
-                var addr = handle.AddrOfPinnedObject();
-                UnsafeUtility.MemCpy(addr.ToPointer(), dataPtr, dataLength);
-                handle.Free();
-                return data;
-            }
-
-            internal void PushBack(RecordType recordType, ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount, void* data, int dataLength)
-            {
-                if (!m_Initialized || !m_Enabled || m_Records.Capacity <= 0 || m_Buffer.Capacity <= 0)
+                // 0 is reserved for systems that never run
+                if (version == 0)
                     return;
 
-                if (entities == null && entityCount != 0)
-                    entityCount = 0;
-                if (types == null && typeCount != 0)
-                    typeCount = 0;
-                if (data == null && dataLength != 0)
-                    dataLength = 0;
-
-                // Skip Entity type index
-                if (typeCount > 0 && types[0] == m_EntityTypeIndex)
+                m_Lock.Acquire();
+                try
                 {
-                    types++;
-                    typeCount--;
-                }
+                    // Get the buffer for this entity component store
+                    var buffer = GetSystemVersionBuffer(store);
+                    if (buffer == null)
+                    {
+                        UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to allocate system version buffer.");
+                        return;
+                    }
 
+                    // Make space if buffer is full
+                    if (buffer->IsFull)
+                        buffer->PopFront();
+
+                    // Add system version handle to the buffer
+                    if (!buffer->PushBack(new SystemVersionHandle { Version = version, Handle = handle }))
+                        UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to push back system version in buffer.");
+                }
+                finally
+                {
+                    m_Lock.Release();
+                }
+            }
+
+            internal void PushBack(RecordType recordType, ulong worldSequenceNumber, in SystemHandle executingSystem, in SystemHandle originSystem, Entity* entities, int entityCount, TypeIndex* types, int typeCount, void* data, int dataLength)
+            {
                 m_Lock.Acquire();
                 try
                 {
                     if (!PushBackRecord(recordType, entityCount, typeCount, dataLength))
                         return;
 
-                    PushBackHeader(worldSequenceNumber, in executingSystem, in originSystem);
+                    PushBackHeader(recordType, worldSequenceNumber, in executingSystem, in originSystem, entityCount, typeCount, dataLength);
                     PushBackEntities(entities, entityCount);
                     PushBackTypes(types, typeCount);
                     PushBackData(data, dataLength);
@@ -205,27 +162,9 @@ namespace Unity.Entities
                 }
             }
 
-
-            internal void PushBack(RecordType recordType, ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount, void* data, int dataLength)
+            internal void PushBack(RecordType recordType, ulong worldSequenceNumber, in SystemHandle executingSystem, in SystemHandle originSystem, ArchetypeChunk* chunks, int chunkCount, TypeIndex* types, int typeCount, void* data, int dataLength)
             {
-                if (!m_Initialized || !m_Enabled || m_Records.Capacity <= 0 || m_Buffer.Capacity <= 0)
-                    return;
-
-                if (chunks == null && chunkCount != 0)
-                    chunkCount = 0;
-                if (types == null && typeCount != 0)
-                    typeCount = 0;
-                if (data == null && dataLength != 0)
-                    dataLength = 0;
-
                 var entityCount = GetEntityCount(chunks, chunkCount);
-
-                // Skip Entity type index
-                if (typeCount > 0 && types[0] == m_EntityTypeIndex)
-                {
-                    types++;
-                    typeCount--;
-                }
 
                 m_Lock.Acquire();
                 try
@@ -233,7 +172,92 @@ namespace Unity.Entities
                     if (!PushBackRecord(recordType, entityCount, typeCount, dataLength))
                         return;
 
-                    PushBackHeader(worldSequenceNumber, in executingSystem, in originSystem);
+                    PushBackHeader(recordType, worldSequenceNumber, in executingSystem, in originSystem, entityCount, typeCount, dataLength);
+                    PushBackEntities(chunks, chunkCount);
+                    PushBackTypes(types, typeCount);
+                    PushBackData(data, dataLength);
+                }
+                finally
+                {
+                    m_Lock.Release();
+                }
+            }
+
+            internal void PushBack(RecordType recordType, ulong worldSequenceNumber, in SystemHandle executingSystem, in SystemHandle originSystem, Chunk* chunks, int chunkCount, TypeIndex* types, int typeCount, void* data, int dataLength)
+            {
+                var entityCount = GetEntityCount(chunks, chunkCount);
+
+                m_Lock.Acquire();
+                try
+                {
+                    if (!PushBackRecord(recordType, entityCount, typeCount, dataLength))
+                        return;
+
+                    PushBackHeader(recordType, worldSequenceNumber, in executingSystem, in originSystem, entityCount, typeCount, dataLength);
+                    PushBackEntities(chunks, chunkCount);
+                    PushBackTypes(types, typeCount);
+                    PushBackData(data, dataLength);
+                }
+                finally
+                {
+                    m_Lock.Release();
+                }
+            }
+
+            internal void PushBack(RecordType recordType, EntityComponentStore* store, uint version, in SystemHandle originSystem, Entity* entities, int entityCount, TypeIndex* types, int typeCount, void* data, int dataLength)
+            {
+                m_Lock.Acquire();
+                try
+                {
+                    if (!PushBackRecord(recordType, entityCount, typeCount, dataLength))
+                        return;
+
+                    var executingSystem = GetSystemHandle(store, version);
+                    PushBackHeader(recordType, store->WorldSequenceNumber, in executingSystem, in originSystem, entityCount, typeCount, dataLength);
+                    PushBackEntities(entities, entityCount);
+                    PushBackTypes(types, typeCount);
+                    PushBackData(data, dataLength);
+                }
+                finally
+                {
+                    m_Lock.Release();
+                }
+            }
+
+            internal void PushBack(RecordType recordType, EntityComponentStore* store, uint version, in SystemHandle originSystem, ArchetypeChunk* chunks, int chunkCount, TypeIndex* types, int typeCount, void* data, int dataLength)
+            {
+                var entityCount = GetEntityCount(chunks, chunkCount);
+
+                m_Lock.Acquire();
+                try
+                {
+                    if (!PushBackRecord(recordType, entityCount, typeCount, dataLength))
+                        return;
+
+                    var executingSystem = GetSystemHandle(store, version);
+                    PushBackHeader(recordType, store->WorldSequenceNumber, in executingSystem, in originSystem, entityCount, typeCount, dataLength);
+                    PushBackEntities(chunks, chunkCount);
+                    PushBackTypes(types, typeCount);
+                    PushBackData(data, dataLength);
+                }
+                finally
+                {
+                    m_Lock.Release();
+                }
+            }
+
+            internal void PushBack(RecordType recordType, EntityComponentStore* store, uint version, in SystemHandle originSystem, Chunk* chunks, int chunkCount, TypeIndex* types, int typeCount, void* data, int dataLength)
+            {
+                var entityCount = GetEntityCount(chunks, chunkCount);
+
+                m_Lock.Acquire();
+                try
+                {
+                    if (!PushBackRecord(recordType, entityCount, typeCount, dataLength))
+                        return;
+
+                    var executingSystem = GetSystemHandle(store, version);
+                    PushBackHeader(recordType, store->WorldSequenceNumber, in executingSystem, in originSystem, entityCount, typeCount, dataLength);
                     PushBackEntities(chunks, chunkCount);
                     PushBackTypes(types, typeCount);
                     PushBackData(data, dataLength);
@@ -246,15 +270,36 @@ namespace Unity.Entities
 
             internal void Clear()
             {
-                if (!m_Initialized)
-                    return;
-
                 m_Lock.Acquire();
                 try
                 {
+                    var node = m_SystemVersionNodes;
+                    while (node != null)
+                    {
+                        node->Buffer->Clear();
+                        node = node->NextNode;
+                    }
                     m_Records.Clear();
                     m_Buffer.Clear();
                     m_RecordIndex = 0;
+                }
+                finally
+                {
+                    m_Lock.Release();
+                }
+            }
+
+            internal void ClearSystemVersionBuffers()
+            {
+                m_Lock.Acquire();
+                try
+                {
+                    var node = m_SystemVersionNodes;
+                    while (node != null)
+                    {
+                        node->Buffer->Clear();
+                        node = node->NextNode;
+                    }
                 }
                 finally
                 {
@@ -278,7 +323,7 @@ namespace Unity.Entities
                 }
 
                 // Verify we can fit the new record and its payload in buffer
-                var record = new Record(m_Buffer.BackIndex, length, m_RecordIndex++, recordType, FrameCountSystem.FrameCount, entityCount, typeCount, dataLength);
+                var record = new Record(m_Buffer.BackIndex, length);
                 if (m_Records.IsFull || (m_Buffer.Capacity - m_Buffer.Count < record.Length))
                 {
                     // Doesn't fit, remove old records
@@ -312,10 +357,9 @@ namespace Unity.Entities
                 return true;
             }
 
-
-            void PushBackHeader(ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem)
+            void PushBackHeader(RecordType recordType, ulong worldSequenceNumber, in SystemHandle executingSystem, in SystemHandle originSystem, int entityCount, int typeCount, int dataLength)
             {
-                var header = new Header(worldSequenceNumber, in executingSystem, in originSystem);
+                var header = new Header(m_RecordIndex++, recordType, FrameCountSystem.FrameCount, worldSequenceNumber, in executingSystem, in originSystem, entityCount, typeCount, dataLength);
                 if (!m_Buffer.PushBack((byte*)&header, sizeof(Header)))
                     UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to push back header in buffer.");
             }
@@ -340,19 +384,36 @@ namespace Unity.Entities
                     var chunk = archetypeChunk.m_Chunk;
                     var archetype = chunk->Archetype;
                     var buffer = chunk->Buffer;
-                    var length = chunk->Count;
+                    var length = archetypeChunk.Count;
                     var startOffset = archetype->Offsets[0] + archetypeChunk.m_BatchStartEntityIndex * archetype->SizeOfs[0];
+                    if (!m_Buffer.PushBack(buffer + startOffset, sizeof(Entity) * length))
+                        UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to push back archetype chunk entities in buffer.");
+                }
+            }
+
+            void PushBackEntities(Chunk* chunks, int chunkCount)
+            {
+                if (chunks == null || chunkCount <= 0)
+                    return;
+
+                for (var i = 0; i < chunkCount; ++i)
+                {
+                    var chunk = chunks[i];
+                    var archetype = chunk.Archetype;
+                    var buffer = chunk.Buffer;
+                    var length = chunk.Count;
+                    var startOffset = archetype->Offsets[0];
                     if (!m_Buffer.PushBack(buffer + startOffset, sizeof(Entity) * length))
                         UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to push back chunk entities in buffer.");
                 }
             }
 
-            void PushBackTypes(int* types, int typeCount)
+            void PushBackTypes(TypeIndex* types, int typeCount)
             {
                 if (types == null || typeCount <= 0)
                     return;
 
-                if (!m_Buffer.PushBack((byte*)types, sizeof(int) * typeCount))
+                if (!m_Buffer.PushBack((byte*)types, sizeof(TypeIndex) * typeCount))
                     UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to push back component types in buffer.");
             }
 
@@ -365,7 +426,97 @@ namespace Unity.Entities
                     UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to push back data in buffer.");
             }
 
+            UnsafeCircularBuffer<SystemVersionHandle>* GetSystemVersionBuffer(EntityComponentStore* store)
+            {
+                // Check if last node match
+                if (m_LastSystemVersionNode != null && m_LastSystemVersionNode->Store == store)
+                    return m_LastSystemVersionNode->Buffer;
+
+                // Search existing nodes
+                var node = m_SystemVersionNodes;
+                while (node != null)
+                {
+                    if (node->Store == store)
+                    {
+                        m_LastSystemVersionNode = node;
+                        return node->Buffer;
+                    }
+
+                    node = node->NextNode;
+                }
+
+                // Allocate new node
+                node = Allocate<SystemVersionNode>(Allocator.Persistent, NativeArrayOptions.ClearMemory);
+                if (node == null)
+                    return null;
+
+                node->Store = store;
+                node->Buffer = Allocate<UnsafeCircularBuffer<SystemVersionHandle>>(Allocator.Persistent, NativeArrayOptions.ClearMemory);
+                if (node->Buffer == null)
+                {
+                    AllocatorManager.Free(Allocator.Persistent, node);
+                    return null;
+                }
+
+                node->Buffer->Construct(k_SystemVersionBufferSize / sizeof(SystemVersionHandle), Allocator.Persistent);
+                node->NextNode = m_SystemVersionNodes;
+                m_SystemVersionNodes = node;
+                m_LastSystemVersionNode = node;
+
+                // Initialize buffer with initial global system version with default system handle
+                node->Buffer->PushBack(new SystemVersionHandle { Version = ChangeVersionUtility.InitialGlobalSystemVersion, Handle = default });
+
+                return node->Buffer;
+            }
+
+            SystemHandle GetSystemHandle(EntityComponentStore* entityComponentStore, uint globalSystemVersion)
+            {
+                if (globalSystemVersion == 0)
+                    return default;
+
+                var buffer = GetSystemVersionBuffer(entityComponentStore);
+                if (buffer == null || buffer->Count == 0)
+                    return default;
+
+                // Try fast lookup
+                var firstIndex = buffer->ElementAt(0).Version;
+                var index = (int)(globalSystemVersion - firstIndex);
+                if (index >= 0 && index < buffer->Count)
+                {
+                    var element = buffer->ElementAt(index);
+                    if (element.Version == globalSystemVersion)
+                        return element.Handle;
+                }
+
+                // Slow reverse lookup
+                for (var i = buffer->Count - 1; i >= 0; --i)
+                {
+                    var element = buffer->ElementAt(i);
+                    if (element.Version == globalSystemVersion)
+                        return element.Handle;
+                }
+
+                if (m_ErrorFailedResolveCount > 0)
+                {
+                    UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to resolve system handle for global system version {globalSystemVersion}.");
+                    m_ErrorFailedResolveCount--;
+                }
+                return default;
+            }
+
             static int GetEntityCount(ArchetypeChunk* chunks, int chunkCount)
+            {
+                if (chunks == null || chunkCount <= 0)
+                    return 0;
+
+                var entityCount = 0;
+                for (var i = 0; i < chunkCount; ++i)
+                    entityCount += chunks[i].Count;
+
+                return entityCount;
+            }
+
+            static int GetEntityCount(Chunk* chunks, int chunkCount)
             {
                 if (chunks == null || chunkCount <= 0)
                     return 0;

@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Editor.Bridge;
@@ -14,15 +13,15 @@ namespace Unity.Entities.Editor
     readonly struct HierarchyGameObjectChanges : IDisposable
     {
         public readonly NativeList<Scene> LoadedScenes;
-        public readonly NativeList<Scene> UnloadedScenes;
+        public readonly NativeList<UnloadedScene> UnloadedScenes;
         public readonly NativeList<GameObjectChangeTrackerEvent> GameObjectChangeTrackerEvents;
 
-        public bool HasChanges() => !(LoadedScenes.Length == 0 && UnloadedScenes.Length == 0);
-        
+        public bool HasChanges() => LoadedScenes.Length > 0 || UnloadedScenes.Length > 0 || GameObjectChangeTrackerEvents.Length > 0;
+
         public HierarchyGameObjectChanges(Allocator allocator)
         {
             LoadedScenes = new NativeList<Scene>(allocator);
-            UnloadedScenes = new NativeList<Scene>(allocator);
+            UnloadedScenes = new NativeList<UnloadedScene>(allocator);
             GameObjectChangeTrackerEvents = new NativeList<GameObjectChangeTrackerEvent>(allocator);
         }
 
@@ -32,7 +31,7 @@ namespace Unity.Entities.Editor
             UnloadedScenes.Clear();
             GameObjectChangeTrackerEvents.Clear();
         }
-        
+
         public void Dispose()
         {
             LoadedScenes.Dispose();
@@ -41,82 +40,132 @@ namespace Unity.Entities.Editor
         }
     }
 
-    readonly struct GameObjectChangeTrackerEvent
+    readonly struct UnloadedScene : IEquatable<UnloadedScene>
     {
-        public readonly EventType Type;
-        public readonly int InstanceId;
-        public readonly int OptionalNewParent;
+        readonly Scene m_Scene;
 
-        public GameObjectChangeTrackerEvent(EventType eventType, int instanceId, int optionalNewParent = 0)
+        public readonly bool isSubScene;
+        public string path => m_Scene.path;
+        public readonly int handle;
+        public readonly bool isRemoved;
+
+        public UnloadedScene(Scene scene, bool removed)
         {
-            InstanceId = instanceId;
-            Type = eventType;
-            OptionalNewParent = optionalNewParent;
+            m_Scene = scene;
+            isRemoved = removed;
+            isSubScene = scene.isSubScene;
+            handle = scene.handle;
         }
 
-        internal static GameObjectChangeTrackerEvent CreatedOrChanged(GameObject obj)
-            => new GameObjectChangeTrackerEvent(EventType.CreatedOrChanged, obj.GetInstanceID());
+        public override int GetHashCode()
+            => handle.GetHashCode();
 
-        internal static GameObjectChangeTrackerEvent Destroyed(GameObject obj)
-            => new GameObjectChangeTrackerEvent(EventType.Destroyed, obj.GetInstanceID());
+        public bool Equals(UnloadedScene other)
+            => handle == other.handle;
 
-        internal static GameObjectChangeTrackerEvent Moved(GameObject obj, Transform newParent)
-            => new GameObjectChangeTrackerEvent(EventType.Moved, obj.GetInstanceID(), newParent ? newParent.gameObject.GetInstanceID() : 0);
+        public override bool Equals(object obj)
+            => obj is UnloadedScene other && Equals(other);
 
-        internal GameObjectChangeTrackerEvent Merge(ref GameObjectChangeTrackerEvent eventToApply)
-            => new GameObjectChangeTrackerEvent(Type | eventToApply.Type, InstanceId, eventToApply.OptionalNewParent);
-
-        [Flags]
-        public enum EventType : byte
-        {
-            CreatedOrChanged = 1 << 0,
-            Moved = 1 << 1,
-            Destroyed = 1 << 2
-        }
+        public static implicit operator UnloadedScene(Scene scene)
+            => new UnloadedScene(scene, false);
     }
 
     class HierarchyGameObjectChangeTracker : IDisposable
     {
         readonly HashSet<Scene> m_LoadedScenes = new HashSet<Scene>();
-        readonly HashSet<Scene> m_UnloadedScenes = new HashSet<Scene>();
+        readonly HashSet<UnloadedScene> m_UnloadedScenes = new HashSet<UnloadedScene>();
+        readonly NativeList<GameObjectChangeTrackerEvent> m_ChangeEventsQueue;
+        NativeArray<GameObjectChangeTrackerEvent> m_SingleGameObjectChangeTrackerEvents;
 
         public HierarchyGameObjectChangeTracker(Allocator allocator)
         {
+            m_ChangeEventsQueue = new NativeList<GameObjectChangeTrackerEvent>(2048, allocator);
+            m_SingleGameObjectChangeTrackerEvents = new NativeArray<GameObjectChangeTrackerEvent>(1, Allocator.Persistent);
+
+            GameObjectChangeTrackerBridge.GameObjectsChanged += OnGameObjectsChanged;
             EditorSceneManager.sceneOpened += OnSceneOpened;
-            EditorSceneManager.sceneClosed += OnSceneClosed;
-            
+            EditorSceneManager.sceneClosing += OnSceneClosing;
+            EditorSceneManager.newSceneCreated += OnNewSceneCreated;
+            EditorSceneManager.sceneSaved += OnSceneSaved;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            SceneManager.sceneUnloaded += OnSceneUnloaded;
+
+            Clear();
+        }
+
+        public void Clear()
+        {
+            m_LoadedScenes.Clear();
+            m_UnloadedScenes.Clear();
+            m_ChangeEventsQueue.Clear();
+
             for (var i = 0; i < SceneManager.sceneCount; i++)
             {
                 var scene = SceneManager.GetSceneAt(i);
 
-                if (scene.isSubScene || !scene.isLoaded)
+                if (scene.isSubScene)
                     continue;
-                
+
                 m_LoadedScenes.Add(scene);
             }
         }
 
+        void OnGameObjectsChanged(in NativeArray<GameObjectChangeTrackerEvent> events)
+            => new MergeEventsJob { Events = m_ChangeEventsQueue, EventsToAdd = events }.Run();
+
         public void Dispose()
         {
+            m_ChangeEventsQueue.Dispose();
+            m_SingleGameObjectChangeTrackerEvents.Dispose();
+
+            GameObjectChangeTrackerBridge.GameObjectsChanged -= OnGameObjectsChanged;
             EditorSceneManager.sceneOpened -= OnSceneOpened;
-            EditorSceneManager.sceneClosed -= OnSceneClosed;
+            EditorSceneManager.sceneClosing -= OnSceneClosing;
+            EditorSceneManager.newSceneCreated -= OnNewSceneCreated;
+            EditorSceneManager.sceneSaved -= OnSceneSaved;
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        }
+
+        void OnNewSceneCreated(Scene scene, NewSceneSetup setup, NewSceneMode mode)
+        {
+            m_UnloadedScenes.Remove(scene);
+            m_LoadedScenes.Add(scene);
+        }
+
+        void OnSceneSaved(Scene scene)
+        {
+            // This callback is only used when a new scene is saved.
+
+            // We detect subScene renames via SceneAssetPostProcessor.
+            if (scene.isSubScene)
+                return;
+
+            m_SingleGameObjectChangeTrackerEvents[0] = new GameObjectChangeTrackerEvent(scene.handle, GameObjectChangeTrackerEventType.SceneWasRenamed);
+            GameObjectChangeTrackerBridge.PublishEvents(m_SingleGameObjectChangeTrackerEvents);
         }
 
         void OnSceneOpened(Scene scene, OpenSceneMode mode)
         {
-            if (scene.isSubScene)
-                return;
-            
             m_UnloadedScenes.Remove(scene);
             m_LoadedScenes.Add(scene);
         }
-        
-        void OnSceneClosed(Scene scene)
+
+        void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.isSubScene)
-                return;
-            
-            m_UnloadedScenes.Add(scene);
+            m_UnloadedScenes.Remove(scene);
+            m_LoadedScenes.Add(scene);
+        }
+
+        void OnSceneClosing(Scene scene, bool removingScene)
+        {
+            m_UnloadedScenes.Add(new UnloadedScene(scene, removingScene));
+            m_LoadedScenes.Remove(scene);
+        }
+
+        void OnSceneUnloaded(Scene scene)
+        {
+            m_UnloadedScenes.Add(new UnloadedScene(scene, true));
             m_LoadedScenes.Remove(scene);
         }
 
@@ -124,39 +173,56 @@ namespace Unity.Entities.Editor
         {
             changes.Clear();
 
-            if (m_LoadedScenes.Count == 0 && m_UnloadedScenes.Count == 0)
-                return;
-            
-            foreach (var scene in m_LoadedScenes)
-                changes.LoadedScenes.Add(scene);
-                    
-            foreach (var scene in m_UnloadedScenes)
-                changes.UnloadedScenes.Add(scene);
-            
-            m_LoadedScenes.Clear();
-            m_UnloadedScenes.Clear();
+            if (m_LoadedScenes.Count > 0)
+            {
+                foreach (var scene in m_LoadedScenes)
+                    changes.LoadedScenes.Add(scene);
+
+                m_LoadedScenes.Clear();
+            }
+
+            if (m_UnloadedScenes.Count > 0)
+            {
+                foreach (var scene in m_UnloadedScenes)
+                    changes.UnloadedScenes.Add(scene);
+
+                m_UnloadedScenes.Clear();
+            }
+
+            if (m_ChangeEventsQueue.Length > 0)
+            {
+                changes.GameObjectChangeTrackerEvents.CopyFrom(m_ChangeEventsQueue.AsArray());
+                m_ChangeEventsQueue.Clear();
+            }
         }
 
         [BurstCompile]
-        internal struct RecordEventJob : IJob
+        internal struct MergeEventsJob : IJob
         {
             public NativeList<GameObjectChangeTrackerEvent> Events;
-            public GameObjectChangeTrackerEvent Event;
+            [ReadOnly] public NativeArray<GameObjectChangeTrackerEvent> EventsToAdd;
 
             public void Execute()
             {
-                for (var i = 0; i < Events.Length; i++)
+                for (var i = 0; i < EventsToAdd.Length; i++)
                 {
-                    ref var existingEvent = ref Events.ElementAt(i);
-                    if (existingEvent.InstanceId != Event.InstanceId || existingEvent.Type > Event.Type)
-                        continue;
+                    var evtToAdd = EventsToAdd[i];
+                    var merged = false;
+                    for (var j = 0; j < Events.Length; j++)
+                    {
+                        ref var existingEvent = ref Events.ElementAt(j);
+                        if (existingEvent.InstanceId != evtToAdd.InstanceId)
+                            continue;
 
-                    var e = Events[i].Merge(ref Event);
-                    Events[i] = e;
-                    return;
+                        var e = Events[j];
+                        Events[j] = new GameObjectChangeTrackerEvent(e.InstanceId, e.EventType | evtToAdd.EventType);
+                        merged = true;
+                        break;
+                    }
+
+                    if (!merged)
+                        Events.Add(evtToAdd);
                 }
-
-                Events.Add(Event);
             }
         }
     }

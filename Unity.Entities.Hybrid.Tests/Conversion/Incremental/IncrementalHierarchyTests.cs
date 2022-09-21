@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Entities.Baking;
 using Unity.Entities.Conversion;
 using UnityEditor;
 using UnityEngine;
@@ -14,6 +15,23 @@ namespace Unity.Entities.Tests.Conversion
         private IncrementalHierarchy m_Hierarchy;
         private TestWithObjects m_Objects;
 
+        private AllocatorHelper<RewindableAllocator> m_AllocatorHelper;
+        private ref RewindableAllocator RwdAllocator => ref m_AllocatorHelper.Allocator;
+
+        [OneTimeSetUp]
+        public virtual void OneTimeSetUp()
+        {
+            m_AllocatorHelper = new AllocatorHelper<RewindableAllocator>(Allocator.Persistent);
+            m_AllocatorHelper.Allocator.Initialize(128 * 1024, true);
+        }
+
+        [OneTimeTearDown]
+        public virtual void OneTimeTearDown()
+        {
+            m_AllocatorHelper.Allocator.Dispose();
+            m_AllocatorHelper.Dispose();
+        }
+
         [SetUp]
         public void SetUp()
         {
@@ -25,6 +43,10 @@ namespace Unity.Entities.Tests.Conversion
         {
             m_Hierarchy.Dispose();
             m_Objects.TearDown();
+            RwdAllocator.Rewind();
+            // This is test only behavior for determinism.  Rewind twice such that all
+            // tests start with an allocator containing only one memory block.
+            RwdAllocator.Rewind();
         }
 
         void AssertSize(int n)
@@ -32,7 +54,8 @@ namespace Unity.Entities.Tests.Conversion
             Assert.AreEqual(n, m_Hierarchy.InstanceId.Length, $"{nameof(m_Hierarchy.InstanceId)} doesn't have the expected size {n}");
             Assert.AreEqual(n, m_Hierarchy.ParentIndex.Length, $"{nameof(m_Hierarchy.ParentIndex)} doesn't have the expected size {n}");
             Assert.AreEqual(n, m_Hierarchy.TransformArray.length, $"{nameof(m_Hierarchy.TransformArray)} doesn't have the expected size {n}");
-            Assert.GreaterOrEqual(n, m_Hierarchy.ChildIndicesByIndex.Count(), $"{nameof(m_Hierarchy.ChildIndicesByIndex)} doesn't have the expected maximum size {n}");
+            Assert.AreEqual(n, m_Hierarchy.TransformAuthorings.Length, $"{nameof(m_Hierarchy.TransformAuthorings)} doesn't have the expected size {n}");
+            Assert.GreaterOrEqual(n, IncrementalHierarchyFunctions.ChildrenCount(m_Hierarchy), $"{nameof(m_Hierarchy.ChildIndicesByIndex)} doesn't have the expected maximum size {n}");
             Assert.AreEqual(n, m_Hierarchy.IndexByInstanceId.Count(), $"{nameof(m_Hierarchy.IndexByInstanceId)} doesn't have the expected size {n}");
         }
 
@@ -45,12 +68,14 @@ namespace Unity.Entities.Tests.Conversion
             AssertIndexInBounds(index, m_Hierarchy.InstanceId.Length, nameof(m_Hierarchy.InstanceId));
             Assert.AreEqual(m_Hierarchy.InstanceId[index], go.GetInstanceID());
             Assert.AreSame(m_Hierarchy.TransformArray[index], go.transform);
+            //@TODO: DOTS-5467
+            //Assert.AreSame(m_Hierarchy.TransformAuthorings, go.transform);
             if (go.transform.childCount > 0)
             {
                 bool hasChildren = m_Hierarchy.ChildIndicesByIndex.ContainsKey(index);
                 Assert.IsTrue(hasChildren, $"{go} has children but not in the hierarchy");
                 int childCount = go.transform.childCount;
-                var iter = m_Hierarchy.ChildIndicesByIndex.GetValuesForKey(index);
+                var iter = IncrementalHierarchyFunctions.GetChildren(m_Hierarchy, index);
 
                 var childFound = new List<int>();
                 for (int c = 0; c < childCount; c++)
@@ -265,6 +290,40 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [Test]
+        public void Hierarchy_WithHierarchy_RecursiveChildrenEnumeration_WalksAllChildren()
+        {
+            var go = m_Objects.CreateGameObject("root");
+            var c1 = m_Objects.CreateGameObject("c1"); c1.transform.SetParent(go.transform);
+            var c2 = m_Objects.CreateGameObject("c2"); c2.transform.SetParent(go.transform);
+            var c3 = m_Objects.CreateGameObject("c3"); c3.transform.SetParent(go.transform);
+
+            var c21 = m_Objects.CreateGameObject("c21"); c21.transform.SetParent(c2.transform);
+            var c22 = m_Objects.CreateGameObject("c22"); c22.transform.SetParent(c2.transform);
+
+            var gameObjectHierarchy = go.GetComponentsInChildren<Transform>();
+
+            IncrementalHierarchyFunctions.Build(new [] {go}, out m_Hierarchy, Allocator.Temp);
+            AssertSize(6);
+            AssertConsistency(go);
+
+            var rootIndex = m_Hierarchy.IndexByInstanceId[go.GetInstanceID()];
+            var children = IncrementalHierarchyFunctions.GetChildrenRecursively(m_Hierarchy, rootIndex);
+
+            // We skip the parent so start at 1
+            int index = 1;
+            foreach(var childIndex in children)
+            {
+                var childInstance = m_Hierarchy.InstanceId[childIndex];
+
+                Assert.IsTrue(gameObjectHierarchy[index].gameObject.GetInstanceID() == childInstance);
+                index++;
+            }
+
+            // Lastly, make sure we walked everything and didn't stop short
+            Assert.AreEqual(gameObjectHierarchy.Length, index);
+        }
+
+        [Test]
         public void Hierarchy_WithHierarchy_ChangingParents_MaintainsConsistency()
         {
             var go = m_Objects.CreateGameObject("root");
@@ -281,7 +340,7 @@ namespace Unity.Entities.Tests.Conversion
             var parentChanges = new NativeParallelHashMap<int, int>(0, Allocator.Temp);
             c3.transform.SetParent(c2.transform);
             parentChanges.Add(c3.GetInstanceID(), c2.GetInstanceID());
-            var success = new NativeList<IncrementalConversionChanges.ParentChange>(Allocator.Temp);
+            var success = new NativeList<IncrementalBakingChanges.ParentChange>(Allocator.Temp);
             IncrementalHierarchyFunctions.ChangeParents(m_Hierarchy, parentChanges.GetKeyValueArrays(Allocator.Temp), default, success);
             AssertSize(4);
             AssertConsistency(go);
@@ -341,9 +400,9 @@ namespace Unity.Entities.Tests.Conversion
             const int steps = 1000;
             IncrementalHierarchyFunctions.Build(new []{ root }, out m_Hierarchy, Allocator.Temp);
             AssertConsistency(root);
-            // This has to be TempJob because of DOTS-1357
-            var instanceIds = new NativeList<int>(0, Allocator.TempJob);
-            var success = new NativeList<IncrementalConversionChanges.ParentChange>(0, Allocator.TempJob);
+            // This has to be TempJob or RewindableAllocator because of DOTS-1357
+            var instanceIds = new NativeList<int>(0, RwdAllocator.ToAllocator);
+            var success = new NativeList<IncrementalBakingChanges.ParentChange>(0, RwdAllocator.ToAllocator);
             var reorder = new NativeParallelHashMap<int, int>(0, Allocator.Temp);
             var gos = new List<GameObject>();
             try
@@ -368,7 +427,7 @@ namespace Unity.Entities.Tests.Conversion
                             instanceIds.Add(go.GetInstanceID());
                         }
 
-                        IncrementalHierarchyFunctions.Remove(m_Hierarchy, instanceIds);
+                        IncrementalHierarchyFunctions.Remove(m_Hierarchy, instanceIds.AsArray());
                         foreach (var go in gos)
                             Object.DestroyImmediate(go);
                         instanceIds.Clear();
@@ -442,14 +501,14 @@ namespace Unity.Entities.Tests.Conversion
             m_Objects.CreateGameObject("c3").transform.SetParent(go.transform);
             m_Objects.CreateGameObject("c21").transform.SetParent(c2.transform);
             m_Objects.CreateGameObject("c22").transform.SetParent(c2.transform);
-            IncrementalHierarchyFunctions.Build(new [] {go}, out m_Hierarchy, Allocator.TempJob);
+            IncrementalHierarchyFunctions.Build(new [] {go}, out m_Hierarchy, RwdAllocator.ToAllocator);
             AssertConsistency(go);
 
-            var changedIds = new NativeList<int>(1, Allocator.TempJob);
+            var changedIds = new NativeList<int>(1, RwdAllocator.ToAllocator);
             changedIds.Add(go.GetInstanceID());
 
-            var visitedInstances = new NativeParallelHashSet<int>(6, Allocator.TempJob);
-            m_Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(changedIds, visitedInstances);
+            var visitedInstances = new NativeParallelHashSet<int>(6, RwdAllocator.ToAllocator);
+            m_Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(changedIds.AsArray(), visitedInstances);
 
             try
             {

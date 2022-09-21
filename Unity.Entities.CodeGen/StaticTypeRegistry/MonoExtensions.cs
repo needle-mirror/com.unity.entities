@@ -84,7 +84,7 @@ namespace Unity.Entities.CodeGen
             {
                 var gp = (GenericParameter)typeRef;
                 bool _ = false, __ = false;
-                return gp.Constraints.FirstOrDefault(c => c.IsManagedType(ref _, ref __)) != null;
+                return gp.Constraints.FirstOrDefault(c => c.ConstraintType.IsManagedType(ref _, ref __)) != null;
             }
 
             var type = typeRef.Resolve();

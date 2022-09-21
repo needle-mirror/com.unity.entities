@@ -24,7 +24,7 @@ namespace Unity.Entities.Editor.Tests
         }
 
         protected void CreateEntitiesWithMockSharedComponentData(int count, params ComponentType[] components)
-            => CreateEntitiesWithMockSharedComponentData(count, Allocator.TempJob, components).Dispose();
+            => CreateEntitiesWithMockSharedComponentData(count, World.UpdateAllocator.ToAllocator, components).Dispose();
 
         protected NativeArray<Entity> CreateEntitiesWithMockSharedComponentData(int count, Allocator allocator, params ComponentType[] components)
             => CreateEntitiesWithMockSharedComponentData(count, allocator, null, components);
@@ -38,7 +38,7 @@ namespace Unity.Entities.Editor.Tests
             {
                 for (var i = 0; i < count; i++)
                 {
-                    World.EntityManager.SetSharedComponentData(entities[i], new EcsTestSharedComp { value = sharedComponentValueProvider?.Invoke(i) ?? i / 31 });
+                    World.EntityManager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp { value = sharedComponentValueProvider?.Invoke(i) ?? i / 31 });
                 }
             }
 
@@ -54,7 +54,7 @@ namespace Unity.Entities.Editor.Tests
             {
                 for (var i = 0; i < entities.Length; i++)
                 {
-                    World.EntityManager.SetSharedComponentData(entities[i], new EcsTestSharedComp { value = sharedComponentValueProvider?.Invoke(i) ?? i / 31 });
+                    World.EntityManager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp { value = sharedComponentValueProvider?.Invoke(i) ?? i / 31 });
                 }
             }
         }

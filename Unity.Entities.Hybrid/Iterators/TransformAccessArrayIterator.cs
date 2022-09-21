@@ -21,16 +21,24 @@ namespace Unity.Entities
         }
     }
 
+    /// <summary>
+    /// Allows access to GameObject transform data through an EntityQuery.
+    /// </summary>
     public static class EntityQueryExtensionsForTransformAccessArray
     {
-        public static unsafe TransformAccessArray GetTransformAccessArray(this EntityQuery group)
+        /// <summary>
+        /// Allows access to GameObject transform data through an EntityQuery.
+        /// </summary>
+        /// <param name="query">The query matching entities whose transform data should be gathered</param>
+        /// <returns>An object that allows access to entity transform data</returns>
+        public static unsafe TransformAccessArray GetTransformAccessArray(this EntityQuery query)
         {
-            var state = (TransformAccessArrayState)group._CachedState;
+            var state = (TransformAccessArrayState)query._CachedState;
 
             if (state == null)
                 state = new TransformAccessArrayState();
 
-            var orderVersion = group._GetImpl()->_Access->EntityComponentStore->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<Transform>());
+            var orderVersion = query._GetImpl()->_Access->EntityComponentStore->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<Transform>());
 
             if (state.Data.isCreated && orderVersion == state.OrderVersion)
                 return state.Data;
@@ -38,14 +46,14 @@ namespace Unity.Entities
             state.OrderVersion = orderVersion;
 
             UnityEngine.Profiling.Profiler.BeginSample("DirtyTransformAccessArrayUpdate");
-            var trans = group.ToComponentArray<Transform>();
+            var trans = query.ToComponentArray<Transform>();
             if (!state.Data.isCreated)
                 state.Data = new TransformAccessArray(trans);
             else
                 state.Data.SetTransforms(trans);
             UnityEngine.Profiling.Profiler.EndSample();
 
-            group._CachedState = state;
+            query._CachedState = state;
 
             return state.Data;
         }

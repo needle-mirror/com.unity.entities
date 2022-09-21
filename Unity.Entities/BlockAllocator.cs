@@ -5,7 +5,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     internal unsafe struct BlockAllocator : IDisposable
     {
         BufferAllocator m_bufferAllocator;
@@ -39,14 +39,14 @@ namespace Unity.Entities
             m_allocations.Dispose();
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void CheckBlockHasAllocations(int blockIndex)
         {
             if (m_allocations.Ptr[blockIndex] <= 0) // if that block has no allocations, we can't proceed
                 throw new ArgumentException($"Cannot free this pointer from BlockAllocator: no more allocations to free in its block.");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         static void ThrowCouldNotFindPointer()
         {
             throw new ArgumentException($"Cannot free this pointer from BlockAllocator: can't be found in any block.");
@@ -85,7 +85,7 @@ namespace Unity.Entities
             ThrowCouldNotFindPointer();
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void CheckAllocationTooLarge(int bytesToAllocate, int alignment)
         {
             if (bytesToAllocate > ms_BlockSize)
@@ -103,7 +103,7 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void CheckExceededBudget()
         {
             if (m_bufferAllocator.IsEmpty)
@@ -144,13 +144,13 @@ namespace Unity.Entities
             return pointer;
         }
 
-        [BurstCompatible(GenericTypeArguments = new [] {typeof(BurstCompatibleComponentData)})]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new [] {typeof(BurstCompatibleComponentData)})]
         public T* Allocate<T>(int items = 1) where T : unmanaged
         {
             return (T*)Allocate(items * UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>());
         }
 
-        [BurstCompatible(GenericTypeArguments = new [] {typeof(BurstCompatibleComponentData)})]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new [] {typeof(BurstCompatibleComponentData)})]
         public byte* Construct(int size, int alignment, void* src)
         {
             var res = Allocate(size, alignment);
@@ -158,7 +158,7 @@ namespace Unity.Entities
             return res;
         }
 
-        [BurstCompatible(GenericTypeArguments = new [] {typeof(BurstCompatibleComponentData)})]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new [] {typeof(BurstCompatibleComponentData)})]
         public T* Construct<T>(T* src) where T : unmanaged
         {
             return (T*)Construct(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), src);

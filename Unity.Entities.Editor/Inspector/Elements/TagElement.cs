@@ -1,20 +1,37 @@
+using Unity.Platforms.UI;
 using Unity.Properties;
-using Unity.Properties.UI;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    class TagElement : ComponentElementBase
+    class TagElement<TComponent> : ComponentElementBase, IBinding
     {
-        public TagElement(IComponentProperty property, EntityInspectorContext context)
-            : base(property, context)
+        readonly Toggle m_Enabled;
+
+        public TagElement(IComponentProperty property, EntityInspectorContext context) : base(property, context)
         {
+            binding = this;
+
             Resources.Templates.Inspector.TagComponentElement.Clone(this);
             this.Q<Label>().text = DisplayName;
-            this.Q<VisualElement>(className: UssClasses.Inspector.Component.Icon).AddToClassList(UssClasses.Inspector.ComponentTypes.Tag);
+
+            var icon = this.Q(className: UssClasses.Inspector.Component.Icon);
+            icon.AddToClassList(UssClasses.Inspector.Component.Icon);
+            icon.AddToClassList(UssClasses.Inspector.Icons.Small);
+            icon.AddToClassList(UssClasses.Inspector.ComponentTypes.Tag);
+
+            m_Enabled = this.Q<Toggle>(className: UssClasses.Inspector.Component.Enabled);
+
+            if (TypeManager.IsEnableable(TypeIndex))
+            {
+                m_Enabled.RegisterValueChangedCallback((e) =>
+                {
+                    Context.EntityManager.SetComponentEnabled(Context.Entity, typeof(TComponent), e.newValue);
+                });
+            }
         }
 
-        protected override void OnComponentChanged(PropertyElement element, PropertyPath path)
+        protected override void OnComponentChanged(BindingContextElement element, PropertyPath path)
         {
             // Nothing to do..
         }
@@ -22,6 +39,34 @@ namespace Unity.Entities.Editor
         protected override void OnPopulateMenu(DropdownMenu menu)
         {
             // Nothing to do..
+        }
+
+        void IBinding.PreUpdate()
+        {
+        }
+
+        void IBinding.Update()
+        {
+            if (!Context.World.IsCreated || !Context.EntityManager.SafeExists(Container.Entity))
+            {
+                RemoveFromHierarchy();
+                return;
+            }
+
+            if (TypeManager.IsEnableable(TypeIndex) && Context.EntityManager.HasComponent(Context.Entity, typeof(TComponent)))
+            {
+                m_Enabled.visible = true;
+                m_Enabled.SetValueWithoutNotify(Context.EntityManager.IsComponentEnabled(Context.Entity, typeof(TComponent)));
+            }
+            else
+            {
+                m_Enabled.visible = false;
+                m_Enabled.SetValueWithoutNotify(true);
+            }
+        }
+
+        void IBinding.Release()
+        {
         }
     }
 }

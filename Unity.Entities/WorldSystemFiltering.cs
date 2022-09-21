@@ -47,10 +47,19 @@ namespace Unity.Entities
     public enum WorldSystemFilterFlags : uint
     {
         /// <summary>
-        /// The default <see cref="World"/>.
-        /// Systems without a [WorldSystemFilter] attribute are by default placed in this world.
+        /// When specifying the Default flag on a [WorldSystemFilter] the flag will be removed and expand to
+        /// what was specified as ChildDefaultFilterFlags by the group the system is in. This means the Default
+        /// flag will never be set when querying a system for its flags.
+        /// If the system does not have a [UpdateInGroup] the system will be in the SimulationSystemGroup and
+        /// get the ChildDefaultFilterFlags from that group.
+        /// When creating a world - or calling GetSystems directly - default expands to LocalSimulation | Presentation
+        /// to create a standard single player world.
         /// </summary>
         Default                         = 1 << 0,
+        /// <summary>
+        /// Systems explicitly disabled via the [DisableAutoCreation] attribute are by default placed in this world.
+        /// </summary>
+        Disabled = 1 << 1,
         /// <summary>
         /// A specialized World created for converting GameObjects to entities.
         /// </summary>
@@ -65,7 +74,7 @@ namespace Unity.Entities
         ProcessAfterLoad                = 1 << 3,
         /// <summary>
         /// Conversion systems that should run for Hybrid.
-        /// Example: Hybrid renderer conversion systems
+        /// Example: Entities Graphics conversion systems
         /// </summary>
         HybridGameObjectConversion      = 1 << 4,
         /// <summary>
@@ -78,6 +87,30 @@ namespace Unity.Entities
         /// Example: Editor LiveConversion system
         /// </summary>
         Editor                          = 1 << 6,
+        /// <summary>
+        /// Baking systems running after the BakingSystem system responsible from baking GameObjects to entities.
+        /// </summary>
+        BakingSystem                    = 1 << 7,
+        /// <summary>
+        /// Worlds using local simulation, without any multiplayer client / server support.
+        /// </summary>
+        LocalSimulation                 = 1 << 8,
+        /// <summary>
+        /// Worlds using server simulation.
+        /// </summary>
+        ServerSimulation                = 1 << 9,
+        /// <summary>
+        /// Worlds using client simulation.
+        /// </summary>
+        ClientSimulation                = 1 << 10,
+        /// <summary>
+        /// Worlds using thin client simulation. A thin client is a client running the bare minimum set of systems to connect to and communicate with a server. It does not run the full simulation and cannot generally present the simulation state.
+        /// </summary>
+        ThinClientSimulation            = 1 << 11,
+        /// <summary>
+        /// Worlds presenting a rendered world.
+        /// </summary>
+        Presentation                    = 1 << 12,
         /// <summary>
         /// Flag to include all system groups defined above as well as systems decorated with [DisableAutoCreation].
         /// </summary>
@@ -98,11 +131,18 @@ namespace Unity.Entities
         /// </summary>
         public WorldSystemFilterFlags FilterFlags;
 
+        /// <summary>
+        /// The World children of this system (group) should belong in by default.
+        /// </summary>
+        public WorldSystemFilterFlags ChildDefaultFilterFlags;
+
         /// <summary>For internal use only.</summary>
         /// <param name="flags">Defines where internal Unity systems should be created.</param>
-        public WorldSystemFilterAttribute(WorldSystemFilterFlags flags)
+        /// <param name="childDefaultFlags">Defines where children of this system group should be created if they do not have explicit filters. This parameter is only used for system groups, specifying it on a non-group system has no effect.</param>
+        public WorldSystemFilterAttribute(WorldSystemFilterFlags flags, WorldSystemFilterFlags childDefaultFlags = WorldSystemFilterFlags.Default)
         {
             FilterFlags = flags;
+            ChildDefaultFilterFlags = childDefaultFlags;
         }
     }
 }

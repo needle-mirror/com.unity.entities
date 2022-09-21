@@ -15,7 +15,7 @@ using Unity.Runtime.IO;
 
 namespace Unity.Scenes
 {
-    internal unsafe struct RequestSceneHeader : ISystemStateComponentData
+    internal unsafe struct RequestSceneHeader : ICleanupComponentData
     {
 #if UNITY_DOTSRUNTIME
         // DOTS Runtime IO handle. When the AsyncReadManager provides a mechanism to read files without knowing the size

@@ -1,25 +1,28 @@
+using System;
+
 namespace Unity.Entities
 {
-    internal struct ComponentTypeInArchetype
+    internal struct ComponentTypeInArchetype: IEquatable<ComponentTypeInArchetype>
     {
-        public readonly int TypeIndex;
+        public readonly TypeIndex TypeIndex;
 
-        public bool IsBuffer => (TypeIndex & TypeManager.BufferComponentTypeFlag) != 0;
-        public bool IsSystemStateComponent => (TypeIndex & TypeManager.SystemStateTypeFlag) != 0;
-        public bool IsSystemStateSharedComponent => (TypeIndex & TypeManager.SystemStateSharedComponentTypeFlag) == TypeManager.SystemStateSharedComponentTypeFlag;
-        public bool IsSharedComponent => (TypeIndex & TypeManager.SharedComponentTypeFlag) != 0;
-        public bool IsZeroSized => (TypeIndex & TypeManager.ZeroSizeInChunkTypeFlag) != 0;
-        public bool IsChunkComponent => (TypeIndex & TypeManager.ChunkComponentTypeFlag) != 0;
-        public bool HasEntityReferences => (TypeIndex & TypeManager.HasNoEntityReferencesFlag) == 0;
-        internal bool IsEnableable => (TypeIndex & TypeManager.EnableableComponentFlag) != 0;
-        public bool IsManagedComponent => TypeManager.IsManagedComponent(TypeIndex);
+        public bool IsBuffer => TypeIndex.IsBuffer;
+        public bool IsCleanupComponent => TypeIndex.IsCleanupComponent;
+        public bool IsCleanupSharedComponent => TypeIndex.IsCleanupSharedComponent;
+        public bool IsSharedComponent => TypeIndex.IsSharedComponentType;
+        public bool IsZeroSized => TypeIndex.IsZeroSized;
+        public bool IsChunkComponent => TypeIndex.IsChunkComponent;
+        public bool HasEntityReferences => TypeIndex.HasEntityReferences;
+        public bool IsEnableable => TypeIndex.IsEnableable;
+        public bool IsManagedComponent => TypeIndex.IsManagedComponent;
+        public bool IsBakeOnlyType => TypeIndex.IsBakingOnlyType;
 
         public ComponentTypeInArchetype(ComponentType type)
         {
             TypeIndex = type.TypeIndex;
         }
 
-        public ComponentTypeInArchetype(int typeIndex)
+        public ComponentTypeInArchetype(TypeIndex typeIndex)
         {
             TypeIndex = typeIndex;
         }
@@ -38,17 +41,17 @@ namespace Unity.Entities
         // The type flags in the upper bits of the type index force the component types into the following order:
         // 1. Entity (Always has type index = 1)
         // 2. Non zero sized IComponentData
-        // 3. Non zero sized ISystemStateComponentData
+        // 3. Non zero sized ICleanupComponentData
         // 4. Dynamic buffer components (IBufferElementData)
-        // 5. System state dynamic buffer components (ISystemStateBufferElementData)
+        // 5. Cleanup dynamic buffer components (ICleanupBufferElementData)
         // 6. Zero sized IComponentData
-        // 7. Zero sized ISystemStateComponentData
+        // 7. Zero sized ICleanupComponentData
         // 8. Shared components (ISharedComponentData)
-        // 9. Shared system state components (ISystemStateSharedComponentData)
+        // 9. Shared cleanup components (ICleanupSharedComponentData)
         //10. Chunk IComponentData
-        //11. Chunk ISystemStateComponentData
+        //11. Chunk ICleanupComponentData
         //12. Chunk Dynamic buffer components (IBufferElementData)
-        //13. Chunk System state dynamic buffer components (ISystemStateBufferElementData)
+        //13. Chunk cleanup dynamic buffer components (ICleanupBufferElementData)
 
         public static bool operator<(ComponentTypeInArchetype lhs, ComponentTypeInArchetype rhs)
         {
@@ -105,7 +108,12 @@ namespace Unity.Entities
 
         public override int GetHashCode()
         {
-            return (TypeIndex * 5819);
+            return TypeIndex.GetHashCode();
+        }
+
+        public bool Equals(ComponentTypeInArchetype other)
+        {
+            return TypeIndex == other.TypeIndex;
         }
     }
 }

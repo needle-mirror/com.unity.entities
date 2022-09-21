@@ -15,8 +15,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         public string VariableFieldName => $"{(IsThis ? "__this" : Symbol.Name)}";
         public string OriginalVariableName => $"{(IsThis ? "this" : Symbol.Name)}";
         public List<string> Attributes { get; }
-        public bool ExplicitThis { get; }
         public bool IsWritable { get; }
+
+        bool ExplicitThis { get; }
 
         public ITypeSymbol Type
         {
@@ -32,10 +33,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             }
         }
 
-        public bool IsNativeContainer
-        {
-            get => Type.GetAttributes().Any(attribute => attribute.AttributeClass.ToFullName() == "Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute");
-        }
+        public bool IsNativeContainer => Type.GetAttributes().Any(attribute => attribute.AttributeClass.ToFullName() == "Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute");
 
         public LambdaCapturedVariableDescription(ISymbol symbol, bool explicitThis = false)
         {
@@ -53,7 +51,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 IsWritable = false;
         }
 
-        public delegate bool CheckAttributeApplicable(SystemGeneratorContext systemGeneratorContext, SemanticModel model,
+        public delegate bool CheckAttributeApplicable(SystemDescription systemDescription, SemanticModel model,
             LambdaCapturedVariableDescription capturedVariableDescription);
 
         public readonly struct AttributeDescription
@@ -78,25 +76,25 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             new AttributeDescription("WithNativeDisableParallelForRestriction", "Unity.Collections.NativeDisableParallelForRestriction", CheckNativeDisableParallelForRestriction),
         };
 
-        static bool CheckHasNativeContainerAttribute(SystemGeneratorContext systemGeneratorContext, LambdaCapturedVariableDescription capturedVariableDescription,
-            Action<SystemGeneratorContext, Location, string, string> action)
+        static bool CheckHasNativeContainerAttribute(SystemDescription systemDescription, LambdaCapturedVariableDescription capturedVariableDescription,
+            Action<SystemDescription, Location, string, string> action)
         {
             const string nativeContainerAttributeName = "Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute";
             if (!(capturedVariableDescription.Symbol is ILocalSymbol localSymbol && localSymbol.Type.HasAttributeOrFieldWithAttribute(nativeContainerAttributeName) ||
                   capturedVariableDescription.Symbol is IParameterSymbol parameterSymbol && parameterSymbol.Type.HasAttributeOrFieldWithAttribute(nativeContainerAttributeName)))
             {
-                action(systemGeneratorContext, capturedVariableDescription.Symbol.Locations.First(), capturedVariableDescription.Symbol.Name, capturedVariableDescription.Type.Name);
+                action(systemDescription, capturedVariableDescription.Symbol.Locations.First(), capturedVariableDescription.Symbol.Name, capturedVariableDescription.Type.Name);
                 return false;
             }
             return true;
         }
 
-        static bool CheckReadOnly(SystemGeneratorContext context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) =>
+        static bool CheckReadOnly(SystemDescription context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) =>
             CheckHasNativeContainerAttribute(context, capturedVariableDescription, LambdaJobsErrors.DC0034);
-        static bool CheckNativeDisableContainerSafetyRestriction(SystemGeneratorContext context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) =>
+        static bool CheckNativeDisableContainerSafetyRestriction(SystemDescription context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) =>
             CheckHasNativeContainerAttribute(context, capturedVariableDescription, LambdaJobsErrors.DC0036);
-        static bool CheckNativeDisableUnsafePtrRestriction(SystemGeneratorContext context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) => true;
-        static bool CheckNativeDisableParallelForRestriction(SystemGeneratorContext context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) =>
+        static bool CheckNativeDisableUnsafePtrRestriction(SystemDescription context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) => true;
+        static bool CheckNativeDisableParallelForRestriction(SystemDescription context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) =>
             CheckHasNativeContainerAttribute(context, capturedVariableDescription, LambdaJobsErrors.DC0037);
 
         public bool SupportsDeallocateOnJobCompletion()
@@ -107,20 +105,16 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
             foreach (var field in Type.GetMembers().OfType<IFieldSymbol>())
             {
-                if (field.Type.GetAttributes().Any(attribute =>
-                    attribute.AttributeClass.ToFullName() == "Unity.Collections.LowLevel.Unsafe.NativeContainerSupportsDeallocateOnJobCompletionAttribute"))
+                if (field.Type.GetAttributes().Any(attribute => attribute.AttributeClass.ToFullName() == "Unity.Collections.LowLevel.Unsafe.NativeContainerSupportsDeallocateOnJobCompletionAttribute"))
                     return true;
             }
-
             return false;
         }
 
         public IEnumerable<string> NamesOfAllDisposableMembersIncludingOurselves()
         {
             var allNames = new List<string>();
-            //SourceGenHelpers.LogInfo($"Dispose Candidate Methods of {VariableFieldName}");
-            //foreach (var meth in Type.GetMembers().OfType<IMethodSymbol>())
-            //    SourceGenHelpers.LogInfo(meth.Name);
+
             if (Type.GetMembers().OfType<IMethodSymbol>().Any(method => method.Name == "Dispose"))
                 allNames.Add(VariableFieldName);
             else

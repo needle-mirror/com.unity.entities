@@ -6,7 +6,6 @@ using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
 using Unity.Transforms;
 using UnityEngine;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 #if !UNITY_PORTABLE_TEST_RUNNER
 using System.Linq;
@@ -24,8 +23,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [SetUp]
         public void SetUp()
         {
-            TestSystem = World.GetOrCreateSystem<MyTestSystem>();
-            ImplicitProfilingDoesntClearStackSystem = World.GetOrCreateSystem<MyImplicitProfilingDoesntClearStackSystem>();
+            TestSystem = World.GetOrCreateSystemManaged<MyTestSystem>();
+            ImplicitProfilingDoesntClearStackSystem = World.GetOrCreateSystemManaged<MyImplicitProfilingDoesntClearStackSystem>();
 
             var myArch = m_Manager.CreateArchetype(
                 ComponentType.ReadWrite<EcsTestData>(),
@@ -41,14 +40,22 @@ namespace Unity.Entities.Tests.ForEachCodegen
             var buffer = m_Manager.GetBuffer<EcsIntElement>(TestEntity);
             buffer.Add(new EcsIntElement {Value = 18});
             buffer.Add(new EcsIntElement {Value = 19});
-            m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp() { value = 5 });
-            m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp2() { value0 = 11, value1 = 13 });
+            m_Manager.SetSharedComponentManaged(TestEntity, new EcsTestSharedComp() { value = 5 });
+            m_Manager.SetSharedComponentManaged(TestEntity, new EcsTestSharedComp2() { value0 = 11, value1 = 13 });
         }
 
         [Test]
         public void SimplestCase()
         {
             TestSystem.SimplestCase();
+            Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
+        [Test]
+        public void InMethodTaking2DArray()
+        {
+            var array = new int[1, 1];
+            TestSystem.InMethodTaking2DArray(array);
             Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
@@ -229,7 +236,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 foreach (var entity in entities)
                 {
                     TestSystem.EntityManager.SetComponentData(entity, new EntityInQueryValue() {Value = val});
-                    TestSystem.EntityManager.SetSharedComponentData(entity, new EcsTestSharedComp() {value = val});
+                    TestSystem.EntityManager.SetSharedComponentManaged(entity, new EcsTestSharedComp() {value = val});
                     val++;
                 }
             }
@@ -276,8 +283,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
             var entity1 = TestSystem.EntityManager.CreateEntity(ComponentType.ReadWrite<MySharedComponentData>());
             var entity2 = TestSystem.EntityManager.CreateEntity(ComponentType.ReadWrite<MySharedComponentData>());
 
-            TestSystem.EntityManager.SetSharedComponentData(entity1, new MySharedComponentData() {Value = 1});
-            TestSystem.EntityManager.SetSharedComponentData(entity2, new MySharedComponentData() {Value = 2});
+            TestSystem.EntityManager.SetSharedComponentManaged(entity1, new MySharedComponentData() {Value = 1});
+            TestSystem.EntityManager.SetSharedComponentManaged(entity2, new MySharedComponentData() {Value = 2});
 
             var observedDatas = TestSystem.IterateSharedComponentData();
 
@@ -409,7 +416,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void JobDebuggerSafetyThrowsInRun()
         {
             var jobHandle = TestSystem.ScheduleEcsTestData();
+
             Assert.Throws<InvalidOperationException>(() => { TestSystem.RunEcsTestData(); });
+
+            // When we call ForEach.Run in the above assert, the act of throwing an exception leaves the structural change state
+            // incremented, so cleaning up during TearDown will error without resetting it manually.
+            m_Manager.Debug.SetIsInForEachDisallowStructuralChangeCounter(0);
+
             jobHandle.Complete();
         }
 
@@ -424,18 +437,24 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void ForEachWithCustomDelegateTypeWithMoreThan8Parameters()
         {
+            m_Manager.AddComponentData(TestEntity, new EcsTestData3(5));
+            m_Manager.AddComponentData(TestEntity, new EcsTestData4(6));
+            m_Manager.AddComponentData(TestEntity, new EcsTestData5(7));
+            m_Manager.AddComponentData(TestEntity, new EcsTestData6() { value = 8});
+            m_Manager.AddComponentData(TestEntity, new EcsTestData7() { value = 9});
+            m_Manager.AddComponentData(TestEntity, new EcsTestData8() { value = 10});
+            m_Manager.AddComponentData(TestEntity, new EcsTestData9() { value = 11});
+            m_Manager.AddComponentData(TestEntity, new EcsTestData10() { value = 12});
+            m_Manager.AddComponentData(TestEntity, new EcsTestData11() { value = 13});
             TestSystem.RunForEachWithCustomDelegateTypeWithMoreThan8Parameters();
         }
 
         [Test]
         public void ResolveDuplicateFieldsInEntityQuery()
         {
-            using (var builder = new EntityQueryDescBuilder(Allocator.Temp))
-            {
-                builder.AddAll(ComponentType.ReadWrite<EcsTestData>());
-                builder.FinalizeQuery();
-                Assert.IsTrue(TestSystem.m_ResolvedQuery.CompareQuery(builder));
-            }
+
+            var builder = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestData>();
+            Assert.IsTrue(TestSystem.m_ResolvedQuery.CompareQuery(builder));
         }
 
         [Test]
@@ -559,6 +578,60 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
+        public void WritesToArrayWithEntityInQueryIndex_NoSafetyError()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData));
+            int entityCount = 1000;
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entityCount; ++i)
+            {
+                m_Manager.SetComponentData(entities[i], new EcsTestFloatData{Value = i});
+            }
+
+            using var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestFloatData>().Build(m_Manager);
+            Assert.AreEqual(entityCount, query.CalculateEntityCount());
+            using var outputValues =
+                CollectionHelper.CreateNativeArray<float>(entityCount, World.UpdateAllocator.ToAllocator);
+            TestSystem.WritesToArrayWithEntityInQueryIndex(outputValues);
+
+            for (int i = 0, count=outputValues.Length; i < count; ++i)
+            {
+                Assert.AreEqual((float)i, outputValues[i]);
+            }
+        }
+
+        [Test]
+        public void WritesToArrayWithEntityInQueryIndex_Enableable_NoSafetyError()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+            int entityCount = 1000;
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            int matchingEntityCount = 0;
+            for (int i = 0; i < entityCount; ++i)
+            {
+                if ((i % 10) == 0)
+                {
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+                    m_Manager.SetComponentData(entities[i], new EcsTestDataEnableable(-i));
+                    continue;
+                }
+
+                m_Manager.SetComponentData(entities[i], new EcsTestDataEnableable(matchingEntityCount++));
+            }
+
+            using var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestDataEnableable>().Build(m_Manager);
+            using var outputValues =
+                CollectionHelper.CreateNativeArray<int>(query.CalculateEntityCount(),
+                    World.UpdateAllocator.ToAllocator);
+            TestSystem.WritesToArrayWithEntityInQueryIndex_Enableable(outputValues);
+
+            for (int i = 0, count = outputValues.Length; i < count; ++i)
+            {
+                Assert.AreEqual(i, outputValues[i]);
+            }
+        }
+
+        [Test]
         public void MethodsWithNullableParameter()
         {
             int? blah = 3;
@@ -568,7 +641,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void SystemWithinSystem()
         {
-            var system = World.GetOrCreateSystem<MyTestSystem.SomeInnerSystem>();
+            var system = World.GetOrCreateSystemManaged<MyTestSystem.SomeInnerSystem>();
             Assert.DoesNotThrow(() => system.SomeMethodThatShouldRun());
         }
 
@@ -594,6 +667,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public EntityQuery m_ResolvedQuery;
 
             public void SimplestCase()
+            {
+                Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0;}).Schedule();
+                Dependency.Complete();
+            }
+
+            public void InMethodTaking2DArray(int[,] array)
             {
                 Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0;}).Schedule();
                 Dependency.Complete();
@@ -1120,11 +1199,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void RunForEachWithCustomDelegateTypeWithMoreThan8Parameters()
             {
                 int grabbedData = -1;
-                Entities.ForEach((Entity e0, Entity e1, Entity e2, Entity e3, Entity e4, Entity e5, Entity e6, Entity e7, Entity e8, Entity e9, Entity e10, in EcsTestData data) =>
+                Entities.ForEach((Entity e0, in EcsTestData e1, in EcsTestData2 e2, in EcsTestData3 e3,
+                    in EcsTestData4 e4, in EcsTestData5 e5, in EcsTestData6 e6, in EcsTestData7 e7,
+                    in EcsTestData8 e8, in EcsTestData9 e9, in EcsTestData10 e10, in EcsTestData11 e11) =>
                 {
-                    grabbedData = data.value;
+                    grabbedData = e11.value;
                 }).Run();
-                Assert.AreEqual(3,  grabbedData);
+                Assert.AreEqual(13,  grabbedData);
             }
 
             // Not invoked, only used to store query in field with WithStoreEntityQueryInField
@@ -1139,7 +1220,11 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             public void RunWithFilterButNotQuery()
             {
+#if !ENABLE_TRANSFORM_V1
+                Entities.WithChangeFilter<LocalToWorldTransform>().ForEach((Entity entity) => { }).Run();
+#else
                 Entities.WithChangeFilter<Translation>().ForEach((Entity entity) => { }).Run();
+#endif
             }
 
             public int RunWithNoParametersCountEntities()
@@ -1334,7 +1419,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void ExecuteLocalFunctionThatAccessesEntity()
             {
                 var value = 0;
-                var dataFromEntity = GetComponentDataFromEntity<EcsTestData>();
+                var dataFromEntity = GetComponentLookup<EcsTestData>();
                 int SomeLocalFunc(Entity entity) { return dataFromEntity[entity].value; }
 
                 Entities.ForEach((Entity entity, in EcsTestData data) => {
@@ -1398,6 +1483,28 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 var value = 0;
                 Entities.ForEach((Entity entity, in EcsTestData data) => { value = 3; }).Run();
                 Assert.AreEqual(3, value);
+            }
+
+            public void WritesToArrayWithEntityInQueryIndex(NativeArray<float> outValues)
+            {
+                // If an IndexOutOfRangeException is thrown here, it means Entities.ForEach is not generating the
+                // necessary code to ensure that JobsUtility.PatchMinMaxBufferRanges() can be called with the correct
+                // array range for each chunk.
+                Entities.WithoutBurst().ForEach((int entityInQueryIndex, in EcsTestFloatData data) =>
+                {
+                    outValues[entityInQueryIndex] = data.Value;
+                }).ScheduleParallel(Dependency).Complete();
+            }
+
+            public void WritesToArrayWithEntityInQueryIndex_Enableable(NativeArray<int> outValues)
+            {
+                // If an IndexOutOfRangeException is thrown here, it means Entities.ForEach is not generating the
+                // necessary code to ensure that JobsUtility.PatchMinMaxBufferRanges() can be called with the correct
+                // array range for each chunk.
+                Entities.WithoutBurst().ForEach((int entityInQueryIndex, in EcsTestDataEnableable data) =>
+                {
+                    outValues[entityInQueryIndex] = data.value;
+                }).ScheduleParallel(Dependency).Complete();
             }
 
             public void MethodsWithNullableParameter(int? someVal)
@@ -1497,15 +1604,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         void AssertNothingChanged() => Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
     }
-}
 
+    static class BringYourOwnDelegate
+    {
+        public delegate void CustomForEachDelegate<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7, in T8 t8, in T9 t9, in T10 t10, in T11 t11);
 
-static class BringYourOwnDelegate
-{
-    [EntitiesForEachCompatible]
-    public delegate void CustomForEachDelegate<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7, T8 t8, T9 t9, T10 t10, in T11 t11);
-
-    public static TDescription ForEach<TDescription, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(this TDescription description, CustomForEachDelegate<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> codeToRun)
-        where TDescription : struct, ISupportForEachWithUniversalDelegate =>
-        LambdaForEachDescriptionConstructionMethods.ThrowCodeGenException<TDescription>();
+        public static TDescription ForEach<TDescription, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(this TDescription description, CustomForEachDelegate<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> codeToRun)
+            where TDescription : struct, ISupportForEachWithUniversalDelegate =>
+            LambdaForEachDescriptionConstructionMethods.ThrowCodeGenException<TDescription>();
+    }
 }

@@ -86,12 +86,13 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SIZ_TagThrowsOnComponentDataFromEntity()
+        public void SIZ_TagThrowsOnComponentLookup()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestTag));
-            var fromEntity = m_Manager.GetComponentDataFromEntity<EcsTestTag>();
+            var fromEntity = m_Manager.GetComponentLookup<EcsTestTag>();
             Assert.IsTrue(fromEntity.HasComponent(entity));
-            Assert.Throws<ArgumentException>(() => { var res = fromEntity[entity]; });
+            var res = fromEntity[entity];
+            Assert.AreEqual(res , default(EcsTestTag));
         }
 
         [Test]
@@ -99,12 +100,12 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestTag));
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestTag>());
-            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var tagType = m_Manager.GetComponentTypeHandle<EcsTestTag>(false);
 
-            Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(chunks));
+            Assert.AreEqual(1, ArchetypeChunkArray.TotalEntityCountInChunksIgnoreFiltering(chunks));
 
             for (int i = 0; i < chunks.Length; i++)
             {

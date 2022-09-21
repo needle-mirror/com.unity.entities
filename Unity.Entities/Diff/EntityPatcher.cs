@@ -1,19 +1,25 @@
 using System;
-using System.Collections.Generic;
+using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using Unity.Mathematics;
 #if !NET_DOTS
 using Unity.Properties;
 #endif
 
 namespace Unity.Entities
 {
+    /// <summary>
+    /// Utility class to apply a <see cref="EntityChangeSet"/> to an <see cref="EntityManager"/>
+    /// </summary>
+    [BurstCompile]
     public static unsafe partial class EntityPatcher
     {
-        static Profiling.ProfilerMarker s_ApplyChangeSetProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyChangeSet");
+        static string s_ApplyChangeSetProfilerMarkerStr = "EntityPatcher.ApplyChangeSet";
+
+        static Profiling.ProfilerMarker s_ApplyChangeSetProfilerMarker = new Profiling.ProfilerMarker(s_ApplyChangeSetProfilerMarkerStr);
         static Profiling.ProfilerMarker s_BuildEntityLookupsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.BuildEntityLookups");
         static Profiling.ProfilerMarker s_BuildPackedLookupsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.BuildPackedLookups");
         static Profiling.ProfilerMarker s_ApplyDestroyEntitiesProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyDestroyEntities");
@@ -30,20 +36,28 @@ namespace Unity.Entities
         static Profiling.ProfilerMarker s_ApplyEntityPatchesProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyEntityPatches");
         static Profiling.ProfilerMarker s_ApplyBlobAssetChangesProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyBlobAssetChanges");
 
+        internal static string[] CollectImportantProfilerMarkerStrings()
+        {
+            return new string [] {
+                s_ApplyChangeSetProfilerMarkerStr
+            };
+        }
+
         // Restore to BuildComponentToEntityMultiHashMap<TComponent> once fix goes in:
-        // https://unity3d.atlassian.net/browse/DOTSR-354
+        // DOTSR-354
         [BurstCompile]
-        struct BuildComponentToEntityMultiHashMap : IJobEntityBatch
+        struct BuildComponentToEntityMultiHashMap : IJobChunk
         {
             [ReadOnly] public ComponentTypeHandle<EntityGuid> ComponentTypeHandle;
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
 
-            [WriteOnly] public NativeParallelMultiHashMap<EntityGuid, Entity>.ParallelWriter ComponentToEntity;
+            [WriteOnly] public NativeMultiHashMap<EntityGuid, Entity>.ParallelWriter ComponentToEntity;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var components = batchInChunk.GetNativeArray(ComponentTypeHandle);
-                var entities = batchInChunk.GetNativeArray(EntityTypeHandle);
+                Assert.IsFalse(useEnabledMask);
+                var components = chunk.GetNativeArray(ComponentTypeHandle);
+                var entities = chunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {
                     ComponentToEntity.Add(components[i], entities[i]);
@@ -52,19 +66,20 @@ namespace Unity.Entities
         }
 
         // Restore to BuildComponentToEntityMultiHashMap<TComponent> once fix goes in:
-        // https://unity3d.atlassian.net/browse/DOTSR-354
+        // DOTSR-354
         [BurstCompile]
-        struct BuildComponentToEntityHashMap : IJobEntityBatch
+        struct BuildComponentToEntityHashMap : IJobChunk
         {
             [ReadOnly] public ComponentTypeHandle<EntityGuid> ComponentTypeHandle;
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
 
             [WriteOnly] public NativeParallelHashMap<EntityGuid, Entity>.ParallelWriter ComponentToEntity;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var components = batchInChunk.GetNativeArray(ComponentTypeHandle);
-                var entities = batchInChunk.GetNativeArray(EntityTypeHandle);
+                Assert.IsFalse(useEnabledMask);
+                var components = chunk.GetNativeArray(ComponentTypeHandle);
+                var entities = chunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {
                     ComponentToEntity.TryAdd(components[i], entities[i]);
@@ -73,19 +88,20 @@ namespace Unity.Entities
         }
 
         // Restore to BuildComponentToEntityMultiHashMap<TComponent> once fix goes in:
-        // https://unity3d.atlassian.net/browse/DOTSR-354
+        // DOTSR-354
         [BurstCompile]
-        struct BuildEntityToComponentHashMap : IJobEntityBatch
+        struct BuildEntityToComponentHashMap : IJobChunk
         {
             [ReadOnly] public ComponentTypeHandle<EntityGuid> EntityGuidComponentTypeHandle;
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
 
             [WriteOnly] public NativeParallelHashMap<Entity, EntityGuid>.ParallelWriter EntityToEntityGuid;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var components = batchInChunk.GetNativeArray(EntityGuidComponentTypeHandle);
-                var entities = batchInChunk.GetNativeArray(EntityTypeHandle);
+                Assert.IsFalse(useEnabledMask);
+                var components = chunk.GetNativeArray(EntityGuidComponentTypeHandle);
+                var entities = chunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {
                     EntityToEntityGuid.TryAdd(entities[i], components[i]);
@@ -117,14 +133,16 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct BuildLinkedEntityGroupHashMap : IJobEntityBatch
+        struct BuildLinkedEntityGroupHashMap : IJobChunk
         {
             [WriteOnly] public NativeParallelHashMap<Entity, Entity>.ParallelWriter EntityToLinkedEntityGroupRoot;
             [ReadOnly] public BufferTypeHandle<LinkedEntityGroup> LinkedEntityGroupTypeHandle;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var linkedEntityGroups = batchInChunk.GetBufferAccessor(LinkedEntityGroupTypeHandle);
+                Assert.IsFalse(useEnabledMask);
+
+                var linkedEntityGroups = chunk.GetBufferAccessor(LinkedEntityGroupTypeHandle);
 
                 for (var bufferIndex = 0; bufferIndex != linkedEntityGroups.Length; bufferIndex++)
                 {
@@ -142,8 +160,8 @@ namespace Unity.Entities
         {
             public int StartIndex;
             [ReadOnly] public NativeArray<EntityGuid> EntityGuids;
-            [ReadOnly] public NativeParallelMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
-            [WriteOnly] public NativeParallelMultiHashMap<int, Entity>.ParallelWriter PackedEntities;
+            [ReadOnly] public NativeMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
+            [WriteOnly] public NativeMultiHashMap<int, Entity>.ParallelWriter PackedEntities;
 
             public void Execute(int index)
             {
@@ -196,27 +214,27 @@ namespace Unity.Entities
 
             s_ApplyChangeSetProfilerMarker.Begin();
 
-            var entityQuery = entityManager.CreateEntityQuery(new EntityQueryDesc[] {
+            using var entityQuery = entityManager.CreateEntityQuery(new EntityQueryDesc[] {
                 new EntityQueryDesc()
                 {
                     All = new ComponentType[]
                     {
                         typeof(EntityGuid)
                     },
-                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+                    Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
                 }
             });
-            var prefabQuery = entityManager.CreateEntityQuery(new EntityQueryDesc[] {
+            using var prefabQuery = entityManager.CreateEntityQuery(new EntityQueryDesc[] {
                 new EntityQueryDesc()
                 {
                     All = new ComponentType[]
                     {
                         typeof(EntityGuid), typeof(Prefab)
                     },
-                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+                    Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
                 }
             });
-            var linkedEntityGroupQuery = entityManager.CreateEntityQuery(new EntityQueryDesc[]
+            using var linkedEntityGroupQuery = entityManager.CreateEntityQuery(new EntityQueryDesc[]
             {
                 new EntityQueryDesc()
                 {
@@ -224,15 +242,15 @@ namespace Unity.Entities
                     {
                         typeof(EntityGuid), typeof(LinkedEntityGroup)
                     },
-                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+                    Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
                 }
             });
 
             var entityCount = entityQuery.CalculateEntityCount();
 
-            using (var packedEntities = new NativeParallelMultiHashMap<int, Entity>(entityCount, Allocator.TempJob))
+            using (var packedEntities = new NativeMultiHashMap<int, Entity>(entityCount, Allocator.TempJob))
             using (var packedTypes = new NativeArray<ComponentType>(changeSet.TypeHashes.Length, Allocator.TempJob))
-            using (var entityGuidToEntity = new NativeParallelMultiHashMap<EntityGuid, Entity>(entityCount, Allocator.TempJob))
+            using (var entityGuidToEntity = new NativeMultiHashMap<EntityGuid, Entity>(entityCount, Allocator.TempJob))
             using (var entityToEntityGuid = new NativeParallelHashMap<Entity, EntityGuid>(entityQuery.CalculateEntityCount(), Allocator.TempJob))
             {
                 BuildEntityLookups(
@@ -284,6 +302,7 @@ namespace Unity.Entities
                 ApplySetSharedComponents(
                     entityManager,
                     changeSet.SetSharedComponents,
+                    changeSet.UnmanagedSharedComponentData,
                     changeSet.Entities,
                     packedEntities,
                     packedTypes);
@@ -305,7 +324,7 @@ namespace Unity.Entities
                     entityGuidToEntity,
                     entityToEntityGuid);
 
-// TODO: remove UNITY_EDITOR conditional once https://unity3d.atlassian.net/browse/DOTS-3862 is fixed
+// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
 #if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
                 s_ApplyEntityNamesProfilerMarker.Begin();
                 ApplyEntityNames(
@@ -389,7 +408,7 @@ namespace Unity.Entities
         static void BuildEntityLookups(
             EntityManager entityManager,
             EntityQuery entityQuery,
-            NativeParallelMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
+            NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
             NativeParallelHashMap<Entity, EntityGuid> entityToEntityGuid)
         {
             s_BuildEntityLookupsProfilerMarker.Begin();
@@ -398,14 +417,14 @@ namespace Unity.Entities
                 EntityTypeHandle = entityManager.GetEntityTypeHandle(),
                 ComponentTypeHandle = entityManager.GetComponentTypeHandle<EntityGuid>(true),
                 ComponentToEntity = entityGuidToEntity.AsParallelWriter()
-            }.ScheduleParallel(entityQuery);
+            }.ScheduleParallel(entityQuery, default);
 
             var buildEntityToEntityGuid = new BuildEntityToComponentHashMap
             {
                 EntityTypeHandle = entityManager.GetEntityTypeHandle(),
                 EntityGuidComponentTypeHandle = entityManager.GetComponentTypeHandle<EntityGuid>(true),
                 EntityToEntityGuid = entityToEntityGuid.AsParallelWriter()
-            }.ScheduleParallel(entityQuery);
+            }.ScheduleParallel(entityQuery, default);
 
             JobHandle.CombineDependencies(buildEntityGuidToEntity, buildEntityToEntityGuid).Complete();
             s_BuildEntityLookupsProfilerMarker.End();
@@ -425,13 +444,13 @@ namespace Unity.Entities
                 EntityTypeHandle = entityManager.GetEntityTypeHandle(),
                 ComponentTypeHandle = entityManager.GetComponentTypeHandle<EntityGuid>(true),
                 ComponentToEntity = entityGuidToPrefab.AsParallelWriter()
-            }.ScheduleParallel(prefabQuery);
+            }.ScheduleParallel(prefabQuery, default);
 
             var buildLinkedEntityGroupLookups = new BuildLinkedEntityGroupHashMap
             {
                 EntityToLinkedEntityGroupRoot = entityToLinkedEntityGroupRoot.AsParallelWriter(),
                 LinkedEntityGroupTypeHandle = entityManager.GetBufferTypeHandle<LinkedEntityGroup>(true)
-            }.ScheduleParallel(linkedEntityGroupQuery);
+            }.ScheduleParallel(linkedEntityGroupQuery, default);
 
             JobHandle.CombineDependencies(buildPrefabLookups, buildLinkedEntityGroupLookups).Complete();
             s_BuildPrefabAndLinkedEntityGroupLookupsProfilerMarker.End();
@@ -447,8 +466,8 @@ namespace Unity.Entities
         /// </summary>
         static void BuildPackedLookups(
             EntityChangeSet changeSet,
-            NativeParallelMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
+            NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
+            NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes)
         {
             s_BuildPackedLookupsProfilerMarker.Begin();
@@ -476,13 +495,14 @@ namespace Unity.Entities
         /// <remarks>
         /// This method only creates the entities and does not set any data.
         /// </remarks>
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
+        [BurstCompile]
         internal static void ApplyCreateEntities(
-            EntityManager entityManager,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
+            in EntityManager entityManager,
+            in NativeMultiHashMap<int, Entity> packedEntities,
             int createdEntityCount)
         {
-            var entityGuidArchetype = entityManager.CreateArchetype(null, 0);
+            var entityGuidArchetype = entityManager.CreateArchetypeWithoutSimulateComponent(null, 0);
             using (var entities = new NativeArray<Entity>(createdEntityCount, Allocator.Temp))
             {
                 entityManager.CreateEntity(entityGuidArchetype, entities);
@@ -493,18 +513,18 @@ namespace Unity.Entities
             }
         }
 
-// TODO: remove UNITY_EDITOR conditional once https://unity3d.atlassian.net/browse/DOTS-3862 is fixed
+// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
 #if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
         [BurstCompile]
-        internal struct ApplyNamesJob : IJobBurstSchedulable
+        internal struct ApplyNamesJob : IJob
         {
             public EntityManager EntityManager;
             public NativeArray<FixedString64Bytes> Names;
             public NativeArray<EntityGuid> NameChangeEntityGuids;
             public int NameChangedCount;
             public int CreatedEntityCount;
-            public NativeParallelMultiHashMap<int, Entity> PackedEntities;
-            public NativeParallelMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
+            public NativeMultiHashMap<int, Entity> PackedEntities;
+            public NativeMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
 
             [BurstCompile]
             public void Execute() {
@@ -537,13 +557,13 @@ namespace Unity.Entities
             }
         }
 
-        [BurstCompatible(RequiredUnityDefine = "UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
         internal static void ApplyEntityNames(
             EntityManager entityManager,
             NativeArray<FixedString64Bytes> names,
             NativeArray<EntityGuid> nameChangedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
-            NativeParallelMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
+            NativeMultiHashMap<int, Entity> packedEntities,
+            NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
             int createdEntityCount,
             int nameChangedCount)
         {
@@ -573,12 +593,13 @@ namespace Unity.Entities
         /// Since building the <see cref="NativeMultiHashMap{TEntityGuidComponent, Entity}"/> the entire world is expensive
         /// this method will incrementally update the map based on the destroyed entities.
         /// </remarks>
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
+        [BurstCompile]
         internal static void ApplyDestroyEntities(
-            EntityManager entityManager,
-            NativeArray<EntityGuid> entities,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
-            NativeParallelMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
+            in EntityManager entityManager,
+            in NativeArray<EntityGuid> entities,
+            in NativeMultiHashMap<int, Entity> packedEntities,
+            in NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
             int destroyedEntityCount)
         {
             var linkedEntityGroupType = ComponentType.ReadOnly<LinkedEntityGroup>();
@@ -612,13 +633,14 @@ namespace Unity.Entities
             }
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
+        [BurstCompile]
         internal static void ApplyAddComponents(
-            EntityManager entityManager,
-            NativeArray<PackedComponent> addComponents,
-            NativeArray<EntityGuid> packedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
-            NativeArray<ComponentType> packedTypes)
+            in EntityManager entityManager,
+            in NativeArray<PackedComponent> addComponents,
+            in NativeArray<EntityGuid> packedEntityGuids,
+            in NativeMultiHashMap<int, Entity> packedEntities,
+            in NativeArray<ComponentType> packedTypes)
         {
             var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
 
@@ -657,13 +679,14 @@ namespace Unity.Entities
             }
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
+        [BurstCompile]
         internal static void ApplyRemoveComponents(
-            EntityManager entityManager,
-            NativeArray<PackedComponent> removeComponents,
-            NativeArray<EntityGuid> packedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
-            NativeArray<ComponentType> packedTypes)
+            in EntityManager entityManager,
+            in NativeArray<PackedComponent> removeComponents,
+            in NativeArray<EntityGuid> packedEntityGuids,
+            in NativeMultiHashMap<int, Entity> packedEntities,
+            in NativeArray<ComponentType> packedTypes)
         {
             var entityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
 
@@ -702,8 +725,9 @@ namespace Unity.Entities
         static void ApplySetSharedComponents(
             EntityManager entityManager,
             PackedSharedComponentDataChange[] sharedComponentDataChanges,
+            UnsafeAppendBuffer unmanagedSharedComponentData,
             NativeArray<EntityGuid> packedEntityGuid,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
+            NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes)
         {
             s_ApplySetSharedComponentsProfilerMarker.Begin();
@@ -731,7 +755,19 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        entityManager.SetSharedComponentDataBoxedDefaultMustBeNull(entity, component.TypeIndex, packedSharedComponentDataChange.BoxedSharedValue);
+                        var offset = packedSharedComponentDataChange.UnmanagedSharedValueDataOffsetWithManagedFlag;
+
+                        if ((offset & PackedSharedComponentDataChange.kManagedFlag) != 0)
+                        {
+                            entityManager.SetSharedComponentDataBoxedDefaultMustBeNull(entity, component.TypeIndex, packedSharedComponentDataChange.BoxedSharedValue);
+                        }
+                        else
+                        {
+                            var componentDataAddr = offset != (-1 & ~PackedSharedComponentDataChange.kManagedFlag)
+                                ? unmanagedSharedComponentData.Ptr + offset
+                                : null;
+                            SetUnmanagedSharedComponentData(entityManager, entity, componentDataAddr, component.TypeIndex);
+                        }
                     }
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));
@@ -739,11 +775,18 @@ namespace Unity.Entities
             s_ApplySetSharedComponentsProfilerMarker.End();
         }
 
+        [BurstCompile]
+        static void SetUnmanagedSharedComponentData(in EntityManager entityManager, in Entity entity,
+            byte* componentDataAddr, TypeIndex typeIndex)
+        {
+            entityManager.SetSharedComponentNonDefault(entity, componentDataAddr, typeIndex);
+        }
+
         static void ApplySetManagedComponents(
             EntityManager entityManager,
             PackedManagedComponentDataChange[] managedComponentDataChanges,
             NativeArray<EntityGuid> packedEntityGuid,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
+            NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes)
         {
             s_ApplySetManagedComponentsProfilerMarker.Begin();
@@ -811,11 +854,11 @@ namespace Unity.Entities
             [ReadOnly]
             public NativeArray<EntityGuid> PackedEntityGuids;
             [ReadOnly]
-            public NativeParallelMultiHashMap<int, Entity> PackedEntities;
+            public NativeMultiHashMap<int, Entity> PackedEntities;
             [ReadOnly]
             public NativeArray<ComponentType> PackedTypes;
 
-            public NativeParallelMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
+            public NativeMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
             public NativeParallelHashMap<Entity, EntityGuid> EntityToEntityGuid;
 
             public NativeList<SetComponentError> EntityDoesNotExist;
@@ -904,11 +947,13 @@ namespace Unity.Entities
             NativeArray<PackedComponentDataChange> changes,
             NativeArray<byte> payload,
             NativeArray<EntityGuid> packedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
+            NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes,
-            NativeParallelMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
+            NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
             NativeParallelHashMap<Entity, EntityGuid> entityToEntityGuid)
         {
+            entityManager.BeforeStructuralChange();
+
             s_ApplySetComponentsProfilerMarker.Begin();
             var entityDoesNotExist = new NativeList<SetComponentError>(Allocator.TempJob);
             var componentDoesNotExist = new NativeList<SetComponentError>(Allocator.TempJob);
@@ -985,18 +1030,19 @@ namespace Unity.Entities
             }
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
+        [BurstCompile]
         internal static void ApplyUnmanagedEntityPatches(
-            EntityManager entityManager,
-            NativeArray<EntityReferenceChange> changes,
-            NativeArray<EntityGuid> packedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
-            NativeArray<ComponentType> packedTypes,
-            NativeParallelMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
-            NativeParallelHashMap<Entity, EntityGuid> entityToEntityGuid,
-            NativeParallelHashMap<EntityGuid, Entity> entityGuidToPrefab,
-            NativeParallelHashMap<Entity, Entity> entityToLinkedEntityGroupRoot,
-            NativeParallelMultiHashMap<int, EntityTargetPair> entityTargets)
+            in EntityManager entityManager,
+            in NativeArray<EntityReferenceChange> changes,
+            in NativeArray<EntityGuid> packedEntityGuids,
+            in NativeMultiHashMap<int, Entity> packedEntities,
+            in NativeArray<ComponentType> packedTypes,
+            in NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
+            in NativeParallelHashMap<Entity, EntityGuid> entityToEntityGuid,
+            in NativeParallelHashMap<EntityGuid, Entity> entityGuidToPrefab,
+            in NativeParallelHashMap<Entity, Entity> entityToLinkedEntityGroupRoot,
+            in NativeMultiHashMap<int, EntityTargetPair> entityTargets)
         {
             for (var i = 0; i < changes.Length; i++)
             {
@@ -1102,14 +1148,14 @@ namespace Unity.Entities
             EntityManager entityManager,
             NativeArray<EntityReferenceChange> changes,
             NativeArray<EntityGuid> packedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
+            NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes,
-            NativeParallelMultiHashMap<int, EntityTargetPair> entityTargets)
+            NativeMultiHashMap<int, EntityTargetPair> entityTargets)
         {
 
 #if !UNITY_DOTSRUNTIME
 
-            var managedObjectEntityReferencePatches = new NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectEntityReferencePatch>(changes.Length, Allocator.Temp);
+            var managedObjectEntityReferencePatches = new NativeMultiHashMap<EntityComponentPair, ManagedObjectEntityReferencePatch>(changes.Length, Allocator.Temp);
 
             for (var i = 0; i < changes.Length; i++)
             {
@@ -1166,9 +1212,9 @@ namespace Unity.Entities
             EntityManager entityManager,
             NativeArray<EntityReferenceChange> changes,
             NativeArray<EntityGuid> packedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
+            NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes,
-            NativeParallelMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
+            NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
             NativeParallelHashMap<Entity, EntityGuid> entityToEntityGuid,
             NativeParallelHashMap<EntityGuid, Entity> entityGuidToPrefab,
             NativeParallelHashMap<Entity, Entity> entityToLinkedEntityGroupRoot)
@@ -1180,7 +1226,7 @@ namespace Unity.Entities
                 return;
             }
 
-            var entityTargets = new NativeParallelMultiHashMap<int, EntityTargetPair>(changes.Length, Allocator.Temp);
+            var entityTargets = new NativeMultiHashMap<int, EntityTargetPair>(changes.Length, Allocator.Temp);
 
             ApplyUnmanagedEntityPatches(
                         entityManager,
@@ -1213,16 +1259,17 @@ namespace Unity.Entities
             public EntityGuid ChildEntityGuid;
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
+        [BurstCompile]
         internal static void ApplyLinkedEntityGroupAdditions(
-            EntityManager entityManager,
-            NativeArray<LinkedEntityGroupChange> linkedEntityGroupChanges,
-            NativeArray<EntityGuid> packedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
-            NativeParallelMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
-            NativeParallelHashMap<Entity, EntityGuid> entityToEntityGuid,
-            NativeParallelHashMap<EntityGuid, Entity> entityGuidToPrefab,
-            NativeParallelHashMap<Entity, Entity> entityToLinkedEntityGroupRoot)
+            in EntityManager entityManager,
+            in NativeArray<LinkedEntityGroupChange> linkedEntityGroupChanges,
+            in NativeArray<EntityGuid> packedEntityGuids,
+            in NativeMultiHashMap<int, Entity> packedEntities,
+            in NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
+            in NativeParallelHashMap<Entity, EntityGuid> entityToEntityGuid,
+            in NativeParallelHashMap<EntityGuid, Entity> entityGuidToPrefab,
+            in NativeParallelHashMap<Entity, Entity> entityToLinkedEntityGroupRoot)
         {
             using (var additions = new NativeList<Child>(Allocator.TempJob))
             {
@@ -1341,15 +1388,16 @@ namespace Unity.Entities
             }
         }
 
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
+        [BurstCompile]
         internal static void ApplyLinkedEntityGroupRemovals(
-            EntityManager entityManager,
-            NativeArray<LinkedEntityGroupChange> linkedEntityGroupChanges,
-            NativeArray<EntityGuid> packedEntityGuids,
-            NativeParallelMultiHashMap<int, Entity> packedEntities,
-            NativeParallelMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
-            NativeParallelHashMap<Entity, EntityGuid> entityToEntityGuid,
-            NativeParallelHashMap<Entity, Entity> entityToLinkedEntityGroupRoot)
+            in EntityManager entityManager,
+            in NativeArray<LinkedEntityGroupChange> linkedEntityGroupChanges,
+            in NativeArray<EntityGuid> packedEntityGuids,
+            in NativeMultiHashMap<int, Entity> packedEntities,
+            in NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
+            in NativeParallelHashMap<Entity, EntityGuid> entityToEntityGuid,
+            in NativeParallelHashMap<Entity, Entity> entityToLinkedEntityGroupRoot)
         {
             using (var removals = new NativeList<Child>(Allocator.TempJob))
             {
@@ -1402,7 +1450,7 @@ namespace Unity.Entities
         {
             var count = 0;
 
-            using (var chunks = linkedEntityGroupQuery.CreateArchetypeChunkArray(Allocator.TempJob))
+            using (var chunks = linkedEntityGroupQuery.ToArchetypeChunkArray(Allocator.TempJob))
             {
                 new CalculateLinkedEntityGroupEntitiesLengthJob
                 {
@@ -1416,25 +1464,25 @@ namespace Unity.Entities
         }
 
 #if !UNITY_DOTSRUNTIME
-        class ManagedObjectEntityReferencePatcher : PropertyVisitor, Properties.Adapters.IVisit<Entity>
+        class ManagedObjectEntityReferencePatcher : PropertyVisitor, IVisitPropertyAdapter<Entity>
         {
-            NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectEntityReferencePatch>.Enumerator Patches;
+            NativeMultiHashMap<EntityComponentPair, ManagedObjectEntityReferencePatch>.Enumerator Patches;
 
             public ManagedObjectEntityReferencePatcher()
             {
                 AddAdapter(this);
             }
 
-            public void ApplyPatches(ref object obj, NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectEntityReferencePatch>.Enumerator patches)
+            public void ApplyPatches(ref object obj, NativeMultiHashMap<EntityComponentPair, ManagedObjectEntityReferencePatch>.Enumerator patches)
             {
                 Patches = patches;
-                PropertyContainer.Visit(ref obj, this);
+                PropertyContainer.Accept(this, ref obj);
             }
 
-            VisitStatus Properties.Adapters.IVisit<Entity>.Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
+            void IVisitPropertyAdapter<Entity>.Visit<TContainer>(in VisitContext<TContainer, Entity> context, ref TContainer container, ref Entity value)
             {
-                // Make a copy for we can re-use the enumerator
                 var patches = Patches;
+
                 foreach (var patch in patches)
                 {
                     if (value.Index == patch.Id)
@@ -1443,8 +1491,6 @@ namespace Unity.Entities
                         break;
                     }
                 }
-
-                return VisitStatus.Stop;
             }
         }
 #endif

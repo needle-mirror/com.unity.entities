@@ -5,7 +5,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     internal unsafe struct BufferAllocatorHeap : IBufferAllocator
     {
         UnsafeList<IntPtr> Buffers;
@@ -108,19 +108,19 @@ namespace Unity.Entities
             FreeList.Dispose();
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         static void ThrowFreeListEmpty()
         {
             throw new InvalidOperationException("Cannot allocate, allocator is exhausted.");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         static void ThrowAllocationFailed()
         {
             throw new InvalidOperationException("Failed to allocate buffer.");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void CheckInvalidIndexToFree(int index)
         {
             if (index < 0 || index >= BufferCapacity)

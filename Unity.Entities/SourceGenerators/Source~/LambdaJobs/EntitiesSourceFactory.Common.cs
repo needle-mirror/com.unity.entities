@@ -1,10 +1,10 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Linq;
 using Unity.Entities.SourceGen.Common;
-using Unity.Entities.SourceGen.SystemGeneratorCommon;
 
 namespace Unity.Entities.SourceGen.LambdaJobs
 {
@@ -12,8 +12,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
     {
         public static class Common
         {
-            static string GetReadOnlyQueryType(INamedTypeSymbol type) => $@"ComponentType.ReadOnly<{type.ToFullName()}>()";
-
             public static string NoAliasAttribute(LambdaJobDescription description) =>
                 description.Burst.IsEnabled ? @"[Unity.Burst.NoAlias]" : string.Empty;
 
@@ -26,58 +24,39 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
             public static string MonoPInvokeCallbackAttributeAttribute(LambdaJobDescription description) =>
                 description.LambdaJobKind == LambdaJobKind.Entities ?
-                        $@"[AOT.MonoPInvokeCallback(typeof(Unity.Entities.InternalCompilerInterface.JobEntityBatchRunWithoutJobSystemDelegate))]" :
+                        $@"[AOT.MonoPInvokeCallback(typeof(Unity.Entities.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegate))]" :
                         $@"[AOT.MonoPInvokeCallback(typeof(Unity.Entities.InternalCompilerInterface.JobRunWithoutJobSystemDelegate))]";
 
             public static SyntaxNode SchedulingInvocationFor(LambdaJobDescription description)
             {
-                static string ExecuteMethodArgs(LambdaJobDescription systemBaseDescription)
+                static string ExecuteMethodArgs(LambdaJobDescription description)
                 {
-                    switch (systemBaseDescription)
+                    var argStrings = new HashSet<string>();
+                    foreach (var variable in description.VariablesCaptured)
                     {
-                        case LambdaJobDescription lambdaJobDescription:
-                        {
-                            var argStrings =
-                                lambdaJobDescription
-                                    .VariablesCaptured
-                                    .Where(variable => !variable.IsThis)
-                                    .Select(variable =>
-                                        systemBaseDescription.Schedule.Mode == ScheduleMode.Run && variable.IsWritable
-                                            ? $"ref {variable.OriginalVariableName}"
-                                            : variable.OriginalVariableName)
-                                    .ToList();
-
-                            if (systemBaseDescription.Schedule.DependencyArgument != null)
-                            {
-                                argStrings.Add($@"{systemBaseDescription.Schedule.DependencyArgument.ToString()}");
-                            }
-
-                            if (lambdaJobDescription.WithFilterEntityArray != null)
-                            {
-                                argStrings.Add($@"{lambdaJobDescription.WithFilterEntityArray.ToString()}");
-                            }
-
-                            foreach (var argument in lambdaJobDescription.AdditionalVariablesCapturedForScheduling)
-                                argStrings.Add(argument.Name);
-
-                            if (lambdaJobDescription.InStructSystem)
-                                argStrings.Add($"ref {lambdaJobDescription.SystemStateParameterName}");
-
-                            return argStrings.Distinct().SeparateByComma();
-                        }
-                        default:
-                            throw new ArgumentOutOfRangeException();
+                        if (!variable.IsThis)
+                            argStrings.Add(description.Schedule.Mode == ScheduleMode.Run && variable.IsWritable
+                                ? $"ref {variable.OriginalVariableName}"
+                                : variable.OriginalVariableName);
                     }
+
+                    if (description.Schedule.DependencyArgument != null)
+                        argStrings.Add($@"{description.Schedule.DependencyArgument.ToString()}");
+
+                    if (description.WithFilterEntityArray != null)
+                        argStrings.Add($@"{description.WithFilterEntityArray.ToString()}");
+
+                    foreach (var argument in description.AdditionalVariablesCapturedForScheduling)
+                        argStrings.Add(argument.Name);
+
+                    if (description.InStructSystem)
+                        argStrings.Add($"ref {description.SystemStateParameterName}");
+
+                    return argStrings.SeparateByComma();
                 }
 
-                switch (description)
-                {
-                    case LambdaJobDescription lambdaJobDescription:
-                        var template = $@"{description.ExecuteInSystemMethodName}({ExecuteMethodArgs(lambdaJobDescription)}));";
-                        return SyntaxFactory.ParseStatement(template).DescendantNodes().OfType<InvocationExpressionSyntax>().FirstOrDefault();
-                    default:
-                        throw new ArgumentOutOfRangeException($"{description.DeclaringSystemType.Identifier} is neither LambdaJobDescription nor EntitiesOnUpdateDescription.");
-                }
+                var template = $@"{description.ExecuteInSystemMethodName}({ExecuteMethodArgs(description)}));";
+                return SyntaxFactory.ParseStatement(template).DescendantNodes().OfType<InvocationExpressionSyntax>().FirstOrDefault();
             }
 
             public static string SharedComponentFilterInvocations(LambdaJobDescription description)
@@ -88,9 +67,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         .Select(arg => $@"{description.EntityQueryFieldName}.SetSharedComponentFilter({arg});")
                         .SeparateByNewLine();
             }
-
-            // This later gets replaced with #line directives to correct place in generated source for debugging
-            public static string GeneratedLineTriviaToGeneratedSource { get; } = "// __generatedline__";
         }
     }
 }

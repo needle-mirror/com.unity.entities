@@ -17,18 +17,9 @@ using UnityEngine;
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<Entity>))]
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<BlobAssetReference<float>>))]
 
-namespace Unity.Entities
-{
-    // mock type
-    // TODO: RENAME ME - collides with the real type
-    class GameObjectEntity
-    {
-    }
-}
-
 namespace Unity.Entities.Tests
 {
-    class TypeManagerTests : ECSTestsFixture
+    partial class TypeManagerTests : ECSTestsFixture
     {
         struct TestType1 : IComponentData
         {
@@ -82,6 +73,168 @@ namespace Unity.Entities.Tests
         {
             T value;
         }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        public class TestTypeBaseClass : IComponentData, IEquatable<TestTypeBaseClass>
+        {
+            int empty;
+            public bool Equals(TestTypeBaseClass other)
+            {
+                return empty == other.empty;
+            }
+
+            public override int GetHashCode()
+            {
+                return empty.GetHashCode();
+            }
+        }
+
+        public class TestTypeSubClass1 : TestTypeBaseClass, IEquatable<TestTypeSubClass1>
+        {
+            int empty;
+            public bool Equals(TestTypeSubClass1 other)
+            {
+                return empty == other.empty;
+            }
+
+            public override int GetHashCode()
+            {
+                return empty.GetHashCode();
+            }
+
+        }
+
+        public class TestTypeSubClass2 : TestTypeBaseClass, IEquatable<TestTypeSubClass2>
+        {
+            int empty;
+            public bool Equals(TestTypeSubClass2 other)
+            {
+                return empty == other.empty;
+            }
+
+            public override int GetHashCode()
+            {
+                return empty.GetHashCode();
+            }
+
+        }
+
+        public class TestTypeSubSubClass1 : TestTypeSubClass1, IEquatable<TestTypeSubSubClass1>
+        {
+            int empty;
+            public bool Equals(TestTypeSubSubClass1 other)
+            {
+                return empty == other.empty;
+            }
+
+            public override int GetHashCode()
+            {
+                return empty.GetHashCode();
+            }
+
+        }
+
+        public class TestTypeSubSubClass2 : TestTypeSubClass2, IEquatable<TestTypeSubSubClass2>
+        {
+            int empty;
+            public bool Equals(TestTypeSubSubClass2 other)
+            {
+                return empty == other.empty;
+            }
+
+            public override int GetHashCode()
+            {
+                return empty.GetHashCode();
+            }
+
+        }
+
+        public class TestTypeSingleClass : IComponentData, IEquatable<TestTypeSingleClass>
+        {
+            int empty;
+
+            public bool Equals(TestTypeSingleClass other)
+            {
+                return empty == other.empty;
+            }
+
+            public override int GetHashCode()
+            {
+                return empty.GetHashCode();
+            }
+        }
+
+        [Test]
+        public void TestDescendents_DescendantsOfDescendants()
+        {
+            // TestTypeBaseClass
+            //     TestTypeSubClass1 : TestTypeBaseClass
+            //         TestTypeSubSubClass1 : TestTypeSubClass1
+            //
+            //     TestTypeSubClass2 : TestTypeBaseClass
+            //         TestTypeSubSubClass2 : TestTypeSubClass2
+
+
+            var baseTypeIndex = TypeManager.GetTypeIndex<TestTypeBaseClass>();
+
+            var subClass1TypeIndex = TypeManager.GetTypeIndex<TestTypeSubClass1>();
+            var subClass2TypeIndex = TypeManager.GetTypeIndex<TestTypeSubClass2>();
+
+            var subSubClass1TypeIndex = TypeManager.GetTypeIndex<TestTypeSubSubClass1>();
+            var subSubClass2TypeIndex = TypeManager.GetTypeIndex<TestTypeSubSubClass2>();
+
+            Assert.IsTrue(TypeManager.HasDescendants(baseTypeIndex));
+            Assert.IsTrue(TypeManager.HasDescendants(subClass1TypeIndex));
+            Assert.IsTrue(TypeManager.HasDescendants(subClass2TypeIndex));
+
+            Assert.IsFalse(TypeManager.HasDescendants(subSubClass1TypeIndex));
+            Assert.IsFalse(TypeManager.HasDescendants(subSubClass2TypeIndex));
+
+            Assert.AreEqual(4, TypeManager.GetDescendantCount(baseTypeIndex));
+
+            Assert.AreEqual(1, TypeManager.GetDescendantCount(subClass1TypeIndex));
+            Assert.AreEqual(1, TypeManager.GetDescendantCount(subClass2TypeIndex));
+
+            Assert.AreEqual(0, TypeManager.GetDescendantCount(subSubClass1TypeIndex));
+            Assert.AreEqual(0, TypeManager.GetDescendantCount(subSubClass2TypeIndex));
+
+            // Check every type in this tree if types is a descendant of base type
+            Assert.IsTrue(TypeManager.IsDescendantOf(baseTypeIndex, baseTypeIndex));
+            Assert.IsTrue(TypeManager.IsDescendantOf(subClass1TypeIndex, baseTypeIndex));
+            Assert.IsTrue(TypeManager.IsDescendantOf(subClass2TypeIndex, baseTypeIndex));
+            Assert.IsTrue(TypeManager.IsDescendantOf(subSubClass1TypeIndex, baseTypeIndex));
+            Assert.IsTrue(TypeManager.IsDescendantOf(subSubClass2TypeIndex, baseTypeIndex));
+
+            // Test that the Sub Sub types are descendants of their immediate parent types
+            Assert.IsTrue(TypeManager.IsDescendantOf(subSubClass1TypeIndex, subClass1TypeIndex));
+            Assert.IsTrue(TypeManager.IsDescendantOf(subSubClass2TypeIndex, subClass2TypeIndex));
+            Assert.IsFalse(TypeManager.IsDescendantOf(subSubClass1TypeIndex, subClass2TypeIndex));
+            Assert.IsFalse(TypeManager.IsDescendantOf(subSubClass2TypeIndex, subClass1TypeIndex));
+        }
+
+        [Test]
+        public void TestDescendants_StructType_NoDescendants()
+        {
+            var structTypeIndex = TypeManager.GetTypeIndex<TestType1>();
+            Assert.IsFalse(TypeManager.HasDescendants(structTypeIndex));
+            Assert.AreEqual(0, TypeManager.GetDescendantCount(structTypeIndex));
+        }
+
+        [Test]
+        public void TestDescendants_IsDescendantOfSelf()
+        {
+            var baseTypeIndex = TypeManager.GetTypeIndex<TestTypeBaseClass>();
+            Assert.IsTrue(TypeManager.IsDescendantOf(baseTypeIndex, baseTypeIndex));
+        }
+
+        [Test]
+        public void TestDescendants_SingleClassType_NoDescendants()
+        {
+            var singleClassTypeIndex = TypeManager.GetTypeIndex<TestTypeSingleClass>();
+            Assert.IsFalse(TypeManager.HasDescendants(singleClassTypeIndex));
+            Assert.AreEqual(0, TypeManager.GetDescendantCount(singleClassTypeIndex));
+        }
+#endif
 
         [Test]
         public void CreateArchetypes()
@@ -381,7 +534,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void TestGetSystems()
         {
-            var allSystemTypes = TypeManager.GetSystems();
+            // Remove disabled systems since in Entities.Tests we have systems that are intentionally broken and will throw exceptions
+            var allSystemTypes = TypeManager.GetSystems(WorldSystemFilterFlags.All & ~WorldSystemFilterFlags.Disabled);
             bool foundTestSystem = false;
             for(int i = 0; i < allSystemTypes.Count;++i)
             {
@@ -450,14 +604,18 @@ namespace Unity.Entities.Tests
         partial class DefaultFilteredSystem : SystemBase{ protected override void OnUpdate() { } }
         [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
         partial class ProcessAfterLoadFilteredSystem : SystemBase { protected override void OnUpdate() { } }
-        [ExecuteAlways]
-        partial class ExecuteAlwaysFilteredSystem : SystemBase { protected override void OnUpdate() { } }
 
-        int ValidateFilterFlags(WorldSystemFilterFlags expectedFilterFlags, WorldSystemFilterFlags requiredFlags = WorldSystemFilterFlags.Default)
+        int ValidateFilterFlags(WorldSystemFilterFlags expectedFilterFlags, WorldSystemFilterFlags requiredFlags = 0)
         {
             Assert.IsTrue(expectedFilterFlags != WorldSystemFilterFlags.All);
+            if ((expectedFilterFlags & WorldSystemFilterFlags.Default) != 0)
+            {
+                expectedFilterFlags &= ~WorldSystemFilterFlags.Default;
+                expectedFilterFlags |= WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.Presentation;
+            }
 
             var filteredTypes = TypeManager.GetSystems(expectedFilterFlags, requiredFlags);
+            requiredFlags &= ~WorldSystemFilterFlags.Default;
             foreach(var t in filteredTypes)
             {
                 var actualFilterFlags = TypeManager.GetSystemFilterFlags(t);
@@ -472,15 +630,64 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetSystemsWorldSystemFilterFlags()
         {
-            var allTypesCount = TypeManager.GetSystems(WorldSystemFilterFlags.All).Count;
+            var allTypesCount = TypeManager.GetSystems(WorldSystemFilterFlags.All & ~WorldSystemFilterFlags.Disabled).Count;
 
-            var numDefaultSystems = ValidateFilterFlags(WorldSystemFilterFlags.Default, WorldSystemFilterFlags.Default);
+            var numDefaultSystems = ValidateFilterFlags(WorldSystemFilterFlags.Default, 0);
             var numProcessAfterLoadSystems = ValidateFilterFlags(WorldSystemFilterFlags.ProcessAfterLoad, WorldSystemFilterFlags.ProcessAfterLoad);
             var numCombinedSystems = ValidateFilterFlags(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ProcessAfterLoad);
             Assert.AreEqual(numCombinedSystems, numDefaultSystems + numProcessAfterLoadSystems);
             Assert.IsTrue(numCombinedSystems <= allTypesCount);
         }
 
+        [WorldSystemFilter(WorldSystemFilterFlags.Default, WorldSystemFilterFlags.LocalSimulation)]
+        partial class Test_FirstLevelGroup : ComponentSystemGroup { }
+        [WorldSystemFilter(WorldSystemFilterFlags.Default, WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Presentation)]
+        [UpdateInGroup(typeof(Test_FirstLevelGroup))]
+        partial class Test_SecondLevelGroup : ComponentSystemGroup { }
+        [UpdateInGroup(typeof(Test_FirstLevelGroup))]
+        partial class Test_FirstLevelSystem : SystemBase { protected override void OnUpdate() { } }
+        [UpdateInGroup(typeof(Test_SecondLevelGroup))]
+        partial class Test_SecondLevelSystem : SystemBase { protected override void OnUpdate() { } }
+        [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ClientSimulation)]
+        [UpdateInGroup(typeof(Test_SecondLevelGroup))]
+        partial class Test_SecondLevelExtendedSystem : SystemBase { protected override void OnUpdate() { } }
+        [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+        [UpdateInGroup(typeof(Test_SecondLevelGroup))]
+        partial class Test_SecondLevelExplicitSystem : SystemBase { protected override void OnUpdate() { } }
+
+        [Test]
+        public void GetDefaultWorldSystemFilterFlagsFromGroup()
+        {
+            Assert.AreEqual(WorldSystemFilterFlags.LocalSimulation, TypeManager.GetSystemFilterFlags(typeof(Test_FirstLevelSystem)));
+            Assert.AreEqual(WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.Presentation, TypeManager.GetSystemFilterFlags(typeof(Test_SecondLevelSystem)));
+            Assert.AreEqual(WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.Presentation | WorldSystemFilterFlags.ClientSimulation, TypeManager.GetSystemFilterFlags(typeof(Test_SecondLevelExtendedSystem)));
+            Assert.AreEqual(WorldSystemFilterFlags.ClientSimulation, TypeManager.GetSystemFilterFlags(typeof(Test_SecondLevelExplicitSystem)));
+        }
+
+        [CreateAfter(typeof(Test_CreateOrder_B))]
+        [WorldSystemFilter(WorldSystemFilterFlags.Editor)]
+        partial class Test_CreateOrder_C : SystemBase { protected override void OnUpdate() { } }
+        [WorldSystemFilter(WorldSystemFilterFlags.Editor)]
+        partial class Test_CreateOrder_B : SystemBase { protected override void OnUpdate() { } }
+        [CreateBefore(typeof(Test_CreateOrder_B))]
+        [WorldSystemFilter(WorldSystemFilterFlags.Editor)]
+        partial class Test_CreateOrder_A : SystemBase { protected override void OnUpdate() { } }
+
+        [Test]
+        [Ignore("Fix Filter Flags to allow disabled systems to be found outside of All queries - DOTS-5966")]
+        public void GetSystemsRespectsCreateBeforeCreateAfter()
+        {
+            // All systems in the test assembly are disabled by default. If we fetch disabled systems we will trip on intentionally
+            // broken systems, so we instead stuff our disabled systems into the Editor world filter which will exclude the broken systems
+            var allTypes = new List<Type>(TypeManager.GetSystems(WorldSystemFilterFlags.All, WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.Disabled));
+
+            var indexOfA = allTypes.IndexOf(typeof(Test_CreateOrder_A));
+            var indexOfB = allTypes.IndexOf(typeof(Test_CreateOrder_B));
+            var indexOfC = allTypes.IndexOf(typeof(Test_CreateOrder_C));
+
+            Assert.Less(indexOfA, indexOfB);
+            Assert.Less(indexOfB, indexOfC);
+        }
 #if !UNITY_DOTSRUNTIME // No reflection support in TypeManager in DOTS Runtime even without TinyBCL; no UnityEngine in DOTS Runtime
         [DisableAutoTypeRegistration]
         struct NonBlittableComponentData : IComponentData
@@ -521,7 +728,7 @@ namespace Unity.Entities.Tests
         }
 
         [DisableAutoTypeRegistration]
-        struct SystemState : ISystemStateComponentData, IEnableableComponent
+        struct Cleanup : ICleanupComponentData, IEnableableComponent
         {
 
         }
@@ -543,16 +750,14 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(InterfaceShared), @"\binterface\b", TestName = "Interface implementing ISharedComponentData")]
         [TestCase(typeof(ClassShared), @"\b(struct|class)\b", TestName = "Class implementing ISharedComponentData")]
 
-        [TestCase(typeof(SystemState), @"\bdisabled\b", TestName = "Implements both ISystemStateComponentData and IEnableableComponent")]
+        [TestCase(typeof(Cleanup), @"\bdisabled\b", TestName = "Implements both ICleanupComponentData and IEnableableComponent")]
         [TestCase(typeof(Shared), @"\bdisabled\b", TestName = "Implements both ISharedComponentData and IEnableableComponent")]
-
-        [TestCase(typeof(GameObjectEntity), nameof(GameObjectEntity), TestName = "GameObjectEntity type")]
 
         [TestCase(typeof(float), @"\b(not .*|in)valid\b", TestName = "Not valid component type")]
         public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures(Type type, string keywordPattern)
         {
             Assert.That(
-                () => TypeManager.BuildComponentType(type),
+                () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new HashSet<Type>()),
                 Throws.ArgumentException.With.Message.Matches(keywordPattern)
             );
         }
@@ -624,7 +829,7 @@ namespace Unity.Entities.Tests
             try
             {
                 Assert.That(
-                    () => TypeManager.BuildComponentType(type),
+                    () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new HashSet<Type>()),
                     Throws.ArgumentException.With.Message.Matches($"\\bregister\\b.*\\b{nameof(TypeManager.UnityEngineObjectType)}\\b")
                 );
             }
@@ -643,7 +848,7 @@ namespace Unity.Entities.Tests
             {
                 var type = typeof(TypeManagerTests);
                 Assert.That(
-                    () => TypeManager.BuildComponentType(type),
+                    () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new HashSet<Type>()),
                     Throws.ArgumentException.With.Message.Matches($"\\bmust inherit {typeof(UnityEngine.Component)}\\b")
                 );
             }
@@ -660,7 +865,7 @@ namespace Unity.Entities.Tests
             TypeManager.UnityEngineObjectType = typeof(UnityEngine.Component);
             try
             {
-                TypeManager.BuildComponentType(typeof(UnityEngine.Transform));
+                TypeManager.BuildComponentType(typeof(UnityEngine.Transform), new Dictionary<Type, ulong>(), new HashSet<Type>());
             }
             finally
             {
@@ -713,20 +918,22 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(ecsTestDataAsmRefersToUnityEngine);
         }
 
-        class TestSystem : ComponentSystem
+        partial class TestSystem : SystemBase
         {
-            EntityQuery m_EntityQuery;
 
             protected override void OnCreate()
             {
-                m_EntityQuery = GetEntityQuery(typeof(Translation));
             }
 
             protected override void OnUpdate()
             {
-                Entities.With(m_EntityQuery).ForEach((Entity e, ref Translation t) =>
+#if !ENABLE_TRANSFORM_V1
+                Entities.ForEach((Entity e, ref LocalToWorldTransform t) =>
+#else
+                Entities.ForEach((Entity e, ref Translation t) =>
+#endif
                 {
-                });
+                }).Run();
             }
         }
 
@@ -734,143 +941,6 @@ namespace Unity.Entities.Tests
         public struct UnregisteredComponent : IComponentData
         {
             public int Int;
-        }
-
-        [Test]
-        public void AddNewComponentTypes()
-        {
-            var typeToAdd = typeof(UnregisteredComponent);
-            bool testAlreadyRan = false;
-            try
-            {
-                TypeManager.GetTypeIndex(typeToAdd);
-                testAlreadyRan = true;
-            }
-            catch (ArgumentException) {}
-
-            // If we haven't registered the component yet we should have thrown above before setting
-            // however, since we cannot remove types from the TypeManager, subsequent test
-            // runs without a domain reload will already have our test type registered so simply abort
-            if (testAlreadyRan)
-                return;
-
-            Dictionary<int, TypeManager.TypeInfo> typeInfoMap = new Dictionary<int, TypeManager.TypeInfo>();
-            Dictionary<int, int[]> entityOffsetMap = new Dictionary<int, int[]>();
-            Dictionary<int, int[]> blobOffsetMap = new Dictionary<int, int[]>();
-            Dictionary<int, int[]> writeGroupMap = new Dictionary<int, int[]>();
-
-            void AddTypeInfoToCache(TypeManager.TypeInfo ti)
-            {
-                unsafe
-                {
-                    var typeIndex = ti.TypeIndex;
-                    var entityOffsets = new int[ti.EntityOffsetCount];
-                    var blobOffsets = new int[ti.BlobAssetRefOffsetCount];
-                    var writeGroups = new int[ti.WriteGroupCount];
-
-                    typeInfoMap.Add(typeIndex, ti);
-
-                    var pEntityOffsets = TypeManager.GetEntityOffsets(ti);
-                    for (int i = 0; i < ti.EntityOffsetCount; ++i)
-                        entityOffsets[i] = pEntityOffsets[i].Offset;
-                    entityOffsetMap.Add(typeIndex, entityOffsets);
-
-                    var pBlobOffsets = TypeManager.GetBlobAssetRefOffsets(ti);
-                    for (int i = 0; i < ti.BlobAssetRefOffsetCount; ++i)
-                        blobOffsets[i] = pBlobOffsets[i].Offset;
-                    blobOffsetMap.Add(typeIndex, blobOffsets);
-
-                    var pWriteGroups = TypeManager.GetWriteGroups(ti);
-                    for (int i = 0; i < ti.WriteGroupCount; ++i)
-                        writeGroups[i] = pWriteGroups[i];
-                    writeGroupMap.Add(typeIndex, writeGroups);
-                }
-            }
-
-            unsafe void EnsureMatch(TypeManager.TypeInfo expected, TypeManager.TypeInfo actual)
-            {
-                Assert.AreEqual(expected.TypeIndex, actual.TypeIndex);
-                Assert.AreEqual(expected.SizeInChunk, actual.SizeInChunk);
-                Assert.AreEqual(expected.ElementSize, actual.ElementSize);
-                Assert.AreEqual(expected.AlignmentInBytes, actual.AlignmentInBytes);
-                Assert.AreEqual(expected.BufferCapacity, actual.BufferCapacity);
-                Assert.AreEqual(expected.FastEqualityIndex, actual.FastEqualityIndex);
-                Assert.AreEqual(expected.Category, actual.Category);
-
-                Assert.AreEqual(expected.EntityOffsetCount, actual.EntityOffsetCount);
-                var expectedEntityOffsets = entityOffsetMap[expected.TypeIndex];
-                var pActualEntityOffsets = TypeManager.GetEntityOffsets(actual);
-                for (int i = 0; i < actual.EntityOffsetCount; ++i)
-                {
-                    Assert.AreEqual(expectedEntityOffsets[i], pActualEntityOffsets[i].Offset);
-                }
-
-                Assert.AreEqual(expected.BlobAssetRefOffsetCount, actual.BlobAssetRefOffsetCount);
-                var expectedBlobOffsets = blobOffsetMap[expected.TypeIndex];
-                var pActualBlobOffsets = TypeManager.GetBlobAssetRefOffsets(actual);
-                for (int i = 0; i < actual.BlobAssetRefOffsetCount; ++i)
-                {
-                    Assert.AreEqual(expectedBlobOffsets[i], pActualBlobOffsets[i].Offset);
-                }
-
-                Assert.AreEqual(expected.WriteGroupCount, actual.WriteGroupCount);
-                var expectedWriteGroups = writeGroupMap[expected.TypeIndex];
-                var pActualWriteGroups = TypeManager.GetWriteGroups(actual);
-                for (int i = 0; i < actual.WriteGroupCount; ++i)
-                {
-                    Assert.AreEqual(expectedWriteGroups[i], pActualWriteGroups[i]);
-                }
-
-                Assert.AreEqual(expected.MemoryOrdering, actual.MemoryOrdering);
-                Assert.AreEqual(expected.StableTypeHash, actual.StableTypeHash);
-                Assert.AreEqual(expected.MaximumChunkCapacity, actual.MaximumChunkCapacity);
-                Assert.AreEqual(expected.AlignmentInChunkInBytes, actual.AlignmentInChunkInBytes);
-                Assert.AreEqual(expected.Type, actual.Type);
-                Assert.AreEqual(expected.IsZeroSized, actual.IsZeroSized);
-                Assert.AreEqual(expected.HasWriteGroups, actual.HasWriteGroups);
-                Assert.AreEqual(expected.EntityOffsetCount, actual.EntityOffsetCount);
-            }
-
-            foreach (var ti in TypeManager.AllTypes)
-            {
-                AddTypeInfoToCache(ti);
-            }
-
-            using (World w = new World("AddNewComponentsTestWorld"))
-            {
-                w.GetOrCreateSystem<TestSystem>();
-
-                // Ensure all the Types in the TypeManager match what we think they are
-                foreach (var ti in TypeManager.AllTypes)
-                    EnsureMatch(typeInfoMap[ti.TypeIndex], ti);
-
-
-                Assert.Throws<ArgumentException>(() => TypeManager.GetTypeIndex(typeToAdd));
-                TypeManager.AddNewComponentTypes(new Type[] { typeToAdd });
-
-                // Now that we added a new type, again ensure all the Types in the TypeManager match what we think they are
-                // to ensure adding the new type didn't change any other type info
-                foreach (var ti in TypeManager.AllTypes)
-                {
-                    if (typeInfoMap.ContainsKey(ti.TypeIndex))
-                        EnsureMatch(typeInfoMap[ti.TypeIndex], ti);
-                    else
-                    {
-                        // We should only enter this case for 'UnregisteredComponent'
-                        Assert.AreEqual(ti.Type, typeof(UnregisteredComponent));
-                        AddTypeInfoToCache(ti);
-                    }
-                }
-
-                var e2 = w.EntityManager.CreateEntity(typeof(Translation), typeToAdd);
-
-                // If adding the type did not succeed we might throw for many different reasons
-                // stemming from bad type information. In fact even succeeding could cause issues if someone caches the
-                // internal SharedStatic pointers (which is done, and now handled for, in the EntityComponentStore)
-                Assert.DoesNotThrow(() => w.Update());
-                Assert.DoesNotThrow(() => w.EntityManager.CreateEntity(typeof(Translation), typeToAdd));
-                Assert.DoesNotThrow(() => TypeManager.GetTypeIndex(typeToAdd));
-            }
         }
 
         [Test]
@@ -899,8 +969,98 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataBlobAssetRef2).GetField(nameof(EcsTestDataBlobAssetRef2.value))), offsetA);
             Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataBlobAssetRef2).GetField(nameof(EcsTestDataBlobAssetRef2.value2))), offsetB);
         }
-#endif
 
+        [TypeManager.TypeOverrides(hasNoEntityReferences: true, hasNoBlobReferences: true)]
+        public struct TypeOverridesBlobEntityUnmanaged : IComponentData
+        {
+            public Entity entity;
+            public BlobAssetReference<int> blob;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences: true, hasNoBlobReferences: false)]
+        public struct TypeOverridesEntityUnmanaged : IComponentData
+        {
+            public Entity entity;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences: false, hasNoBlobReferences: true)]
+        public struct TypeOverridesBlobUnmanaged : IComponentData
+        {
+            public BlobAssetReference<int> blob;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences: false, hasNoBlobReferences: true)]
+        public struct TypeOverridesNoBlobUnmanaged : IComponentData
+        {
+            public Entity entity;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences: true, hasNoBlobReferences: false)]
+        public struct TypeOverridesNoEntityUnmanaged : IComponentData
+        {
+            public BlobAssetReference<int> blob;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences: false, hasNoBlobReferences: false)]
+        public struct TypeOverridesNoBlobNoEntityUnmanaged : IComponentData
+        {
+            public float data;
+        }
+
+        [Test]
+        public void TypeOverrideWorks_Unmanaged()
+        {
+            var typeOverridesBlobInfo = TypeManager.GetTypeInfo<TypeOverridesBlobUnmanaged>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesBlobInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesBlobInfo.HasBlobAssetRefs);
+
+            var typeOverridesEntityInfo = TypeManager.GetTypeInfo<TypeOverridesEntityUnmanaged>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesEntityInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesEntityInfo.HasBlobAssetRefs);
+
+            var typeOverridesBlobEntityInfo = TypeManager.GetTypeInfo<TypeOverridesBlobEntityUnmanaged>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesBlobEntityInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesBlobEntityInfo.HasBlobAssetRefs);
+
+            var typeOverridesNoBlobInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlobUnmanaged>();
+            Assert.IsTrue(TypeManager.HasEntityReferences(typeOverridesNoBlobInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesNoBlobInfo.HasBlobAssetRefs);
+
+            var typeOverridesNoEntityInfo = TypeManager.GetTypeInfo<TypeOverridesNoEntityUnmanaged>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoEntityInfo.TypeIndex));
+            Assert.IsTrue(typeOverridesNoEntityInfo.HasBlobAssetRefs);
+
+            var typeOverridesNoBlobNoEntityInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlobNoEntityUnmanaged>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoBlobNoEntityInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesNoBlobNoEntityInfo.HasBlobAssetRefs);
+        }
+
+        [DisableAutoTypeRegistration]
+        struct NativeContainerComponent : IComponentData
+        {
+            NativeArray<int> data;
+        }
+        [DisableAutoTypeRegistration]
+        struct NestedNativeContainerComponent : IComponentData
+        {
+            NativeArray<NativeArray<int>> data;
+        }
+
+        [Test]
+        public void TestNativeContainersWorks()
+        {
+            Assert.DoesNotThrow(
+                () => TypeManager.BuildComponentType(typeof(NativeContainerComponent), new Dictionary<Type, ulong>(), new HashSet<Type>()));
+        }
+
+        [Test]
+        public void TestNestedNativeContainersFails()
+        {
+            Assert.Throws<ArgumentException>(
+                () => TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new Dictionary<Type, ulong>(), new HashSet<Type>()));
+        }
+
+#endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         interface IBaseInterface
@@ -921,8 +1081,7 @@ namespace Unity.Entities.Tests
             Entity entity;
         }
 
-
-        class TestNoRef : IComponentData
+        class TestNoRefManaged : IComponentData
         {
             float3 blah;
             SealedNothing nothing;
@@ -957,10 +1116,75 @@ namespace Unity.Entities.Tests
             Entity entityRef;
         }
 
-        [Test]
-        public void TestHasEntityReferencedManaged()
+        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:true)]
+        public sealed class TypeOverridesBlobEntity: IComponentData
         {
-            Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestNoRef>()));
+            public Entity entity;
+            public BlobAssetReference<int> blob;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:false)]
+        public sealed class TypeOverridesEntity : IComponentData
+        {
+            public Entity entity;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:true)]
+        public sealed class TypeOverridesBlob: IComponentData
+        {
+            public BlobAssetReference<int> blob;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:true)]
+        public sealed class TypeOverridesNoBlob: IComponentData
+        {
+            public Entity entity;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:false)]
+        public sealed class TypeOverridesNoEntity : IComponentData
+        {
+            public BlobAssetReference<int> blob;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:false)]
+        public sealed class TypeOverridesNoBlobNoEntity: IComponentData
+        {
+            public string data;
+        }
+
+        [Test]
+        public void TypeOverrideWorks_ManagedComponents()
+        {
+            var typeOverridesBlobInfo = TypeManager.GetTypeInfo<TypeOverridesBlob>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesBlobInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesBlobInfo.HasBlobAssetRefs);
+
+            var typeOverridesEntityInfo = TypeManager.GetTypeInfo<TypeOverridesEntity>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesEntityInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesEntityInfo.HasBlobAssetRefs);
+
+            var typeOverridesBlobEntityInfo = TypeManager.GetTypeInfo<TypeOverridesBlobEntity>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesBlobEntityInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesBlobEntityInfo.HasBlobAssetRefs);
+
+            var typeOverridesNoBlobInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlob>();
+            Assert.IsTrue(TypeManager.HasEntityReferences(typeOverridesNoBlobInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesNoBlobInfo.HasBlobAssetRefs);
+
+            var typeOverridesNoEntityInfo = TypeManager.GetTypeInfo<TypeOverridesNoEntity>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoEntityInfo.TypeIndex));
+            Assert.IsTrue(typeOverridesNoEntityInfo.HasBlobAssetRefs);
+
+            var typeOverridesNoBlobNoEntityInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlobNoEntity>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoBlobNoEntityInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesNoBlobNoEntityInfo.HasBlobAssetRefs);
+        }
+
+        [Test]
+        public void TestHasEntityReferencedManaged_Managed()
+        {
+            Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestNoRefManaged>()));
             Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestBlobArray>()));
 
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEmbedInterface>()));
@@ -973,7 +1197,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void TestHasBlobReferencesManaged()
         {
-            Assert.IsFalse(TypeManager.GetTypeInfo<TestNoRef>().HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.GetTypeInfo<TestNoRefManaged>().HasBlobAssetRefs);
             Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityInClass>().HasBlobAssetRefs);
             Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityArray>().HasBlobAssetRefs);
 
@@ -982,11 +1206,10 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(TypeManager.GetTypeInfo<TestHasBlobRefAndEntityRef>().HasBlobAssetRefs);
             Assert.IsTrue(TypeManager.GetTypeInfo<TestHasBlobRefAndEntityRef>().HasBlobAssetRefs);
         }
-
 #endif
 
 
-// Tests including Unityengine
+        // Tests including Unityengine, or reflection
 #if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
         [DisableAutoTypeRegistration]
         class ManagedComponentDataNoDefaultConstructor : IComponentData, IEquatable<ManagedComponentDataNoDefaultConstructor>
@@ -1013,7 +1236,7 @@ namespace Unity.Entities.Tests
         public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures_ManagedComponents(Type type, string keywordPattern)
         {
             Assert.That(
-                () => TypeManager.BuildComponentType(type),
+                () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new HashSet<Type>()),
                 Throws.ArgumentException.With.Message.Matches(keywordPattern)
             );
         }
@@ -1039,6 +1262,30 @@ namespace Unity.Entities.Tests
             });
         }
 
+        [DisableAutoTypeRegistration]
+        class ArrayNativeContainerComponent : IComponentData
+        {
+            NativeArray<int>[] data;
+        }
+        [DisableAutoTypeRegistration]
+        class NestedArrayNativeContainerComponent : IComponentData
+        {
+            NativeArray<NativeArray<int>>[] data;
+        }
+
+        [Test]
+        public void TestArrayNativeContainersWorks()
+        {
+            Assert.DoesNotThrow(
+                () => TypeManager.BuildComponentType(typeof(ArrayNativeContainerComponent), new Dictionary<Type, ulong>(), new HashSet<Type>()));
+        }
+
+        [Test]
+        public void TestNestedArrayNativeContainersFails()
+        {
+            Assert.Throws<ArgumentException>(
+                () => TypeManager.BuildComponentType(typeof(NestedArrayNativeContainerComponent), new Dictionary<Type, ulong>(), new HashSet<Type>()));
+        }
 #endif
     }
 }

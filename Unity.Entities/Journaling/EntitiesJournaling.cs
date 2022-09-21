@@ -1,7 +1,7 @@
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -13,12 +13,19 @@ namespace Unity.Entities
     /// </summary>
     public static unsafe partial class EntitiesJournaling
     {
-        static bool s_Initialized;
-        static Dictionary<ulong, string> s_WorldMap;
-        static Dictionary<SystemHandleUntyped, Type> s_SystemMap;
+        static Dictionary<ulong, WeakReference<World>> s_WorldWeakRefMap;
+        static Dictionary<ulong, string> s_WorldNameMap;
+        static Dictionary<SystemHandle, Type> s_SystemTypeMap;
+        static Dictionary<RecordView, object> s_RecordDataMap;
 
+        sealed class SharedInit { internal static readonly SharedStatic<bool> Ref = SharedStatic<bool>.GetOrCreate<SharedInit>(); }
+        sealed class SharedEnabled { internal static readonly SharedStatic<bool> Ref = SharedStatic<bool>.GetOrCreate<SharedEnabled>(); }
+        sealed class SharedEntityTypeIndex { internal static readonly SharedStatic<TypeIndex> Ref = SharedStatic<TypeIndex>.GetOrCreate<SharedEntityTypeIndex>(); }
         sealed class SharedState { internal static readonly SharedStatic<JournalingState> Ref = SharedStatic<JournalingState>.GetOrCreate<SharedState>(); }
-        static ref JournalingState State => ref SharedState.Ref.Data;
+
+        static ref bool s_Initialized => ref SharedInit.Ref.Data;
+        static ref TypeIndex s_EntityTypeIndex => ref SharedEntityTypeIndex.Ref.Data;
+        static ref JournalingState s_State => ref SharedState.Ref.Data;
 
         /// <summary>
         /// Whether or not entities journaling events are recorded.
@@ -26,455 +33,384 @@ namespace Unity.Entities
         /// <remarks>
         /// Setting this to <see langword="false"/> does not clear or deallocate the journaling state.
         /// </remarks>
+        [ExcludeFromBurstCompatTesting("Managed collections")]
         public static bool Enabled
         {
-            get => State.Enabled;
-            set => State.Enabled = value;
+            get => SharedEnabled.Ref.Data;
+            set
+            {
+                if (!s_Initialized)
+                    return;
+
+                SharedEnabled.Ref.Data = value;
+                UpdateState();
+
+                // Reset record session caches
+                s_RecordDataMap.Clear();
+                s_State.ClearSystemVersionBuffers();
+            }
         }
 
         /// <summary>
-        /// Retrieve records currently in buffer, as an enumerable.
+        /// The number of records in the buffer.
+        /// </summary>
+        public static int RecordCount => s_State.RecordCount;
+
+        /// <summary>
+        /// The last record index that was added to the buffer.
+        /// </summary>
+        public static ulong RecordIndex => s_State.RecordIndex;
+
+        /// <summary>
+        /// Current used bytes.
+        /// </summary>
+        public static ulong UsedBytes => s_State.UsedBytes;
+
+        /// <summary>
+        /// Current allocated bytes.
+        /// </summary>
+        public static ulong AllocatedBytes => s_State.AllocatedBytes;
+
+        /// <summary>
+        /// Retrieve records currently in buffer.
         /// </summary>
         /// <remarks>
         /// <b>Call will be blocking if records are currently locked for write.</b>
         /// <para>For this reason, it is not recommended to call this in a debugger watch window, otherwise a deadlock might occur.</para>
         /// </remarks>
-        /// <returns><see cref="IEnumerable"/> of <see cref="RecordView"/>.</returns>
-        [NotBurstCompatible]
-        public static IEnumerable<RecordView> GetRecords() => State.GetRecords(blocking: true);
+        /// <returns>Array of record view.</returns>
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
+        public static RecordViewArray GetRecords(Ordering ordering) => s_State.GetRecords(ordering, blocking: true);
 
         /// <summary>
-        /// Try to retrieve records currently in buffer, as an enumerable.
+        /// Try to retrieve records currently in buffer.
         /// </summary>
         /// <remarks>
         /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
         /// </remarks>
-        /// <returns><see cref="IEnumerable"/> of <see cref="RecordView"/>.</returns>
-        [NotBurstCompatible]
-        public static IEnumerable<RecordView> TryGetRecords() => State.GetRecords(blocking: false);
-
-        /// <summary>
-        /// Non-blocking utility methods to retrieve records.
-        /// </summary>
-        public static class Records
-        {
-            /// <summary>
-            /// Get all records currently in buffer.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] All => TryGetRecords().ToArray();
-
-            /// <summary>
-            /// Get a number records starting from index.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="index">The start index.</param>
-            /// <param name="count">The count of records.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] Range(int index, int count) => TryGetRecords().Skip(index).Take(count).ToArray();
-
-            /// <summary>
-            /// Get the record matching a record index.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The record index.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithRecordIndex(ulong index) => TryGetRecords().WithRecordIndex(index).ToArray();
-
-            /// <summary>
-            /// Get all records matching a record type.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The record type.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithRecordType(RecordType type) => TryGetRecords().WithRecordType(type).ToArray();
-
-            /// <summary>
-            /// Get all records matching a frame index.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The frame index.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithFrameIndex(int index) => TryGetRecords().WithFrameIndex(index).ToArray();
-
-            /// <summary>
-            /// Get all records matching a world name.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The world name.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithWorld(string name) => TryGetRecords().WithWorld(name).ToArray();
-
-            /// <summary>
-            /// Get all records matching a world sequence number.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The world sequence number.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithWorld(ulong sequenceNumber) => TryGetRecords().WithWorld(sequenceNumber).ToArray();
-
-            /// <summary>
-            /// Get all records matching an existing world.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The world.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithWorld(World world) => TryGetRecords().WithWorld(world).ToArray();
-
-            /// <summary>
-            /// Get all records matching a system type name.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The system type name.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithSystem(string name) => TryGetRecords().WithSystem(name).ToArray();
-
-            /// <summary>
-            /// Get all records matching a system handle untyped.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The system handle untyped.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithSystem(SystemHandleUntyped handle) => TryGetRecords().WithSystem(handle).ToArray();
-
-            /// <summary>
-            /// Get all records matching an existing system.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The system.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithSystem(ComponentSystemBase system) => TryGetRecords().WithSystem(system).ToArray();
-
-            /// <summary>
-            /// Get all records matching a component type name.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The component type name.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithComponentType(string name) => TryGetRecords().WithComponentType(name).ToArray();
-
-            /// <summary>
-            /// Get all records matching a component type.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="typeIndex">The component type.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithComponentType(ComponentType componentType) => GetRecords().WithComponentType(componentType).ToArray();
-
-            /// <summary>
-            /// Get all records matching a component type index.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="typeIndex">The component type index.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithComponentType(int typeIndex) => GetRecords().WithComponentType(typeIndex).ToArray();
-
-            /// <summary>
-            /// Get all records matching an entity index.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="index">The entity index.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithEntity(int index) => GetRecords().WithEntity(index).ToArray();
-
-            /// <summary>
-            /// Get all records matching an entity index and version.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="index">The entity index.</param>
-            /// <param name="version">The entity version.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithEntity(int index, int version) => GetRecords().WithEntity(index, version).ToArray();
-
-            /// <summary>
-            /// Get all records matching an entity.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="entity">The entity.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithEntity(Entity entity) => GetRecords().WithEntity(entity).ToArray();
-
-#if !DOTS_DISABLE_DEBUG_NAMES
-            /// <summary>
-            /// Get all records matching an existing entity name.
-            /// </summary>
-            /// <remarks>
-            /// Throws <see cref="InvalidOperationException"/> if records are currently locked for write.
-            /// </remarks>
-            /// <param name="name">The entity name.</param>
-            /// <returns>Array of <see cref="RecordView"/>.</returns>
-            [NotBurstCompatible]
-            public static RecordView[] WithEntity(string name) => GetRecords().WithEntity(name).ToArray();
-#endif
-        }
+        /// <returns>Array of record view.</returns>
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
+        public static RecordViewArray TryGetRecords(Ordering ordering) => s_State.GetRecords(ordering, blocking: false);
 
         /// <summary>
         /// Clear all the records.
         /// </summary>
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        public static void Clear() => State.Clear();
+        [ExcludeFromBurstCompatTesting("Managed collections")]
+        public static void Clear()
+        {
+            if (!s_Initialized)
+                return;
 
-        [NotBurstCompatible]
+            s_RecordDataMap.Clear();
+            s_State.Clear();
+        }
+
+        [ExcludeFromBurstCompatTesting("Managed collections")]
         internal static void Initialize()
         {
             if (s_Initialized)
                 return;
 
-            s_WorldMap = new Dictionary<ulong, string>();
-            s_SystemMap = new Dictionary<SystemHandleUntyped, Type>();
+            s_WorldWeakRefMap = new Dictionary<ulong, WeakReference<World>>();
+            s_WorldNameMap = new Dictionary<ulong, string>();
+            s_SystemTypeMap = new Dictionary<SystemHandle, Type>();
+            s_RecordDataMap = new Dictionary<RecordView, object>();
+            s_EntityTypeIndex = TypeManager.GetTypeIndex<Entity>();
+            s_State = new JournalingState(Preferences.TotalMemoryMB * 1024 * 1024);
 
-            State = new JournalingState(Preferences.Enabled, Preferences.TotalMemoryMB * 1024 * 1024);
-
-            World.WorldCreated += OnWorldCreated;
-            World.SystemCreated += OnSystemCreated;
+            Enabled = Preferences.Enabled;
+            UpdateState();
 
             s_Initialized = true;
         }
 
-        [NotBurstCompatible]
+        [ExcludeFromBurstCompatTesting("Managed collections")]
         internal static void Shutdown()
         {
             if (!s_Initialized)
                 return;
 
-            World.SystemCreated -= OnSystemCreated;
-            World.WorldCreated -= OnWorldCreated;
-
-            State.Dispose();
-
-            s_WorldMap = null;
-            s_SystemMap = null;
+            s_State.Dispose();
+            s_RecordDataMap = null;
+            s_SystemTypeMap = null;
+            s_WorldNameMap = null;
+            s_WorldWeakRefMap = null;
 
             s_Initialized = false;
         }
 
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordWorldCreated(in WorldUnmanaged world) =>
-            State.PushBack(RecordType.WorldCreated, world.SequenceNumber, world.ExecutingSystem, default, (Entity*)null, 0, null, 0, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordWorldDestroyed(in WorldUnmanaged world) =>
-            State.PushBack(RecordType.WorldDestroyed, world.SequenceNumber, world.ExecutingSystem, default, (Entity*)null, 0, null, 0, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSystemAdded(in WorldUnmanaged world, SystemHandleUntyped* system) =>
-            State.PushBack(RecordType.SystemAdded, world.SequenceNumber, world.ExecutingSystem, default, (Entity*)null, 0, null, 0, system, system != null ? UnsafeUtility.SizeOf<SystemHandleUntyped>() : 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSystemRemoved(in WorldUnmanaged world, SystemHandleUntyped* system) =>
-            State.PushBack(RecordType.SystemRemoved, world.SequenceNumber, world.ExecutingSystem, default, (Entity*)null, 0, null, 0, system, system != null ? UnsafeUtility.SizeOf<SystemHandleUntyped>() : 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordCreateEntity(in WorldUnmanaged world, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.CreateEntity, world.SequenceNumber, world.ExecutingSystem, in originSystem, entities, entityCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordCreateEntity(in WorldUnmanaged world, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.CreateEntity, world.SequenceNumber, world.ExecutingSystem, in originSystem, chunks, chunkCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordDestroyEntity(in WorldUnmanaged world, in SystemHandleUntyped originSystem, Entity* entities, int entityCount) =>
-            State.PushBack(RecordType.DestroyEntity, world.SequenceNumber, world.ExecutingSystem, in originSystem, entities, entityCount, null, 0, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordDestroyEntity(in WorldUnmanaged world, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount) =>
-            State.PushBack(RecordType.DestroyEntity, world.SequenceNumber, world.ExecutingSystem, in originSystem, chunks, chunkCount, null, 0, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordAddComponent(in WorldUnmanaged world, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.AddComponent, world.SequenceNumber, world.ExecutingSystem, in originSystem, entities, entityCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordAddComponent(in WorldUnmanaged world, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.AddComponent, world.SequenceNumber, world.ExecutingSystem, in originSystem, chunks, chunkCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordRemoveComponent(in WorldUnmanaged world, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.RemoveComponent, world.SequenceNumber, world.ExecutingSystem, in originSystem, entities, entityCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordRemoveComponent(in WorldUnmanaged world, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.RemoveComponent, world.SequenceNumber, world.ExecutingSystem, in originSystem, chunks, chunkCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetComponentData(in WorldUnmanaged world, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount, void* data, int dataLength) =>
-            State.PushBack(RecordType.SetComponentData, world.SequenceNumber, world.ExecutingSystem, in originSystem, entities, entityCount, types, typeCount, data, dataLength);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetComponentData(ulong worldSequenceNumber, in SystemHandleUntyped originSystem, in SystemHandleUntyped executingSystem, Entity* entities, int entityCount, int* types, int typeCount, void* data, int dataLength) =>
-            State.PushBack(RecordType.SetComponentData, worldSequenceNumber, in executingSystem, in originSystem, entities, entityCount, types, typeCount, data, dataLength);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetComponentData(in WorldUnmanaged world, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount, void* data, int dataLength) =>
-            State.PushBack(RecordType.SetComponentData, world.SequenceNumber, world.ExecutingSystem, in originSystem, chunks, chunkCount, types, typeCount, data, dataLength);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetComponentData(ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount, void* data, int dataLength) =>
-            State.PushBack(RecordType.SetComponentData, worldSequenceNumber, in executingSystem, in originSystem, chunks, chunkCount, types, typeCount, data, dataLength);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetSharedComponentData(in WorldUnmanaged world, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetSharedComponentData, world.SequenceNumber, world.ExecutingSystem, in originSystem, entities, entityCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetSharedComponentData(ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetSharedComponentData, worldSequenceNumber, in executingSystem, in originSystem, entities, entityCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetSharedComponentData(in WorldUnmanaged world, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetSharedComponentData, world.SequenceNumber, world.ExecutingSystem, in originSystem, chunks, chunkCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetSharedComponentData(ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetSharedComponentData, worldSequenceNumber, in executingSystem, in originSystem, chunks, chunkCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetComponentObject(in WorldUnmanaged world, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetComponentObject, world.SequenceNumber, world.ExecutingSystem, in originSystem, entities, entityCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetComponentObject(ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetComponentObject, worldSequenceNumber, in executingSystem, in originSystem, entities, entityCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetComponentObject(in WorldUnmanaged world, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetComponentObject, world.SequenceNumber, world.ExecutingSystem, in originSystem, chunks, chunkCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetComponentObject(ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetComponentObject, worldSequenceNumber, in executingSystem, in originSystem, chunks, chunkCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetBuffer(in WorldUnmanaged world, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetBuffer, world.SequenceNumber, world.ExecutingSystem, in originSystem, entities, entityCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetBuffer(ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem, Entity* entities, int entityCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetBuffer, worldSequenceNumber, in executingSystem, in originSystem, entities, entityCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetBuffer(in WorldUnmanaged world, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetBuffer, world.SequenceNumber, world.ExecutingSystem, in originSystem, chunks, chunkCount, types, typeCount, null, 0);
-
-        [BurstCompatible(RequiredUnityDefine = "DEVELOPMENT_BUILD || UNITY_EDITOR")]
-        internal static void RecordSetBuffer(ulong worldSequenceNumber, in SystemHandleUntyped executingSystem, in SystemHandleUntyped originSystem, ArchetypeChunk* chunks, int chunkCount, int* types, int typeCount) =>
-            State.PushBack(RecordType.SetBuffer, worldSequenceNumber, in executingSystem, in originSystem, chunks, chunkCount, types, typeCount, null, 0);
-
-        static void OnWorldCreated(World world)
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void AddRecord(RecordType recordType, ulong worldSequenceNumber, in SystemHandle executingSystem, Entity* entities, int entityCount, in SystemHandle originSystem = default, TypeIndex* types = null, int typeCount = 0, void* data = null, int dataLength = 0)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (world == null)
-                throw new ArgumentNullException(nameof(world));
-#endif
-            s_WorldMap.Add(world.SequenceNumber, world.Name);
+            if (!s_Initialized)
+                return;
+
+            if (entities == null && entityCount > 0)
+                entityCount = 0;
+            if (types == null && typeCount > 0)
+                typeCount = 0;
+            if (data == null && dataLength > 0)
+                dataLength = 0;
+
+            // Skip Entity type index
+            if (typeCount > 0 && types != null && types[0] == s_EntityTypeIndex)
+            {
+                types++;
+                typeCount--;
+            }
+
+            s_State.PushBack(recordType, worldSequenceNumber, in executingSystem, in originSystem, entities, entityCount, types, typeCount, data, dataLength);
         }
 
-        static void OnSystemCreated(World world, ComponentSystemBase system)
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void AddRecord(RecordType recordType, ulong worldSequenceNumber, in SystemHandle executingSystem, ArchetypeChunk* chunks, int chunkCount, in SystemHandle originSystem = default, TypeIndex* types = null, int typeCount = 0, void* data = null, int dataLength = 0)
         {
+            if (!s_Initialized)
+                return;
+
+            if (chunks == null && chunkCount > 0)
+                chunkCount = 0;
+            if (types == null && typeCount > 0)
+                typeCount = 0;
+            if (data == null && dataLength > 0)
+                dataLength = 0;
+
+            // Skip Entity type index
+            if (typeCount > 0 && types != null && types[0] == s_EntityTypeIndex)
+            {
+                types++;
+                typeCount--;
+            }
+
+            s_State.PushBack(recordType, worldSequenceNumber, in executingSystem, in originSystem, chunks, chunkCount, types, typeCount, data, dataLength);
+        }
+
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void AddRecord(RecordType recordType, ulong worldSequenceNumber, in SystemHandle executingSystem, Chunk* chunks, int chunkCount, in SystemHandle originSystem = default, TypeIndex* types = null, int typeCount = 0, void* data = null, int dataLength = 0)
+        {
+            if (!s_Initialized)
+                return;
+
+            if (chunks == null && chunkCount > 0)
+                chunkCount = 0;
+            if (types == null && typeCount > 0)
+                typeCount = 0;
+            if (data == null && dataLength > 0)
+                dataLength = 0;
+
+            // Skip Entity type index
+            if (typeCount > 0 && types != null && types[0] == s_EntityTypeIndex)
+            {
+                types++;
+                typeCount--;
+            }
+
+            s_State.PushBack(recordType, worldSequenceNumber, in executingSystem, in originSystem, chunks, chunkCount, types, typeCount, data, dataLength);
+        }
+
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void AddRecord(RecordType recordType, EntityComponentStore* entityComponentStore, uint globalSystemVersion, Entity* entities, int entityCount, in SystemHandle originSystem = default, TypeIndex* types = null, int typeCount = 0, void* data = null, int dataLength = 0)
+        {
+            if (!s_Initialized)
+                return;
+
+            if (entities == null && entityCount > 0)
+                entityCount = 0;
+            if (types == null && typeCount > 0)
+                typeCount = 0;
+            if (data == null && dataLength > 0)
+                dataLength = 0;
+
+            // Skip Entity type index
+            if (typeCount > 0 && types != null && types[0] == s_EntityTypeIndex)
+            {
+                types++;
+                typeCount--;
+            }
+
+            s_State.PushBack(recordType, entityComponentStore, globalSystemVersion, in originSystem, entities, entityCount, types, typeCount, data, dataLength);
+        }
+
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void AddRecord(RecordType recordType, EntityComponentStore* entityComponentStore, uint globalSystemVersion, ArchetypeChunk* chunks, int chunkCount, in SystemHandle originSystem = default, TypeIndex* types = null, int typeCount = 0, void* data = null, int dataLength = 0)
+        {
+            if (!s_Initialized)
+                return;
+
+            if (chunks == null && chunkCount > 0)
+                chunkCount = 0;
+            if (types == null && typeCount > 0)
+                typeCount = 0;
+            if (data == null && dataLength > 0)
+                dataLength = 0;
+
+            // Skip Entity type index
+            if (typeCount > 0 && types != null && types[0] == s_EntityTypeIndex)
+            {
+                types++;
+                typeCount--;
+            }
+
+            s_State.PushBack(recordType, entityComponentStore, globalSystemVersion, in originSystem, chunks, chunkCount, types, typeCount, data, dataLength);
+        }
+
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void AddRecord(RecordType recordType, EntityComponentStore* entityComponentStore, uint globalSystemVersion, Chunk* chunks, int chunkCount, in SystemHandle originSystem = default, TypeIndex* types = null, int typeCount = 0, void* data = null, int dataLength = 0)
+        {
+            if (!s_Initialized)
+                return;
+
+            if (chunks == null && chunkCount > 0)
+                chunkCount = 0;
+            if (types == null && typeCount > 0)
+                typeCount = 0;
+            if (data == null && dataLength > 0)
+                dataLength = 0;
+
+            // Skip Entity type index
+            if (typeCount > 0 && types != null && types[0] == s_EntityTypeIndex)
+            {
+                types++;
+                typeCount--;
+            }
+
+            s_State.PushBack(recordType, entityComponentStore, globalSystemVersion, in originSystem, chunks, chunkCount, types, typeCount, data, dataLength);
+        }
+
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void AddSystemVersionHandle(EntityComponentStore* store, uint version, in SystemHandle handle)
+        {
+            if (!s_Initialized)
+                return;
+
+            s_State.PushBack(store, version, in handle);
+        }
+
+        internal static void OnWorldCreated(World world)
+        {
+            if (!s_Initialized)
+                return;
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (world == null)
                 throw new ArgumentNullException(nameof(world));
-            if (system == null)
-                throw new ArgumentNullException(nameof(system));
-            if (system.m_StatePtr == null)
-                throw new ArgumentException(nameof(system.m_StatePtr));
 #endif
-            s_SystemMap.Add(system.m_StatePtr->m_Handle, system.GetType());
+
+            s_WorldWeakRefMap.TryAdd(world.SequenceNumber, new WeakReference<World>(world));
+            s_WorldNameMap.TryAdd(world.SequenceNumber, world.Name);
+        }
+
+        internal static void OnSystemCreated(Type systemType, in SystemHandle systemHandle)
+        {
+            if (!s_Initialized)
+                return;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (systemType == null)
+                throw new ArgumentNullException(nameof(systemType));
+            if (systemHandle == default)
+                throw new ArgumentException(nameof(systemHandle));
+#endif
+
+            s_SystemTypeMap.TryAdd(systemHandle, systemType);
+        }
+
+        static void UpdateState()
+        {
+            // Update worlds and systems
+            for (var i = 0; i < World.All.Count; ++i)
+            {
+                var world = World.All[i];
+                if (world == null || !world.IsCreated)
+                    continue;
+
+                // Add world
+                s_WorldWeakRefMap.TryAdd(world.SequenceNumber, new WeakReference<World>(world));
+                s_WorldNameMap.TryAdd(world.SequenceNumber, world.Name);
+
+                // Add systems
+                using (var systems = world.Unmanaged.GetAllUnmanagedSystems(Allocator.Temp))
+                {
+                    foreach (var system in systems)
+                    {
+                        var systemType = world.Unmanaged.GetTypeOfSystem(system);
+                        if (systemType != null)
+                            s_SystemTypeMap.TryAdd(system, systemType);
+                    }
+                }
+
+                // Sync enabled state
+                var access = world.EntityManager.GetCheckedEntityDataAccess();
+                if (access != null)
+                {
+                    var store = access->EntityComponentStore;
+                    if (store != null)
+                        store->m_RecordToJournal = (byte)(Enabled ? 1 : 0);
+                }
+            }
         }
 
         static World GetWorld(ulong worldSeqNumber)
         {
-            for (var i = 0; i < World.All.Count; ++i)
-            {
-                var world = World.All[i];
-                if (!world.IsCreated)
-                    continue;
-
-                if (world.SequenceNumber == worldSeqNumber)
-                    return world;
-            }
-            return null;
+            return s_WorldWeakRefMap.TryGetValue(worldSeqNumber, out var worldWeakRef) && worldWeakRef.TryGetTarget(out var world) && world.IsCreated ? world : null;
         }
 
-        static ComponentSystemBase GetSystem(SystemHandleUntyped systemHandle)
+        static string GetWorldName(ulong worldSeqNumber)
         {
-            var world = GetWorld(systemHandle.m_WorldSeqNo);
-            if (world == null)
-                return null;
+            return s_WorldNameMap.TryGetValue(worldSeqNumber, out var name) ? name : string.Empty;
+        }
 
-            for (var i = 0; i < world.Systems.Count; ++i)
-            {
-                var system = world.Systems[i];
-                var statePtr = system.m_StatePtr;
-                if (statePtr == null)
-                    continue;
+        static Type GetSystemType(SystemHandle handle)
+        {
+            return s_SystemTypeMap.TryGetValue(handle, out var type) ? type : null;
+        }
 
-                if (statePtr->m_Handle == systemHandle)
-                    return system;
-            }
-            return null;
+        static string GetSystemName(SystemHandle handle)
+        {
+            return s_SystemTypeMap.TryGetValue(handle, out var type) ? TypeManager.GetSystemName(type).ToString() : string.Empty;
         }
 
         static Entity GetEntity(int index, int version, ulong worldSeqNumber)
         {
             var world = GetWorld(worldSeqNumber);
-            if (world == null)
+            if (world == null || !world.IsCreated)
                 return Entity.Null;
 
             var entity = new Entity { Index = index, Version = version };
             return world.EntityManager.Exists(entity) ? entity : Entity.Null;
+        }
+
+        static object GetRecordData(RecordView record)
+        {
+            switch (record.RecordType)
+            {
+                case RecordType.SystemAdded:
+                case RecordType.SystemRemoved:
+                    return TryGetRecordDataAsSystemView(record, out var systemView) ? systemView : null;
+
+                case RecordType.SetComponentData:
+                case RecordType.GetComponentDataRW:
+                case RecordType.SetSharedComponentData:
+                    return TryGetRecordDataAsComponentDataArrayBoxed(record, out var componentDataArray) ? componentDataArray : null;
+
+                default:
+                    return null;
+            }
+        }
+
+        static T* Allocate<T>(AllocatorManager.AllocatorHandle allocator, NativeArrayOptions options) where T : unmanaged
+        {
+            var ptr = AllocatorManager.Allocate<T>(allocator, 1);
+            if (options == NativeArrayOptions.ClearMemory && ptr != null)
+                UnsafeUtility.MemClear(ptr, UnsafeUtility.SizeOf<T>());
+            return ptr;
         }
     }
 }

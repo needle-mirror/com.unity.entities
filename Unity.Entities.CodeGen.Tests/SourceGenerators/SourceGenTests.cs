@@ -22,6 +22,7 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
             string compilationSource,
             string errorName,
             IEnumerable<string> shouldContains,
+            IEnumerable<string> shouldNotContains,
             Type[] overridingDefaultCompilationReferenceTypes = null,
             bool isWarning = false,
             bool allowMultiple = false)
@@ -36,16 +37,27 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
 
             foreach (var str in shouldContains)
                 Assert.That(compilerMessages.Any(msg => msg.message.Contains(str)), $"No error message contains text \"{str}\" {Environment.NewLine} {string.Join(Environment.NewLine, compilerMessages.Select(m => m.message))}.");
+            foreach (var str in shouldNotContains)
+                Assert.That(compilerMessages.Any(msg => !msg.message.Contains(str)), $"Error message contains text \"{str}\" {Environment.NewLine} {string.Join(Environment.NewLine, compilerMessages.Select(m => m.message))}.");
         }
 
         protected void AssertProducesError(string compilationSource, string errorName, params string[] shouldContains)
         {
-            AssertProducesError(compilationSource, errorName, shouldContains, null);
+            AssertProducesError(compilationSource, errorName, shouldContains, Enumerable.Empty<string>(),null);
+        }
+        protected void AssertProducesErrorNonExclusive(string compilationSource, string errorName, params string[] shouldContains)
+        {
+            AssertProducesError(compilationSource, errorName, shouldContains, Enumerable.Empty<string>(), null, false, true);
         }
 
         protected void AssertProducesWarning(string compilationSource, string errorName, params string[] shouldContains)
         {
-            AssertProducesError(compilationSource, errorName, shouldContains, null, true);
+            AssertProducesError(compilationSource, errorName, shouldContains,Enumerable.Empty<string>(), null, true);
+        }
+
+        protected void AssertProducesError(string compilationSource, string errorName, IEnumerable<string> shouldContains, params string[] shouldNotContains)
+        {
+            AssertProducesError(compilationSource, errorName, shouldContains, shouldNotContains, null);
         }
 
         protected void AssertProducesNoError(string compilationSource, IEnumerable<string> overrideDefaultUsings = null, bool allowUnsafe = false)

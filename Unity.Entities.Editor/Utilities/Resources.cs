@@ -70,6 +70,8 @@ namespace Unity.Entities.Editor
                 public static readonly UITemplate TagComponentElement = new UITemplate("Inspector/tag-component-element");
                 public static readonly UITemplate EntityField = new UITemplate("Inspector/entity-field");
                 public static readonly UITemplate ComponentsTab = new UITemplate("Inspector/entity-inspector-components-tab");
+                public static readonly UITemplate AspectsTab = new UITemplate("Inspector/entity-inspector-aspects-tab");
+                public static readonly UITemplate UnsupportedInspectorStyle = new UITemplate("Inspector/unsupported-inspector");
 
                 public static class RelationshipsTab
                 {
@@ -97,7 +99,11 @@ namespace Unity.Entities.Editor
                 public static readonly UITemplate Footer = new UITemplate("Hierarchy/hierarchy-footer");
                 public static readonly UITemplate Toolbar = new UITemplate("Hierarchy/hierarchy-toolbar");
                 public static readonly UITemplate Loading = new UITemplate("Hierarchy/hierarchy-loading");
+                public static readonly UITemplate PrefabStage = new UITemplate("Hierarchy/hierarchy-prefab-stage");
             }
+
+            public static readonly UITemplate SearchElement = new UITemplate("Search/search-element");
+            public static readonly UITemplate SearchElementFilterPopup = new UITemplate("Search/search-element-filter-popup");
         }
     }
 }

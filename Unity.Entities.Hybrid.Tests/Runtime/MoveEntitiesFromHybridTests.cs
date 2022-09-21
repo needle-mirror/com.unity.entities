@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Entities.CodeGeneratedJobForEach;
 using UnityEngine;
 
 namespace Unity.Entities.Tests
@@ -30,14 +31,12 @@ namespace Unity.Entities.Tests
             public int ToInt() => Value;
         }
 
-        protected class TestComponentSystem : ComponentSystem
+        protected partial class TestComponentSystem : SystemBase
         {
             protected override void OnUpdate()
             {
             }
         }
-
-        private static EntityQueryBuilder QueryBuilder(World world) => world.GetOrCreateSystem<TestComponentSystem>().Entities;
 
         private List<GameObject> gameObjects = new List<GameObject>();
 
@@ -85,7 +84,8 @@ namespace Unity.Entities.Tests
 
         private int[] GetValueArray<T>(World world) where T : ICastToInt
         {
-            using (var entities = QueryBuilder(world).WithAll<T>().ToEntityQuery().ToEntityArray(World.UpdateAllocator.ToAllocator))
+            using (var entities = world.EntityManager.CreateEntityQuery(typeof(T))
+                       .ToEntityArray(World.UpdateAllocator.ToAllocator))
             {
                 var result = new int[entities.Length];
 
@@ -120,10 +120,11 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEquivalent(new[] {2340}, GetValueArray<TestClassComponentB>(World));
             CollectionAssert.AreEquivalent(new[] {345, 3450}, GetValueArray<TestClassComponentC>(World));
 
-            var query = QueryBuilder(World)
-                .WithAll<TestClassComponentA, TestClassComponentC>()
-                .WithNone<TestClassComponentB>()
-                .ToEntityQuery();
+            var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
+            {
+                All = new ComponentType[]{typeof( TestClassComponentA), typeof(TestClassComponentC)},
+                None = new ComponentType[]{typeof(TestClassComponentB)}
+            });
 
             using (var dstWorld = new World("destination"))
             {

@@ -36,11 +36,30 @@ public class BurstSafetyTests
     [Test]
     public void ThrowExceptionParallelForStress()
     {
-        for (int i = 0; i < JobsUtility.JobWorkerCount + 1; i++)
-            LogAssert.Expect(LogType.Exception, new Regex("ArgumentException: Blah"));
+        var messageCount = 0;
+
+        void OnMessage(string message, string stackTrace, LogType type)
+        {
+            Assert.AreEqual(LogType.Exception, type);
+            StringAssert.Contains("ArgumentException: Blah", message);
+            messageCount++;
+        }
+
+        LogAssert.ignoreFailingMessages = true;
+        Application.logMessageReceivedThreaded += OnMessage;
 
         var jobData = new ThrowExceptionJob();
-        jobData.Schedule(100, 1).Complete();
+        try
+        {
+            jobData.Schedule(100, 1).Complete();
+
+            Assert.GreaterOrEqual(messageCount, 1);
+        }
+        finally
+        {
+            Application.logMessageReceivedThreaded -= OnMessage;
+            LogAssert.ignoreFailingMessages = false;
+        }
     }
 
     [BurstCompile(CompileSynchronously = true)]
@@ -81,15 +100,34 @@ public class BurstSafetyTests
     [Test]
     public void ParallelForMinMaxChecks()
     {
-        for (int i = 0; i < JobsUtility.JobWorkerCount + 1; i++)
-            LogAssert.Expect(LogType.Exception, new Regex("IndexOutOfRangeException"));
+        var messageCount = 0;
+
+        void OnMessage(string message, string stackTrace, LogType type)
+        {
+            Assert.AreEqual(LogType.Exception, type);
+            StringAssert.Contains("IndexOutOfRangeException", message);
+            messageCount++;
+        }
+
+        LogAssert.ignoreFailingMessages = true;
+        Application.logMessageReceivedThreaded += OnMessage;
 
         var jobData = new ParallelForIndexChecksJob();
         jobData.test = new NativeArray<int>(2, Allocator.Persistent);
 
-        jobData.Schedule(100, 1).Complete();
+        try
+        {
+            jobData.Schedule(100, 1).Complete();
 
-        jobData.test.Dispose();
+            Assert.GreaterOrEqual(messageCount, 1);
+        }
+        finally
+        {
+            Application.logMessageReceivedThreaded -= OnMessage;
+            LogAssert.ignoreFailingMessages = false;
+
+            jobData.test.Dispose();
+        }
     }
 
     [BurstCompile(CompileSynchronously = true)]

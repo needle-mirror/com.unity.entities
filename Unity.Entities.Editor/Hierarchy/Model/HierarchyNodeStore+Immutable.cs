@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Burst;
@@ -18,6 +18,7 @@ namespace Unity.Entities.Editor
         public int NextSiblingOffset;
         public int ChildCount;
         public int Depth;
+        public HierarchyNodeFlags Flags;
     }
 
     partial struct HierarchyNodeStore
@@ -36,7 +37,7 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// The <see cref="Immutable"/> structure represents a baked out version of the <see cref="HierarchyNodeStore"/> in depth-first order.
         /// </summary>
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         public unsafe struct Immutable : IDisposable, IEquatable<Immutable>
         {
             // ReSharper disable once MemberHidesStaticFromOuterClass
@@ -125,7 +126,7 @@ namespace Unity.Entities.Editor
             public Immutable(Allocator allocator)
             {
                 m_Allocator = allocator;
-                m_Data = (Data*) UnsafeUtility.Malloc(UnsafeUtility.SizeOf<Data>(), UnsafeUtility.AlignOf<Data>(), allocator);
+                m_Data = (Data*)Memory.Unmanaged.Allocate(UnsafeUtility.SizeOf<Data>(), UnsafeUtility.AlignOf<Data>(), allocator);
                 m_Data->ChangeVersion = 0;
                 m_HandleNodes = UnsafeList<HierarchyImmutableNodeData>.Create(16, allocator);
                 m_EntityNodes = UnsafeList<Entity>.Create(16, allocator);
@@ -140,7 +141,7 @@ namespace Unity.Entities.Editor
                 UnsafeList<Entity>.Destroy(m_EntityNodes);
                 UnsafeList<int>.Destroy(m_IndexByEntity);
                 m_IndexByHandle.Dispose();
-                UnsafeUtility.Free(m_Data, m_Allocator);
+                Memory.Unmanaged.Free(m_Data, m_Allocator);
                 m_Data = null;
             }
 
@@ -290,7 +291,7 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// The state object used to execute the 'ExportImmutable' method over several ticks.
         /// </summary>
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         public unsafe struct ExportImmutableState : IDisposable
         {
             public struct ChildrenStackData
@@ -428,7 +429,7 @@ namespace Unity.Entities.Editor
                     {
                         new ExportImmutableHierarchyNodesBatchJob
                         {
-                            EntityCapacity = m_World.EntityManager.EntityCapacity,
+                            EntityCapacity = m_World != null ? m_World.EntityManager.EntityCapacity : 0,
                             Nodes = m_Hierarchy.m_Nodes,
                             Children = m_Hierarchy.m_Children,
                             ReadChangeVersion = m_Read.IsCreated ? m_Read.ChangeVersion : -1,
@@ -508,7 +509,7 @@ namespace Unity.Entities.Editor
             public int EntityCapacity;
 
             [ReadOnly] public HierarchyNodeMap<HierarchyNodeData> Nodes;
-            [ReadOnly] public UnsafeParallelMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> Children;
+            [ReadOnly] public UnsafeMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> Children;
             [ReadOnly] public int ReadChangeVersion;
 
             public ExportImmutableState State;
@@ -519,8 +520,8 @@ namespace Unity.Entities.Editor
 
             int m_PackingIndex;
 
-            bool HasPackingHint(HierarchyNodeHandle handle, HierarchyNodeData.PackingHint hint)
-                => (Nodes[handle].PackingHints & hint) != 0;
+            bool HasFlag(HierarchyNodeHandle handle, HierarchyNodeFlags flag)
+                => (Nodes[handle].Flags & flag) != 0;
 
             /// <summary>
             /// Copy state values to local members to avoid pointer lookups in hot paths.
@@ -549,7 +550,7 @@ namespace Unity.Entities.Editor
                     // The total number of nodes which require hierarchical information.
                     var handleCount = Nodes.ValueByHandleCount + Nodes.ValueByEntity.CountNonSharedDefault;
 
-                    WriteNodes.m_HandleNodes->Resize(handleCount);
+                    WriteNodes.m_HandleNodes->Resize(handleCount, NativeArrayOptions.ClearMemory);
                     WriteNodes.m_HandleNodes->Length = handleCount;
 
                     // Allocate a sparse lookup from 'entity' to the baked out index.
@@ -594,7 +595,7 @@ namespace Unity.Entities.Editor
 
                         // Pop this node from the stack and fixup depth counter.
                         State.Depth--;
-                        State.ChildrenStack.RemoveAt(State.ChildrenStack.Length - 1);
+                        State.ChildrenStack.Length -= 1;
                         State.ChildrenBuffer.Length -= node.ChildCount;
                     }
                 }
@@ -618,6 +619,18 @@ namespace Unity.Entities.Editor
                     var dst = WriteNodes.m_HandleNodes->Ptr + m_PackingIndex;
                     var src = ReadNodes.m_HandleNodes->Ptr + readNodeIndex;
                     var len = UnsafeUtility.SizeOf<HierarchyImmutableNodeData>() * nextSiblingOffset;
+
+                    if (m_PackingIndex == readNodeIndex && UnsafeUtility.MemCmp(dst, src, len) == 0)
+                    {
+                        // This is a very specialized case. We have determined that the data has NOT changed AND the data already exists in the destination buffer.
+                        // This can happen since we are copying back and forth between two buffers.
+                        // @NOTE We really shouldn't have to mem compare here and should be able to tell just from the change version and pack index.
+                        //       In practice this results in corrupted data. But we still make some nice gains if we can skip the packed index update.
+                        //
+                        dst->ParentOffset = parentIndex - m_PackingIndex;
+                        m_PackingIndex += nextSiblingOffset;
+                        return;
+                    }
 
                     UnsafeUtility.MemCpy(dst, src, len);
 
@@ -666,7 +679,7 @@ namespace Unity.Entities.Editor
                     }
                 }
 
-                if (HasPackingHint(handle, HierarchyNodeData.PackingHint.ChildrenRequireSorting))
+                if (childCount > 0 && HasFlag(handle, HierarchyNodeFlags.ChildrenRequireSorting))
                 {
                     var children = State.ChildrenBuffer.AsArray().GetSubArray(childrenBufferStartIndex, childCount);
 
@@ -685,7 +698,8 @@ namespace Unity.Entities.Editor
                     ParentOffset = parentIndex - index,
                     NextSiblingOffset = 1, // default the next sibling to be the next node. If we have children this value is patched when popping off the stack.
                     ChildCount = childCount,
-                    Depth = State.Depth
+                    Depth = State.Depth,
+                    Flags = Nodes[handle].Flags
                 };
 
                 if (childCount <= 0)

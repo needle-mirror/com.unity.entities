@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -47,12 +46,20 @@ namespace Unity.Entities.SourceGen.Sample
 
                 // Create query and typehandle for type
                 var queryField = systemGeneratorContext.GetOrCreateQueryField(
-                    new EntityQueryDescription
+                    new QueryDescription
                     {
-                        All = new [] {(typeSymbol, false)}
+                        All = new[]
+                        {
+                            new Query
+                            {
+                                TypeSymbol = typeSymbol,
+                                IsReadOnly = false,
+                                Type = QueryType.All
+                            }
+                        }
                     }
                 );
-                var componentTypeHandleField = systemGeneratorContext.GetOrCreateComponentTypeField(typeSymbol, false);
+                var componentTypeHandleField = systemGeneratorContext.GetOrCreateTypeHandleField(typeSymbol, false);
 
                 // Generate new method code
                 var newMethodName = $"__GetComponentDataPtrOfFirstChunk__{count++}";
@@ -60,7 +67,7 @@ namespace Unity.Entities.SourceGen.Sample
                 {fullTypeName}* {newMethodName}()
                 {{
                     {componentTypeHandleField}.Update(this);
-                    var archetypeChunks = {queryField}.CreateArchetypeChunkArray(Unity.Collections.Allocator.Temp);
+                    var archetypeChunks = {queryField}.ToArchetypeChunkArray(Unity.Collections.Allocator.Temp);
                     var archetypeChunk = archetypeChunks[0];
                     var result = ({fullTypeName}*)archetypeChunk.GetComponentDataPtrRW(ref {componentTypeHandleField});
                     archetypeChunks.Dispose();

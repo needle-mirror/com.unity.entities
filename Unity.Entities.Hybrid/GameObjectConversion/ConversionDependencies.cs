@@ -16,7 +16,7 @@ namespace Unity.Entities.Conversion
         internal DependencyTracker AssetDependencyTracker;
 #endif
 
-        private NativeParallelHashMap<int, DependencyTracker> _componentDependenciesByTypeIndex;
+        private NativeParallelHashMap<TypeIndex, DependencyTracker> _componentDependenciesByTypeIndex;
         private NativeParallelHashSet<int> _unresolvedComponentInstanceIds;
         internal bool HasUnresolvedComponentInstanceIds => !_unresolvedComponentInstanceIds.IsEmpty;
         readonly bool _isLiveConversion;
@@ -27,7 +27,7 @@ namespace Unity.Entities.Conversion
             if (_isLiveConversion)
             {
                 GameObjectDependencyTracker = new DependencyTracker(Allocator.Persistent);
-                _componentDependenciesByTypeIndex = new NativeParallelHashMap<int, DependencyTracker>(0, Allocator.Persistent);
+                _componentDependenciesByTypeIndex = new NativeParallelHashMap<TypeIndex, DependencyTracker>(0, Allocator.Persistent);
                 _unresolvedComponentInstanceIds = new NativeParallelHashSet<int>(0, Allocator.Persistent);
             }
             else
@@ -44,7 +44,7 @@ namespace Unity.Entities.Conversion
         internal void RegisterComponentTypeForDependencyTracking<T>() where T : Component
             => RegisterComponentTypeForDependencyTracking(TypeManager.GetTypeIndex<T>());
 
-        internal void RegisterComponentTypeForDependencyTracking(int typeIndex)
+        internal void RegisterComponentTypeForDependencyTracking(TypeIndex typeIndex)
         {
             if (_componentDependenciesByTypeIndex.IsCreated && !_componentDependenciesByTypeIndex.ContainsKey(typeIndex))
                 _componentDependenciesByTypeIndex.Add(typeIndex, new DependencyTracker(Allocator.Persistent));
@@ -174,13 +174,13 @@ namespace Unity.Entities.Conversion
                 return;
             var toBeProcessed = new NativeList<int>(0, Allocator.Temp);
             AssetDependencyTracker.CalculateDirectDependents(assetInstanceIds, toBeProcessed);
-            CalculateDependents(toBeProcessed, outDependents);
+            CalculateDependents(toBeProcessed.AsArray(), outDependents);
 #endif
         }
 
         internal bool TryGetComponentDependencyTracker<T>(out DependencyTracker tracker)
             => _componentDependenciesByTypeIndex.TryGetValue(TypeManager.GetTypeIndex<T>(), out tracker);
-        internal bool TryGetComponentDependencyTracker(int typeIndex, out DependencyTracker tracker)
+        internal bool TryGetComponentDependencyTracker(TypeIndex typeIndex, out DependencyTracker tracker)
             => _componentDependenciesByTypeIndex.TryGetValue(typeIndex, out tracker);
 
 

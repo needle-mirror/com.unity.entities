@@ -4,13 +4,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Unity.Profiling;
 using UnityEditor.Profiling;
 using UnityEditorInternal;
 using UnityEngine;
 using UnityEngine.Profiling;
+using UnityEngine.TestTools;
 using static Unity.Entities.EntitiesProfiler;
 using static Unity.Entities.MemoryProfiler;
-using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
@@ -19,6 +20,42 @@ namespace Unity.Entities.Tests
     {
         static readonly string s_DataFilePath = Path.Combine(Application.temporaryCachePath, "profilerdata");
         static readonly string s_RawDataFilePath = s_DataFilePath + ".raw";
+        static bool s_LastCategoryEnabled;
+
+        class ProfilerEnableScope : IDisposable
+        {
+            readonly bool m_Enabled;
+            readonly bool m_EnableAllocationCallstacks;
+            readonly bool m_EnableBinaryLog;
+            readonly string m_LogFile;
+            readonly ProfilerCategory m_Category;
+            readonly bool m_CategoryEnabled;
+
+            public ProfilerEnableScope(string dataFilePath, ProfilerCategory category)
+            {
+                m_Enabled = Profiler.enabled;
+                m_EnableAllocationCallstacks = Profiler.enableAllocationCallstacks;
+                m_EnableBinaryLog = Profiler.enableBinaryLog;
+                m_LogFile = Profiler.logFile;
+                m_Category = category;
+                m_CategoryEnabled = Profiler.IsCategoryEnabled(category);
+
+                Profiler.logFile = dataFilePath;
+                Profiler.enableBinaryLog = true;
+                Profiler.enableAllocationCallstacks = false;
+                Profiler.enabled = true;
+                Profiler.SetCategoryEnabled(category, true);
+            }
+
+            public void Dispose()
+            {
+                Profiler.enabled = m_Enabled;
+                Profiler.enableAllocationCallstacks = m_EnableAllocationCallstacks;
+                Profiler.enableBinaryLog = m_EnableBinaryLog;
+                Profiler.logFile = m_LogFile;
+                Profiler.SetCategoryEnabled(m_Category, m_CategoryEnabled);
+            }
+        }
 
         public override void Setup()
         {
@@ -32,17 +69,13 @@ namespace Unity.Entities.Tests
             EntitiesProfiler.Shutdown();
             EntitiesProfiler.Initialize();
 
-            Profiler.logFile = s_DataFilePath;
-            Profiler.enableBinaryLog = true;
-            Profiler.enabled = true;
-
-            onUpdate?.Invoke();
-            World.Update();
-            EntitiesProfiler.Update();
-
-            Profiler.enabled = false;
-            Profiler.enableAllocationCallstacks = false;
-            Profiler.logFile = "";
+            using (var scope = new ProfilerEnableScope(s_DataFilePath, MemoryProfiler.Category))
+            {
+                EntitiesProfiler.Update();
+                onUpdate?.Invoke();
+                World.Update();
+                EntitiesProfiler.Update();
+            }
 
             var loaded = ProfilerDriver.LoadProfile(s_RawDataFilePath, false);
             Assert.IsTrue(loaded);
@@ -82,6 +115,19 @@ namespace Unity.Entities.Tests
             }
         }
 
+        [OneTimeSetUp]
+        public void OneTimeSetup()
+        {
+            s_LastCategoryEnabled = Profiler.IsCategoryEnabled(MemoryProfiler.Category);
+            Profiler.SetCategoryEnabled(MemoryProfiler.Category, true);
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            Profiler.SetCategoryEnabled(MemoryProfiler.Category, s_LastCategoryEnabled);
+        }
+
         [Test]
         public void Uninitialized_DoesNotThrow()
         {
@@ -93,7 +139,9 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(EcsTestData), typeof(EcsTestData2))]
         [TestCase(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3))]
         [TestCase(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4))]
+#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
         [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
+#endif
         public void ArchetypeOnly(params Type[] types)
         {
             var archetype = default(EntityArchetype);
@@ -140,7 +188,9 @@ namespace Unity.Entities.Tests
         [TestCase(100, typeof(EcsTestData), typeof(EcsTestData2))]
         [TestCase(1000, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3))]
         [TestCase(10000, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4))]
+#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
         [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
+#endif
         public void ArchetypeWithEntities(int entityCount, params Type[] types)
         {
             var archetype = default(EntityArchetype);
@@ -196,10 +246,10 @@ namespace Unity.Entities.Tests
                 archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
 
                 var entity1 = m_Manager.CreateEntity(archetype);
-                m_Manager.SetSharedComponentData(entity1, new EcsTestSharedComp { value = 42 });
+                m_Manager.SetSharedComponentManaged(entity1, new EcsTestSharedComp { value = 42 });
 
                 var entity2 = m_Manager.CreateEntity(archetype);
-                m_Manager.SetSharedComponentData(entity2, new EcsTestSharedComp { value = 24 });
+                m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp { value = 24 });
             }))
             {
                 var worldsData = GetWorldsData(frame);

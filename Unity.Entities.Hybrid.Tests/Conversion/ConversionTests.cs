@@ -3,382 +3,237 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Entities.Hybrid.Baking;
+using Unity.Entities.TestComponents;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.TestTools;
-using static Unity.Entities.GameObjectConversionUtility;
 using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities.Tests.Conversion
 {
-    class ConversionTests : ConversionTestFixtureBase
+    class BakingTests : BakingTestFixture
     {
-        [Test]
-        public void ConversionIgnoresMissingMonoBehaviour()
+        private BakingSystem m_BakingSystem;
+
+        [SetUp]
+        public void SetUp(){
+            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
+            var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            m_BakingSystem.PrepareForBaking(bakingSettings, default);
+            base.Setup();
+        }
+
+        [TearDown]
+        public new void TearDown()
         {
-            LogAssert.Expect(LogType.Warning, new Regex("missing"));
-
-            var entity = ConvertGameObjectHierarchy(LoadPrefab("Prefab_MissingMB"), MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Any(entity));
+            base.TearDown();
+            if (m_BakingSystem != null)
+            {
+                var assetStore = m_BakingSystem.BlobAssetStore;
+                if (assetStore.IsCreated)
+                    assetStore.Dispose();
+            }
+            m_BakingSystem = null;
         }
 
         [Test]
-        public void ConversionOfGameObject()
-        {
-            var gameObject = CreateGameObject();
-            var entity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(entity, k_RootComponents));
-        }
-
-        [Test]
-        public void ConversionOfStaticGameObject()
-        {
-            var gameObject = CreateGameObject("", typeof(StaticOptimizeEntity));
-            var entity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<Static, LocalToWorld, LinkedEntityGroup>(entity));
-        }
-
-        [Test]
-        public void ConversionOfInactiveStaticGameObject()
-        {
-            var gameObject = CreateGameObject("", typeof(StaticOptimizeEntity));
-            var child = CreateGameObject("");
-            child.transform.parent = gameObject.transform;
-
-            gameObject.SetActive(false);
-            var entity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<Disabled, Static, LocalToWorld, LinkedEntityGroup>(entity),
-                EntityMatch.Exact<Disabled, Static, LocalToWorld>());
-        }
-
-        [Test]
-        public void ConversionIsBuildingForEditor()
-        {
-            var gameObject = CreateGameObject("", typeof(TestComponentAuthoringIsBuildingForEditor));
-            ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
-            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Partial(new IntTestData(1)));
-        }
-
-        [Test]
-        public void ConversionOfPrefabIsEntityPrefab()
-        {
-            var entity = ConvertGameObjectHierarchy(LoadPrefab("Prefab"), MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<Prefab, MockData>(entity, k_RootComponents));
-        }
-
-        [Test]
-        public void ConversionOfNullGameObjectReference()
-        {
-            var go = CreateGameObject();
-            go.AddComponent<EntityRefTestDataAuthoring>();
-
-            var entity = ConvertGameObjectHierarchy(go, MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<LocalToWorld, Translation, Rotation, LinkedEntityGroup>(entity, new EntityRefTestData()));
-        }
-
-        [Test]
-        public void ConversionOfPrefabReferenceOtherPrefab()
-        {
-            var go = CreateGameObject();
-            go.AddComponent<EntityRefTestDataAuthoring>().Value = LoadPrefab("Prefab_Reference_Prefab");
-
-            var entity = ConvertGameObjectHierarchy(go, MakeDefaultSettings());
-            var referenced = m_Manager.GetComponentData<EntityRefTestData>(entity).Value;
-            var referenced2 = m_Manager.GetComponentData<EntityRefTestData>(referenced).Value;
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                // gameobject created above
-                EntityMatch.Exact<EntityRefTestData>(entity, k_RootComponents),
-                // Prefab_Reference_Prefab.prefab
-                EntityMatch.Exact<EntityRefTestData, Prefab>(referenced, new MockData(1), k_RootComponents),
-                // Prefab.prefab
-                EntityMatch.Exact<Prefab>(referenced2, new MockData(), k_RootComponents));
-        }
-
-        [Test, Ignore("DOTS-2092 - Not implemented")]
-        public void ConversionOfScriptableObjectReferenceOtherScriptableObject()
-        {
-            throw new NotImplementedException();
-        }
-
-        [Test]
-        public void ConversionOfPrefabSelfReference()
-        {
-            var go = CreateGameObject();
-            go.AddComponent<EntityRefTestDataAuthoring>().Value = LoadPrefab("Prefab_Reference_Self");
-
-            var entity = ConvertGameObjectHierarchy(go, MakeDefaultSettings());
-            var referenced = m_Manager.GetComponentData<EntityRefTestData>(entity).Value;
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<EntityRefTestData>(entity, k_RootComponents),
-                EntityMatch.Exact<Prefab, MockData>(referenced, new EntityRefTestData { Value = referenced }, k_RootComponents));
-        }
-
-        [Test, Ignore("DOTS-2092 - Not implemented")]
-        public void ConversionOfScriptableObjectSelfReference()
-        {
-            throw new NotImplementedException();
-        }
-
-        [Test]
-        public void GameObjectReferenceOutsideConvertedGroupWarning()
-        {
-            LogAssert.Expect(LogType.Warning, new Regex("not included in the conversion"));
-            var go = CreateGameObject();
-
-            var notIncluded = CreateGameObject();
-            go.AddComponent<EntityRefTestDataAuthoring>().Value = notIncluded;
-
-            var entity = ConvertGameObjectHierarchy(go, MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact(entity, new EntityRefTestData(), k_RootComponents));
-        }
-
-        [Test, Ignore("DOTS-2092 - Not implemented")]
-        public void AssetReferenceOutsideConvertedGroupWarning()
-        {
-            throw new NotImplementedException();
-        }
-
-        [Test]
-        public void SetEnabledOnPrefabOnCompleteSet()
-        {
-            var entity = ConvertGameObjectHierarchy(LoadPrefab("Prefab_Hierarchy"), MakeDefaultSettings());
-            var instance = m_Manager.Instantiate(entity);
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<Prefab>(new MockData(100), k_RootComponents, entity),
-                EntityMatch.Exact<Prefab>(new MockData(101), k_ChildComponents),
-                EntityMatch.Exact(new MockData(100), k_RootComponents, instance),
-                EntityMatch.Exact(new MockData(101), k_ChildComponents));
-
-            m_Manager.SetEnabled(instance, false);
-
-            EntitiesAssert.Contains(m_Manager,
-                EntityMatch.Exact<Disabled, MockData>(k_RootComponents, instance),
-                EntityMatch.Exact<Disabled, MockData>(k_ChildComponents));
-
-            m_Manager.SetEnabled(instance, true);
-
-            EntitiesAssert.Contains(m_Manager,
-                EntityMatch.Exact<MockData>(k_RootComponents, instance),
-                EntityMatch.Exact<MockData>(k_ChildComponents));
-        }
-
-        [Test]
-        public void DestroyEntity_WithInstantiatedPrefabHierarchy_DestroysEntireHierarchy()
-        {
-            var entity = ConvertGameObjectHierarchy(LoadPrefab("Prefab_Hierarchy"), MakeDefaultSettings());
-            var instance = m_Manager.Instantiate(entity);
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<Prefab>(new MockData(100), k_RootComponents, entity),
-                EntityMatch.Exact<Prefab>(new MockData(101), k_ChildComponents),
-                EntityMatch.Exact(new MockData(100), k_RootComponents, instance),
-                EntityMatch.Exact(new MockData(101), k_ChildComponents));
-
-            m_Manager.DestroyEntity(instance);
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<Prefab>(new MockData(100), k_RootComponents, entity),
-                EntityMatch.Exact<Prefab>(new MockData(101), k_ChildComponents));
-        }
-
-        [Test]
-        public void InactiveHierarchyBecomesPartOfLinkedEntityGroupSet()
+        public void LinkedEntityGroupAuthoringAddsLinkedEntityGroup()
         {
             var go = CreateGameObject();
             var child = CreateGameObject();
             var childChild = CreateGameObject();
 
-            child.SetActive(false);
-            go.AddComponent<EntityRefTestDataAuthoring>().Value = child;
+            var comp = go.AddComponent<EntityRefTestDataAuthoring>();
+            go.AddComponent<LinkedEntityGroupAuthoring>();
+            comp.Value = child;
             child.transform.parent = go.transform;
             childChild.transform.parent = child.transform;
 
-            var entity = ConvertGameObjectHierarchy(go, MakeDefaultSettings());
-            var childEntity = m_Manager.GetComponentData<EntityRefTestData>(entity).Value;
+            BakingUtility.BakeGameObjects(World, new[] {go}, m_BakingSystem.BakingSettings);
+            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
+            var entity = m_BakingSystem.GetEntity(go);
+            var manager = World.EntityManager;
+            var childEntity = manager.GetComponentData<EntityRefTestData>(entity).Value;
+            var buffer = manager.GetBuffer<LinkedEntityGroup>(entity);
+            Assert.IsTrue(buffer.Length == 3);
+            Assert.IsTrue(entity == buffer[0].Value); //First element in a LinkedEntityGroup should be the root entity
 
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<EntityRefTestData, LinkedEntityGroup>(k_CommonComponents, entity),
-                EntityMatch.Exact<Disabled,          LinkedEntityGroup>(k_ChildComponents, childEntity),
-                EntityMatch.Exact<Disabled>(k_ChildComponents));
-
-            // Conversion will automatically add a LinkedEntityGroup to all inactive children
-            // so that when enabling them, the whole hierarchy will get enabled
-            m_Manager.SetEnabled(m_Manager.GetComponentData<EntityRefTestData>(entity).Value, true);
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<EntityRefTestData, LinkedEntityGroup>(k_CommonComponents, entity),
-                EntityMatch.Exact<LinkedEntityGroup>(k_ChildComponents, childEntity),
-                EntityMatch.Exact(k_ChildComponents));
+            EntitiesAssert.ContainsOnly(manager,
+                EntityMatch.Exact<AdditionalEntitiesBakingData, EntityRefTestData, LinkedEntityGroup, LinkedEntityGroupBakingData, TransformAuthoring>(k_CommonComponents, entity),
+                EntityMatch.Exact<AdditionalEntitiesBakingData, TransformAuthoring>(k_ChildComponents, childEntity),
+                EntityMatch.Exact<AdditionalEntitiesBakingData, TransformAuthoring>(k_ChildComponents));
         }
 
         [Test]
-        public void InactiveConversion()
+        public void LinkedEntityGroupNotCreatedIfRootIsBakingOnlyEntity()
         {
-            var gameObject = CreateGameObject();
+            var go = CreateGameObject();
             var child = CreateGameObject();
-            child.transform.parent = gameObject.transform;
-            gameObject.gameObject.SetActive(false);
 
-            var entity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
+            go.AddComponent<BakingOnlyEntityAuthoring>();
+            go.AddComponent<LinkedEntityGroupAuthoring>();
+            child.transform.parent = go.transform;
 
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<Disabled>(entity, k_RootComponents),
-                EntityMatch.Exact<Disabled>(k_ChildComponents));
+            BakingUtility.BakeGameObjects(World, new[] {go}, m_BakingSystem.BakingSettings);
+            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
+            var entity = m_BakingSystem.GetEntity(go);
+            var manager = World.EntityManager;
 
-            Assert.That(Entities.WithAll<Translation>().ToEntityQuery().CalculateEntityCount(), Is.Zero);
+            Assert.IsFalse(manager.HasBuffer<LinkedEntityGroup>(entity),
+                "Root Entities that are marked as BakingOnlyEntity should not have a Linked Entity Group");
         }
 
         [Test]
-        public void DisabledBehaviourStripping()
+        public void LinkedEntityGroupIgnoresBakingOnlyEntityAndChildren()
         {
-            var gameObject = new GameObject();
-            gameObject.AddComponent<MockDataAuthoring>().enabled = false;
-            gameObject.AddComponent<EntityRefTestDataAuthoring>().enabled = false;
 
-            var strippedEntity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(strippedEntity, k_RootComponents));
-        }
-
-        [Test]
-        public void DuplicateComponentOnRootGameObject()
-        {
-            var gameObject = new GameObject();
-
-            gameObject.AddComponent<EntityRefTestDataAuthoring>();
-            gameObject.AddComponent<EntityRefTestDataAuthoring>();
-
-            var convertedEntity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<EntityRefTestData>(convertedEntity, k_RootComponents));
-        }
-
-        [UpdateInGroup(typeof(GameObjectAfterConversionGroup))]
-        internal class TestConversionCleanup : GameObjectConversionSystem
-        {
-            protected override void OnUpdate()
+            var go = CreateGameObject();
+            for (int i = 0; i < 2; i++)
             {
-                Entities.ForEach((Transform transform) =>
+                var child = CreateGameObject();
+                child.transform.parent = go.transform;
+
+                // Make one of the children + subchildren Bake Only
+                if (i == 0)
+                    child.AddComponent<BakingOnlyEntityAuthoring>();
+
+                for (int j = 0; j < 2; j++)
                 {
-                    var entity = GetPrimaryEntity(transform);
-                    if (DstEntityManager.HasComponent<Parent>(entity))
-                        DstEntityManager.DestroyEntity(entity);
-                });
+                    var childChild = CreateGameObject();
+                    childChild.transform.parent = child.transform;
+                }
             }
+
+            go.AddComponent<LinkedEntityGroupAuthoring>();
+
+            BakingUtility.BakeGameObjects(World, new[] {go}, m_BakingSystem.BakingSettings);
+            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
+            var entity = m_BakingSystem.GetEntity(go);
+            var manager = World.EntityManager;
+            var buffer = manager.GetBuffer<LinkedEntityGroup>(entity);
+
+            Assert.AreEqual(4, buffer.Length,
+                "Children Entities that are marked as BakingOnlyEntity should be ignored by a Linked Entity Group");
         }
 
         [Test]
-        public void DeletingEntitiesOfConvertedPrefab_DoesNotThrow()
+        public void LinkedEntityGroupAddsAdditionalEntitiesFromBakingOnlyEntity()
         {
-            var prefabEntity = Entity.Null;
 
-            var settings = MakeDefaultSettings();
-
-            settings.ConversionWorldCreated = CreateSystem;
-            settings.ConversionWorldPreDispose = DestroySystem;
-
-            Assert.DoesNotThrow(() => prefabEntity = ConvertGameObjectHierarchy(LoadPrefab("Prefab_Hierarchy"), settings));
-
-            Assert.DoesNotThrow(() => m_Manager.Instantiate(prefabEntity));
-
-            void CreateSystem(World world)
+            var go = CreateGameObject();
+            for (int i = 0; i < 2; i++)
             {
-                var gameObjectAfterConversionGroup = world.GetExistingSystem<GameObjectAfterConversionGroup>();
-                var testConversionCleanup = world.GetOrCreateSystem<TestConversionCleanup>();
+                var child = CreateGameObject();
+                child.transform.parent = go.transform;
+                child.AddComponent<BakingOnlyPrimaryWithAdditionalEntitiesTestAuthoring>();
 
-                gameObjectAfterConversionGroup.AddSystemToUpdateList(testConversionCleanup);
-            }
+                // Make one of the children + subchildren Bake Only
+                if (i == 0)
+                    child.AddComponent<BakingOnlyEntityAuthoring>();
 
-            void DestroySystem(World world)
-            {
-                var testConversionCleanup = world.GetOrCreateSystem<TestConversionCleanup>();
-                world.DestroySystem(testConversionCleanup);
-            }
-        }
-
-        struct TestEntityData : IComponentData
-        {
-            public int Index;
-
-            public TestEntityData(int index)
-            {
-                Index = index;
-            }
-        }
-
-        class CreateAdditionalEntitySystem : GameObjectConversionSystem
-        {
-            protected override void OnUpdate()
-            {
-                Entities.ForEach((Transform t) =>
+                for (int j = 0; j < 2; j++)
                 {
-                    var e = CreateAdditionalEntity(t);
-                    DstEntityManager.AddComponent<TestEntityData>(e);
-                });
+                    var childChild = CreateGameObject();
+                    childChild.transform.parent = child.transform;
+                    childChild.AddComponent<BakingOnlyPrimaryWithAdditionalEntitiesTestAuthoring>();
+                }
             }
-        }
 
-        class CreateAdditionalEntityMultipleSystem : GameObjectConversionSystem
-        {
-            protected override void OnUpdate()
-            {
-                Entities.ForEach((Transform t) =>
-                {
-                    var entities = new NativeArray<Entity>(3, Allocator.Temp);
-                    CreateAdditionalEntity(t, entities);
-                    for (int i = 0; i < entities.Length; i++)
-                        DstEntityManager.AddComponentData(entities[i], new TestEntityData(i));
-                });
-            }
+            go.AddComponent<LinkedEntityGroupAuthoring>();
+
+            BakingUtility.BakeGameObjects(World, new[] {go}, m_BakingSystem.BakingSettings);
+            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
+            var entity = m_BakingSystem.GetEntity(go);
+            var manager = World.EntityManager;
+            var buffer = manager.GetBuffer<LinkedEntityGroup>(entity);
+
+            Assert.AreEqual(10, buffer.Length,
+                "Children Entities that are marked as BakingOnlyEntity should be ignored by a Linked Entity Group");
         }
 
         [Test]
-        public void CreateAdditionalEntity_CreatesAdditionalEntity()
+        public void CreatesAdditionalEntitiesAddsTemporaryType()
         {
             var go = CreateGameObject();
-            var entity = ConvertGameObjectHierarchy(go, MakeDefaultSettings().WithExtraSystem<CreateAdditionalEntitySystem>());
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact(entity, k_RootComponents),
-                EntityMatch.Exact(new TestEntityData(0))
-            );
+            var comp = go.AddComponent<CreateAdditionalEntitiesAuthoring>();
+            int noOfAdditionalEntities = 3;
+            comp.number = noOfAdditionalEntities;
+
+            BakingUtility.BakeGameObjects(World, new[] {go}, m_BakingSystem.BakingSettings);
+            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
+            var entity = m_BakingSystem.GetEntity(go);
+            var manager = World.EntityManager;
+
+            Assert.IsTrue(manager.HasComponent<AdditionalEntitiesBakingData>(entity));
+
+            var entities = manager.GetBuffer<AdditionalEntitiesBakingData>(entity);
+            Assert.IsTrue(entities.Length == noOfAdditionalEntities);
+
+#if !DOTS_DISABLE_DEBUG_NAMES
+            for (int i = 0; i < noOfAdditionalEntities; i++)
+            {
+                Assert.AreEqual(go.name, manager.GetName(entities[i].Value), "The default name of the Additional Entity was not set correctly.");
+            }
+#endif
         }
 
         [Test]
-        public void CreateAdditionalEntity_WithMultiple_CreatesAdditionalEntity()
+        public void SetNameOnAdditionalEntitiesSetsName()
+        {
+#if !DOTS_DISABLE_DEBUG_NAMES
+            var go = CreateGameObject();
+            var comp = go.AddComponent<SetNameOnAdditionalEntityTestAuthoring>();
+            int noOfAdditionalEntities = 3;
+            comp.number = noOfAdditionalEntities;
+
+            BakingUtility.BakeGameObjects(World, new[] {go}, m_BakingSystem.BakingSettings);
+            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
+            var entity = m_BakingSystem.GetEntity(go);
+            var manager = World.EntityManager;
+
+            Assert.IsTrue(manager.HasComponent<AdditionalEntitiesBakingData>(entity));
+            var entities = manager.GetBuffer<AdditionalEntitiesBakingData>(entity);
+
+            Assert.IsTrue(entities.Length == noOfAdditionalEntities);
+            string[] expectedNames = new string[noOfAdditionalEntities];
+            string[] actualNames = new string[noOfAdditionalEntities];
+
+            for (int i = 0; i < noOfAdditionalEntities; i++)
+            {
+                expectedNames[i] = $"additionalEntity - {i}";
+                actualNames[i] = manager.GetName(entities[i].Value);
+            }
+            for (int i = 0; i < noOfAdditionalEntities; i++)
+            {
+                Assert.Contains(expectedNames[i], actualNames, "The manual name of the Additional Entity was not set correctly.");
+            }
+#endif
+        }
+
+        [Test]
+        public void AddLinkedEntityRootContainsAllChildrenAndSelfEntities()
         {
             var go = CreateGameObject();
-            var entity = ConvertGameObjectHierarchy(go, MakeDefaultSettings().WithExtraSystem<CreateAdditionalEntityMultipleSystem>());
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact(entity, k_RootComponents),
-                EntityMatch.Exact(new TestEntityData(0)),
-                EntityMatch.Exact(new TestEntityData(1)),
-                EntityMatch.Exact(new TestEntityData(2))
-            );
-        }
+            go.AddComponent<LinkedEntityGroupAuthoring>();
+            go.AddComponent<CreateAdditionalEntitiesAuthoring>().number = 2;
+            var child = CreateGameObject();
+            child.AddComponent<CreateAdditionalEntitiesAuthoring>().number = 3;
+            child.transform.parent = go.transform;
 
-        [Test]
-        public void PrefabHierarchy_WithStaticOptimizeEntity_ActuallyIsStatic()
-        {
-            var entity = ConvertGameObjectHierarchy(LoadPrefab("Prefab_Hierarchy_With_StaticOptimizeEntity"), MakeDefaultSettings());
+            BakingUtility.BakeGameObjects(World, new[] {go}, m_BakingSystem.BakingSettings);
+            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
+            var entity = m_BakingSystem.GetEntity(go);
+            var childEntity = m_BakingSystem.GetEntity(child);
+            var manager = World.EntityManager;
 
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact<Prefab, Disabled>(entity, k_StaticRootComponents),
-                EntityMatch.Exact<Prefab, Disabled>(k_StaticComponents));
+            Assert.IsTrue(manager.HasComponent<LinkedEntityGroup>(entity));
+            Assert.IsFalse(manager.HasComponent<LinkedEntityGroup>(childEntity));
+
+            var leg = manager.GetBuffer<LinkedEntityGroup>(entity);
+            Assert.IsTrue(leg.Length == 7);
         }
     }
 }

@@ -2,14 +2,50 @@ using NUnit.Framework;
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.TestTools;
+using Unity.Scenes.Editor.Tests;
 #endif
 using Unity.Entities;
 using Unity.Entities.Tests;
 
 namespace Unity.Scenes.Hybrid.Tests
 {
-    public class SubSceneSectionTests : SubSceneTestFixture
+    public class SubSceneSectionTestsConversion : SubSceneSectionTests
     {
+        [OneTimeSetUp]
+        public void OneTimeSetup()
+        {
+            m_Settings.Setup(false);
+            base.SetUpOnce();
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTeardown()
+        {
+            base.TearDownOnce();
+            m_Settings.TearDown();
+        }
+    }
+
+    public class SubSceneSectionTestsBaking : SubSceneSectionTests
+    {
+        [OneTimeSetUp]
+        public void OneTimeSetup()
+        {
+            m_Settings.Setup(true);
+            base.SetUpOnce();
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTeardown()
+        {
+            base.TearDownOnce();
+            m_Settings.TearDown();
+        }
+    }
+
+    public abstract class SubSceneSectionTests : SubSceneTestFixture
+    {
+        public TestLiveConversionSettings m_Settings;
         public SubSceneSectionTests() : base("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/SubSceneSectionTestScene.unity")
         {
         }
@@ -22,14 +58,13 @@ namespace Unity.Scenes.Hybrid.Tests
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
                 var manager = world.EntityManager;
-                var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
 
                 var resolveParams = new SceneSystem.LoadParameters
                 {
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
                 };
 
-                sceneSystem.LoadSceneAsync(SceneGUID, resolveParams);
+                SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
                 world.Update();
 
                 EntitiesAssert.Contains(manager,
@@ -48,7 +83,6 @@ namespace Unity.Scenes.Hybrid.Tests
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
                 var manager = world.EntityManager;
-                var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
 
                 var resolveParams = new SceneSystem.LoadParameters
                 {
@@ -56,8 +90,8 @@ namespace Unity.Scenes.Hybrid.Tests
                 };
 
                 var subSceneSectionTestDataQuery = manager.CreateEntityQuery(typeof(SubSceneSectionTestData));
-
-                var sceneEntity = sceneSystem.LoadSceneAsync(SceneGUID, resolveParams);
+                
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
                 world.Update();
 
                 Assert.AreEqual(3, subSceneSectionTestDataQuery.CalculateEntityCount());
@@ -77,7 +111,6 @@ namespace Unity.Scenes.Hybrid.Tests
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
                 var manager = world.EntityManager;
-                var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
 
                 var resolveParams = new SceneSystem.LoadParameters
                 {
@@ -86,7 +119,7 @@ namespace Unity.Scenes.Hybrid.Tests
 
                 var subSceneSectionTestDataQuery = manager.CreateEntityQuery(typeof(SubSceneSectionTestData));
 
-                var sceneEntity = sceneSystem.LoadSceneAsync(SceneGUID, resolveParams);
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
                 world.Update();
 
                 Assert.AreEqual(0, subSceneSectionTestDataQuery.CalculateEntityCount());
@@ -98,18 +131,18 @@ namespace Unity.Scenes.Hybrid.Tests
                 Assert.AreNotEqual(Entity.Null, section10Entity);
                 Assert.AreNotEqual(Entity.Null, section20Entity);
 
-                Assert.IsFalse(sceneSystem.IsSectionLoaded(section0Entity));
-                Assert.IsFalse(sceneSystem.IsSectionLoaded(section10Entity));
-                Assert.IsFalse(sceneSystem.IsSectionLoaded(section20Entity));
+                Assert.IsFalse(SceneSystem.IsSectionLoaded(world.Unmanaged, section0Entity));
+                Assert.IsFalse(SceneSystem.IsSectionLoaded(world.Unmanaged, section10Entity));
+                Assert.IsFalse(SceneSystem.IsSectionLoaded(world.Unmanaged, section20Entity));
 
                 manager.AddComponentData(section0Entity,
                     new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
 
                 world.Update();
 
-                Assert.IsTrue(sceneSystem.IsSectionLoaded(section0Entity));
-                Assert.IsFalse(sceneSystem.IsSectionLoaded(section10Entity));
-                Assert.IsFalse(sceneSystem.IsSectionLoaded(section20Entity));
+                Assert.IsTrue(SceneSystem.IsSectionLoaded(world.Unmanaged, section0Entity));
+                Assert.IsFalse(SceneSystem.IsSectionLoaded(world.Unmanaged, section10Entity));
+                Assert.IsFalse(SceneSystem.IsSectionLoaded(world.Unmanaged, section20Entity));
 
                 Assert.AreEqual(1, subSceneSectionTestDataQuery.CalculateEntityCount());
                 Assert.AreEqual(42, subSceneSectionTestDataQuery.GetSingleton<SubSceneSectionTestData>().Value);
@@ -118,9 +151,9 @@ namespace Unity.Scenes.Hybrid.Tests
                     new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
                 world.Update();
 
-                Assert.IsTrue(sceneSystem.IsSectionLoaded(section0Entity));
-                Assert.IsFalse(sceneSystem.IsSectionLoaded(section10Entity));
-                Assert.IsTrue(sceneSystem.IsSectionLoaded(section20Entity));
+                Assert.IsTrue(SceneSystem.IsSectionLoaded(world.Unmanaged, section0Entity));
+                Assert.IsFalse(SceneSystem.IsSectionLoaded(world.Unmanaged, section10Entity));
+                Assert.IsTrue(SceneSystem.IsSectionLoaded(world.Unmanaged, section20Entity));
 
                 Assert.AreEqual(2, subSceneSectionTestDataQuery.CalculateEntityCount());
                 EntitiesAssert.Contains(manager,
@@ -132,9 +165,9 @@ namespace Unity.Scenes.Hybrid.Tests
                     new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
                 world.Update();
 
-                Assert.IsTrue(sceneSystem.IsSectionLoaded(section0Entity));
-                Assert.IsTrue(sceneSystem.IsSectionLoaded(section10Entity));
-                Assert.IsTrue(sceneSystem.IsSectionLoaded(section20Entity));
+                Assert.IsTrue(SceneSystem.IsSectionLoaded(world.Unmanaged, section0Entity));
+                Assert.IsTrue(SceneSystem.IsSectionLoaded(world.Unmanaged, section10Entity));
+                Assert.IsTrue(SceneSystem.IsSectionLoaded(world.Unmanaged, section20Entity));
 
                 Assert.AreEqual(3, subSceneSectionTestDataQuery.CalculateEntityCount());
                 EntitiesAssert.Contains(manager,

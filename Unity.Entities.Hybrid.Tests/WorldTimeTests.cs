@@ -20,9 +20,9 @@ namespace Unity.Entities.Tests
         {
             using (var world = new World("World A"))
             {
-                var init = world.GetOrCreateSystem<InitializationSystemGroup>();
+                var init = world.GetOrCreateSystemManaged<InitializationSystemGroup>();
 
-                var unityTimeSys = world.GetOrCreateSystem(typeof(UpdateWorldTimeSystem));
+                var unityTimeSys = world.GetOrCreateSystemManaged(typeof(UpdateWorldTimeSystem));
                 init.AddSystemToUpdateList(unityTimeSys);
 
                 world.Update();
@@ -36,9 +36,9 @@ namespace Unity.Entities.Tests
         {
             using (var world = new World("World A"))
             {
-                var init = world.GetOrCreateSystem<InitializationSystemGroup>();
+                var init = world.GetOrCreateSystemManaged<InitializationSystemGroup>();
 
-                var unityTimeSys = world.GetOrCreateSystem(typeof(UpdateWorldTimeSystem));
+                var unityTimeSys = world.GetOrCreateSystemManaged(typeof(UpdateWorldTimeSystem));
                 init.AddSystemToUpdateList(unityTimeSys);
 
                 float lastDeltaTime = math.min(UnityEngine.Time.deltaTime, world.MaximumDeltaTime);
@@ -69,9 +69,9 @@ namespace Unity.Entities.Tests
                 return;
             using (var world = new World("World A"))
             {
-                var init = world.GetOrCreateSystem<InitializationSystemGroup>();
+                var init = world.GetOrCreateSystemManaged<InitializationSystemGroup>();
 
-                var unityTimeSys = world.GetOrCreateSystem(typeof(UpdateWorldTimeSystem));
+                var unityTimeSys = world.GetOrCreateSystemManaged(typeof(UpdateWorldTimeSystem));
                 init.AddSystemToUpdateList(unityTimeSys);
 
                 // Ideally this should be a playmode test that we run for several frames, so that UnityEngine.Time.deltaTime

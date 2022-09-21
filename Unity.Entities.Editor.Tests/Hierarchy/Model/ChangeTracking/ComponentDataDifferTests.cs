@@ -14,13 +14,15 @@ namespace Unity.Entities.Editor.Tests
         EntityDiffer m_EntityDiffer;
         ComponentDataDiffer m_ChunkDiffer;
 
+        protected World World => m_World;
+
         [SetUp]
         public void Setup()
         {
             m_World = new World("TestWorld");
-            m_NewEntities = new NativeList<Entity>(Allocator.TempJob);
-            m_MissingEntities = new NativeList<Entity>(Allocator.TempJob);
-            m_Storage = new NativeList<byte>(Allocator.TempJob);
+            m_NewEntities = new NativeList<Entity>(m_World.UpdateAllocator.ToAllocator);
+            m_MissingEntities = new NativeList<Entity>(m_World.UpdateAllocator.ToAllocator);
+            m_Storage = new NativeList<byte>(m_World.UpdateAllocator.ToAllocator);
             m_EntityDiffer = new EntityDiffer(m_World);
             m_ChunkDiffer = new ComponentDataDiffer(typeof(EcsTestData));
         }
@@ -28,22 +30,22 @@ namespace Unity.Entities.Editor.Tests
         [TearDown]
         public void TearDown()
         {
-            m_World.Dispose();
             m_NewEntities.Dispose();
             m_Storage.Dispose();
             m_MissingEntities.Dispose();
             m_EntityDiffer.Dispose();
             m_ChunkDiffer.Dispose();
+            m_World.Dispose();
         }
 
         [Test]
         public void ComponentDataDiffer_Simple()
         {
-            var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle);
+            var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle);
             jobHandle.Complete();
 
-            Assert.That(result.AddedComponentsCount, Is.EqualTo(0));
-            Assert.That(result.RemovedComponentsCount, Is.EqualTo(0));
+            Assert.That(result.AddedComponentCount, Is.EqualTo(0));
+            Assert.That(result.RemovedComponentCount, Is.EqualTo(0));
 
             result.Dispose();
         }
@@ -53,24 +55,24 @@ namespace Unity.Entities.Editor.Tests
         {
             var entityA = CreateEntity(new EcsTestData { value = 12 });
 
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
 
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(0));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(1));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(0));
 
                 Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityA, new EcsTestData { value = 12 })));
             }
 
             m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
             var entityB = m_World.EntityManager.CreateEntity(typeof(EcsTestData));
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
 
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(0));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(1));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(0));
 
                 Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityB, default(EcsTestData))));
             }
@@ -82,7 +84,7 @@ namespace Unity.Entities.Editor.Tests
             var entityA = CreateEntity(new EcsTestData { value = 12 });
             var entityB = CreateEntity(new EcsTestData { value = 12 });
 
-            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
             }
@@ -90,12 +92,12 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
             m_World.EntityManager.DestroyEntity(entityB);
 
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
 
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(0));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(1));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(0));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(1));
             }
         }
 
@@ -104,24 +106,24 @@ namespace Unity.Entities.Editor.Tests
         {
             var entityA = CreateEntity(new EcsTestData { value = 12 });
 
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
 
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(0));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(1));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(0));
 
                 Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityA, new EcsTestData { value = 12 })));
             }
 
             m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
             var entityB = CreateEntity(new EcsTestData { value = 22 });
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
 
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(0));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(1));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(0));
 
                 Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityB, new EcsTestData { value = 22 })));
             }
@@ -130,12 +132,12 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.DestroyEntity(entityA);
             var entityC = CreateEntity(new EcsTestData { value = 32 });
 
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
 
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(2));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(2));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(2));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(2));
 
                 Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityB, new EcsTestData { value = 22 })));
                 Assert.That(result.GetAddedComponent<EcsTestData>(1), Is.EqualTo((entityC, new EcsTestData { value = 32 })));
@@ -150,7 +152,7 @@ namespace Unity.Entities.Editor.Tests
             var entityA = CreateEntity(new EcsTestData { value = 12 });
             var entityB = CreateEntity(new EcsTestData { value = 22 });
 
-            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
             }
@@ -158,11 +160,11 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
             m_World.EntityManager.SetComponentData(entityA, new EcsTestData { value = 32 });
 
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(1));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(1));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(1));
 
                 Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityA, new EcsTestData { value = 32 })));
                 Assert.That(result.GetRemovedComponent<EcsTestData>(0), Is.EqualTo((entityA, new EcsTestData { value = 12 })));
@@ -174,12 +176,12 @@ namespace Unity.Entities.Editor.Tests
         {
             var entityA = CreateEntity(new EcsTestData { value = 12 });
             var entityB = CreateEntity(new EcsTestData { value = 22 });
-            m_World.EntityManager.AddSharedComponentData(entityA, new EcsTestSharedComp { value = 1 });
-            m_World.EntityManager.AddSharedComponentData(entityB, new EcsTestSharedComp { value = 1 });
+            m_World.EntityManager.AddSharedComponentManaged(entityA, new EcsTestSharedComp { value = 1 });
+            m_World.EntityManager.AddSharedComponentManaged(entityB, new EcsTestSharedComp { value = 1 });
             var entityC = CreateEntity(new EcsTestData { value = 32 });
-            m_World.EntityManager.AddSharedComponentData(entityC, new EcsTestSharedComp { value = 2 });
+            m_World.EntityManager.AddSharedComponentManaged(entityC, new EcsTestSharedComp { value = 2 });
 
-            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
             }
@@ -188,15 +190,15 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.RemoveComponent<EcsTestData>(entityB);
             Assert.That(m_World.EntityManager.HasComponent<EcsTestData>(entityB), Is.False);
             var entityBbis = CreateEntity(new EcsTestData { value = 52 });
-            m_World.EntityManager.AddSharedComponentData(entityBbis, new EcsTestSharedComp { value = 1 });
+            m_World.EntityManager.AddSharedComponentManaged(entityBbis, new EcsTestSharedComp { value = 1 });
             var entityD = CreateEntity(new EcsTestData { value = 42 });
-            m_World.EntityManager.AddSharedComponentData(entityD, new EcsTestSharedComp { value = 2 });
+            m_World.EntityManager.AddSharedComponentManaged(entityD, new EcsTestSharedComp { value = 2 });
 
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(2));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(1));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(2));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(1));
 
                 Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityBbis, new EcsTestData { value = 52 })));
                 Assert.That(result.GetAddedComponent<EcsTestData>(1), Is.EqualTo((entityD, new EcsTestData { value = 42 })));
@@ -212,7 +214,7 @@ namespace Unity.Entities.Editor.Tests
                 var data = new EcsTestData { value = i };
                 return (e:CreateEntity(data), data);
             }).ToArray();
-            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
             }
@@ -229,15 +231,15 @@ namespace Unity.Entities.Editor.Tests
                 expectedEntitiesWithRemovedComponents.Add((entities[i].e, entities[i].data, current));
             }
 
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(expectedEntitiesWithRemovedComponents.Count));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(expectedEntitiesWithRemovedComponents.Count));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(expectedEntitiesWithRemovedComponents.Count));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(expectedEntitiesWithRemovedComponents.Count));
 
-                var removedComponents = result.GetRemovedComponents<EcsTestData>(Allocator.TempJob);
-                var addedComponents = result.GetAddedComponents<EcsTestData>(Allocator.TempJob);
-                using var entitiesWithRemovedComponents = result.GetEntitiesWithRemovedComponents<EcsTestData>(Allocator.TempJob);
+                var removedComponents = result.GetRemovedComponents<EcsTestData>(World.UpdateAllocator.ToAllocator);
+                var addedComponents = result.GetAddedComponents<EcsTestData>(World.UpdateAllocator.ToAllocator);
+                using var entitiesWithRemovedComponents = result.GetEntitiesWithRemovedComponents<EcsTestData>(World.UpdateAllocator.ToAllocator);
                 try
                 {
                     Assert.That(removedComponents.entities.ToArray(), Is.EquivalentTo(expectedEntitiesWithRemovedComponents.Select(x => x.e)));
@@ -263,7 +265,7 @@ namespace Unity.Entities.Editor.Tests
             var entityInChunk = m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->GetEntityInChunk(entityA);
             Assert.That(entityInChunk.Chunk != null);
 
-            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
             }
@@ -274,11 +276,11 @@ namespace Unity.Entities.Editor.Tests
 
             Assert.That(entityInChunk.Chunk == null);
 
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(0));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(1));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(0));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(1));
 
                 Assert.That(result.GetRemovedComponent<EcsTestData>(0), Is.EqualTo((entityA, new EcsTestData { value = 12 })));
             }
@@ -293,29 +295,29 @@ namespace Unity.Entities.Editor.Tests
                 var entityB = CreateEntity(new EcsTestData { value = 22 });
                 m_World.EntityManager.AddComponentData(entityB, new EcsTestData2 { value0 = 32, value1 = 42 });
 
-                using (var result = m_ChunkDiffer.GatherComponentChangesAsync(customQuery, Allocator.TempJob, out var jobHandle))
+                using (var result = m_ChunkDiffer.GatherComponentChangesAsync(customQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
                 {
                     jobHandle.Complete();
-                    Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
-                    Assert.That(result.RemovedComponentsCount, Is.EqualTo(0));
+                    Assert.That(result.AddedComponentCount, Is.EqualTo(1));
+                    Assert.That(result.RemovedComponentCount, Is.EqualTo(0));
 
                     Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityB, new EcsTestData { value = 22 })));
                 }
 
-                using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+                using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
                 {
                     jobHandle.Complete();
-                    Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
-                    Assert.That(result.RemovedComponentsCount, Is.EqualTo(0));
+                    Assert.That(result.AddedComponentCount, Is.EqualTo(1));
+                    Assert.That(result.RemovedComponentCount, Is.EqualTo(0));
 
                     Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityA, new EcsTestData { value = 12 })));
                 }
 
                 {
-                    var result = m_ChunkDiffer.GatherComponentChangesAsync(customQuery, Allocator.TempJob, out var jobHandle);
+                    var result = m_ChunkDiffer.GatherComponentChangesAsync(customQuery, World.UpdateAllocator.ToAllocator, out var jobHandle);
                     jobHandle.Complete();
-                    Assert.That(result.AddedComponentsCount, Is.EqualTo(0));
-                    Assert.That(result.RemovedComponentsCount, Is.EqualTo(1));
+                    Assert.That(result.AddedComponentCount, Is.EqualTo(0));
+                    Assert.That(result.RemovedComponentCount, Is.EqualTo(1));
 
                     Assert.That(result.GetRemovedComponent<EcsTestData>(0), Is.EqualTo((entityA, new EcsTestData { value = 12 })));
                     result.Dispose();
@@ -329,19 +331,19 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
             var entity1 = CreateEntity(new EcsTestData { value = 1 });
             var entity2 = CreateEntity(new EcsTestData { value = 2 });
-            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
             }
 
             m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
             m_World.EntityManager.DestroyEntity(entity1);
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
 
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(2));
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(2));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(1));
 
                 // entity1 is detected as removed because it's been deleted
                 Assert.That(result.GetRemovedComponent<EcsTestData>(0), Is.EqualTo((entity1, new EcsTestData { value = 1 })));
@@ -365,7 +367,7 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.SetComponentData(entityA1, new EcsTestData { value = 1 });
             m_World.EntityManager.SetComponentData(entityA2, new EcsTestData { value = 2 });
             m_World.EntityManager.SetComponentData(entityB1, new EcsTestData { value = 1 });
-            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
             }
@@ -375,11 +377,11 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.RemoveComponent<CompA>(entityA2);
             m_World.EntityManager.AddComponent<CompB>(entityA2);
 
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(1));
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(1));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(1));
 
                 Assert.That(result.GetRemovedComponent<EcsTestData>(0), Is.EqualTo((entityA2, new EcsTestData { value = 2 })));
                 Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityA2, new EcsTestData { value = 2 })));
@@ -392,7 +394,7 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
             var entityA = CreateEntity(new EcsTestData { value = 1 });
             var entityB = CreateEntity(new EcsTestData { value = 1 });
-            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
             }
@@ -400,11 +402,11 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
             m_World.EntityManager.DestroyEntity(entityB);
             var entityC = CreateEntity(new EcsTestData { value = 1 });
-            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, Allocator.TempJob, out var jobHandle))
+            using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
                 jobHandle.Complete();
-                Assert.That(result.AddedComponentsCount, Is.EqualTo(1));
-                Assert.That(result.RemovedComponentsCount, Is.EqualTo(1));
+                Assert.That(result.AddedComponentCount, Is.EqualTo(1));
+                Assert.That(result.RemovedComponentCount, Is.EqualTo(1));
 
                 Assert.That(result.GetRemovedComponent<EcsTestData>(0), Is.EqualTo((entityB, new EcsTestData { value = 1 })));
                 Assert.That(result.GetAddedComponent<EcsTestData>(0), Is.EqualTo((entityC, new EcsTestData { value = 1 })));
@@ -433,7 +435,7 @@ namespace Unity.Entities.Editor.Tests
 #pragma warning restore 649
         }
 
-        Entity CreateEntity<T>(T data) where T : struct, IComponentData
+        Entity CreateEntity<T>(T data) where T : unmanaged, IComponentData
         {
             var e = m_World.EntityManager.CreateEntity();
             m_World.EntityManager.AddComponentData(e, data);

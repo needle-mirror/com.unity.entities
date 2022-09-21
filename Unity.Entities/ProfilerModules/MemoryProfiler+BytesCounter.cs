@@ -6,7 +6,7 @@ namespace Unity.Entities
 {
     static partial class MemoryProfiler
     {
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         public readonly struct BytesCounter
         {
             readonly ProfilerCounterValue<ulong> m_Counter;
@@ -17,7 +17,7 @@ namespace Unity.Entities
                 set => m_Counter.Value = value;
             }
 
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Takes managed string")]
             public BytesCounter(string name)
             {
                 m_Counter = new ProfilerCounterValue<ulong>(Category, name, ProfilerMarkerDataUnit.Bytes,

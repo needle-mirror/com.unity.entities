@@ -1,25 +1,23 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "0.51.1-preview.21",
-  "unity": "2020.3",
-  "unityRelease": "30f1",
+  "version": "1.0.0-exp.8",
+  "unity": "2022.2",
+  "unityRelease": "0b5",
   "dependencies": {
-    "com.unity.burst": "1.6.6",
-    "com.unity.properties": "1.7.0-preview",
-    "com.unity.properties.ui": "1.7.0-preview",
-    "com.unity.serialization": "1.7.0-preview.1",
-    "com.unity.collections": "1.4.0",
-    "com.unity.jobs": "0.70.0-preview.7",
+    "com.unity.burst": "1.7.3",
+    "com.unity.properties": "2.0.0-exp.11",
+    "com.unity.serialization": "2.0.0-exp.11",
+    "com.unity.collections": "2.1.0-exp.4",
     "com.unity.mathematics": "1.2.6",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.unitywebrequest": "1.0.0",
     "com.unity.test-framework.performance": "2.8.0-preview",
-    "com.unity.nuget.mono-cecil": "1.10.1",
-    "com.unity.scriptablebuildpipeline": "1.19.2",
-    "com.unity.platforms": "0.51.1-preview.21",
-    "com.unity.roslyn": "0.2.2-preview",
-    "com.unity.profiling.core": "1.0.0"
+    "com.unity.nuget.mono-cecil": "1.11.4",
+    "com.unity.jobs": "0.70.0-preview.7",
+    "com.unity.scriptablebuildpipeline": "1.20.2",
+    "com.unity.platforms": "1.0.0-exp.6",
+    "com.unity.profiling.core": "1.0.2"
   },
   "description": "The Entities package provides a modern Entity Component System (ECS) implementation with a basic set of systems and components made for Unity.",
   "keywords": [
@@ -27,15 +25,12 @@
     "dots",
     "unity"
   ],
-  "upm": {
-    "changelog": "### Changed\n\n* Package Dependencies\n  * `com.unity.jobs` to version `0.51.1`\n  * `com.unity.platforms` to version `0.51.1`\n  * `com.unity.collections` to version `1.4.0`\n  * `com.unity.jobs` to version `0.70.0`\n\n### Fixed\n\n* an issue with source generator that was causing a compilation error when the generator was unable to create the temporary output folder.\n* an issue with netcode source generator that was trying to run on assembly that did not have the right references and also when the project path was not assigned, making impossible to load the templates files.\n* Entities.ForEach in method with nullable parameter types.\n* SetComponent in Entities.ForEach with argument that has an element accessor."
-  },
   "upmCi": {
-    "footprint": "710923d1352615b6212b259b8da484630ea14567"
+    "footprint": "b2ef119b52ae1733b5eec764661d964a95076e36"
   },
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "063a98897b40805f53b859bb426ce664229d0c00"
+    "revision": "7f4180a58b7e1c75f6375bd73fb80bd99d195d4e"
   }
 }

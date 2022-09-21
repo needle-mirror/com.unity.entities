@@ -40,8 +40,10 @@ namespace Unity.Entities.Tests
             m_NextEntityGuidIndex = 1;
             m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
             SrcWorld = new World(nameof(EntityDifferTests) + ".Source");
+            SrcWorld.UpdateAllocatorEnableBlockFree = true;
             SrcEntityManager = SrcWorld.EntityManager;
             DstWorld = new World(nameof(EntityPatcherTests) + ".Destination");
+            DstWorld.UpdateAllocatorEnableBlockFree = true;
             DstEntityManager = DstWorld.EntityManager;
         }
 
@@ -70,7 +72,7 @@ namespace Unity.Entities.Tests
         /// <summary>
         /// Pushes forward changes from the tracker to the applier.
         /// </summary>
-        protected static void PushChanges(EntityManagerDiffer differ, EntityManager target, bool fastForward = true)
+        protected static void PushChanges(EntityManagerDiffer differ, EntityManager target, Allocator allocator, bool fastForward = true)
         {
             var options = EntityManagerDifferOptions.IncludeForwardChangeSet;
 
@@ -79,26 +81,26 @@ namespace Unity.Entities.Tests
                 options |= EntityManagerDifferOptions.FastForwardShadowWorld;
             }
 
-            using (var changes = differ.GetChanges(options, Allocator.TempJob))
+            using (var changes = differ.GetChanges(options, allocator))
             {
                 EntityPatcher.ApplyChangeSet(target, changes.ForwardChangeSet);
             }
         }
 
         protected static bool HasComponent<TComponentData>(EntityManager entityManager, EntityGuid entityGuid)
-            where TComponentData : struct, IComponentData
+            where TComponentData : unmanaged, IComponentData
         {
             return entityManager.HasComponent<TComponentData>(GetEntity(entityManager, entityGuid));
         }
 
         protected static TComponentData GetComponentData<TComponentData>(EntityManager entityManager, EntityGuid entityGuid)
-            where TComponentData : struct, IComponentData
+            where TComponentData : unmanaged, IComponentData
         {
             return entityManager.GetComponentData<TComponentData>(GetEntity(entityManager, entityGuid));
         }
 
         protected static void SetComponentData<TComponentData>(EntityManager entityManager, EntityGuid entityGuid, TComponentData data)
-            where TComponentData : struct, IComponentData
+            where TComponentData : unmanaged, IComponentData
         {
             var entity = GetEntity(entityManager, entityGuid);
             entityManager.SetComponentData(entity, data);
@@ -107,7 +109,7 @@ namespace Unity.Entities.Tests
         protected static TComponentData GetSharedComponentData<TComponentData>(EntityManager entityManager, EntityGuid entityGuid)
             where TComponentData : struct, ISharedComponentData
         {
-            return entityManager.GetSharedComponentData<TComponentData>(GetEntity(entityManager, entityGuid));
+            return entityManager.GetSharedComponentManaged<TComponentData>(GetEntity(entityManager, entityGuid));
         }
 
         protected static Entity GetEntity(EntityManager entityManager, EntityGuid entityGuid)

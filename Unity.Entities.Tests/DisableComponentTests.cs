@@ -34,9 +34,9 @@ namespace Unity.Entities.Tests
             var entity1 = m_Manager.CreateEntity(archetype1);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
-            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
-            var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
+            var count = ArchetypeChunkArray.TotalEntityCountInChunksIgnoreFiltering(chunks);
 
             Assert.AreEqual(1, count);
 
@@ -75,9 +75,9 @@ namespace Unity.Entities.Tests
             var entity2 = m_Manager.CreateEntity(archetype1);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<Disabled>());
-            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
-            var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
+            var count = ArchetypeChunkArray.TotalEntityCountInChunksIgnoreFiltering(chunks);
 
             Assert.AreEqual(2, count);
 
@@ -115,8 +115,8 @@ namespace Unity.Entities.Tests
 
             CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.Default, 0);
             CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.IncludePrefab, 1);
-            CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.IncludeDisabled, 1);
-            CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab, 3);
+            CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.IncludeDisabledEntities, 1);
+            CheckPrefabAndDisabledQueryOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab, 3);
         }
 
         void CheckPrefabAndDisabledQueryOptions(EntityQueryOptions options, int expected)

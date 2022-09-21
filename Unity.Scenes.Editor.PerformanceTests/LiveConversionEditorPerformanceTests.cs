@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -15,32 +15,110 @@ using Object = UnityEngine.Object;
 
 namespace Unity.Scenes.Editor.Tests
 {
-    [Serializable]
     [TestFixture]
-    class LiveConversionEditorPerformanceTests
+    class LiveBakingEditorPerformanceTests : LiveBakingAndConversionEditorPerformanceTestsBase
     {
-        [SerializeField] TestWithEditorLiveConversion m_Test;
-        [SerializeField] TestWithObjects m_Objects;
-        private const int MaxIterations = 30;
+        private LiveConversionSettings.ConversionMode _previousLiveConversionSettings;
 
         [OneTimeSetUp]
+        public new void OneTimeSetUp()
+        {
+            base.m_Test.IsBakingEnabled = true;
+            base.OneTimeSetUp();
+        }
+
+        [OneTimeTearDown]
+        public new void OneTimeTearDown()
+        {
+            base.OneTimeTearDown();
+        }
+
+        [SetUp]
+        public new void SetUp()
+        {
+            base.SetUp();
+            _previousLiveConversionSettings = LiveConversionSettings.Mode;
+        }
+
+        [TearDown]
+        public new void TearDown()
+        {
+            base.TearDown();
+            LiveConversionSettings.Mode = _previousLiveConversionSettings;
+        }
+
+        public enum ChunkDistributionTest
+        {
+            OneEntityPerChunk,
+            PackedChunks
+        }
+
+        [UnityTest, Performance]
+        public IEnumerator LiveConversion_Performance_TemporaryBakingType([Values(100, 1000, 10000)]int numObjects, [Values]ChunkDistributionTest distribution)
+        {
+            LiveConversionSettings.Mode = LiveConversionSettings.ConversionMode.AlwaysCleanConvert;
+
+            var objList = CreateObjectSoupSubSceneObjects(numObjects, typeof(TempBakingPerformanceAuthoring));
+            if (distribution == ChunkDistributionTest.OneEntityPerChunk)
+            {
+                for (int index = 0; index < objList.Count; ++index)
+                {
+                    var go = objList[index];
+                    var component = go.GetComponent<TempBakingPerformanceAuthoring>();
+                    component.Field = index;
+                }
+            }
+
+            var objectArray = objList.ToArray();
+
+            using var blobAssetStore = new BlobAssetStore(128);
+
+            var bakingSettings = new BakingSettings
+            {
+                BakingFlags = BakingUtility.BakingFlags.AssignName | BakingUtility.BakingFlags.AddEntityGUID,
+                BlobAssetStore = blobAssetStore
+            };
+
+            SampleGroup sampleGroup = new SampleGroup(nameof(EditorSubSceneLiveConversionSystem));
+            var world = new World("TestWorld");
+
+            BakingStripSystem strippingSystem = world.GetOrCreateSystemManaged<BakingStripSystem>();
+            var strippingSystemProfileMarkerName = strippingSystem.GetProfilerMarkerName();
+
+            BakingUtility.BakeGameObjects(world, objectArray, bakingSettings);
+
+            for (int i = 0; i < MaxIterations; i++)
+            {
+                using (Measure.ProfilerMarkers(strippingSystemProfileMarkerName))
+                {
+                    BakingUtility.BakeGameObjects(world, objectArray, bakingSettings);
+                }
+            }
+            yield break;
+        }
+    }
+
+    [Serializable]
+    abstract class LiveBakingAndConversionEditorPerformanceTestsBase
+    {
+        [SerializeField] protected TestWithEditorLiveConversion m_Test;
+        [SerializeField] protected TestWithObjects m_Objects;
+        protected const int MaxIterations = 30;
+
         public void OneTimeSetUp()
         {
             m_Test.OneTimeSetUp();
             LiveConversionSettings.AdditionalConversionSystems.Clear();
-            LiveConversionSettings.AdditionalConversionSystems.Add(typeof(TestConversionSystem));
             LiveConversionSettings.Mode = LiveConversionSettings.ConversionMode.IncrementalConversion;
             LiveConversionSettings.EnableInternalDebugValidation = false;
         }
 
-        [OneTimeTearDown]
         public void OneTimeTearDown()
         {
             m_Test.OneTimeTearDown();
             LiveConversionSettings.AdditionalConversionSystems.Clear();
         }
 
-        [SetUp]
         public void SetUp()
         {
             m_Test.SetUp();
@@ -48,25 +126,12 @@ namespace Unity.Scenes.Editor.Tests
             MeasureLiveConversionTime.IsFirst = true;
         }
 
-        [TearDown]
         public void TearDown()
         {
             m_Objects.TearDown();
         }
 
-        static string AssetPath(string name) => "Packages/com.unity.entities/Unity.Scenes.Editor.PerformanceTests/Assets/" + name;
-
-        class TestConversionSystem : GameObjectConversionSystem
-        {
-            protected override void OnUpdate()
-            {
-#if ENABLE_ASPECTS
-                // Force Entities into existence
-                Entities.ForEach((TestMonoBehaviour t) => { GetPrimaryEntity(t); });
-#endif
-            }
-        }
-
+        protected static string AssetPath(string name) => "Packages/com.unity.entities/Unity.Scenes.Editor.PerformanceTests/Assets/" + name;
 
         public enum ObjectKind
         {
@@ -77,7 +142,7 @@ namespace Unity.Scenes.Editor.Tests
 #endif
         }
 
-        GameObject CreateGameObject(ObjectKind objectKind)
+        protected GameObject CreateGameObject(ObjectKind objectKind)
         {
             switch (objectKind)
             {
@@ -93,7 +158,12 @@ namespace Unity.Scenes.Editor.Tests
             return null;
         }
 
-        GameObject LoadPrefab(ObjectKind objectKind)
+        protected GameObject CreateGameObject(Type component)
+        {
+            return m_Objects.CreateGameObject(component);
+        }
+
+        protected GameObject LoadPrefab(ObjectKind objectKind)
         {
             switch (objectKind)
             {
@@ -110,7 +180,7 @@ namespace Unity.Scenes.Editor.Tests
             return null;
         }
 
-        GameObject CreateHierarchy(int depth, int branching, ObjectKind kind, List<GameObject> output = null)
+        protected GameObject CreateHierarchy(int depth, int branching, ObjectKind kind, List<GameObject> output = null)
         {
             return CreateSubHierarchy(depth, branching, null, output);
             GameObject CreateSubHierarchy(int depth, int branching, Transform parent, List<GameObject> output)
@@ -129,7 +199,7 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-        List<GameObject> CreateObjectSoupSubSceneObjects(int numObjects, ObjectKind kind)
+        protected List<GameObject> CreateObjectSoupSubSceneObjects(int numObjects, ObjectKind kind)
         {
             var subScene = m_Test.CreateEmptySubScene("TestSubScene", true);
             var objects = new List<GameObject>();
@@ -146,7 +216,24 @@ namespace Unity.Scenes.Editor.Tests
             return objects;
         }
 
-        GameObject CreateObjectSoupSubScene(int numObjects, ObjectKind kind, SubScene subScene)
+        protected List<GameObject> CreateObjectSoupSubSceneObjects(int numObjects, Type component)
+        {
+            var subScene = m_Test.CreateEmptySubScene("TestSubScene", true);
+            var objects = new List<GameObject>();
+            for (int i = 0; i < numObjects; i++)
+            {
+                var obj = CreateGameObject(component);
+                objects.Add(obj);
+                SceneManager.MoveGameObjectToScene(obj, subScene.EditingScene);
+            }
+
+            var target = CreateGameObject(component);
+            SceneManager.MoveGameObjectToScene(target, subScene.EditingScene);
+            objects.Add(target);
+            return objects;
+        }
+
+        protected GameObject CreateObjectSoupSubScene(int numObjects, ObjectKind kind, SubScene subScene)
         {
             for (int i = 0; i < numObjects; i++)
                 SceneManager.MoveGameObjectToScene(CreateGameObject(kind), subScene.EditingScene);
@@ -160,14 +247,14 @@ namespace Unity.Scenes.Editor.Tests
         // (b) running a performance test like this only once means that it potentially triggers JIT compilation. I've
         //     tried this many times now and it consistently increases runtimes by 10x-50x, so that means that it will
         //     be unstable based on the order that tests run in.
-        struct MeasureLiveConversionTime
+        protected struct MeasureLiveConversionTime
         {
             internal static bool IsFirst;
             private readonly EditorSubSceneLiveConversionSystem m_System;
             private readonly SampleGroup m_SampleGroup;
             public MeasureLiveConversionTime(World w)
             {
-                m_System = w.GetExistingSystem<EditorSubSceneLiveConversionSystem>();
+                m_System = w.GetExistingSystemManaged<EditorSubSceneLiveConversionSystem>();
                 m_System.MillisecondsTakenByUpdate = 0;
                 m_SampleGroup = new SampleGroup(nameof(EditorSubSceneLiveConversionSystem));
             }

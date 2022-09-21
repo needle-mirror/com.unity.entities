@@ -2,19 +2,31 @@ using System;
 
 namespace Unity.Entities
 {
-    // Used by Source Generators to target method patching.
-    // Only used by internal Unity codegen.
+    /// <summary>
+    /// Attribute to mark a compiler generated method for method body copying.
+    /// Intended only for use by internal Unity codegen.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
     public class DOTSCompilerPatchedMethodAttribute : Attribute
     {
+        /// <summary>
+        /// Constructor for <see cref="DOTSCompilerPatchedMethodAttribute"/>.
+        /// </summary>
+        /// <param name="targetMethodName">Original method to copy method body into.</param>
         public DOTSCompilerPatchedMethodAttribute(string targetMethodName) { }
     }
 
-    // Used by Source Generators to target property patching.
-    // Only used by internal Unity codegen.
+    /// <summary>
+    /// Attribute to mark a compiler generated method for property body copying.
+    /// Intended only for use by internal Unity codegen.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Property)]
     public class DOTSCompilerPatchedPropertyAttribute : Attribute
     {
+        /// <summary>
+        /// Constructor for <see cref="DOTSCompilerPatchedMethodAttribute"/>.
+        /// </summary>
+        /// <param name="targetPropertyName">Original property to copy property body into.</param>
         public DOTSCompilerPatchedPropertyAttribute(string targetPropertyName) { }
     }
 }

@@ -4,6 +4,9 @@ namespace Unity.Entities.Editor
 {
     class TabContent : VisualElement, ITabContent, INotifyValueChanged<string>
     {
+        class TabContentFactory : UxmlFactory<TabContent, TabContentTraits> { }
+        class TabContentTraits : UxmlTraits { }
+
         static readonly string s_UssClassName = "tab-element";
         string m_TabName;
 
@@ -24,6 +27,15 @@ namespace Unity.Entities.Editor
         public TabContent()
         {
             AddToClassList(s_UssClassName);
+            RegisterCallback<GeometryChangedEvent>(OnGeometryChangeEvent);
+        }
+
+        void OnGeometryChangeEvent(GeometryChangedEvent evt)
+        {
+            if (parent is TabView tabView)
+                tabView.Internal_AddTab(this);
+
+            UnregisterCallback<GeometryChangedEvent>(OnGeometryChangeEvent);
         }
 
         public void SetValueWithoutNotify(string newValue)

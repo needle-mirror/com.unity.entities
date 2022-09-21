@@ -10,8 +10,8 @@ namespace Unity.Entities.Tests
             var before = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData3), typeof(EcsTestData4));
             var after = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData5));
 
-            var added = stackalloc int[after.TypesCount];
-            var removed = stackalloc int[before.TypesCount];
+            var added = stackalloc TypeIndex[after.TypesCount];
+            var removed = stackalloc TypeIndex[before.TypesCount];
 
             EntityArchetype.CalculateDifference(before, after, added, out var addedTypesCount, removed, out var removedTypesCount);
 
@@ -28,8 +28,8 @@ namespace Unity.Entities.Tests
             var before = m_Manager.CreateArchetype();
             var after = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var added = stackalloc int[after.TypesCount];
-            var removed = stackalloc int[before.TypesCount];
+            var added = stackalloc TypeIndex[after.TypesCount];
+            var removed = stackalloc TypeIndex[before.TypesCount];
 
             EntityArchetype.CalculateDifference(before, after, added, out var addedTypesCount, removed, out var removedTypesCount);
 
@@ -45,8 +45,8 @@ namespace Unity.Entities.Tests
             var before = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             var after = m_Manager.CreateArchetype();
 
-            var added = stackalloc int[after.TypesCount];
-            var removed = stackalloc int[before.TypesCount];
+            var added = stackalloc TypeIndex[after.TypesCount];
+            var removed = stackalloc TypeIndex[before.TypesCount];
 
             EntityArchetype.CalculateDifference(before, after, added, out var addedTypesCount, removed, out var removedTypesCount);
 
@@ -62,8 +62,8 @@ namespace Unity.Entities.Tests
             var before = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             var after = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var added = stackalloc int[after.TypesCount];
-            var removed = stackalloc int[before.TypesCount];
+            var added = stackalloc TypeIndex[after.TypesCount];
+            var removed = stackalloc TypeIndex[before.TypesCount];
 
             EntityArchetype.CalculateDifference(before, after, added, out var addedTypesCount, removed, out var removedTypesCount);
 
@@ -77,8 +77,8 @@ namespace Unity.Entities.Tests
             var before = m_Manager.CreateArchetype();
             var after = m_Manager.CreateArchetype();
 
-            var added = stackalloc int[after.TypesCount];
-            var removed = stackalloc int[before.TypesCount];
+            var added = stackalloc TypeIndex[after.TypesCount];
+            var removed = stackalloc TypeIndex[before.TypesCount];
 
             EntityArchetype.CalculateDifference(before, after, added, out var addedTypesCount, removed, out var removedTypesCount);
 

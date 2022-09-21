@@ -32,6 +32,7 @@ namespace Unity.Core
         /// Generate a 32-bit xxHash value.
         /// </summary>
         /// <param name="buffer">Input buffer.</param>
+        /// <param name="bufferLength">Input buffer length.</param>
         /// <param name="seed">Optional seed.</param>
         /// <returns>32-bit hash value.</returns>
         public static unsafe uint Hash32(byte* buffer, int bufferLength, uint seed = 0)
@@ -135,6 +136,7 @@ namespace Unity.Core
         /// Generate a 64-bit xxHash value.
         /// </summary>
         /// <param name="buffer">Input buffer.</param>
+        /// <param name="bufferLength">Input buffer length.</param>
         /// <param name="seed">Optional seed.</param>
         /// <returns>Computed 64-bit hash value.</returns>
         public static unsafe ulong Hash64(byte* buffer, int bufferLength, ulong seed = 0)

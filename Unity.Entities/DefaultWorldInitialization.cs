@@ -8,6 +8,7 @@ using System.Reflection;
 using Unity.Assertions;
 using UnityEngine;
 using Unity.Collections;
+using Unity.Profiling;
 #if !UNITY_DOTSRUNTIME
 using UnityEngine.LowLevel;
 using UnityEngine.PlayerLoop;
@@ -18,6 +19,9 @@ using System.Linq;
 
 namespace Unity.Entities
 {
+    /// <summary>
+    /// Utilities to help initialize the default ECS <see cref="World"/>.
+    /// </summary>
     public static class DefaultWorldInitialization
     {
 #pragma warning disable 0067 // unused variable
@@ -99,7 +103,7 @@ namespace Unity.Entities
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             EntitiesJournaling.Shutdown();
 #endif
-            
+
 #if ENABLE_PROFILER
             EntitiesProfiler.Shutdown();
 #endif
@@ -114,9 +118,12 @@ namespace Unity.Entities
         /// Initializes the default world or runs ICustomBootstrap if one is available.
         /// </summary>
         /// <param name="defaultWorldName">The name of the world that will be created. Unless there is a custom bootstrap.</param>
-        /// <param name="editorWorld">Editor worlds by default only include systems with [ExecuteAlways]. If editorWorld is true, ICustomBootstrap will not be used.</param>
+        /// <param name="editorWorld">Editor worlds by default only include systems with [WorldSystemFilter(WorldSystemFilterFlags.Editor)]. If editorWorld is true, ICustomBootstrap will not be used.</param>
+        /// <returns>The initialized <see cref="World"/> object.</returns>
         public static World Initialize(string defaultWorldName, bool editorWorld = false)
         {
+            using var marker = new ProfilerMarker("Create World & Systems").Auto();
+
             RegisterUnloadOrPlayModeChangeShutdown();
 
 #if ENABLE_PROFILER
@@ -139,8 +146,8 @@ namespace Unity.Entities
                     return World.DefaultGameObjectInjectionWorld;
                 }
             }
-
             var world = new World(defaultWorldName, editorWorld ? WorldFlags.Editor : WorldFlags.Game);
+
             World.DefaultGameObjectInjectionWorld = world;
 
             var systemList = GetAllSystems(WorldSystemFilterFlags.Default, editorWorld);
@@ -160,6 +167,8 @@ namespace Unity.Entities
         /// Adds the collection of systems to the world by injecting them into the root level system groups
         /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup)
         /// </summary>
+        /// <param name="world">The World in which the root-level system groups should be created.</param>
+        /// <param name="systemTypes">The system types to create and add.</param>
         public static void AddSystemsToRootLevelSystemGroups(World world, IEnumerable<Type> systemTypes)
         {
             AddSystemsToRootLevelSystemGroups(world, systemTypes.ToArray());
@@ -170,6 +179,8 @@ namespace Unity.Entities
         /// Adds the collection of systems to the world by injecting them into the root level system groups
         /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup)
         /// </summary>
+        /// <param name="world">The World in which the root-level system groups should be created.</param>
+        /// <param name="systemTypes">The system types to create and add.</param>
         public static void AddSystemsToRootLevelSystemGroups(World world, params Type[] systemTypes)
         {
             AddSystemToRootLevelSystemGroupsInternal(world, systemTypes);
@@ -179,6 +190,8 @@ namespace Unity.Entities
         /// Adds the collection of systems to the world by injecting them into the root level system groups
         /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup)
         /// </summary>
+        /// <param name="world">The World in which the root-level system groups should be created.</param>
+        /// <param name="systemTypes">The system types to create and add.</param>
         public static void AddSystemsToRootLevelSystemGroups(World world, IReadOnlyList<Type> systemTypes)
         {
             AddSystemToRootLevelSystemGroupsInternal(world, systemTypes);
@@ -202,13 +215,14 @@ namespace Unity.Entities
                 type == typeof(PresentationSystemGroup);
         }
 
-        internal static void AddSystemToRootLevelSystemGroupsInternal<T>(World world, IEnumerable<Type> systemTypesOrig, ComponentSystemGroup defaultGroup, T rootGroups)
+        internal static unsafe void AddSystemToRootLevelSystemGroupsInternal<T>(World world, IEnumerable<Type> systemTypesOrig, ComponentSystemGroup defaultGroup, T rootGroups)
             where T : struct, IIdentifyRootGroups
         {
             var managedTypes = new List<Type>();
             var unmanagedTypes = new List<Type>();
 
-            foreach (var stype in systemTypesOrig)
+            var systemTypesArray = systemTypesOrig.ToArray();
+            foreach (var stype in systemTypesArray)
             {
                 if (typeof(ComponentSystemBase).IsAssignableFrom(stype))
                     managedTypes.Add(stype);
@@ -218,22 +232,22 @@ namespace Unity.Entities
                     throw new InvalidOperationException("Bad type");
             }
 
-            var systems = world.GetOrCreateSystemsAndLogException(managedTypes, managedTypes.Count);
+            var allSystemHandlesToAdd = world.GetOrCreateSystemsAndLogException(systemTypesArray, Allocator.Temp);
 
             // Add systems to their groups, based on the [UpdateInGroup] attribute.
-            foreach (var system in systems)
+            for (int i=0; i<systemTypesArray.Count(); i++)
             {
-                if (system == null)
-                    continue;
+                SystemHandle system = allSystemHandlesToAdd[i];
+                Type systemType = systemTypesArray[i];
+                var ismanaged = typeof(ComponentSystemBase).IsAssignableFrom(systemType);
 
                 // Skip the built-in root-level system groups
-                var type = system.GetType();
-                if (rootGroups.IsRootGroup(type))
+                if (rootGroups.IsRootGroup(systemType))
                 {
                     continue;
                 }
 
-                var updateInGroupAttributes = TypeManager.GetSystemAttributes(system.GetType(), typeof(UpdateInGroupAttribute));
+                var updateInGroupAttributes = TypeManager.GetSystemAttributes(systemType, typeof(UpdateInGroupAttribute));
                 if (updateInGroupAttributes.Length == 0)
                 {
                     defaultGroup.AddSystemToUpdateList(system);
@@ -241,47 +255,22 @@ namespace Unity.Entities
 
                 foreach (var attr in updateInGroupAttributes)
                 {
-                    var group = FindGroup(world, type, attr);
+                    var group = FindGroup(world, systemType, attr);
                     if (group != null)
                     {
                         group.AddSystemToUpdateList(system);
                     }
                 }
             }
-
-            // Create unmanaged systems in batch
-            NativeArray<SystemHandleUntyped> handles = world.Unmanaged.GetOrCreateUnmanagedSystems(world, unmanagedTypes);
-
-            // Add systems to their groups, based on the [UpdateInGroup] attribute.
-            for (int i = 0; i < unmanagedTypes.Count; ++i)
-            {
-                var type = unmanagedTypes[i];
-                SystemHandleUntyped sysHandle = handles[i];
-
-                var updateInGroupAttributes = TypeManager.GetSystemAttributes(type, typeof(UpdateInGroupAttribute));
-                if (updateInGroupAttributes.Length == 0)
-                {
-                    defaultGroup.AddUnmanagedSystemToUpdateList(sysHandle);
-                }
-
-                foreach (var attr in updateInGroupAttributes)
-                {
-                    ComponentSystemGroup groupSys = FindGroup(world, type, attr);
-
-                    if (groupSys != null)
-                    {
-                        groupSys.AddUnmanagedSystemToUpdateList(sysHandle);
-                    }
-                }
-            }
-            handles.Dispose();
         }
 
-        private static void AddSystemToRootLevelSystemGroupsInternal(World world, IEnumerable<Type> systemTypesOrig)
+        internal static void AddSystemToRootLevelSystemGroupsInternal(World world, IEnumerable<Type> systemTypesOrig)
         {
-            var initializationSystemGroup = world.GetOrCreateSystem<InitializationSystemGroup>();
-            var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
-            var presentationSystemGroup = world.GetOrCreateSystem<PresentationSystemGroup>();
+            using var marker = new ProfilerMarker("AddSystems").Auto();
+
+            var initializationSystemGroup = world.GetOrCreateSystemManaged<InitializationSystemGroup>();
+            var simulationSystemGroup = world.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            var presentationSystemGroup = world.GetOrCreateSystemManaged<PresentationSystemGroup>();
 
             AddSystemToRootLevelSystemGroupsInternal(world, systemTypesOrig, simulationSystemGroup, new DefaultRootGroups());
 
@@ -298,7 +287,7 @@ namespace Unity.Entities
             if (uga == null)
                 return null;
 
-            if (!TypeManager.IsSystemAGroup(uga.GroupType))
+            if (!TypeManager.IsSystemType(uga.GroupType) || !TypeManager.IsSystemAGroup(uga.GroupType))
             {
                 throw new InvalidOperationException($"Invalid [UpdateInGroup] attribute for {systemType}: {uga.GroupType} must be derived from ComponentSystemGroup.");
             }
@@ -307,7 +296,7 @@ namespace Unity.Entities
                 throw new InvalidOperationException($"The system {systemType} can not specify both OrderFirst=true and OrderLast=true in its [UpdateInGroup] attribute.");
             }
 
-            var groupSys = world.GetExistingSystem(uga.GroupType);
+            var groupSys = world.GetExistingSystemManaged(uga.GroupType);
             if (groupSys == null)
             {
                 // Warn against unexpected behaviour combining DisableAutoCreation and UpdateInGroup
@@ -346,8 +335,6 @@ namespace Unity.Entities
                     // We are just gonna ignore this enter playmode reload.
                     // Can't see a situation where it would be useful to create something inbetween.
                     // But we really need to solve this at the root. The execution order is kind if crazy.
-                    if (UnityEditor.EditorApplication.isPlaying)
-                        Debug.LogError("Loading GameObjectEntity in Playmode but there is no active World");
                 }
                 else
                 {
@@ -362,12 +349,13 @@ namespace Unity.Entities
         /// <summary>
         /// Calculates a list of all systems filtered with WorldSystemFilterFlags, [DisableAutoCreation] etc.
         /// </summary>
-        /// <param name="filterFlags"></param>
-        /// <param name="requireExecuteAlways">Optionally require that [ExecuteAlways] is present on the system. This is used when creating edit mode worlds.</param>
+        /// <param name="filterFlags">The filter flags to search for.</param>
+        /// <param name="requireExecuteInEditor">Optionally require that [WorldSystemFilter(WorldSystemFilterFlags.Editor)] is present on the system. This is used when creating edit mode worlds.</param>
         /// <returns>The list of filtered systems</returns>
-        public static IReadOnlyList<Type> GetAllSystems(WorldSystemFilterFlags filterFlags, bool requireExecuteAlways = false)
+        public static IReadOnlyList<Type> GetAllSystems(WorldSystemFilterFlags filterFlags, bool requireExecuteInEditor = false)
         {
-            return TypeManager.GetSystems(filterFlags, requireExecuteAlways ? WorldSystemFilterFlags.Editor : WorldSystemFilterFlags.Default);
+            using var marker = new ProfilerMarker("GetAllSystems").Auto();
+            return TypeManager.GetSystems(filterFlags, requireExecuteInEditor ? WorldSystemFilterFlags.Editor : 0);
         }
 
         static ICustomBootstrap CreateBootStrap()

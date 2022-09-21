@@ -4,14 +4,16 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [AddComponentMenu("")]
-    public class CompanionComponentTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class CompanionComponentTestAuthoring : MonoBehaviour
     {
         public int Value;
+    }
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+    class CompanionComponentTestBaker : Baker<CompanionComponentTestAuthoring>
+    {
+        public override void Bake(CompanionComponentTestAuthoring authoring)
         {
-            conversionSystem.AddTypeToCompanionWhiteList(typeof(CompanionComponentTestAuthoring));
-            dstManager.AddComponentObject(entity, this);
+            AddComponentObject(authoring);
         }
     }
 }

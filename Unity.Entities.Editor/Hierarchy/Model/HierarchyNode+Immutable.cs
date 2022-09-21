@@ -5,13 +5,13 @@ using Unity.Collections;
 
 namespace Unity.Entities.Editor
 {
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     readonly partial struct HierarchyNode
     {
         /// <summary>
         /// The <see cref="Immutable"/> struct represents a high level node over the <see cref="HierarchyNodeStore.Immutable"/> out hierarchy model.
         /// </summary>
-        [BurstCompatible]
+        [GenerateTestsForBurstCompatibility]
         public readonly struct Immutable
         {
             readonly HierarchyNodeStore.Immutable m_Hierarchy;

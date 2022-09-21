@@ -186,8 +186,8 @@ namespace Unity.Entities.CodeGen
         // R2 - If a type's data layout changes, so should the type hash. This includes:
         //      - Nested field's data layout changes (e.g. new member added)
         //      - FieldOffsets, explicit size, or pack alignment are changed
-        //      - Different types of the same width swap places (e.g. uint <-> int)
-        //      - NOTE: we cannot detect if fields of the same type swap (e.g. mInt1 <-> mInt2) This would be a semantic
+        //      - Different types of the same width swap places (e.g. uint to int)
+        //      - NOTE: we cannot detect if fields of the same type swap (e.g. mInt1 to mInt2) This would be a semantic
         //        difference which the user should increase their component [TypeVersion(1)] attribute. We explicitly do
         //        not want to try to handle this case by hashing field names, as users do not control all field names,
         //        and field names have no effect on how we serialize and should not effect our hashes.

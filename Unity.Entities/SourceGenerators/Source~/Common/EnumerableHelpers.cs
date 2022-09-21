@@ -6,6 +6,7 @@ namespace Unity.Entities.SourceGen.Common
 {
     public static class EnumerableHelpers
     {
+        public static string SeparateByUnderscore(this IEnumerable<string> lines) => string.Join("_", lines.Where(s => !string.IsNullOrEmpty(s)));
         public static string SeparateByDot(this IEnumerable<string> lines) => string.Join(".", lines.Where(s => !string.IsNullOrEmpty(s)));
         public static string SeparateByComma(this IEnumerable<string> lines) => string.Join(",", lines.Where(s => !string.IsNullOrEmpty(s)));
         public static string SeparateByCommaAndSpace(this IEnumerable<string> lines) => string.Join(", ", lines.Where(s => !string.IsNullOrEmpty(s)));
@@ -41,11 +42,6 @@ namespace Unity.Entities.SourceGen.Common
                     yield return element;
                 }
             }
-        }
-
-        public static bool IsStructurallyEqualTo<T>(this IEnumerable<T> first, IEnumerable<T> second)
-        {
-            return !first.Except(second).Any() && !second.Except(first).Any();
         }
     }
 }

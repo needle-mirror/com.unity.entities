@@ -5,18 +5,24 @@ using UnityEngine.UIElements;
 
 namespace Unity.Scenes.Editor
 {
+    /// <summary>
+    /// Provides a message window to confirm that the user wants to delete all the cached subscenes.
+    /// </summary>
     public class ClearEntitiesCacheWindow : EditorWindow
     {
         ClearEntitiesCacheView m_View;
         static bool s_IsWindowVisible;
 
+        /// <summary>
+        /// Method to open the message window
+        /// </summary>
         public static void OpenWindow()
         {
-            var wnd = GetWindow<ClearEntitiesCacheWindow>(true, "Clear Entities Cache(s)", true);
+            var wnd = GetWindow<ClearEntitiesCacheWindow>(true, "Clear Entity Cache", true);
             if (s_IsWindowVisible)
                 return;
 
-            wnd.maxSize = new Vector2(500, 400);
+            wnd.maxSize = new Vector2(400, 200);
             wnd.minSize = new Vector2(300, 200);
             wnd.Show();
             s_IsWindowVisible = true;
@@ -44,8 +50,6 @@ namespace Unity.Scenes.Editor
             Button m_CancelButton;
             Button m_ClearButton;
 
-            Toggle m_EntitySceneCacheToggle;
-
             public void Initialize(EditorWindow editorWindow, VisualElement rootVisualElement)
             {
                 VisualTreeAsset uiAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Packages/com.unity.entities/Unity.Scenes.Editor/ClearEntitiesCacheWindow/ClearEntitiesCacheWindow.uxml");
@@ -63,15 +67,9 @@ namespace Unity.Scenes.Editor
                 m_ClearButton = m_Root.Query<Button>("clear-cache-button");
                 m_ClearButton.clicked += () =>
                 {
-                    if (m_EntitySceneCacheToggle.value)
-                    {
-                        EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
-                    }
-
+                    EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
                     editorWindow.Close();
                 };
-
-                m_EntitySceneCacheToggle = m_Root.Query<Toggle>("clear-entityscene-toggle");
 
                 rootVisualElement.Add(m_Root);
             }

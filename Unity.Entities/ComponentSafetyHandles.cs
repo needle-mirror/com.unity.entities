@@ -9,40 +9,40 @@ using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
-    unsafe struct ComponentSafetyHandles
+    [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
+    // internal for BurstCompatible test support
+    unsafe internal struct ComponentSafetyHandles
     {
-        const int              kMaxTypes = TypeManager.MaximumTypesCount;
+        const int                   kMaxTypes = TypeManager.MaximumTypesCount;
 
-        ComponentSafetyHandle* m_ComponentSafetyHandles;
-        ushort                 m_ComponentSafetyHandlesCount;
-        const int              EntityTypeIndex = 1;
+        ComponentSafetyHandle*      m_ComponentSafetyHandles;
+        ushort                      m_ComponentSafetyHandlesCount;
+        TypeIndex                   EntityTypeIndex;
 
-        ushort*                m_TypeArrayIndices;
-        const ushort           NullTypeIndex = 0xFFFF;
-        // Per-component-type Static safety IDs are shared across all Worlds.
-        static int* m_StaticSafetyIdsForComponentDataFromEntity;
-        static int* m_StaticSafetyIdsForArchetypeChunkArrays;
-        static int m_StaticSafetyIdForDynamicComponentTypeHandle = 0;
-        static int m_StaticSafetyIdForEntityTypeHandle = 0;
-        static byte[] m_CustomDeallocatedErrorMessageBytes = Encoding.UTF8.GetBytes("Attempted to access {5} which has been invalidated by a structural change.");
-        static byte[] m_CustomDeallocatedFromJobErrorMessageBytes = Encoding.UTF8.GetBytes("Attempted to access the {5} {3} which has been invalidated by a structural change.");
-        public void SetCustomErrorMessage(int staticSafetyId, AtomicSafetyErrorType errorType, byte[] messageBytes)
+        ushort*                     m_TypeArrayIndices;
+        const ushort                NullTypeIndex = 0xFFFF;
+
+        unsafe struct StaticSafetyIdData
         {
-            fixed(byte* pBytes = messageBytes)
-            {
-                AtomicSafetyHandle.SetCustomErrorMessage(staticSafetyId, errorType, pBytes, messageBytes.Length);
-            }
+            // Per-component-type Static safety IDs are shared across all Worlds.
+            public int* m_StaticSafetyIdsForComponentLookup;
+            public int* m_StaticSafetyIdsForArchetypeChunkArrays;
+            public int m_StaticSafetyIdForDynamicComponentTypeHandle;
+            public int m_StaticSafetyIdForEntityTypeHandle;
+        }
+        static readonly SharedStatic<StaticSafetyIdData> m_StaticSafetyIdData = SharedStatic<StaticSafetyIdData>.GetOrCreate<StaticSafetyIdData>();
+
+        static readonly FixedString128Bytes m_CustomDeallocatedErrorMessageBytes = "Attempted to access {5} which has been invalidated by a structural change.";
+        static readonly FixedString128Bytes m_CustomDeallocatedFromJobErrorMessageBytes = "Attempted to access the {5} {3} which has been invalidated by a structural change.";
+
+        public void SetCustomErrorMessage(int staticSafetyId, AtomicSafetyErrorType errorType, FixedString128Bytes messageBytes)
+        {
+            AtomicSafetyHandle.SetCustomErrorMessage(staticSafetyId, errorType, messageBytes.GetUnsafePtr(), messageBytes.Length);
         }
 
-        int CreateStaticSafetyId(string ownerTypeName)
+        int CreateStaticSafetyId(FixedString512Bytes ownerTypeName)
         {
-            int staticSafetyId = 0;
-
-            byte[] ownerNameByteArray = Encoding.UTF8.GetBytes(ownerTypeName);
-            fixed(byte* ownerTypeNameBytes = ownerNameByteArray)
-            {
-                staticSafetyId = AtomicSafetyHandle.NewStaticSafetyId(ownerTypeNameBytes, ownerNameByteArray.Length);
-            }
+            int staticSafetyId = AtomicSafetyHandle.NewStaticSafetyId(ownerTypeName.GetUnsafePtr(), ownerTypeName.Length);
 
             SetCustomErrorMessage(staticSafetyId, AtomicSafetyErrorType.Deallocated, m_CustomDeallocatedErrorMessageBytes);
             SetCustomErrorMessage(staticSafetyId, AtomicSafetyErrorType.DeallocatedFromJob, m_CustomDeallocatedFromJobErrorMessageBytes);
@@ -50,75 +50,70 @@ namespace Unity.Entities
             return staticSafetyId;
         }
 
-        [BurstDiscard]
-        void CreateStaticSafetyIdsForType(int typeIndex)
+        void CreateStaticSafetyIdsForType(TypeIndex typeIndex)
         {
-            var typeIndexWithoutFlags = typeIndex & TypeManager.ClearFlagsMask;
-            if (m_StaticSafetyIdsForComponentDataFromEntity[typeIndexWithoutFlags] == 0)
+            var typeIndexWithoutFlags = typeIndex.Index;
+            if (m_StaticSafetyIdData.Data.m_StaticSafetyIdsForComponentLookup[typeIndexWithoutFlags] == 0)
             {
-                if (TypeManager.IsBuffer(typeIndex))
+                if (typeIndex.IsBuffer)
                 {
-                    m_StaticSafetyIdsForComponentDataFromEntity[typeIndexWithoutFlags] =
+                    m_StaticSafetyIdData.Data.m_StaticSafetyIdsForComponentLookup[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "BufferFromEntity<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
+                            $"BufferLookup<{TypeManager.GetTypeInfo(typeIndex).DebugTypeName}>");
                 }
                 else
                 {
-                    m_StaticSafetyIdsForComponentDataFromEntity[typeIndexWithoutFlags] =
+                    m_StaticSafetyIdData.Data.m_StaticSafetyIdsForComponentLookup[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "ComponentDataFromEntity<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
+                            $"ComponentLookup<{TypeManager.GetTypeInfo(typeIndex).DebugTypeName}>");
                 }
             }
-            if (m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] == 0)
+            if (m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] == 0)
             {
-                if (TypeManager.IsBuffer(typeIndex))
+                if (typeIndex.IsBuffer)
                 {
-                    m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
+                    m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "BufferTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
+                            $"BufferTypeHandle<{TypeManager.GetTypeInfo(typeIndex).DebugTypeName}>");
                 }
-                else if (TypeManager.IsSharedComponentType(typeIndex))
+                else if (typeIndex.IsSharedComponentType)
                 {
-                    m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
+                    m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "SharedComponentTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
+                            $"SharedComponentTypeHandle<{TypeManager.GetTypeInfo(typeIndex).DebugTypeName}>");
                 }
                 else
                 {
-                    m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
+                    m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "ComponentTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
+                            $"ComponentTypeHandle<{TypeManager.GetTypeInfo(typeIndex).DebugTypeName}>");
                 }
             }
         }
 
-        [BurstDiscard]
-        private void SetStaticSafetyIdForHandle_ArchetypeChunk(ref AtomicSafetyHandle handle, int typeIndex, bool dynamic)
+        private void SetStaticSafetyIdForHandle_ArchetypeChunk(ref AtomicSafetyHandle handle, TypeIndex typeIndex, bool dynamic)
         {
             // Configure safety handle static safety ID for ArchetypeChunk*Type by default
-            int typeIndexWithoutFlags = typeIndex & TypeManager.ClearFlagsMask;
             int staticSafetyId = 0;
             if (dynamic)
-                staticSafetyId = m_StaticSafetyIdForDynamicComponentTypeHandle;
+                staticSafetyId = m_StaticSafetyIdData.Data.m_StaticSafetyIdForDynamicComponentTypeHandle;
             else if (typeIndex == EntityTypeIndex)
-                staticSafetyId = m_StaticSafetyIdForEntityTypeHandle;
+                staticSafetyId = m_StaticSafetyIdData.Data.m_StaticSafetyIdForEntityTypeHandle;
             else
-                staticSafetyId = m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags];
+                staticSafetyId = m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays[typeIndex.Index];
             AtomicSafetyHandle.SetStaticSafetyId(ref handle, staticSafetyId);
         }
 
-        [BurstDiscard]
-        private void SetStaticSafetyIdForHandle_FromEntity(ref AtomicSafetyHandle handle, int typeIndex)
+        private void SetStaticSafetyIdForHandle_FromEntity(ref AtomicSafetyHandle handle, TypeIndex typeIndex)
         {
             // Configure safety handle static safety ID for ArchetypeChunk*Type by default
-            int typeIndexWithoutFlags = typeIndex & TypeManager.ClearFlagsMask;
-            int staticSafetyId = m_StaticSafetyIdsForComponentDataFromEntity[typeIndexWithoutFlags];
+            int staticSafetyId = m_StaticSafetyIdData.Data.m_StaticSafetyIdsForComponentLookup[typeIndex.Index];
             AtomicSafetyHandle.SetStaticSafetyId(ref handle, staticSafetyId);
         }
 
-        ushort GetTypeArrayIndex(int typeIndex)
+        ushort GetTypeArrayIndex(TypeIndex typeIndex)
         {
-            var typeIndexWithoutFlags = typeIndex & TypeManager.ClearFlagsMask;
+            var typeIndexWithoutFlags = typeIndex.Index;
             var arrayIndex = m_TypeArrayIndices[typeIndexWithoutFlags];
             if (arrayIndex != NullTypeIndex)
                 return arrayIndex;
@@ -143,7 +138,7 @@ namespace Unity.Entities
         void ClearAllTypeArrayIndices()
         {
             for (int i = 0; i < m_ComponentSafetyHandlesCount; ++i)
-                m_TypeArrayIndices[m_ComponentSafetyHandles[i].TypeIndex & TypeManager.ClearFlagsMask] = NullTypeIndex;
+                m_TypeArrayIndices[m_ComponentSafetyHandles[i].TypeIndex.Index] = NullTypeIndex;
             m_ComponentSafetyHandlesCount = 0;
         }
 
@@ -157,32 +152,49 @@ namespace Unity.Entities
 
             m_TempSafety = AtomicSafetyHandle.Create();
             m_ComponentSafetyHandlesCount = 0;
+            EntityTypeIndex = TypeManager.GetTypeIndex<Entity>();
 
             m_InvalidateArraysMarker = new ProfilerMarker("InvalidateArrays");
-            if (m_StaticSafetyIdsForComponentDataFromEntity == null)
-            {
-                m_StaticSafetyIdsForComponentDataFromEntity =
-                    (int*)Memory.Unmanaged.Allocate(sizeof(int) * kMaxTypes, 16, Allocator.Persistent);
-                UnsafeUtility.MemClear(m_StaticSafetyIdsForComponentDataFromEntity, sizeof(int) * kMaxTypes);
-            }
-            if (m_StaticSafetyIdsForArchetypeChunkArrays == null)
-            {
-                m_StaticSafetyIdsForArchetypeChunkArrays =
-                    (int*)Memory.Unmanaged.Allocate(sizeof(int) * kMaxTypes, 16, Allocator.Persistent);
-                UnsafeUtility.MemClear(m_StaticSafetyIdsForArchetypeChunkArrays, sizeof(int) * kMaxTypes);
-            }
 
-            m_StaticSafetyIdForDynamicComponentTypeHandle = AtomicSafetyHandle.NewStaticSafetyId<DynamicComponentTypeHandle>();
-            SetCustomErrorMessage(m_StaticSafetyIdForDynamicComponentTypeHandle, AtomicSafetyErrorType.Deallocated,
-                m_CustomDeallocatedErrorMessageBytes);
-            SetCustomErrorMessage(m_StaticSafetyIdForDynamicComponentTypeHandle, AtomicSafetyErrorType.DeallocatedFromJob,
-                m_CustomDeallocatedFromJobErrorMessageBytes);
+            m_StaticSafetyIdData.Data.m_StaticSafetyIdForDynamicComponentTypeHandle = CreateStaticSafetyId("Unity.Entities.DynamicComponentTypeHandle");
+            m_StaticSafetyIdData.Data.m_StaticSafetyIdForEntityTypeHandle = CreateStaticSafetyId("Unity.Entities.EntityTypeHandle");
+        }
 
-            m_StaticSafetyIdForEntityTypeHandle = AtomicSafetyHandle.NewStaticSafetyId<EntityTypeHandle>();
-            SetCustomErrorMessage(m_StaticSafetyIdForEntityTypeHandle, AtomicSafetyErrorType.Deallocated,
-                m_CustomDeallocatedErrorMessageBytes);
-            SetCustomErrorMessage(m_StaticSafetyIdForEntityTypeHandle, AtomicSafetyErrorType.DeallocatedFromJob,
-                m_CustomDeallocatedFromJobErrorMessageBytes);
+        static bool s_Initialized;
+        private static bool s_AppDomainUnloadRegistered;
+        [ExcludeFromBurstCompatTesting("Uses managed delegates")]
+        public static void Initialize()
+        {
+            if (s_Initialized)
+                return;
+            s_Initialized = true;
+            m_StaticSafetyIdData.Data.m_StaticSafetyIdsForComponentLookup =
+                (int*)Memory.Unmanaged.Allocate(sizeof(int) * kMaxTypes, 16, Allocator.Persistent);
+            UnsafeUtility.MemClear(m_StaticSafetyIdData.Data.m_StaticSafetyIdsForComponentLookup, sizeof(int) * kMaxTypes);
+            m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays =
+                (int*)Memory.Unmanaged.Allocate(sizeof(int) * kMaxTypes, 16, Allocator.Persistent);
+            UnsafeUtility.MemClear(m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays, sizeof(int) * kMaxTypes);
+#if !UNITY_DOTSRUNTIME
+            if (!s_AppDomainUnloadRegistered)
+            {
+                // important: this will always be called from a special unload thread (main thread will be blocking on this)
+                System.AppDomain.CurrentDomain.DomainUnload += (_, __) => { Shutdown(); };
+
+                // There is no domain unload in player builds, so we must be sure to shutdown when the process exits.
+                System.AppDomain.CurrentDomain.ProcessExit += (_, __) => { Shutdown(); };
+                s_AppDomainUnloadRegistered = true;
+            }
+#endif
+        }
+
+        static void Shutdown()
+        {
+            if (s_Initialized)
+            {
+                Memory.Unmanaged.Free(m_StaticSafetyIdData.Data.m_StaticSafetyIdsForComponentLookup, Allocator.Persistent);
+                Memory.Unmanaged.Free(m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays, Allocator.Persistent);
+                s_Initialized = false;
+            }
         }
 
         public AtomicSafetyHandle ExclusiveTransactionSafety;
@@ -208,6 +220,15 @@ namespace Unity.Entities
 
             ClearAllTypeArrayIndices();
             m_InvalidateArraysMarker.End();
+        }
+
+        public void CheckAllJobsCanDeallocate()
+        {
+            for (var i = 0; i != m_ComponentSafetyHandlesCount; i++)
+            {
+                AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].SafetyHandle);
+                AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].BufferHandle);
+            }
         }
 
         public void Dispose()
@@ -250,10 +271,9 @@ namespace Unity.Entities
             }
         }
 
-        public void CompleteWriteDependency(int type)
+        public void CompleteWriteDependency(TypeIndex typeIndex)
         {
-            var typeIndexWithoutFlags = type & TypeManager.ClearFlagsMask;
-            var arrayIndex = m_TypeArrayIndices[typeIndexWithoutFlags];
+            var arrayIndex = m_TypeArrayIndices[typeIndex.Index];
             if (arrayIndex == NullTypeIndex)
                 return;
 
@@ -261,10 +281,9 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckReadAndThrow(m_ComponentSafetyHandles[arrayIndex].BufferHandle);
         }
 
-        public void CompleteReadAndWriteDependency(int type)
+        public void CompleteReadAndWriteDependency(TypeIndex typeIndex)
         {
-            var typeIndexWithoutFlags = type & TypeManager.ClearFlagsMask;
-            var arrayIndex = m_TypeArrayIndices[typeIndexWithoutFlags];
+            var arrayIndex = m_TypeArrayIndices[typeIndex.Index];
             if (arrayIndex == NullTypeIndex)
                 return;
 
@@ -279,7 +298,7 @@ namespace Unity.Entities
             return handle;
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForComponentDataFromEntity(int type, bool isReadOnly)
+        public AtomicSafetyHandle GetSafetyHandleForComponentLookup(TypeIndex type, bool isReadOnly)
         {
             var handle = GetSafetyHandle(type, isReadOnly);
             // Override the handle's default static safety ID
@@ -287,23 +306,23 @@ namespace Unity.Entities
             return handle;
         }
 
-        public AtomicSafetyHandle GetBufferHandleForBufferFromEntity(int type)
+        public AtomicSafetyHandle GetBufferHandleForBufferLookup(TypeIndex type)
         {
-            Assert.IsTrue(TypeManager.IsBuffer(type));
+            Assert.IsTrue(type.IsBuffer);
             var handle = GetBufferSafetyHandle(type);
             // Override the handle's default static safety ID
             SetStaticSafetyIdForHandle_FromEntity(ref handle, type);
             return handle;
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForComponentTypeHandle(int type, bool isReadOnly)
+        public AtomicSafetyHandle GetSafetyHandleForComponentTypeHandle(TypeIndex type, bool isReadOnly)
         {
             // safety handles are configured with the static safety ID for ArchetypeChunk*Type by default,
             // so no further static safety ID setup is necessary in this path.
             return GetSafetyHandle(type, isReadOnly);
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForDynamicComponentTypeHandle(int type, bool isReadOnly)
+        public AtomicSafetyHandle GetSafetyHandleForDynamicComponentTypeHandle(TypeIndex type, bool isReadOnly)
         {
             var handle = GetSafetyHandle(type, isReadOnly);
             // We need to override the handle's default static safety ID to use the DynamicComponentTypeHandle version.
@@ -311,24 +330,24 @@ namespace Unity.Entities
             return handle;
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForBufferTypeHandle(int type, bool isReadOnly)
+        public AtomicSafetyHandle GetSafetyHandleForBufferTypeHandle(TypeIndex type, bool isReadOnly)
         {
             // safety handles are configured with the static safety ID for ArchetypeChunk*Type by default,
             // so no further static safety ID setup is necessary in this path.
             return GetSafetyHandle(type, isReadOnly);
         }
 
-        public AtomicSafetyHandle GetBufferHandleForBufferTypeHandle(int type)
+        public AtomicSafetyHandle GetBufferHandleForBufferTypeHandle(TypeIndex type)
         {
-            Assert.IsTrue(TypeManager.IsBuffer(type));
+            Assert.IsTrue(type.IsBuffer);
             // safety handles are configured with the static safety ID for ArchetypeChunk*Type by default,
             // so no further static safety ID setup is necessary in this path.
             return GetBufferSafetyHandle(type);
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForSharedComponentTypeHandle(int type)
+        public AtomicSafetyHandle GetSafetyHandleForSharedComponentTypeHandle(TypeIndex type)
         {
-            Assert.IsTrue(TypeManager.IsSharedComponentType(type));
+            Assert.IsTrue(type.IsSharedComponentType);
             var handle = GetSafetyHandle(type, false);
             // safety handles are configured with the static safety ID for ArchetypeChunk*Type by default,
             // so no further static safety ID setup is necessary in this path.
@@ -343,7 +362,7 @@ namespace Unity.Entities
             return handle;
         }
 
-        public AtomicSafetyHandle GetSafetyHandle(int type, bool isReadOnly)
+        public AtomicSafetyHandle GetSafetyHandle(TypeIndex type, bool isReadOnly)
         {
             var arrayIndex = GetTypeArrayIndex(type);
             var handle = m_ComponentSafetyHandles[arrayIndex].SafetyHandle;
@@ -352,9 +371,9 @@ namespace Unity.Entities
             return handle;
         }
 
-        public AtomicSafetyHandle GetBufferSafetyHandle(int type)
+        public AtomicSafetyHandle GetBufferSafetyHandle(TypeIndex type)
         {
-            Assert.IsTrue(TypeManager.IsBuffer(type));
+            Assert.IsTrue(type.IsBuffer);
             var arrayIndex = GetTypeArrayIndex(type);
             return m_ComponentSafetyHandles[arrayIndex].BufferHandle;
         }
@@ -389,7 +408,7 @@ namespace Unity.Entities
         {
             public AtomicSafetyHandle SafetyHandle;
             public AtomicSafetyHandle BufferHandle;
-            public int                TypeIndex;
+            public TypeIndex          TypeIndex;
         }
 
         AtomicSafetyHandle m_TempSafety;

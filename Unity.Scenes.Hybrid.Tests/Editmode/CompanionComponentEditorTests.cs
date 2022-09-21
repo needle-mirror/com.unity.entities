@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Entities.Conversion;
 using Unity.Scenes.Editor;
 using Unity.Scenes.Editor.Tests;
 using UnityEditor;
@@ -13,19 +14,6 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
-    class MonoBehaviourComponentConversionSystem : GameObjectConversionSystem
-    {
-        protected override void OnUpdate()
-        {
-            AddTypeToCompanionWhiteList(typeof(ConversionTestCompanionComponent));
-            Entities.ForEach((ConversionTestCompanionComponent component) =>
-            {
-                var entity = GetPrimaryEntity(component);
-                DstEntityManager.AddComponentObject(entity, component);
-            });
-        }
-    }
-
     [Serializable]
     public class TestWithSceneCameraCulling
     {
@@ -97,14 +85,20 @@ namespace Unity.Entities.Tests
 
     [Serializable]
     [TestFixture]
-    class CompanionComponentsEditorTests
+    class CompanionComponentsEditorTests_Baking
     {
         [SerializeField] public TestWithEditorLiveConversion TestWithEditorLiveConversion;
         [SerializeField] public TestWithSceneCameraCulling TestWithSceneCameraCulling = new TestWithSceneCameraCulling();
+        bool _WasBaking;
+        bool _WasConversionEnabled;
+        bool _WasSceneView;
+        SceneView _CreatedSceneView;
 
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
+            TestWithEditorLiveConversion.IsBakingEnabled = true;
             if (!TestWithEditorLiveConversion.OneTimeSetUp())
                 return;
         }
@@ -113,39 +107,32 @@ namespace Unity.Entities.Tests
         public void OneTimeTearDown()
         {
             TestWithEditorLiveConversion.OneTimeTearDown();
+
+            if (_CreatedSceneView != null)
+                _CreatedSceneView.Close();
+
         }
 
         [SetUp]
         public void SetUp()
         {
+            _WasSceneView = LiveConversionEditorSettings.LiveConversionSceneViewShowRuntime;
+
             TestWithEditorLiveConversion.SetUp();
         }
 
         [TearDown]
         public void TearDown()
         {
+            LiveConversionEditorSettings.LiveConversionSceneViewShowRuntime = _WasSceneView;
+
             TestWithSceneCameraCulling.TearDown();
         }
 
-        IEditModeTestYieldInstruction GetEnterPlayMode(bool editMode) => TestWithEditorLiveConversion.GetEnterPlayMode(editMode ? TestWithEditorLiveConversion.Mode.Edit : TestWithEditorLiveConversion.Mode.Play);
-
-        //[UnityTest, Ignore("Unable to run graphical tests on CI right now.")]
         [UnityTest]
-        public IEnumerator CompanionComponent_SceneCulling([Values]bool editMode, [Values]bool sceneViewShowRuntime)
+        public IEnumerator CompanionComponent_SceneCulling([Values]bool sceneViewShowRuntime)
         {
-            SceneView sceneView;
-            if (SceneView.sceneViews.Count == 0)
-            {
-                sceneView = EditorWindow.CreateWindow<SceneView>();
-            }
-            else
-            {
-                Assert.AreEqual(1, SceneView.sceneViews.Count, "There should only be 1 Scene View for this test");
-                sceneView = (SceneView)SceneView.sceneViews[0];
-            }
-
-            SubSceneInspectorUtility.LiveConversionEnabled = true;
-            SubSceneInspectorUtility.LiveConversionSceneViewShowRuntime = sceneViewShowRuntime;
+            LiveConversionEditorSettings.LiveConversionSceneViewShowRuntime = sceneViewShowRuntime;
 
             var subScene = TestWithEditorLiveConversion.CreateSubSceneFromObjects("TestSubScene", true, () =>
             {
@@ -154,8 +141,22 @@ namespace Unity.Entities.Tests
                 return new List<GameObject> {go};
             });
 
-            yield return GetEnterPlayMode(editMode);
+            var world = TestWithEditorLiveConversion.GetLiveConversionWorldForEditMode();
+            world.Update();
 
+            SceneView sceneView;
+            if (SceneView.sceneViews.Count == 0)
+            {
+                sceneView = EditorWindow.CreateWindow<SceneView>();
+                _CreatedSceneView = sceneView;
+            }
+            else
+            {
+                Assert.AreEqual(1, SceneView.sceneViews.Count, "There should only be 1 Scene View for this test");
+                sceneView = (SceneView)SceneView.sceneViews[0];
+            }
+
+            Assert.IsNotNull(sceneView, "Scene view failed to be created, thus this test can't run");
             sceneView.Focus();
 
             {

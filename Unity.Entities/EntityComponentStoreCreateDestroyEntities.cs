@@ -107,44 +107,6 @@ namespace Unity.Entities
             }
         }
 
-        [Obsolete("Please use CreateEntities. (RemovedAfter 2021-07-10)")]
-        public Entity CreateEntityWithValidation(EntityArchetype archetype)
-        {
-            Entity entity;
-            AssertValidArchetype((EntityComponentStore*)UnsafeUtility.AddressOf(ref this), archetype);
-            CreateEntities(archetype.Archetype, &entity, 1);
-            return entity;
-        }
-
-        [Obsolete("Please use CreateEntities. (RemovedAfter 2021-07-10)")]
-        public void CreateEntityWithValidation(EntityArchetype archetype, Entity* outEntities, int count)
-        {
-            AssertValidArchetype((EntityComponentStore*)UnsafeUtility.AddressOf(ref this), archetype);
-            CreateEntities(archetype.Archetype, outEntities, count);
-        }
-
-        [Obsolete("Please use InstantiateEntities. (RemovedAfter 2021-07-10)")]
-        public void InstantiateWithValidation(Entity srcEntity, Entity* outputEntities, int count)
-        {
-            AssertEntitiesExist(&srcEntity, 1);
-            AssertCanInstantiateEntities(srcEntity, outputEntities, count);
-            InstantiateEntities(srcEntity, outputEntities, count);
-        }
-
-        [Obsolete("Please use DestroyEntities. (RemovedAfter 2021-07-10)")]
-        public void DestroyEntityWithValidation(Entity entity)
-        {
-            AssertValidEntities(&entity, 1);
-            DestroyEntities(&entity, 1);
-        }
-
-        [Obsolete("Please use DestroyEntities. (RemovedAfter 2021-07-10)")]
-        public void DestroyEntityWithValidation(Entity* entities, int count)
-        {
-            AssertValidEntities(entities, count);
-            DestroyEntities(entities, count);
-        }
-
         public Chunk* GetCleanChunkNoMetaChunk(Archetype* archetype, SharedComponentValues sharedComponentValues)
         {
             var newChunk = AllocateChunk();
@@ -248,7 +210,7 @@ namespace Unity.Entities
             var chunk = batch.Chunk;
             var archetype = chunk->Archetype;
 
-            if (!archetype->SystemStateCleanupNeeded)
+            if (!archetype->CleanupNeeded)
             {
                 ChunkDataUtility.Deallocate(batch);
             }
@@ -257,12 +219,12 @@ namespace Unity.Entities
                 var startIndex = batch.StartIndex;
                 var count = batch.Count;
 
-                var systemStateResidueArchetype = archetype->SystemStateResidueArchetype;
-                if (archetype == systemStateResidueArchetype)
+                var cleanupResidueArchetype = archetype->CleanupResidueArchetype;
+                if (archetype == cleanupResidueArchetype)
                     return;
 
                 var dstArchetypeChunkFilter = new ArchetypeChunkFilter();
-                dstArchetypeChunkFilter.Archetype = systemStateResidueArchetype;
+                dstArchetypeChunkFilter.Archetype = cleanupResidueArchetype;
 
                 if (RequiresBuildingResidueSharedComponentIndices(archetype, dstArchetypeChunkFilter.Archetype))
                 {
@@ -498,7 +460,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        internal struct GetOrCreateDestroyedEntitiesJob : IJobBurstSchedulable
+        internal struct GetOrCreateDestroyedEntitiesJob : IJob
         {
             public NativeList<int>    State;
             public NativeList<Entity> CreatedEntities;

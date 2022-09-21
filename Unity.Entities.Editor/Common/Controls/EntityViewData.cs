@@ -1,6 +1,6 @@
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Serialization;
 using UnityEditor;
 using UnityEngine.UIElements;
@@ -42,7 +42,7 @@ namespace Unity.Entities.Editor
         [CreateProperty, UsedImplicitly, DontSerialize] public int ComponentCount => World.EntityManager.GetComponentCount(Entity);
 
         [UsedImplicitly]
-        class Inspector : Inspector<EntityViewData>
+        class Inspector : PropertyInspector<EntityViewData>
         {
             public override VisualElement Build()
             {

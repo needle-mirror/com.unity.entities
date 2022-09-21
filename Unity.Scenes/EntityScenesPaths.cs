@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using Unity.Collections;
 using Unity.Core;
+using Unity.Entities.Serialization;
 #if !NET_DOTS
 using System.Linq;
 #endif
@@ -34,7 +35,8 @@ namespace Unity.Scenes
             EntitiesHeader,
             EntitiesSharedReferencesBundle,
             EntitiesWeakAssetRefs,
-            EntitiesGlobalUsage
+            EntitiesGlobalUsage,
+            EntitiesExportedTypes
         }
 
         internal static string GetExtension(PathType pathType)
@@ -51,6 +53,7 @@ namespace Unity.Scenes
                 case PathType.EntitiesAssetDependencyGUIDs: return "dependencies";
                 case PathType.EntitiesWeakAssetRefs: return "weakassetrefs";
                 case PathType.EntitiesGlobalUsage: return "globalusage";
+                case PathType.EntitiesExportedTypes: return "exportedtypes";
             }
 
             throw new ArgumentException($"Unknown PathType {pathType}");
@@ -61,9 +64,9 @@ namespace Unity.Scenes
         static Dictionary<Hash128, string> s_HashToString = new Dictionary<Hash128, string>();
 
 
-        internal static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, ImportMode importMode)
+        internal static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, bool isBakingEnabled, bool isBuiltInEnabled, ImportMode importMode)
         {
-            var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGUID, buildConfigurationGUID, isBuildingForEditor, out var mustRequestRefresh);
+            var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGUID, buildConfigurationGUID, isBuildingForEditor, isBakingEnabled, isBuiltInEnabled, out var mustRequestRefresh);
             if (mustRequestRefresh)
                 UnityEditor.AssetDatabase.Refresh();
 
@@ -117,6 +120,7 @@ namespace Unity.Scenes
                     return $"{sceneGUID}.{sectionIndex}.{extension}";
                 case PathType.EntitiesHeader:
                 case PathType.EntitiesConversionLog:
+                case PathType.EntitiesExportedTypes:
                     return $"{sceneGUID}.{extension}";
                 case PathType.EntitiesUnityObjectReferences:
                 case PathType.EntitiesUnityObjectReferencesBundle:
@@ -137,7 +141,7 @@ namespace Unity.Scenes
         {
             const int kFilenameLen = 16;
             var filenameBuffer = stackalloc char[kFilenameLen];
-            var rng = new Mathematics.Random((uint) Time.realtimeSinceStartup);
+            var rng = new Mathematics.Random(((uint) Time.realtimeSinceStartup) + 1);
 
             for(int i = 0; i < kFilenameLen; ++i)
                 filenameBuffer[i] = rng.NextBool() ? (char) rng.NextInt('a', 'z') : (char) rng.NextInt('0', '9');

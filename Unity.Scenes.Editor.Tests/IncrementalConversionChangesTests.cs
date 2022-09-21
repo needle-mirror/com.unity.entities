@@ -15,6 +15,7 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor.Tests
 {
+    /*
     [Serializable]
     [TestFixture]
     class IncrementalConversionChangesTests
@@ -208,28 +209,6 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-        [UnityTest]
-        public IEnumerator IncrementalConversion_WithParentChange_IncomingChangesOnlyContainTransformChange()
-        {
-            var subScene = m_editorLiveConversionTest.CreateEmptySubScene("TestSubScene", true);
-            SceneManager.SetActiveScene(subScene.EditingScene);
-            var root = new GameObject("Root");
-            var child = new GameObject("Child");
-
-            var w = m_editorLiveConversionTest.GetLiveConversionWorldForEditMode();
-            yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
-            {
-                Undo.SetTransformParent(child.transform, root.transform, "Test Transform change");
-                IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
-
-                CollectionAssert.AreEqual(new[] {child.transform}, IncrementalConversionTestSystem.ChangedComponents);
-                CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedGameObjects);
-                CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedGameObjectsInstanceIds);
-                CollectionAssert.IsEmpty(IncrementalConversionTestSystem.DeletedGameObjectInstanceIds);
-            }
-        }
-
         [UpdateInGroup(typeof(ConversionSetupGroup))]
         [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
         [DisableAutoCreation]
@@ -252,7 +231,7 @@ namespace Unity.Scenes.Editor.Tests
 
             protected override void OnUpdate()
             {
-                var ics = World.GetExistingSystem<IncrementalChangesSystem>();
+                var ics = World.GetExistingSystemManaged<IncrementalChangesSystem>();
                 if (ics.SceneGUID != _sceneGuid)
                     return;
                 _sceneGuid = default;
@@ -269,4 +248,5 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
     }
+    */
 }

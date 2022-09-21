@@ -1,0 +1,538 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Build;
+using Unity.Build.DotsRuntime;
+using Unity.Entities.Build;
+using Unity.Entities.Conversion;
+using Unity.Profiling;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using Hash128 = Unity.Entities.Hash128;
+
+namespace Unity.Scenes.Editor
+{
+    //@TODO: Live link currently force loads all sections. It should only live link sections that are marked for loading.
+    class LiveConversionDiffGenerator : IDisposable
+    {
+        World                       _GameObjectWorld;
+
+        World                       _ConvertedWorld;
+        EntityQuery                 _MissingRenderDataQuery;
+        EntityQuery                 _MissingSceneQuery;
+        EntityManagerDiffer         _LiveConversionDiffer;
+
+        EntityDiffer.CachedComponentChanges _CachedComponentChanges;
+        IncrementalConversionDebug _IncrementalConversionDebug;
+        IncrementalBakingChangeTracker     _IncrementalBakingChangeTracker;
+        GameObjectConversionMappingSystem _MappingSystem;
+        bool                        _RequestCleanConversion;
+        bool                        _LiveConversionEnabled;
+        bool                        _IsBaking;
+
+        Scene                       _Scene;
+        GUID                        _configGUID;
+        BuildConfiguration          _buildConfiguration;
+        DotsPlayerSettings          _settingAsset;
+        readonly Hash128            _SceneGUID;
+        readonly BlobAssetStore     _BlobAssetStore;
+        ulong                       _ArtifactDependencyVersion;
+
+        struct IncrementalConversionDebug
+        {
+            public World           World;
+            public EntityQuery     MissingRenderDataQuery;
+            public EntityQuery     MissingSceneQuery;
+            public bool            NeedsUpdate;
+            public GameObjectConversionUtility.ConversionFlags LastConversionFlags;
+            public BakingUtility.BakingFlags LastBakingFlags;
+
+            public void Dispose()
+            {
+                if (World == null)
+                    return;
+                MissingRenderDataQuery.Dispose();
+                MissingSceneQuery.Dispose();
+                World.Dispose();
+            }
+        }
+
+        internal IncrementalBakingChangeTracker ChangeTracker => _IncrementalBakingChangeTracker;
+
+        internal bool HasAssetDependencies()
+        {
+            if (LiveConversionSettings.IsBakingEnabled)
+            {
+                var bakingSystem = _ConvertedWorld.GetExistingSystemManaged<BakingSystem>();
+                var assetDependencies = bakingSystem.GetAllAssetDependencies();
+                return assetDependencies.Length > 0;
+            }
+            else
+            {
+                if (_GameObjectWorld == null)
+                    return false;
+                return _MappingSystem.Dependencies.AssetDependencyTracker.HasDependencies();
+            }
+        }
+
+        public void RequestCleanConversion()
+        {
+            _RequestCleanConversion = true;
+        }
+
+        public bool DidRequestUpdate(uint artifactDependencyVersion)
+        {
+            var didChange = _RequestCleanConversion || _IncrementalBakingChangeTracker.HasAnyChanges() || _ArtifactDependencyVersion != artifactDependencyVersion;
+
+            // if (didChange)
+            //     Debug.Log($"DidRequestUpdate. Clean: {_RequestCleanConversion} HasChanges: {_IncrementalConversionChangeTracker.HasAnyChanges()} ArtifactDependencyVersion: {_ArtifactDependencyVersion != artifactDependencyVersion}");
+
+            return didChange;
+        }
+
+        LiveConversionDiffGenerator(Scene scene, Hash128 sceneGUID, GUID configGUID, BuildConfiguration buildConfig, DotsPlayerSettings settingAsset, bool liveConversionEnabled, bool isBaking)
+        {
+            _SceneGUID = sceneGUID;
+            _Scene = scene;
+            _configGUID = configGUID;
+            _buildConfiguration = buildConfig;
+            _settingAsset = settingAsset;
+            _IsBaking = isBaking;
+
+            _LiveConversionEnabled = liveConversionEnabled;
+
+            ConstructConversionWorld($"Converted Scene: '{_Scene.name}'", ref _ConvertedWorld, ref _MissingRenderDataQuery, ref _MissingSceneQuery);
+            _BlobAssetStore = new BlobAssetStore(128);
+
+            var queryDesc = new EntityQueryDesc
+            {
+                All = new[] {ComponentType.ReadOnly<EntityGuid>()},
+                None = new[] {ComponentType.ReadOnly<RemoveUnusedEntityInBake>(), ComponentType.ReadOnly<BakingOnlyEntity>()},
+                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
+            };
+
+            _LiveConversionDiffer = new EntityManagerDiffer(_ConvertedWorld.EntityManager, Allocator.Persistent, queryDesc);
+            _IncrementalBakingChangeTracker = new IncrementalBakingChangeTracker();
+
+            //@TODO: DOTS-5455
+
+            _RequestCleanConversion = true;
+            _CachedComponentChanges = new EntityDiffer.CachedComponentChanges(1024);
+        }
+
+        void ConstructConversionWorld(string name, ref World world, ref EntityQuery missingRenderDataQuery, ref EntityQuery missingSceneQuery)
+        {
+            var worldFlags = WorldFlags.Editor | WorldFlags.Conversion | WorldFlags.Staging;
+            world = new World(name, worldFlags);
+
+            var missingRenderDataQueryDesc = new EntityQueryDesc
+            {
+                All = new ComponentType[] { typeof(SceneTag) },
+                None = new ComponentType[] { typeof(EditorRenderData) },
+                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
+            };
+            var missingSceneDataQueryDesc = new EntityQueryDesc
+            {
+                None = new ComponentType[] { typeof(SceneTag) },
+                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
+            };
+
+            missingRenderDataQuery = world.EntityManager.CreateEntityQuery(missingRenderDataQueryDesc);
+            missingSceneQuery = world.EntityManager.CreateEntityQuery(missingSceneDataQueryDesc);
+        }
+
+        void LazyCreateIncrementalConversionDebug()
+        {
+            if (_IncrementalConversionDebug.World == null)
+                ConstructConversionWorld($"Incremental Conversion Debug: '{_Scene.name}'", ref _IncrementalConversionDebug.World, ref _IncrementalConversionDebug.MissingRenderDataQuery, ref _IncrementalConversionDebug.MissingSceneQuery);
+        }
+
+        public void Dispose()
+        {
+            _BlobAssetStore.Dispose();
+            _IncrementalBakingChangeTracker.Dispose();
+            _IncrementalConversionDebug.Dispose();
+            _CachedComponentChanges.Dispose();
+
+            try
+            {
+                _LiveConversionDiffer.Dispose();
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+
+            try
+            {
+                if (_GameObjectWorld != null && _GameObjectWorld.IsCreated)
+                    _GameObjectWorld.Dispose();
+                _GameObjectWorld = null;
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+
+            try
+            {
+                if (_ConvertedWorld != null && _ConvertedWorld.IsCreated)
+                    _ConvertedWorld.Dispose();
+                _ConvertedWorld = null;
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
+
+        static readonly ProfilerMarker LiveConversionConvertMarker = new ProfilerMarker("LiveConversion.Convert");
+        static readonly ProfilerMarker IncrementalConversionMarker = new ProfilerMarker("IncrementalConversion");
+        static readonly ProfilerMarker DebugConversionMarker = new ProfilerMarker("DebugConversion");
+        static readonly ProfilerMarker CleanConversionMarker = new ProfilerMarker("CleanConversion");
+
+        internal World ConvertedWorld => _ConvertedWorld;
+
+        bool Bake(BakingUtility.BakingFlags flags)
+        {
+            using (LiveConversionConvertMarker.Auto())
+            {
+                var mode = LiveConversionSettings.Mode;
+                if (mode == LiveConversionSettings.ConversionMode.AlwaysCleanConvert)
+                    _RequestCleanConversion = true;
+
+                _IncrementalConversionDebug.LastBakingFlags = flags;
+                _IncrementalConversionDebug.NeedsUpdate = !_RequestCleanConversion;
+
+                var conversionSettings = GetBakeSettings(flags, _BlobAssetStore, _buildConfiguration, _settingAsset);
+                var didBake = BakingUtility.BakeScene(_ConvertedWorld, _Scene, conversionSettings, !_RequestCleanConversion, _IncrementalBakingChangeTracker);
+                if (didBake)
+                    AddMissingData(_ConvertedWorld, _MissingSceneQuery, _MissingRenderDataQuery);
+
+                _IncrementalBakingChangeTracker.Clear();
+                _RequestCleanConversion = false;
+                return didBake;
+            }
+        }
+
+        BakingSettings GetBakeSettings(BakingUtility.BakingFlags flags, BlobAssetStore store, BuildConfiguration buildConfiguration, DotsPlayerSettings settingAssets)
+        {
+            var conversionSettings = new BakingSettings(flags, store)
+            {
+                SceneGUID = _SceneGUID,
+                BuildConfiguration = buildConfiguration,
+                DotsSettings = settingAssets,
+                IsBuiltInBuildsEnabled = LiveConversionSettings.IsBuiltinBuildsEnabled
+            };
+            if (LiveConversionSettings.AdditionalConversionSystems.Count != 0)
+                conversionSettings.ExtraSystems.AddRange(LiveConversionSettings.AdditionalConversionSystems);
+            return conversionSettings;
+        }
+
+
+        void Convert(GameObjectConversionUtility.ConversionFlags flags)
+        {
+            using (LiveConversionConvertMarker.Auto())
+            {
+                var mode = LiveConversionSettings.Mode;
+                if (mode == LiveConversionSettings.ConversionMode.AlwaysCleanConvert)
+                    _RequestCleanConversion = true;
+                _IncrementalConversionDebug.LastConversionFlags = flags;
+
+                // Try incremental conversion
+                if (!_RequestCleanConversion)
+                {
+                    try
+                    {
+                        using (IncrementalConversionMarker.Auto())
+                        {
+                            _IncrementalConversionDebug.NeedsUpdate = true;
+                            var batch = new IncrementalConversionBatch();
+                            _IncrementalBakingChangeTracker.FillBatch(ref batch);
+                            GameObjectConversionUtility.ConvertIncremental(_GameObjectWorld, flags, ref batch);
+                            AddMissingData(_ConvertedWorld, _MissingSceneQuery, _MissingRenderDataQuery);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        _RequestCleanConversion = true;
+                        if (LiveConversionSettings.TreatIncrementalConversionFailureAsError)
+                            throw;
+                        if (mode != LiveConversionSettings.ConversionMode.AlwaysCleanConvert)
+                            Debug.Log("Incremental conversion failed. Performing full conversion instead\n" + e);
+                    }
+                }
+
+                // If anything failed, fall back to clean conversion
+                if (_RequestCleanConversion)
+                {
+                    _IncrementalConversionDebug.NeedsUpdate = false;
+                    using (CleanConversionMarker.Auto())
+                    {
+                        if (_GameObjectWorld != null && _GameObjectWorld.IsCreated)
+                        {
+                            _GameObjectWorld.Dispose();
+                            _GameObjectWorld = null;
+                        }
+
+                        var settings = PrepareConversion(_ConvertedWorld, _BlobAssetStore, flags, _configGUID, _buildConfiguration);
+                        _GameObjectWorld = GameObjectConversionUtility.InitializeIncrementalConversion(_Scene, settings);
+                        _MappingSystem = _GameObjectWorld.GetExistingSystemManaged<GameObjectConversionMappingSystem>();
+                        AddMissingData(_ConvertedWorld, _MissingSceneQuery, _MissingRenderDataQuery);
+                    }
+                }
+
+                _IncrementalBakingChangeTracker.Clear();
+                _RequestCleanConversion = false;
+            }
+        }
+
+        internal bool DidRequestDebugConversion() => _IncrementalConversionDebug.NeedsUpdate;
+
+        internal void DebugIncrementalConversion()
+        {
+            if (!_IncrementalConversionDebug.NeedsUpdate)
+                return;
+
+            LazyCreateIncrementalConversionDebug();
+
+            _IncrementalConversionDebug.NeedsUpdate = false;
+            using (DebugConversionMarker.Auto())
+            {
+                using var blobAssetStore = new BlobAssetStore(128);
+
+                if (_IsBaking)
+                {
+                    var flags = _IncrementalConversionDebug.LastBakingFlags;
+                    // use this to compare the results of incremental conversion with the results of a clean conversion.
+                    var conversionSettings = GetBakeSettings(flags, blobAssetStore, _buildConfiguration, _settingAsset);
+                    BakingUtility.BakeScene(_IncrementalConversionDebug.World, _Scene, conversionSettings, false, null);
+                }
+                else
+                {
+                    var flags = _IncrementalConversionDebug.LastConversionFlags;
+                    // use this to compare the results of incremental conversion with the results of a clean conversion.
+                    var settings = PrepareConversion(_IncrementalConversionDebug.World, blobAssetStore, flags, _configGUID, _buildConfiguration);
+                    GameObjectConversionUtility.InitializeIncrementalConversion(_Scene, settings).Dispose();
+                }
+
+
+                AddMissingData(_IncrementalConversionDebug.World, _IncrementalConversionDebug.MissingSceneQuery,
+                    _IncrementalConversionDebug.MissingRenderDataQuery);
+                const EntityManagerDifferOptions options =
+                    EntityManagerDifferOptions.IncludeForwardChangeSet |
+                    EntityManagerDifferOptions.ValidateUniqueEntityGuid |
+                    EntityManagerDifferOptions.UseReferentialEquality;
+
+                using var blobAssetCache = new BlobAssetCache(Allocator.Persistent);
+                EntityDiffer.PrecomputeBlobAssetCache(_ConvertedWorld.EntityManager,
+                    EntityManagerDiffer.EntityGuidQueryDesc, blobAssetCache);
+
+                var changes = EntityDiffer.GetChanges(
+                    ref _CachedComponentChanges,
+                    _IncrementalConversionDebug.World.EntityManager,
+                    _ConvertedWorld.EntityManager,
+                    options,
+                    EntityManagerDiffer.EntityGuidQueryDesc,
+                    blobAssetCache,
+                    Allocator.TempJob
+                );
+                using (changes)
+                {
+                    if (!changes.AnyChanges)
+                        return;
+
+                    var fwdChanges = changes.ForwardChangeSet;
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+                    {
+
+                        // Remove all companion link object changes.
+                        // Companion objects will always be different between different conversions, so this is
+                        // absolutely expected.
+                        // It is unlikely that a diff will ever only consist of changes to hybrid components, and even
+                        // in that case pointing out that the companion link changed is not exactly helpful for the user
+                        // either.
+                        var managedComponents = fwdChanges.SetManagedComponents;
+                        int numCompanionLinkObjects = 0;
+                        var types = fwdChanges.TypeHashes;
+                        var companionLinkIndex = TypeManager.GetTypeIndex<CompanionLink>();
+                        int last = managedComponents.Length - 1;
+                        for (int i = last; i >= 0; i--)
+                        {
+                            // We need to go through the type index to correctly handle null Companion Links
+                            int packedTypeIdx = managedComponents[i].Component.PackedTypeIndex;
+                            var idx = TypeManager.GetTypeIndexFromStableTypeHash(types[packedTypeIdx].StableTypeHash);
+                            if (idx == companionLinkIndex)
+                            {
+                                managedComponents[i] = managedComponents[last - numCompanionLinkObjects];
+                                numCompanionLinkObjects += 1;
+                            }
+                        }
+
+                        if (numCompanionLinkObjects > 0)
+                        {
+                            // throw away the companion link changes
+                            Array.Resize(ref managedComponents, last + 1 - numCompanionLinkObjects);
+                            fwdChanges = new EntityChangeSet(fwdChanges.CreatedEntityCount,
+                                fwdChanges.DestroyedEntityCount, fwdChanges.NameChangedCount, fwdChanges.Entities, fwdChanges.TypeHashes,
+                                fwdChanges.Names, fwdChanges.NameChangedEntityGuids, fwdChanges.AddComponents, fwdChanges.RemoveComponents,
+                                fwdChanges.SetComponents, fwdChanges.ComponentData, fwdChanges.EntityReferenceChanges,
+                                fwdChanges.BlobAssetReferenceChanges,
+                                managedComponents, // <- this changes
+                                fwdChanges.SetSharedComponents,
+                                fwdChanges.UnmanagedSharedComponentData,
+                                fwdChanges.LinkedEntityGroupAdditions,
+                                fwdChanges.LinkedEntityGroupRemovals, fwdChanges.CreatedBlobAssets,
+                                fwdChanges.DestroyedBlobAssets, fwdChanges.BlobAssetData);
+                            if (!fwdChanges.HasChanges)
+                                return;
+                        }
+                    }
+#endif
+                    _RequestCleanConversion = true;
+
+                    EntityManager targetEntityManager = _IncrementalConversionDebug.World.EntityManager;
+                    var sb = new StringBuilder();
+                    fwdChanges.PrintSummary(targetEntityManager, sb);
+                    var errorString =
+                        "The result of incrementally converting changes and a clean conversion didn't match, are you missing some dependencies?\n" +
+                        "This is what was added/removed/changed by the clean conversion relative to the incremental conversion:\n" +
+                        sb;
+                    if (LiveConversionSettings.TreatIncrementalConversionFailureAsError)
+                        throw new Exception(errorString);
+                    Debug.LogWarning(errorString);
+                }
+            }
+        }
+
+        GameObjectConversionSettings PrepareConversion(World dstWorld, BlobAssetStore blobAssetStore, GameObjectConversionUtility.ConversionFlags flags, GUID buildConfigurationGUID, BuildConfiguration buildConfig)
+        {
+            dstWorld.EntityManager.DestroyEntity(dstWorld.EntityManager.UniversalQuery);
+            var conversionSettings = new GameObjectConversionSettings(dstWorld, flags, blobAssetStore)
+            {
+                BuildConfigurationGUID = buildConfigurationGUID,
+                BuildConfiguration = buildConfig,
+                SceneGUID = _SceneGUID,
+                DebugConversionName = _Scene.name
+            };
+
+            // don't run dots runtime conversion systems in the editor
+            if (buildConfig != null && buildConfig.HasComponent<DotsRuntimeBuildProfile>())
+                conversionSettings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
+            else
+                conversionSettings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
+
+            if (LiveConversionSettings.AdditionalConversionSystems.Count != 0)
+                conversionSettings.ExtraSystems = LiveConversionSettings.AdditionalConversionSystems.ToArray();
+            return conversionSettings;
+        }
+
+        static void AddMissingData(World world, EntityQuery missingSceneQuery, EntityQuery missingRenderDataQuery)
+        {
+            var em = world.EntityManager;
+            // We don't know the scene tag of the destination world, so we create a null Scene Tag.
+            // In the patching code this will be translated into the final scene entity.
+            em.AddSharedComponentManaged(missingSceneQuery, new SceneTag { SceneEntity = Entity.Null });
+            em.AddSharedComponentManaged(missingRenderDataQuery, new EditorRenderData { SceneCullingMask = UnityEditor.SceneManagement.SceneCullingMasks.GameViewObjects, PickableObject = null });
+        }
+
+        public static bool UpdateLiveConversion(Scene scene, Hash128 sceneGUID, ref LiveConversionDiffGenerator liveConversionData, LiveConversionMode mode, ulong globalAsssetDependencyVersion, GUID configGUID, BuildConfiguration config, DotsPlayerSettings settingAsset, out LiveConversionChangeSet changes)
+        {
+            int framesToRetainBlobAssets = RetainBlobAssetsSetting.GetFramesToRetainBlobAssets(config);
+
+            var liveConversionEnabled = mode != LiveConversionMode.Disabled;
+            if (liveConversionData != null && liveConversionData._LiveConversionEnabled != liveConversionEnabled)
+            {
+                liveConversionData.Dispose();
+                liveConversionData = null;
+            }
+
+            var isBaking = LiveConversionSettings.IsBakingEnabled;
+
+            var unloadAllPreviousEntities = liveConversionData == null;
+            // If conversion isn't enabled just make sure all entities get deleted and early out
+            if (!liveConversionEnabled)
+            {
+                changes = new LiveConversionChangeSet
+                {
+                    UnloadAllPreviousEntities = unloadAllPreviousEntities,
+                    SceneName = scene.name,
+                    SceneGUID = sceneGUID,
+                    FramesToRetainBlobAssets = framesToRetainBlobAssets
+                };
+                return true;
+            }
+
+            if (liveConversionData == null)
+                liveConversionData = new LiveConversionDiffGenerator(scene, sceneGUID, configGUID, config, settingAsset, liveConversionEnabled, isBaking);
+            else if (liveConversionData._Scene != scene || !ReferenceEquals(liveConversionData._buildConfiguration, config) || liveConversionData._configGUID != configGUID || isBaking != liveConversionData._IsBaking)
+            {
+                liveConversionData._Scene = scene;
+                liveConversionData._configGUID = configGUID;
+                liveConversionData._buildConfiguration = config;
+                liveConversionData._RequestCleanConversion = true;
+                liveConversionData._IsBaking = isBaking;
+            }
+            liveConversionData._ArtifactDependencyVersion = globalAsssetDependencyVersion;
+
+            bool didBake = true;
+            if (LiveConversionSettings.IsBakingEnabled)
+            {
+                var flags = BakingUtility.BakingFlags.AddEntityGUID | BakingUtility.BakingFlags.AssignName | BakingUtility.BakingFlags.GameViewLiveConversion;
+                if (mode == LiveConversionMode.SceneViewShowsRuntime)
+                    flags |= BakingUtility.BakingFlags.SceneViewLiveConversion;
+                if (mode == LiveConversionMode.LiveConvertStandalonePlayer)
+                    flags |= BakingUtility.BakingFlags.IsBuildingForPlayer;
+                didBake = liveConversionData.Bake(flags);
+            }
+            else
+            {
+                var flags = GameObjectConversionUtility.ConversionFlags.AddEntityGUID | GameObjectConversionUtility.ConversionFlags.AssignName | GameObjectConversionUtility.ConversionFlags.GameViewLiveConversion;
+                if (mode == LiveConversionMode.SceneViewShowsRuntime)
+                    flags |= GameObjectConversionUtility.ConversionFlags.SceneViewLiveConversion;
+                if (mode == LiveConversionMode.LiveConvertStandalonePlayer)
+                    flags |= GameObjectConversionUtility.ConversionFlags.IsBuildingForPlayer;
+                liveConversionData.Convert(flags);
+            }
+
+            if (LiveConversionSettings.IsDebugLoggingEnabled)
+                didBake = true;
+
+            if (didBake)
+            {
+                const EntityManagerDifferOptions options =
+                    EntityManagerDifferOptions.IncludeForwardChangeSet |
+                    EntityManagerDifferOptions.FastForwardShadowWorld |
+                    EntityManagerDifferOptions.ValidateUniqueEntityGuid |
+                    EntityManagerDifferOptions.ClearMissingReferences;
+
+                changes = new LiveConversionChangeSet
+                {
+                    Changes = liveConversionData._LiveConversionDiffer.GetChanges(options, Allocator.TempJob).ForwardChangeSet,
+                    UnloadAllPreviousEntities = unloadAllPreviousEntities,
+                    SceneName = scene.name,
+                    SceneGUID = sceneGUID,
+                    FramesToRetainBlobAssets = framesToRetainBlobAssets
+                };
+
+                // convertedEntityManager.Debug.CheckInternalConsistency();
+                if (LiveConversionSettings.IsDebugLoggingEnabled)
+                {
+                    EntityManager targetEntityManager = liveConversionData._ConvertedWorld.EntityManager;
+                    Debug.Log(changes.Changes.PrintSummary(targetEntityManager));
+                }
+
+                return true;
+            }
+            else
+            {
+                changes = default;
+                return false;
+            }
+        }
+    }
+}

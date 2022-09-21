@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Unity.Editor.Bridge;
 using UnityEngine.UIElements;
 using ListView = Unity.Editor.Bridge.ListView;
+using TreeView = Unity.Editor.Bridge.TreeView;
 
 namespace Unity.Entities.Editor.Tests
 {
@@ -48,7 +49,7 @@ namespace Unity.Entities.Editor.Tests
             Action<VisualElement, ITreeViewItem> bindItem = (e, i) =>
             {
                 e.Q<Label>(s_LabelIdName).text = i.id.ToString();
-                e.Q<Label>(s_LabelSiblingIndexName).text = (i as Unity.Editor.Bridge.TreeViewItemData<int>).data.ToString();
+                e.Q<Label>(s_LabelSiblingIndexName).text = ((Unity.Editor.Bridge.TreeViewItemData<int>) i).data.ToString();
             };
 
             m_TreeView = new TreeView(m_RawItemList, 20, makeItem, ve => { }, bindItem);

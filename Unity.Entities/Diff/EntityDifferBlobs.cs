@@ -150,6 +150,7 @@ namespace Unity.Entities
         }
 
         internal static BlobAssetsWithDistinctHash GetBlobAssetsWithDistinctHash(
+            EntityComponentStore* entityComponentStore,
             ManagedComponentStore managedComponentStore,
             NativeArray<ArchetypeChunk> chunks,
             Allocator allocator)
@@ -183,7 +184,7 @@ namespace Unity.Entities
                     if (componentTypeInArchetype.IsZeroSized)
                         continue;
 
-                    ref var typeInfo = ref typeInfoPtr[componentTypeInArchetype.TypeIndex & TypeManager.ClearFlagsMask];
+                    ref var typeInfo = ref typeInfoPtr[componentTypeInArchetype.TypeIndex.Index];
                     if (!typeInfo.HasBlobAssetRefs)
                         continue;
 
@@ -253,10 +254,15 @@ namespace Unity.Entities
                 for (var i = 0; i < archetype->NumSharedComponents; i++)
                 {
                     var sharedComponentIndex = sharedComponentValues[i];
-                    if (!managedComponentStore.HasBlobReferences(sharedComponentIndex))
+                    object sharedComponentValue;
+                    if (!TypeManager.GetTypeInfo(EntityComponentStore.GetComponentTypeFromSharedComponentIndex(sharedComponentIndex)).HasBlobAssetRefs)
                         continue;
 
-                    var sharedComponentValue = managedComponentStore.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndex);
+                    if (EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
+                        sharedComponentValue = entityComponentStore->GetSharedComponentDataObject_Unmanaged(sharedComponentIndex, EntityComponentStore.GetComponentTypeFromSharedComponentIndex(sharedComponentIndex));
+                    else
+                        sharedComponentValue = managedComponentStore.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndex);
+
                     managedObjectBlobs.GatherBlobAssetReferences(sharedComponentValue, managedObjectBlobAssets, managedObjectBlobAssetsMap);
                 }
             }

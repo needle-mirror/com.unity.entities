@@ -1,6 +1,6 @@
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -31,7 +31,7 @@ namespace Unity.Entities.Editor
         [CreateProperty, UsedImplicitly] public UnityEngine.Object ConvertedFrom => m_Context.GetSourceObject();
 
         [UsedImplicitly]
-        class EntityHeaderInspector : Inspector<EntityHeader>
+        class EntityHeaderInspector : PropertyInspector<EntityHeader>
         {
             const string k_EntityName = "Entity Name";
             const string k_IndexVersion = "Index/Version";

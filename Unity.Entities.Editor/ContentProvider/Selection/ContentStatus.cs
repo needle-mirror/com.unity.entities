@@ -1,4 +1,4 @@
-namespace Unity.Properties.UI
+namespace Unity.Platforms.UI
 {
     /// <summary>
     /// The different statuses describing the content of a content provider.
@@ -19,7 +19,7 @@ namespace Unity.Properties.UI
         /// Indicates that the content is ready for display.
         /// </summary>
         ContentReady = 2,
-        
+
         /// <summary>
         /// Indicates that the content should be reloaded.
         /// </summary>

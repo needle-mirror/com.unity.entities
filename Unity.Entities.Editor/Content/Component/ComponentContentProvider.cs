@@ -1,7 +1,7 @@
 using System;
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -27,7 +27,7 @@ namespace Unity.Entities.Editor
                 try
                 {
                     // Inside of a try/catch because this method will throw an exception if the type is not valid.
-                    if (TypeManager.GetTypeIndex(value) >= 0)
+                    if (TypeManager.GetTypeIndex(value) != TypeIndex.Null)
                         m_ComponentType = value;
 
                     m_AssemblyQualifiedTypeName = m_ComponentType != null
@@ -74,7 +74,7 @@ namespace Unity.Entities.Editor
     }
 
     [UsedImplicitly]
-    class ComponentContentInspector : Inspector<ComponentContentProvider>
+    class ComponentContentInspector : PropertyInspector<ComponentContentProvider>
     {
         public override VisualElement Build()
         {

@@ -9,6 +9,7 @@ using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Unity.Burst;
 
 namespace Unity.Entities.Tests
 {
@@ -22,11 +23,9 @@ namespace Unity.Entities.Tests
         {
             base.Setup();
             m_world = new World("ScratchpadAllocatorTests");
-            var system = m_world.GetOrCreateSystem<WorldUpdateAllocatorResetSystem>();
-            var group = m_world.GetOrCreateSystem<InitializationSystemGroup>();
-            group.AddSystemToUpdateList(system.Handle);
-            group.SortSystems();
-            m_scratchpad = new Scratchpad(JobsUtility.MaxJobThreadCount);
+
+            // Main thread plus maximum worker thread
+            m_scratchpad = new Scratchpad(JobsUtility.MaxJobThreadCount + 1);
         }
 
         [TearDown]
@@ -39,12 +38,13 @@ namespace Unity.Entities.Tests
 
         struct RewindInvalidatesNativeArrayJob : IJobParallelFor
         {
-            internal ScratchpadAllocator m_temp;
+            internal Scratchpad m_jobScratchpad;
             public void Execute(int index)
             {
-                var array = m_temp.AllocateNativeArray<float>(100);
-                m_temp.Rewind();
-                array[0] = index; // should throw an exception - isn't safe
+                ref var allocator = ref m_jobScratchpad.GetScratchpadAllocator();
+                var array = allocator.AllocateNativeArray<float>(100);
+                allocator.Rewind();
+                array[0] = index;  // should throw an exception - isn't safe
             }
         }
 
@@ -52,23 +52,27 @@ namespace Unity.Entities.Tests
         public void RewindInvalidatesNativeArrayInJob()
         {
             m_scratchpad.Rewind();
-            RewindInvalidatesNativeArrayJob job = new RewindInvalidatesNativeArrayJob {
-                m_temp = new ScratchpadAllocator(m_scratchpad),
+            RewindInvalidatesNativeArrayJob job = new RewindInvalidatesNativeArrayJob
+            {
+                m_jobScratchpad = m_scratchpad,
             };
-            LogAssert.Expect(LogType.Exception, new Regex("ObjectDisposedException"));
-                // temporary check to be replaced with the one below following an editor version promotion that includes
-                // a NativeArray and NativeSlice atomic safety handle check revert
-            // LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException")); - temporarily commenting out updated assert checks to ensure editor version promotion succeeds
+
+            // temporary check to be replaced with the one below following an editor version promotion that includes
+            // a NativeArray and NativeSlice atomic safety handle check revert
+            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
+
             job.Schedule(1, 1).Complete();
         }
 
         struct RewindInvalidatesNativeListJob : IJobParallelFor
         {
-            internal ScratchpadAllocator m_temp;
+            internal Scratchpad m_jobScratchpad;
+
             public void Execute(int index)
             {
-                var list = m_temp.AllocateNativeList<float>(100);
-                m_temp.Rewind();
+                ref var allocator = ref m_jobScratchpad.GetScratchpadAllocator();
+                var list = allocator.AllocateNativeList<float>(100);
+                allocator.Rewind();
                 list.Add(0); // should throw an exception - isn't safe
             }
         }
@@ -77,8 +81,9 @@ namespace Unity.Entities.Tests
         public void RewindInvalidatesNativeListInJob()
         {
             m_scratchpad.Rewind();
-            RewindInvalidatesNativeListJob job = new RewindInvalidatesNativeListJob {
-                m_temp = new ScratchpadAllocator(m_scratchpad),
+            RewindInvalidatesNativeListJob job = new RewindInvalidatesNativeListJob
+            {
+                m_jobScratchpad = m_scratchpad,
             };
             LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
             job.Schedule(1, 1).Complete();
@@ -86,13 +91,15 @@ namespace Unity.Entities.Tests
 
         struct ScratchpadNativeListCanResizeJob : IJobParallelFor
         {
-            internal ScratchpadAllocator m_temp;
+            internal Scratchpad m_jobScratchpad;
+
             public void Execute(int index)
             {
-                m_temp.Rewind();
-                var list = new NativeList<float>(20, (Allocator)m_temp.Handle.Value);
-                list.Capacity = 200;
-                list.Capacity = 2000;
+                ref var allocator = ref m_jobScratchpad.GetScratchpadAllocator();
+                allocator.Rewind();
+                var list = new NativeList<float>(20, (Allocator)allocator.Handle.Value);
+                list.Length = 200;
+                list.Length = 2000;
                 list.Add(0); // should be okay.
             }
         }
@@ -101,24 +108,26 @@ namespace Unity.Entities.Tests
         public void ScratchpadNativeListCanResizeInJob()
         {
             m_scratchpad.Rewind();
-            ScratchpadNativeListCanResizeJob job = new ScratchpadNativeListCanResizeJob {
-                m_temp = new ScratchpadAllocator(m_scratchpad),
+            ScratchpadNativeListCanResizeJob job = new ScratchpadNativeListCanResizeJob
+            {
+                m_jobScratchpad = m_scratchpad,
             };
             job.Schedule(1, 1).Complete();
         }
 
         struct AccumulatorJob : IJobParallelFor
         {
-            internal ScratchpadAllocator m_temp;
+            internal Scratchpad m_jobScratchpad;
             internal NativeArray<float> m_results;
             public void Execute(int index)
             {
-                m_temp.Rewind();
-                var array = m_temp.AllocateNativeArray<float>(100);
-                for(var i = 0; i < 100; ++i)
+                ref var allocator = ref m_jobScratchpad.GetScratchpadAllocator();
+                allocator.Rewind();
+                var array = allocator.AllocateNativeArray<float>(100);
+                for (var i = 0; i < 100; ++i)
                     array[i] = index;
                 float total = 0;
-                for(var i = 0; i < 100; ++i)
+                for (var i = 0; i < 100; ++i)
                     total += array[i];
                 m_results[index] = total;
             }
@@ -132,7 +141,7 @@ namespace Unity.Entities.Tests
             {
                 AccumulatorJob job = new AccumulatorJob
                 {
-                    m_temp = new ScratchpadAllocator(m_scratchpad),
+                    m_jobScratchpad = m_scratchpad,
                     m_results = results,
                 };
                 job.Schedule(100, 1).Complete();
@@ -143,20 +152,21 @@ namespace Unity.Entities.Tests
 
         struct RewindJob : IJobParallelFor
         {
-            internal ScratchpadAllocator m_temp;
+            internal Scratchpad m_jobScratchpad;
             internal NativeArray<float> m_results;
             public void Execute(int index)
             {
-                var array = m_temp.AllocateNativeArray<float>(8000); // 32000 bytes
-                m_temp.Rewind();
-                array = m_temp.AllocateNativeArray<float>(8000); // another 32000 bytes!
-                for(var i = 0; i < 8000; ++i)
+                ref var allocator = ref m_jobScratchpad.GetScratchpadAllocator();
+                var array = allocator.AllocateNativeArray<float>(8000); // 32000 bytes
+                allocator.Rewind();
+                array = allocator.AllocateNativeArray<float>(8000); // another 32000 bytes!
+                for (var i = 0; i < 8000; ++i)
                     array[i] = index;
                 float total = 0;
-                for(var i = 0; i < 8000; ++i)
+                for (var i = 0; i < 8000; ++i)
                     total += array[i];
                 m_results[index] = total;
-                m_temp.Rewind();
+                allocator.Rewind();
             }
         }
 
@@ -168,13 +178,266 @@ namespace Unity.Entities.Tests
             {
                 RewindJob job = new RewindJob
                 {
-                    m_temp = new ScratchpadAllocator(m_scratchpad),
+                    m_jobScratchpad = m_scratchpad,
                     m_results = results,
                 };
                 job.Schedule(100, 1).Complete();
                 for (var i = 0; i < 100; ++i)
                     Assert.AreEqual(8000 * i, results[i]);
             }
+        }
+
+
+        [BurstCompile]
+        struct NoRewindBurstCompileJob : IJobParallelFor
+        {
+            internal Scratchpad m_jobScratchpad;
+            internal NativeArray<float> m_results;
+            public void Execute(int index)
+            {
+                ref var allocator = ref m_jobScratchpad.GetScratchpadAllocator();
+                var array = allocator.AllocateNativeArray<float>(8000); // 32000 bytes
+                for (var i = 0; i < 8000; ++i)
+                    array[i] = index;
+                float total = 0;
+                for (var i = 0; i < 8000; ++i)
+                    total += array[i];
+                m_results[index] = total;
+            }
+        }
+
+        [Test]
+        public void NoRewindBurstCompileInJob()
+        {
+            m_scratchpad.Rewind();
+            using (var results = new NativeArray<float>(100, Allocator.Persistent))
+            {
+                RewindJob job = new RewindJob
+                {
+                    m_jobScratchpad = m_scratchpad,
+                    m_results = results,
+                };
+                job.Schedule(100, 1).Complete();
+                for (var i = 0; i < 100; ++i)
+                    Assert.AreEqual(8000 * i, results[i]);
+            }
+            m_scratchpad.Rewind();
+        }
+
+        [Test]
+        public void AvailalbeBytesCorrect()
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                int size = (i + 1) * 32768;
+                var test_scratchpad = new Scratchpad(JobsUtility.MaxJobThreadCount + 1, size);
+                ref var allocator = ref test_scratchpad.GetScratchpadAllocator();
+                var array = allocator.AllocateNativeArray<float>(10); // 40 bytes
+                var mask = JobsUtility.CacheLineSize - 1;
+                int actualAllocateSize = (sizeof(float) * 10 + mask) & ~mask;
+                Assert.AreEqual(allocator.GetAvailableBytes(), size - actualAllocateSize);
+                test_scratchpad.Dispose();
+            }
+        }
+    }
+
+
+    public unsafe class GlobalScratchpadAllocatorTests : ECSTestsCommonBase
+    {
+        [SetUp]
+        public override void Setup()
+        {
+            GlobalScratchpad.Initialize();
+            base.Setup();
+        }
+
+        [TearDown]
+        public override void TearDown()
+        {
+            base.TearDown();
+        }
+
+        struct GlobalRewindInvalidatesNativeArrayJob : IJobParallelFor
+        {
+            public void Execute(int index)
+            {
+                ref var allocator = ref GlobalScratchpad.GetAllocator();
+                var array = allocator.AllocateNativeArray<float>(100);
+                allocator.Rewind();
+                array[0] = index;  // should throw an exception - isn't safe
+            }
+        }
+
+        [Test]
+        public void GlobalRewindInvalidatesNativeArrayInJob()
+        {
+            GlobalScratchpad.Rewind();
+            GlobalRewindInvalidatesNativeArrayJob job = new GlobalRewindInvalidatesNativeArrayJob { };
+
+            // temporary check to be replaced with the one below following an editor version promotion that includes
+            // a NativeArray and NativeSlice atomic safety handle check revert
+            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
+
+            job.Schedule(1, 1).Complete();
+            GlobalScratchpad.Rewind();
+        }
+
+        struct GlobalRewindInvalidatesNativeListJob : IJobParallelFor
+        {
+            public void Execute(int index)
+            {
+                ref var allocator = ref GlobalScratchpad.GetAllocator();
+                var list = allocator.AllocateNativeList<float>(100);
+                allocator.Rewind();
+                list.Add(0); // should throw an exception - isn't safe
+            }
+        }
+
+        [Test]
+        public void GlobalRewindInvalidatesNativeListInJob()
+        {
+            GlobalScratchpad.Rewind();
+            GlobalRewindInvalidatesNativeListJob job = new GlobalRewindInvalidatesNativeListJob { };
+
+            // temporary check to be replaced with the one below following an editor version promotion that includes
+            // a NativeArray and NativeSlice atomic safety handle check revert
+            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
+
+            job.Schedule(1, 1).Complete();
+            GlobalScratchpad.Rewind();
+        }
+
+        struct GlobalScratchpadNativeListCanResizeJob : IJobParallelFor
+        {
+            public void Execute(int index)
+            {
+                ref var allocator = ref GlobalScratchpad.GetAllocator();
+                allocator.Rewind();
+                var list = new NativeList<float>(20, (Allocator)allocator.Handle.Value);
+                list.Length = 200;
+                list.Length = 2000;
+                list.Add(0); // should be okay.
+            }
+        }
+
+        [Test]
+        public void GlobalScratchpadNativeListCanResizeInJob()
+        {
+            GlobalScratchpad.Rewind();
+            GlobalScratchpadNativeListCanResizeJob job = new GlobalScratchpadNativeListCanResizeJob { };
+            job.Schedule(1, 1).Complete();
+            GlobalScratchpad.Rewind();
+        }
+
+        struct GlobalAccumulatorJob : IJobParallelFor
+        {
+            internal NativeArray<float> m_results;
+            public void Execute(int index)
+            {
+                ref var allocator = ref GlobalScratchpad.GetAllocator();
+                allocator.Rewind();
+                var array = allocator.AllocateNativeArray<float>(10);
+
+                for (var i = 0; i < 10; ++i)
+                    array[i] = index;
+
+                float total = 0;
+                for (var i = 0; i < 10; ++i)
+                    total += array[i];
+
+                m_results[index] = total;
+            }
+        }
+
+        [Test]
+        public void GlobalCanCheaplyAllocateTemporaryMemoryInJob()
+        {
+            GlobalScratchpad.Rewind();
+            using (var results = new NativeArray<float>(10, Allocator.Persistent))
+            {
+                GlobalAccumulatorJob job = new GlobalAccumulatorJob
+                {
+                    m_results = results,
+                };
+                job.Schedule(10, 1).Complete();
+
+                for (var i = 0; i < 10; ++i)
+                    Assert.AreEqual(10 * i, results[i]);
+            }
+            GlobalScratchpad.Rewind();
+        }
+
+        struct GlobalRewindJob : IJobParallelFor
+        {
+            internal NativeArray<float> m_results;
+            public void Execute(int index)
+            {
+                ref var allocator = ref GlobalScratchpad.GetAllocator();
+                var array = allocator.AllocateNativeArray<float>(8000); // 32000 bytes
+                allocator.Rewind();
+                array = allocator.AllocateNativeArray<float>(8000); // another 32000 bytes!
+                for (var i = 0; i < 8000; ++i)
+                    array[i] = index;
+
+                float total = 0;
+                for (var i = 0; i < 8000; ++i)
+                    total += array[i];
+
+                m_results[index] = total;
+                allocator.Rewind();
+            }
+        }
+
+        [Test]
+        public void GlobalCanRewindTemporaryMemoryInJob()
+        {
+            GlobalScratchpad.Rewind();
+            using (var results = new NativeArray<float>(100, Allocator.Persistent))
+            {
+                GlobalRewindJob job = new GlobalRewindJob
+                {
+                    m_results = results,
+                };
+                job.Schedule(100, 1).Complete();
+                for (var i = 0; i < 100; ++i)
+                    Assert.AreEqual(8000 * i, results[i]);
+            }
+            GlobalScratchpad.Rewind();
+        }
+
+
+        [BurstCompile]
+        struct GlobalNoRewindBurstCompileJob : IJobParallelFor
+        {
+            internal NativeArray<float> m_results;
+            public void Execute(int index)
+            {
+                ref var allocator = ref GlobalScratchpad.GetAllocator();
+                var array = allocator.AllocateNativeArray<float>(8000); // 32000 bytes
+                for (var i = 0; i < 8000; ++i)
+                    array[i] = index;
+                float total = 0;
+                for (var i = 0; i < 8000; ++i)
+                    total += array[i];
+                m_results[index] = total;
+            }
+        }
+
+        [Test]
+        public void GlobalNoRewindBurstCompileInJob()
+        {
+            GlobalScratchpad.Rewind();
+            using (var results = new NativeArray<float>(100, Allocator.Persistent))
+            {
+                GlobalNoRewindBurstCompileJob job = new GlobalNoRewindBurstCompileJob
+                {
+                    m_results = results,
+                };
+                job.Schedule(100, 1).Complete();
+                for (var i = 0; i < 100; ++i)
+                    Assert.AreEqual(8000 * i, results[i]);
+            }
+            GlobalScratchpad.Rewind();
         }
     }
 }

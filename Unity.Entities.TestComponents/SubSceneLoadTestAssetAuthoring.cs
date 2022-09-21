@@ -6,26 +6,28 @@ using Object = UnityEngine.Object;
 namespace Unity.Scenes.Editor.Tests
 {
     [AddComponentMenu("")]
-    [ConverterVersion("unity", 1)]
-    public class SubSceneLoadTestAssetAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+    public class SubSceneLoadTestAssetAuthoring : MonoBehaviour
     {
         public Object Asset;
+    }
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+    public class SubSceneLoadTestAssetComponent : IComponentData
+    {
+        public Object Asset;
+    }
+#endif
+
+    public class SubSceneLoadTestAssetBaker : Baker<SubSceneLoadTestAssetAuthoring>
+    {
+        public override void Bake(SubSceneLoadTestAssetAuthoring authoring)
         {
 #if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
-            dstManager.AddComponentData(entity, new Component
+            AddComponentObject(new SubSceneLoadTestAssetComponent
             {
-                Asset = Asset
+                Asset = authoring.Asset
             });
 #endif
         }
-
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
-        public class Component : IComponentData
-        {
-            public Object Asset;
-        }
-#endif
     }
 }

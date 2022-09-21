@@ -15,36 +15,31 @@ namespace Unity.Entities.Tests
     }
 
     [AddComponentMenu("")]
-    [ConverterVersion("joe", 1)]
-    public class EntityRefTestDataAuthoring : MonoBehaviour, IConvertGameObjectToEntity, IDeclareReferencedPrefabs
+    public class EntityRefTestDataAuthoring : MonoBehaviour
     {
         public GameObject Value;
         public int        AdditionalEntityCount;
         public bool       DeclareLinkedEntityGroup;
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
-        {
-            dstManager.AddComponentData(entity, new EntityRefTestData {Value = conversionSystem.GetPrimaryEntity(Value)});
-
-            for (int i = 0; i != AdditionalEntityCount; i++)
-            {
-                var additional = conversionSystem.CreateAdditionalEntity(this);
-                dstManager.AddComponentData(additional, new EntityRefTestData {Value = conversionSystem.GetPrimaryEntity(Value)});
-            }
-
-            if (DeclareLinkedEntityGroup)
-                conversionSystem.DeclareLinkedEntityGroup(gameObject);
-        }
-
-        public void DeclareReferencedPrefabs(List<GameObject> referencedPrefabs)
-        {
-            if (Value != null && Value.IsPrefab())
-                referencedPrefabs.Add(Value);
-        }
-
         // Empty Update function makes it so that unity shows the UI for the checkbox.
         // We use it for testing stripping of components.
         // ReSharper disable once Unity.RedundantEventFunction
         void Update() {}
+    }
+
+    public class EntityRefTestDataBaker : Baker<EntityRefTestDataAuthoring>
+    {
+        public override void Bake(EntityRefTestDataAuthoring authoring)
+        {
+            var entity = GetEntity(authoring.Value);
+            AddComponent(new EntityRefTestData {Value = entity});
+            for (int i = 0; i != authoring.AdditionalEntityCount; i++)
+            {
+                var additional = CreateAdditionalEntity();
+                AddComponent(additional, new EntityRefTestData {Value = entity});
+            }
+
+            //TODO: Needs to declare prefabs as well
+        }
     }
 }

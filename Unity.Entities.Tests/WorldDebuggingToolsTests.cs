@@ -7,7 +7,7 @@ namespace Unity.Entities.Tests
 {
     class WorldDebuggingToolsTests : ECSTestsFixture
     {
-        class RegularSystem : ComponentSystem
+        partial class RegularSystem : SystemBase
         {
             public EntityQuery entities;
 
@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class ExcludeSystem : ComponentSystem
+        partial class ExcludeSystem : SystemBase
         {
             public EntityQuery entities;
 
@@ -42,7 +42,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemInclusionList_MatchesComponents()
         {
-            var system = World.GetOrCreateSystem<RegularSystem>();
+            var system = World.GetOrCreateSystemManaged<RegularSystem>();
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
@@ -58,7 +58,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemInclusionList_IgnoresSubtractedComponents()
         {
-            World.GetOrCreateSystem<ExcludeSystem>();
+            World.GetOrCreateSystemManaged<ExcludeSystem>();
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 

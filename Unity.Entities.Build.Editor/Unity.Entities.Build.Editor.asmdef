@@ -1,0 +1,16 @@
+{
+  "name": "Unity.Entities.Build.Editor",
+  "references": [
+      "Unity.Properties",
+      "Unity.Platforms.UI",
+      "Unity.Platforms.UI.Editor",
+      "Unity.Build",
+      "Unity.Entities.Hybrid",
+      "Unity.Entities.Build",
+      "Unity.Entities",
+      "Unity.Mathematics"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

@@ -7,24 +7,24 @@ namespace Unity.Entities
 {
     partial class EntitiesProfiler
     {
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         [StructLayout(LayoutKind.Sequential)]
         public readonly struct SystemData : IEquatable<SystemData>
         {
-            readonly SystemHandleUntyped m_System;
+            readonly SystemHandle m_System;
             readonly FixedString128Bytes m_Name;
 
-            public SystemHandleUntyped System => m_System;
+            public SystemHandle System => m_System;
 
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Returns managed string")]
             public string Name => m_Name.ToString();
 
-            [NotBurstCompatible]
-            public SystemData(World world, ComponentSystemBase system)
+            [ExcludeFromBurstCompatTesting("Takes managed Type")]
+            public SystemData(Type systemType, in SystemHandle systemHandle)
             {
-                var systemType = system.GetType();
-                m_System = world.Unmanaged.GetExistingUnmanagedSystem(systemType);
-                m_Name = TypeManager.GetSystemName(systemType).ToFixedString128();
+                m_System = systemHandle;
+                m_Name = default;
+                m_Name.Append(TypeManager.GetSystemName(systemType));
             }
 
             public bool Equals(SystemData other)
@@ -32,7 +32,7 @@ namespace Unity.Entities
                 return m_System.Equals(other.m_System);
             }
 
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Takes managed object")]
             public override bool Equals(object obj)
             {
                 return obj is SystemData systemData ? Equals(systemData) : false;

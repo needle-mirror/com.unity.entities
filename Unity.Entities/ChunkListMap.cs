@@ -85,11 +85,17 @@ namespace Unity.Entities
                 count = MinimumSize;
             Assert.IsTrue(0 == (count & (count - 1)));
 
-            hashes = new UnsafeList<uint>(count, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-            hashes.Resize(count);
+            if (hashes.IsCreated)
+                hashes.Clear();
+            else
+                hashes = new UnsafeList<uint>(count, Allocator.Persistent);
+            hashes.Resize(count, NativeArrayOptions.ClearMemory);
 
-            chunks = new UnsafePtrList<Chunk>(count, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-            chunks.Resize(count);
+            if (chunks.IsCreated)
+                chunks.Clear();
+            else
+                chunks = new UnsafePtrList<Chunk>(count, Allocator.Persistent);
+            chunks.Resize(count, NativeArrayOptions.ClearMemory);
 
             emptyNodes = count;
             skipNodes = 0;

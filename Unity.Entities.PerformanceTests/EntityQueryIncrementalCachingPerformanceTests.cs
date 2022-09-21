@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.PerformanceTesting;
@@ -15,15 +16,22 @@ namespace Unity.Entities.PerformanceTests
 {
     [TestFixture]
     [Category("Performance")]
-    public sealed class EntityQueryIncrementalCachingPerformanceTests : EntityPerformanceTestFixture
+    public partial class EntityQueryIncrementalCachingPerformanceTests : EntityPerformanceTestFixture
     {
+        public enum EntityQueryFilterMode
+        {
+            FilterDisabled,
+            FilterEnabledAllPass,
+            FilterEnabledNonePass,
+        }
+
         NativeArray<EntityQuery> CreateUniqueQueries(int size)
         {
-            var queries = new NativeArray<EntityQuery>(size, Allocator.TempJob);
+            var queries = CollectionHelper.CreateNativeArray<EntityQuery>(size, World.UpdateAllocator.ToAllocator);
 
+            var typeCount = CollectionHelper.Log2Ceil(size);
             for (int i = 0; i < size; i++)
             {
-                var typeCount = CollectionHelper.Log2Ceil(i);
                 var typeList = new List<ComponentType>();
                 for (int typeIndex = 0; typeIndex < typeCount; typeIndex++)
                 {
@@ -44,7 +52,7 @@ namespace Unity.Entities.PerformanceTests
         [Test, Performance]
         public void RebuildMatchingChunkCache_EmptyArchetypes([Values(100, 1000, 10000)] int archetypeCount)
         {
-            using var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount, Allocator.TempJob,
+            using var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount, World.UpdateAllocator.ToAllocator,
                 typeof(EcsTestData));
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             Measure.Method(() =>
@@ -63,7 +71,7 @@ namespace Unity.Entities.PerformanceTests
             const int kInitialEntityCount = 5000000;
             const int kCreateDestroyEntityCount = 200000;
 
-            using(var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount, Allocator.TempJob,typeof(EcsTestData), typeof(EcsTestSharedComp)))
+            using(var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount, World.UpdateAllocator.ToAllocator,typeof(EcsTestData), typeof(EcsTestSharedComp)))
             using(var queries = CreateUniqueQueries(queryCount))
             {
                 for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
@@ -77,7 +85,7 @@ namespace Unity.Entities.PerformanceTests
                 Measure.Method(() =>
                     {
                         createEntities = m_Manager.CreateEntity(basicArchetype, kCreateDestroyEntityCount,
-                            Allocator.TempJob);
+                            World.UpdateAllocator.ToAllocator);
                     })
                     .CleanUp(() =>
                     {
@@ -94,7 +102,7 @@ namespace Unity.Entities.PerformanceTests
                     .SetUp(() =>
                     {
                         destroyEntities = m_Manager.CreateEntity(basicArchetype, kCreateDestroyEntityCount,
-                            Allocator.TempJob);
+                            World.UpdateAllocator.ToAllocator);
                     })
                     .CleanUp(() => { destroyEntities.Dispose(); })
                     .WarmupCount(1)
@@ -104,138 +112,7 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 
-        [BurstCompile(CompileSynchronously = true)]
-        struct TestChunkJob : IJobChunk
-        {
-            public ComponentTypeHandle<EcsTestData> EcsTestDataRW;
-
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
-            {
-                var data = chunk.GetNativeArray(EcsTestDataRW);
-                data[0] = new EcsTestData {value = 10};
-            }
-        }
-
-        void IJobChunk_Performance_Scheduling(int entityCount, int archetypeCount, bool enableQueryFiltering,
-            bool enableQueryChunkCache)
-        {
-            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount,
-                Allocator.TempJob, typeof(EcsTestData), typeof(EcsTestSharedComp)))
-            using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData),
-                typeof(EcsTestSharedComp)))
-            {
-                for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
-                {
-                    m_Manager.CreateEntity(archetypes[archetypeIndex], entityCount / archetypeCount);
-                }
-                if (enableQueryFiltering)
-                    basicQuery.SetSharedComponentFilter(default(EcsTestSharedComp));
-                var handle = default(JobHandle);
-                Measure.Method(() =>
-                    {
-                        handle = new TestChunkJob
-                        {
-                            EcsTestDataRW = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-                        }.Schedule(basicQuery, handle);
-                    })
-                    .CleanUp(() =>
-                    {
-                        handle.Complete();
-                        if (!enableQueryChunkCache)
-                        {
-                            basicQuery.InvalidateCache();
-                        }
-                    })
-                    .WarmupCount(1)
-                    .MeasurementCount(100)
-                    .Run();
-            }
-        }
-
-        [Test, Performance]
-        public void IJobChunk_Performance_Scheduling_WithFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
-            [Values(10, 100)] int archetypeCount)
-        {
-            IJobChunk_Performance_Scheduling(entityCount, archetypeCount, true, true);
-        }
-        [Test, Performance]
-        public void IJobChunk_Performance_Scheduling_WithoutFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
-            [Values(10, 100)] int archetypeCount)
-        {
-            IJobChunk_Performance_Scheduling(entityCount, archetypeCount, false, true);
-        }
-        [Test, Performance]
-        public void IJobChunk_Performance_Scheduling_WithFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
-            [Values(10, 100)] int archetypeCount)
-        {
-            IJobChunk_Performance_Scheduling(entityCount, archetypeCount, true, false);
-        }
-        [Test, Performance]
-        public void IJobChunk_Performance_Scheduling_WithoutFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
-            [Values(10, 100)] int archetypeCount)
-        {
-            IJobChunk_Performance_Scheduling(entityCount, archetypeCount, false, false);
-        }
-
-        void IJobChunk_Performance_Executing(int entityCount, int archetypeCount, bool enableQueryFiltering,
-            bool enableQueryChunkCache)
-        {
-            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount, Allocator.TempJob, typeof(EcsTestData), typeof(EcsTestSharedComp)))
-            using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp)))
-            {
-                for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
-                {
-                    m_Manager.CreateEntity(archetypes[archetypeIndex], entityCount / archetypeCount);
-                }
-
-                if (enableQueryFiltering)
-                    basicQuery.SetSharedComponentFilter(default(EcsTestSharedComp));
-
-                Measure.Method(() =>
-                    {
-                        new TestChunkJob
-                        {
-                            EcsTestDataRW = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
-                        }.Run(basicQuery);
-                    })
-                    .CleanUp(() =>
-                    {
-                        if (!enableQueryChunkCache)
-                        {
-                            basicQuery.InvalidateCache();
-                        }
-                    })
-                    .WarmupCount(1)
-                    .MeasurementCount(100)
-                    .Run();
-            }
-        }
-
-        [Test, Performance]
-        public void IJobChunk_Performance_Executing_WithFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
-            [Values(10, 100)] int archetypeCount)
-        {
-            IJobChunk_Performance_Executing(entityCount, archetypeCount, true, true);
-        }
-        [Test, Performance]
-        public void IJobChunk_Performance_Executing_WithoutFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
-            [Values(10, 100)] int archetypeCount)
-        {
-            IJobChunk_Performance_Executing(entityCount, archetypeCount, false, true);
-        }
-        [Test, Performance]
-        public void IJobChunk_Performance_Executing_WithFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
-            [Values(10, 100)] int archetypeCount)
-        {
-            IJobChunk_Performance_Executing(entityCount, archetypeCount, true, false);
-        }
-        [Test, Performance]
-        public void IJobChunk_Performance_Executing_WithoutFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
-            [Values(10, 100)] int archetypeCount)
-        {
-            IJobChunk_Performance_Executing(entityCount, archetypeCount, false, false);
-        }
-
+#pragma warning disable 618 // IJobEntityBatch is obsolete
         [BurstCompile(CompileSynchronously = true)]
         struct TestEntityBatchJob : IJobEntityBatch
         {
@@ -248,10 +125,10 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 
-        void IJobEntityBatch_Performance_Scheduling(int entityCount, int archetypeCount, bool enableQueryFiltering,
+        void IJobEntityBatch_Performance_Scheduling(int entityCount, int archetypeCount, EntityQueryFilterMode filterMode,
             bool enableQueryChunkCache)
         {
-            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount,  Allocator.TempJob, typeof(EcsTestData), typeof(EcsTestSharedComp)))
+            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount,  World.UpdateAllocator.ToAllocator, typeof(EcsTestData), typeof(EcsTestSharedComp)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp)))
             {
                 for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
@@ -259,8 +136,10 @@ namespace Unity.Entities.PerformanceTests
                     m_Manager.CreateEntity(archetypes[archetypeIndex], entityCount / archetypeCount);
                 }
 
-                if (enableQueryFiltering)
-                    basicQuery.SetSharedComponentFilter(default(EcsTestSharedComp));
+                if (filterMode == EntityQueryFilterMode.FilterEnabledAllPass)
+                    basicQuery.SetSharedComponentFilterManaged(default(EcsTestSharedComp));
+                else if (filterMode == EntityQueryFilterMode.FilterEnabledNonePass)
+                    basicQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(17));
 
                 var handle = default(JobHandle);
                 Measure.Method(() =>
@@ -278,6 +157,7 @@ namespace Unity.Entities.PerformanceTests
                             basicQuery.InvalidateCache();
                         }
                     })
+                    .SampleGroup(new SampleGroup("IJobEntityBatch_Scheduling", SampleUnit.Microsecond))
                     .WarmupCount(1)
                     .MeasurementCount(100)
                     .Run();
@@ -288,31 +168,31 @@ namespace Unity.Entities.PerformanceTests
         public void IJobEntityBatch_Performance_Scheduling_WithFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatch_Performance_Scheduling(entityCount, archetypeCount, true, true);
+            IJobEntityBatch_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass, true);
         }
         [Test, Performance]
         public void IJobEntityBatch_Performance_Scheduling_WithoutFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatch_Performance_Scheduling(entityCount, archetypeCount, false, true);
+            IJobEntityBatch_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled, true);
         }
         [Test, Performance]
         public void IJobEntityBatch_Performance_Scheduling_WithFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatch_Performance_Scheduling(entityCount, archetypeCount, true, false);
+            IJobEntityBatch_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass, false);
         }
         [Test, Performance]
         public void IJobEntityBatch_Performance_Scheduling_WithoutFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatch_Performance_Scheduling(entityCount, archetypeCount, false, false);
+            IJobEntityBatch_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled, false);
         }
 
-        void IJobEntityBatch_Performance_Executing(int entityCount, int archetypeCount, bool enableQueryFiltering,
+        void IJobEntityBatch_Performance_Executing(int entityCount, int archetypeCount, EntityQueryFilterMode filterMode,
             bool enableQueryChunkCache)
         {
-            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount,  Allocator.TempJob, typeof(EcsTestData), typeof(EcsTestSharedComp)))
+            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount,  World.UpdateAllocator.ToAllocator, typeof(EcsTestData), typeof(EcsTestSharedComp)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp)))
             {
                 for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
@@ -320,8 +200,10 @@ namespace Unity.Entities.PerformanceTests
                     m_Manager.CreateEntity(archetypes[archetypeIndex], entityCount / archetypeCount);
                 }
 
-                if (enableQueryFiltering)
-                    basicQuery.SetSharedComponentFilter(default(EcsTestSharedComp));
+                if (filterMode == EntityQueryFilterMode.FilterEnabledAllPass)
+                    basicQuery.SetSharedComponentFilterManaged(default(EcsTestSharedComp));
+                else if (filterMode == EntityQueryFilterMode.FilterEnabledNonePass)
+                    basicQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(17));
 
                 Measure.Method(() =>
                     {
@@ -337,6 +219,7 @@ namespace Unity.Entities.PerformanceTests
                             basicQuery.InvalidateCache();
                         }
                     })
+                    .SampleGroup(new SampleGroup("IJobEntityBatch_Executing", SampleUnit.Microsecond))
                     .WarmupCount(1)
                     .MeasurementCount(100)
                     .Run();
@@ -344,30 +227,44 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [Test, Performance]
-        public void IJobEntityBatch_Performance_Executing_WithFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
+        public void IJobEntityBatch_Performance_Executing_WithFilterPass_WithCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, true, true);
+            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass, true);
+        }
+        [Test, Performance]
+        public void IJobEntityBatch_Performance_Executing_WithFilterFail_WithCache([Values(100, 10000, 5000000)] int entityCount,
+            [Values(10, 100)] int archetypeCount)
+        {
+            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledNonePass, true);
         }
         [Test, Performance]
         public void IJobEntityBatch_Performance_Executing_WithoutFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, false, true);
+            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled, true);
         }
         [Test, Performance]
-        public void IJobEntityBatch_Performance_Executing_WithFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
+        public void IJobEntityBatch_Performance_Executing_WithFilterPass_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, true, false);
+            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass, false);
+        }
+        [Test, Performance]
+        public void IJobEntityBatch_Performance_Executing_WithFilterFail_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
+            [Values(10, 100)] int archetypeCount)
+        {
+            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledNonePass, false);
         }
         [Test, Performance]
         public void IJobEntityBatch_Performance_Executing_WithoutFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, false, false);
+            IJobEntityBatch_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled, false);
         }
+#pragma warning restore 618 // IJobEntityBatch is obsolete
 
+#pragma warning disable 618 // IJobEntityBatchWithIndex is obsolete
         [BurstCompile(CompileSynchronously = true)]
         struct TestEntityBatchWithIndexJob : IJobEntityBatchWithIndex
         {
@@ -381,10 +278,10 @@ namespace Unity.Entities.PerformanceTests
         }
 
         public void IJobEntityBatchWithIndex_Performance_Scheduling(int entityCount, int archetypeCount,
-            bool enableQueryFiltering, bool enableQueryChunkCache)
+            EntityQueryFilterMode filterMode, bool enableQueryChunkCache)
         {
             using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount,
-                Allocator.TempJob, typeof(EcsTestData),
+                World.UpdateAllocator.ToAllocator, typeof(EcsTestData),
                 typeof(EcsTestSharedComp)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData),
                 typeof(EcsTestSharedComp)))
@@ -393,8 +290,10 @@ namespace Unity.Entities.PerformanceTests
                 {
                     m_Manager.CreateEntity(archetypes[archetypeIndex], entityCount / archetypeCount);
                 }
-                if (enableQueryFiltering)
-                    basicQuery.SetSharedComponentFilter(default(EcsTestSharedComp));
+                if (filterMode == EntityQueryFilterMode.FilterEnabledAllPass)
+                    basicQuery.SetSharedComponentFilterManaged(default(EcsTestSharedComp));
+                else if (filterMode == EntityQueryFilterMode.FilterEnabledNonePass)
+                    basicQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(17));
                 var handle = default(JobHandle);
                 Measure.Method(() =>
                     {
@@ -411,6 +310,7 @@ namespace Unity.Entities.PerformanceTests
                             basicQuery.InvalidateCache();
                         }
                     })
+                    .SampleGroup(new SampleGroup("IJobEntityBatchWithIndex_Scheduling", SampleUnit.Microsecond))
                     .WarmupCount(1)
                     .MeasurementCount(100)
                     .Run();
@@ -421,39 +321,41 @@ namespace Unity.Entities.PerformanceTests
         public void IJobEntityBatchWithIndex_Performance_Scheduling_WithFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatchWithIndex_Performance_Scheduling(entityCount, archetypeCount, true, true);
+            IJobEntityBatchWithIndex_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass, true);
         }
         [Test, Performance]
         public void IJobEntityBatchWithIndex_Performance_Scheduling_WithoutFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatchWithIndex_Performance_Scheduling(entityCount, archetypeCount, false, true);
+            IJobEntityBatchWithIndex_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled, true);
         }
         [Test, Performance]
         public void IJobEntityBatchWithIndex_Performance_Scheduling_WithFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatchWithIndex_Performance_Scheduling(entityCount, archetypeCount, true, false);
+            IJobEntityBatchWithIndex_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass, false);
         }
         [Test, Performance]
         public void IJobEntityBatchWithIndex_Performance_Scheduling_WithoutFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatchWithIndex_Performance_Scheduling(entityCount, archetypeCount, false, false);
+            IJobEntityBatchWithIndex_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled, false);
         }
 
         void IJobEntityBatchWithIndex_Performance_Executing(int entityCount, int archetypeCount,
-            bool enableQueryFiltering, bool enableQueryChunkCache)
+            EntityQueryFilterMode filterMode, bool enableQueryChunkCache)
         {
-            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount,  Allocator.TempJob, typeof(EcsTestData), typeof(EcsTestSharedComp)))
+            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount,  World.UpdateAllocator.ToAllocator, typeof(EcsTestData), typeof(EcsTestSharedComp)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp)))
             {
                 for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
                 {
                     m_Manager.CreateEntity(archetypes[archetypeIndex], entityCount / archetypeCount);
                 }
-                if (enableQueryFiltering)
-                    basicQuery.SetSharedComponentFilter(default(EcsTestSharedComp));
+                if (filterMode == EntityQueryFilterMode.FilterEnabledAllPass)
+                    basicQuery.SetSharedComponentFilterManaged(default(EcsTestSharedComp));
+                else if (filterMode == EntityQueryFilterMode.FilterEnabledNonePass)
+                    basicQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(17));
 
                 Measure.Method(() =>
                     {
@@ -469,6 +371,7 @@ namespace Unity.Entities.PerformanceTests
                             basicQuery.InvalidateCache();
                         }
                     })
+                    .SampleGroup(new SampleGroup("IJobEntityBatchWithIndex_Executing", SampleUnit.Microsecond))
                     .WarmupCount(1)
                     .MeasurementCount(100)
                     .Run();
@@ -476,255 +379,201 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [Test, Performance]
-        public void IJobEntityBatchWithIndex_Performance_Executing_WithFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
+        public void IJobEntityBatchWithIndex_Performance_Executing_WithFilterPass_WithCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, true, true);
+            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass, true);
+        }
+        [Test, Performance]
+        public void IJobEntityBatchWithIndex_Performance_Executing_WithFilterFail_WithCache([Values(100, 10000, 5000000)] int entityCount,
+            [Values(10, 100)] int archetypeCount)
+        {
+            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledNonePass, true);
         }
         [Test, Performance]
         public void IJobEntityBatchWithIndex_Performance_Executing_WithoutFilter_WithCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, false, true);
+            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled, true);
         }
         [Test, Performance]
-        public void IJobEntityBatchWithIndex_Performance_Executing_WithFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
+        public void IJobEntityBatchWithIndex_Performance_Executing_WithFilterPass_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, true, false);
+            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass, false);
+        }
+        [Test, Performance]
+        public void IJobEntityBatchWithIndex_Performance_Executing_WithFilterFail_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
+            [Values(10, 100)] int archetypeCount)
+        {
+            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledNonePass, false);
         }
         [Test, Performance]
         public void IJobEntityBatchWithIndex_Performance_Executing_WithoutFilter_WithoutCache([Values(100, 10000, 5000000)] int entityCount,
             [Values(10, 100)] int archetypeCount)
         {
-            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, false, false);
+            IJobEntityBatchWithIndex_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled, false);
         }
-
-        [StructLayout(LayoutKind.Explicit, Size = 32)]
-        unsafe struct TestArchetypeChunk
-        {
-            [FieldOffset(0)] [NativeDisableUnsafePtrRestriction] internal Chunk* m_Chunk;
-            [FieldOffset(8)] [NativeDisableUnsafePtrRestriction] internal int* m_Dummy;
-            [FieldOffset(16)] internal int m_Padding1;
-            [FieldOffset(20)] internal int m_Padding2;
-            internal TestArchetypeChunk(Chunk* chunk, int* dummyData)
-            {
-                m_Chunk = chunk;
-                m_Dummy = dummyData;
-                m_Padding1 = 0;
-                m_Padding2 = 0;
-            }
-        }
-
-        unsafe struct TestArchetypeChunkData
-        {
-            private Chunk** p;
-            private int* chunkEntityCounts;
-            public int Count { get; private set; } // number of chunks currently tracked [0..Capacity]
-            // EntityCount[Capacity]
-            private int* EntityCount => chunkEntityCounts;
-            public int* GetChunkEntityCountArray()
-            {
-                return EntityCount;
-            }
-            public Chunk* this[int index]
-            {
-                get { return p[index]; }
-            }
-
-            public TestArchetypeChunkData(int chunkCount)
-            {
-                Count = chunkCount;
-                p =  (Chunk**)UnsafeUtility.Malloc(chunkCount*sizeof(Chunk*), 64, Allocator.TempJob);
-                UnsafeUtility.MemClear(p, chunkCount * sizeof(Chunk*));
-                chunkEntityCounts = (int*)UnsafeUtility.Malloc(chunkCount * sizeof(int), 64, Allocator.TempJob);
-                UnsafeUtility.MemClear(chunkEntityCounts, chunkCount * sizeof(int));
-            }
-
-            public void Free()
-            {
-                UnsafeUtility.Free(p, Allocator.TempJob);
-                UnsafeUtility.Free(chunkEntityCounts, Allocator.TempJob);
-            }
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        unsafe struct TestArchetype
-        {
-            public TestArchetypeChunkData Chunks;
-            public int EntityCount;
-
-            public TestArchetype(int chunkCount)
-            {
-                Chunks = new TestArchetypeChunkData(chunkCount);
-                EntityCount = 1000; // just needs to be non-zero
-            }
-
-            public void Free()
-            {
-                Chunks.Free();
-            }
-        }
-
-        unsafe struct TestMatchingArchetype
-        {
-            public TestArchetype* Archetype;
-        }
-
-        unsafe struct TestArchetypePtrList
-        {
-            [NativeDisableUnsafePtrRestriction]
-            private UnsafeList<IntPtr>* ListData;
-
-            public TestMatchingArchetype** Ptr { get => (TestMatchingArchetype**)ListData->Ptr; }
-            public int Length { get => ListData->Length; }
-
-            public void Dispose() { ListData->Dispose(); }
-            public void Add(void* t) { ListData->Add((IntPtr)t); }
-
-            [NativeDisableUnsafePtrRestriction]
-            public int* dummyData;
-
-            public TestArchetypePtrList(int* dummy)
-            {
-                ListData = UnsafeList<IntPtr>.Create(0, Allocator.Persistent);
-                this.dummyData = dummy;
-            }
-        }
+#pragma warning disable 618 // IJobEntityBatchWithIndex is obsolete
 
         [BurstCompile(CompileSynchronously = true)]
-        unsafe struct TestJobOld : IJobBurstSchedulable
+        struct TestChunkJob : IJobChunk
         {
-            [NativeDisableUnsafePtrRestriction] public TestArchetypePtrList MatchingArchetypes;
-            [NativeDisableUnsafePtrRestriction] public int* DummyData;
-            [NativeDisableUnsafePtrRestriction] public void* PrefilterData;
+            public ComponentTypeHandle<EcsTestData> EcsTestDataRW;
 
-            public int FilteredChunkCount;
-
-            public void Execute()
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var preambleMarker = new ProfilerMarker("TestJobOld.Preamble");
-                var loopMarker = new ProfilerMarker("TestJobOld.Loop");
+                var data = chunk.GetNativeArray(EcsTestDataRW);
+                data[0] = new EcsTestData {value = 10};
+            }
+        }
 
-                preambleMarker.Begin();
-                var batches = (TestArchetypeChunk*)PrefilterData;
-                var entityIndices = (int*)(batches + FilteredChunkCount);
-
-                var filteredBatchCounter = 0;
-                var entityIndexAggregate = 0;
-
-                int archetypeCount = MatchingArchetypes.Length;
-                var ptrs = MatchingArchetypes.Ptr;
-                preambleMarker.End();
-                loopMarker.Begin();
+        void IJobChunk_Performance_Scheduling(int entityCount, int archetypeCount, EntityQueryFilterMode filterMode)
+        {
+            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount,
+                World.UpdateAllocator.ToAllocator, typeof(EcsTestData), typeof(EcsTestSharedComp)))
+            using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData),
+                typeof(EcsTestSharedComp)))
+            {
+                for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
                 {
-                    // one batch per chunk, filtering disabled
-                    for (var m = 0; m < archetypeCount; ++m)
-                    {
-                        var match = ptrs[m];
-                        if (match->Archetype->EntityCount <= 0)
-                            continue;
-
-                        var archetype = match->Archetype;
-                        int chunkCount = archetype->Chunks.Count;
-                        var chunkEntityCountArray = archetype->Chunks.GetChunkEntityCountArray();
-
-                        for (int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex)
-                        {
-                            var chunk = archetype->Chunks[chunkIndex];
-                            var batch = new TestArchetypeChunk(chunk, DummyData);
-                            batches[filteredBatchCounter] = batch;
-                            entityIndices[filteredBatchCounter] = entityIndexAggregate;
-
-                            ++filteredBatchCounter;
-                            entityIndexAggregate += chunkEntityCountArray[chunkIndex];
-                        }
-                    }
+                    m_Manager.CreateEntity(archetypes[archetypeIndex], entityCount / archetypeCount);
                 }
-                loopMarker.End();
-                var chunkCounter = entityIndices + FilteredChunkCount;
-                *chunkCounter = filteredBatchCounter;
+                if (filterMode == EntityQueryFilterMode.FilterEnabledAllPass)
+                    basicQuery.SetSharedComponentFilterManaged(default(EcsTestSharedComp));
+                else if (filterMode == EntityQueryFilterMode.FilterEnabledNonePass)
+                    basicQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(17));
+                var handle = default(JobHandle);
+                Measure.Method(() =>
+                    {
+                        handle = new TestChunkJob
+                        {
+                            EcsTestDataRW = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
+                        }.ScheduleParallel(basicQuery, handle);
+                    })
+                    .CleanUp(() =>
+                    {
+                        handle.Complete();
+                    })
+                    .SampleGroup(new SampleGroup("IJobChunk_Scheduling", SampleUnit.Microsecond))
+                    .WarmupCount(1)
+                    .MeasurementCount(100)
+                    .Run();
             }
         }
 
         [Test, Performance]
-        public unsafe void CompareJobPerf()
+        public void IJobChunk_Performance_Scheduling_WithFilter([Values(100, 10000, 5000000)] int entityCount,
+            [Values(10, 100)] int archetypeCount)
         {
-            var worldUpdateAllocator = m_World.UpdateAllocator.ToAllocator;
-            var expectedBatchCount = 6000;
-            var sizeOfOutputData = expectedBatchCount * (sizeof(TestArchetypeChunk) + sizeof(int));
-
-            int dummyECS = 0;
-            var archetypes = new NativeList<TestArchetype>(6, Allocator.TempJob);
-            for (int i = 0; i < 6; ++i)
-            {
-                archetypes.Add(new TestArchetype(1000));
-            }
-            var matchingArchetypes = new NativeList<TestMatchingArchetype>(6, Allocator.TempJob);
-            var archetypesPtr = (TestArchetype*)archetypes.GetUnsafePtr();
-            for (int i = 0; i < archetypes.Length; ++i)
-            {
-                matchingArchetypes.Add(new TestMatchingArchetype { Archetype = archetypesPtr + i });
-            }
-            var matchingArchetypesPtr = (TestMatchingArchetype*)matchingArchetypes.GetUnsafePtr();
-            var matchingArchetypesList = new TestArchetypePtrList(&dummyECS);
-            for (int i = 0; i < matchingArchetypes.Length; ++i)
-            {
-                matchingArchetypesList.Add(matchingArchetypesPtr + i);
-            }
-
-            // old job
-            byte* outputData = null;
-            Measure.Method(() =>
-                {
-                    outputData = (byte*)UnsafeUtility.Malloc(sizeOfOutputData, 64, Allocator.TempJob);
-                    new TestJobOld
-                    {
-                        MatchingArchetypes = matchingArchetypesList,
-                        DummyData = null,
-                        PrefilterData = outputData,
-                        FilteredChunkCount = expectedBatchCount,
-                    }.Run();
-                })
-                .CleanUp(() =>
-                {
-                    UnsafeUtility.Free(outputData, Allocator.TempJob);
-                })
-                .SampleGroup("Output to TempJob")
-                .WarmupCount(1)
-                .MeasurementCount(1000)
-                .Run();
-
-            // new job
-            Measure.Method(() =>
-                {
-                    outputData = (byte*)AllocatorManager.Allocate(m_World.UpdateAllocator.Handle, sizeOfOutputData, 64);
-                    new TestJobOld
-                    {
-                        MatchingArchetypes = matchingArchetypesList,
-                        DummyData = null,
-                        PrefilterData = outputData,
-                        FilteredChunkCount = expectedBatchCount,
-                    }.Run();
-                })
-                .CleanUp(() =>
-                {
-                    AllocatorManager.Free(m_World.UpdateAllocator.Handle, outputData);
-                })
-                .SampleGroup("Output to World.UpdateAllocator")
-                .WarmupCount(1)
-                .MeasurementCount(1000)
-                .Run();
-
-            // cleanup
-            matchingArchetypesList.Dispose();
-            matchingArchetypes.Dispose();
-            for (int i = 0; i < archetypes.Length; ++i)
-            {
-                archetypes[i].Free();
-            }
-            archetypes.Dispose();
+            IJobChunk_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass);
+        }
+        [Test, Performance]
+        public void IJobChunk_Performance_Scheduling_WithoutFilter([Values(100, 10000, 5000000)] int entityCount,
+            [Values(10, 100)] int archetypeCount)
+        {
+            IJobChunk_Performance_Scheduling(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled);
         }
 
+        void IJobChunk_Performance_Executing(int entityCount, int archetypeCount, EntityQueryFilterMode filterMode)
+        {
+            using (var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount, World.UpdateAllocator.ToAllocator, typeof(EcsTestData), typeof(EcsTestSharedComp)))
+            using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp)))
+            {
+                for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
+                {
+                    m_Manager.CreateEntity(archetypes[archetypeIndex], entityCount / archetypeCount);
+                }
+
+                if (filterMode == EntityQueryFilterMode.FilterEnabledAllPass)
+                    basicQuery.SetSharedComponentFilterManaged(default(EcsTestSharedComp));
+                else if (filterMode == EntityQueryFilterMode.FilterEnabledNonePass)
+                    basicQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(17));
+
+                Measure.Method(() =>
+                    {
+                        new TestChunkJob
+                        {
+                            EcsTestDataRW = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
+                        }.Run(basicQuery);
+                    })
+                    .CleanUp(() =>
+                    {
+                    })
+                    .SampleGroup(new SampleGroup("IJobChunk_Executing", SampleUnit.Microsecond))
+                    .WarmupCount(1)
+                    .MeasurementCount(100)
+                    .Run();
+            }
+        }
+
+        [Test, Performance]
+        public void IJobChunk_Performance_Executing_WithFilterPass([Values(100, 10000, 5000000)] int entityCount,
+            [Values(10, 100)] int archetypeCount)
+        {
+            IJobChunk_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledAllPass);
+        }
+        [Test, Performance]
+        public void IJobChunk_Performance_Executing_WithFilterFail([Values(100, 10000, 5000000)] int entityCount,
+            [Values(10, 100)] int archetypeCount)
+        {
+            IJobChunk_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterEnabledNonePass);
+        }
+        [Test, Performance]
+        public void IJobChunk_Performance_Executing_WithoutFilter([Values(100, 10000, 5000000)] int entityCount,
+            [Values(10, 100)] int archetypeCount)
+        {
+            IJobChunk_Performance_Executing(entityCount, archetypeCount, EntityQueryFilterMode.FilterDisabled);
+        }
+
+        partial class ForEachRunWithoutJobs_TestSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((ref EcsTestData2 data2) => { data2.value1 = data2.value0; }).Run();
+            }
+        }
+
+        partial class ForEachRunWithoutJobs_CleanupSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((ref EcsTestData2 data2) =>
+                {
+                    Assert.AreEqual(data2.value0, data2.value1);
+                    data2.value1 = -1;
+                }).Run();
+            }
+        }
+
+        [Test, Performance]
+        public void EntitiesForEach_ManyEmptyArchetypes_Run()
+        {
+            int archetypeCount = 500;
+            using var archetypes = CreateUniqueArchetypes(m_Manager, archetypeCount, World.UpdateAllocator.ToAllocator,
+                typeof(EcsTestData2), typeof(EcsTestSharedComp));
+            int entityCount = 500;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData2));
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entityCount; ++i)
+            {
+                m_Manager.SetComponentData(entities[i], new EcsTestData2 { value0 = i, value1 = -1 });
+            }
+
+            var testSystem = World.CreateSystemManaged<ForEachRunWithoutJobs_TestSystem>();
+            var cleanupSystem = World.CreateSystemManaged<ForEachRunWithoutJobs_CleanupSystem>();
+            Measure.Method(() =>
+                {
+                    testSystem.Update();
+                })
+                .CleanUp(() =>
+                {
+                    cleanupSystem.Update();
+                })
+                .SampleGroup(new SampleGroup("EntitiesForEach_ManyEmptyArchetypes_Run", SampleUnit.Microsecond))
+                .WarmupCount(10)
+                .MeasurementCount(100)
+                .Run();
+        }
     }
 }

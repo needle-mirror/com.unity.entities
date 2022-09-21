@@ -5,8 +5,7 @@ using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Assertions;
 using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
+using Unity.Burst.Intrinsics;
 
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<int>))]
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<float>))]
@@ -20,7 +19,20 @@ namespace Unity.Entities.Tests
     {
         int GetValue();
     }
-    public struct EcsTestData : IComponentData, IGetValue
+
+    internal struct Character : IComponentData
+    {
+        public Entity Entity;
+        public int MovementSpeed;
+    }
+
+    internal readonly partial struct CharacterAspect : IAspect
+    {
+        readonly RefRW<Character> m_Character;
+        public ref Character Character => ref m_Character.ValueRW;
+    }
+
+    internal struct EcsTestData : IComponentData, IGetValue
     {
         public int value;
 
@@ -37,7 +49,7 @@ namespace Unity.Entities.Tests
         public int GetValue() => value;
     }
 
-    public struct EcsTestData2 : IComponentData, IGetValue
+    internal struct EcsTestData2 : IComponentData, IGetValue
     {
         public int value0;
         public int value1;
@@ -50,7 +62,7 @@ namespace Unity.Entities.Tests
         public int GetValue() => value0;
     }
 
-    public struct EcsTestData3 : IComponentData, IGetValue
+    internal struct EcsTestData3 : IComponentData, IGetValue
     {
         public int value0;
         public int value1;
@@ -64,7 +76,7 @@ namespace Unity.Entities.Tests
         public int GetValue() => value0;
     }
 
-    public struct EcsTestData4 : IComponentData, IGetValue
+    internal struct EcsTestData4 : IComponentData, IGetValue
     {
         public int value0;
         public int value1;
@@ -79,7 +91,7 @@ namespace Unity.Entities.Tests
         public int GetValue() => value0;
     }
 
-    public struct EcsTestData5 : IComponentData, IGetValue
+    internal struct EcsTestData5 : IComponentData, IGetValue
     {
         public int value0;
         public int value1;
@@ -95,7 +107,15 @@ namespace Unity.Entities.Tests
         public int GetValue() => value0;
     }
 
-    public struct EcsTestDataEnableable : IComponentData, IGetValue, IEnableableComponent
+    internal struct EcsTestData6 : IComponentData { public int value; }
+    internal struct EcsTestData7 : IComponentData { public int value; }
+    internal struct EcsTestData8 : IComponentData { public int value; }
+    internal struct EcsTestData9 : IComponentData { public int value; }
+    internal struct EcsTestData10 : IComponentData { public int value; }
+    internal struct EcsTestData11 : IComponentData { public int value; }
+
+
+    internal struct EcsTestDataEnableable : IComponentData, IGetValue, IEnableableComponent
     {
         public int value;
 
@@ -112,7 +132,7 @@ namespace Unity.Entities.Tests
         public int GetValue() => value;
     }
 
-    public struct EcsTestDataEnableable2 : IComponentData, IGetValue, IEnableableComponent
+    internal struct EcsTestDataEnableable2 : IComponentData, IGetValue, IEnableableComponent
     {
         public int value0;
         public int value1;
@@ -125,7 +145,7 @@ namespace Unity.Entities.Tests
         public int GetValue() => value0;
     }
 
-    public struct EcsTestDataEnableable3 : IComponentData, IGetValue, IEnableableComponent
+    internal struct EcsTestDataEnableable3 : IComponentData, IGetValue, IEnableableComponent
     {
         public int value0;
         public int value1;
@@ -139,7 +159,7 @@ namespace Unity.Entities.Tests
         public int GetValue() => value0;
     }
 
-    public struct EcsTestDataEnableable4 : IComponentData, IGetValue, IEnableableComponent
+    internal struct EcsTestDataEnableable4 : IComponentData, IGetValue, IEnableableComponent
     {
         public int value0;
         public int value1;
@@ -154,7 +174,7 @@ namespace Unity.Entities.Tests
         public int GetValue() => value0;
     }
 
-    public struct EcsTestDataEnableable5 : IComponentData, IGetValue, IEnableableComponent
+    internal struct EcsTestDataEnableable5 : IComponentData, IGetValue, IEnableableComponent
     {
         public int value0;
         public int value1;
@@ -170,30 +190,30 @@ namespace Unity.Entities.Tests
         public int GetValue() => value0;
     }
 
-    public struct EcsTestNonComponent
+    internal struct EcsTestNonComponent
     {
         public int Value;
     }
 
-    public struct EcsTestFloatData : IComponentData
+    internal struct EcsTestFloatData : IComponentData
     {
         public float Value;
     }
 
-    public struct EcsTestFloatData2 : IComponentData
+    internal struct EcsTestFloatData2 : IComponentData
     {
         public float Value0;
         public float Value1;
     }
 
-    public struct EcsTestFloatData3 : IComponentData
+    internal struct EcsTestFloatData3 : IComponentData
     {
         public float Value0;
         public float Value1;
         public float Value2;
     }
 
-    public struct EcsTestSharedComp : ISharedComponentData
+    internal struct EcsTestSharedComp : ISharedComponentData
     {
         public int value;
 
@@ -203,7 +223,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp2 : ISharedComponentData
+    internal struct EcsTestSharedComp2 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -214,7 +234,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp3 : ISharedComponentData
+    internal struct EcsTestSharedComp3 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -227,7 +247,7 @@ namespace Unity.Entities.Tests
     }
 
     // need many shared types for testing that we don't exceed kMaxNumSharedComponentCount
-    public struct EcsTestSharedComp4 : ISharedComponentData
+    internal struct EcsTestSharedComp4 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -239,7 +259,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp5 : ISharedComponentData
+    internal struct EcsTestSharedComp5 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -251,7 +271,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp6 : ISharedComponentData
+    internal struct EcsTestSharedComp6 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -263,7 +283,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp7 : ISharedComponentData
+    internal struct EcsTestSharedComp7 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -275,7 +295,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp8 : ISharedComponentData
+    internal struct EcsTestSharedComp8 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -287,7 +307,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp9 : ISharedComponentData
+    internal struct EcsTestSharedComp9 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -299,7 +319,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp10 : ISharedComponentData
+    internal struct EcsTestSharedComp10 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -311,7 +331,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp11 : ISharedComponentData
+    internal struct EcsTestSharedComp11 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -323,7 +343,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp12 : ISharedComponentData
+    internal struct EcsTestSharedComp12 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -335,7 +355,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp13 : ISharedComponentData
+    internal struct EcsTestSharedComp13 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -347,7 +367,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp14 : ISharedComponentData
+    internal struct EcsTestSharedComp14 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -359,7 +379,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp15 : ISharedComponentData
+    internal struct EcsTestSharedComp15 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -371,7 +391,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp16 : ISharedComponentData
+    internal struct EcsTestSharedComp16 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -383,7 +403,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestSharedComp17 : ISharedComponentData
+    internal struct EcsTestSharedComp17 : ISharedComponentData
     {
         public int value0;
         public int value1;
@@ -395,7 +415,34 @@ namespace Unity.Entities.Tests
         }
     }
 
-    [MaximumChunkCapacity(475)]
+    internal struct EcsTestSharedCompManaged : ISharedComponentData, IEquatable<EcsTestSharedCompManaged>
+    {
+        public string value;
+        public EcsTestSharedCompManaged(string inValue) => value = inValue;
+        public bool Equals(EcsTestSharedCompManaged other) => value == other.value;
+        public override int GetHashCode() => value.GetHashCode();
+    }
+
+    internal struct EcsTestSharedCompManaged2 : ISharedComponentData, IEquatable<EcsTestSharedCompManaged2>
+    {
+        public string value0;
+        public string value1;
+        public EcsTestSharedCompManaged2(string inValue) => value0 = value1 = inValue;
+        public bool Equals(EcsTestSharedCompManaged2 other) => value0 == other.value0 && value1 == other.value1;
+        public override int GetHashCode() => value0.GetHashCode() ^ value1.GetHashCode();
+    }
+
+    internal struct EcsTestSharedCompManaged3 : ISharedComponentData, IEquatable<EcsTestSharedCompManaged3>
+    {
+        public string value0;
+        public string value1;
+        public string value2;
+        public EcsTestSharedCompManaged3(string inValue) => value0 = value1 = value2 = inValue;
+        public bool Equals(EcsTestSharedCompManaged3 other) => value0 == other.value0 && value1 == other.value1 && value2 == other.value2;
+        public override int GetHashCode() => value0.GetHashCode() ^ value1.GetHashCode() ^ value2.GetHashCode();
+    }
+
+    [MaximumChunkCapacity(127)]
     struct EcsTestSharedCompWithMaxChunkCapacity : ISharedComponentData
     {
         public int Value;
@@ -406,7 +453,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public unsafe struct EcsTestSharedCompWithRefCount : ISharedComponentData, IRefCounted
+    internal unsafe struct EcsTestSharedCompWithRefCount : ISharedComponentData, IRefCounted
     {
         readonly int* RefCount;
 
@@ -429,8 +476,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-
-    public struct EcsTestDataEntity : IComponentData
+    internal struct EcsTestDataEntity : IComponentData
     {
         public int value0;
         public Entity value1;
@@ -442,56 +488,56 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestDataEntity2 : IComponentData
+    internal struct EcsTestDataEntity2 : IComponentData
     {
         public int value0;
         public Entity value1;
         public Entity value2;
     }
 
-    public struct EcsTestDataBlobAssetRef : IComponentData
+    internal struct EcsTestDataBlobAssetRef : IComponentData
     {
         public BlobAssetReference<int> value;
     }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-    public class EcsTestDataBlobAssetRefClass : IComponentData
+    internal class EcsTestDataBlobAssetRefClass : IComponentData
     {
         public BlobAssetReference<int> value;
         public BlobAssetReference<int> value2;
     }
 #endif
 
-    public struct EcsTestDataBlobAssetRefShared : ISharedComponentData
+    internal struct EcsTestDataBlobAssetRefShared : ISharedComponentData
     {
         public BlobAssetReference<int> value;
         public BlobAssetReference<int> value2;
     }
 
-    public struct EcsTestDataBlobAssetRef2 : IComponentData
+    internal struct EcsTestDataBlobAssetRef2 : IComponentData
     {
         public BlobAssetReference<int> value;
         public BlobAssetReference<int> value2;
     }
 
-    public struct EcsTestDataBlobAssetArray : IComponentData
+    internal struct EcsTestDataBlobAssetArray : IComponentData
     {
         public BlobAssetReference<BlobArray<float>> array;
     }
 
-    public struct EcsTestDataBlobAssetElement : IBufferElementData
+    internal struct EcsTestDataBlobAssetElement : IBufferElementData
     {
         public BlobAssetReference<int> blobElement;
     }
 
-    public struct EcsTestDataBlobAssetElement2 : IBufferElementData
+    internal struct EcsTestDataBlobAssetElement2 : IBufferElementData
     {
         public BlobAssetReference<int> blobElement;
         byte pad;
         public BlobAssetReference<int> blobElement2;
     }
 
-    public struct EcsTestSharedCompEntity : ISharedComponentData
+    internal struct EcsTestSharedCompEntity : ISharedComponentData
     {
         public Entity value;
 
@@ -501,32 +547,32 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsState1 : ISystemStateComponentData
+    internal struct EcsCleanup1 : ICleanupComponentData
     {
         public int Value;
 
-        public EcsState1(int value)
+        public EcsCleanup1(int value)
         {
             Value = value;
         }
     }
 
-    public struct EcsStateShared1 : ISystemStateSharedComponentData
+    internal struct EcsCleanupShared1 : ICleanupSharedComponentData
     {
         public int Value;
 
-        public EcsStateShared1(int value)
+        public EcsCleanupShared1(int value)
         {
             Value = value;
         }
     }
 
-    public struct EcsStateTag1 : ISystemStateComponentData
+    internal struct EcsCleanupTag1 : ICleanupComponentData
     {
     }
 
     [InternalBufferCapacity(8)]
-    public struct EcsIntElement : IBufferElementData
+    internal struct EcsIntElement : IBufferElementData
     {
         public static implicit operator int(EcsIntElement e)
         {
@@ -542,14 +588,14 @@ namespace Unity.Entities.Tests
     }
 
     [InternalBufferCapacity(8)]
-    public struct EcsIntElement2 : IBufferElementData
+    internal struct EcsIntElement2 : IBufferElementData
     {
         public int Value0;
         public int Value1;
     }
 
     [InternalBufferCapacity(8)]
-    public struct EcsIntElement3 : IBufferElementData
+    internal struct EcsIntElement3 : IBufferElementData
     {
         public int Value0;
         public int Value1;
@@ -557,7 +603,7 @@ namespace Unity.Entities.Tests
     }
 
     [InternalBufferCapacity(8)]
-    public struct EcsIntElement4 : IBufferElementData
+    internal struct EcsIntElement4 : IBufferElementData
     {
         public int Value0;
         public int Value1;
@@ -566,7 +612,7 @@ namespace Unity.Entities.Tests
     }
 
     [InternalBufferCapacity(8)]
-    public struct EcsIntElementEnableable : IBufferElementData, IEnableableComponent
+    internal struct EcsIntElementEnableable : IBufferElementData, IEnableableComponent
     {
         public static implicit operator int(EcsIntElementEnableable e)
         {
@@ -582,14 +628,14 @@ namespace Unity.Entities.Tests
     }
 
     [InternalBufferCapacity(8)]
-    public struct EcsIntElementEnableable2 : IBufferElementData, IEnableableComponent
+    internal struct EcsIntElementEnableable2 : IBufferElementData, IEnableableComponent
     {
         public int Value0;
         public int Value1;
     }
 
     [InternalBufferCapacity(8)]
-    public struct EcsIntElementEnableable3 : IBufferElementData, IEnableableComponent
+    internal struct EcsIntElementEnableable3 : IBufferElementData, IEnableableComponent
     {
         public int Value0;
         public int Value1;
@@ -597,7 +643,7 @@ namespace Unity.Entities.Tests
     }
 
     [InternalBufferCapacity(8)]
-    public struct EcsIntElementEnableable4 : IBufferElementData, IEnableableComponent
+    internal struct EcsIntElementEnableable4 : IBufferElementData, IEnableableComponent
     {
         public int Value0;
         public int Value1;
@@ -606,41 +652,45 @@ namespace Unity.Entities.Tests
     }
 
     [InternalBufferCapacity(8)]
-    public struct EcsIntStateElement : ISystemStateBufferElementData
+    internal struct EcsIntCleanupElement : ICleanupBufferElementData
     {
-        public static implicit operator int(EcsIntStateElement e)
+        public static implicit operator int(EcsIntCleanupElement e)
         {
             return e.Value;
         }
 
-        public static implicit operator EcsIntStateElement(int e)
+        public static implicit operator EcsIntCleanupElement(int e)
         {
-            return new EcsIntStateElement {Value = e};
+            return new EcsIntCleanupElement {Value = e};
         }
 
         public int Value;
     }
 
     [InternalBufferCapacity(4)]
-    public struct EcsComplexEntityRefElement : IBufferElementData
+    internal struct EcsComplexEntityRefElement : IBufferElementData
     {
         public int Dummy;
         public Entity Entity;
     }
 
-    public struct EcsTestTag : IComponentData
+    internal struct EcsTestTag : IComponentData
     {
     }
 
-    public struct EcsTestTagEnableable : IComponentData, IEnableableComponent
+    internal struct EcsTestTagEnableable : IComponentData, IEnableableComponent
     {
     }
 
-    public struct EcsTestSharedTag : ISharedComponentData
+    internal struct EcsTestTagEnableable2 : IComponentData, IEnableableComponent
     {
     }
 
-    public struct EcsTestComponentWithBool : IComponentData, IEquatable<EcsTestComponentWithBool>
+    internal struct EcsTestSharedTag : ISharedComponentData
+    {
+    }
+
+    internal struct EcsTestComponentWithBool : IComponentData, IEquatable<EcsTestComponentWithBool>
     {
         public bool value;
 
@@ -655,7 +705,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsStringSharedComponent : ISharedComponentData, IEquatable<EcsStringSharedComponent>
+    internal struct EcsStringSharedComponent : ISharedComponentData, IEquatable<EcsStringSharedComponent>
     {
         public string Value;
 
@@ -670,29 +720,29 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct EcsTestGeneric<T> : IComponentData
+    internal struct EcsTestGeneric<T> : IComponentData
         where T : struct
     {
         public T value;
     }
 
-    public struct EcsTestGenericTag<T> : IComponentData
+    internal struct EcsTestGenericTag<T> : IComponentData
         where T : struct
     {
     }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
 
-    sealed public class ClassWithString
+    internal sealed class ClassWithString
     {
         public string String;
     }
-    sealed public class ClassWithClassFields
+    internal sealed class ClassWithClassFields
     {
         public ClassWithString ClassWithString;
     }
 
-    public class EcsTestManagedDataEntity : IComponentData
+    internal class EcsTestManagedDataEntity : IComponentData
     {
         public string value0;
         public Entity value1;
@@ -715,7 +765,7 @@ namespace Unity.Entities.Tests
 #if !NET_DOTS
 // https://unity3d.atlassian.net/browse/DOTSR-1432
 
-    public class EcsTestManagedDataEntityCollection : IComponentData
+    internal class EcsTestManagedDataEntityCollection : IComponentData
     {
         public List<string> value0;
         public List<Entity> value1;
@@ -734,7 +784,7 @@ namespace Unity.Entities.Tests
     }
 #endif
 
-    public class EcsTestManagedComponent : IComponentData
+    internal class EcsTestManagedComponent : IComponentData
     {
         public string value;
         public ClassWithClassFields nullField;
@@ -750,53 +800,66 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public class EcsTestManagedComponent2 : EcsTestManagedComponent
+    internal class EcsTestManagedComponent2 : EcsTestManagedComponent
     {
         public string value2;
     }
 
-    public class EcsTestManagedComponent3 : EcsTestManagedComponent2
+    internal class EcsTestManagedComponent3 : EcsTestManagedComponent2
     {
         public string value3;
     }
 
-    public class EcsTestManagedComponent4 : EcsTestManagedComponent3
+    internal class EcsTestManagedComponent4 : EcsTestManagedComponent3
     {
         public string value4;
     }
 
-    public unsafe class EcsTestManagedCompWithRefCount : IComponentData, ICloneable, IDisposable
+    internal unsafe class EcsTestManagedCompWithRefCount : IComponentData, ICloneable, IDisposable
     {
-        readonly int* RefCount;
+        public int RefCount;
 
         public EcsTestManagedCompWithRefCount()
         {
-            RefCount = null;
-        }
-
-        public EcsTestManagedCompWithRefCount(int* refCount)
-        {
-            Assert.IsTrue(refCount != null);
-            this.RefCount = refCount;
+            RefCount = 1;
         }
 
         public object Clone()
         {
-            Assert.IsTrue(RefCount != null);
-            Interlocked.Increment(ref *RefCount);
+            Interlocked.Increment(ref RefCount);
             return this;
         }
 
         public void Dispose()
         {
-            Assert.IsTrue(RefCount != null);
-            Interlocked.Decrement(ref *RefCount);
+            Interlocked.Decrement(ref RefCount);
         }
+    }
+
+    internal class EcsTestManagedComponentEnableable : IComponentData, IEnableableComponent
+    {
+        public string value;
+        public ClassWithClassFields nullField;
+
+        public override int GetHashCode()
+        {
+            return value.GetHashCode();
+        }
+
+        public bool Equals(EcsTestManagedComponentEnableable other)
+        {
+            return value == other.value;
+        }
+    }
+
+    internal class EcsTestManagedComponentEnableable2 : EcsTestManagedComponentEnableable
+    {
+        public string value2;
     }
 
 #endif
 
-    public partial struct EcsTestUpdateOneComponentJob : IJobEntity
+    internal partial struct EcsTestUpdateOneComponentJob : IJobEntity
     {
         public void Execute(ref EcsTestData ecsTestData)
         {
@@ -804,7 +867,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public partial struct EcsTestUpdateTwoComponentsJob : IJobEntity
+    internal partial struct EcsTestUpdateTwoComponentsJob : IJobEntity
     {
         public void Execute(ref EcsTestData ecsTestData, ref EcsTestData2 ecsTestData2)
         {
@@ -813,7 +876,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public partial struct EcsTestUpdateThreeComponentsJob : IJobEntity
+    internal partial struct EcsTestUpdateThreeComponentsJob : IJobEntity
     {
         public void Execute(ref EcsTestData ecsTestData, ref EcsTestData2 ecsTestData2, ref EcsTestData3 ecsTestData3)
         {
@@ -823,7 +886,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public partial struct EcsTestUpdateOneComponentWithValuesFromOtherComponentsJob : IJobEntity
+    internal partial struct EcsTestUpdateOneComponentWithValuesFromOtherComponentsJob : IJobEntity
     {
         public void Execute(ref EcsTestData ecsTestData, in EcsTestData2 ecsTestData2, in EcsTestData3 ecsTestData3)
         {
@@ -834,7 +897,7 @@ namespace Unity.Entities.Tests
     }
 
     [BurstCompile(FloatPrecision.Standard, FloatMode.Default, CompileSynchronously = true)]
-    public partial struct EcsTestSetComponentValueTo10 : IJobEntity
+    internal partial struct EcsTestSetComponentValueTo10 : IJobEntity
     {
         public void Execute(ref EcsTestData ecsTestData)
         {
@@ -842,7 +905,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public partial struct EcsTestSetFirstComponentValueTo10 : IJobEntity
+    internal partial struct EcsTestSetFirstComponentValueTo10 : IJobEntity
     {
         public void Execute(ref EcsTestData ecsTestData, ref EcsTestData2 ecsTestData2)
         {
@@ -850,7 +913,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public partial struct EcsTestSetFirstComponentValueTo10_WithSharedComponent : IJobEntity
+    internal partial struct EcsTestSetFirstComponentValueTo10_WithSharedComponent : IJobEntity
     {
         public void Execute(ref EcsTestData ecsTestData, ref EcsTestData2 ecsTestData2)
         {
@@ -858,19 +921,13 @@ namespace Unity.Entities.Tests
         }
     }
 
-    [NoAlias]
-    [BurstCompile(FloatPrecision.Standard, FloatMode.Default, CompileSynchronously = true)]
-    struct EcsTestSetComponentValueTo10_BaseLine : IJobEntityBatch
+    internal readonly partial struct EcsTestAspect0RO : IAspect
     {
-        public ComponentTypeHandle<EcsTestData> EcsTestDataRW;
+        public readonly RefRO<EcsTestData> EcsTestData;
+    }
 
-        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
-        {
-            var data = batchInChunk.GetNativeArray(EcsTestDataRW);
-            for (int i = 0; i < batchInChunk.Count; i++)
-            {
-                data[i] = new EcsTestData {value = 10};
-            }
-        }
+    internal readonly partial struct EcsTestAspect0RW : IAspect
+    {
+        public readonly RefRW<EcsTestData> EcsTestData;
     }
 }

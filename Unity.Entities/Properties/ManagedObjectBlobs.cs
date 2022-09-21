@@ -4,7 +4,6 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 #if !NET_DOTS
 using Unity.Properties;
-using Unity.Properties.Internal;
 #endif
 
 namespace Unity.Entities
@@ -43,7 +42,7 @@ namespace Unity.Entities
 
             var type = obj.GetType();
 
-            var properties = PropertyBagStore.GetPropertyBag(type);
+            var properties = PropertyBag.GetPropertyBag(type);
 
             if (null == properties)
             {
@@ -66,16 +65,8 @@ namespace Unity.Entities
         /// <typeparam name="TContainer">The container type.</typeparam>
         void IPropertyBagVisitor.Visit<TContainer>(IPropertyBag<TContainer> properties, ref TContainer container)
         {
-            if (properties is IPropertyList<TContainer> propertyList)
-            {
-                foreach (var property in propertyList.GetProperties(ref container))
-                    ((IPropertyAccept<TContainer>)property).Accept(this, ref container);
-            }
-            else
-            {
-                foreach (var property in properties.GetProperties(ref container))
-                    ((IPropertyAccept<TContainer>)property).Accept(this, ref container);
-            }
+            foreach (var property in properties.GetProperties(ref container))
+                property.Accept(this, ref container);
         }
 
         /// <summary>
@@ -87,7 +78,7 @@ namespace Unity.Entities
         /// <typeparam name="TValue">The value type.</typeparam>
         void IPropertyVisitor.Visit<TContainer, TValue>(Property<TContainer, TValue> property, ref TContainer container)
         {
-            if (RuntimeTypeInfoCache<TValue>.IsContainerType)
+            if (TypeTraits<TValue>.IsContainer)
             {
                 VisitValue(property.GetValue(ref container));
             }
@@ -116,7 +107,7 @@ namespace Unity.Entities
                 }
             }
         }
-        
+
         /// <summary>
         /// Invoked by Unity.Properties for each IList based container type.
         /// </summary>
@@ -147,7 +138,7 @@ namespace Unity.Entities
                 }
             }
         }
-        
+
         /// <summary>
         /// Invoked by Unity.Properties for each IDictionary based container type.
         /// </summary>
@@ -194,22 +185,22 @@ namespace Unity.Entities
 
                 return;
             }
-            
-            if (!RuntimeTypeInfoCache<TValue>.IsContainerType)
+
+            if (!TypeTraits<TValue>.IsContainer)
                 return;
 
-            if (RuntimeTypeInfoCache<TValue>.CanBeNull)
+            if (TypeTraits<TValue>.CanBeNull)
             {
-                if (null == value) 
+                if (null == value)
                     return;
-                
+
 #if !UNITY_DOTSRUNTIME
                 if (value is UnityEngine.Object)
                     return;
 #endif
             }
 
-            if (!RuntimeTypeInfoCache<TValue>.IsValueType && typeof(string) != typeof(TValue))
+            if (!TypeTraits<TValue>.IsValueType && typeof(string) != typeof(TValue))
             {
                 if (m_References == null)
                     m_References = new HashSet<object>();
@@ -217,14 +208,14 @@ namespace Unity.Entities
                 if (!m_References.Add(value))
                     return;
             }
-            
-            PropertyContainer.Visit(ref value, this, out _);
+
+            PropertyContainer.TryAccept(this, ref value, out _);
         }
     }
 #else
     class ManagedObjectBlobs
     {
-        public void GatherBlobAssetReferences(object obj, NativeList<BlobAssetPtr> blobAssets, NativeHashMap<BlobAssetPtr, int> blobAssetMap)
+        public void GatherBlobAssetReferences(object obj, NativeList<BlobAssetPtr> blobAssets, NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap)
         {
             // Not supported in DOTS Runtime.
         }

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Entities.Serialization;
 using UnityEngine.Profiling;
 
 namespace Unity.Entities.Tests
@@ -31,11 +30,6 @@ namespace Unity.Entities.Tests
             public List<Entity> EntityList;
         }
 
-        class ClassWithSelfReference : IComponentData
-        {
-            public ClassWithSelfReference Self;
-        }
-
         class ClassWithBlobAssetReference
         {
             public BlobAssetReference<int> BlobAssetReference;
@@ -55,6 +49,7 @@ namespace Unity.Entities.Tests
         {
             public BlobAssetReference<int> BlobAssetReference;
         }
+        
 #pragma warning restore CS0649
 
         [Test]
@@ -139,20 +134,6 @@ namespace Unity.Entities.Tests
             var managedObjectEquals = new ManagedObjectEqual();
             Assert.That(managedObjectEquals.CompareEqual(a, b), Is.True);
             Assert.That(managedObjectEquals.CompareEqual(a, c), Is.False);
-        }
-
-        [Test]
-        public unsafe void ManagedObjectRemap_ClassWithSelfReference()
-        {
-            var a = new ClassWithSelfReference();
-            a.Self = a;
-
-            var managedObjectRemap = new ManagedObjectRemap();
-            Assert.DoesNotThrow(() =>
-            {
-                var local = (object) a;
-                managedObjectRemap.RemapEntityReferences(ref local, null);
-            });
         }
 
         [Test]

@@ -5,12 +5,11 @@ using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Properties;
 using Unity.Serialization.Binary;
-using Unity.Serialization.Binary.Adapters;
 
 [assembly: InternalsVisibleTo("Unity.Scenes")]
 
 [assembly: GeneratePropertyBagsForTypesQualifiedWith(typeof(Unity.Entities.ISharedComponentData))]
-[assembly: GeneratePropertyBagsForTypesQualifiedWith(typeof(Unity.Entities.IComponentData), TypeOptions.ReferenceType)]
+[assembly: GeneratePropertyBagsForTypesQualifiedWith(typeof(Unity.Entities.IComponentData), TypeGenerationOptions.ReferenceType)]
 
 namespace Unity.Entities.Serialization
 {
@@ -20,7 +19,7 @@ namespace Unity.Entities.Serialization
     /// <remarks>
     /// This is used as a wrapper around <see cref="Unity.Serialization.Binary.BinarySerialization"/> with a custom layer for <see cref="UnityEngine.Object"/>.
     /// </remarks>
-    unsafe class ManagedObjectBinaryWriter : Unity.Serialization.Binary.Adapters.Contravariant.IBinaryAdapter<UnityEngine.Object>
+    unsafe class ManagedObjectBinaryWriter : Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>
     {
         static readonly UnityEngine.Object[] s_EmptyUnityObjectTable = new UnityEngine.Object[0];
 
@@ -40,7 +39,7 @@ namespace Unity.Entities.Serialization
             m_Params = new BinarySerializationParameters
             {
                 UserDefinedAdapters = new List<IBinaryAdapter> {this},
-                Context = new BinarySerializationContext(),
+                State = new BinarySerializationState(),
             };
         }
 
@@ -70,7 +69,7 @@ namespace Unity.Entities.Serialization
             BinarySerialization.ToBinary(m_Stream, obj, parameters);
         }
 
-        void Unity.Serialization.Binary.Adapters.Contravariant.IBinaryAdapter<UnityEngine.Object>.Serialize(UnsafeAppendBuffer* writer, UnityEngine.Object value)
+        void Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>.Serialize(IBinarySerializationContext context, UnityEngine.Object value)
         {
             var index = -1;
 
@@ -90,10 +89,10 @@ namespace Unity.Entities.Serialization
                 }
             }
 
-            writer->Add(index);
+            context.Writer->Add(index);
         }
 
-        object Unity.Serialization.Binary.Adapters.Contravariant.IBinaryAdapter<UnityEngine.Object>.Deserialize(UnsafeAppendBuffer.Reader* reader)
+        object Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>.Deserialize(IBinaryDeserializationContext context)
         {
             throw new InvalidOperationException($"Deserialize should never be invoked by {nameof(ManagedObjectBinaryWriter)}");
         }
@@ -105,7 +104,7 @@ namespace Unity.Entities.Serialization
     /// <remarks>
     /// This is used as a wrapper around <see cref="Unity.Serialization.Binary.BinarySerialization"/> with a custom layer for <see cref="UnityEngine.Object"/>.
     /// </remarks>
-    unsafe class ManagedObjectBinaryReader : Unity.Serialization.Binary.Adapters.Contravariant.IBinaryAdapter<UnityEngine.Object>
+    unsafe class ManagedObjectBinaryReader : Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>
     {
         readonly UnsafeAppendBuffer.Reader* m_Stream;
         readonly BinarySerializationParameters m_Params;
@@ -122,7 +121,7 @@ namespace Unity.Entities.Serialization
             m_Params = new BinarySerializationParameters
             {
                 UserDefinedAdapters = new List<IBinaryAdapter> {this},
-                Context = new BinarySerializationContext(),
+                State = new BinarySerializationState(),
             };
             m_UnityObjects = unityObjects;
         }
@@ -148,14 +147,14 @@ namespace Unity.Entities.Serialization
             return BinarySerialization.FromBinary<object>(m_Stream, parameters);
         }
 
-        void Unity.Serialization.Binary.Adapters.Contravariant.IBinaryAdapter<UnityEngine.Object>.Serialize(UnsafeAppendBuffer* writer, UnityEngine.Object value)
+        void Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>.Serialize(IBinarySerializationContext context, UnityEngine.Object value)
         {
             throw new InvalidOperationException($"Serialize should never be invoked by {nameof(ManagedObjectBinaryReader)}.");
         }
 
-        object Unity.Serialization.Binary.Adapters.Contravariant.IBinaryAdapter<UnityEngine.Object>.Deserialize(UnsafeAppendBuffer.Reader* reader)
+        object Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>.Deserialize(IBinaryDeserializationContext context)
         {
-            var index = reader->ReadNext<int>();
+            var index = context.Reader->ReadNext<int>();
 
             if (index == -1)
                 return null;

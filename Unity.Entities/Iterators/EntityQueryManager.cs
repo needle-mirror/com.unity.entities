@@ -5,27 +5,84 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using UnityEngine;
 using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
-    [BurstCompatible]
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+    // A bundle of component safety handles implicitly referenced by an EntityQuery. This allows a query to
+    // register its component dependencies when the query is used by a job.
+    [NativeContainer]
+    internal struct EntityQuerySafetyHandles
+    {
+        // All IJobEntityBatchWithIndex jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
+        // jobs without any other safety handles are still running (haven't been synced).
+        internal AtomicSafetyHandle m_Safety0;
+        // TODO(DOTS-6573): Enable this path in DOTSRT once it supports AtomicSafetyHandle.SetExclusiveWeak()
+#if !UNITY_DOTSRUNTIME
+        // Enableable components from query used to schedule job. To add more handles here, you must also increase
+        // EntityQueryManager.MAX_ENABLEABLE_COMPONENTS_PER_QUERY.
+        internal AtomicSafetyHandle m_SafetyEnableable1;
+        internal AtomicSafetyHandle m_SafetyEnableable2;
+        internal AtomicSafetyHandle m_SafetyEnableable3;
+        internal AtomicSafetyHandle m_SafetyEnableable4;
+        internal AtomicSafetyHandle m_SafetyEnableable5;
+        internal AtomicSafetyHandle m_SafetyEnableable6;
+        internal AtomicSafetyHandle m_SafetyEnableable7;
+        internal AtomicSafetyHandle m_SafetyEnableable8;
+#endif
+        internal int m_SafetyReadOnlyCount;
+        internal int m_SafetyReadWriteCount;
+
+        internal unsafe EntityQuerySafetyHandles(EntityQueryImpl* queryImpl)
+        {
+            this = default; // workaround for CS0171 error (all fields must be fully assigned before control is returned)
+            var queryData = queryImpl->_QueryData;
+            m_Safety0 = queryImpl->SafetyHandles->GetEntityManagerSafetyHandle();
+#if UNITY_DOTSRUNTIME
+            // TODO(DOTS-6573): DOTSRT can use the main code path once it supports AtomicSafetyHandle.SetExclusiveWeak()
+            m_SafetyReadOnlyCount = 1; // for EntityManager handle
+            m_SafetyReadWriteCount = 0;
+#else
+            m_SafetyReadOnlyCount = 1 + queryData->EnableableComponentTypeIndexCount; // +1 for EntityManager handle
+            m_SafetyReadWriteCount = 0;
+            fixed (AtomicSafetyHandle* pEnableableHandles = &m_SafetyEnableable1)
+            {
+                for (int i = 0; i < EntityQueryManager.MAX_ENABLEABLE_COMPONENTS_PER_QUERY; ++i)
+                {
+                    if (i < queryData->EnableableComponentTypeIndexCount)
+                    {
+                        pEnableableHandles[i] =
+                            queryImpl->SafetyHandles->GetSafetyHandle(queryData->EnableableComponentTypeIndices[i],
+                                true);
+                        AtomicSafetyHandle.SetExclusiveWeak(ref pEnableableHandles[i], true);
+                    }
+                }
+            }
+#endif
+        }
+    }
+#endif
+
+    [GenerateTestsForBurstCompatibility]
     internal unsafe struct EntityQueryManager
     {
         private ComponentDependencyManager*    m_DependencyManager;
-        private BlockAllocator                 m_GroupDataChunkAllocator;
-        private UnsafePtrList<EntityQueryData> m_EntityGroupDatas;
+        private BlockAllocator                 m_EntityQueryDataChunkAllocator;
+        private UnsafePtrList<EntityQueryData> m_EntityQueryDatas;
+        internal const int MAX_ENABLEABLE_COMPONENTS_PER_QUERY = 8;
 
-        private UntypedUnsafeParallelHashMap           m_EntityGroupDataCacheUntyped;
+        private UntypedUnsafeParallelHashMap           m_EntityQueryDataCacheUntyped;
         internal int                           m_EntityQueryMasksAllocated;
 
         public static void Create(EntityQueryManager* queryManager, ComponentDependencyManager* dependencyManager)
         {
             queryManager->m_DependencyManager = dependencyManager;
-            queryManager->m_GroupDataChunkAllocator = new BlockAllocator(AllocatorManager.Persistent, 16 * 1024 * 1024); // 16MB should be enough
-            ref var groupCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeParallelMultiHashMap<int, int>>(ref queryManager->m_EntityGroupDataCacheUntyped);
-            groupCache = new UnsafeParallelMultiHashMap<int, int>(1024, Allocator.Persistent);
-            queryManager->m_EntityGroupDatas = new UnsafePtrList<EntityQueryData>(0, Allocator.Persistent);
+            queryManager->m_EntityQueryDataChunkAllocator = new BlockAllocator(AllocatorManager.Persistent, 16 * 1024 * 1024); // 16MB should be enough
+            ref var entityQueryCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeMultiHashMap<int, int>>(ref queryManager->m_EntityQueryDataCacheUntyped);
+            entityQueryCache = new UnsafeMultiHashMap<int, int>(1024, Allocator.Persistent);
+            queryManager->m_EntityQueryDatas = new UnsafePtrList<EntityQueryData>(0, Allocator.Persistent);
             queryManager->m_EntityQueryMasksAllocated = 0;
         }
 
@@ -36,39 +93,44 @@ namespace Unity.Entities
 
         void Dispose()
         {
-            ref var groupCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeParallelMultiHashMap<int, int>>(ref m_EntityGroupDataCacheUntyped);
-            groupCache.Dispose();
-            for (var g = 0; g < m_EntityGroupDatas.Length; ++g)
+            ref var entityQueryCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityQueryDataCacheUntyped);
+            entityQueryCache.Dispose();
+            for (var g = 0; g < m_EntityQueryDatas.Length; ++g)
             {
-                m_EntityGroupDatas.Ptr[g]->Dispose();
+                m_EntityQueryDatas.Ptr[g]->Dispose();
             }
-            m_EntityGroupDatas.Dispose();
+            m_EntityQueryDatas.Dispose();
             //@TODO: Need to wait for all job handles to be completed..
-            m_GroupDataChunkAllocator.Dispose();
+            m_EntityQueryDataChunkAllocator.Dispose();
         }
 
-        ArchetypeQuery* CreateQuery(ref UnsafeScratchAllocator unsafeScratchAllocator, ComponentType* requiredTypes, int count)
+        ArchetypeQuery* CreateArchetypeQueries(ref UnsafeScratchAllocator unsafeScratchAllocator, ComponentType* requiredTypes, int count)
         {
-            var builder = new EntityQueryDescBuilder(Allocator.Temp);
+            var builder = new EntityQueryBuilder(Allocator.Temp);
 
             for (int i = 0; i != count; i++)
             {
                 if (requiredTypes[i].AccessModeType == ComponentType.AccessMode.Exclude)
-                    builder.AddNone(ComponentType.ReadOnly(requiredTypes[i].TypeIndex));
+                {
+                    var noneType = ComponentType.ReadOnly(requiredTypes[i].TypeIndex);
+                    builder.WithNone(&noneType, 1);
+                }
                 else
-                    builder.AddAll(requiredTypes[i]);
+                {
+                    builder.WithAll(&requiredTypes[i], 1);
+                }
             }
 
-            builder.FinalizeQuery();
+            builder.FinalizeQueryInternal();
 
-            var result = CreateQuery(ref unsafeScratchAllocator, builder);
+            var result = CreateArchetypeQueries(ref unsafeScratchAllocator, builder);
 
             builder.Dispose();
 
             return result;
         }
 
-        internal void ConstructTypeArray(ref UnsafeScratchAllocator unsafeScratchAllocator, UnsafeList<ComponentType> types, out int* outTypes, out byte* outAccessModes, out int outLength)
+        internal void ConstructTypeArray(ref UnsafeScratchAllocator unsafeScratchAllocator, UnsafeList<ComponentType> types, out TypeIndex* outTypes, out byte* outAccessModes, out int outLength)
         {
             if (types.Length == 0)
             {
@@ -79,7 +141,7 @@ namespace Unity.Entities
             else
             {
                 outLength = types.Length;
-                outTypes = (int*)unsafeScratchAllocator.Allocate<int>(types.Length);
+                outTypes = (TypeIndex*)unsafeScratchAllocator.Allocate<TypeIndex>(types.Length);
                 outAccessModes = (byte*)unsafeScratchAllocator.Allocate<byte>(types.Length);
 
                 var sortedTypes = stackalloc ComponentType[types.Length];
@@ -113,7 +175,7 @@ namespace Unity.Entities
             }
         }
 
-        private static ComponentType GetWriteGroupReadOnlyComponentType(int* writeGroupTypes, int i)
+        private static ComponentType GetWriteGroupReadOnlyComponentType(TypeIndex* writeGroupTypes, int i)
         {
             // Need to get "Clean" TypeIndex from Type. Since TypeInfo.TypeIndex is not actually the index of the
             // type. (It includes other flags.) What is stored in WriteGroups is the actual index of the type.
@@ -143,22 +205,25 @@ namespace Unity.Entities
         }
 
         // Plan to unmanaged EntityQueryManager
-        // [X] Introduce EntityQueryDescBuilder and test it
-        // [X] Change internals to take an EntityQueryDescBuilder as an in parameter
-        // [X] Validate queryData in CreateQuery
+        // [X] Introduce EntityQueryBuilder and test it
+        // [X] Change internals to take an EntityQueryBuilder as an in parameter
+        // [X] Validate queryData in CreateArchetypeQueries
         // [x] Everyone calling this needs to convert managed stuff into unmanaged EQDBuilder
         // [x] Public overloads of APIs to offer an EQDBuilder option
         // [ ] Deprecate EntityQueryDesc
-        ArchetypeQuery* CreateQuery(ref UnsafeScratchAllocator unsafeScratchAllocator, in EntityQueryDescBuilder queryBuilder)
+        ArchetypeQuery* CreateArchetypeQueries(ref UnsafeScratchAllocator unsafeScratchAllocator, in EntityQueryBuilder queryBuilder)
         {
-            var types = queryBuilder.m_TypeData;
-            var queryData = queryBuilder.m_IndexData;
+            var types = queryBuilder._builderDataPtr->_typeData;
+            var queryData = queryBuilder._builderDataPtr->_indexData;
             var outQuery = (ArchetypeQuery*)unsafeScratchAllocator.Allocate(sizeof(ArchetypeQuery) * queryData.Length, UnsafeUtility.AlignOf<ArchetypeQuery>());
 
             // we need to build out new lists of component types to mutate them for WriteGroups
             var allTypes = new UnsafeList<ComponentType>(32, Allocator.Temp);
             var anyTypes = new UnsafeList<ComponentType>(32, Allocator.Temp);
             var noneTypes = new UnsafeList<ComponentType>(32, Allocator.Temp);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            var entityTypeIndex = TypeManager.GetTypeIndex<Entity>();
+#endif
 
             for (int q = 0; q != queryData.Length; q++)
             {
@@ -166,6 +231,12 @@ namespace Unity.Entities
                     var typesAll = queryData[q].All;
                     for (int i = typesAll.Index; i < typesAll.Index + typesAll.Count; i++)
                     {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                        if (types[i].TypeIndex == entityTypeIndex)
+                        {
+                            throw new ArgumentException("Entity is not allowed in list of component types for EntityQuery");
+                        }
+#endif
                         allTypes.Add(types[i]);
                     }
                 }
@@ -186,14 +257,14 @@ namespace Unity.Entities
                         var type = types[i];
                         // Can not use Assert.AreEqual here because it uses the (object, object) overload which
                         // boxes the enums being compared, and that can not be burst compiled.
-                        Assert.IsTrue(ComponentType.AccessMode.ReadOnly == type.AccessModeType, "EntityQueryDescBuilder.None must convert ComponentType.AccessMode to ReadOnly");
+                        Assert.IsTrue(ComponentType.AccessMode.ReadOnly == type.AccessModeType, "EntityQueryBuilder.None must convert ComponentType.AccessMode to ReadOnly");
 #endif
                         noneTypes.Add(types[i]);
                     }
                 }
 
-                // Validate the queryDesc has components declared in a consistent way
-                EntityQueryDescBuilder.Validate(allTypes, anyTypes, noneTypes);
+                // Validate the queryBuilder has components declared in a consistent way
+                EntityQueryBuilder.Validate(allTypes, anyTypes, noneTypes);
 
                 var isFilterWriteGroup = (queryData[q].Options & EntityQueryOptions.FilterWriteGroup) != 0;
                 if (isFilterWriteGroup)
@@ -244,16 +315,17 @@ namespace Unity.Entities
             return outQuery;
         }
 
-        internal static bool CompareQueryArray(in EntityQueryDescBuilder builder, EntityQueryDescBuilder.ComponentIndexArray arr, int* typeArray, byte* accessModeArray, int typeArrayCount)
+        internal static bool CompareQueryArray(in EntityQueryBuilder builder, EntityQueryBuilder.ComponentIndexArray arr, TypeIndex* typeArray, byte* accessModeArray, int typeArrayCount)
         {
             int arrCount = arr.Count;
             if (typeArrayCount != arrCount)
                 return false;
 
             var sortedTypes = stackalloc ComponentType[arrCount];
+            var types = builder._builderDataPtr->_typeData;
             for (var i = 0; i < arrCount; ++i)
             {
-                SortingUtilities.InsertSorted(sortedTypes, i, builder.m_TypeData[arr.Index + i]);
+                SortingUtilities.InsertSorted(sortedTypes, i, types[arr.Index + i]);
             }
 
             for (var i = 0; i < arrCount; ++i)
@@ -266,16 +338,18 @@ namespace Unity.Entities
         }
 
 
-        public static bool CompareQuery(in EntityQueryDescBuilder queryBuilder, EntityQueryData* queryData)
+        public static bool CompareQuery(in EntityQueryBuilder queryBuilder, EntityQueryData* queryData)
         {
-            int count = queryBuilder.m_IndexData.Length;
+            queryBuilder.FinalizeQueryInternal();
+            var indexData = queryBuilder._builderDataPtr->_indexData;
+            int count = indexData.Length;
             if (queryData->ArchetypeQueryCount != count)
                 return false;
 
             for (int i = 0; i != count; i++)
             {
-                ref var archetypeQuery = ref queryData->ArchetypeQuery[i];
-                var q = queryBuilder.m_IndexData[i];
+                ref var archetypeQuery = ref queryData->ArchetypeQueries[i];
+                var q = indexData[i];
 
                 if (!CompareQueryArray(queryBuilder, q.All, archetypeQuery.All, archetypeQuery.AllAccessMode, archetypeQuery.AllCount))
                     return false;
@@ -290,78 +364,7 @@ namespace Unity.Entities
             return true;
         }
 
-        internal struct CompareComponentsQuery
-        {
-            public FixedList128Bytes<int> includeTypeIndices;
-            public FixedList32Bytes<byte> includeAccessModes;
-            public FixedList128Bytes<int> excludeTypeIndices;
-            public FixedList32Bytes<byte> excludeAccessModes;
-        }
-
-        public static void ConvertComponentListToSortedIntListsNoAlloc(ComponentType* sortedTypes, int componentTypesCount, out CompareComponentsQuery query)
-        {
-            query = new CompareComponentsQuery();
-
-            for (int i = 0; i < componentTypesCount; ++i)
-            {
-                var type = sortedTypes[i];
-                if (type.AccessModeType == ComponentType.AccessMode.Exclude)
-                {
-                    query.excludeTypeIndices.Add(type.TypeIndex);
-
-                    // None forced to read only
-                    query.excludeAccessModes.Add((byte)ComponentType.AccessMode.ReadOnly);
-                }
-                else
-                {
-                    query.includeTypeIndices.Add(type.TypeIndex);
-                    query.includeAccessModes.Add((byte)type.AccessModeType);
-                }
-            }
-        }
-
-        public static bool CompareComponents(ComponentType* componentTypes, int componentTypesCount, EntityQueryData* queryData)
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            for (var k = 0; k < componentTypesCount; ++k)
-                if (componentTypes[k].TypeIndex == TypeManager.GetTypeIndex<Entity>())
-                    throw new ArgumentException(
-                        "EntityQuery.CompareComponents may not include typeof(Entity), it is implicit");
-#endif
-            if ((queryData->ArchetypeQueryCount != 1) || // This code path only matches one archetypequery
-                (queryData->ArchetypeQuery[0].Options != EntityQueryOptions.Default)) // This code path does not allow query options
-                return false;
-
-            var sortedTypes = stackalloc ComponentType[componentTypesCount];
-            for (var i = 0; i < componentTypesCount; ++i)
-            {
-                SortingUtilities.InsertSorted(sortedTypes, i, componentTypes[i]);
-            }
-
-            ConvertComponentListToSortedIntListsNoAlloc(sortedTypes, componentTypesCount, out var componentCompareQuery);
-
-            var includeCount = componentCompareQuery.includeTypeIndices.Length;
-            var excludeCount = componentCompareQuery.excludeTypeIndices.Length;
-            var archetypeQuery = queryData->ArchetypeQuery[0];
-
-            if ((includeCount != archetypeQuery.AllCount) ||
-                (excludeCount != archetypeQuery.NoneCount))
-                return false;
-
-            for (int i = 0; i < includeCount; ++i)
-                if (componentCompareQuery.includeTypeIndices[i] != archetypeQuery.All[i] ||
-                    componentCompareQuery.includeAccessModes[i] != archetypeQuery.AllAccessMode[i])
-                    return false;
-
-            for (int i = 0; i < excludeCount; ++i)
-                if (componentCompareQuery.excludeTypeIndices[i] != archetypeQuery.None[i] ||
-                    componentCompareQuery.excludeAccessModes[i] != archetypeQuery.NoneAccessMode[i])
-                    return false;
-
-            return true;
-        }
-
-        private int IntersectSortedComponentIndexArrays(int* arrayA, byte* accessArrayA, int arrayACount, int* arrayB, byte* accessArrayB, int arrayBCount, int* outArray, byte* outAccessArray)
+        private int IntersectSortedComponentIndexArrays(TypeIndex* arrayA, byte* accessArrayA, int arrayACount, TypeIndex* arrayB, byte* accessArrayB, int arrayBCount, TypeIndex* outArray, byte* outAccessArray)
         {
             var intersectionCount = 0;
 
@@ -394,8 +397,8 @@ namespace Unity.Entities
                 maxIntersectionCount = math.max(maxIntersectionCount, queries[queryIndex].AllCount);
 
             // allocate index array and r/w permissions array
-            var intersection = (int*)allocator.Allocate<int>(maxIntersectionCount);
-            UnsafeUtility.MemCpy(intersection, queries[0].All, sizeof(int) * queries[0].AllCount);
+            var intersection = (TypeIndex*)allocator.Allocate<TypeIndex>(maxIntersectionCount);
+            UnsafeUtility.MemCpy(intersection, queries[0].All, sizeof(TypeIndex) * queries[0].AllCount);
 
             var access = (byte*)allocator.Allocate<byte>(maxIntersectionCount);
             UnsafeUtility.MemCpy(access, queries[0].AllAccessMode, sizeof(byte) * queries[0].AllCount);
@@ -419,105 +422,67 @@ namespace Unity.Entities
             return outRequiredComponents;
         }
 
-        void CalculateEnableableComponentCounts(ArchetypeQuery* query, out int enableableAllCount, out int enableableNoneCount)
-        {
-            enableableAllCount = 0;
-            for (int i = 0; i < query->AllCount; ++i)
-            {
-                if (TypeManager.IsEnableable(query->All[i]))
-                    enableableAllCount++;
-            }
-
-            enableableNoneCount = 0;
-            for (int i = 0; i < query->NoneCount; ++i)
-            {
-                if (TypeManager.IsEnableable(query->None[i]))
-                    enableableNoneCount++;
-            }
-
-            // todo: Enableable types in the Any clause of an EntityQueryDesc is currently unsupported
-            for (int i = 0; i < query->AnyCount; ++i)
-            {
-                if (TypeManager.IsEnableable(query->Any[i]))
-                    throw new ArgumentException(
-                        "Using IEnableableComponent in the Any clause of an EntityQueryDesc is currently unsupported.");
-            }
-        }
-
-        [NotBurstCompatible]
-        internal static void ConvertToEntityQueryDescBuilder(ref EntityQueryDescBuilder builder, EntityQueryDesc[] queryDesc)
+        [ExcludeFromBurstCompatTesting("Takes managed array")]
+        internal static void ConvertToEntityQueryBuilder(ref EntityQueryBuilder builder, EntityQueryDesc[] queryDesc)
         {
             for (int q = 0; q != queryDesc.Length; q++)
             {
-                for (int i = 0; i < queryDesc[q].All.Length; i++)
+                ref var desc = ref queryDesc[q];
+                fixed (ComponentType* allTypes = desc.All)
                 {
-                    builder.AddAll(queryDesc[q].All[i]);
+                    builder.WithAll(allTypes, desc.All.Length);
+                }
+                fixed (ComponentType* anyTypes = desc.Any)
+                {
+                    builder.WithAny(anyTypes, desc.Any.Length);
+                }
+                fixed (ComponentType* noneTypes = desc.None)
+                {
+                    builder.WithNone(noneTypes, desc.None.Length);
                 }
 
-                for (int i = 0; i < queryDesc[q].Any.Length; i++)
-                {
-                    builder.AddAny(queryDesc[q].Any[i]);
-                }
-
-                for (int i = 0; i < queryDesc[q].None.Length; i++)
-                {
-                    builder.AddNone(queryDesc[q].None[i]);
-                }
-
-                builder.Options(queryDesc[q].Options);
-                builder.FinalizeQuery();
+                builder.WithOptions(desc.Options);
+                builder.FinalizeQueryInternal();
             }
         }
 
-        public EntityQuery CreateEntityQuery(EntityDataAccess* access, in EntityQueryDescBuilder query)
+        public EntityQuery CreateEntityQuery(EntityDataAccess* access, EntityQueryBuilder query)
         {
-            CheckEmptyBuilder(query);
+            query.FinalizeQueryInternal();
 
             var buffer = stackalloc byte[1024];
             var scratchAllocator = new UnsafeScratchAllocator(buffer, 1024);
-            var archetypeQuery = CreateQuery(ref scratchAllocator, query);
+            var archetypeQuery = CreateArchetypeQueries(ref scratchAllocator, query);
 
-            var outRequiredComponents = CalculateRequiredComponentsFromQuery(ref scratchAllocator, archetypeQuery, query.m_IndexData.Length, out var outRequiredComponentsCount);
-            CalculateEnableableComponentCounts(archetypeQuery, out var outEnableableAllCount, out var outEnableableNoneCount);
-
-            return CreateEntityQuery(access, archetypeQuery, query.m_IndexData.Length, outRequiredComponents, outRequiredComponentsCount, outEnableableAllCount, outEnableableNoneCount);
-
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        private static void CheckEmptyBuilder(EntityQueryDescBuilder query)
-        {
-            if (query.m_IndexData.Length == 0)
-            {
-                throw new ArgumentException("EntityQueryDescBuilder is empty. Did you forget to call FinalizeQuery()?");
-            }
+            var indexData = query._builderDataPtr->_indexData;
+            var outRequiredComponents = CalculateRequiredComponentsFromQuery(ref scratchAllocator, archetypeQuery, indexData.Length, out var outRequiredComponentsCount);
+            return CreateEntityQuery(access, archetypeQuery, indexData.Length, outRequiredComponents, outRequiredComponentsCount);
         }
 
         public EntityQuery CreateEntityQuery(EntityDataAccess* access, ComponentType* inRequiredComponents, int inRequiredComponentsCount)
         {
             var buffer = stackalloc byte[1024];
             var scratchAllocator = new UnsafeScratchAllocator(buffer, 1024);
-            var archetypeQuery = CreateQuery(ref scratchAllocator, inRequiredComponents, inRequiredComponentsCount);
+            var archetypeQueries = CreateArchetypeQueries(ref scratchAllocator, inRequiredComponents, inRequiredComponentsCount);
             var outRequiredComponents = (ComponentType*)scratchAllocator.Allocate<ComponentType>(inRequiredComponentsCount + 1);
             outRequiredComponents[0] = ComponentType.ReadWrite<Entity>();
             for (int i = 0; i != inRequiredComponentsCount; i++)
                 SortingUtilities.InsertSorted(outRequiredComponents + 1, i, inRequiredComponents[i]);
             var outRequiredComponentsCount = inRequiredComponentsCount + 1;
-            CalculateEnableableComponentCounts(archetypeQuery, out var outEnableableAllCount, out var outEnableableNoneCount);
-            return CreateEntityQuery(access, archetypeQuery, 1, outRequiredComponents, outRequiredComponentsCount, outEnableableAllCount, outEnableableNoneCount);
+            return CreateEntityQuery(access, archetypeQueries, 1, outRequiredComponents, outRequiredComponentsCount);
         }
 
-        bool Matches(EntityQueryData* grp, ArchetypeQuery* archetypeQueries, int archetypeFiltersCount,
+        bool Matches(EntityQueryData* grp, ArchetypeQuery* archetypeQueries, int archetypeQueryCount,
             ComponentType* requiredComponents, int requiredComponentsCount)
         {
             if (requiredComponentsCount != grp->RequiredComponentsCount)
                 return false;
-            if (archetypeFiltersCount != grp->ArchetypeQueryCount)
+            if (archetypeQueryCount != grp->ArchetypeQueryCount)
                 return false;
             if (requiredComponentsCount > 0 && UnsafeUtility.MemCmp(requiredComponents, grp->RequiredComponents, sizeof(ComponentType) * requiredComponentsCount) != 0)
                 return false;
-            for (var i = 0; i < archetypeFiltersCount; ++i)
-                if (!archetypeQueries[i].Equals(grp->ArchetypeQuery[i]))
+            for (var i = 0; i < archetypeQueryCount; ++i)
+                if (!archetypeQueries[i].Equals(grp->ArchetypeQueries[i]))
                     return false;
             return true;
         }
@@ -527,81 +492,141 @@ namespace Unity.Entities
             var bytes = count * UnsafeUtility.SizeOf<T>();
             if (bytes == 0)
                 return null;
-            var pointer = m_GroupDataChunkAllocator.Allocate(bytes, UnsafeUtility.AlignOf<T>());
+            var pointer = m_EntityQueryDataChunkAllocator.Allocate(bytes, UnsafeUtility.AlignOf<T>());
             if (source != null)
                 UnsafeUtility.MemCpy(pointer, source, bytes);
             return pointer;
         }
 
         public EntityQuery CreateEntityQuery(EntityDataAccess* access,
-            ArchetypeQuery* query,
-            int queryCount,
-            ComponentType* component,
-            int componentCount,
-            int enableableAllCount,
-            int enableableNoneCount)
+            ArchetypeQuery* archetypeQueries,
+            int archetypeQueryCount,
+            ComponentType* requiredComponents,
+            int requiredComponentCount)
         {
             //@TODO: Validate that required types is subset of archetype filters all...
 
-            int hash = (int)math.hash(component, componentCount * sizeof(ComponentType));
-            for (var i = 0; i < queryCount; ++i)
-                hash = hash * 397 ^ query[i].GetHashCode();
-            EntityQueryData* cachedQuery = null;
-            ref var groupCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeParallelMultiHashMap<int, int>>(ref m_EntityGroupDataCacheUntyped);
+            int hash = (int)math.hash(requiredComponents, requiredComponentCount * sizeof(ComponentType));
+            for (var i = 0; i < archetypeQueryCount; ++i)
+                hash = hash * 397 ^ archetypeQueries[i].GetHashCode();
+            EntityQueryData* queryData = null;
+            ref var entityQueryCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityQueryDataCacheUntyped);
 
-            if (groupCache.TryGetFirstValue(hash, out var entityGroupDataIndex, out var iterator))
+            if (entityQueryCache.TryGetFirstValue(hash, out var entityQueryIndex, out var iterator))
             {
                 do
                 {
-                    var possibleMatch = m_EntityGroupDatas.Ptr[entityGroupDataIndex];
-                    if (Matches(possibleMatch, query, queryCount, component, componentCount))
+                    var possibleMatch = m_EntityQueryDatas.Ptr[entityQueryIndex];
+                    if (Matches(possibleMatch, archetypeQueries, archetypeQueryCount, requiredComponents, requiredComponentCount))
                     {
-                        cachedQuery = possibleMatch;
+                        queryData = possibleMatch;
                         break;
                     }
                 }
-                while (groupCache.TryGetNextValue(out entityGroupDataIndex, ref iterator));
+                while (entityQueryCache.TryGetNextValue(out entityQueryIndex, ref iterator));
             }
 
-            if (cachedQuery == null)
+            if (queryData == null)
             {
-                cachedQuery = (EntityQueryData*)ChunkAllocate<EntityQueryData>();
-                cachedQuery->RequiredComponentsCount = componentCount;
-                cachedQuery->RequiredComponents = (ComponentType*)ChunkAllocate<ComponentType>(componentCount, component);
-                cachedQuery->EnableableComponentsCountAll = enableableAllCount;
-                cachedQuery->EnableableComponentsCountNone = enableableNoneCount;
-                InitializeReaderWriter(cachedQuery, component, componentCount);
-                cachedQuery->ArchetypeQueryCount = queryCount;
-                cachedQuery->ArchetypeQuery = (ArchetypeQuery*)ChunkAllocate<ArchetypeQuery>(queryCount, query);
-                for (var i = 0; i < queryCount; ++i)
+                // Validate input archetype queries
+                bool queryIgnoresEnabledBits =
+                    (archetypeQueries[0].Options & EntityQueryOptions.IgnoreComponentEnabledState) != 0;
+                for (int iAQ = 1; iAQ < archetypeQueryCount; ++iAQ)
                 {
-                    cachedQuery->ArchetypeQuery[i].All = (int*)ChunkAllocate<int>(cachedQuery->ArchetypeQuery[i].AllCount, query[i].All);
-                    cachedQuery->ArchetypeQuery[i].Any = (int*)ChunkAllocate<int>(cachedQuery->ArchetypeQuery[i].AnyCount, query[i].Any);
-                    cachedQuery->ArchetypeQuery[i].None = (int*)ChunkAllocate<int>(cachedQuery->ArchetypeQuery[i].NoneCount, query[i].None);
-                    cachedQuery->ArchetypeQuery[i].AllAccessMode = (byte*)ChunkAllocate<byte>(cachedQuery->ArchetypeQuery[i].AllCount, query[i].AllAccessMode);
-                    cachedQuery->ArchetypeQuery[i].AnyAccessMode = (byte*)ChunkAllocate<byte>(cachedQuery->ArchetypeQuery[i].AnyCount, query[i].AnyAccessMode);
-                    cachedQuery->ArchetypeQuery[i].NoneAccessMode = (byte*)ChunkAllocate<byte>(cachedQuery->ArchetypeQuery[i].NoneCount, query[i].NoneAccessMode);
+                    bool hasIgnoreEnabledBitsFlag = (archetypeQueries[iAQ].Options & EntityQueryOptions.IgnoreComponentEnabledState) != 0;
+                    if (hasIgnoreEnabledBitsFlag != queryIgnoresEnabledBits)
+                        throw new ArgumentException(
+                            $"All EntityQueryOptions passed to CreateEntityQuery() must have the same value for the IgnoreComponentEnabledState flag");
+                }
+
+                // count & identify enableable component types
+                int totalComponentCount = 0;
+                for (int iAQ = 0; iAQ < archetypeQueryCount; ++iAQ)
+                {
+                    totalComponentCount += archetypeQueries[iAQ].AllCount + archetypeQueries[iAQ].NoneCount +
+                                           archetypeQueries[iAQ].NoneCount;
+                }
+
+                var allEnableableTypeIndices = new NativeList<TypeIndex>(totalComponentCount, Allocator.Temp);
+                for (int iAQ = 0; iAQ < archetypeQueryCount; ++iAQ)
+                {
+                    ref ArchetypeQuery aq = ref archetypeQueries[iAQ];
+                    for (int i = 0; i < aq.AllCount; ++i)
+                    {
+                        if (aq.All[i].IsEnableable)
+                            allEnableableTypeIndices.Add(aq.All[i]);
+                    }
+
+                    for (int i = 0; i < aq.NoneCount; ++i)
+                    {
+                        if (aq.None[i].IsEnableable)
+                            allEnableableTypeIndices.Add(aq.None[i]);
+                    }
+
+                    for (int i = 0; i < aq.AnyCount; ++i)
+                    {
+                        if (aq.Any[i].IsEnableable)
+                            allEnableableTypeIndices.Add(aq.Any[i]);
+                    }
+                }
+                // eliminate duplicate type indices
+                if (allEnableableTypeIndices.Length > 0)
+                {
+                    allEnableableTypeIndices.Sort();
+                    int lastUniqueIndex = 0;
+                    for (int i = 1; i < allEnableableTypeIndices.Length; ++i)
+                    {
+                        if (allEnableableTypeIndices[i] != allEnableableTypeIndices[lastUniqueIndex])
+                        {
+                            allEnableableTypeIndices[++lastUniqueIndex] = allEnableableTypeIndices[i];
+                        }
+                    }
+                    allEnableableTypeIndices.Length = lastUniqueIndex + 1;
+                    // This limit matches the number of safety handles for enableable types we store in job structs.
+                    if (allEnableableTypeIndices.Length > MAX_ENABLEABLE_COMPONENTS_PER_QUERY)
+                        throw new ArgumentException(
+                            $"EntityQuery objects may not reference more than {MAX_ENABLEABLE_COMPONENTS_PER_QUERY} enableable components");
+                }
+                // Allocate and populate query data
+                queryData = (EntityQueryData*)ChunkAllocate<EntityQueryData>();
+                queryData->RequiredComponentsCount = requiredComponentCount;
+                queryData->RequiredComponents = (ComponentType*)ChunkAllocate<ComponentType>(requiredComponentCount, requiredComponents);
+                queryData->EnableableComponentTypeIndexCount = queryIgnoresEnabledBits ? 0 : allEnableableTypeIndices.Length;
+                queryData->EnableableComponentTypeIndices = (TypeIndex*)ChunkAllocate<TypeIndex>(allEnableableTypeIndices.Length, allEnableableTypeIndices.GetUnsafeReadOnlyPtr());
+                queryData->DoesQueryRequireBatching = (allEnableableTypeIndices.Length > 0 && !queryIgnoresEnabledBits) ? (byte)1 : (byte)0;
+
+                InitializeReaderWriter(queryData, requiredComponents, requiredComponentCount);
+                queryData->ArchetypeQueryCount = archetypeQueryCount;
+                queryData->ArchetypeQueries = (ArchetypeQuery*)ChunkAllocate<ArchetypeQuery>(archetypeQueryCount, archetypeQueries);
+                for (var i = 0; i < archetypeQueryCount; ++i)
+                {
+                    queryData->ArchetypeQueries[i].All = (TypeIndex*)ChunkAllocate<TypeIndex>(queryData->ArchetypeQueries[i].AllCount, archetypeQueries[i].All);
+                    queryData->ArchetypeQueries[i].Any = (TypeIndex*)ChunkAllocate<TypeIndex>(queryData->ArchetypeQueries[i].AnyCount, archetypeQueries[i].Any);
+                    queryData->ArchetypeQueries[i].None = (TypeIndex*)ChunkAllocate<TypeIndex>(queryData->ArchetypeQueries[i].NoneCount, archetypeQueries[i].None);
+                    queryData->ArchetypeQueries[i].AllAccessMode = (byte*)ChunkAllocate<byte>(queryData->ArchetypeQueries[i].AllCount, archetypeQueries[i].AllAccessMode);
+                    queryData->ArchetypeQueries[i].AnyAccessMode = (byte*)ChunkAllocate<byte>(queryData->ArchetypeQueries[i].AnyCount, archetypeQueries[i].AnyAccessMode);
+                    queryData->ArchetypeQueries[i].NoneAccessMode = (byte*)ChunkAllocate<byte>(queryData->ArchetypeQueries[i].NoneCount, archetypeQueries[i].NoneAccessMode);
                 }
 
                 var ecs = access->EntityComponentStore;
 
-                cachedQuery->MatchingArchetypes = new UnsafeMatchingArchetypePtrList(access->EntityComponentStore);
-                cachedQuery->MatchingChunkCache = new UnsafeCachedChunkList(access->EntityComponentStore);
+                queryData->MatchingArchetypes = new UnsafeMatchingArchetypePtrList(access->EntityComponentStore);
+                queryData->MatchingChunkCache = new UnsafeCachedChunkList(access->EntityComponentStore);
 
-                cachedQuery->EntityQueryMask = new EntityQueryMask();
+                queryData->EntityQueryMask = new EntityQueryMask();
 
                 for (var i = 0; i < ecs->m_Archetypes.Length; ++i)
                 {
                     var archetype = ecs->m_Archetypes.Ptr[i];
-                    AddArchetypeIfMatching(archetype, cachedQuery);
+                    AddArchetypeIfMatching(archetype, queryData);
                 }
 
-                groupCache.Add(hash, m_EntityGroupDatas.Length);
-                m_EntityGroupDatas.Add(cachedQuery);
-                cachedQuery->MatchingChunkCache.InvalidateCache();
+                entityQueryCache.Add(hash, m_EntityQueryDatas.Length);
+                m_EntityQueryDatas.Add(queryData);
+                queryData->MatchingChunkCache.Invalidate();
             }
 
-            return EntityQuery.Construct(cachedQuery, access);
+            return EntityQuery.Construct(queryData, access);
         }
 
         void InitializeReaderWriter(EntityQueryData* grp, ComponentType* requiredTypes, int requiredCount)
@@ -614,9 +639,8 @@ namespace Unity.Entities
 
             for (var i = 1; i != requiredCount; i++)
             {
-                // After the first zero sized component the rest are zero sized
-                if (requiredTypes[i].IsZeroSized)
-                    break;
+                if (requiredTypes[i].IsZeroSized && !requiredTypes[i].IsEnableable)
+                    continue;
 
                 switch (requiredTypes[i].AccessModeType)
                 {
@@ -629,15 +653,15 @@ namespace Unity.Entities
                 }
             }
 
-            grp->ReaderTypes = (int*)m_GroupDataChunkAllocator.Allocate(sizeof(int) * grp->ReaderTypesCount, 4);
-            grp->WriterTypes = (int*)m_GroupDataChunkAllocator.Allocate(sizeof(int) * grp->WriterTypesCount, 4);
+            grp->ReaderTypes = (TypeIndex*)m_EntityQueryDataChunkAllocator.Allocate(sizeof(TypeIndex) * grp->ReaderTypesCount, 4);
+            grp->WriterTypes = (TypeIndex*)m_EntityQueryDataChunkAllocator.Allocate(sizeof(TypeIndex) * grp->WriterTypesCount, 4);
 
             var curReader = 0;
             var curWriter = 0;
             for (var i = 1; i != requiredCount; i++)
             {
-                if (requiredTypes[i].IsZeroSized)
-                    break;
+                if (requiredTypes[i].IsZeroSized && !requiredTypes[i].IsEnableable)
+                    continue;
 
                 switch (requiredTypes[i].AccessModeType)
                 {
@@ -655,9 +679,9 @@ namespace Unity.Entities
         {
             for (int i = 0; i < archetypeList.Length; i++)
             {
-                for (var g = 0; g < m_EntityGroupDatas.Length; ++g)
+                for (var g = 0; g < m_EntityQueryDatas.Length; ++g)
                 {
-                    var grp = m_EntityGroupDatas.Ptr[g];
+                    var grp = m_EntityQueryDatas.Ptr[g];
                     AddArchetypeIfMatching(archetypeList.Ptr[i], grp);
                 }
             }
@@ -668,7 +692,7 @@ namespace Unity.Entities
             if (!IsMatchingArchetype(archetype, query))
                 return;
 
-            var match = MatchingArchetype.Create(ref m_GroupDataChunkAllocator, archetype, query);
+            var match = MatchingArchetype.Create(ref m_EntityQueryDataChunkAllocator, archetype, query);
             match->Archetype = archetype;
             var typeIndexInArchetypeArray = match->IndexInArchetype;
 
@@ -694,11 +718,12 @@ namespace Unity.Entities
                 }
             }
 
+            // TODO(DOTS-5638): this assumes that query only contains one ArchetypeQuery
             var enableableAllCount = 0;
             typeComponentIndex = 0;
-            for (var i = 0; i < query->ArchetypeQuery->AllCount; ++i)
+            for (var i = 0; i < query->ArchetypeQueries->AllCount; ++i)
             {
-                var typeIndex = query->ArchetypeQuery->All[i];
+                var typeIndex = query->ArchetypeQueries->All[i];
                 if (TypeManager.IsEnableable(typeIndex))
                 {
                     typeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
@@ -709,15 +734,33 @@ namespace Unity.Entities
 
             var enableableNoneCount = 0;
             typeComponentIndex = 0;
-            for (var i = 0; i < query->ArchetypeQuery->NoneCount; ++i)
+            for (var i = 0; i < query->ArchetypeQueries->NoneCount; ++i)
             {
-                var typeIndex = query->ArchetypeQuery->None[i];
+                var typeIndex = query->ArchetypeQueries->None[i];
                 if (TypeManager.IsEnableable(typeIndex))
                 {
                     var currentTypeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
                     if (currentTypeComponentIndex != -1) // we skip storing "None" component types for matching archetypes that do not contain the "None" type (there are no bits to check)
                     {
                         match->EnableableIndexInArchetype_None[enableableNoneCount++] = currentTypeComponentIndex;
+                        typeComponentIndex = currentTypeComponentIndex;
+                    }
+                }
+            }
+
+            var enableableAnyCount = 0;
+            typeComponentIndex = 0;
+            for (var i = 0; i < query->ArchetypeQueries->AnyCount; ++i)
+            {
+                var typeIndex = query->ArchetypeQueries->Any[i];
+                if (TypeManager.IsEnableable(typeIndex))
+                {
+                    var currentTypeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
+                    // The archetype may not contain all the Any types (by definition; this is the whole point of Any).
+                    // Skip storing the missing types.
+                    if (currentTypeComponentIndex != -1)
+                    {
+                        match->EnableableIndexInArchetype_Any[enableableAnyCount++] = currentTypeComponentIndex;
                         typeComponentIndex = currentTypeComponentIndex;
                     }
                 }
@@ -729,7 +772,7 @@ namespace Unity.Entities
         {
             for (int i = 0; i != query->ArchetypeQueryCount; i++)
             {
-                if (IsMatchingArchetype(archetype, query->ArchetypeQuery + i))
+                if (IsMatchingArchetype(archetype, query->ArchetypeQueries + i))
                     return true;
             }
 
@@ -748,7 +791,7 @@ namespace Unity.Entities
             return true;
         }
 
-        static bool TestMatchingArchetypeAny(Archetype* archetype, int* anyTypes, int anyCount)
+        static bool TestMatchingArchetypeAny(Archetype* archetype, TypeIndex* anyTypes, int anyCount)
         {
             if (anyCount == 0) return true;
 
@@ -768,7 +811,7 @@ namespace Unity.Entities
             return false;
         }
 
-        static bool TestMatchingArchetypeNone(Archetype* archetype, int* noneTypes, int noneCount)
+        static bool TestMatchingArchetypeNone(Archetype* archetype, TypeIndex* noneTypes, int noneCount)
         {
             var componentTypes = archetype->Types;
             var componentTypesCount = archetype->TypesCount;
@@ -785,16 +828,18 @@ namespace Unity.Entities
             return true;
         }
 
-        static bool TestMatchingArchetypeAll(Archetype* archetype, int* allTypes, int allCount, EntityQueryOptions options)
+        static bool TestMatchingArchetypeAll(Archetype* archetype, TypeIndex* allTypes, int allCount, EntityQueryOptions options)
         {
             var componentTypes = archetype->Types;
             var componentTypesCount = archetype->TypesCount;
             var foundCount = 0;
             var disabledTypeIndex = TypeManager.GetTypeIndex<Disabled>();
             var prefabTypeIndex = TypeManager.GetTypeIndex<Prefab>();
+            var systemInstanceTypeIndex = TypeManager.GetTypeIndex<SystemInstance>();
             var chunkHeaderTypeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
-            var includeInactive = (options & EntityQueryOptions.IncludeDisabled) != 0;
+            var includeInactive = (options & EntityQueryOptions.IncludeDisabledEntities) != 0;
             var includePrefab = (options & EntityQueryOptions.IncludePrefab) != 0;
+            var includeSystems = (options & EntityQueryOptions.IncludeSystems) != 0;
             var includeChunkHeader = false;
 
             for (var i = 0; i < componentTypesCount; i++)
@@ -809,6 +854,8 @@ namespace Unity.Entities
                         includePrefab = true;
                     if (allTypeIndex == chunkHeaderTypeIndex)
                         includeChunkHeader = true;
+                    if (allTypeIndex == systemInstanceTypeIndex)
+                        includeSystems = true;
 
                     if (componentTypeIndex == allTypeIndex) foundCount++;
                 }
@@ -817,6 +864,8 @@ namespace Unity.Entities
             if (archetype->Disabled && (!includeInactive))
                 return false;
             if (archetype->Prefab && (!includePrefab))
+                return false;
+            if (archetype->HasSystemInstanceComponents && (!includeSystems))
                 return false;
             if (archetype->HasChunkHeader && (!includeChunkHeader))
                 return false;
@@ -879,6 +928,7 @@ namespace Unity.Entities
         public int RequiredComponentCount;
         public int EnableableComponentsCount_All;
         public int EnableableComponentsCount_None;
+        public int EnableableComponentsCount_Any;
 
         public fixed int IndexInArchetype[1];
 
@@ -888,7 +938,6 @@ namespace Unity.Entities
             {
                 fixed (int* basePtr = IndexInArchetype)
                 {
-                    Assert.IsTrue(EnableableComponentsCount_All > 0);
                     return basePtr + RequiredComponentCount;
                 }
             }
@@ -899,13 +948,22 @@ namespace Unity.Entities
             {
                 fixed (int* basePtr = IndexInArchetype)
                 {
-                    Assert.IsTrue(EnableableComponentsCount_None > 0);
                     return basePtr + RequiredComponentCount + EnableableComponentsCount_All;
                 }
             }
         }
+        public int* EnableableIndexInArchetype_Any
+        {
+            get
+            {
+                fixed (int* basePtr = IndexInArchetype)
+                {
+                    return basePtr + RequiredComponentCount + EnableableComponentsCount_All + EnableableComponentsCount_None;
+                }
+            }
+        }
 
-        public static int CalculateMatchingArchetypeEnableableTypeIntersectionCount(Archetype* archetype, int* queryComponents, int queryComponentCount)
+        public static int CalculateMatchingArchetypeEnableableTypeIntersectionCount(Archetype* archetype, TypeIndex* queryComponents, int queryComponentCount)
         {
             var intersectionCount = 0;
             var typeComponentIndex = 0;
@@ -927,15 +985,18 @@ namespace Unity.Entities
 
         public static MatchingArchetype* Create(ref BlockAllocator allocator, Archetype* archetype, EntityQueryData* query)
         {
-            var enableableAllCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQuery->All, query->ArchetypeQuery->AllCount);
-            var enableableNoneCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQuery->None, query->ArchetypeQuery->NoneCount);
-            var totalEnableableTypeCount = enableableAllCount + enableableNoneCount;
+            // TODO(DOTS-5638): this assumes that query only contains one ArchetypeQuery
+            var enableableAllCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->All, query->ArchetypeQueries->AllCount);
+            var enableableNoneCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->None, query->ArchetypeQueries->NoneCount);
+            var enableableAnyCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->Any, query->ArchetypeQueries->AnyCount);
+            var totalEnableableTypeCount = enableableAllCount + enableableNoneCount + enableableAnyCount;
             var match = (MatchingArchetype*)allocator.Allocate(GetAllocationSize(query->RequiredComponentsCount, totalEnableableTypeCount), 8);
             match->Archetype = archetype;
 
             match->RequiredComponentCount = query->RequiredComponentsCount;
             match->EnableableComponentsCount_All = enableableAllCount;
             match->EnableableComponentsCount_None = enableableNoneCount;
+            match->EnableableComponentsCount_Any = enableableAnyCount;
 
             return match;
         }
@@ -995,7 +1056,7 @@ namespace Unity.Entities
         public MatchingArchetype** Ptr { get => (MatchingArchetype**)ListData->Ptr; }
         public int Length { get => ListData->Length; }
 
-        public void Dispose() { ListData->Dispose(); }
+        public void Dispose() { UnsafeList<IntPtr>.Destroy(ListData); }
         public void Add(void* t) { ListData->Add((IntPtr)t); }
 
         [NativeDisableUnsafePtrRestriction]
@@ -1008,20 +1069,20 @@ namespace Unity.Entities
         }
     }
 
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     unsafe struct ArchetypeQuery : IEquatable<ArchetypeQuery>
     {
-        public int*     Any;
-        public byte*    AnyAccessMode;
-        public int      AnyCount;
+        public TypeIndex*   Any;
+        public byte*        AnyAccessMode;
+        public int          AnyCount;
 
-        public int*     All;
-        public byte*    AllAccessMode;
-        public int      AllCount;
+        public TypeIndex*   All;
+        public byte*        AllAccessMode;
+        public int          AllCount;
 
-        public int*     None;
-        public byte*    NoneAccessMode;
-        public int      NoneCount;
+        public TypeIndex*   None;
+        public byte*        NoneAccessMode;
+        public int          NoneCount;
 
         public EntityQueryOptions  Options;
 
@@ -1055,6 +1116,7 @@ namespace Unity.Entities
                 var hashCode =                  (AnyCount + 1);
                 hashCode = 397 * hashCode ^ (AllCount + 1);
                 hashCode = 397 * hashCode ^ (NoneCount + 1);
+                hashCode = 397 * hashCode ^ (int)Options;
                 hashCode = (int)math.hash(Any, sizeof(int) * AnyCount, (uint)hashCode);
                 hashCode = (int)math.hash(All, sizeof(int) * AllCount, (uint)hashCode);
                 hashCode = (int)math.hash(None, sizeof(int) * NoneCount, (uint)hashCode);
@@ -1066,57 +1128,91 @@ namespace Unity.Entities
         }
     }
 
+    [NoAlias]
+    [BurstCompile]
     unsafe struct UnsafeCachedChunkList
     {
-        [NativeDisableUnsafePtrRestriction]
+        [NoAlias,NativeDisableUnsafePtrRestriction]
         internal UnsafePtrList<Chunk>* MatchingChunks;
 
-        [NativeDisableUnsafePtrRestriction]
+        [NoAlias,NativeDisableUnsafePtrRestriction]
         internal UnsafeList<int>* PerChunkMatchingArchetypeIndex;
 
-        [NativeDisableUnsafePtrRestriction]
+        [NoAlias,NativeDisableUnsafePtrRestriction]
+        internal UnsafeList<int>* ChunkIndexInArchetype;
+
+        [NoAlias,NativeDisableUnsafePtrRestriction]
         internal EntityComponentStore* EntityComponentStore;
 
         internal int CacheValid; // must not be a bool, for Burst compatibility
 
-        public Chunk** Ptr { get => (Chunk**)MatchingChunks->Ptr; }
+        internal Chunk** Ptr { get => (Chunk**)MatchingChunks->Ptr; }
         public int Length { get => MatchingChunks->Length; }
         public bool IsCacheValid { get => CacheValid != 0; }
 
-        public UnsafeCachedChunkList(EntityComponentStore* entityComponentStore)
+        internal UnsafeCachedChunkList(EntityComponentStore* entityComponentStore)
         {
             EntityComponentStore = entityComponentStore;
             MatchingChunks = UnsafePtrList<Chunk>.Create(0, Allocator.Persistent);
             PerChunkMatchingArchetypeIndex = UnsafeList<int>.Create(0, Allocator.Persistent);
+            ChunkIndexInArchetype = UnsafeList<int>.Create(0, Allocator.Persistent);
             CacheValid = 0;
         }
 
-        public void Append(Chunk** t, int addChunkCount, int matchingArchetypeIndex)
+        internal void Append(Chunk** t, int addChunkCount, int matchingArchetypeIndex)
         {
-            var startIndex = MatchingChunks->Length;
             MatchingChunks->AddRange(new UnsafePtrList<Chunk>(t, addChunkCount));
             for (int i = 0; i < addChunkCount; ++i)
             {
                 PerChunkMatchingArchetypeIndex->Add(matchingArchetypeIndex);
+                ChunkIndexInArchetype->Add(i);
             }
         }
 
-        public void Dispose()
+        internal void Dispose()
         {
-            MatchingChunks->Dispose();
-            PerChunkMatchingArchetypeIndex->Dispose();
+            if (MatchingChunks != null)
+                UnsafePtrList<Chunk>.Destroy(MatchingChunks);
+            if (PerChunkMatchingArchetypeIndex != null)
+                UnsafeList<int>.Destroy(PerChunkMatchingArchetypeIndex);
+            if (ChunkIndexInArchetype != null)
+                UnsafeList<int>.Destroy(ChunkIndexInArchetype);
         }
 
-        public void InvalidateCache()
+        internal void Invalidate()
         {
             CacheValid = 0;
         }
 
-        public static bool CheckCacheConsistency(ref UnsafeCachedChunkList cache, EntityQueryData* data)
+        [BurstCompile]
+        internal static void Rebuild(ref UnsafeCachedChunkList cache, in EntityQueryData queryData)
         {
+            Assert.AreEqual((ulong)queryData.MatchingChunkCache.MatchingChunks, (ulong)cache.MatchingChunks);
+
+            cache.MatchingChunks->Clear();
+            cache.PerChunkMatchingArchetypeIndex->Clear();
+            cache.ChunkIndexInArchetype->Clear();
+
+            int archetypeCount = queryData.MatchingArchetypes.Length;
+            var ptrs = queryData.MatchingArchetypes.Ptr;
+            for (int matchingArchetypeIndex = 0; matchingArchetypeIndex < archetypeCount; ++matchingArchetypeIndex)
+            {
+                var archetype = ptrs[matchingArchetypeIndex]->Archetype;
+                if (archetype->EntityCount > 0)
+                    archetype->Chunks.AddToCachedChunkList(ref cache, matchingArchetypeIndex);
+            }
+
+            cache.CacheValid = 1;
+        }
+
+        // Expensive debug validation, to make sure cached data is consistent with the associated query.
+        internal static bool IsConsistent(in UnsafeCachedChunkList cache, in EntityQueryData queryData)
+        {
+            Assert.AreEqual((ulong)queryData.MatchingChunkCache.MatchingChunks, (ulong)cache.MatchingChunks);
+
             var chunkCounter = 0;
-            int archetypeCount = data->MatchingArchetypes.Length;
-            var ptrs = data->MatchingArchetypes.Ptr;
+            int archetypeCount = queryData.MatchingArchetypes.Length;
+            var ptrs = queryData.MatchingArchetypes.Ptr;
             for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
             {
                 var archetype = ptrs[archetypeIndex]->Archetype;
@@ -1124,8 +1220,12 @@ namespace Unity.Entities
                 {
                     if (chunkCounter >= cache.MatchingChunks->Length)
                         return false;
-                    if(cache.MatchingChunks->Ptr[chunkCounter++] != archetype->Chunks[chunkIndex])
+                    var chunk = cache.MatchingChunks->Ptr[chunkCounter];
+                    if(chunk != archetype->Chunks[chunkIndex])
                         return false;
+                    if (cache.ChunkIndexInArchetype->Ptr[chunkCounter] != chunk->ListIndex)
+                        return false;
+                    chunkCounter += 1;
                 }
             }
 
@@ -1137,219 +1237,22 @@ namespace Unity.Entities
         }
     }
 
-    /// <summary>
-    /// Struct for storing entity query data for multiple queries. Currently used to convert EntityQueryDesc[] into unmanaged
-    /// data that EntityQueryManager can use when creating queries.
-    /// </summary>
-    [BurstCompatible]
-    public struct EntityQueryDescBuilder : IDisposable
-    {
-        internal struct ComponentIndexArray
-        {
-            public ushort Index;
-            public ushort Count;
-        }
-        internal struct QueryTypes
-        {
-            public EntityQueryOptions Options;
-            public ComponentIndexArray Any;
-            public ComponentIndexArray None;
-            public ComponentIndexArray All;
-        }
-        internal UnsafeList<ComponentType> m_TypeData;
-        internal UnsafeList<QueryTypes> m_IndexData;
-        UnsafeList<ComponentType> m_Any;
-        UnsafeList<ComponentType> m_None;
-        UnsafeList<ComponentType> m_All;
-        EntityQueryOptions m_PendingOptions;
-
-        /// <summary>
-        /// Create an entity query description builder
-        /// </summary>
-        /// <param name="a">The allocator where the builder allocates its arrays. Typically Allocator.Temp.</param>
-        public EntityQueryDescBuilder(Allocator a)
-        {
-            m_Any = new UnsafeList<ComponentType>(6, a);
-            m_None = new UnsafeList<ComponentType>(6, a);
-            m_All = new UnsafeList<ComponentType>(6, a);
-            m_TypeData = new UnsafeList<ComponentType>(2, a);
-            m_IndexData = new UnsafeList<QueryTypes>(2, a);
-            m_PendingOptions = default;
-        }
-
-        /// <summary>
-        /// Set options for the current query.
-        /// </summary>
-        /// <param name="options"></param>
-        public void Options(EntityQueryOptions options)
-        {
-            m_PendingOptions = options;
-        }
-
-        /// <summary>
-        /// Add an "any" matching type to the current query.
-        /// </summary>
-        /// <param name="t">The component type</param>
-        public void AddAny(ComponentType t)
-        {
-            m_Any.Add(t);
-        }
-
-        /// <summary>
-        /// Add a "none" matching type to the current query.
-        /// </summary>
-        /// <param name="t">The component type</param>
-        /// <remarks>Types in the None list are never written to. If the <see cref="AccessModeType"/> field of the
-        /// provided component type is <see cref="AccessMode.ReadWrite"/>, will be forced to
-        /// <see cref="AccessMode.ReadOnly"/> in the query.</remarks>
-        public void AddNone(ComponentType t)
-        {
-            // The access mode of types in the None list is forced to ReadOnly; the query will not be accessing these
-            // types at all, and should not be requesting read/write access to them.
-            t.AccessModeType = ComponentType.AccessMode.ReadOnly;
-            m_None.Add(t);
-        }
-
-        /// <summary>
-        /// Add an "all" matching type to the current query.
-        /// </summary>
-        /// <param name="t">The component type</param>
-        public void AddAll(ComponentType t)
-        {
-            m_All.Add(t);
-        }
-        /// <summary>
-        /// Store the current query into the builder.
-        /// </summary>
-        /// <remarks>
-        /// Components added to any, all, and none will be stored in the builder once this is called.
-        /// If this is not called, nothing will be recorded and the query will be empty.
-        /// </remarks>
-        public void FinalizeQuery()
-        {
-            QueryTypes qd = default;
-            qd.Options = m_PendingOptions;
-            TransferArray(ref m_Any, ref qd.Any);
-            TransferArray(ref m_None, ref qd.None);
-            TransferArray(ref m_All, ref qd.All);
-            m_IndexData.Add(qd);
-            m_PendingOptions = default;
-        }
-
-        private void TransferArray(ref UnsafeList<ComponentType> source, ref ComponentIndexArray result)
-        {
-            result.Index = (ushort)m_TypeData.Length;
-            result.Count = (ushort)source.Length;
-            m_TypeData.AddRange(source);
-            source.Clear();
-        }
-
-        /// <summary>
-        /// Dispose the builder and release the memory.
-        /// </summary>
-        public void Dispose()
-        {
-            m_IndexData.Dispose();
-            m_TypeData.Dispose();
-            m_All.Dispose();
-            m_None.Dispose();
-            m_Any.Dispose();
-        }
-
-        /// <summary>
-        /// Reset the builder for reuse.
-        /// </summary>
-        public void Reset()
-        {
-            m_IndexData.Clear();
-            m_TypeData.Clear();
-            m_PendingOptions = default;
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateComponentTypes(in UnsafeList<ComponentType> componentTypes, ref UnsafeList<int> allTypeIds)
-        {
-            // Needs to make sure that AccessModeType is not Exclude
-            for (int i = 0; i < componentTypes.Length; i++)
-            {
-                allTypeIds.Add(componentTypes[i].TypeIndex);
-                if (componentTypes[i].AccessModeType == ComponentType.AccessMode.Exclude)
-                    throw new ArgumentException("EntityQueryDesc cannot contain Exclude Component types");
-            }
-        }
-
-#if !NET_DOTS
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        [BurstDiscard]
-        internal static void ThrowDuplicateComponentTypeError(int curId)
-        {
-            var typeName = TypeManager.GetType(curId).Name;
-            throw new EntityQueryDescValidationException(
-                $"EntityQuery contains a filter with duplicate component type name {typeName}.  Queries can only contain a single component of a given type in a filter.");
-        }
-#endif
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void Validate(in UnsafeList<ComponentType> allTypes, in UnsafeList<ComponentType> anyTypes, in UnsafeList<ComponentType> noneTypes)
-        {
-            // Determine the number of ComponentTypes contained in the filters
-            var itemCount = allTypes.Length + anyTypes.Length + noneTypes.Length;
-
-            // Project all the ComponentType Ids of None, All, Any queryDesc filters into the same array to identify duplicated later on
-            // Also, check that queryDesc doesn't contain any ExcludeComponent...
-
-            var allComponentTypeIds = new UnsafeList<int>(itemCount, Allocator.Temp);
-            ValidateComponentTypes(allTypes, ref allComponentTypeIds);
-            ValidateComponentTypes(anyTypes, ref allComponentTypeIds);
-            ValidateComponentTypes(noneTypes, ref allComponentTypeIds);
-
-            // Check for duplicate, only if necessary
-            if (itemCount > 1)
-            {
-                // Build a new unsafeList for None, All, Any
-
-
-                // Sort the Ids to have identical value adjacent
-                allComponentTypeIds.Sort();
-
-                // Check for identical values
-                var refId = allComponentTypeIds[0];
-                for (int i = 1; i < allComponentTypeIds.Length; i++)
-                {
-                    var curId = allComponentTypeIds[i];
-                    if (curId == refId)
-                    {
-#if !NET_DOTS
-                        ThrowDuplicateComponentTypeError(curId);
-#endif
-                        throw new EntityQueryDescValidationException(
-                            $"EntityQuery contains a filter with duplicate component type index {curId}.  Queries can only contain a single component of a given type in a filter.");
-                    }
-
-                    refId = curId;
-                }
-            }
-
-            allComponentTypeIds.Dispose();
-        }
-    }
-
     unsafe struct EntityQueryData : IDisposable
     {
         //@TODO: better name or remove entirely...
         public ComponentType*       RequiredComponents;
         public int                  RequiredComponentsCount;
 
-        public int*                 ReaderTypes;
+        public TypeIndex*           ReaderTypes;
         public int                  ReaderTypesCount;
 
-        public int*                 WriterTypes;
+        public TypeIndex*           WriterTypes;
         public int                  WriterTypesCount;
 
-        public int                  EnableableComponentsCountAll;
-        public int                  EnableableComponentsCountNone;
+        public TypeIndex*           EnableableComponentTypeIndices;
+        public int                  EnableableComponentTypeIndexCount; // number of elements in EnableableComponentTypeIndices
 
-        public ArchetypeQuery*      ArchetypeQuery;
+        public ArchetypeQuery*      ArchetypeQueries;
         public int                  ArchetypeQueryCount;
 
         public EntityQueryMask      EntityQueryMask;
@@ -1357,15 +1260,13 @@ namespace Unity.Entities
         public UnsafeMatchingArchetypePtrList MatchingArchetypes;
         internal UnsafeCachedChunkList MatchingChunkCache;
 
-        public bool DoesQueryRequireBatching
-        {
-            get {return EnableableComponentsCountAll != 0 || EnableableComponentsCountNone != 0;}
-        }
+        public byte DoesQueryRequireBatching; // 0 = no, 1 = yes
 
         public unsafe UnsafeCachedChunkList GetMatchingChunkCache()
         {
-            if(!MatchingChunkCache.IsCacheValid)
-                ChunkIterationUtility.RebuildChunkListCache((EntityQueryData*)UnsafeUtility.AddressOf(ref this));
+            // TODO(DOTS-5721): not thread safe, should only be called on the main thread.
+            if (!MatchingChunkCache.IsCacheValid)
+                UnsafeCachedChunkList.Rebuild(ref MatchingChunkCache, this);
 
             return MatchingChunkCache;
         }

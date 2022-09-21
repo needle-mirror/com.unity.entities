@@ -1,7 +1,7 @@
 ﻿using System;
 using JetBrains.Annotations;
 using NUnit.Framework;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Serialization.Editor;
 using UnityEditor;
 using UnityEngine.UIElements;
@@ -102,7 +102,8 @@ namespace Unity.Entities.Editor.Tests
 
             public void OnTabVisibilityChanged(bool isVisible) => IsVisible = isVisible;
 
-            class TestInspector : Inspector<TestTab>
+            [UsedImplicitly]
+            class TestInspector : PropertyInspector<TestTab>
             {
                 public override VisualElement Build()
                 {

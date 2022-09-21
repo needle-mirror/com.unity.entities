@@ -1,3 +1,5 @@
+using Unity.Collections.LowLevel.Unsafe;
+
 namespace Doc.CodeSamples.Tests
 {
     using Unity.Entities;
@@ -10,12 +12,12 @@ namespace Doc.CodeSamples.Tests
 
     #region entities-foreach-example
 
+    [RequireMatchingQueriesForUpdate]
     partial class ApplyVelocitySystem : SystemBase
     {
         protected override void OnUpdate()
         {
-            Entities
-                .ForEach((ref Translation translation,
+            Entities.ForEach((ref ObjectPosition translation,
                 in Velocity velocity) =>
                 {
                     translation.Value += velocity.Value;
@@ -103,6 +105,7 @@ namespace Doc.CodeSamples.Tests
 
     #region dynamicbuffer
 
+    [RequireMatchingQueriesForUpdate]
     public partial class BufferSum : SystemBase
     {
         private EntityQuery query;
@@ -133,8 +136,7 @@ namespace Doc.CodeSamples.Tests
                 .ScheduleParallel(); // Execute in parallel for each chunk of entities
 
             //Schedule the second job, which depends on the first
-            Job
-                .WithCode(() =>
+            Job.WithCode(() =>
             {
                 int result = 0;
                 for (int i = 0; i < intermediateSums.Length; i++)
@@ -161,6 +163,7 @@ namespace Doc.CodeSamples.Tests
         public int Value;
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class WithAllExampleSystem : SystemBase
     {
         protected override void OnUpdate()
@@ -168,8 +171,8 @@ namespace Doc.CodeSamples.Tests
             #region entity-query
 
             Entities.WithAll<LocalToWorld>()
-                .WithAny<Rotation, Translation, Scale>()
-                .WithNone<LocalToParent>()
+                .WithAny<Rotation, ObjectPosition, ObjectUniformScale>()
+                .WithNone<ObjectNonUniformScale>()
                 .ForEach((ref Destination outputData, in Source inputData) =>
                 {
                     /* do some work */
@@ -183,6 +186,7 @@ namespace Doc.CodeSamples.Tests
     {
         public float Value;
     }
+    [RequireMatchingQueriesForUpdate]
     public partial class WithStoreQuerySystem : SystemBase
     {
         #region store-query
@@ -214,6 +218,7 @@ namespace Doc.CodeSamples.Tests
         #endregion
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class WithChangeExampleSystem : SystemBase
     {
         protected override void OnUpdate()
@@ -248,14 +253,16 @@ namespace Doc.CodeSamples.Tests
 
     #region with-shared-component
 
+    [RequireMatchingQueriesForUpdate]
     public partial class ColorCycleJob : SystemBase
     {
-        protected override void OnUpdate()
+        protected unsafe override void OnUpdate()
         {
-            List<Cohort> cohorts = new List<Cohort>();
-            EntityManager.GetAllUniqueSharedComponentData<Cohort>(cohorts);
-            foreach (Cohort cohort in cohorts)
+
+            EntityManager.GetAllUniqueSharedComponents<Cohort>(out var cohorts, Allocator.Temp);
+            for (int i=0; i<cohorts.Length; i++)
             {
+                var cohort = cohorts[i];
                 DisplayColor newColor = ColorTable.GetNextColor(cohort.Value);
                 Entities.WithSharedComponentFilter(cohort)
                     .ForEach((ref DisplayColor color) => { color = newColor; })
@@ -265,6 +272,7 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
 
+    [RequireMatchingQueriesForUpdate]
     public partial class ReadWriteModExample : SystemBase
     {
         protected override void OnUpdate()
@@ -292,7 +300,7 @@ namespace Doc.CodeSamples.Tests
         {
             commandBufferSystem = World
                 .DefaultGameObjectInjectionWorld
-                .GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
+                .GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
         }
 
         protected override void OnUpdate()
@@ -310,6 +318,7 @@ namespace Doc.CodeSamples.Tests
         public float3 Value;
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class EFESystem : SystemBase
     {
         protected override void OnUpdate()
@@ -319,7 +328,7 @@ namespace Doc.CodeSamples.Tests
             Entities.ForEach(
                 (Entity entity,
                     int entityInQueryIndex,
-                    ref Translation translation,
+                    ref ObjectPosition translation,
                     in Movement move) => { /* .. */})
                 #endregion
                 .Run();
@@ -350,7 +359,6 @@ namespace Doc.CodeSamples.Tests
     static class BringYourOwnDelegate
     {
         // Declare the delegate that takes 12 parameters. T0 is used for the Entity argument
-        [Unity.Entities.CodeGeneratedJobForEach.EntitiesForEachCompatible]
         public delegate void CustomForEachDelegate<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>
             (T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5,
              in T6 t6, in T7 t7, in T8 t8, in T9 t9, in T10 t10, in T11 t11);
@@ -363,6 +371,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     // A system that uses the custom delegate and overload
+    [RequireMatchingQueriesForUpdate]
     public partial class MayParamsSystem : SystemBase
     {
         protected override void OnUpdate()
@@ -408,6 +417,7 @@ namespace Doc.CodeSamples.Tests
         public float LifeLeft;
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class ParticleSpawner : SystemBase
     {
         private EndSimulationEntityCommandBufferSystem commandBufferSystem;
@@ -416,7 +426,7 @@ namespace Doc.CodeSamples.Tests
         {
             commandBufferSystem = World
                 .DefaultGameObjectInjectionWorld
-                .GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
+                .GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
         }
 
         protected override void OnUpdate()
@@ -426,7 +436,7 @@ namespace Doc.CodeSamples.Tests
             EntityCommandBuffer.ParallelWriter commandBufferCull
                 = commandBufferSystem.CreateCommandBuffer().AsParallelWriter();
 
-            float dt = Time.DeltaTime;
+            float dt = SystemAPI.Time.DeltaTime;
             Random rnd = new Random((uint)(dt * 100000));
             //rnd.InitState((uint)(dt * 100000));
 
@@ -444,7 +454,7 @@ namespace Doc.CodeSamples.Tests
                             spawn.ParticlePrefab);
 
                         LocalToWorld spawnedCenter = center;
-                        Translation spawnedOffset = new Translation()
+                        ObjectPosition spawnedOffset = new ObjectPosition()
                         {
                             Value = center.Position +
                                 rnd.NextFloat3(-spawn.Offset, spawn.Offset)
@@ -476,9 +486,9 @@ namespace Doc.CodeSamples.Tests
                 .Schedule(this.Dependency);
 
             JobHandle MoveJobHandle = Entities
-                .ForEach((ref Translation translation, in Velocity velocity) =>
+                .ForEach((ref ObjectPosition translation, in Velocity velocity) =>
             {
-                translation = new Translation()
+                translation = new ObjectPosition()
                 {
                     Value = translation.Value + velocity.Value * dt
                 };
@@ -514,7 +524,6 @@ namespace Doc.CodeSamples.Tests
     using Unity.Entities;
     using Unity.Mathematics;
 
-    [GenerateAuthoringComponent]
     public struct SpawnParticles : IComponentData
     {
         public Entity ParticlePrefab;

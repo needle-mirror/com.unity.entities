@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 
 namespace Unity.Entities.Editor
 {

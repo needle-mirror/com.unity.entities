@@ -34,6 +34,7 @@ namespace Unity.Scenes
         public NativeArray<Entities.Hash128> Dependencies;
         public BlobAssetReference<DotsSerialization.BlobHeader> BlobHeader;
         public BlobAssetOwner BlobHeaderOwner;
+        public Entity SceneSectionEntity;
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         public PostLoadCommandBuffer PostLoadCommandBuffer;
@@ -133,6 +134,7 @@ namespace Unity.Scenes
             [NativeDisableUnsafePtrRestriction]
             public SerializeUtility.WorldDeserializationStatus DeserializationStatus;
             public BlobAssetReference<DotsSerialization.BlobHeader> BlobHeader;
+            public Entity SceneSectionEntity;
 
             public void Execute()
             {
@@ -154,7 +156,7 @@ namespace Unity.Scenes
                         using (var reader = new MemoryBinaryReader(FileContent, FileLength))
                         {
                             k_ProfileDeserializeWorld.Begin();
-                            SerializeUtility.DeserializeWorld(Transaction, reader, out deserializationResult, objectReferences);
+                            SerializeUtility.DeserializeWorldInternal(Transaction, reader, out deserializationResult, objectReferences);
                             k_ProfileDeserializeWorld.End();
                         }
                     }
@@ -165,6 +167,7 @@ namespace Unity.Scenes
                         SerializeUtility.EndDeserializeWorld(Transaction, dotsReader, ref DeserializationStatus, out deserializationResult, objectReferences);
                         k_ProfileDeserializeWorld.End();
                     }
+                    Transaction.EntityManager.AddSharedComponentManaged(Transaction.EntityManager.UniversalQueryWithSystems, new SceneTag { SceneEntity = SceneSectionEntity });
                     DeserializationResult[0] = deserializationResult;
                 }
                 catch (Exception exc)
@@ -486,7 +489,6 @@ namespace Unity.Scenes
             var transaction = _EntityManager.BeginExclusiveEntityTransaction();
 #if !UNITY_DOTSRUNTIME
             SerializeUtilityHybrid.DeserializeObjectReferences(_ResourceObjRefs, out var objectReferences);
-
             var loadJob = new AsyncLoadSceneJob
             {
                 Transaction = transaction,
@@ -496,7 +498,8 @@ namespace Unity.Scenes
                 BlobHeader = _Data.BlobHeader,
                 FileContent = _FileContent,
                 FileLength = _SceneSize,
-                DeserializationResult = _DeserializationResultArray
+                DeserializationResult = _DeserializationResultArray,
+                SceneSectionEntity = _Data.SceneSectionEntity
             };
 #else
             var loadJob = new AsyncLoadSceneJob
@@ -507,12 +510,15 @@ namespace Unity.Scenes
                 BlobHeader = _Data.BlobHeader,
                 FileContent = _FileContent,
                 FileLength = _SceneSize,
-                DeserializationResult = _DeserializationResultArray
+                DeserializationResult = _DeserializationResultArray,
+                SceneSectionEntity = _Data.SceneSectionEntity
             };
 #endif
 
 #if !UNITY_DOTSRUNTIME
-            var loadJobHandle = loadJob.Schedule(JobHandle.CombineDependencies(_EntityManager.ExclusiveEntityTransactionDependency, _ReadHandle.JobHandle));
+            var loadJobHandle = loadJob.Schedule(JobHandle.CombineDependencies(
+                _EntityManager.ExclusiveEntityTransactionDependency,
+                _ReadHandle.JobHandle));
 #else
 
             JobHandle decompressJob = default;
@@ -527,7 +533,10 @@ namespace Unity.Scenes
                 }.Schedule(_ReadHandle.mJobHandle);
             }
 
-            var loadJobHandle = loadJob.Schedule(JobHandle.CombineDependencies(_EntityManager.ExclusiveEntityTransactionDependency, _ReadHandle.JobHandle, decompressJob));
+            var loadJobHandle = loadJob.Schedule(JobHandle.CombineDependencies(
+                _EntityManager.ExclusiveEntityTransactionDependency,
+                _ReadHandle.JobHandle,
+                decompressJob));
 #endif
             _EntityManager.ExclusiveEntityTransactionDependency = loadJobHandle;
             _DeserializationStatus = default; // _DeserializationStatus is disposed by AsyncLoadSceneJob
@@ -539,8 +548,14 @@ namespace Unity.Scenes
             _ReadHandle = default;
         }
 
+#if !UNITY_DOTSRUNTIME
+        static readonly ProfilerMarker s_PostProcessScene = new ProfilerMarker(nameof(PostProcessScene));
+#endif
         void PostProcessScene()
         {
+#if !UNITY_DOTSRUNTIME
+            using var marker = s_PostProcessScene.Auto();
+#endif
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             if (_Data.PostLoadCommandBuffer != null)
             {
@@ -549,8 +564,14 @@ namespace Unity.Scenes
                 _Data.PostLoadCommandBuffer = null;
             }
 #endif
-            var group = _EntityManager.World.GetOrCreateSystem<ProcessAfterLoadGroup>();
+            SceneSectionStreamingSystem.AddStreamingWorldSystems(_EntityManager.World);
+            var group = _EntityManager.World.GetOrCreateSystemManaged<ProcessAfterLoadGroup>();
             group.Update();
+            _EntityManager.CompleteAllTrackedJobs();
+            _EntityManager.World.DestroyAllSystemsAndLogException();
+            using var missingSceneTag = _EntityManager.CreateEntityQuery(ComponentType.Exclude<SceneTag>());
+            if (!missingSceneTag.IsEmptyIgnoreFilter)
+                _EntityManager.AddSharedComponentManaged(missingSceneTag, new SceneTag { SceneEntity = _Data.SceneSectionEntity });
         }
     }
 

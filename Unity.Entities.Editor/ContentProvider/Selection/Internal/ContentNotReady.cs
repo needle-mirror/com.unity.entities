@@ -1,10 +1,10 @@
 using System;
 using JetBrains.Annotations;
-using Unity.Properties.Editor;
+using Unity.Properties;
 using UnityEditor;
 using UnityEngine.UIElements;
 
-namespace Unity.Properties.UI.Internal
+namespace Unity.Platforms.UI
 {
     struct ContentNotReady
     {
@@ -41,7 +41,7 @@ namespace Unity.Properties.UI.Internal
     }
 
     [UsedImplicitly]
-    class ContentNotReadyInspector : Inspector<ContentNotReady>
+    class ContentNotReadyInspector : PropertyInspector<ContentNotReady>
     {
         const string k_BasePath = "Packages/com.unity.entities/Unity.Entities.Editor/ContentProvider/Selection/";
         const string k_Prefix = "content-not-ready__spinner-";

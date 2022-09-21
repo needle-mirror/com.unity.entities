@@ -18,11 +18,37 @@ namespace Unity.Entities.Editor.PerformanceTests
         const int k_MeasurementCount = 250;
         const int k_StringsCount = 1_000_000;
 
+        static AllocatorHelper<RewindableAllocator> m_AllocatorHelper;
+        static ref RewindableAllocator RwdAllocator => ref m_AllocatorHelper.Allocator;
+
+        [OneTimeSetUp]
+        public virtual void OneTimeSetUp()
+        {
+            m_AllocatorHelper = new AllocatorHelper<RewindableAllocator>(Allocator.Persistent);
+            m_AllocatorHelper.Allocator.Initialize(128 * 1024, true);
+        }
+
+        [OneTimeTearDown]
+        public virtual void OneTimeTearDown()
+        {
+            m_AllocatorHelper.Allocator.Dispose();
+            m_AllocatorHelper.Dispose();
+        }
+
+        [TearDown]
+        public virtual void TearDown()
+        {
+            RwdAllocator.Rewind();
+            // This is test only behavior for determinism.  Rewind twice such that all
+            // tests start with an allocator containing only one memory block.
+            RwdAllocator.Rewind();
+        }
+
         [Test, Performance]
         public void SIMD_Contains()
         {
-            using var sourceStrings = GenerateFixedStrings(k_StringsCount);
-            using var patterns = new NativeList<FixedString64Bytes>(1, Allocator.TempJob) { "100" }; // Matches *some* names
+            using var sourceStrings = GenerateFixedStrings(k_StringsCount, RwdAllocator.ToAllocator);
+            using var patterns = new NativeList<FixedString64Bytes>(1, RwdAllocator.ToAllocator) { "100" }; // Matches *some* names
             var result = default(NativeBitArray);
 
             Measure
@@ -89,7 +115,7 @@ namespace Unity.Entities.Editor.PerformanceTests
             return result;
         }
 
-        static NativeList<FixedString64Bytes> GenerateFixedStrings(int count, Allocator allocator = Allocator.TempJob)
+        static NativeList<FixedString64Bytes> GenerateFixedStrings(int count, Allocator allocator)
         {
             var result = new NativeList<FixedString64Bytes>(count, allocator);
 

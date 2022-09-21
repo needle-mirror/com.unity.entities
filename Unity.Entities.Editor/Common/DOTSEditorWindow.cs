@@ -1,6 +1,6 @@
 using System;
 using Unity.Assertions;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using Unity.Serialization.Editor;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -20,6 +20,7 @@ namespace Unity.Entities.Editor
         bool m_PreviousShowAdvancedWorldsValue;
         World m_SelectedWorld;
         bool m_SelectedWorldChanged;
+        Analytics.Window m_AnalyticsWindowNameCached;
         readonly WorldListChangeTracker m_WorldListChangeTracker = new WorldListChangeTracker();
 
         [SerializeField]
@@ -63,6 +64,11 @@ namespace Unity.Entities.Editor
                 BaseState.SelectedWorldName = m_WorldSelector.text;
                 m_SelectedWorldChanged = true;
             }
+        }
+
+        protected DOTSEditorWindow(Analytics.Window analyticsWindow)
+        {
+            m_AnalyticsWindowNameCached = analyticsWindow;
         }
 
         // Internal for unit tests
@@ -168,26 +174,13 @@ namespace Unity.Entities.Editor
             parent.Add(searchIconContainer);
         }
 
-        protected ToolbarMenu CreateDropdownSettings(string ussClass)
-        {
-            var dropdownSettings = new ToolbarMenu()
-            {
-                name = "dropdownSettings",
-                variant = ToolbarMenu.Variant.Popup
-            };
-
-            Resources.Templates.DotsEditorCommon.AddStyles(dropdownSettings);
-            dropdownSettings.AddToClassList(UssClasses.DotsEditorCommon.CommonResources);
-            dropdownSettings.AddToClassList(ussClass);
-
-            var arrow = dropdownSettings.Q(className: "unity-toolbar-menu__arrow");
-            arrow.style.backgroundImage = null;
-
-            return dropdownSettings;
-        }
-
         public void Update()
         {
+            if (SelectedWorld != null && !SelectedWorld.IsCreated)
+            {
+                SelectedWorld = null;
+            }
+
             if (NeedToChangeWorldDropDownMenu())
             {
                 SelectedWorld = FindSelectedWorld();
@@ -201,6 +194,11 @@ namespace Unity.Entities.Editor
             }
 
             OnUpdate();
+        }
+
+        protected void OnFocus()
+        {
+            Analytics.SendEditorEvent(m_AnalyticsWindowNameCached, Analytics.EventType.WindowFocus);
         }
 
         bool NeedToChangeWorldDropDownMenu()
@@ -240,6 +238,8 @@ namespace Unity.Entities.Editor
 
             if (World.All.Count > 0)
                 AppendWorldMenu(menu, advancedSettings.ShowAdvancedWorlds);
+            else
+                m_WorldSelector.text = "No World";
 
             OnWorldsChanged(World.All.Count > 0);
         }

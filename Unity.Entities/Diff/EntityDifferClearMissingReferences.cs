@@ -8,9 +8,9 @@ namespace Unity.Entities
     static unsafe partial class EntityDiffer
     {
         [BurstCompile]
-        struct ClearMissingReferencesJob : IJobParallelFor
+        struct ClearMissingReferencesJob : IJobParallelForDefer
         {
-            [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
+            [ReadOnly] public NativeList<ArchetypeChunk> Chunks;
 
             public void Execute(int index)
             {
@@ -20,12 +20,12 @@ namespace Unity.Entities
             }
         }
 
-        static void ClearMissingReferences(EntityManager entityManager, NativeArray<ArchetypeChunk> chunks, out JobHandle jobHandle, JobHandle dependsOn)
+        static void ClearMissingReferences(EntityManager entityManager, NativeList<ArchetypeChunk> chunks, out JobHandle jobHandle, JobHandle dependsOn)
         {
             jobHandle = new ClearMissingReferencesJob
             {
                 Chunks = chunks,
-            }.Schedule(chunks.Length, 64, dependsOn);
+            }.Schedule(chunks, 64, dependsOn);
         }
     }
 }

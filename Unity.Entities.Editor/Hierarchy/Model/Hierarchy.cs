@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using JetBrains.Annotations;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Properties;
 using Unity.Scenes;
 using Unity.Scenes.Editor;
@@ -61,7 +63,7 @@ namespace Unity.Entities.Editor
     /// The internal serializable state used by the hierarchy. This object should be set by a user when re-constructing the hierarchy.
     /// </summary>
     [GeneratePropertyBag]
-    public class HierarchyState
+    class HierarchyState
     {
         [CreateProperty] public Dictionary<string, HierarchyNodesState> Nodes = new Dictionary<string, HierarchyNodesState>();
 
@@ -79,7 +81,7 @@ namespace Unity.Entities.Editor
     /// <summary>
     /// A set of statistics exported by the hierarchy. This can be used to adapt the update and time-slicing behaviours dynamically.
     /// </summary>
-    public class HierarchyStats
+    class HierarchyStats
     {
         const int k_RollingAveragePeriod = 20;
 
@@ -174,11 +176,24 @@ namespace Unity.Entities.Editor
         }
     }
 
-        /// <summary>
+    /// <summary>
     /// The <see cref="Hierarchy"/> data model stores a parent-child based tree which can be efficiently updated and queried.
     /// </summary>
     class Hierarchy : IDisposable
     {
+        public enum OperationModeType
+        {
+            /// <summary>
+            /// Standard operation mode for the hierarchy.
+            /// </summary>
+            Normal,
+            
+            /// <summary>
+            /// Places the hierarchy in to a self debugging mode.
+            /// </summary>
+            Debug
+        }
+        
         /// <summary>
         /// The internal hierarchy update mode.
         /// </summary>
@@ -265,6 +280,8 @@ namespace Unity.Entities.Editor
         /// </summary>
         HierarchyFilter m_Filter;
 
+        SubSceneNodeMapping m_SubSceneNodeMapping;
+
         /// <summary>
         /// The hierarchy configuration. This is data which is managed externally by settings, tests or users but drives internal behaviours.
         /// </summary>
@@ -286,6 +303,11 @@ namespace Unity.Entities.Editor
                 m_HierarchyNodes.SetSerializableState(null != m_World ? value.GetHierarchyNodesSerializableState(m_World.Name) : new HierarchyNodesState());
             }
         }
+        
+        /// <summary>
+        /// Gets or sets the operation type. This can be used for self debugging.
+        /// </summary>
+        public OperationModeType OperationMode { get; set; }
 
         /// <summary>
         /// Returns statistic information about the hierarchy.
@@ -307,28 +329,30 @@ namespace Unity.Entities.Editor
         /// </summary>
         public uint UpdateVersion => m_Updater.Version;
 
-        public Hierarchy(Allocator allocator) : this(null, allocator)
+        public Hierarchy(Allocator allocator, DataMode currentMode) : this(null, allocator, currentMode)
         {
         }
 
-        public Hierarchy(World world, Allocator allocator)
+        public Hierarchy(World world, Allocator allocator, DataMode currentMode)
         {
             m_Allocator = allocator;
 
             // Internal data storage.
-            m_HierarchyNodeStore = new HierarchyNodeStore(allocator);
+            m_SubSceneNodeMapping = new SubSceneNodeMapping(allocator);
+            m_HierarchyNodeStore = new HierarchyNodeStore(m_SubSceneNodeMapping, allocator);
             m_HierarchyNodeImmutableStore = new HierarchyNodeImmutableStore(allocator);
-            m_HierarchyNameStore = new HierarchyNameStore(allocator);
+            m_HierarchyNameStore = new HierarchyNameStore(m_SubSceneNodeMapping, allocator);
             m_HierarchyNodes = new HierarchyNodes(allocator);
 
             // Internal features.
-            m_Updater = new HierarchyUpdater(m_HierarchyNodeStore, m_HierarchyNodeImmutableStore, m_HierarchyNameStore, allocator);
+            m_Updater = new HierarchyUpdater(m_HierarchyNodeStore, m_HierarchyNodeImmutableStore, m_HierarchyNameStore, m_HierarchyNodes, allocator);
             m_Search = new HierarchySearch(m_HierarchyNameStore, allocator);
 
             m_UpdateThrottleTimer = new Stopwatch();
             m_UpdateTickTimer = new Stopwatch();
 
             SetWorld(world);
+            SetDataMode(currentMode);
         }
 
         public void Dispose()
@@ -340,6 +364,7 @@ namespace Unity.Entities.Editor
             m_Updater.Dispose();
             m_Search.Dispose();
             m_Filter?.Dispose();
+            m_SubSceneNodeMapping.Dispose();
         }
 
         /// <summary>
@@ -358,6 +383,16 @@ namespace Unity.Entities.Editor
 
             // Set the 'view' nodes filter. This is filtering that will be applied after the fact on the nodes.
             m_HierarchyNodes.SetFilter(m_Filter);
+        }
+
+        public DataMode DataMode { get; private set; }
+        public event Action DataModeChanged = delegate {  };
+
+        public void SetDataMode(DataMode mode)
+        {
+            DataMode = mode;
+            DataModeChanged();
+            m_HierarchyNodes.SetDataMode(mode);
         }
 
         /// <summary>
@@ -395,8 +430,11 @@ namespace Unity.Entities.Editor
             m_HierarchyNameStore.SetWorld(world);
 
             // Clear the internal state.
+            m_SubSceneNodeMapping.Clear();
             m_HierarchyNodeStore.Clear();
             m_HierarchyNodeImmutableStore.Clear();
+
+            m_Updater.ClearGameObjectTrackers();
 
             // Try to load the state of the new world.
             m_HierarchyNodes.SetSerializableState(null != m_World ? m_State.GetHierarchyNodesSerializableState(m_World.Name) : new HierarchyNodesState());
@@ -415,8 +453,11 @@ namespace Unity.Entities.Editor
         /// </summary>
         public void Update()
         {
-            if (null == m_World)
-                return;
+            // Set the entity change tracker strategy. Note that we do NOT need to flush or handle when this value changes. 
+            // Instead we can always update it and the change tracker will pick it up on the next execution.
+            m_Updater.SetEntityChangeTrackerMode(OperationMode == OperationModeType.Normal 
+                ? HierarchyEntityChangeTracker.OperationModeType.SceneReferenceAndParentComponents  
+                : HierarchyEntityChangeTracker.OperationModeType.Linear);
 
             // Setup configuration parameters.
             m_Search.ExcludeUnnamedNodes = Configuration.ExcludeUnnamedNodesForSearch;
@@ -495,7 +536,7 @@ namespace Unity.Entities.Editor
             {
                 // @FIXME This should really be called every tick instead of at the end of each update cycle.
                 // Refresh the virtualized node list. The work is only done if the underlying data is actually changed.
-                m_HierarchyNodes.Refresh(m_HierarchyNodeImmutableStore.GetReadBuffer());
+                m_HierarchyNodes.Refresh(m_HierarchyNodeImmutableStore.GetReadBuffer(), World, m_SubSceneNodeMapping);
             }
         }
 
@@ -512,12 +553,22 @@ namespace Unity.Entities.Editor
         }
 
         /// <summary>
+        /// Set the display name into <paramref name="name"/> for a given <see cref="HierarchyNodeHandle"/>/
+        /// </summary>
+        /// <param name="handle">The handle to get the name for.</param>
+        /// <param name="name">The name for the given handle.</param>
+        public void GetName(in HierarchyNodeHandle handle, ref FixedString64Bytes name) => m_HierarchyNameStore.GetName(handle, ref name);
+
+        /// <summary>
         /// Returns <see langword="true"/> if the given <see cref="HierarchyNodeHandle"/> is should be displayed as disabled in the hierarchy.
         /// </summary>
         /// <param name="handle">The handle to fetch the disabled state for.</param>
         /// <returns><see langword="true"/> if the given node is disabled; <see langword="false"/> otherwise.</returns>
         public bool IsDisabled(in HierarchyNodeHandle handle)
         {
+            if (m_HierarchyNodeStore.GetFlags(handle).HasFlag(HierarchyNodeFlags.Disabled))
+                return true;
+
             if (null == m_World || !m_World.IsCreated)
                 return false;
 
@@ -536,6 +587,15 @@ namespace Unity.Entities.Editor
                     var sceneEntity = GetParentSceneEntity(entity);
                     return sceneEntity != Entity.Null && GetSubSceneState(sceneEntity) == SubSceneLoadedState.Closed;
                 }
+                case NodeKind.GameObject:
+                {
+                    var go = GetUnityObject(handle) as UnityEngine.GameObject;
+                    if (go)
+                        return !go.activeInHierarchy;
+
+                    return false;
+                }
+
             }
 
             return false;
@@ -555,13 +615,13 @@ namespace Unity.Entities.Editor
         /// <returns><see langword="true"/> if the given node is a prefab; <see langword="false"/> otherwise.</returns>
         public HierarchyPrefabType GetPrefabType(in HierarchyNodeHandle handle)
         {
-            if (null == m_World || !m_World.IsCreated)
-                return HierarchyPrefabType.None;
-
             switch (handle.Kind)
             {
                 case NodeKind.Entity:
                 {
+                    if (null == m_World || !m_World.IsCreated)
+                        return HierarchyPrefabType.None;
+
                     var entity = handle.ToEntity();
 
                     if (!m_World.EntityManager.Exists(entity))
@@ -590,6 +650,20 @@ namespace Unity.Entities.Editor
 
                     if (hasPrefabComponent)
                         return HierarchyPrefabType.PrefabPart;
+
+                    return HierarchyPrefabType.None;
+                }
+                case NodeKind.GameObject:
+                {
+                    var gameObject = (UnityEngine.GameObject)GetUnityObject(handle);
+                    if (gameObject)
+                    {
+                        if (PrefabUtility.IsAnyPrefabInstanceRoot(gameObject))
+                            return HierarchyPrefabType.PrefabRoot;
+
+                        if (PrefabUtility.IsPartOfAnyPrefab(gameObject))
+                            return HierarchyPrefabType.PrefabPart;
+                    }
 
                     return HierarchyPrefabType.None;
                 }
@@ -622,7 +696,11 @@ namespace Unity.Entities.Editor
 
                 case NodeKind.SubScene:
                 {
-                    var entity = handle.ToEntity();
+                    var sceneHash = m_SubSceneNodeMapping.GetSceneHashFromNode(handle);
+                    
+                    //ensure scenesystem exists
+                    World.Unmanaged.GetOrCreateUnmanagedSystem<SceneSystem>();
+                    var entity = SceneSystem.GetSceneEntity(World.Unmanaged, sceneHash);
 
                     if (!m_World.EntityManager.Exists(entity))
                         return 0;
@@ -631,6 +709,11 @@ namespace Unity.Entities.Editor
                         return 0;
 
                     return m_World.EntityManager.GetComponentObject<SubScene>(entity)?.GetInstanceID() ?? 0;
+                }
+
+                case NodeKind.GameObject:
+                {
+                    return handle.Index;
                 }
             }
 
@@ -658,19 +741,23 @@ namespace Unity.Entities.Editor
 
         Entity GetParentSceneEntity(Entity e)
         {
-            if (!World.EntityManager.HasComponent<SceneTag>(e))
+            var entityManager = World.EntityManager;
+            if (!entityManager.HasComponent<SceneTag>(e))
                 return Entity.Null;
 
-            var sceneTag = World.EntityManager.GetSharedComponentData<SceneTag>(e);
-            return World.EntityManager.GetComponentData<SceneEntityReference>(sceneTag.SceneEntity).SceneEntity;
+            var sceneTag = entityManager.GetSharedComponent<SceneTag>(e);
+
+            if (entityManager.HasComponent<SceneEntityReference>(sceneTag.SceneEntity))
+                return entityManager.GetComponentData<SceneEntityReference>(sceneTag.SceneEntity).SceneEntity;
+            else
+                return Entity.Null;
         }
 
-
-        public SubSceneLoadedState GetSubSceneState(Entity sceneEntity)
+        SubSceneLoadedState GetSubSceneState(Entity sceneEntity)
         {
             var unitySceneIsLoaded = World.EntityManager.HasComponent<SubScene>(sceneEntity) && World.EntityManager.GetComponentObject<SubScene>(sceneEntity).IsLoaded;
-            var entitySceneIsLoaded = World.GetExistingSystem<SceneSystem>().IsSceneLoaded(sceneEntity);
-            var liveConversionEnabled = SubSceneInspectorUtility.LiveConversionEnabled;
+            var entitySceneIsLoaded = SceneSystem.IsSceneLoaded(World.Unmanaged, sceneEntity);
+            var liveConversionEnabled = LiveConversionEditorSettings.LiveConversionEnabled;
 
             return (unitySceneIsLoaded, entitySceneIsLoaded, liveConversionEnabled) switch
             {
@@ -682,8 +769,30 @@ namespace Unity.Entities.Editor
         }
 
         public SubSceneLoadedState GetSubSceneState(HierarchyNodeHandle handle)
-            => handle.Kind == NodeKind.SubScene
-                ? GetSubSceneState(new Entity { Index = handle.Index, Version = handle.Version })
+        {
+            //ensure scenesystem exists
+            World.Unmanaged.GetOrCreateUnmanagedSystem<SceneSystem>();
+            
+            return handle.Kind == NodeKind.SubScene
+                ? GetSubSceneState(SceneSystem
+                    .GetSceneEntity(World.Unmanaged,
+                        m_SubSceneNodeMapping.GetSceneHashFromNode(handle)))
                 : SubSceneLoadedState.None;
+        }
+
+        public HierarchyNodeHandle GetSubSceneNodeHandle(SubScene subScene)
+            => HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, World, subScene);
+
+        public SubScene GetSubSceneFromNodeHandle(HierarchyNodeHandle handle)
+        {
+            var sceneHash = m_SubSceneNodeMapping.GetSceneHashFromNode(handle);
+            foreach (var subScene in SubScene.AllSubScenes)
+            {
+                if (subScene.SceneGUID == sceneHash)
+                    return subScene;
+            }
+
+            return null;
+        }
     }
 }

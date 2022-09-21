@@ -9,7 +9,7 @@ namespace Unity.Entities.Editor.Inspectors
     {
         static Hash128Inspector()
         {
-            TypeConversion.Register<Hash128, string>(v => v.ToString());
+            TypeConversion.Register((ref Hash128 v) => v.ToString());
         }
 
         public override VisualElement Build()

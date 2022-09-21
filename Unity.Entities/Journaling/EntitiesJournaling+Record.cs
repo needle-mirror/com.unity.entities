@@ -1,4 +1,5 @@
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+using System;
 using System.Runtime.InteropServices;
 
 namespace Unity.Entities
@@ -9,28 +10,18 @@ namespace Unity.Entities
         /// Information about a record entry.
         /// </summary>
         [StructLayout(LayoutKind.Sequential)]
-        readonly struct Record
+        internal readonly struct Record : IEquatable<Record>
         {
             public readonly int Position;
             public readonly int Length;
-            public readonly ulong Index;
-            public readonly RecordType RecordType;
-            public readonly int FrameIndex;
-            public readonly int EntityCount;
-            public readonly int TypeCount;
-            public readonly int DataLength;
 
-            public Record(int position, int length, ulong index, RecordType recordType, int frameIndex, int entityCount, int typeCount, int dataLength)
+            public Record(int position, int length)
             {
                 Position = position;
                 Length = length;
-                Index = index;
-                RecordType = recordType;
-                FrameIndex = frameIndex;
-                EntityCount = entityCount;
-                TypeCount = typeCount;
-                DataLength = dataLength;
             }
+
+            public bool Equals(Record other) => Position == other.Position && Length == other.Length;
         }
     }
 }

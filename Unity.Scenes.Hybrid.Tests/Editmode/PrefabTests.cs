@@ -19,6 +19,18 @@ namespace Unity.Scenes.Hybrid.Tests
         {
         }
 
+        [OneTimeSetUp]
+        public void OnetimeSetup()
+        {
+            base.SetUpOnce();
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTeardown()
+        {
+            base.TearDownOnce();
+        }
+
         [UnityTest]
         [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
         public IEnumerator CanLoadPrefabAsScene()
@@ -26,8 +38,7 @@ namespace Unity.Scenes.Hybrid.Tests
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
                 var em = world.EntityManager;
-                var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                var sceneSectionStreamingSystem = world.GetExistingSystem<SceneSectionStreamingSystem>();
+                var sceneSectionStreamingSystem = world.GetExistingSystemManaged<SceneSectionStreamingSystem>();
 
                 var loadParams = new SceneSystem.LoadParameters
                 {
@@ -35,7 +46,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 };
 
                 Assert.IsTrue(SceneGUID.IsValid);
-                var prefabSceneEntity = sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                var prefabSceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, loadParams);
                 world.Update();
                 while (!sceneSectionStreamingSystem.AllStreamsComplete)
                 {

@@ -13,7 +13,8 @@ namespace Unity.Entities.Editor
                 : null;
         }
 
-        DOTSEditorPreferencesProvider(IEnumerable<string> keywords = null) : base("DOTS/Editor", SettingsScope.User, keywords)
+        DOTSEditorPreferencesProvider(IEnumerable<string> keywords = null)
+            : base(Constants.Settings.EditorSettingsRoot, SettingsScope.User, keywords)
         {
         }
     }

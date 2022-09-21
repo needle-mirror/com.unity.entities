@@ -4,7 +4,6 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using Unity.Profiling;
 using UnityEngine.Internal;
 using UnityEngine.Jobs;
 
@@ -34,20 +33,24 @@ namespace Unity.Entities.Conversion
     /// Represents the hierarchy of game objects in a scene via their instance ids. Each instance id is encoded into an
     /// index, and that index can then be used to query the hierarchy structure.
     /// </summary>
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     internal struct SceneHierarchy
     {
         private NativeArray<int> _instanceId;
         private NativeArray<int> _parentIndex;
         private NativeParallelHashMap<int, int> _indexByInstanceId;
-        private NativeParallelMultiHashMap<int, int> _childIndicesByIndex;
+        private NativeParallelHashMap<int, UnsafeList<int>> _childIndicesByIndex;
+        private NativeArray<bool> _active;
+        private NativeArray<bool> _static;
 
         internal SceneHierarchy(IncrementalHierarchy hierarchy)
         {
-            _instanceId = hierarchy.InstanceId;
-            _parentIndex = hierarchy.ParentIndex;
+            _instanceId = hierarchy.InstanceId.AsArray();
+            _parentIndex = hierarchy.ParentIndex.AsArray();
             _indexByInstanceId = hierarchy.IndexByInstanceId;
             _childIndicesByIndex = hierarchy.ChildIndicesByIndex;
+            _active = hierarchy.Active.AsArray();
+            _static = hierarchy.Static.AsArray();
         }
 
         /// <summary>
@@ -69,42 +72,84 @@ namespace Unity.Entities.Conversion
         /// </summary>
         /// <param name="index">The index to get the child indices of.</param>
         /// <returns>An enumerator for the indices of the children.</returns>
-        public Children GetChildIndicesForIndex(int index) => new Children(_childIndicesByIndex.GetValuesForKey(index));
+        public Children GetChildIndicesForIndex(int index) => new Children(IncrementalHierarchyFunctions.GetChildren(_childIndicesByIndex, index));
+
+        public bool IsActive(int index)
+        {
+            if (!_active[index])
+                return false;
+
+            int parentIdx = GetParentForIndex(index);
+
+            while (parentIdx != -1)
+            {
+                if (!_active[parentIdx])
+                    return false;
+
+                parentIdx = GetParentForIndex(parentIdx);
+            }
+
+            return true;
+        }
+
+        public bool IsStatic(int index)
+        {
+            if (_static[index])
+                return true;
+
+            int parentIdx = GetParentForIndex(index);
+
+            while (parentIdx != -1)
+            {
+                if (_static[parentIdx])
+                    return true;
+
+                parentIdx = GetParentForIndex(parentIdx);
+            }
+            return false;
+        }
 
         /// <summary>
         /// Tries to get the index for the given instance id of a game object.
+        /// If the instanceID couldn't be found returns false and sets index to 0.
         /// </summary>
-        /// <param name="instanceId"></param>
-        /// <param name="index"></param>
-        /// <returns></returns>
         public bool TryGetIndexForInstanceId(int instanceId, out int index) =>
             _indexByInstanceId.TryGetValue(instanceId, out index);
+
+        /// <summary>
+        /// Returns the index for the given instanceID. Returns -1 index if the instanceID couldn't be found.
+        /// </summary>
+        public int GetIndexForInstanceId(int instanceId)
+        {
+            var res = _indexByInstanceId.TryGetValue(instanceId, out var index);
+            return res ? index : -1;
+        }
 
         [ExcludeFromDocs]
         public struct Children : IEnumerator<int>, IEnumerable<int>
         {
-            private NativeParallelMultiHashMap<int, int>.Enumerator _iter;
+            private UnsafeList<int>.Enumerator _iter;
 
-            internal Children(NativeParallelMultiHashMap<int, int>.Enumerator iter)
+            internal Children(UnsafeList<int>.Enumerator iter)
             {
                 _iter = iter;
             }
             public bool MoveNext() => _iter.MoveNext();
             public void Reset() => _iter.Reset();
             public int Current => _iter.Current;
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Returns managed object")]
             object IEnumerator.Current => Current;
             public void Dispose() => _iter.Dispose();
 
             public Children GetEnumerator() => this;
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Returning interface value boxes")]
             IEnumerator<int> IEnumerable<int>.GetEnumerator() => this;
-            [NotBurstCompatible]
+            [ExcludeFromBurstCompatTesting("Returning interface value boxes")]
             IEnumerator IEnumerable.GetEnumerator() => (this as IEnumerable<int>).GetEnumerator();
         }
     }
 
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     [BurstCompile]
     internal static class SceneHierarchyExtensions
     {

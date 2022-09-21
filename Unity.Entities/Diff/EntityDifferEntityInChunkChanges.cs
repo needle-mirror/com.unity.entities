@@ -10,13 +10,13 @@ namespace Unity.Entities
     static unsafe partial class EntityDiffer
     {
 #pragma warning disable 649
-        struct CreatedEntity
+        internal struct CreatedEntity
         {
             public EntityGuid EntityGuid;
             public EntityInChunk AfterEntityInChunk;
         }
 
-        struct DestroyedEntity
+        internal struct DestroyedEntity
         {
             public EntityGuid EntityGuid;
             public EntityInChunk BeforeEntityInChunk;
@@ -30,7 +30,7 @@ namespace Unity.Entities
             public bool CanCompareChunkVersions;
         }
 
-        struct NameModifiedEntity
+        internal struct NameModifiedEntity
         {
             public EntityGuid EntityGuid;
             public Entity Entity;
@@ -88,8 +88,8 @@ namespace Unity.Entities
         [BurstCompile]
         struct GatherEntityInChunkWithGuid : IJobParallelFor
         {
-            public int EntityGuidTypeIndex;
-            public int EntityTypeIndex;
+            public TypeIndex EntityGuidTypeIndex;
+            public TypeIndex EntityTypeIndex;
             [ReadOnly] public NativeList<ArchetypeChunk> Chunks;
             [ReadOnly] public NativeList<ArchetypeChunkChangeFlags> Flags;
             [ReadOnly] public NativeList<int> EntityCounts;

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Build;
 using Unity.Build.Common;
+using Unity.Entities.Conversion;
 using UnityEditor;
 using Hash128 = Unity.Entities.Hash128;
 
@@ -27,7 +28,6 @@ namespace Unity.Scenes.Hybrid.Tests
             m_SubScenePath = subScenePath;
         }
 
-        [OneTimeSetUp]
         public void SetUpOnce()
         {
 #if UNITY_EDITOR
@@ -50,12 +50,12 @@ namespace Unity.Scenes.Hybrid.Tests
                 m_BuildConfigurationGUID = new GUID(AssetDatabase.AssetPathToGUID(m_BuildConfigPath));
                 m_SceneGUID = new GUID(AssetDatabase.AssetPathToGUID(m_SubScenePath));
 
-                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(m_SceneGUID, m_BuildConfigurationGUID, true,
+                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(m_SceneGUID, m_BuildConfigurationGUID, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled,
                     out var requestRefresh);
                 if (requestRefresh)
                     AssetDatabase.Refresh();
                 m_SceneWithBuildSettingsPath = SceneWithBuildConfigurationGUIDs.GetSceneWithBuildSettingsPath(guid);
-                EntityScenesPaths.GetSubSceneArtifactHash(m_SceneGUID, m_BuildConfigurationGUID, true,
+                EntityScenesPaths.GetSubSceneArtifactHash(m_SceneGUID, m_BuildConfigurationGUID, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled,
                     ImportMode.Synchronous);
             }
             catch
@@ -73,8 +73,7 @@ namespace Unity.Scenes.Hybrid.Tests
 #endif
         }
 
-        [OneTimeTearDown]
-        public void OneTimeTearDown()
+        public void TearDownOnce()
         {
 #if UNITY_EDITOR
             AssetDatabase.DeleteAsset(m_TempPath);

@@ -12,7 +12,7 @@ namespace Unity.Entities.Editor
     }
 
     [Flags]
-    internal enum SystemCategory
+    enum SystemCategory
     {
         // No known category
         Unknown = 0,
@@ -36,7 +36,7 @@ namespace Unity.Entities.Editor
         ECBSystemEnd = 1 << 5,
     }
 
-    internal static class SystemUtils
+    static class SystemUtils
     {
         internal static SystemCategory GetSystemCategory(ComponentSystemBase b)
         {
@@ -69,7 +69,7 @@ namespace Unity.Entities.Editor
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    internal struct SystemFrameData
+    struct SystemFrameData
     {
         public int EntityCount;
         public float LastFrameRuntimeMilliseconds;

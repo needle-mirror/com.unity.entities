@@ -10,13 +10,13 @@ namespace Unity.Entities.Tests
         {
             entity = SrcEntityManager.CreateEntity();
             SrcEntityManager.AddComponentData(entity, new EcsTestData(value));
-            SrcEntityManager.AddSharedComponentData(entity, new EcsTestSharedComp(6));
+            SrcEntityManager.AddSharedComponent(entity, new EcsTestSharedComp(6));
         }
 
         void TestValues(Entity entity, int componentDataValue, int componentChunkValue)
         {
             Assert.AreEqual(componentDataValue, DstEntityManager.GetComponentData<EcsTestData>(entity).value);
-            Assert.AreEqual(6, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+            Assert.AreEqual(6, DstEntityManager.GetSharedComponent<EcsTestSharedComp>(entity).value);
             Assert.AreEqual(componentChunkValue, DstEntityManager.GetChunkComponentData<EcsTestData2>(entity).value0);
         }
 

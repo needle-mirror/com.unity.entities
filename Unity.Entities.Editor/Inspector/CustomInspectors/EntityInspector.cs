@@ -1,11 +1,11 @@
 using JetBrains.Annotations;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Inspectors
 {
     [UsedImplicitly]
-    class EntityInspector : Inspector<Entity>
+    class EntityInspector : PropertyInspector<Entity>
     {
         EntityField m_Field;
 
@@ -18,6 +18,7 @@ namespace Unity.Entities.Editor.Inspectors
         public override VisualElement Build()
         {
             m_Field = new EntityField(DisplayName) { value = Target, World = GetWorld() };
+            InspectorUtility.AddRuntimeBar(m_Field);
             return m_Field;
         }
 

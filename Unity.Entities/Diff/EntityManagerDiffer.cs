@@ -14,7 +14,7 @@ namespace Unity.Entities
             {
                 typeof(EntityGuid)
             },
-            Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+            Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
         };
 
         World m_ShadowWorld;
@@ -27,6 +27,12 @@ namespace Unity.Entities
 
         internal EntityManager ShadowEntityManager => m_ShadowEntityManager;
 
+        /// <summary>
+        /// Constructs a new EntityManagerDiffer object.
+        /// </summary>
+        /// <param name="sourceEntityManager">The EntityManager to associate with this differ.</param>
+        /// <param name="allocator">The allocator to use for any internal memory allocations for this object.</param>
+        /// <param name="entityQueryDesc">If non-null, the differ limits its change-tracking to the entities that this query matches.</param>
         public EntityManagerDiffer(EntityManager sourceEntityManager, Allocator allocator, EntityQueryDesc entityQueryDesc = null)
         {
             m_CachedComponentChanges = new EntityDiffer.CachedComponentChanges(1024);
@@ -38,6 +44,9 @@ namespace Unity.Entities
             m_BlobAssetCache = new BlobAssetCache(allocator);
         }
 
+        /// <summary>
+        /// Disposes an EntityManagerDiffer object.
+        /// </summary>
         public void Dispose()
         {
             m_CachedComponentChanges.Dispose();

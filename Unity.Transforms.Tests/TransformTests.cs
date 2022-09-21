@@ -15,6 +15,22 @@ namespace Unity.Entities.Tests
         [Test]
         public void TRS_ChildPosition()
         {
+#if !ENABLE_TRANSFORM_V1
+            var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform));
+            var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(LocalToParentTransform), typeof(Parent));
+
+            m_Manager.SetComponentData(parent, new LocalToWorldTransform() {Value = UniformScaleTransform.Identity});
+            m_Manager.SetComponentData(child, new Parent {Value = parent});
+            m_Manager.SetComponentData(child, new LocalToParentTransform
+            {
+                Value = UniformScaleTransform.FromRotation(quaternion.RotateY(math.PI)).TransformTransform(UniformScaleTransform.FromPosition(new float3(0.0f, 0.0f, 1.0f)))
+            });
+
+            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);                // Connect parent and child
+            World.GetOrCreateSystem<TransformHierarchySystem>().Update(World.Unmanaged);    // Write to the child's ParentToWorldTransform and LocalToWorldTransform
+            World.GetOrCreateSystem<TransformToMatrixSystem>().Update(World.Unmanaged);     // Convert LocalToWorldTransform to LocalToWorld matrix
+            m_Manager.CompleteAllTrackedJobs();
+#else
             var parent = m_Manager.CreateEntity(typeof(LocalToWorld));
             var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
 
@@ -27,18 +43,49 @@ namespace Unity.Entities.Tests
 
             World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);
             World.GetOrCreateSystem<LocalToParentSystem>().Update(World.Unmanaged);
-            m_Manager.CompleteAllJobs();
+            m_Manager.CompleteAllTrackedJobs();
+#endif
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
 
-            Assert.AreEqual(childWorldPosition.x, 0f, k_Tolerance);
-            Assert.AreEqual(childWorldPosition.y, 0f, k_Tolerance);
-            Assert.AreEqual(childWorldPosition.z, -1f, k_Tolerance);
+            Assert.AreEqual(.0f, childWorldPosition.x, k_Tolerance);
+            Assert.AreEqual(.0f, childWorldPosition.y, k_Tolerance);
+            Assert.AreEqual(-1f, childWorldPosition.z, k_Tolerance);
         }
 
         [Test]
         public void TRS_RemovedParentDoesNotAffectChildPosition()
         {
+#if !ENABLE_TRANSFORM_V1
+            var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform));
+            var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(Parent), typeof(LocalToParentTransform));
+
+            m_Manager.SetComponentData(parent, new LocalToWorldTransform {Value = UniformScaleTransform.Identity});
+            m_Manager.SetComponentData(child, new Parent {Value = parent});
+            m_Manager.SetComponentData(child, new LocalToParentTransform
+            {
+                Value = UniformScaleTransform.FromPositionRotation(new float3(0.0f, 0.0f, 1.0f), quaternion.RotateY(math.PI))
+            });
+
+            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);                // Connect parent and child
+            World.GetOrCreateSystem<TransformHierarchySystem>().Update(World.Unmanaged);    // Write to the child's ParentToWorldTransform and LocalToWorldTransform
+            World.GetOrCreateSystem<TransformToMatrixSystem>().Update(World.Unmanaged);     // Convert LocalToWorldTransform to LocalToWorld matrix
+            m_Manager.CompleteAllTrackedJobs();
+
+            var expectedChildWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
+
+            m_Manager.RemoveComponent<Parent>(child);
+
+            m_Manager.SetComponentData(parent, new LocalToWorldTransform
+            {
+                Value = UniformScaleTransform.FromPositionRotation(new float3(0.0f, 0.0f, 1.0f), quaternion.RotateY((float)math.PI))
+            });
+
+            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);                // Connect parent and child
+            World.GetOrCreateSystem<TransformHierarchySystem>().Update(World.Unmanaged);    // Write to the child's ParentToWorldTransform and LocalToWorldTransform
+            World.GetOrCreateSystem<TransformToMatrixSystem>().Update(World.Unmanaged);     // Convert LocalToWorldTransform to LocalToWorld matrix
+            m_Manager.CompleteAllTrackedJobs();
+#else
             var parent = m_Manager.CreateEntity(typeof(LocalToWorld));
             var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
 
@@ -51,7 +98,7 @@ namespace Unity.Entities.Tests
 
             World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);
             World.GetOrCreateSystem<LocalToParentSystem>().Update(World.Unmanaged);
-            m_Manager.CompleteAllJobs();
+            m_Manager.CompleteAllTrackedJobs();
 
             var expectedChildWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
 
@@ -64,6 +111,7 @@ namespace Unity.Entities.Tests
 
             World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);
             World.GetOrCreateSystem<LocalToParentSystem>().Update(World.Unmanaged);
+#endif
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
 
@@ -170,10 +218,15 @@ namespace Unity.Entities.Tests
 
             public void Create()
             {
+#if !ENABLE_TRANSFORM_V1
+                var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToWorldTransform));
+                var bodyArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(Parent), typeof(LocalToParentTransform));
+#else
                 var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Rotation),
                     typeof(NonUniformScale), typeof(Translation));
                 var bodyArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Rotation),
                     typeof(NonUniformScale), typeof(Translation), typeof(Parent), typeof(LocalToParent));
+#endif
 
                 CreateInternal(bodyArchetype, rootArchetype, 1.0f);
             }
@@ -193,6 +246,26 @@ namespace Unity.Entities.Tests
                     var rotationIndex = rotationIndices[i];
                     var translationIndex = translationIndices[i];
 
+#if !ENABLE_TRANSFORM_V1
+                    if (i == 0)
+                    {
+                        var transform = new LocalToWorldTransform
+                        {
+                            Value = UniformScaleTransform.FromPositionRotationScale(translations[translationIndex],
+                                rotations[rotationIndex], scaleValue)
+                        };
+                        m_Manager.SetComponentData(bodyEntities[i], transform);
+                    }
+                    else
+                    {
+                        var transform = new LocalToParentTransform
+                        {
+                            Value = UniformScaleTransform.FromPositionRotationScale(translations[translationIndex],
+                                rotations[rotationIndex], scaleValue)
+                        };
+                        m_Manager.SetComponentData(bodyEntities[i], transform);
+                    }
+#else
                     var rotation = new Rotation() {Value = rotations[rotationIndex]};
                     var translation = new Translation() {Value = translations[translationIndex]};
                     var scale = new NonUniformScale() {Value = new float3(scaleValue)};
@@ -200,6 +273,7 @@ namespace Unity.Entities.Tests
                     m_Manager.SetComponentData(bodyEntities[i], rotation);
                     m_Manager.SetComponentData(bodyEntities[i], translation);
                     m_Manager.SetComponentData(bodyEntities[i], scale);
+#endif
                 }
 
                 for (int i = 1; i < 16; i++)
@@ -211,15 +285,22 @@ namespace Unity.Entities.Tests
 
             public void CreateWithWorldToLocal()
             {
+#if !ENABLE_TRANSFORM_V1
+                var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToWorldTransform));
+                var bodyArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToParentTransform));
+#else
                 var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Rotation),
                     typeof(NonUniformScale), typeof(Translation), typeof(WorldToLocal));
                 var bodyArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Rotation),
                     typeof(NonUniformScale), typeof(Translation), typeof(Parent), typeof(LocalToParent),
                     typeof(WorldToLocal));
+#endif
 
                 CreateInternal(bodyArchetype, rootArchetype, 1.0f);
             }
 
+#if !ENABLE_TRANSFORM_V1
+#else
             public void CreateWithCompositeRotation()
             {
                 var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(CompositeRotation),
@@ -257,9 +338,28 @@ namespace Unity.Entities.Tests
 
                 CreateInternal(bodyArchetype, rootArchetype, 2.0f);
             }
+#endif
 
             public Entity CreateWithWriteGroupChildren()
             {
+#if !ENABLE_TRANSFORM_V1
+                var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(Child));
+                var childArchetypeWithWriteGroup = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(LocalToParentTransform), typeof(Parent), typeof(Child), typeof(TestWriteGroupComponent));
+                var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(LocalToParentTransform), typeof(Parent));
+
+                var root = m_Manager.CreateEntity(rootArchetype);
+                var child = m_Manager.CreateEntity(childArchetypeWithWriteGroup);
+                var childChild = m_Manager.CreateEntity(childArchetype);
+
+                m_Manager.SetComponentData(root, new LocalToWorldTransform{Value = UniformScaleTransform.Identity});
+
+                m_Manager.SetComponentData(child, new LocalToParentTransform{Value = UniformScaleTransform.Identity});
+                m_Manager.SetComponentData(child, new TestWriteGroupComponent{Value = 42});
+                m_Manager.SetComponentData(child, new Parent { Value = root });
+
+                m_Manager.SetComponentData(childChild, new LocalToParentTransform{Value = UniformScaleTransform.Identity});
+                m_Manager.SetComponentData(childChild, new Parent { Value = child });
+#else
                 var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Translation), typeof(Rotation), typeof(Scale), typeof(Child));
                 var childArchetypeWithWriteGroup = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToParent), typeof(Translation), typeof(Rotation), typeof(Scale),  typeof(Parent), typeof(Child), typeof(TestWriteGroupComponent));
                 var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToParent), typeof(Translation), typeof(Rotation), typeof(Scale), typeof(Parent));
@@ -282,12 +382,18 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(childChild, new Rotation{Value = quaternion.identity});
                 m_Manager.SetComponentData(childChild, new Scale{Value = 1});
                 m_Manager.SetComponentData(childChild, new Parent { Value = child });
+#endif
 
                 return childChild;
             }
 
             public void Update()
             {
+#if !ENABLE_TRANSFORM_V1
+                World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);                // Connect parent and child
+                World.GetOrCreateSystem<TransformHierarchySystem>().Update(World.Unmanaged);    // Write to the child's ParentToWorldTransform and LocalToWorldTransform
+                World.GetOrCreateSystem<TransformToMatrixSystem>().Update(World.Unmanaged);     // Convert LocalToWorldTransform to LocalToWorld matrix
+#else
                 World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);
                 World.GetOrCreateSystem<CompositeRotationSystem>().Update(World.Unmanaged);
                 World.GetOrCreateSystem<CompositeScaleSystem>().Update(World.Unmanaged);
@@ -296,18 +402,19 @@ namespace Unity.Entities.Tests
                 World.GetOrCreateSystem<TRSToLocalToParentSystem>().Update(World.Unmanaged);
                 World.GetOrCreateSystem<LocalToParentSystem>().Update(World.Unmanaged);
                 World.GetOrCreateSystem<WorldToLocalSystem>().Update(World.Unmanaged);
+#endif
 
                 // Force complete so that main thread (tests) can have access to direct editing.
-                m_Manager.CompleteAllJobs();
+                m_Manager.CompleteAllTrackedJobs();
             }
 
-            internal static unsafe bool AssertCloseEnough(float4x4 a, float4x4 b)
+            internal static unsafe bool AssertCloseEnough(float4x4 expected, float4x4 actual)
             {
-                float* ap = (float*)&a.c0.x;
-                float* bp = (float*)&b.c0.x;
+                var expectedp = (float*)&expected.c0.x;
+                var actualp = (float*)&actual.c0.x;
                 for (int i = 0; i < 16; i++)
                 {
-                    Assert.AreEqual(bp[i], ap[i], k_Tolerance);
+                    Assert.AreEqual(expectedp[i], actualp[i], k_Tolerance);
                 }
 
                 return true;
@@ -325,12 +432,19 @@ namespace Unity.Entities.Tests
                     if (parentIndex == -1)
                     {
                         Assert.IsFalse(m_Manager.HasComponent<Parent>(entity));
+#if !ENABLE_TRANSFORM_V1
+#else
                         Assert.IsFalse(m_Manager.HasComponent<LocalToParent>(entity));
+#endif
                         continue;
                     }
 
+#if !ENABLE_TRANSFORM_V1
+                    var localToParent = m_Manager.GetComponentData<LocalToParentTransform>(entity).Value.ToMatrix();
+                    var localToParentTransform = m_Manager.GetComponentData<LocalToParentTransform>(entity);
+#else
                     var localToParent = m_Manager.GetComponentData<LocalToParent>(entity).Value;
-
+#endif
                     AssertCloseEnough(expectedLocalToParent[i], localToParent);
                 }
             }
@@ -351,6 +465,8 @@ namespace Unity.Entities.Tests
                 }
             }
 
+#if !ENABLE_TRANSFORM_V1
+#else
             public void TestExpectedWorldToLocal()
             {
                 var expectedLocalToParent = ExpectedLocalToParent();
@@ -366,6 +482,7 @@ namespace Unity.Entities.Tests
                     }
                 }
             }
+#endif
 
             public void RemoveSomeParents()
             {
@@ -374,8 +491,17 @@ namespace Unity.Entities.Tests
 
                 m_Manager.RemoveComponent<Parent>(Entities[1]);
                 m_Manager.RemoveComponent<Parent>(Entities[8]);
+#if !ENABLE_TRANSFORM_V1
+                m_Manager.SetComponentData(Entities[1], new LocalToWorldTransform {Value = m_Manager.GetComponentData<LocalToParentTransform>(Entities[1]).Value});
+                m_Manager.SetComponentData(Entities[8], new LocalToWorldTransform {Value = m_Manager.GetComponentData<LocalToParentTransform>(Entities[8]).Value});
+                m_Manager.RemoveComponent<Parent>(Entities[1]);
+                m_Manager.RemoveComponent<Parent>(Entities[8]);
+                m_Manager.RemoveComponent<LocalToParentTransform>(Entities[1]);
+                m_Manager.RemoveComponent<LocalToParentTransform>(Entities[8]);
+#else
                 m_Manager.RemoveComponent<LocalToParent>(Entities[1]);
                 m_Manager.RemoveComponent<LocalToParent>(Entities[8]);
+#endif
             }
 
             public void ChangeSomeParents()
@@ -393,6 +519,15 @@ namespace Unity.Entities.Tests
                 parentIndices[1] = -1;
                 parentIndices[8] = -1;
 
+#if !ENABLE_TRANSFORM_V1
+                m_Manager.SetComponentData(Entities[1], new LocalToWorldTransform {Value = m_Manager.GetComponentData<LocalToParentTransform>(Entities[1]).Value});
+                m_Manager.SetComponentData(Entities[8], new LocalToWorldTransform {Value = m_Manager.GetComponentData<LocalToParentTransform>(Entities[8]).Value});
+                m_Manager.RemoveComponent<Parent>(Entities[1]);
+                m_Manager.RemoveComponent<Parent>(Entities[8]);
+                m_Manager.RemoveComponent<LocalToParentTransform>(Entities[1]);
+                m_Manager.RemoveComponent<LocalToParentTransform>(Entities[8]);
+#else
+#endif
                 m_Manager.DestroyEntity(Entities[0]);
             }
 
@@ -416,6 +551,8 @@ namespace Unity.Entities.Tests
             testHierarchy.Dispose();
         }
 
+#if !ENABLE_TRANSFORM_V1
+#else
         [Test]
         public void TRS_TestHierarchyFirstUpdateWithWorldtoLocal()
         {
@@ -430,7 +567,10 @@ namespace Unity.Entities.Tests
 
             testHierarchy.Dispose();
         }
+#endif
 
+#if !ENABLE_TRANSFORM_V1
+#else
         [Test]
         public void TRS_TestHierarchyFirstUpdateWithCompositeRotation()
         {
@@ -444,7 +584,10 @@ namespace Unity.Entities.Tests
 
             testHierarchy.Dispose();
         }
+#endif
 
+#if !ENABLE_TRANSFORM_V1
+#else
         [Test]
         public void TRS_TestHierarchyFirstUpdateWitParentScaleInverse()
         {
@@ -457,7 +600,10 @@ namespace Unity.Entities.Tests
 
             testHierarchy.Dispose();
         }
+#endif
 
+#if !ENABLE_TRANSFORM_V1
+#else
         [Test]
         public void TRS_TestHierarchyFirstUpdateWitCompositeScaleParentScaleInverse()
         {
@@ -470,6 +616,7 @@ namespace Unity.Entities.Tests
 
             testHierarchy.Dispose();
         }
+#endif
 
         [Test]
         public void TRS_TestHierarchyAfterParentRemoval()
@@ -543,7 +690,11 @@ namespace Unity.Entities.Tests
             testHierarchy.Dispose();
         }
 
+#if !ENABLE_TRANSFORM_V1
+        [WriteGroup(typeof(LocalToWorldTransform))]
+#else
         [WriteGroup(typeof(LocalToWorld))]
+#endif
         struct LocalToWorldWriteGroupComponent : IComponentData
         {
         }
@@ -551,6 +702,31 @@ namespace Unity.Entities.Tests
         [Test]
         public void LocalToParentConsidersWriteGroups()
         {
+#if !ENABLE_TRANSFORM_V1
+            var testHierarchy = new TestHierarchy(World, m_Manager);
+
+            var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform));
+            var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(Parent), typeof(LocalToParentTransform));
+            var childChild = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(Parent), typeof(LocalToParentTransform), typeof(ParentToWorldTransform));
+
+            m_Manager.SetComponentData(parent, new LocalToWorldTransform {Value = UniformScaleTransform.Identity});
+            m_Manager.SetComponentData(child, new Parent {Value = parent});
+            m_Manager.SetComponentData(child, new LocalToParentTransform {Value = UniformScaleTransform.Identity});
+            m_Manager.SetComponentData(childChild, new Parent {Value = child});
+            m_Manager.SetComponentData(childChild, new LocalToParentTransform {Value = UniformScaleTransform.Identity});
+
+            m_Manager.SetComponentData(parent, new LocalToWorldTransform { Value = UniformScaleTransform.FromPosition(2, 2, 2)});
+            testHierarchy.Update();
+            Assert.AreEqual(new float3(2, 2, 2), m_Manager.GetComponentData<LocalToWorldTransform>(child).Value.Position);
+            Assert.AreEqual(new float3(2, 2, 2), m_Manager.GetComponentData<LocalToWorldTransform>(childChild).Value.Position);
+
+            m_Manager.AddComponentData(child, new LocalToWorldWriteGroupComponent());
+            m_Manager.SetComponentData(parent, new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(3, 3, 3)});
+            m_Manager.SetComponentData(child, new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(4, 4, 4)});
+            testHierarchy.Update();
+            Assert.AreEqual(new float3(4, 4, 4), m_Manager.GetComponentData<LocalToWorldTransform>(child).Value.Position);
+            Assert.AreEqual(new float3(4, 4, 4), m_Manager.GetComponentData<LocalToWorldTransform>(childChild).Value.Position);
+#else
             var testHierarchy = new TestHierarchy(World, m_Manager);
 
             var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Translation));
@@ -576,6 +752,7 @@ namespace Unity.Entities.Tests
             testHierarchy.Update();
             Assert.AreEqual(new float3(4, 4, 4), m_Manager.GetComponentData<LocalToWorld>(child).Position);
             Assert.AreEqual(new float3(4, 4, 4), m_Manager.GetComponentData<LocalToWorld>(childChild).Position);
+#endif
         }
 
         [Test]
@@ -593,9 +770,15 @@ namespace Unity.Entities.Tests
                 var parent = testHierarchy.Entities[i];
                 for (int j = 0; j < childCount; j++)
                 {
+#if !ENABLE_TRANSFORM_V1
+                    var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(Parent), typeof(LocalToParentTransform));
+                    m_Manager.SetComponentData(child, new Parent {Value = parent});
+                    m_Manager.SetComponentData(child, new LocalToParentTransform {Value = UniformScaleTransform.Identity});
+#else
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
                     m_Manager.SetComponentData(child, new Parent {Value = parent});
                     m_Manager.SetComponentData(child, new LocalToParent {Value = float4x4.identity});
+#endif
                 }
             }
 
@@ -622,7 +805,12 @@ namespace Unity.Entities.Tests
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld));
                     m_Manager.AddComponentData(child, new Parent {Value = parent});
+#if !ENABLE_TRANSFORM_V1
+                    m_Manager.AddComponentData(child, new LocalToWorldTransform() {Value = UniformScaleTransform.Identity});
+                    m_Manager.AddComponentData(child, new LocalToParentTransform() {Value = UniformScaleTransform.Identity});
+#else
                     m_Manager.AddComponentData(child, new LocalToParent {Value = float4x4.identity});
+#endif
                 }
             }
 
@@ -649,7 +837,12 @@ namespace Unity.Entities.Tests
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld));
                     m_Manager.AddComponentData(child, new Parent {Value = parent});
+#if !ENABLE_TRANSFORM_V1
+                    m_Manager.AddComponentData(child, new LocalToWorldTransform() {Value = UniformScaleTransform.Identity});
+                    m_Manager.AddComponentData(child, new LocalToParentTransform() {Value = UniformScaleTransform.Identity});
+#else
                     m_Manager.AddComponentData(child, new LocalToParent {Value = float4x4.identity});
+#endif
                 }
             }
 
@@ -663,7 +856,12 @@ namespace Unity.Entities.Tests
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld));
                     m_Manager.AddComponentData(child, new Parent {Value = parent});
+#if !ENABLE_TRANSFORM_V1
+                    m_Manager.AddComponentData(child, new LocalToWorldTransform() {Value = UniformScaleTransform.Identity});
+                    m_Manager.AddComponentData(child, new LocalToParentTransform() {Value = UniformScaleTransform.Identity});
+#else
                     m_Manager.AddComponentData(child, new LocalToParent {Value = float4x4.identity});
+#endif
                 }
             }
 
@@ -689,13 +887,23 @@ namespace Unity.Entities.Tests
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld));
                     m_Manager.AddComponentData(child, new Parent {Value = parent});
+#if !ENABLE_TRANSFORM_V1
+                    m_Manager.AddComponentData(child, new LocalToWorldTransform() {Value = UniformScaleTransform.Identity});
+                    m_Manager.AddComponentData(child, new LocalToParentTransform() {Value = UniformScaleTransform.Identity});
+#else
                     m_Manager.AddComponentData(child, new LocalToParent {Value = float4x4.identity});
+#endif
 
                     for (int k = 0; k < childCount; k++)
                     {
                         var nextChild = m_Manager.CreateEntity(typeof(LocalToWorld));
                         m_Manager.AddComponentData(nextChild, new Parent {Value = child});
+#if !ENABLE_TRANSFORM_V1
+                        m_Manager.AddComponentData(nextChild, new LocalToParentTransform {Value = UniformScaleTransform.Identity});
+                        m_Manager.AddComponentData(nextChild, new LocalToWorldTransform {Value = UniformScaleTransform.Identity});
+#else
                         m_Manager.AddComponentData(nextChild, new LocalToParent {Value = float4x4.identity});
+#endif
                     }
                 }
             }
@@ -722,9 +930,16 @@ namespace Unity.Entities.Tests
                 var parent = testHierarchy.Entities[i];
                 for (int j = 0; j < childCount; j++)
                 {
+#if !ENABLE_TRANSFORM_V1
+                    var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParentTransform));
+                    m_Manager.SetComponentData(child, new Parent {Value = parent});
+                    m_Manager.AddComponentData(child, new LocalToWorldTransform() {Value = UniformScaleTransform.Identity});
+                    m_Manager.AddComponentData(child, new LocalToParentTransform() {Value = UniformScaleTransform.Identity});
+#else
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
                     m_Manager.SetComponentData(child, new Parent {Value = parent});
                     m_Manager.SetComponentData(child, new LocalToParent {Value = float4x4.identity});
+#endif
                     children[(i * childCount) + j] = child;
                 }
             }
@@ -760,9 +975,15 @@ namespace Unity.Entities.Tests
                 var parent = testHierarchy.Entities[i];
                 for (int j = 0; j < childCount; j++)
                 {
+#if !ENABLE_TRANSFORM_V1
+                    var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParentTransform));
+                    m_Manager.SetComponentData(child, new Parent {Value = parent});
+                    m_Manager.AddComponentData(child, new LocalToWorldTransform() {Value = UniformScaleTransform.Identity});
+#else
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
                     m_Manager.SetComponentData(child, new Parent {Value = parent});
                     m_Manager.SetComponentData(child, new LocalToParent {Value = float4x4.identity});
+#endif
                     children[(i * childCount) + j] = child;
                 }
             }
@@ -784,7 +1005,11 @@ namespace Unity.Entities.Tests
             testHierarchy.Dispose();
         }
 
+#if !ENABLE_TRANSFORM_V1
+        [WriteGroup(typeof(LocalToWorldTransform))]
+#else
         [WriteGroup(typeof(LocalToWorld))]
+#endif
         struct TestWriteGroupComponent : IComponentData
         {
             public int Value;
@@ -796,10 +1021,17 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
+#if !ENABLE_TRANSFORM_V1
+                Entities.ForEach((ref LocalToWorldTransform localToWorldTransform, in TestWriteGroupComponent test) =>
+                {
+                    localToWorldTransform.Value = UniformScaleTransform.FromPosition(new float3(test.Value));
+                }).ScheduleParallel();
+#else
                 Entities.ForEach((ref LocalToWorld localToWorld, in TestWriteGroupComponent test) =>
                 {
                     localToWorld.Value = new float4x4(float3x3.identity, new float3(test.Value));
                 }).ScheduleParallel();
+#endif
             }
         }
 
@@ -813,7 +1045,7 @@ namespace Unity.Entities.Tests
             var testHierarchy = new TestHierarchy(World, m_Manager);
             var c2Entity = testHierarchy.CreateWithWriteGroupChildren();
             testHierarchy.Update();
-            World.GetOrCreateSystem<TestTransformWriteGroupSystem>().Update();
+            World.GetOrCreateSystemManaged<TestTransformWriteGroupSystem>().Update();
             testHierarchy.Update();
 
             var localToWorld = m_Manager.GetComponentData<LocalToWorld>(c2Entity);
@@ -827,9 +1059,13 @@ namespace Unity.Entities.Tests
         {
             Entity SimpleHiearchy()
             {
+#if !ENABLE_TRANSFORM_V1
+                var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LinkedEntityGroup), typeof(LocalToWorldTransform));
+                var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParentTransform), typeof(LocalToWorldTransform));
+#else
                 var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LinkedEntityGroup));
                 var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
-
+#endif
                 var linkedEntityGroup = m_Manager.GetBuffer<LinkedEntityGroup>(parent);
                 linkedEntityGroup.Add(new LinkedEntityGroup {Value = parent});
                 linkedEntityGroup.Add(new LinkedEntityGroup {Value = child});
@@ -863,21 +1099,80 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void TRS_SetParent_OldParentIsDestroyed([Values] bool withSystemState)
+        public void EnabledHierarchy_CreatesChildBuffer_ECB()
+        {
+            Entity SimpleHiearchy()
+            {
+#if !ENABLE_TRANSFORM_V1
+                var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LinkedEntityGroup), typeof(LocalToWorldTransform));
+                var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParentTransform), typeof(LocalToWorldTransform));
+#else
+                var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LinkedEntityGroup));
+                var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
+#endif
+
+                var linkedEntityGroup = m_Manager.GetBuffer<LinkedEntityGroup>(parent);
+                linkedEntityGroup.Add(new LinkedEntityGroup {Value = parent});
+                linkedEntityGroup.Add(new LinkedEntityGroup {Value = child});
+                m_Manager.SetComponentData(child, new Parent {Value = parent});
+
+                return parent;
+            }
+
+            var parentA = SimpleHiearchy();
+            var parentB = SimpleHiearchy();
+
+            var parentSystem = World.GetOrCreateSystem<ParentSystem>();
+
+            // with the hierarchy disabled, updating the transform system doesn't create a child buffer
+            using (var ecbDisabled = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
+            {
+                ecbDisabled.SetEnabled(parentA, false);
+                ecbDisabled.Playback(m_Manager);
+            }
+
+            Assert.IsFalse(m_Manager.HasComponent<Child>(parentA));
+            Assert.IsFalse(m_Manager.HasComponent<Child>(parentB));
+            parentSystem.Update(World.Unmanaged);
+            Assert.IsFalse(m_Manager.HasComponent<Child>(parentA));
+            Assert.IsTrue(m_Manager.HasComponent<Child>(parentB));
+
+            // with the hierarchy enabled, updating the transform system creates a child buffer
+            using (var ecbEnabled = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
+            {
+                ecbEnabled.SetEnabled(parentA, true);
+                ecbEnabled.Playback(m_Manager);
+            }
+
+            Assert.IsFalse(m_Manager.HasComponent<Child>(parentA));
+            Assert.IsTrue(m_Manager.HasComponent<Child>(parentB));
+            parentSystem.Update(World.Unmanaged);
+            Assert.IsTrue(m_Manager.HasComponent<Child>(parentA));
+            Assert.IsTrue(m_Manager.HasComponent<Child>(parentB));
+        }
+
+        [Test]
+        public void TRS_SetParent_OldParentIsDestroyed([Values] bool withCleanup)
         {
             var parentSystem = World.GetOrCreateSystem<ParentSystem>();
 
+#if !ENABLE_TRANSFORM_V1
+            var parentA = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform));
+            var parentB = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalToWorldTransform));
+            var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParentTransform), typeof(LocalToWorldTransform));
+#else
             var parentA = m_Manager.CreateEntity(typeof(LocalToWorld));
             var parentB = m_Manager.CreateEntity(typeof(LocalToWorld));
             var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
+#endif
 
-            if (withSystemState)
+            if (withCleanup)
             {
-                // Having a system state or not is important to validate the check in the
+                // Having a cleanup component or not is important to validate the check in the
                 // parenting system that it should not try to update a child buffer when it doesn't exist.
                 // Because that's the difference between having a destroyed parent entity,
                 // or a parent entity without the buffer.
-                m_Manager.AddComponent<EcsStateTag1>(parentA);
+                m_Manager.AddComponent<EcsCleanupTag1>(parentA);
             }
 
             m_Manager.SetComponentData(child, new Parent {Value = parentA});

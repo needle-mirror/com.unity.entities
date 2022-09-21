@@ -267,7 +267,7 @@ namespace Unity.Entities.Editor
             return string.Empty;
         }
 
-        private void OnSystemTogglePress(ChangeEvent<bool> evt)
+        void OnSystemTogglePress(ChangeEvent<bool> evt)
         {
             if (!Target.SystemProxy.Valid)
                 return;

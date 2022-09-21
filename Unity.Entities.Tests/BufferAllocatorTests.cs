@@ -7,6 +7,32 @@ namespace Unity.Entities.Tests
 {
     public class BufferAllocatorTestsBase
     {
+        static AllocatorHelper<RewindableAllocator> m_AllocatorHelper;
+        protected static ref RewindableAllocator RwdAllocator => ref m_AllocatorHelper.Allocator;
+
+        [OneTimeSetUp]
+        public virtual void OneTimeSetUp()
+        {
+            m_AllocatorHelper = new AllocatorHelper<RewindableAllocator>(Allocator.Persistent);
+            m_AllocatorHelper.Allocator.Initialize(128 * 1024, true);
+        }
+
+        [OneTimeTearDown]
+        public virtual void OneTimeTearDown()
+        {
+            m_AllocatorHelper.Allocator.Dispose();
+            m_AllocatorHelper.Dispose();
+        }
+
+        [TearDown]
+        public virtual void TearDown()
+        {
+            RwdAllocator.Rewind();
+            // This is test only behavior for determinism.  Rewind twice such that all
+            // tests start with an allocator containing only one memory block.
+            RwdAllocator.Rewind();
+        }
+
         internal delegate void RunTestDelegate(IBufferAllocator allocator);
 
         // This function exists to put the allocator type name in the callstack to make it easier to identify
@@ -33,16 +59,20 @@ namespace Unity.Entities.Tests
         internal static void RunTest(int bufferBytes, int bufferCount, RunTestDelegate f)
         {
             // Explicitly test the heap BufferAllocator, even if virtual memory is supported by the platform.
-            using (var allocator = new BufferAllocatorHeap(bufferCount * bufferBytes, bufferBytes, Allocator.TempJob))
+            using (var allocator = new BufferAllocatorHeap(bufferCount * bufferBytes, bufferBytes, RwdAllocator.ToAllocator))
             {
                 TestBufferAllocatorHeap(allocator, f);
             }
 
+            RwdAllocator.Rewind();
+
             // Test the generic BufferAllocator which selects either virtual memory or heap backed versions, depending on the platform.
-            using (var allocator = new BufferAllocator(bufferCount * bufferBytes, bufferBytes, Allocator.TempJob))
+            using (var allocator = new BufferAllocator(bufferCount * bufferBytes, bufferBytes, RwdAllocator.ToAllocator))
             {
                 TestBufferAllocator(allocator, f);
             }
+
+            RwdAllocator.Rewind();
         }
 
         /// <summary>
@@ -149,7 +179,7 @@ namespace Unity.Entities.Tests
 
             RunTest(kBufferBytes, kBufferCount, (allocator) =>
             {
-                var indices = new NativeArray<int>(kBufferCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+                var indices = CollectionHelper.CreateNativeArray<int>(kBufferCount, RwdAllocator.ToAllocator, NativeArrayOptions.UninitializedMemory);
 
                 for (int iteration = 0; iteration < iterations; ++iteration)
                 {

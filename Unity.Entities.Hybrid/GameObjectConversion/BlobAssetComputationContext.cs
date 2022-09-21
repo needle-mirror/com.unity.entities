@@ -27,23 +27,43 @@ namespace Unity.Entities
     /// If a BlobAsset is no longer used by any UnityObject, it will be disposed.
     /// Thread-safety: main thread only.
     /// </remarks>
-    public struct BlobAssetComputationContext<TS, TB> : IDisposable where TS : struct where TB : struct
+    public struct BlobAssetComputationContext<TS, TB> : IDisposable where TS : unmanaged where TB : unmanaged
     {
+        /// <summary>
+        /// Initializes and returns an instance of BlobAssetComputationContext.
+        /// </summary>
+        /// <param name="blobAssetStore">The BlobAssetStore used by the BlobAssetComputationContext.</param>
+        /// <param name="initialCapacity">The initial capacity of the internal native containers.</param>
+        /// <param name="allocator">The allocator used to initialize the internal native containers.</param>
+        /// <exception cref="ArgumentNullException">Thrown if an invalid BlobAssetStore is passed.</exception>
         public BlobAssetComputationContext(BlobAssetStore blobAssetStore, int initialCapacity, Allocator allocator)
         {
-            m_BlobAssetStore = blobAssetStore ?? throw new ArgumentNullException(nameof(blobAssetStore), "A valid BlobAssetStore must be passed to construct a BlobAssetComputationContext");
+            if (!blobAssetStore.IsCreated)
+                throw new ArgumentNullException(nameof(blobAssetStore), "A valid BlobAssetStore must be passed to construct a BlobAssetComputationContext");
+            m_BlobAssetStore = blobAssetStore;
             m_ToCompute = new NativeParallelHashMap<Hash128, TS>(initialCapacity, allocator);
             m_Computed = new NativeParallelHashMap<Hash128, BlobAssetReference<TB>>(initialCapacity, allocator);
-            m_BlobPerUnityObject = new NativeParallelMultiHashMap<int, Hash128>(initialCapacity, allocator);
+            m_BlobPerUnityObject = new NativeMultiHashMap<int, Hash128>(initialCapacity, allocator);
+            m_BlobAssetStoreTypeHash = BlobAssetStore.ComputeTypeHash(typeof(TB));
         }
 
+        /// <summary>
+        /// Checks if the BlobAssetComputationContext exists and its native containers are allocated.
+        /// </summary>
+        /// <returns>Returns true if BlobAssetComputationContext has been created, and its native containers are allocated. Otherwise returns false.</returns>
         public bool IsCreated => m_ToCompute.IsCreated;
 
-        BlobAssetStore m_BlobAssetStore;
-        NativeParallelHashMap<Hash128, TS> m_ToCompute;
-        NativeParallelHashMap<Hash128, BlobAssetReference<TB>> m_Computed;
-        NativeParallelMultiHashMap<int, Hash128> m_BlobPerUnityObject;
+        private BlobAssetStore m_BlobAssetStore;
+        private NativeParallelHashMap<Hash128, TS> m_ToCompute;
+        private NativeParallelHashMap<Hash128, BlobAssetReference<TB>> m_Computed;
+        private NativeMultiHashMap<int, Hash128> m_BlobPerUnityObject;
+        private uint m_BlobAssetStoreTypeHash;
 
+        /// <summary>
+        /// Gets all the BlobAssetSettings with a specified allocator.
+        /// </summary>
+        /// <param name="allocator">The allocator to get the BlobAssetSettings with.</param>
+        /// <returns>Returns BlobAssetSettings as a native array.</returns>
         public NativeArray<TS> GetSettings(Allocator allocator) => m_ToCompute.GetValueArray(allocator);
 
         /// <summary>
@@ -80,13 +100,26 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Declare the BlobAsset being associated with the given UnityObject
+        /// </summary>
+        /// <param name="hash">The hash associated to the BlobAsset</param>
+        /// <param name="unityObjectInstanceID">The instance ID of the UnityObject associated with the BlobAsset</param>
+        /// <remarks>
+        /// One of the role of the <see cref="BlobAssetComputationContext{TS,TB}"/> is to track the new association between Authoring UnityObject and BlobAsset and report them to the <see cref="BlobAssetStore"/> to automatically track the life-time of the <see cref="BlobAssetReference{T}"/> and release the instances that are no longer used.
+        /// </remarks>
+        public void AssociateBlobAssetWithUnityObject(Hash128 hash, int unityObjectInstanceID)
+        {
+            m_BlobPerUnityObject.Add(unityObjectInstanceID, hash);
+        }
+
+        /// <summary>
         /// During the conversion process, the user must call this method for each BlobAsset being processed, to determine if it requires to be computed
         /// </summary>
         /// <param name="hash">The hash associated to the BlobAsset</param>
         /// <returns>true if the BlobAsset must be computed, false if it's already in the store or the computing queue</returns>
         public bool NeedToComputeBlobAsset(Hash128 hash)
         {
-            return !m_ToCompute.ContainsKey(hash) && !m_BlobAssetStore.Contains<TB>(hash);
+            return !m_ToCompute.ContainsKey(hash) && !m_BlobAssetStore.Contains(hash, m_BlobAssetStoreTypeHash);
         }
 
         /// <summary>
@@ -109,7 +142,7 @@ namespace Unity.Entities
         /// <param name="blob">The BlobAsset to add</param>
         public void AddComputedBlobAsset(Hash128 hash, BlobAssetReference<TB> blob)
         {
-            if (!m_Computed.TryAdd(hash, blob) || !m_BlobAssetStore.TryAdd(hash, blob))
+            if (!m_Computed.TryAdd(hash, blob) || !m_BlobAssetStore.TryAdd(hash, m_BlobAssetStoreTypeHash, ref blob, false))
             {
                 throw new ArgumentException($"There is already a BlobAsset with the hash: {hash} in the Store or the Computed list. You should add a newly computed BlobAsset only once.");
             }
@@ -123,7 +156,7 @@ namespace Unity.Entities
         /// <returns>true if the blob asset was found, false otherwise</returns>
         public bool GetBlobAsset(Hash128 hash, out BlobAssetReference<TB> blob)
         {
-            return m_Computed.TryGetValue(hash, out blob) || m_BlobAssetStore.TryGet(hash, out blob);
+            return m_Computed.TryGetValue(hash, out blob) || m_BlobAssetStore.TryGet(hash, m_BlobAssetStoreTypeHash, out blob, false);
         }
 
         /// <summary>

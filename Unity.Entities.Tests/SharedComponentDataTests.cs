@@ -124,6 +124,111 @@ namespace Unity.Entities.Tests
         public SharedData17(int val) { value = val; }
     }
 
+    unsafe struct SharedDataRefCounter : ISharedComponentData, IRefCounted, IEquatable<SharedDataRefCounter>
+    {
+        public int Value;
+        public int RefCounter => *_refCounter;
+        private readonly int* _refCounter;
+
+        public SharedDataRefCounter(int value, int* refCounter)
+        {
+            Value = value;
+            _refCounter = refCounter;
+        }
+
+        public void Retain()
+        {
+            ++*_refCounter;
+        }
+
+        public void Release()
+        {
+            --*_refCounter;
+        }
+
+        public bool Equals(SharedDataRefCounter other)
+        {
+            return Value == other.Value && _refCounter == other._refCounter;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is SharedDataRefCounter other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hashCode = Value;
+                hashCode = (hashCode * 397) ^ unchecked((int) (long) _refCounter);
+                return hashCode;
+            }
+        }
+    }
+
+#if !NET_DOTS
+
+    struct ManagedSharedData1 : ISharedComponentData, IEquatable<ManagedSharedData1>
+    {
+        public Tuple<int, int> value;
+
+        public ManagedSharedData1(Tuple<int, int> val)
+        {
+            value = val;
+        }
+
+        public ManagedSharedData1(int val)
+        {
+            value = new Tuple<int, int>(val, val);
+        }
+
+        public bool Equals(ManagedSharedData1 other)
+        {
+            return Equals(value, other.value);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ManagedSharedData1 other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return (value != null ? value.GetHashCode() : 0);
+        }
+    }
+#endif
+    struct ManagedSharedData2 : ISharedComponentData, IEquatable<ManagedSharedData2>
+    {
+        public int value;
+        private string _forceManaged;
+
+        public ManagedSharedData2(int val)
+        {
+            value = val;
+            _forceManaged = null;
+        }
+
+        public bool Equals(ManagedSharedData2 other)
+        {
+            return value == other.value && _forceManaged == other._forceManaged;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ManagedSharedData2 other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (value * 397) ^ (_forceManaged != null ? _forceManaged.GetHashCode() : 0);
+            }
+        }
+    }
+
     class SharedComponentDataTests : ECSTestsFixture
     {
         //@TODO: No tests for invalid shared components / destroyed shared component data
@@ -140,9 +245,9 @@ namespace Unity.Entities.Tests
             var group12 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData2), typeof(SharedData1));
 
             var group1_filter_0 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            group1_filter_0.SetSharedComponentFilter(new SharedData1(0));
+            group1_filter_0.SetSharedComponentFilterManaged(new SharedData1(0));
             var group1_filter_20 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
-            group1_filter_20.SetSharedComponentFilter(new SharedData1(20));
+            group1_filter_20.SetSharedComponentFilterManaged(new SharedData1(20));
 
             Assert.AreEqual(0, group1.CalculateEntityCount());
             Assert.AreEqual(0, group2.CalculateEntityCount());
@@ -163,7 +268,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(117, group1_filter0_data[0].value);
             Assert.AreEqual(243, group1_filter0_data[1].value);
 
-            m_Manager.SetSharedComponentData(e1, new SharedData1(20));
+            m_Manager.SetSharedComponentManaged(e1, new SharedData1(20));
 
             group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             var group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
@@ -173,7 +278,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(117, group1_filter20_data[0].value);
             Assert.AreEqual(243, group1_filter0_data[0].value);
 
-            m_Manager.SetSharedComponentData(e2, new SharedData1(20));
+            m_Manager.SetSharedComponentManaged(e2, new SharedData1(20));
 
             group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
@@ -190,29 +295,170 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetAllUniqueSharedComponents()
+        public void UnmanagedSharedComponent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            Entity me1 = m_Manager.CreateEntity(archetype);
+            Entity me2 = m_Manager.CreateEntity(archetype);
+            Entity ue1 = m_Manager.CreateEntity(archetype);
+            Entity ue2 = m_Manager.CreateEntity(archetype);
+            Entity ue3 = m_Manager.CreateEntity(archetype);
+
+            Assert.IsFalse(m_Manager.HasComponent<SharedData1>(me1));
+
+            Assert.IsFalse(m_Manager.HasComponent<SharedData1>(ue1));
+
+            // Managed path
+#if !NET_DOTS
+            m_Manager.AddSharedComponentManaged(me1, new ManagedSharedData1(new Tuple<int, int>(17, 3)));
+            m_Manager.AddSharedComponentManaged(me2, new ManagedSharedData1(new Tuple<int, int>(17, 3)));
+
+            Assert.IsTrue(m_Manager.HasComponent<ManagedSharedData1>(me1));
+            Assert.IsFalse(m_Manager.HasComponent<SharedData2>(me1));
+            Assert.AreEqual(new Tuple<int, int>(17, 3), m_Manager.GetSharedComponentManaged<ManagedSharedData1>(me1).value);
+
+            m_Manager.RemoveComponent<ManagedSharedData1>(me1);
+            m_Manager.RemoveComponent<ManagedSharedData1>(me2);
+#endif
+
+            // Unmanaged path
+            m_Manager.AddSharedComponentManaged(ue1, new SharedData1());
+            Assert.IsTrue(m_Manager.HasComponent<SharedData1>(ue1));
+            Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<SharedData1>(ue1).value);
+
+            m_Manager.AddSharedComponentManaged(ue1, new SharedData1(17));
+            m_Manager.AddSharedComponentManaged(ue2, new SharedData1(17));
+
+            Assert.IsTrue(m_Manager.HasComponent<SharedData1>(ue1));
+            Assert.IsFalse(m_Manager.HasComponent<SharedData2>(ue1));
+            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(ue1).value);
+
+            m_Manager.RemoveComponent<SharedData1>(ue1);
+            Assert.IsFalse(m_Manager.HasComponent<SharedData1>(ue1));
+
+            m_Manager.RemoveComponent<SharedData1>(ue2);
+            Assert.IsFalse(m_Manager.HasComponent<SharedData1>(ue2));
+        }
+
+        [Test]
+        public void AddUnmanagedSharedComponent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            Entity ue1 = m_Manager.CreateEntity(archetype);
+            Entity ue2 = m_Manager.CreateEntity(archetype);
+
+            // Unmanaged through managed api
+            m_Manager.AddSharedComponentManaged(ue1, new SharedData1(17));
+            Assert.IsTrue(m_Manager.HasComponent<SharedData1>(ue1));
+            Assert.IsFalse(m_Manager.HasComponent<SharedData2>(ue1));
+            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(ue1).value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponent<SharedData1>(ue1).value);
+
+            // Unmanaged API
+            m_Manager.AddSharedComponent(ue2, new SharedData1(34));
+            Assert.IsTrue(m_Manager.HasComponent<SharedData1>(ue2));
+            Assert.IsFalse(m_Manager.HasComponent<SharedData2>(ue2));
+            Assert.AreEqual(34, m_Manager.GetSharedComponentManaged<SharedData1>(ue2).value);
+            Assert.AreEqual(34, m_Manager.GetSharedComponent<SharedData1>(ue2).value);
+        }
+
+        [Test]
+        public void GetSharedComponentCount()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            Entity ue1 = m_Manager.CreateEntity(archetype);
+
+            var startCount = m_Manager.GetSharedComponentCount();
+
+            m_Manager.AddSharedComponentManaged(ue1, new SharedData1(17));
+            Assert.AreEqual(startCount + 1, m_Manager.GetSharedComponentCount());
+
+            m_Manager.AddSharedComponentManaged(ue1, new SharedData2(18));
+            Assert.AreEqual(startCount + 2, m_Manager.GetSharedComponentCount());
+
+#if !NET_DOTS
+            m_Manager.AddSharedComponentManaged(ue1, new ManagedSharedData1(new Tuple<int, int>(2, 3)));
+            Assert.AreEqual(startCount + 3, m_Manager.GetSharedComponentCount());
+#endif
+            // ###REVIEW NOTE### Managed Path doesn't clear the SharedDataComponent when they're no longer referenced, should we fix this behavior or keep it?
+            // m_Manager.RemoveComponent<SharedData1>(ue1);
+            // Assert.AreEqual(startCount + 2, m_Manager.GetSharedComponentCount());
+            //
+            // m_Manager.RemoveComponent<SharedData2>(ue1);
+            // Assert.AreEqual(startCount + 1, m_Manager.GetSharedComponentCount());
+            //
+            // m_Manager.RemoveComponent<ManagedSharedData1>(ue1);
+            // Assert.AreEqual(startCount + 0, m_Manager.GetSharedComponentCount());
+        }
+
+        [Test]
+        public void SetUnmanagedSharedComponentData()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
+            Entity e1 = m_Manager.CreateEntity(archetype);
+            Entity e2 = m_Manager.CreateEntity(archetype);
+            Entity e3 = m_Manager.CreateEntity(archetype);
+
+            Assert.AreEqual(0, m_Manager.GetSharedComponent<SharedData1>(e1).value);
+            m_Manager.SetSharedComponent(e1, new SharedData1(17));
+            Assert.AreEqual(17, m_Manager.GetSharedComponent<SharedData1>(e1).value);
+
+            Assert.AreEqual(0, m_Manager.GetSharedComponent<SharedData1>(e2).value);
+            m_Manager.SetSharedComponentManaged(e2, new SharedData1(18));
+            Assert.AreEqual(18, m_Manager.GetSharedComponent<SharedData1>(e2).value);
+
+            Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<SharedData1>(e3).value);
+            m_Manager.SetSharedComponentManaged(e3, new SharedData1(19));
+            Assert.AreEqual(19, m_Manager.GetSharedComponentManaged<SharedData1>(e3).value);
+        }
+
+        [Test]
+        public unsafe void SharedComponentDataWithRefCounter()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(SharedDataRefCounter));
+            Entity e1 = m_Manager.CreateEntity(archetype);
+            Entity e2 = m_Manager.CreateEntity(archetype);
+            Entity e3 = m_Manager.CreateEntity(archetype);
+
+            int refCounter = 0;
+
+            m_Manager.SetSharedComponentManaged(e1, new SharedDataRefCounter(10, &refCounter));
+            Assert.AreEqual(1, refCounter);
+
+            m_Manager.SetSharedComponentManaged(e2, new SharedDataRefCounter(20, &refCounter));
+            Assert.AreEqual(2, refCounter);
+
+            m_Manager.RemoveComponent<SharedDataRefCounter>(e1);
+            Assert.AreEqual(1, refCounter);
+
+            m_Manager.RemoveComponent<SharedDataRefCounter>(e2);
+            Assert.AreEqual(0, refCounter);
+        }
+
+        [Test]
+        public void GetAllUniqueSharedComponents_ReturnsCorrectValues()
         {
             var unique = new List<SharedData1>(0);
-            m_Manager.GetAllUniqueSharedComponentData(unique);
+            m_Manager.GetAllUniqueSharedComponentsManaged(unique);
 
             Assert.AreEqual(1, unique.Count);
             Assert.AreEqual(default(SharedData1).value, unique[0].value);
 
             var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
             Entity e = m_Manager.CreateEntity(archetype);
-            m_Manager.SetSharedComponentData(e, new SharedData1(17));
+            m_Manager.SetSharedComponentManaged(e, new SharedData1(17));
 
             unique.Clear();
-            m_Manager.GetAllUniqueSharedComponentData(unique);
+            m_Manager.GetAllUniqueSharedComponentsManaged(unique);
 
             Assert.AreEqual(2, unique.Count);
             Assert.AreEqual(default(SharedData1).value, unique[0].value);
             Assert.AreEqual(17, unique[1].value);
 
-            m_Manager.SetSharedComponentData(e, new SharedData1(34));
+            m_Manager.SetSharedComponentManaged(e, new SharedData1(34));
 
             unique.Clear();
-            m_Manager.GetAllUniqueSharedComponentData(unique);
+            m_Manager.GetAllUniqueSharedComponentsManaged(unique);
 
             Assert.AreEqual(2, unique.Count);
             Assert.AreEqual(default(SharedData1).value, unique[0].value);
@@ -221,10 +467,38 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(e);
 
             unique.Clear();
-            m_Manager.GetAllUniqueSharedComponentData(unique);
+            m_Manager.GetAllUniqueSharedComponentsManaged(unique);
 
             Assert.AreEqual(1, unique.Count);
             Assert.AreEqual(default(SharedData1).value, unique[0].value);
+        }
+        [Test]
+        public unsafe void GetAllUniqueSharedComponents_ReturnsCorrectIndices()
+        {
+            Entity e = m_Manager.CreateEntity();
+            Entity e2 = m_Manager.CreateEntity();
+
+            m_Manager.AddComponentData(e, new EcsTestData(42));
+            int refcount1 = 1;
+            int refcount2 = 1;
+            var sharedDataRefCounter1 = new SharedDataRefCounter(0, &refcount1);
+            m_Manager.AddSharedComponentManaged(e, sharedDataRefCounter1);
+            var sharedDataRefCounter2 = new SharedDataRefCounter(1, &refcount2);
+            m_Manager.AddSharedComponentManaged(e2, sharedDataRefCounter2);
+            /*
+             * it's important to also remove one of the shared components, because we have had issues where
+             * the index is fine until you remove a component and then is wrong afterwards
+             */
+            m_Manager.RemoveComponent<SharedDataRefCounter>(e);
+            var values = new List<SharedDataRefCounter>();
+            var indices = new List<int>();
+            m_Manager.GetAllUniqueSharedComponentsManaged(values, indices);
+
+            Assert.That(indices[0] == 0);
+            var firstrealindex = indices[1];
+            Assert.That(EntityComponentStore.IsUnmanagedSharedComponentIndex(firstrealindex));
+            Assert.That(firstrealindex == m_Manager.GetSharedComponentDataIndex<SharedDataRefCounter>(e2));
+            m_Manager.RemoveComponent<SharedDataRefCounter>(e2);
         }
 
         [Test]
@@ -233,11 +507,11 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
             Entity e = m_Manager.CreateEntity(archetype);
 
-            Assert.AreEqual(0, m_Manager.GetSharedComponentData<SharedData1>(e).value);
+            Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
 
-            m_Manager.SetSharedComponentData(e, new SharedData1(17));
+            m_Manager.SetSharedComponentManaged(e, new SharedData1(17));
 
-            Assert.AreEqual(17, m_Manager.GetSharedComponentData<SharedData1>(e).value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
         }
 
         [Test]
@@ -246,12 +520,12 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
             Entity e = m_Manager.CreateEntity(archetype);
 
-            Assert.AreEqual(0, m_Manager.GetSharedComponentData<SharedData1>(e).value);
+            Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
 
-            m_Manager.SetSharedComponentData(e, new SharedData1(17));
+            m_Manager.SetSharedComponentManaged(e, new SharedData1(17));
             m_Manager.AddComponentData(e, new EcsTestData2 {value0 = 1, value1 = 2});
 
-            Assert.AreEqual(17, m_Manager.GetSharedComponentData<SharedData1>(e).value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
         }
 
         [Test]
@@ -259,8 +533,8 @@ namespace Unity.Entities.Tests
         {
             Entity e = m_Manager.CreateEntity(typeof(EcsTestData));
 
-            Assert.Throws<ArgumentException>(() => { m_Manager.GetSharedComponentData<SharedData1>(e); });
-            Assert.Throws<ArgumentException>(() => { m_Manager.SetSharedComponentData(e, new SharedData1()); });
+            Assert.Throws<ArgumentException>(() => { m_Manager.GetSharedComponentManaged<SharedData1>(e); });
+            Assert.Throws<ArgumentException>(() => { m_Manager.SetSharedComponentManaged(e, new SharedData1()); });
         }
 
         [Test]
@@ -272,17 +546,123 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Manager.HasComponent<SharedData1>(e));
             Assert.IsFalse(m_Manager.HasComponent<SharedData2>(e));
 
-            m_Manager.AddSharedComponentData(e, new SharedData1(17));
+            m_Manager.AddSharedComponentManaged(e, new SharedData1(17));
 
             Assert.IsTrue(m_Manager.HasComponent<SharedData1>(e));
             Assert.IsFalse(m_Manager.HasComponent<SharedData2>(e));
-            Assert.AreEqual(17, m_Manager.GetSharedComponentData<SharedData1>(e).value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
 
-            m_Manager.AddSharedComponentData(e, new SharedData2(34));
+            m_Manager.AddSharedComponentManaged(e, new SharedData2(34));
             Assert.IsTrue(m_Manager.HasComponent<SharedData1>(e));
             Assert.IsTrue(m_Manager.HasComponent<SharedData2>(e));
-            Assert.AreEqual(17, m_Manager.GetSharedComponentData<SharedData1>(e).value);
-            Assert.AreEqual(34, m_Manager.GetSharedComponentData<SharedData2>(e).value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
+            Assert.AreEqual(34, m_Manager.GetSharedComponentManaged<SharedData2>(e).value);
+        }
+
+        [Test]
+        public void AddSharedComponent_ToEntityArray_Managed_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            int entityCount = 100;
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            foreach (var e in entities)
+            {
+                Assert.IsFalse(m_Manager.HasComponent<ManagedSharedData1>(e));
+                Assert.IsFalse(m_Manager.HasComponent<ManagedSharedData2>(e));
+            }
+
+            var value1 = new ManagedSharedData1(17);
+            m_Manager.AddSharedComponentManaged(entities, value1);
+            foreach (var e in entities)
+            {
+                Assert.IsTrue(m_Manager.HasComponent<ManagedSharedData1>(e));
+                Assert.IsFalse(m_Manager.HasComponent<ManagedSharedData2>(e));
+                Assert.AreEqual(value1.value, m_Manager.GetSharedComponentManaged<ManagedSharedData1>(e).value);
+            }
+
+            var value2 = new ManagedSharedData2(34);
+            m_Manager.AddSharedComponentManaged(entities, value2);
+            foreach (var e in entities)
+            {
+                Assert.IsTrue(m_Manager.HasComponent<ManagedSharedData1>(e));
+                Assert.IsTrue(m_Manager.HasComponent<ManagedSharedData2>(e));
+                Assert.AreEqual(value1.value, m_Manager.GetSharedComponentManaged<ManagedSharedData1>(e).value);
+                Assert.AreEqual(value2.value, m_Manager.GetSharedComponentManaged<ManagedSharedData2>(e).value);
+            }
+        }
+
+        [Test]
+        public void AddSharedComponent_ToEntityArray_Unmanaged_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            int entityCount = 100;
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            foreach (var e in entities)
+            {
+                Assert.IsFalse(m_Manager.HasComponent<SharedData1>(e));
+                Assert.IsFalse(m_Manager.HasComponent<SharedData2>(e));
+            }
+
+            m_Manager.AddSharedComponent(entities, new SharedData1(17));
+            foreach (var e in entities)
+            {
+                Assert.IsTrue(m_Manager.HasComponent<SharedData1>(e));
+                Assert.IsFalse(m_Manager.HasComponent<SharedData2>(e));
+                Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
+            }
+
+            m_Manager.AddSharedComponent(entities, new SharedData2(34));
+            foreach (var e in entities)
+            {
+                Assert.IsTrue(m_Manager.HasComponent<SharedData1>(e));
+                Assert.IsTrue(m_Manager.HasComponent<SharedData2>(e));
+                Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
+                Assert.AreEqual(34, m_Manager.GetSharedComponentManaged<SharedData2>(e).value);
+            }
+        }
+
+        [Test]
+        public void SetSharedComponent_ToEntityArray_Managed_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(ManagedSharedData1), typeof(ManagedSharedData2));
+            int entityCount = 100;
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+
+            var value1 = new ManagedSharedData1(17);
+            m_Manager.SetSharedComponentManaged(entities, value1);
+            foreach (var e in entities)
+            {
+                Assert.AreEqual(value1.value, m_Manager.GetSharedComponentManaged<ManagedSharedData1>(e).value);
+            }
+
+            var value2 = new ManagedSharedData2(34);
+            m_Manager.SetSharedComponentManaged(entities, value2);
+            foreach (var e in entities)
+            {
+                Assert.AreEqual(value1.value, m_Manager.GetSharedComponentManaged<ManagedSharedData1>(e).value);
+                Assert.AreEqual(value2.value, m_Manager.GetSharedComponentManaged<ManagedSharedData2>(e).value);
+            }
+        }
+
+        [Test]
+        public void SetSharedComponent_ToEntityArray_Unmanaged_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(SharedData1), typeof(SharedData2));
+            int entityCount = 100;
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+
+            m_Manager.SetSharedComponent(entities, new SharedData1(17));
+            foreach (var e in entities)
+            {
+                Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
+            }
+
+            m_Manager.AddSharedComponent(entities, new SharedData2(34));
+            foreach (var e in entities)
+            {
+                Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
+                Assert.AreEqual(34, m_Manager.GetSharedComponentManaged<SharedData2>(e).value);
+            }
         }
 
         [Test]
@@ -300,10 +680,10 @@ namespace Unity.Entities.Tests
 
             Assert.IsFalse(m_Manager.HasComponent<SharedData1>(e));
 
-            m_Manager.AddSharedComponentData(query, new SharedData1(17));
+            m_Manager.AddSharedComponentManaged(query, new SharedData1(17));
 
             Assert.IsTrue(m_Manager.HasComponent<SharedData1>(e));
-            Assert.AreEqual(17, m_Manager.GetSharedComponentData<SharedData1>(e).value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
         }
 
         [Test]
@@ -321,10 +701,10 @@ namespace Unity.Entities.Tests
 
             Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(e));
 
-            m_Manager.AddSharedComponentData(query, new EcsTestSharedCompWithMaxChunkCapacity(17));
+            m_Manager.AddSharedComponentManaged(query, new EcsTestSharedCompWithMaxChunkCapacity(17));
 
             Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(e));
-            Assert.AreEqual(17, m_Manager.GetSharedComponentData<EcsTestSharedCompWithMaxChunkCapacity>(e).Value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<EcsTestSharedCompWithMaxChunkCapacity>(e).Value);
         }
 
         [Test]
@@ -352,10 +732,10 @@ namespace Unity.Entities.Tests
 
                 foreach (var e in entities)
                 {
-                    Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(e));
+                    FastAssert.IsFalse(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(e));
                 }
 
-                m_Manager.AddSharedComponentData(query, new EcsTestSharedCompWithMaxChunkCapacity(17));
+                m_Manager.AddSharedComponentManaged(query, new EcsTestSharedCompWithMaxChunkCapacity(17));
                 var chunk = m_Manager.GetChunk(entities[0]);
                 int maxChunkCapacity = TypeManager.GetTypeInfo<EcsTestSharedCompWithMaxChunkCapacity>().MaximumChunkCapacity;
                 int expectedChunkCount = (numEntities + maxChunkCapacity - 1) / maxChunkCapacity;
@@ -364,9 +744,9 @@ namespace Unity.Entities.Tests
                 // Ensure that the moved components have the correct values.
                 for (int i = 0; i < entities.Length; ++i)
                 {
-                    Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(entities[i]));
-                    Assert.AreEqual(17, m_Manager.GetSharedComponentData<EcsTestSharedCompWithMaxChunkCapacity>(entities[i]).Value);
-                    Assert.AreEqual(i, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
+                    FastAssert.IsTrue(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(entities[i]));
+                    FastAssert.AreEqual(17, m_Manager.GetSharedComponentManaged<EcsTestSharedCompWithMaxChunkCapacity>(entities[i]).Value);
+                    FastAssert.AreEqual(i, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
                 }
             }
         }
@@ -389,7 +769,7 @@ namespace Unity.Entities.Tests
                 m_Manager.AddComponent(entities, typeof(EcsTestSharedCompWithMaxChunkCapacity));
 
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(entities[0]));
-                Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsTestSharedCompWithMaxChunkCapacity>(entities[0]).Value);
+                Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<EcsTestSharedCompWithMaxChunkCapacity>(entities[0]).Value);
             }
         }
 
@@ -399,23 +779,26 @@ namespace Unity.Entities.Tests
             Entity e = m_Manager.CreateEntity();
 
             m_Manager.AddComponentData(e, new EcsTestData(42));
-            m_Manager.AddSharedComponentData(e, new SharedData1(17));
-            m_Manager.AddSharedComponentData(e, new SharedData2(34));
+            m_Manager.AddSharedComponentManaged(e, new SharedData1(17));
+            m_Manager.AddSharedComponentManaged(e, new SharedData2(34));
 
             Assert.IsTrue(m_Manager.HasComponent<SharedData1>(e));
             Assert.IsTrue(m_Manager.HasComponent<SharedData2>(e));
-            Assert.AreEqual(17, m_Manager.GetSharedComponentData<SharedData1>(e).value);
-            Assert.AreEqual(34, m_Manager.GetSharedComponentData<SharedData2>(e).value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponentManaged<SharedData1>(e).value);
+            Assert.AreEqual(34, m_Manager.GetSharedComponentManaged<SharedData2>(e).value);
 
             m_Manager.RemoveComponent<SharedData1>(e);
             Assert.IsFalse(m_Manager.HasComponent<SharedData1>(e));
-            Assert.AreEqual(34, m_Manager.GetSharedComponentData<SharedData2>(e).value);
+            Assert.AreEqual(34, m_Manager.GetSharedComponentManaged<SharedData2>(e).value);
 
             m_Manager.RemoveComponent<SharedData2>(e);
             Assert.IsFalse(m_Manager.HasComponent<SharedData2>(e));
 
             Assert.AreEqual(42, m_Manager.GetComponentData<EcsTestData>(e).value);
         }
+
+
+
 
         [Test]
         public void SCG_DoesNotMatchRemovedSharedComponentInEntityQuery()
@@ -453,19 +836,19 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             var entity1 = m_Manager.CreateEntity(archetype1);
 
-            var preChunks0 = group0.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
-            var preChunks1 = group1.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var preChunks0 = group0.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var preChunks1 = group1.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
-            Assert.AreEqual(2, ArchetypeChunkArray.CalculateEntityCount(preChunks0));
-            Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(preChunks1));
+            Assert.AreEqual(2, ArchetypeChunkArray.TotalEntityCountInChunksIgnoreFiltering(preChunks0));
+            Assert.AreEqual(1, ArchetypeChunkArray.TotalEntityCountInChunksIgnoreFiltering(preChunks1));
 
             m_Manager.RemoveComponent<SharedData2>(entity1);
 
-            var postChunks0 = group0.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
-            var postChunks1 = group1.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var postChunks0 = group0.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var postChunks1 = group1.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
-            Assert.AreEqual(2, ArchetypeChunkArray.CalculateEntityCount(postChunks0));
-            Assert.AreEqual(0, ArchetypeChunkArray.CalculateEntityCount(postChunks1));
+            Assert.AreEqual(2, ArchetypeChunkArray.TotalEntityCountInChunksIgnoreFiltering(postChunks0));
+            Assert.AreEqual(0, ArchetypeChunkArray.TotalEntityCountInChunksIgnoreFiltering(postChunks1));
 
             group0.Dispose();
             group1.Dispose();
@@ -480,19 +863,19 @@ namespace Unity.Entities.Tests
             var e1 = m_Manager.CreateEntity(typeof(SharedData1));
             var e2 = m_Manager.CreateEntity(typeof(SharedData1), typeof(EcsTestData));
 
-            m_Manager.SetSharedComponentData(e0, new SharedData1 {value = 0});
-            m_Manager.SetSharedComponentData(e1, new SharedData1 {value = 1});
-            m_Manager.SetSharedComponentData(e2, new SharedData1 {value = 2});
+            m_Manager.SetSharedComponentManaged(e0, new SharedData1 {value = 0});
+            m_Manager.SetSharedComponentManaged(e1, new SharedData1 {value = 1});
+            m_Manager.SetSharedComponentManaged(e2, new SharedData1 {value = 2});
 
             var c0 = m_Manager.GetChunk(e0);
             var c1 = m_Manager.GetChunk(e1);
             var c2 = m_Manager.GetChunk(e2);
             var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<SharedData1>(), ComponentType.ReadWrite<EcsTestData>());
-            m_Manager.SetSharedComponentData(query, new SharedData1 {value = 10});
+            m_Manager.SetSharedComponentManaged(query, new SharedData1 {value = 10});
 
-            Assert.AreEqual(10, m_Manager.GetSharedComponentData<SharedData1>(e0).value);
-            Assert.AreEqual(1, m_Manager.GetSharedComponentData<SharedData1>(e1).value);
-            Assert.AreEqual(10, m_Manager.GetSharedComponentData<SharedData1>(e2).value);
+            Assert.AreEqual(10, m_Manager.GetSharedComponentManaged<SharedData1>(e0).value);
+            Assert.AreEqual(1, m_Manager.GetSharedComponentManaged<SharedData1>(e1).value);
+            Assert.AreEqual(10, m_Manager.GetSharedComponentManaged<SharedData1>(e2).value);
             Assert.IsFalse(m_Manager.HasComponent<SharedData1>(noShared));
 
             // This is not required but describes current behaviour,
@@ -551,40 +934,40 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-#if !UNITY_DOTSRUNTIME // Unsupported shared components in DOTS Runtime
         [Test]
         public void GetSharedComponentDataWithTypeIndex()
         {
             var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
             Entity e = m_Manager.CreateEntity(archetype);
 
-            int typeIndex = TypeManager.GetTypeIndex<SharedData1>();
+            var typeIndex = TypeManager.GetTypeIndex<SharedData1>();
 
             object sharedComponentValue = m_Manager.GetSharedComponentData(e, typeIndex);
             Assert.AreEqual(typeof(SharedData1), sharedComponentValue.GetType());
             Assert.AreEqual(0, ((SharedData1)sharedComponentValue).value);
 
-            m_Manager.SetSharedComponentData(e, new SharedData1(17));
+            m_Manager.SetSharedComponentManaged(e, new SharedData1(17));
 
             sharedComponentValue = m_Manager.GetSharedComponentData(e, typeIndex);
             Assert.AreEqual(typeof(SharedData1), sharedComponentValue.GetType());
             Assert.AreEqual(17, ((SharedData1)sharedComponentValue).value);
         }
 
+#if !NET_DOTS //custom equality / iequatable shared components not supported in dotsrt yet
+
         [Test]
         public void Case1085730()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsStringSharedComponent), typeof(EcsTestData));
 
-            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new EcsStringSharedComponent { Value = "1" });
-            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new EcsStringSharedComponent { Value = 1.ToString() });
+            m_Manager.AddSharedComponentManaged(m_Manager.CreateEntity(), new EcsStringSharedComponent { Value = "1" });
+            m_Manager.AddSharedComponentManaged(m_Manager.CreateEntity(), new EcsStringSharedComponent { Value = 1.ToString() });
 
             List<EcsStringSharedComponent> uniques = new List<EcsStringSharedComponent>();
-            m_Manager.GetAllUniqueSharedComponentData(uniques);
+            m_Manager.GetAllUniqueSharedComponentsManaged(uniques);
 
             Assert.AreEqual(2, uniques.Count);
         }
-
         [Test]
         public void Case1085730_HashCode()
         {
@@ -605,6 +988,7 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(iseq);
         }
+#endif
 
         public struct CustomEquality : ISharedComponentData, IEquatable<CustomEquality>
         {
@@ -626,16 +1010,132 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(CustomEquality), typeof(EcsTestData));
 
-            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new CustomEquality { Foo = 0x01 });
-            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new CustomEquality { Foo = 0x2201 });
-            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new CustomEquality { Foo = 0x3201 });
+            m_Manager.AddSharedComponentManaged(m_Manager.CreateEntity(), new CustomEquality { Foo = 0x01 });
+            m_Manager.AddSharedComponentManaged(m_Manager.CreateEntity(), new CustomEquality { Foo = 0x2201 });
+            m_Manager.AddSharedComponentManaged(m_Manager.CreateEntity(), new CustomEquality { Foo = 0x3201 });
 
             List<CustomEquality> uniques = new List<CustomEquality>();
-            m_Manager.GetAllUniqueSharedComponentData(uniques);
+            m_Manager.GetAllUniqueSharedComponentsManaged(uniques);
 
             Assert.AreEqual(2, uniques.Count);
         }
 
-#endif
+        [Test]
+        public unsafe void IRefCounted_IsDisposed_AfterWorldDies()
+        {
+            var world = new World("IRefCountedTestWorld");
+            world.UpdateAllocatorEnableBlockFree = true;
+            int RefCount1 = 0;
+            var entity = world.EntityManager.CreateEntity();
+            var refcountedComp = new EcsTestSharedCompWithRefCount(&RefCount1);
+            world.EntityManager.AddSharedComponentManaged(entity, refcountedComp);
+            Assert.AreEqual(1, RefCount1);
+
+            world.Dispose();
+            Assert.AreEqual(0, RefCount1);
+        }
+
+
+
+        [Test]
+        public unsafe void IRefCounted_IsNotDisposed_AfterMovedAndSrcWorldDestroyed()
+        {
+            var world = new World("IRefCountedTestWorld");
+            world.UpdateAllocatorEnableBlockFree = true;
+            var world2 = new World("IRefCountedTestWorld2");
+            int RefCount1 = 0;
+            var entity = world.EntityManager.CreateEntity();
+            var refcountedComp = new EcsTestSharedCompWithRefCount(&RefCount1);
+            world.EntityManager.AddSharedComponentManaged(entity, refcountedComp);
+            world2.EntityManager.MoveEntitiesFrom(world.EntityManager);
+            world.Dispose();
+            Assert.AreEqual(1, RefCount1);
+            world2.Dispose();
+            Assert.AreEqual(0, RefCount1);
+        }
+
+        [Test]
+        public unsafe void IRefCounted_IsNotDisposed_AfterCopiedAndSrcWorldDestroyed()
+        {
+            var world = new World("IRefCountedTestWorld");
+            world.UpdateAllocatorEnableBlockFree = true;
+            var world2 = new World("IRefCountedTestWorld2");
+            int RefCount1 = 0;
+            var entity = world.EntityManager.CreateEntity();
+            var refcountedComp = new EcsTestSharedCompWithRefCount(&RefCount1);
+            world.EntityManager.AddSharedComponentManaged(entity, refcountedComp);
+            var entities = new NativeArray<Entity>(1, Allocator.Temp);
+            entities[0] = entity;
+            world2.EntityManager.CopyEntitiesFrom(world.EntityManager, entities);
+            world.Dispose();
+            Assert.AreEqual(1, RefCount1);
+            world2.Dispose();
+            Assert.AreEqual(0, RefCount1);
+        }
+
+        [Test]
+        public unsafe void IRefCounted_IsNotDisposed_AfterCopiedAndSrcCopyRemoved()
+        {
+            var world = new World("IRefCountedTestWorld");
+            world.UpdateAllocatorEnableBlockFree = true;
+            var world2 = new World("IRefCountedTestWorld2");
+
+            int RefCount1 = 0;
+            var entity = world.EntityManager.CreateEntity();
+            var refcountedComp = new EcsTestSharedCompWithRefCount(&RefCount1);
+            world.EntityManager.AddSharedComponentManaged(entity, refcountedComp);
+            var entities = new NativeArray<Entity>(1, Allocator.Temp);
+            entities[0] = entity;
+            world2.EntityManager.CopyEntitiesFrom(world.EntityManager, entities);
+            world.EntityManager.RemoveComponent(entity, ComponentType.ReadWrite<EcsTestSharedCompWithRefCount>());
+
+            Assert.AreEqual( 1, RefCount1);
+            world.Dispose();
+            world2.Dispose();
+            Assert.AreEqual( 0, RefCount1);
+        }
+
+        [Test]
+        public unsafe void IRefCounted_IsNotDisposed_AfterAddedToTwoEntities_AndDeletedOnce()
+        {
+            var world = new World("IRefCountedTestWorld");
+            world.UpdateAllocatorEnableBlockFree = true;
+
+            int RefCount1 = 0;
+            var entity = world.EntityManager.CreateEntity();
+            var entity2 = world.EntityManager.CreateEntity();
+            var refcountedComp = new EcsTestSharedCompWithRefCount(&RefCount1);
+            world.EntityManager.AddSharedComponentManaged(entity, refcountedComp);
+            world.EntityManager.AddSharedComponentManaged(entity2, refcountedComp);
+            world.EntityManager.RemoveComponent(entity, ComponentType.ReadWrite<EcsTestSharedCompWithRefCount>());
+
+            Assert.AreEqual(1, RefCount1);
+            world.Dispose();
+            Assert.AreEqual(0, RefCount1);
+
+            /*
+             * incidentally, check that being IRefcounted doesn't force a component to be treated as a managed shared component
+             */
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<EcsTestSharedCompWithRefCount>()));
+        }
+
+        [Test]
+        public unsafe void IRefCounted_IsDisposed_AfterAddedToTwoEntities_AndDeletedBoth()
+        {
+            var world = new World("IRefCountedTestWorld");
+            world.UpdateAllocatorEnableBlockFree = true;
+
+            int RefCount1 = 0;
+            var entity = world.EntityManager.CreateEntity();
+            var entity2 = world.EntityManager.CreateEntity();
+            var refcountedComp = new EcsTestSharedCompWithRefCount(&RefCount1);
+            world.EntityManager.AddSharedComponentManaged(entity, refcountedComp);
+            world.EntityManager.AddSharedComponentManaged(entity2, refcountedComp);
+            world.EntityManager.RemoveComponent(entity, ComponentType.ReadWrite<EcsTestSharedCompWithRefCount>());
+            world.EntityManager.RemoveComponent(entity2, ComponentType.ReadWrite<EcsTestSharedCompWithRefCount>());
+
+            Assert.AreEqual(0, RefCount1);
+            world.Dispose();
+        }
     }
 }

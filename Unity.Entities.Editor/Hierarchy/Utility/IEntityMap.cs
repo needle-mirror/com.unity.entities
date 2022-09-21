@@ -6,7 +6,7 @@ namespace Unity.Entities.Editor
     /// Common interface for the per-entity data storage.
     /// </summary>
     /// <typeparam name="T">The data type stored.</typeparam>
-    public interface IEntityMap<T> : IDisposable where T : unmanaged
+    interface IEntityMap<T> : IDisposable where T : unmanaged
     {
         /// <summary>
         /// Returns the upper bound for the array.
@@ -53,7 +53,7 @@ namespace Unity.Entities.Editor
     /// Represents a key-value pair with the key being an entity.
     /// </summary>
     /// <typeparam name="TValue">The value type.</typeparam>
-    public struct EntityWithValue<TValue>
+    struct EntityWithValue<TValue>
     {
         public Entity Entity;
         public TValue Value;

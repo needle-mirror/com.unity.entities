@@ -13,14 +13,14 @@ using UnityEditor;
 [assembly: InternalsVisibleTo("Unity.Entities.CodeGen.Tests")]
 namespace Unity.Entities.Editor
 {
-    internal enum DecompiledLanguage
+    enum DecompiledLanguage
     {
         CSharpOnly,
         ILOnly,
         CSharpAndIL
     }
 
-    internal static class Decompiler
+    static class Decompiler
     {
         public static Process DecompileIntoCSharp(string fullyQualifiedTypeName, string fullDllPath)
         {
@@ -65,7 +65,7 @@ namespace Unity.Entities.Editor
             return outputCSharpProcess;
         }
 
-        private static StringBuilder GetAllReferencePaths()
+        static StringBuilder GetAllReferencePaths()
         {
             var referencePaths = new StringBuilder();
             var processed = new HashSet<string>();

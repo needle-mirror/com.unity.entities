@@ -48,12 +48,5 @@ namespace Unity.Entities.Hybrid.Tests
                 Object.DestroyImmediate(go);
             }
         }
-
-        protected GameObjectConversionSettings MakeDefaultSettings() => new GameObjectConversionSettings
-        {
-            DestinationWorld = m_World,
-            ConversionFlags = GameObjectConversionUtility.ConversionFlags.AssignName,
-            Systems = TestWorldSetup.GetDefaultInitSystemsFromEntitiesPackage(WorldSystemFilterFlags.GameObjectConversion).ToList()
-        };
     }
 }

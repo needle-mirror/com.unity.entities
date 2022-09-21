@@ -97,7 +97,7 @@ namespace Unity.Entities.Editor
 
             foreach (var rootType in rootTypes)
             {
-                var sys = m_LocalWorld.GetExistingSystem(rootType);
+                var sys = m_LocalWorld.GetExistingSystemManaged(rootType);
                 if (sys == null) // will happen in subset world
                     continue;
 

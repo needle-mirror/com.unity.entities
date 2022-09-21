@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Entities.Baking;
 using Unity.Entities.Conversion;
 using Unity.Jobs;
 using UnityEngine;
@@ -34,7 +35,7 @@ namespace Unity.Entities
         /// <summary>
         /// Contains all changes that have happened in the scene since the last conversion.
         /// </summary>
-        public IncrementalConversionChanges IncomingChanges;
+        public IncrementalBakingChanges IncomingChanges;
 
         /// <summary>
         /// Contains information about the state of the GameObject hierarchy in the scene in a way that can be easily
@@ -63,25 +64,25 @@ namespace Unity.Entities
             get
             {
                 if (_mappingSystem == null)
-                    _mappingSystem = World.GetExistingSystem<GameObjectConversionMappingSystem>();
+                    _mappingSystem = World.GetExistingSystemManaged<GameObjectConversionMappingSystem>();
                 return _mappingSystem;
             }
         }
 
         internal void ExtractRequests(IncrementalConversionData data)
         {
-            data.ReconvertSingleRequests.AddRange(_convertSingleRequests);
-            data.ReconvertHierarchyRequests.AddRange(_convertHierarchyRequests);
-            JobHandle.CompleteAll(_requestsHandles);
+            data.ReconvertSingleRequests.AddRange(_convertSingleRequests.AsArray());
+            data.ReconvertHierarchyRequests.AddRange(_convertHierarchyRequests.AsArray());
+            JobHandle.CompleteAll(_requestsHandles.AsArray());
             foreach (var request in _singleRequests)
             {
-                data.ReconvertSingleRequests.AddRange(request);
+                data.ReconvertSingleRequests.AddRange(request.AsArray());
                 request.Dispose();
             }
 
             foreach (var request in _hierarchyRequests)
             {
-                data.ReconvertHierarchyRequests.AddRange(request);
+                data.ReconvertHierarchyRequests.AddRange(request.AsArray());
                 request.Dispose();
             }
 
@@ -179,7 +180,7 @@ namespace Unity.Entities
         /// on that component type later on when you are incrementally converting changes.
         /// </summary>
         /// <param name="typeIndex">The type index of the component type to register tracking for.</param>
-        public void DeclareComponentDependencyTracking(int typeIndex) =>
+        public void DeclareComponentDependencyTracking(TypeIndex typeIndex) =>
             MappingSystem.Dependencies.RegisterComponentTypeForDependencyTracking(typeIndex);
 
         /// <summary>
@@ -199,7 +200,7 @@ namespace Unity.Entities
         /// <param name="typeIndex">The type index of the component type to get the tracker for.</param>
         /// <param name="tracker">The tracker associated with the component type.</param>
         /// <returns>True if there is a component dependency tracker, false otherwise.</returns>
-        public bool TryGetComponentDependencyTracker(int typeIndex, out DependencyTracker tracker) =>
+        public bool TryGetComponentDependencyTracker(TypeIndex typeIndex, out DependencyTracker tracker) =>
             MappingSystem.Dependencies.TryGetComponentDependencyTracker(typeIndex, out tracker);
     }
 

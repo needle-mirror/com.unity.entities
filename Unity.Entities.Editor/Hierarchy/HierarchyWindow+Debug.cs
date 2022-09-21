@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine;
 
@@ -10,10 +10,17 @@ namespace Unity.Entities.Editor
     {
         void IHasCustomMenu.AddItemsToMenu(GenericMenu menu)
         {
-            menu.AddItem(new GUIContent("Open Legacy Hierarchy..."), false, () => GetWindow<EntityHierarchyWindow>());
-            
             if (Unsupported.IsDeveloperMode())
-                menu.AddItem(new GUIContent("Debug..."), false, () => SelectionUtility.ShowInWindow(new DebugContentProvider()));
+            {
+                foreach (var value in System.Enum.GetValues(typeof(Hierarchy.OperationModeType)))
+                {
+                    var mode = (Hierarchy.OperationModeType) value;
+                    menu.AddItem(new GUIContent(mode.ToString()), m_Hierarchy.OperationMode == mode, () => { m_Hierarchy.OperationMode = mode; });
+                }
+
+                menu.AddSeparator("");
+                menu.AddItem(new GUIContent("Stats..."), false, () => SelectionUtility.ShowInWindow(new DebugContentProvider()));
+            }
         }
 
         /// <summary>
@@ -23,7 +30,7 @@ namespace Unity.Entities.Editor
         /// </summary>
         class DebugContentProvider : ContentProvider
         {
-            public override string Name => "DOTS Hierarchy Debug";
+            public override string Name => "DOTS Hierarchy Stats";
             public override object GetContent() => new DebugContent(HasOpenInstances<HierarchyWindow>() ? GetWindow<HierarchyWindow>() : null);
 
             protected override ContentStatus GetStatus()
@@ -41,9 +48,9 @@ namespace Unity.Entities.Editor
             [CreateProperty, UsedImplicitly] public HierarchyStats Stats => m_Context.m_Hierarchy.Stats;
 
             public DebugContent(HierarchyWindow context) => m_Context = context;
-            
+
             [UsedImplicitly]
-            class Inspector : Inspector<DebugContent>
+            class Inspector : PropertyInspector<DebugContent>
             {
             }
         }

@@ -2,7 +2,7 @@ namespace Unity.Entities.Editor.Tests
 {
     [UpdateInGroup(typeof(SystemScheduleTestGroup))]
     [UpdateBefore(typeof(SystemScheduleTestSystem2))]
-    class SystemScheduleTestSystem1 : ComponentSystem
+    partial class SystemScheduleTestSystem1 : SystemBase
     {
         EntityQuery m_Group;
 
@@ -22,7 +22,7 @@ namespace Unity.Entities.Editor.Tests
 
     [UpdateInGroup(typeof(SystemScheduleTestGroup))]
     [UpdateAfter(typeof(SystemScheduleTestSystem1))]
-    class SystemScheduleTestSystem2 : ComponentSystem
+    partial class SystemScheduleTestSystem2 : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -44,14 +44,14 @@ namespace Unity.Entities.Editor.Tests
         }
     }
 
-    class SystemScheduleTestGroup : ComponentSystemGroup
+    partial class SystemScheduleTestGroup : ComponentSystemGroup
     {
         protected override void OnUpdate()
         {
         }
     }
 
-    class SystemScheduleTestSystem : ComponentSystem
+    partial class SystemScheduleTestSystem : SystemBase
     {
         protected override void OnUpdate()
         {

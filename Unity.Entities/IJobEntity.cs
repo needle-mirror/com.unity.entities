@@ -8,7 +8,7 @@ namespace Unity.Entities
 {
     /// <summary>
     /// Any type which implements this interface and also contains an `Execute()` method (with any number of parameters)
-    /// will trigger source generation of a corresponding IJobEntityBatch type. The generated IJobEntityBatch type in turn
+    /// will trigger source generation of a corresponding IJobEntityBatch or IJobEntity type. The generated job in turn
     /// invokes the Execute() method on the IJobEntity type with the appropriate arguments.
     /// </summary>
     /// <remarks>
@@ -18,12 +18,31 @@ namespace Unity.Entities
     public interface IJobEntity {}
 
     /// <summary>
-    /// Specifies that this int parameter is used as a way to get the EntityInQuery index.
+    /// Specifies that this int parameter is used as a way to get the packed entity index inside the current query.
     /// Usage: An int parameter found inside the execute method of a IJobEntity.
     /// </summary>
     /// <seealso cref="IJobEntity"/>
     [AttributeUsage(AttributeTargets.Parameter)]
     public sealed class EntityInQueryIndex : Attribute {}
+
+    /// <summary>
+    /// Specifies that this int parameter is used as the entity index inside the current chunk.
+    /// Usage: An int parameter found inside the execute method of a IJobEntity.
+    /// </summary>
+    /// <seealso cref="IJobEntity"/>
+    [AttributeUsage(AttributeTargets.Parameter)]
+    public sealed class EntityIndexInChunk : Attribute {}
+
+    /// <summary>
+    /// Specifies that this int parameter is used as the chunk index inside the current query.
+    /// Usage: An int parameter found inside the execute method of a IJobEntity.
+    /// </summary>
+    /// <remarks>
+    /// Efficient sort-key for <see cref="EntityCommandBuffer"/>.
+    /// </remarks>
+    /// <seealso cref="IJobEntity"/>
+    [AttributeUsage(AttributeTargets.Parameter)]
+    public sealed class ChunkIndexInQuery : Attribute {}
 
     /// <summary>
     /// Specifies that this IJobEntity should include ALL ComponentTypes found as attributes of the IJobEntity
@@ -32,6 +51,10 @@ namespace Unity.Entities
     [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
     public sealed class WithAllAttribute : Attribute
     {
+        /// <summary>
+        /// Specifies that this IJobEntity should include ALL ComponentTypes found as attributes of the IJobEntity
+        /// </summary>
+        /// <param name="types">The required component types</param>
         public WithAllAttribute(params Type[] types){}
     }
 
@@ -42,6 +65,10 @@ namespace Unity.Entities
     [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
     public sealed class WithNoneAttribute : Attribute
     {
+        /// <summary>
+        /// Specifies that this IJobEntity should include NO ComponentTypes found as attributes of the IJobEntity
+        /// </summary>
+        /// <param name="types">The excluded component types</param>
         public WithNoneAttribute(params Type[] types){}
     }
 
@@ -52,16 +79,24 @@ namespace Unity.Entities
     [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
     public sealed class WithAnyAttribute : Attribute
     {
+        /// <summary>
+        /// Specifies that this IJobEntity should include ANY ComponentTypes found as attributes of the IJobEntity
+        /// </summary>
+        /// <param name="types">The optional component types</param>
         public WithAnyAttribute(params Type[] types){}
     }
 
     /// <summary>
-    /// Specifies that this IJobEntity should only play if either of the ComponentTypes found as attributes of the IJobEntity has changed,
+    /// Specifies that this IJobEntity should only process a chunk if any of the ComponentTypes found as attributes of the IJobEntity have changed.
     /// </summary>
     /// <seealso cref="IJobEntity"/>
     [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Struct, AllowMultiple = true)]
     public sealed class WithChangeFilterAttribute : Attribute
     {
+        /// <summary>
+        /// Specifies that this IJobEntity should only process a chunk if any of the ComponentTypes found as attributes of the IJobEntity have changed.
+        /// </summary>
+        /// <param name="types">The component types for which change filtering should be enabled</param>
         public WithChangeFilterAttribute(params Type[] types){}
     }
 
@@ -72,85 +107,283 @@ namespace Unity.Entities
     [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
     public sealed class WithEntityQueryOptionsAttribute : Attribute
     {
+        /// <summary>
+        /// Specifies that this IJobEntity should include a given EntityQueryOption found as attributes of the IJobEntity
+        /// </summary>
+        /// <param name="option">The query options</param>
         public WithEntityQueryOptionsAttribute(EntityQueryOptions option){}
+        /// <summary>
+        /// Specifies that this IJobEntity should include a given EntityQueryOption found as attributes of the IJobEntity
+        /// </summary>
+        /// <param name="options">The query options</param>
         public WithEntityQueryOptionsAttribute(params EntityQueryOptions[] options){}
     }
 
+    /// <summary>
+    /// Extension methods for IJobEntity job type
+    /// </summary>
     public static class IJobEntityExtensions
     {
-        // Mirrors all of the schedule methods for IJobEntityBatch, except we must also have a version that takes no query as IJobEntity can generate the query for you
-        // IJobEntityBatch method is first, follow by its No Query version
-        // Currently missing the limitToEntityArray versions
+        // Mirrors all of the schedule methods for IJobChunk and IJobEntityBatch,
+        // except we must also have a version that takes no query as IJobEntity can generate the query for you
+        // and there are also one's that don't take a JobHandle so that the built-in Dependency properties in systems
+        // can be used.
         // These methods must all be replicated in the generated job struct to prevent compiler ambiguity
-
         // These methods keep the full type names so that it can be easily copy pasted into JobEntityDescriptionSourceFactor.cs when updated
 
-        public static Unity.Jobs.JobHandle Schedule<T>(this T jobData, Unity.Entities.EntityQuery query, Unity.Jobs.JobHandle dependsOn = default(JobHandle)) where T : struct, IJobEntity => __ThrowCodeGenException();
-        /// <summary>
-        /// Schedules the given job to run on an arbitrary non-main thread. By copying the job data.
-        /// </summary>
-        /// <param name="jobData">The implemented IJobEntity job</param>
-        /// <param name="dependsOn">A jobhandle dependency, if not specified then generated as `Dependency` property in System</param>
-        /// <typeparam name="T">Type of IJobEntity implementation</typeparam>
-        /// <returns>Jobhandle with dependency chain</returns>
-        public static Unity.Jobs.JobHandle Schedule<T>(this T jobData, Unity.Jobs.JobHandle dependsOn = default(JobHandle)) where T : struct, IJobEntity => __ThrowCodeGenException();
-
-        public static Unity.Jobs.JobHandle ScheduleByRef<T>(this T jobData, Unity.Entities.EntityQuery query, Unity.Jobs.JobHandle dependsOn = default(JobHandle)) where T : struct, IJobEntity => __ThrowCodeGenException();
+        #region Schedule
 
         /// <summary>
-        /// Schedules the given job to run on an arbitrary non-main thread. By referencing the job data.
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
         /// </summary>
-        /// <param name="jobData">The implemented IJobEntity job</param>
-        /// <param name="dependsOn">A jobhandle dependency, if not specified then generated as `Dependency` property in System</param>
-        /// <typeparam name="T">Type of IJobEntity implementation</typeparam>
-        /// <returns>Jobhandle with dependency chain</returns>
-        public static Unity.Jobs.JobHandle ScheduleByRef<T>(this T jobData, Unity.Jobs.JobHandle dependsOn = default(JobHandle)) where T : struct, IJobEntity => __ThrowCodeGenException();
-
-        public static Unity.Jobs.JobHandle ScheduleParallel<T>(this T jobData, Unity.Entities.EntityQuery query, Unity.Jobs.JobHandle dependsOn = default(JobHandle)) where T : struct, IJobEntity => __ThrowCodeGenException();
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled jobs that could constrain this job.
+        /// A job that writes to a component cannot run in parallel with other jobs that read or write that component.
+        /// Jobs that only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static JobHandle Schedule<T>(this T jobData, JobHandle dependsOn)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Schedules the given job to run on in parallel on multiple thread(s). By copying the job data.
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
         /// </summary>
-        /// <param name="jobData">The implemented IJobEntity job</param>
-        /// <param name="dependsOn">A jobhandle dependency, if not specified then generated as `Dependency` property in System</param>
-        /// <typeparam name="T">Type of IJobEntity implementation</typeparam>
-        /// <returns>Jobhandle with dependency chain</returns>
-        public static Unity.Jobs.JobHandle ScheduleParallel<T>(this T jobData, Unity.Jobs.JobHandle dependsOn = default(JobHandle)) where T : struct, IJobEntity => __ThrowCodeGenException();
-
-        public static Unity.Jobs.JobHandle ScheduleParallelByRef<T>(this T jobData, Unity.Entities.EntityQuery query, Unity.Jobs.JobHandle dependsOn = default(JobHandle)) where T : struct, IJobEntity => __ThrowCodeGenException();
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled jobs that could constrain this job.
+        /// A job that writes to a component cannot run in parallel with other jobs that read or write that component.
+        /// Jobs that only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static JobHandle ScheduleByRef<T>(this ref T jobData, JobHandle dependsOn)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Schedules the given job to run on in parallel on multiple thread(s). By referencing the job data.
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
         /// </summary>
-        /// <param name="jobData">The implemented IJobEntity job</param>
-        /// <param name="dependsOn">A jobhandle dependency, if not specified then generated as `Dependency` property in System</param>
-        /// <typeparam name="T">Type of IJobEntity implementation</typeparam>
-        /// <returns>Jobhandle with dependency chain</returns>
-        public static Unity.Jobs.JobHandle ScheduleParallelByRef<T>(this T jobData, Unity.Jobs.JobHandle dependsOn = default(JobHandle)) where T : struct, IJobEntity => __ThrowCodeGenException();
-
-        public static void Run<T>(this T jobData, Unity.Entities.EntityQuery query) where T : struct, IJobEntity => __ThrowCodeGenException();
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled jobs that could constrain this job.
+        /// A job that writes to a component cannot run in parallel with other jobs that read or write that component.
+        /// Jobs that only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Runs the given job on the main thread. By copying the job data.
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
         /// </summary>
-        /// <param name="jobData">The implemented IJobEntity job</param>
-        /// <param name="dependsOn">A jobhandle dependency, if not specified then generated as `Dependency` property in System</param>
-        /// <typeparam name="T">Type of IJobEntity implementation</typeparam>
-        /// <returns>Jobhandle with dependency chain</returns>
-        public static void Run<T>(this T jobData) where T : struct, IJobEntity => __ThrowCodeGenException();
-
-        public static void RunByRef<T>(this T jobData, Unity.Entities.EntityQuery query) where T : struct, IJobEntity => __ThrowCodeGenException();
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled jobs that could constrain this job.
+        /// A job that writes to a component cannot run in parallel with other jobs that read or write that component.
+        /// Jobs that only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static JobHandle ScheduleByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Runs the given job on the main thread. By referencing the job data.
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
         /// </summary>
-        /// <param name="jobData">The implemented IJobEntity job</param>
-        /// <param name="dependsOn">A jobhandle dependency, if not specified then generated as `Dependency` property in System</param>
-        /// <typeparam name="T">Type of IJobEntity implementation</typeparam>
-        /// <returns>Jobhandle with dependency chain</returns>
-        public static void RunByRef<T>(this T jobData) where T : struct, IJobEntity => __ThrowCodeGenException();
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static void Schedule<T>(this T jobData)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
-        static Unity.Jobs.JobHandle __ThrowCodeGenException() => throw new Exception("This method should have been replaced by source gen.");
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static void ScheduleByRef<T>(this ref T jobData)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static void Schedule<T>(this T jobData, EntityQuery query)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
+        public static void ScheduleByRef<T>(this ref T jobData, EntityQuery query)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        #endregion
+
+        #region ScheduleParallel
+
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled jobs that could constrain this job.
+        /// A job that writes to a component cannot run in parallel with other jobs that read or write that component.
+        /// Jobs that only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static JobHandle ScheduleParallel<T>(this T jobData, JobHandle dependsOn)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled jobs that could constrain this job.
+        /// A job that writes to a component cannot run in parallel with other jobs that read or write that component.
+        /// Jobs that only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static JobHandle ScheduleParallelByRef<T>(this ref T jobData, JobHandle dependsOn)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled jobs that could constrain this job.
+        /// A job that writes to a component cannot run in parallel with other jobs that read or write that component.
+        /// Jobs that only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static JobHandle ScheduleParallel<T>(this T jobData, EntityQuery query, JobHandle dependsOn)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled jobs that could constrain this job.
+        /// A job that writes to a component cannot run in parallel with other jobs that read or write that component.
+        /// Jobs that only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static JobHandle ScheduleParallelByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static void ScheduleParallel<T>(this T jobData)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static void ScheduleParallelByRef<T>(this ref T jobData)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static void ScheduleParallel<T>(this T jobData, EntityQuery query)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
+        /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        public static void ScheduleParallelByRef<T>(this ref T jobData, EntityQuery query)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        #endregion
+
+        #region Run
+
+        /// <summary>
+        /// Runs the job immediately on the current thread.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        public static void Run<T>(this T jobData)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Runs the job immediately on the current thread.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        public static void RunByRef<T>(this ref T jobData)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Runs the job immediately on the current thread.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        public static void Run<T>(this T jobData, EntityQuery query)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Runs the job immediately on the current thread.
+        /// </summary>
+        /// <param name="jobData">An <see cref="IJobEntity"/> instance. In this variant, the jobData is passed by
+        /// reference, which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
+        public static void RunByRef<T>(this ref T jobData, EntityQuery query)
+            where T : struct, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        #endregion
     }
 }

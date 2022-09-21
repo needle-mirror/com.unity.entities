@@ -1,9 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
 using Unity.Entities.SourceGen.SystemGeneratorCommon;
+using static Unity.Entities.SourceGen.Common.SourceGenHelpers.QueryVerification;
 
 namespace Unity.Entities.SourceGen.LambdaJobs
 {
@@ -21,13 +23,13 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             if ((description.Burst.IsEnabled || description.Schedule.Mode != ScheduleMode.Run) && description.VariablesCaptured.Any(var => var.Type.IsReferenceType))
             {
                 foreach (var variable in description.VariablesCaptured.Where(var => var.Type.IsReferenceType))
-                    LambdaJobsErrors.DC0004(description.SystemGeneratorContext, description.Location, variable.OriginalVariableName);
+                    LambdaJobsErrors.DC0004(description.SystemDescription, description.Location, variable.OriginalVariableName, description.LambdaJobKind);
                 description.Success = false;
             }
 
             if (description.LambdaJobKind == LambdaJobKind.Job && description.WithStructuralChanges)
             {
-                LambdaJobsErrors.DC0057(description.SystemGeneratorContext, description.Location);
+                LambdaJobsErrors.DC0057(description.SystemDescription, description.Location);
                 description.Success = false;
             }
 
@@ -40,18 +42,33 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         static bool VerifyLambdaExpression(LambdaJobDescription description)
         {
             var success = true;
-            foreach (var invocationExpression in description.OriginalLambdaExpression.DescendantNodes().OfType<InvocationExpressionSyntax>())
+
+            // Check method calls inside lambda for:
+            // a) if any structural changes are made
+            // b) nested Entities.ForEach
+            foreach (var invocationExpression in
+                     description.OriginalLambdaExpression.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
-                // Check if any structural changes are made inside
                 if ((!description.WithStructuralChanges || description.Schedule.Mode != ScheduleMode.Run) &&
-                    invocationExpression.DoesPerformStructuralChange(description.SemanticModel))
+                    invocationExpression.DoesPerformStructuralChange(description.SystemDescription.SemanticModel))
                 {
-                    LambdaJobsErrors.DC0027(description.SystemGeneratorContext, invocationExpression.GetLocation());
+                    LambdaJobsErrors.DC0027(description.SystemDescription, invocationExpression.GetLocation(), description.LambdaJobKind);
                     success = false;
                 }
-                if (invocationExpression.CheckIsForEach(description.SemanticModel))
+
+                var theInvocationSymbol = description.SystemDescription.SemanticModel.GetSymbolInfo(invocationExpression.Expression).Symbol;
+                if (theInvocationSymbol == null)
+                    continue;
+
+                var isForEach = theInvocationSymbol is IMethodSymbol {Name: "ForEach"} methodSymbolForEach // Is ForEach method called as LambdaForEach
+                    && methodSymbolForEach.ContainingType.Is("LambdaForEachDescriptionConstructionMethods");
+
+               var isJobWithCode =  theInvocationSymbol is IMethodSymbol {Name: "WithCode"} methodSymbolWithCode // Is WithCode method called as LambdaSingleJob
+                    && methodSymbolWithCode.ContainingType.Is("LambdaSingleJobDescriptionConstructionMethods");
+
+                if (isForEach || isJobWithCode)
                 {
-                    LambdaJobsErrors.DC0029(description.SystemGeneratorContext, invocationExpression.GetLocation());
+                    LambdaJobsErrors.DC0029(description.SystemDescription, invocationExpression.GetLocation(), description.LambdaJobKind);
                     success = false;
                 }
             }
@@ -62,7 +79,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 {
                     foreach (var methodInvocation in methodInvocations.Value.Where(methodInvocation => methodInvocation.ContainsDynamicCode()))
                     {
-                        LambdaJobsErrors.DC0010(description.SystemGeneratorContext, methodInvocation.GetLocation(), methodInvocations.Key);
+                        LambdaJobsErrors.DC0010(description.SystemDescription, methodInvocation.GetLocation(), methodInvocations.Key, description.LambdaJobKind);
                         description.Success = false;
                     }
                 }
@@ -70,166 +87,152 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
             foreach (var methods in description.MethodInvocations.Where(methods => methods.Value.Count > 1))
             {
-                var methodInvocationSymbol = description.SemanticModel.GetSymbolInfo(methods.Value.First()).Symbol;
+                var methodInvocationSymbol = description.SystemDescription.SemanticModel.GetSymbolInfo(methods.Value.First()).Symbol;
                 if (!methodInvocationSymbol.HasAttribute(
                     "Unity.Entities.LambdaJobDescriptionConstructionMethods.AllowMultipleInvocationsAttribute"))
                 {
-                    LambdaJobsErrors.DC0009(description.SystemGeneratorContext, description.Location, methods.Key);
+                    LambdaJobsErrors.DC0009(description.SystemDescription, description.Location, methods.Key);
                     description.Success = false;
                 }
             }
 
             foreach (var storeInQuerySyntax in description.WithStoreEntityQueryInFieldArgumentSyntaxes)
             {
-                if (!(storeInQuerySyntax.Expression is IdentifierNameSyntax storeInQueryIdentifier) || !(description.SemanticModel.GetSymbolInfo(storeInQueryIdentifier).Symbol is IFieldSymbol))
+                if (!(storeInQuerySyntax.Expression is IdentifierNameSyntax storeInQueryIdentifier) || !(description.SystemDescription.SemanticModel.GetSymbolInfo(storeInQueryIdentifier).Symbol is IFieldSymbol))
                 {
-                    LambdaJobsErrors.DC0031(description.SystemGeneratorContext, description.Location);
+                    LambdaJobsErrors.DC0031(description.SystemDescription, description.Location, description.SystemType);
                     description.Success = false;
                 }
             }
 
-            if (description.Burst.IsEnabled || description.Schedule.Mode == ScheduleMode.Schedule || description.Schedule.Mode == ScheduleMode.ScheduleParallel)
+            if (description.Burst.IsEnabled || description.Schedule.Mode is ScheduleMode.Schedule || description.Schedule.Mode is ScheduleMode.ScheduleParallel)
             {
-                foreach (var param in description.ExecuteMethodParamDescriptions.OfType<IManagedComponentParamDescription>())
+                foreach (var param in description.LambdaParameters.OfType<IManagedComponentParamDescription>())
                 {
-                    LambdaJobsErrors.DC0223(description.SystemGeneratorContext, description.Location, param.Name, description.IsInSystemBase, true);
+                    LambdaJobsErrors.DC0223(description.SystemDescription, description.Location, param.Name, description.SystemType, true, description.LambdaJobKind);
                     description.Success = false;
                 }
-                foreach (var param in description.ExecuteMethodParamDescriptions.OfType<ISharedComponentParamDescription>())
+                foreach (var param in description.LambdaParameters.OfType<ISharedComponentParamDescription>())
                 {
-                    LambdaJobsErrors.DC0223(description.SystemGeneratorContext, description.Location, param.TypeSymbol.Name, description.IsInSystemBase, false);
+                    LambdaJobsErrors.DC0223(description.SystemDescription, description.Location, param.TypeSymbol.Name, description.SystemType, false, description.LambdaJobKind);
                     description.Success = false;
                 }
             }
 
             var duplicateTypes =
                 description
-                    .ExecuteMethodParamDescriptions
-                    .Where(desc => !(desc is IAllowDuplicateTypes))
+                    .LambdaParameters
+                    .Where(desc => !desc.AllowDuplicateTypes && !desc.IsSourceGeneratedParam)
                     .FindDuplicatesBy(desc => desc.TypeSymbol.ToFullName());
 
             foreach (var duplicate in duplicateTypes)
             {
-                LambdaJobsErrors.DC0070(
-                    description.SystemGeneratorContext,
-                    description.Location,
-                    duplicate.TypeSymbol);
-
+                LambdaJobsErrors.DC0070(description.SystemDescription, description.Location, duplicate.TypeSymbol);
                 description.Success = false;
             }
 
-            foreach (var param in description.ExecuteMethodParamDescriptions.OfType<IComponentParamDescription>().Where(param => string.IsNullOrEmpty(param.Syntax.GetModifierString())))
+            foreach (var param in description.LambdaParameters.OfType<IComponentParamDescription>().Where(param => string.IsNullOrEmpty(param.Syntax.GetModifierString())))
             {
-                LambdaJobsErrors.DC0055(description.SystemGeneratorContext, description.Location, param.Name);
+                LambdaJobsErrors.DC0055(description.SystemDescription, description.Location, param.Name, description.LambdaJobKind);
             }
 
-            foreach (var param in description.ExecuteMethodParamDescriptions.OfType<IManagedComponentParamDescription>().Where(param => param.IsByRef()))
+            foreach (var param in description.LambdaParameters.OfType<IManagedComponentParamDescription>().Where(param => param.IsByRef()))
             {
                 if (param.IsByRef())
                 {
-                    LambdaJobsErrors.DC0024(description.SystemGeneratorContext, description.Location, param.Name);
+                    LambdaJobsErrors.DC0024(description.SystemDescription, description.Location, param.Name);
                     description.Success = false;
                 }
             }
 
-            foreach (var param in description.ExecuteMethodParamDescriptions.OfType<ISharedComponentParamDescription>().Where(param => param.IsByRef()))
+            foreach (var param in description.LambdaParameters.OfType<ISharedComponentParamDescription>().Where(param => param.IsByRef()))
             {
-                LambdaJobsErrors.DC0020(description.SystemGeneratorContext, description.Location, param.TypeSymbol.Name);
+                LambdaJobsErrors.DC0020(description.SystemDescription, description.Location, param.TypeSymbol.Name);
                 description.Success = false;
             }
 
-            foreach (var param in description.ExecuteMethodParamDescriptions.OfType<IDynamicBufferParamDescription>())
+            foreach (var param in description.LambdaParameters.OfType<IDynamicBufferParamDescription>())
             {
                 if (param.TypeSymbol is INamedTypeSymbol namedTypeSymbol)
                 {
                     foreach (var typeArg in namedTypeSymbol.TypeArguments.OfType<INamedTypeSymbol>().Where(
-                        typeArg => typeArg is INamedTypeSymbol namedTypeArg && namedTypeArg.TypeArguments.Any()))
+                        typeArg => typeArg is { } namedTypeArg && namedTypeArg.TypeArguments.Any()))
                     {
-                        LambdaJobsErrors.DC0050(description.SystemGeneratorContext, description.Location, typeArg.Name);
+                        LambdaJobsErrors.DC0050(description.SystemDescription, description.Location, typeArg.Name, description.LambdaJobKind);
                         description.Success = false;
                     }
                 }
             }
 
-            description.Success &= VerifyWithTypes(description, description.WithAllTypes, "WithAll");
-            description.Success &= VerifyWithTypes(description, description.WithAnyTypes, "WithAny");
-            description.Success &= VerifyWithTypes(description, description.WithNoneTypes, "WithNone");
+            description.Success &=
+                VerifyQueryTypeCorrectness(description.SystemDescription, description.Location, description.WithAllTypes, invokedMethodName: "WithAll");
+            description.Success &=
+                VerifyQueryTypeCorrectness(description.SystemDescription, description.Location, description.WithNoneTypes, invokedMethodName: "WithNone");
+            description.Success &=
+                VerifyQueryTypeCorrectness(description.SystemDescription, description.Location, description.WithAnyTypes, invokedMethodName: "WithAny");
 
-            // Check WithNone for conflicting types
-            description.Success &= VerifyConflictingTypes(description, description.WithNoneTypes, description.WithAllTypes, "WithNone", "WithAll");
-            description.Success &= VerifyConflictingTypes(description, description.WithNoneTypes, description.WithAnyTypes, "WithNone", "WithAny");
-            description.Success &= VerifyConflictingTypes(
-                description,
+            description.Success &=
+                VerifySharedComponentFilterTypesAgainstOtherQueryTypes(description.SystemDescription, description.Location, description.WithSharedComponentFilterTypes, description.WithAllTypes);
+            description.Success &=
+                VerifySharedComponentFilterTypesAgainstOtherQueryTypes(description.SystemDescription, description.Location, description.WithSharedComponentFilterTypes, description.WithAnyTypes);
+            description.Success &=
+                VerifySharedComponentFilterTypesAgainstOtherQueryTypes(description.SystemDescription, description.Location, description.WithSharedComponentFilterTypes, description.WithNoneTypes);
+
+            description.Success &=
+                VerifyNoMutuallyExclusiveQueries(description.SystemDescription, description.Location, description.WithNoneTypes, description.WithAllTypes, "WithNone", "WithAll");
+            description.Success &=
+                VerifyNoMutuallyExclusiveQueries(description.SystemDescription, description.Location, description.WithNoneTypes, description.WithAnyTypes, "WithNone", "WithAny");
+            description.Success &=
+                VerifyNoMutuallyExclusiveQueries(description.SystemDescription, description.Location, description.WithAnyTypes, description.WithAllTypes, "WithAny", "WithAll");
+
+            var lambdaParameters =
+                description.LambdaParameters
+                    .Where(param => param.IsQueryableType)
+                    .Select(param =>
+                        new Query
+                        {
+                            TypeSymbol = param.TypeSymbol,
+                            Type = QueryType.All,
+                            IsReadOnly = param.QueryTypeIsReadOnly()
+                        })
+                    .ToArray();
+
+            description.Success &= VerifyNoMutuallyExclusiveQueries(
+                description.SystemDescription,
+                description.Location,
                 description.WithNoneTypes,
-                description.ExecuteMethodParamDescriptions.Select(param => (INamedTypeSymbol)param.TypeSymbol).ToList(),
+                lambdaParameters,
                 "WithNone",
-                "lambda parameter");
+                "lambda parameter",
+                compareTypeSymbolsOnly: true);
 
-            // Check WithAny for conflicting types
-            description.Success &= VerifyConflictingTypes(description, description.WithAnyTypes, description.WithAllTypes, "WithAny", "WithAll");
-            description.Success &= VerifyConflictingTypes(
-                description,
+            description.Success &= VerifyNoMutuallyExclusiveQueries(
+                description.SystemDescription,
+                description.Location,
                 description.WithAnyTypes,
-                description.ExecuteMethodParamDescriptions.Select(param => (INamedTypeSymbol)param.TypeSymbol).ToList(),
+                lambdaParameters,
                 "WithAny",
-                "lambda parameter");
+                "lambda parameter",
+                compareTypeSymbolsOnly: true);
 
-            var containingSystemTypeSymbol = (INamedTypeSymbol)description.SemanticModel.GetDeclaredSymbol(description.DeclaringSystemType);
+            var containingSystemTypeSymbol = (INamedTypeSymbol)description.SystemDescription.SemanticModel.GetDeclaredSymbol(description.SystemDescription.SystemTypeSyntax);
             if (containingSystemTypeSymbol.GetMembers().OfType<IMethodSymbol>().Any(method => method.Name == "OnCreateForCompiler"))
             {
-                LambdaJobsErrors.DC0025(description.SystemGeneratorContext, description.Location, containingSystemTypeSymbol.Name);
+                LambdaJobsErrors.DC0025(description.SystemDescription, description.Location, containingSystemTypeSymbol.Name);
                 description.Success = false;
             }
 
             if (containingSystemTypeSymbol.TypeParameters.Any())
             {
-                LambdaJobsErrors.DC0053(description.SystemGeneratorContext, description.Location, containingSystemTypeSymbol.Name);
+                LambdaJobsErrors.DC0053(description.SystemDescription, description.Location, containingSystemTypeSymbol.Name, description.LambdaJobKind);
                 description.Success = false;
             }
 
-            var containingMethodSymbol = description.SemanticModel.GetDeclaredSymbol(description.ContainingMethod);
+            var containingMethodSymbol = description.SystemDescription.SemanticModel.GetDeclaredSymbol(description.ContainingMethod);
             if (containingMethodSymbol is IMethodSymbol methodSymbol && methodSymbol.TypeArguments.Any())
             {
-                LambdaJobsErrors.DC0054(description.SystemGeneratorContext, description.Location, methodSymbol.Name);
+                LambdaJobsErrors.DC0054(description.SystemDescription, description.Location, methodSymbol.Name, description.LambdaJobKind);
                 description.Success = false;
-            }
-
-            return success;
-        }
-
-        static bool VerifyWithTypes(LambdaJobDescription description, IEnumerable<INamedTypeSymbol> withTypes, string methodName)
-        {
-            var success = true;
-            foreach (var withType in withTypes)
-            {
-                if (!(withType.InheritsFromInterface("Unity.Entities.IComponentData") ||
-                      withType.InheritsFromInterface("Unity.Entities.ISharedComponentData") ||
-                      withType.InheritsFromInterface("Unity.Entities.IBufferElementData") ||
-                      withType.Is("UnityEngine.Object")))
-                {
-                    LambdaJobsErrors.DC0052(description.SystemGeneratorContext, description.Location, withType.Name, methodName);
-                    success = false;
-                }
-
-                if (description.WithSharedComponentFilterTypes.Any(sharedComponentFilterType=>sharedComponentFilterType.ToFullName() == withType.ToFullName()))
-                {
-                    LambdaJobsErrors.DC0026(description.SystemGeneratorContext, description.Location, withType.ToFullName());
-                    description.Success = false;
-                }
-            }
-
-            return success;
-        }
-
-        static bool VerifyConflictingTypes(LambdaJobDescription description,
-            IEnumerable<INamedTypeSymbol> typeGroup1, IReadOnlyCollection<INamedTypeSymbol> typeGroup2, string typeGroup1Name, string typeGroup2Name)
-        {
-            var success = true;
-
-            foreach (var matchingType in typeGroup1.Where(x => typeGroup2.Any(y => x.ToFullName() == y.ToFullName())))
-            {
-                LambdaJobsErrors.DC0056(description.SystemGeneratorContext, description.Location, typeGroup1Name, typeGroup2Name, matchingType.Name);
-                success = false;
             }
 
             return success;
@@ -240,7 +243,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             if ( description.WithScheduleGranularityArgumentSyntaxes.Count > 0
                 && description.Schedule.Mode != ScheduleMode.ScheduleParallel)
             {
-                LambdaJobsErrors.DC0073(description.SystemGeneratorContext, description.Location);
+                LambdaJobsErrors.DC0073(description.SystemDescription, description.Location);
                 return false;
             }
             return true;

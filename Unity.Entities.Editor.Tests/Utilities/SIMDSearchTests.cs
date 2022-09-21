@@ -7,6 +7,32 @@ namespace Unity.Entities.Editor.Tests
 {
     class SIMDSearchTests
     {
+        static AllocatorHelper<RewindableAllocator> m_AllocatorHelper;
+        static ref RewindableAllocator RwdAllocator => ref m_AllocatorHelper.Allocator;
+
+        [OneTimeSetUp]
+        public virtual void OneTimeSetUp()
+        {
+            m_AllocatorHelper = new AllocatorHelper<RewindableAllocator>(Allocator.Persistent);
+            m_AllocatorHelper.Allocator.Initialize(128 * 1024, true);
+        }
+
+        [OneTimeTearDown]
+        public virtual void OneTimeTearDown()
+        {
+            m_AllocatorHelper.Allocator.Dispose();
+            m_AllocatorHelper.Dispose();
+        }
+
+        [TearDown]
+        public virtual void TearDown()
+        {
+            RwdAllocator.Rewind();
+            // This is test only behavior for determinism.  Rewind twice such that all
+            // tests start with an allocator containing only one memory block.
+            RwdAllocator.Rewind();
+        }
+
         public static IEnumerable GetTestCases()
         {
             const string expectFalse = "Returns FALSE when:";
@@ -57,8 +83,8 @@ namespace Unity.Entities.Editor.Tests
 
         static bool Contains(FixedString64Bytes source, FixedString64Bytes pattern)
         {
-            using var sources = new NativeList<FixedString64Bytes>(1, Allocator.TempJob) {source};
-            using var patterns = new NativeList<FixedString64Bytes>(1, Allocator.TempJob) {pattern};
+            using var sources = new NativeList<FixedString64Bytes>(1, RwdAllocator.ToAllocator) {source};
+            using var patterns = new NativeList<FixedString64Bytes>(1, RwdAllocator.ToAllocator) {pattern};
             using var result = SIMDSearch.GetFilteredMatches(sources, patterns);
 
             return result.IsSet(0);

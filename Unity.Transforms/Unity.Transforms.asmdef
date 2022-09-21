@@ -5,9 +5,37 @@
         "Unity.Collections",
         "Unity.Burst",
         "Unity.Jobs",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.Properties"
     ],
     "optionalUnityReferences": [],
     "includePlatforms": [],
-    "excludePlatforms": []
+    "excludePlatforms": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.cinemachine.dots",
+            "expression": "0.60.0-preview.81",
+            "define": "ENABLE_TRANSFORM_V1"
+        },
+        {
+            "name": "com.unity.stableid",
+            "expression": "0.60.0-preview.91",
+            "define": "ENABLE_TRANSFORM_V1"
+        },
+        {
+            "name": "com.unity.physics",
+            "expression": "0.60.0-preview.88",
+            "define": "ENABLE_TRANSFORM_V1"
+        },
+        {
+            "name": "com.unity.2d.entities.physics",
+            "expression": "0.5.0-preview.1",
+            "define": "ENABLE_TRANSFORM_V1"
+        },
+        {
+            "name": "com.unity.netcode",
+            "expression": "0.60.0-preview.90",
+            "define": "ENABLE_TRANSFORM_V1"
+        }
+    ]
 }

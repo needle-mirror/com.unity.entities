@@ -2,6 +2,7 @@ using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
+using Assert = FastAssert;
 
 namespace Unity.Entities.Tests
 {
@@ -91,8 +92,8 @@ namespace Unity.Entities.Tests
                 else
                     expectedResult = i;
 
-                if (processCount >= 2)
-                    Assert.AreEqual(expectedResult, m_Manager.GetComponentData<EcsTestData2>(entities[i]).value1, message: $"{i}");
+                if (processCount >= 2 && expectedResult != m_Manager.GetComponentData<EcsTestData2>(entities[i]).value1)
+                    Assert.AreEqual(expectedResult, m_Manager.GetComponentData<EcsTestData2>(entities[i]).value1, $"{i}");
                 if (processCount >= 3)
                     Assert.AreEqual(expectedResult, m_Manager.GetComponentData<EcsTestData3>(entities[i]).value2);
                 if (processCount >= 4)
@@ -478,7 +479,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        ProcessSystem _processSystem => World.GetOrCreateSystem<ProcessSystem>();
+        ProcessSystem _processSystem => World.GetOrCreateSystemManaged<ProcessSystem>();
 
         [Test]
         public void JobProcessStress_1([Values] ProcessMode mode, [Values(0, 1, 1000)] int entityCount)

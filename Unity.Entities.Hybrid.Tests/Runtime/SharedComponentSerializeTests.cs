@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
-
+using Unity.Entities.Serialization;
 using Object = UnityEngine.Object;
 using Unity.Collections;
 using Unity.Scenes;
@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests
             for (int i = 0; i != 20; i++)
             {
                 var entity = m_Manager.CreateEntity();
-                m_Manager.AddSharedComponentData(entity, new MockSharedData { Value = i });
+                m_Manager.AddSharedComponentManaged(entity, new MockSharedData { Value = i });
                 m_Manager.AddComponentData(entity, new EcsTestData(i));
                 var buffer = m_Manager.AddBuffer<EcsIntElement>(entity);
                 foreach (var val in Enumerable.Range(i, i + 5))
@@ -49,7 +49,7 @@ namespace Unity.Entities.Tests
                 for (int i = 0; i != 20; i++)
                 {
                     Assert.AreEqual(i, newWorldEntities.GetComponentData<EcsTestData>(entities[i]).value);
-                    Assert.AreEqual(i, newWorldEntities.GetSharedComponentData<MockSharedData>(entities[i]).Value);
+                    Assert.AreEqual(i, newWorldEntities.GetSharedComponentManaged<MockSharedData>(entities[i]).Value);
                     var buffer = newWorldEntities.GetBuffer<EcsIntElement>(entities[i]);
                     Assert.That(
                         buffer.AsNativeArray().ToArray(),
@@ -95,7 +95,7 @@ namespace Unity.Entities.Tests
             var go2 = new GameObject();
             var shared = new SharedComponentWithUnityObject { obj = go1 };
             var entity = m_Manager.CreateEntity();
-            m_Manager.AddSharedComponentData(entity, shared);
+            m_Manager.AddSharedComponentManaged(entity, shared);
 
             var world = new World("temp");
 
@@ -116,9 +116,9 @@ namespace Unity.Entities.Tests
             var newWorldEntities = world.EntityManager;
             var uniqueShared = new List<SharedComponentWithUnityObject>();
             var query = newWorldEntities.CreateEntityQuery(ComponentType.ReadWrite<SharedComponentWithUnityObject>());
-            newWorldEntities.GetAllUniqueSharedComponentData(uniqueShared);
+            newWorldEntities.GetAllUniqueSharedComponentsManaged(uniqueShared);
             Assert.AreEqual(2, uniqueShared.Count);
-            query.SetSharedComponentFilter(uniqueShared[1]);
+            query.SetSharedComponentFilterManaged(uniqueShared[1]);
             Assert.AreEqual(1, query.CalculateEntityCount());
 
             query.Dispose();

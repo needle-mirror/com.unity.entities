@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -9,13 +9,14 @@ namespace Unity.Entities.Editor
     /// <summary>
     /// The <see cref="HierarchyNodeStore"/> represents a mutable tree data model to reflect the world hierarchy.
     /// </summary>
-    [BurstCompatible]
+    [GenerateTestsForBurstCompatibility]
     unsafe partial struct HierarchyNodeStore : IDisposable
     {
         static readonly HierarchyNodeData k_SharedDefaultEntity = new HierarchyNodeData
         {
             Parent = HierarchyNodeHandle.Root,
-            ChangeVersion = -1
+            ChangeVersion = -1,
+            SortIndex = int.MaxValue
         };
         
         /// <summary>
@@ -45,9 +46,9 @@ namespace Unity.Entities.Editor
             public int SortIndex;
 
             /// <summary>
-            /// Hint flag to be consumed during the packing step.
+            /// Additional node metadata. This information is passed along to the packed set.
             /// </summary>
-            public PackingHint PackingHints;
+            public HierarchyNodeFlags Flags;
         }
         
         struct HierarchyNodeSortIndexComparer : IComparer<HierarchyNode>
@@ -76,12 +77,16 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// The children mapping for nodes. 
         /// </summary>
-        UnsafeParallelMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> m_Children;
+        UnsafeMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> m_Children;
         
         /// <summary>
         /// Mapping scene reference entity to the <see cref="UnityEngine.SceneManagement.Scene"/> it belongs to.
         /// </summary>
         NativeParallelHashMap<Entity, Scene> m_SceneReferenceEntityToScene;
+
+        // ReSharper disable once FieldCanBeMadeReadOnly.Local
+        // This should be readonly but can't on 20.3 because of some inferred safety checks
+        /*readonly*/ SubSceneNodeMapping m_SubSceneNodeMapping;
 
         /// <summary>
         /// Returns the current change version for the hierarchy. This value is incremented every time the hierarchy is exported to the immutable set.
@@ -91,22 +96,24 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// Initializes a new <see cref="HierarchyNodeStore"/> instance.
         /// </summary>
+        /// <param name="subSceneNodeMapping">The store handling mapping between subScene Hash128 to int.</param>
         /// <param name="allocator">The allocator to use for internal storage.</param>
-        public HierarchyNodeStore(Allocator allocator)
+        public HierarchyNodeStore(SubSceneNodeMapping subSceneNodeMapping, Allocator allocator)
         {
+            m_SubSceneNodeMapping = subSceneNodeMapping;
             m_Allocator = allocator;
-            m_HierarchyNodeStoreData = (HierarchyNodeStoreData*) UnsafeUtility.Malloc(UnsafeUtility.SizeOf<HierarchyNodeStoreData>(), UnsafeUtility.AlignOf<HierarchyNodeStoreData>(), allocator);
+            m_HierarchyNodeStoreData = (HierarchyNodeStoreData*) Memory.Unmanaged.Allocate(UnsafeUtility.SizeOf<HierarchyNodeStoreData>(), UnsafeUtility.AlignOf<HierarchyNodeStoreData>(), allocator);
             m_HierarchyNodeStoreData->ChangeVersion = 1;
             m_Nodes = new HierarchyNodeMap<HierarchyNodeData>(allocator);
-            m_Children = new UnsafeParallelMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle>(16, allocator);
+            m_Children = new UnsafeMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle>(16, allocator);
             m_SceneReferenceEntityToScene = new NativeParallelHashMap<Entity, Scene>(16, allocator);
 
             m_Nodes.SetSharedDefault(k_SharedDefaultEntity);
         }
-        
+
         public void Dispose()
         {
-            UnsafeUtility.Free(m_HierarchyNodeStoreData, m_Allocator);
+            Memory.Unmanaged.Free(m_HierarchyNodeStoreData, m_Allocator);
             m_HierarchyNodeStoreData = null;
             m_Nodes.Dispose();
             m_Children.Dispose();
@@ -190,7 +197,7 @@ namespace Unity.Entities.Editor
             {
                 ChangeVersion = ChangeVersion,
                 Parent = parent,
-                SortIndex = 0
+                SortIndex = int.MaxValue
             };
 
             // Special case; Root entities are not included in the 'm_Children' set and instead handled separately for performance reasons.
@@ -318,7 +325,7 @@ namespace Unity.Entities.Editor
                 }
             }
 
-            if ((m_Nodes[handle].PackingHints & HierarchyNodeData.PackingHint.ChildrenRequireSorting) != 0)
+            if ((m_Nodes[handle].Flags & HierarchyNodeFlags.ChildrenRequireSorting) != 0)
                 children.Sort(new HierarchyNodeSortIndexComparer());
         }
         
@@ -372,7 +379,7 @@ namespace Unity.Entities.Editor
             m_Nodes[handle] = node;
 
             // Give a hint to the packing system to enable sorting.
-            SetPackingHint(node.Parent, HierarchyNodeData.PackingHint.ChildrenRequireSorting);
+            SetFlag(node.Parent, HierarchyNodeFlags.ChildrenRequireSorting);
 
             UpdateChangeVersion(handle);
         }
@@ -446,6 +453,15 @@ namespace Unity.Entities.Editor
         }
 
         /// <summary>
+        /// Sets the specified node as part of a prefab stage.
+        /// </summary>
+        /// <param name="handle"></param>
+        public void SetPrefabStage(HierarchyNodeHandle handle)
+        {
+            SetFlag(handle, HierarchyNodeFlags.IsPrefabStage);
+        }
+
+        /// <summary>
         /// Increments the internal change version.
         /// </summary>
         void IncrementChangeVersion()
@@ -471,18 +487,23 @@ namespace Unity.Entities.Editor
             }
         }
 
-        void SetPackingHint(HierarchyNodeHandle handle, HierarchyNodeData.PackingHint flag)
+        void SetFlag(HierarchyNodeHandle handle, HierarchyNodeFlags flag)
         {
             var node = m_Nodes[handle];
-            node.PackingHints |= flag;
+            node.Flags |= flag;
             m_Nodes[handle] = node;
         }
 
-        void UnsetPackingHint(HierarchyNodeHandle handle, HierarchyNodeData.PackingHint flag)
+        void UnsetFlag(HierarchyNodeHandle handle, HierarchyNodeFlags flag)
         {
             var node = m_Nodes[handle];
-            node.PackingHints &= ~flag;
+            node.Flags &= ~flag;
             m_Nodes[handle] = node;
+        }
+
+        public HierarchyNodeFlags GetFlags(HierarchyNodeHandle handle)
+        {
+            return m_Nodes[handle].Flags;
         }
     }
 }

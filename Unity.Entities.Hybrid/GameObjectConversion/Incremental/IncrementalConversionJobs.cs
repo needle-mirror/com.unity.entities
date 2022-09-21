@@ -18,7 +18,7 @@ namespace Unity.Entities.Conversion.IncrementalConversionJobs
 
         public void Execute()
         {
-            Dependencies.CalculateDependents(ChangedInstanceIds, Dependents);
+            Dependencies.CalculateDependents(ChangedInstanceIds.AsArray(), Dependents);
             Dependencies.CalculateDependents(DeletedInstanceIds, Dependents);
             Dependencies.CalculateAssetDependents(ChangedAssets, Dependents);
             Dependencies.CalculateAssetDependents(DeletedAssets, Dependents);

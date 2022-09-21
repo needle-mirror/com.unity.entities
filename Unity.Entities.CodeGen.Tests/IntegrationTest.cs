@@ -19,13 +19,6 @@ namespace Unity.Entities.CodeGen.Tests
         protected abstract string ExpectedPath { get; }
         protected virtual string AdditionalIL => string.Empty;
 
-        static bool IsAssemblyBuiltAsDebug()
-        {
-            return typeof(IntegrationTest).Assembly
-                                          .GetCustomAttributes(typeof(DebuggableAttribute), false)
-                                          .Any(debuggableAttribute => ((DebuggableAttribute)debuggableAttribute).IsJITTrackingEnabled);
-        }
-
         protected struct GeneratedType
         {
             public string Name;
@@ -35,16 +28,6 @@ namespace Unity.Entities.CodeGen.Tests
 
         protected void RunSourceGenerationTest(GeneratedType[] generatedTypes, string generatedTypesDllFullPath)
         {
-            // Ideally these tests to run in Release codegen or otherwise the generated IL won't be deterministic (due to differences between /optimize+ and /optimize-).
-            // We attempt to make the tests generate the same decompiled C# in any case (by making sure all variables are used).
-            if (IsAssemblyBuiltAsDebug())
-            {
-                UnityEngine.Debug.LogWarning(
-                    "Integration tests should only be run with release code optimizations turned on for consistent codegen.  " +
-                    "Switch your settings in Preferences->General->Code Optimization " +
-                    "On Startup (in 2020.1+) to be able to run these tests.");
-            }
-
             foreach (GeneratedType generatedType in generatedTypes)
             {
                 string expectationFilePath =
@@ -168,11 +151,6 @@ namespace Unity.Entities.CodeGen.Tests
         // TODO: Remove this method once all tests are updated to use its overload, RunTest(string authoringTypeName, string authoringTypeDllFullPath)
         protected void RunPostprocessingTest(TypeReference type)
         {
-            // Ideally these tests to run in Release codegen or otherwise the generated IL won't be deterministic (due to differences between /optimize+ and /optimize-).
-            // We attempt to make the tests generate the same decompiled C# in any case (by making sure all variables are used).
-            if (IsAssemblyBuiltAsDebug())
-                UnityEngine.Debug.LogWarning("Integration tests should only be run with release code optimizations turned on for consistent codegen.  Switch your settings in Preferences->External Tools->Editor Attaching (in 2019.3) or Preferences->General->Code Optimization On Startup (in 2020.1+) to be able to run these tests.");
-
             var expectationFile = Path.GetFullPath($"{ExpectedPath}/{GetType().Name}.expectation.txt");
             var jobCSharp = Decompiler.DecompileIntoCSharpAndIL(type, DecompiledLanguage.CSharpOnly).CSharpCode;
             var actualLines = jobCSharp.Split('\n').Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();

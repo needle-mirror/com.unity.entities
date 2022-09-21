@@ -2,20 +2,22 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
-    [ConverterVersion("christopherr", 5)]
     [AddComponentMenu("")]
-    public class TestComponentAuthoringIsBuildingForEditor : MonoBehaviour, IConvertGameObjectToEntity
+    public class TestComponentAuthoringIsBuildingForEditor : MonoBehaviour
     {
+    }
 
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
+    class TestComponentAuthoringIsBuildingForEditorBaker : Baker<TestComponentAuthoringIsBuildingForEditor>
+    {
+        public override void Bake(TestComponentAuthoringIsBuildingForEditor authoring)
         {
 #if UNITY_EDITOR
-            if (conversionSystem.IsBuildingForEditor)
-                dstManager.AddComponentData(entity, new IntTestData(1));
+            if (IsBakingForEditor())
+                AddComponent(new IntTestData(1));
             else
-                dstManager.AddComponentData(entity, new IntTestData(2));
+                AddComponent(new IntTestData(2));
 #else
-            dstManager.AddComponentData(entity, new IntTestData(3));
+            AddComponent(new IntTestData(3));
 #endif
         }
     }

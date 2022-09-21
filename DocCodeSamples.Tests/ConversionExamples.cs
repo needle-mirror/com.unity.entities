@@ -2,11 +2,15 @@
 using Unity.Entities;
 using UnityEngine;
 
+namespace Doc.CodeSamples.Tests
+{
 // Embedded code cannot be larger than the following line, otherwise it will wrap
 // =======================================================================================
 
 #pragma warning disable 649
+
 #region conversion101
+
 // Authoring component
 class FooAuthoring : MonoBehaviour
 {
@@ -20,7 +24,7 @@ struct Foo : IComponentData
 }
 
 // Conversion system, running in the conversion world
-class FooConversion : GameObjectConversionSystem
+partial class FooConversion : GameObjectConversionSystem
 {
     protected override void OnUpdate()
     {
@@ -35,12 +39,14 @@ class FooConversion : GameObjectConversionSystem
             {
                 SquaredValue = input.Value * input.Value
             });
-        });
+        }).WithStructuralChanges().Run();
     }
 }
+
 #endregion
 
 #region PrefabReference
+
 // Authoring component
 public class PrefabReference : MonoBehaviour
 {
@@ -52,24 +58,26 @@ public struct PrefabEntityReference : IComponentData
 {
     public Entity Prefab;
 }
+
 #endregion
 
 #region PrefabConverterDeclare
+
 [UpdateInGroup(typeof(GameObjectDeclareReferencedObjectsGroup))]
-class PrefabConverterDeclare : GameObjectConversionSystem
+partial class PrefabConverterDeclare : GameObjectConversionSystem
 {
     protected override void OnUpdate()
     {
-        Entities.ForEach((PrefabReference prefabReference) =>
-        {
-            DeclareReferencedPrefab(prefabReference.Prefab);
-        });
+        Entities.ForEach((PrefabReference prefabReference) => { DeclareReferencedPrefab(prefabReference.Prefab); })
+            .WithoutBurst().Run();
     }
 }
+
 #endregion
 
 #region PrefabConverter
-class PrefabConverter : GameObjectConversionSystem
+
+partial class PrefabConverter : GameObjectConversionSystem
 {
     protected override void OnUpdate()
     {
@@ -80,10 +88,12 @@ class PrefabConverter : GameObjectConversionSystem
 
             var component = new PrefabEntityReference {Prefab = prefab};
             DstEntityManager.AddComponentData(entity, component);
-        });
+        }).WithStructuralChanges().Run();
     }
 }
+
 #endregion
+}
 
 namespace docnamespace_IConvertGameObjectToEntity
 {
@@ -334,7 +344,7 @@ namespace docnamespace_CompanionComponent
 
     #region CompanionComponent_ConversionSystem
     [ConverterVersion("unity", 1)]
-    public class DoohickeyConversionSystem : GameObjectConversionSystem
+    public partial class DoohickeyConversionSystem : GameObjectConversionSystem
     {
         protected override void OnUpdate()
         {
@@ -342,7 +352,7 @@ namespace docnamespace_CompanionComponent
             {
                 var entity = GetPrimaryEntity(doohickey);
                 DstEntityManager.AddComponentObject(entity, doohickey);
-            });
+            }).WithStructuralChanges().Run();
         }
     }
     #endregion

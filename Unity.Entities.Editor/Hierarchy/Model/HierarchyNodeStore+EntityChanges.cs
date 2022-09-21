@@ -280,19 +280,19 @@ namespace Unity.Entities.Editor
                 var addedParentEntities = Batch.AddedParentEntities;
                 var addedParentComponents = Batch.AddedParentComponents;
                 var addedParentSceneTagForNullParentComponents = Batch.AddedParentSceneTagForNullParentComponents;
-                
+
                 for (var i = 0; i < removedSceneReferencesWithoutSceneTag.Length; i++)
-                    Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(removedSceneReferencesEntities[i]), HierarchyNodeHandle.Root);
-                
+                    Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, removedSceneReferencesEntities[i]), HierarchyNodeHandle.Root);
+
                 for (var i = 0; i < removedSceneTagWithSceneReferenceEntities.Length; i++)
-                    Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(removedSceneTagWithSceneReferenceEntities[i]), HierarchyNodeHandle.Root);
+                    Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, removedSceneTagWithSceneReferenceEntities[i]), HierarchyNodeHandle.Root);
 
                 for (var i = 0; i < removedSceneReferencesEntities.Length; i++)
-                    Hierarchy.RemoveNode(HierarchyNodeHandle.FromSubScene(removedSceneReferencesEntities[i]));
+                    Hierarchy.RemoveNode(HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, removedSceneReferencesEntities[i]));
 
                 for (var i = 0; i < removedSceneTagWithoutParentEntities.Length; i++)
                     Hierarchy.SetParent(HierarchyNodeHandle.FromEntity(removedSceneTagWithoutParentEntities[i]), HierarchyNodeHandle.Root);
-                
+
                 for (var i = 0; i < removedParentEntities.Length; i++)
                     Hierarchy.SetParent(HierarchyNodeHandle.FromEntity(removedParentEntities[i]), HierarchyNodeHandle.Root);
 
@@ -303,27 +303,37 @@ namespace Unity.Entities.Editor
                     Hierarchy.m_Nodes.ValueByEntity.SetValueDefaultUnchecked(createdEntities[i]);
 
                 for (var i = 0; i < addedSceneReferencesEntities.Length; i++)
-                    Hierarchy.AddNode(HierarchyNodeHandle.FromSubScene(addedSceneReferencesEntities[i]));
+                {
+                    var subScene = HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, addedSceneReferencesEntities[i]);
+                    if (!Hierarchy.Exists(subScene))
+                        Hierarchy.AddNode(subScene);
+                }
 
                 for (var i = 0; i < addedSceneReferencesWithoutSceneTag.Length; i++)
                 {
                     if (Hierarchy.m_SceneReferenceEntityToScene.TryGetValue(addedSceneReferencesWithoutSceneTag[i], out var scene))
-                        Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(addedSceneReferencesWithoutSceneTag[i]), HierarchyNodeHandle.FromScene(scene));
+                    {
+                        var sceneHandle = HierarchyNodeHandle.FromScene(scene);
+                        if (!Hierarchy.Exists(sceneHandle))
+                            Hierarchy.AddNode(sceneHandle);
+
+                        Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, addedSceneReferencesWithoutSceneTag[i]), HierarchyNodeHandle.FromScene(scene));
+                    }
                 }
-                
+
                 for (var i = 0; i < addedSceneTagWithSceneReferenceEntities.Length; i++)
                 {
                     if (addedSceneTagWithSceneReferenceComponents[i].SceneEntity == Entity.Null)
                     {
                         // Something unexpected with the ECS data model. Just drop this node at the root.
-                        Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(addedSceneTagWithSceneReferenceEntities[i]), HierarchyNodeHandle.Root);
+                        Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, addedSceneTagWithSceneReferenceEntities[i]), HierarchyNodeHandle.Root);
                         continue;
                     }
-                    
-                    var subSceneNode = HierarchyNodeHandle.FromSubScene(EntityDataAccess, addedSceneTagWithSceneReferenceComponents[i]);
-                    Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(addedSceneTagWithSceneReferenceEntities[i]), subSceneNode);
+
+                    var subSceneNode = HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, addedSceneTagWithSceneReferenceComponents[i]);
+                    Hierarchy.SetParent(HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, addedSceneTagWithSceneReferenceEntities[i]), subSceneNode);
                 }
-                
+
                 for (var i = 0; i < addedSceneTagWithoutParentEntities.Length; i++)
                 {
                     if (addedSceneTagWithoutParentComponents[i].SceneEntity == Entity.Null)
@@ -332,11 +342,11 @@ namespace Unity.Entities.Editor
                         Hierarchy.SetParent(HierarchyNodeHandle.FromEntity(addedSceneTagWithoutParentEntities[i]), HierarchyNodeHandle.Root);
                         continue;
                     }
-                    
-                    var subSceneNode = HierarchyNodeHandle.FromSubScene(EntityDataAccess, addedSceneTagWithoutParentComponents[i]);
+
+                    var subSceneNode = HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, addedSceneTagWithoutParentComponents[i]);
                     Hierarchy.SetParent(HierarchyNodeHandle.FromEntity(addedSceneTagWithoutParentEntities[i]), Hierarchy.Exists(subSceneNode) ? subSceneNode : HierarchyNodeHandle.Root);
                 }
-                
+
                 for (var i = 0; i < addedParentEntities.Length; i++)
                 {
                     if (addedParentComponents[i].Value == Entity.Null)
@@ -348,12 +358,12 @@ namespace Unity.Entities.Editor
                             Hierarchy.SetParent(HierarchyNodeHandle.FromEntity(addedParentEntities[i]), HierarchyNodeHandle.Root);
                             continue;
                         }
-                        
-                        var subSceneNode = HierarchyNodeHandle.FromSubScene(EntityDataAccess, addedParentSceneTagForNullParentComponents[i]);
+
+                        var subSceneNode = HierarchyNodeHandle.FromSubScene(Hierarchy.m_SubSceneNodeMapping, EntityDataAccess, addedParentSceneTagForNullParentComponents[i]);
                         Hierarchy.SetParent(HierarchyNodeHandle.FromEntity(addedParentEntities[i]), subSceneNode);
                         continue;
                     }
-                    
+
                     Hierarchy.SetParent(HierarchyNodeHandle.FromEntity(addedParentEntities[i]), HierarchyNodeHandle.FromEntity(addedParentComponents[i].Value));
                 }
             }

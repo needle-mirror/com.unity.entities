@@ -57,8 +57,12 @@ namespace Unity.Entities.Editor
 
             if (componentTypes.Set.Count == 0 && k_UnmatchedInputBuilder.Length == 0)
                 return Result.Invalid(string.Empty);
-            
-            return Result.Valid(new EntityQueryDesc { Any = componentTypes.Set.ToArray(), Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled }, k_UnmatchedInputBuilder.ToString());
+
+            // Entity type is legal in UI, but not allowed in EntityQuery, so remove it.
+            var entityTypeIndex = TypeManager.GetTypeIndex<Entity>();
+            componentTypes.Set.RemoveWhere(t => t.TypeIndex == entityTypeIndex);
+
+            return Result.Valid(new EntityQueryDesc { Any = componentTypes.Set.ToArray(), Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities }, k_UnmatchedInputBuilder.ToString());
         }
 
         public struct Result

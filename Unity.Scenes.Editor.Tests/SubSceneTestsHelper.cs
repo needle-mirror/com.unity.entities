@@ -20,7 +20,7 @@ namespace Unity.Scenes.Editor.Tests
             SceneManager.SetActiveScene(parentScene);
 
             var subScene = SubSceneContextMenu.CreateNewSubScene(name, args, InteractionMode.AutomatedAction);
-            SubSceneInspectorUtility.EditScene(subScene);
+            SubSceneUtility.EditScene(subScene);
             var objects = createObjects?.Invoke();
             if (objects != null)
             {
@@ -43,8 +43,10 @@ namespace Unity.Scenes.Editor.Tests
                 Directory.CreateDirectory(dir);
             AssetDatabase.DeleteAsset(scenePath);
             EditorSceneManager.SaveScene(scene, scenePath);
+
             return scene;
         }
+
 
         public static Scene CreateTmpScene(ref TestWithTempAssets testAssets)
         {

@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Profiling;
+using UnityEditor.SceneManagement;
 
 namespace Unity.Entities.Editor
 {
@@ -37,7 +38,7 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// Returns the pre-processed tokens.
         /// </summary>
-        public NativeArray<FixedString64Bytes> Tokens => m_Tokens;
+        public NativeArray<FixedString64Bytes> Tokens => m_Tokens.AsArray();
 
         /// <summary>
         /// Gets a value indicating if the filter is valid or not.
@@ -162,6 +163,9 @@ namespace Unity.Entities.Editor
             m_HierarchySearch.ApplyEntityQueryFilter(nodes, m_QueryResult.EntityQueryDesc, mask);
             m_HierarchySearch.ApplyNameFilter(nodes, m_Tokens, mask);
             m_HierarchySearch.ApplyIncludeSubSceneFilter(nodes, mask);
+
+            if (PrefabStageUtility.GetCurrentPrefabStage() != null)
+                m_HierarchySearch.ApplyPrefabStageFilter(nodes, mask);
 
             return mask;
         }

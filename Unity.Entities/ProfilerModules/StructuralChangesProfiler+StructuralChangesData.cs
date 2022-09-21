@@ -5,15 +5,15 @@ namespace Unity.Entities
 {
     static partial class StructuralChangesProfiler
     {
-        [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         public readonly struct StructuralChangeData
         {
             public readonly StructuralChangeType Type;
             public readonly long ElapsedNanoseconds;
             public readonly ulong WorldSequenceNumber;
-            public readonly SystemHandleUntyped ExecutingSystem;
+            public readonly SystemHandle ExecutingSystem;
 
-            public StructuralChangeData(StructuralChangeType type, long elapsed, ulong worldSeqNumber, SystemHandleUntyped executingSystem)
+            public StructuralChangeData(StructuralChangeType type, long elapsed, ulong worldSeqNumber, in SystemHandle executingSystem)
             {
                 Type = type;
                 ElapsedNanoseconds = elapsed;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Entities;
 using Unity.Entities.Tests;
@@ -33,6 +33,35 @@ namespace MyNamespace.System
             new TestJob().Run();
         }
     }
+
+    readonly partial struct AspectInNamespaceEndingInSystem : IAspect
+    {
+        public readonly RefRW<EcsTestData> TestComponent;
+    }
+
+    public partial struct IdiomaticForeachComponentSystemInNamespaceEndingInSystem : ISystem
+    {
+        public void OnCreate(ref SystemState state) { }
+        public void OnDestroy(ref SystemState state) { }
+        public void OnUpdate(ref SystemState state)
+        {
+            foreach (var data in SystemAPI.Query<RefRO<EcsTestData>, RefRW<EcsTestData2>>())
+            {
+            }
+        }
+    }
+
+    public partial struct IdiomaticForeachAspectSystemInNamespaceEndingInSystem : ISystem
+    {
+        public void OnCreate(ref SystemState state) { }
+        public void OnDestroy(ref SystemState state) { }
+        public void OnUpdate(ref SystemState state)
+        {
+            foreach (var data in SystemAPI.Query<AspectInNamespaceEndingInSystem>())
+            {
+            }
+        }
+    }
 }
 
 namespace Unity.Entities.CodeGen.Tests
@@ -43,7 +72,9 @@ namespace Unity.Entities.CodeGen.Tests
         {
             new TestCaseData(typeof(MyNamespace.System.EntitiesForEachSystemInNamespaceEndingInSystem)),
             new TestCaseData(typeof(MyNamespace.System.JobWithCodeSystemInNamespaceEndingInSystem)),
-            new TestCaseData(typeof(MyNamespace.System.IJobEntitySystemInNamespaceEndingInSystem))
+            new TestCaseData(typeof(MyNamespace.System.IJobEntitySystemInNamespaceEndingInSystem)),
+            new TestCaseData(typeof(MyNamespace.System.IdiomaticForeachComponentSystemInNamespaceEndingInSystem)),
+            new TestCaseData(typeof(MyNamespace.System.IdiomaticForeachAspectSystemInNamespaceEndingInSystem))
         };
 
         [TestCaseSource(nameof(Source))]
@@ -54,7 +85,11 @@ namespace Unity.Entities.CodeGen.Tests
 
         World Create(Type type)
         {
-            if (type.IsClass && World.GetOrCreateSystem(type) is SystemBase)
+            if (type.IsClass && World.GetOrCreateSystemManaged(type) is SystemBase)
+                return World;
+
+            if (type.IsValueType &&
+                World.GetOrCreateSystem(type) != default)
                 return World;
 
             throw new ArgumentException($"{type} system cannot be created.");

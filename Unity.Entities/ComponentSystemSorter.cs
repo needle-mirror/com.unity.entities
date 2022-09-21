@@ -4,11 +4,14 @@ using System.Collections.Generic;
 using System.Linq;
 #endif
 using Unity;
+using Unity.Collections;
 using Unity.Entities;
 
 namespace Unity.Entities
 {
-    public class ComponentSystemSorter
+    internal class ComponentSystemSorter<TBeforeAttribute, TAfterAttribute>
+        where TBeforeAttribute : Attribute, ISystemOrderAttribute
+        where TAfterAttribute : Attribute, ISystemOrderAttribute
     {
         public class CircularSystemDependencyException : Exception
         {
@@ -17,11 +20,11 @@ namespace Unity.Entities
                 Chain = chain;
 #if NET_DOTS
                 var lines = new List<string>();
-                Console.WriteLine($"The following systems form a circular dependency cycle (check their [UpdateBefore]/[UpdateAfter] attributes):");
+                UnityEngine.Debug.Log($"The following systems form a circular dependency cycle (check their [{typeof(TBeforeAttribute)}]/[{typeof(TAfterAttribute)}] attributes):");
                 foreach (var s in Chain)
                 {
-                    string name = TypeManager.GetSystemName(s);
-                    Console.WriteLine(name);
+                    var name = TypeManager.GetSystemName(s);
+                    UnityEngine.Debug.Log(name);
                 }
 #endif
             }
@@ -35,7 +38,7 @@ namespace Unity.Entities
                 {
                     var lines = new List<string>
                     {
-                        $"The following systems form a circular dependency cycle (check their [UpdateBefore]/[UpdateAfter] attributes):"
+                        $"The following systems form a circular dependency cycle (check their [{typeof(TBeforeAttribute)}]/[{typeof(TAfterAttribute)}] attributes):"
                     };
                     foreach (var s in Chain)
                     {
@@ -66,7 +69,7 @@ namespace Unity.Entities
 
             public void Insert(TypeHeapElement e)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (_size >= _capacity)
                 {
                     throw new InvalidOperationException($"Attempted to Insert() to a full heap.");
@@ -91,7 +94,7 @@ namespace Unity.Entities
 
             public TypeHeapElement Peek()
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (Empty)
                 {
                     throw new InvalidOperationException($"Attempted to Peek() an empty heap.");
@@ -102,7 +105,7 @@ namespace Unity.Entities
 
             public TypeHeapElement Extract()
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (Empty)
                 {
                     throw new InvalidOperationException($"Attempted to Extract() from an empty heap.");
@@ -147,7 +150,7 @@ namespace Unity.Entities
 
         public struct TypeHeapElement : IComparable<TypeHeapElement>
         {
-            private readonly string typeName;
+            private readonly NativeText.ReadOnly typeName;
             public int unsortedIndex;
 
             public TypeHeapElement(int index, Type t)
@@ -171,7 +174,7 @@ namespace Unity.Entities
                     if (typeName[i] > other.typeName[i])
                         return 1;
                 }
-                return 0;
+                return unsortedIndex.CompareTo(other.unsortedIndex);
             }
         }
 
@@ -285,7 +288,7 @@ namespace Unity.Entities
 #endif
             }
 
-            return TypeManager.GetSystemName(stype);
+            return TypeManager.GetSystemName(stype).ToString();
         }
 
         internal static void FindConstraints(Type parentType, SystemElement[] sysElems)
@@ -296,11 +299,11 @@ namespace Unity.Entities
             {
                 var systemType = sysElems[i].Type;
 
-                var before = TypeManager.GetSystemAttributes(systemType, typeof(UpdateBeforeAttribute));
-                var after = TypeManager.GetSystemAttributes(systemType, typeof(UpdateAfterAttribute));
+                var before = TypeManager.GetSystemAttributes(systemType, typeof(TBeforeAttribute));
+                var after = TypeManager.GetSystemAttributes(systemType, typeof(TAfterAttribute));
                 foreach (var attr in before)
                 {
-                    var dep = attr as UpdateBeforeAttribute;
+                    var dep = attr as TBeforeAttribute;
 
                     if (CheckBeforeConstraints(parentType, dep, systemType))
                         continue;
@@ -309,7 +312,7 @@ namespace Unity.Entities
                     if (depIndex < 0)
                     {
                         Debug.LogWarning(
-                            $"Ignoring invalid [UpdateBefore] attribute on {SysName(systemType)} targeting {SysName(dep.SystemType)}.\n"
+                            $"Ignoring invalid [{typeof(TBeforeAttribute)}] attribute on {SysName(systemType)} targeting {SysName(dep.SystemType)}.\n"
                             + $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n"
                             + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({SysName(parentType)}))],\n"
                             + $"or by manually adding both systems to the same group's update list.");
@@ -322,7 +325,7 @@ namespace Unity.Entities
 
                 foreach (var attr in after)
                 {
-                    var dep = attr as UpdateAfterAttribute;
+                    var dep = attr as TAfterAttribute;
 
                     if (CheckAfterConstraints(parentType, dep, systemType))
                         continue;
@@ -331,7 +334,7 @@ namespace Unity.Entities
                     if (depIndex < 0)
                     {
                         Debug.LogWarning(
-                            $"Ignoring invalid [UpdateAfter] attribute on {SysName(systemType)} targeting {SysName(dep.SystemType)}.\n"
+                            $"Ignoring invalid [{typeof(TAfterAttribute)}] attribute on {SysName(systemType)} targeting {SysName(dep.SystemType)}.\n"
                             + $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n"
                             + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({SysName(parentType)}))],\n"
                             + $"or by manually adding both systems to the same group's update list.");
@@ -344,21 +347,21 @@ namespace Unity.Entities
             }
         }
 
-        private static bool CheckBeforeConstraints(Type parentType, UpdateBeforeAttribute dep, Type systemType)
+        private static bool CheckBeforeConstraints(Type parentType, TBeforeAttribute dep, Type systemType)
         {
             if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType) && !typeof(ISystem).IsAssignableFrom(dep.SystemType))
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateBefore] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)} or {nameof(ISystem)}.\n"
-                    + $"Set the target parameter of [UpdateBefore] to a system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
+                    $"Ignoring invalid [{typeof(TBeforeAttribute)}] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)} or {nameof(ISystem)}.\n"
+                    + $"Set the target parameter of [{typeof(TBeforeAttribute)}] to a system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }
 
             if (dep.SystemType == systemType)
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateBefore] attribute on {SysName(systemType)} because a system cannot be updated before itself.\n"
-                    + $"Set the target parameter of [UpdateBefore] to a different system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
+                    $"Ignoring invalid [{typeof(TBeforeAttribute)}] attribute on {SysName(systemType)} because a system cannot be updated before itself.\n"
+                    + $"Set the target parameter of [{typeof(TBeforeAttribute)}] to a different system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }
 
@@ -372,28 +375,28 @@ namespace Unity.Entities
             if (depBucket < systemBucket)
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateBefore({SysName(dep.SystemType)})] attribute on {SysName(systemType)} because OrderFirst/OrderLast has higher precedence.");
+                    $"Ignoring invalid [{typeof(TBeforeAttribute)}({SysName(dep.SystemType)})] attribute on {SysName(systemType)} because OrderFirst/OrderLast has higher precedence.");
                 return true;
             }
 
             return false;
         }
 
-        private static bool CheckAfterConstraints(Type parentType, UpdateAfterAttribute dep, Type systemType)
+        private static bool CheckAfterConstraints(Type parentType, TAfterAttribute dep, Type systemType)
         {
             if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType) && !typeof(ISystem).IsAssignableFrom(dep.SystemType))
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateAfter] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)} or {nameof(ISystem)}.\n"
-                    + $"Set the target parameter of [UpdateAfter] to a system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
+                    $"Ignoring invalid [{typeof(TAfterAttribute)}] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)} or {nameof(ISystem)}.\n"
+                    + $"Set the target parameter of [{typeof(TAfterAttribute)}] to a system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }
 
             if (dep.SystemType == systemType)
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateAfter] attribute on {SysName(systemType)} because a system cannot be updated after itself.\n"
-                    + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
+                    $"Ignoring invalid [{typeof(TAfterAttribute)}] attribute on {SysName(systemType)} because a system cannot be updated after itself.\n"
+                    + $"Set the target parameter of [{typeof(TAfterAttribute)}] to a different system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }
 
@@ -407,7 +410,7 @@ namespace Unity.Entities
             if (depBucket > systemBucket)
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateAfter({SysName(dep.SystemType)})] attribute on {SysName(systemType)} because OrderFirst/OrderLast has higher precedence.");
+                    $"Ignoring invalid [{typeof(TAfterAttribute)}({SysName(dep.SystemType)})] attribute on {SysName(systemType)} because OrderFirst/OrderLast has higher precedence.");
                 return true;
             }
 

@@ -56,14 +56,14 @@ namespace Unity.Scenes
         private EntityQuery _LoadedScenesQuery;
         private EntityQuery _UnloadedScenesQuery;
         private NativeList<SceneReference>  m_PreviousScenes;
-        private NativeList<LiveConversionPatcher.LiveConvertedSceneState> m_PreviousRemovedScenes;
+        private NativeList<LiveConversionPatcher.LiveConvertedSceneCleanup> m_PreviousRemovedScenes;
 
         public LiveConversionSceneChangeTracker(EntityManager manager)
         {
             _LoadedScenesQuery = manager.CreateEntityQuery(typeof(SceneReference));
-            _UnloadedScenesQuery = manager.CreateEntityQuery(ComponentType.Exclude<SceneReference>(), ComponentType.ReadOnly<LiveConversionPatcher.LiveConvertedSceneState>());
+            _UnloadedScenesQuery = manager.CreateEntityQuery(ComponentType.Exclude<SceneReference>(), ComponentType.ReadOnly<LiveConversionPatcher.LiveConvertedSceneCleanup>());
             m_PreviousScenes = new NativeList<SceneReference>(Allocator.Persistent);
-            m_PreviousRemovedScenes = new NativeList<LiveConversionPatcher.LiveConvertedSceneState>(Allocator.Persistent);
+            m_PreviousRemovedScenes = new NativeList<LiveConversionPatcher.LiveConvertedSceneCleanup>(Allocator.Persistent);
         }
 
         public void Dispose()
@@ -89,8 +89,8 @@ namespace Unity.Scenes
                 return false;
 
             var loadedScenes = _LoadedScenesQuery.ToComponentDataArray<SceneReference>(Allocator.TempJob);
-            var removedScenes = _UnloadedScenesQuery.ToComponentDataArray<LiveConversionPatcher.LiveConvertedSceneState>(Allocator.TempJob);
-            var newRemovedScenes = SubtractArrays(removedScenes, m_PreviousRemovedScenes);
+            var removedScenes = _UnloadedScenesQuery.ToComponentDataArray<LiveConversionPatcher.LiveConvertedSceneCleanup>(Allocator.TempJob);
+            var newRemovedScenes = SubtractArrays(removedScenes, m_PreviousRemovedScenes.AsArray());
 
             var noNewUnloads = newRemovedScenes.Length == 0;
             var sameLoadState = loadedScenes.ArraysEqual(m_PreviousScenes.AsArray());

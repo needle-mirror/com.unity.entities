@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
-using Unity.Properties.UI;
+using Unity.Platforms.UI;
 using UnityEditor;
 using UnityEngine.UIElements;
 
@@ -22,21 +22,23 @@ namespace Unity.Entities.Editor
         public void OnTabVisibilityChanged(bool isVisible) => m_IsVisible = isVisible;
 
         [UsedImplicitly]
-        class ComponentRelationshipsInspector : Inspector<ComponentRelationships>
+        class ComponentRelationshipsInspector : PropertyInspector<ComponentRelationships>
         {
             readonly Cooldown m_Cooldown = new Cooldown(TimeSpan.FromMilliseconds(Constants.Inspector.CoolDownTime));
             List<ComponentRelationshipWorldView> m_WorldSections = new List<ComponentRelationshipWorldView>();
             bool m_AnyResults;
             VisualElement m_Root;
-            Label m_NoResultsLabel = new Label(L10n.Tr("There are no Entities or Systems matching this Component."));
+            readonly Label m_NoResultsLabel = new Label(Constants.Inspector.EmptyRelationshipMessage);
             readonly WorldListChangeTracker m_WorldListChangeTracker = new WorldListChangeTracker();
+            Label m_EmptyMessage;
 
             public override VisualElement Build()
             {
                 m_Root = new VisualElement();
-                m_NoResultsLabel.style.marginLeft = 10f;
-                m_NoResultsLabel.Hide();
+                Resources.Templates.DotsEditorCommon.AddStyles(m_Root);
+                m_NoResultsLabel.AddToClassList(UssClasses.Inspector.EmptyMessage);
                 m_Root.Add(m_NoResultsLabel);
+
                 return m_Root;
             }
 

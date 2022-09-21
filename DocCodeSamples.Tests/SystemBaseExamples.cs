@@ -22,12 +22,13 @@ namespace Doc.CodeSamples.SyBase.Tests
         public float3 Value;
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class ECSSystem : SystemBase
     {
         protected override void OnUpdate()
         {
             // Local variable captured in ForEach
-            float dT = Time.DeltaTime;
+            float dT = SystemAPI.Time.DeltaTime;
 
             Entities
                 .WithName("Update_Displacement")
@@ -46,11 +47,12 @@ namespace Doc.CodeSamples.SyBase.Tests
 
     #endregion
 
+    [RequireMatchingQueriesForUpdate]
     public partial class EntitiesBasicExample : SystemBase
     {
         protected override void OnUpdate()
         {
-            float dT = Time.DeltaTime; // Captured variable
+            float dT = SystemAPI.Time.DeltaTime; // Captured variable
 
             #region entities-foreach-basic
 
@@ -121,6 +123,7 @@ namespace Doc.CodeSamples.SyBase.Tests
     {
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class LambdaParamsEx : SystemBase
     {
         protected override void OnUpdate()
@@ -148,6 +151,7 @@ namespace Doc.CodeSamples.SyBase.Tests
     {
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class SimpleDependencyManagement : SystemBase
     {
         #region simple-dependency
@@ -186,6 +190,7 @@ namespace Doc.CodeSamples.SyBase.Tests
         #endregion
     }
 
+    [RequireMatchingQueriesForUpdate]
     public partial class ManualDependencyManagement : SystemBase
     {
         #region manual-dependency

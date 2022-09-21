@@ -7,14 +7,6 @@ apiRules:
       # mentioning types from System.* namespace
       uidRegex: ^System\..*$
       type: Type
-  - exclude:
-      hasAttribute:
-        uid: System.ObsoleteAttribute
-      type: Member
-  - exclude:
-      hasAttribute:
-        uid: System.ObsoleteAttribute
-      type: Type
   - include:
       uidRegex: IJobForEach`1
       type: Interface
@@ -53,5 +45,38 @@ apiRules:
   - exclude:
       uidRegex: ^docnamespace.*
       type: Namespace
-  - exclude: 
+  - exclude:
       uidRegex: .*Test.*
+  - exclude:
+      uidRegex: ^MyNamespace.System
+      type: Namespace
+  - exclude:
+      uidRegex: ^Unity\.Entities\.SourceGen.*
+      type: Namespace
+  - exclude:
+      uidRegex: ^Unity\.Entities\.CodeGen.*
+      type: Namespace
+  - exclude:
+      uidRegex: ^Unity\.Entities\.Hybrid\.Internal
+      type: Namespace
+  - exclude:
+      uidRegex: ^Unity\.Entities\.InternalCompilerInterface
+      type: Type
+  - exclude:
+      uidRegex: GatherEntitiesResult
+      type: Type
+  - exclude:
+      uidRegex: ^Unity\.Entities\.IAspectCreate
+      type: Interface
+  - exclude:
+      uidRegex: ^Unity\.Entities\.DOTSCompilerPatchedMethodAttribute
+      type: Type
+  - exclude:
+      uidRegex: ^Unity\.Entities\.DOTSCompilerPatchedPropertyAttribute
+      type: Type
+  - exclude:
+      uidRegex: ^Unity\.Platforms\.UI
+      type: Namespace
+  - exclude:
+      uidRegex: ^Unity\.Entities\.SystemBaseRegistry
+      type: Type

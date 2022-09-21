@@ -1,7 +1,7 @@
-<UXML xmlns:ui="UnityEngine.UIElements" xmlns:properties="Unity.Properties.UI">
+<UXML xmlns:ui="UnityEngine.UIElements" xmlns:uee="Unity.Entities.Editor">
     <ui:VisualElement class="components-window__container">
         <ui:VisualElement class="components-window__search-element-container">
-            <properties:SearchElement
+            <uee:SearchElement
                     class="components-window__search-element"
                     search-data="Name"
                     search-filters="category:Category"

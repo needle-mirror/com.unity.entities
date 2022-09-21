@@ -5,7 +5,7 @@ using Unity.Mathematics;
 
 namespace Unity.Entities.Tests
 {
-    public class FixedStepSimulationSystemGroupTests : ECSTestsFixture
+    public partial class FixedStepSimulationSystemGroupTests : ECSTestsFixture
     {
         partial class RecordUpdateTimesSystem : SystemBase
         {
@@ -19,8 +19,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_FirstUpdateAtTimeZero_OneUpdateAtZero()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
+            var updateTimesSystem = World.CreateSystemManaged<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
@@ -39,8 +39,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_FirstUpdateAtTimeEpsilon_OneUpdateAtZero()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
+            var updateTimesSystem = World.CreateSystemManaged<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
@@ -60,8 +60,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_LargeElapsedTime_UpdateTimesAreCorrect()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
+            var updateTimesSystem = World.CreateSystemManaged<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
@@ -89,8 +89,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_ZeroElapsedTime_NoUpdates()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
+            var updateTimesSystem = World.CreateSystemManaged<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
@@ -109,8 +109,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_SmallElapsedTime_UpdateTimesAreCorrect()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
+            var updateTimesSystem = World.CreateSystemManaged<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
@@ -139,8 +139,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_RuntimeTimestepChange_UpdateTimesAreCorrect()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
+            var updateTimesSystem = World.CreateSystemManaged<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
@@ -187,7 +187,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_TimestepTooLow_ClampedToMinimum()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
             fixedSimGroup.Timestep = 0.0f;
             Assert.AreEqual(RateUtils.MinFixedDeltaTime, fixedSimGroup.Timestep);
         }
@@ -195,7 +195,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_TimestepTooHigh_ClampedToMaximum()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
             fixedSimGroup.Timestep = RateUtils.MaxFixedDeltaTime + 1.0f;
             Assert.AreEqual(RateUtils.MaxFixedDeltaTime, fixedSimGroup.Timestep);
         }
@@ -203,7 +203,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_TimestepInValidRange_NotClamped()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
             float validTimestep =
                 math.lerp(RateUtils.MinFixedDeltaTime, RateUtils.MaxFixedDeltaTime, 0.5f);
             fixedSimGroup.Timestep = validTimestep;
@@ -213,8 +213,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_DisableFixedTimestep_GroupUpdatesOnce()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
+            var updateTimesSystem = World.CreateSystemManaged<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
@@ -235,8 +235,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_ElapsedTimeExceedsMaximumDeltaTime_GradualRecovery()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
+            var updateTimesSystem = World.CreateSystemManaged<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
@@ -289,7 +289,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_NullRateManager_TimestepDoesntThrow()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
             fixedSimGroup.RateManager = null;
             Assert.DoesNotThrow(() => { fixedSimGroup.Timestep = 1.0f;});
             Assert.AreEqual(0, fixedSimGroup.Timestep);
@@ -322,7 +322,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_CustomRateManager_TimestepIsCorrect()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
             fixedSimGroup.RateManager = new CustomRateManager();
             const float expectedTimestep = 0.125f;
             fixedSimGroup.Timestep = expectedTimestep;
@@ -332,11 +332,11 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_CustomRateManager_UpdateLogicIsCorrect()
         {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
+            var fixedSimGroup = World.CreateSystemManaged<FixedStepSimulationSystemGroup>();
             var customRateMgr = new CustomRateManager();
             fixedSimGroup.RateManager = customRateMgr;
             fixedSimGroup.Timestep = 1.0f; // Ignored in this test, only the timestep in World.Time.DeltaTime matters
-            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            var updateTimesSystem = World.CreateSystemManaged<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
@@ -358,7 +358,6 @@ namespace Unity.Entities.Tests
                     new TimeData(0.0f, 0.125f),
                     new TimeData(0.125f, 0.125f),
                 });
-
         }
     }
 }

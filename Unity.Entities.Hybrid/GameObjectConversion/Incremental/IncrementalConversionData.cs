@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Entities.Baking;
 using UnityEngine;
 
 namespace Unity.Entities.Conversion
@@ -16,7 +17,12 @@ namespace Unity.Entities.Conversion
         public NativeList<int> ReconvertHierarchyRequests;
         public NativeList<int> ReconvertSingleRequests;
         private NativeList<int> _changedGameObjectInstanceIds;
-        public NativeList<IncrementalConversionChanges.ParentChange> ParentChangeInstanceIds;
+        public NativeList<IncrementalBakingChanges.ParentChange> ParentChangeInstanceIds;
+
+        public bool HasStructuralChanges()
+        {
+            return !DeletedAssets.IsEmpty || !RemovedInstanceIds.IsEmpty || ChangedGameObjects.Count != 0 || !ReconvertHierarchyRequests.IsEmpty || !_changedGameObjectInstanceIds.IsEmpty || !ParentChangeInstanceIds.IsEmpty;
+        }
 
         public static IncrementalConversionData Create()
         {
@@ -30,21 +36,21 @@ namespace Unity.Entities.Conversion
                 ChangedAssets = new NativeList<int>(Allocator.Persistent),
                 DeletedAssets = new NativeList<int>(Allocator.Persistent),
                 _changedGameObjectInstanceIds = new NativeList<int>(Allocator.Persistent),
-                ParentChangeInstanceIds = new NativeList<IncrementalConversionChanges.ParentChange>(Allocator.Persistent)
+                ParentChangeInstanceIds = new NativeList<IncrementalBakingChanges.ParentChange>(Allocator.Persistent),
             };
         }
 
-        public IncrementalConversionChanges ToChanges()
+        public IncrementalBakingChanges ToChanges()
         {
             foreach (var go in ChangedGameObjects)
                 _changedGameObjectInstanceIds.Add(go.GetInstanceID());
-            return new IncrementalConversionChanges
+            return new IncrementalBakingChanges
             {
                 ChangedGameObjects = ChangedGameObjects,
-                ChangedGameObjectsInstanceIds = _changedGameObjectInstanceIds.AsParallelReader(),
-                RemovedGameObjectInstanceIds = RemovedInstanceIds.AsParallelReader(),
+                ChangedGameObjectsInstanceIds = _changedGameObjectInstanceIds.AsReadOnly(),
+                RemovedGameObjectInstanceIds = RemovedInstanceIds.AsReadOnly(),
                 ChangedComponents = ChangedComponents,
-                ParentChanges = ParentChangeInstanceIds.AsParallelReader()
+                ParentChanges = ParentChangeInstanceIds.AsReadOnly()
             };
         }
 

@@ -20,7 +20,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
         Entity TestEntity;
 
         struct ExtractTestDataFromEntityManager<T> : IDisposable
-            where T : struct, IComponentData
+            where T : unmanaged, IComponentData
         {
             EntityManager m_mgr;
             public NativeArray<T> Values;
@@ -47,7 +47,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
         }
 
         struct ExtractTestSharedDataFromEntityManager<T> : IDisposable
-            where T : struct, ISharedComponentData
+            where T : unmanaged, ISharedComponentData
         {
             EntityManager m_mgr;
             public NativeArray<T> Values;
@@ -59,11 +59,11 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                 using (var group = m_mgr.CreateEntityQuery(typeof(T)))
                 {
                     Values = CollectionHelper.CreateNativeArray<T, RewindableAllocator>(group.CalculateEntityCount(), ref mgr.World.UpdateAllocator);
-                    using (var chunks = group.CreateArchetypeChunkArray(mgr.World.UpdateAllocator.ToAllocator))
+                    using (var chunks = group.ToArchetypeChunkArray(mgr.World.UpdateAllocator.ToAllocator))
                         for (int i = 0; i < chunks.Length; ++i)
                         {
                             var chunk = chunks[i];
-                            var shared = chunk.GetSharedComponentData(m_mgr.GetSharedComponentTypeHandle<T>(), m_mgr);
+                            var shared = chunk.GetSharedComponentManaged(m_mgr.GetSharedComponentTypeHandle<T>(), m_mgr);
                             Values[count++] = shared;
                         }
 
@@ -90,7 +90,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
         [SetUp]
         public void SetUp()
         {
-            TestSystem = World.GetOrCreateSystem<MyTestSystem>();
+            TestSystem = World.GetOrCreateSystemManaged<MyTestSystem>();
         }
 
         [Test]
@@ -262,7 +262,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                         }
                     }).Run();
 
-                using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
+                using (var group = EntityManager.CreateEntityQuery(typeof(EcsTestData)))
                     using (var arr = group.ToComponentDataArray<EcsTestData>(EntityManager.World.UpdateAllocator.ToAllocator))
                     {
                         Assert.AreEqual(kRepeat - kRepeat / 3, arr.Length);
@@ -294,7 +294,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                         }
                     }).Run();
 
-                using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
+                using (var group = EntityManager.CreateEntityQuery(typeof(EcsTestData)))
                     using (var arr = group.ToComponentDataArray<EcsTestData>(EntityManager.World.UpdateAllocator.ToAllocator))
                     {
                         Assert.AreEqual(10, arr.Length);
@@ -325,7 +325,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                         }
                     }).Run();
 
-                using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
+                using (var group = EntityManager.CreateEntityQuery(typeof(EcsTestData)))
                     using (var arr = group.ToComponentDataArray<EcsTestData>(EntityManager.World.UpdateAllocator.ToAllocator))
                     {
                         Assert.AreEqual(10 + 1, arr.Length);
@@ -457,17 +457,17 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     .WithStructuralChanges()
                     .ForEach((Entity e, ref EcsTestData testData) =>
                     {
-                        EntityManager.AddSharedComponentData(e, new EcsTestSharedComp(10));
-                        EntityManager.SetSharedComponentData(e, new EcsTestSharedComp(20));
+                        EntityManager.AddSharedComponentManaged(e, new EcsTestSharedComp(10));
+                        EntityManager.SetSharedComponentManaged(e, new EcsTestSharedComp(20));
 
-                        Assert.AreEqual(20, EntityManager.GetSharedComponentData<EcsTestSharedComp>(e).value);
+                        Assert.AreEqual(20, EntityManager.GetSharedComponentManaged<EcsTestSharedComp>(e).value);
                         Assert.IsTrue(EntityManager.HasComponent<EcsTestSharedComp>(e));
                     }).Run();
                 Entities
                     .WithStructuralChanges()
-                    .ForEach((Entity e, ref EcsTestData testData) => { Assert.AreEqual(20, EntityManager.GetSharedComponentData<EcsTestSharedComp>(e).value); }).Run();
+                    .ForEach((Entity e, ref EcsTestData testData) => { Assert.AreEqual(20, EntityManager.GetSharedComponentManaged<EcsTestSharedComp>(e).value); }).Run();
 
-                Assert.AreEqual(20, EntityManager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+                Assert.AreEqual(20, EntityManager.GetSharedComponentManaged<EcsTestSharedComp>(entity).value);
             }
 
             public void DestroyEntity_EntityOperations_ShouldThrowWhenRequired()
@@ -486,10 +486,10 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                         Assert.Throws<ArgumentException>(() => EntityManager.SetComponentData(e, new EcsTestData(1)));
                         Assert.IsFalse(EntityManager.HasComponent<EcsTestData>(e));
                         Assert.Throws<InvalidOperationException>(() =>
-                            EntityManager.AddSharedComponentData(e, new EcsTestSharedComp(1)));
-                        Assert.Throws<ArgumentException>(() => EntityManager.GetSharedComponentData<EcsTestSharedComp>(e));
+                            EntityManager.AddSharedComponentManaged(e, new EcsTestSharedComp(1)));
+                        Assert.Throws<ArgumentException>(() => EntityManager.GetSharedComponentManaged<EcsTestSharedComp>(e));
                         Assert.Throws<ArgumentException>(() =>
-                            EntityManager.SetSharedComponentData(e, new EcsTestSharedComp(1)));
+                            EntityManager.SetSharedComponentManaged(e, new EcsTestSharedComp(1)));
                         Assert.IsFalse(EntityManager.HasComponent<EcsTestSharedComp>(e));
 
                         Assert.Throws<InvalidOperationException>(() => EntityManager.AddBuffer<EcsIntElement>(e));
@@ -504,7 +504,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
             public void RemoveSharedComponent_ModifiedEntity_VisibleFromInsideForEach()
             {
-                EntityManager.AddSharedComponentData(EntityManager.CreateEntity(), new EcsTestSharedComp(5));
+                EntityManager.AddSharedComponentManaged(EntityManager.CreateEntity(), new EcsTestSharedComp(5));
                 Entities
                     .WithStructuralChanges()
                     .ForEach((Entity e, EcsTestSharedComp testData) =>
@@ -537,7 +537,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                             testData.value = 123;
                         }
 
-                        EntityManager.AddSharedComponentData(e, new EcsTestSharedComp(22));
+                        EntityManager.AddSharedComponentManaged(e, new EcsTestSharedComp(22));
                         Assert.IsTrue(EntityManager.HasComponent<EcsTestSharedComp>(e));
                         EntityManager.RemoveComponent<EcsTestSharedComp>(e);
                         Assert.IsFalse(EntityManager.HasComponent<EcsTestSharedComp>(e));
@@ -573,11 +573,11 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                         Assert.Throws<ArgumentException>(() => EntityManager.GetComponentData<EcsTestData>(e));
                         Assert.Throws<ArgumentException>(() => EntityManager.SetComponentData(e, new EcsTestData(12)));
 
-                        EntityManager.AddSharedComponentData(e, new EcsTestSharedComp(22));
+                        EntityManager.AddSharedComponentManaged(e, new EcsTestSharedComp(22));
                         EntityManager.RemoveComponent<EcsTestSharedComp>(e);
-                        Assert.Throws<ArgumentException>(() => EntityManager.GetSharedComponentData<EcsTestSharedComp>(e));
+                        Assert.Throws<ArgumentException>(() => EntityManager.GetSharedComponentManaged<EcsTestSharedComp>(e));
                         Assert.Throws<ArgumentException>(() =>
-                            EntityManager.SetSharedComponentData(e, new EcsTestSharedComp(-22)));
+                            EntityManager.SetSharedComponentManaged(e, new EcsTestSharedComp(-22)));
                     }).Run();
             }
 

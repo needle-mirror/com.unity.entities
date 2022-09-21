@@ -1,8 +1,7 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Transforms;
 using UnityEngine;
@@ -31,7 +30,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [SetUp]
         public void SetUp()
         {
-            m_TestSystem = World.GetOrCreateSystem<MyTestSystem>();
+            m_TestSystem = World.GetOrCreateSystemManaged<MyTestSystem>();
 
             var entityArchetype = m_Manager.CreateArchetype(
                 typeof(EcsTestData), typeof(EcsTestData2),
@@ -41,7 +40,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             s_TestEntity = m_Manager.CreateEntity(entityArchetype);
             m_Manager.SetComponentData(s_TestEntity, new EcsTestData { value = k_EcsTestDataValue });
             m_Manager.SetComponentData(s_TestEntity, new EcsTestData2 { value0 = k_EcsTestData2Value });
-            m_Manager.SetSharedComponentData(s_TestEntity, new EcsTestSharedComp { value = k_EcsTestSharedCompValue });
+            m_Manager.SetSharedComponentManaged(s_TestEntity, new EcsTestSharedComp { value = k_EcsTestSharedCompValue });
 
             var buffer = m_Manager.GetBuffer<EcsIntElement>(s_TestEntity);
             buffer.Add(k_DynamicBufferFirstItem);
@@ -106,6 +105,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         [Test]
         public void WithSharedComponentFilter([Values] ScheduleType scheduleType) => m_TestSystem.WithSharedComponentFilterDynamic(scheduleType);
+
+        [Test]
+        public void SharedComponent([Values] ScheduleType scheduleType) => m_TestSystem.TestSharedComponent(scheduleType);
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void ManagedSharedComponent() => m_TestSystem.TestManagedSharedComponent();
+#endif
 
         #endregion
 
@@ -177,11 +183,18 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void EntityInQueryIndex([Values] ScheduleType scheduleType) => m_TestSystem.EntityInQueryIndex(scheduleType);
 
+        [Test]
+        public void ChunkIndexInQuery([Values] ScheduleType scheduleType) => m_TestSystem.ChunkIndexInQuery(scheduleType);
+
+        [Test]
+        public void EntityIndexInChunk([Values] ScheduleType scheduleType) => m_TestSystem.EntityIndexInChunk(scheduleType);
+
         #endregion
 
-#if !UNITY_DISABLE_MANAGED_COMPONENTS
-        #region ManagedComponents
 
+        #region ManagedComponents
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DOTSRUNTIME
         [Test]
         public void UnityEngineComponent() => m_TestSystem.UnityEngineComponent();
 
@@ -190,15 +203,32 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         [Test]
         public void UnityEngineScriptableObject() => m_TestSystem.UnityEngineScriptableObject();
-
+#endif
         [Test]
         public void ManyManagedComponents() => m_TestSystem.ManyManagedComponents();
-        #endregion
 #endif
+        #endregion
 
         #region Safety
         [Test]
         public void JobDebuggerSafetyThrows([Values] ScheduleType scheduleType) => m_TestSystem.JobDebuggerSafetyThrows(scheduleType);
+
+        #endregion
+
+        #region EnableableComponents
+        [Test]
+        public void EnableableComponents([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType) => m_TestSystem.EnableableComponents(scheduleType);
+
+        #endregion
+
+        #region EntityInQueryIndex_ArrayWrites
+
+        [Test]
+        public void EntityInQueryIndex_WriteToArray_NoSafetyError() => m_TestSystem.EntityInQueryIndex_WriteToArray();
+
+        [Test]
+        public void EntityInQueryIndex_WriteToArray_Enableable_NoSafetyError() =>
+            m_TestSystem.EntityInQueryIndex_WriteToArray_Enableable();
 
         #endregion
 
@@ -222,10 +252,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -253,10 +285,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -284,10 +318,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -336,10 +372,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
                 Assert.AreEqual(valueToAssign, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
@@ -363,10 +401,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
                 Assert.AreEqual(valueToAssign, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
@@ -390,10 +430,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run(query);
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule(query).Complete();
+                        job.Schedule(query);
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel(query).Complete();
+                        job.ScheduleParallel(query);
+                        Dependency.Complete();
                         break;
                 }
                 Assert.AreEqual(valueToAssign, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
@@ -427,10 +469,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -458,10 +502,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run(query);
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule(query).Complete();
+                        job.Schedule(query);
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel(query).Complete();
+                        job.ScheduleParallel(query);
+                        Dependency.Complete();
                         break;
                 }
 
@@ -498,10 +544,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -529,10 +577,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run(query);
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule(query).Complete();
+                        job.Schedule(query);
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel(query).Complete();
+                        job.ScheduleParallel(query);
+                        Dependency.Complete();
                         break;
                 }
 
@@ -570,10 +620,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run(query);
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule(query).Complete();
+                        job.Schedule(query);
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel(query).Complete();
+                        job.ScheduleParallel(query);
+                        Dependency.Complete();
                         break;
                 }
 
@@ -599,10 +651,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -620,7 +674,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 const int incrementBy = 1;
 
                 var query = GetEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
-                query.SetSharedComponentFilter(new EcsTestSharedComp(k_EcsTestSharedCompValue));
+                query.SetSharedComponentFilterManaged(new EcsTestSharedComp(k_EcsTestSharedCompValue));
 
                 var job = new WithSharedComponentFilterDynamicJob { IncrementBy = incrementBy };
 
@@ -630,15 +684,55 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
                 Assert.AreEqual(k_EcsTestDataValue + incrementBy, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
+
+            partial struct SharedComponentJob : IJobEntity
+            {
+                void Execute(ref EcsTestData data, in EcsTestSharedComp e1) => data.value += e1.value;
+            }
+
+            public void TestSharedComponent(ScheduleType scheduleType)
+            {
+                switch (scheduleType)
+                {
+                    case ScheduleType.Run:
+                        new SharedComponentJob().Run();
+                        break;
+                    case ScheduleType.Schedule:
+                        new SharedComponentJob().Schedule();
+                        Dependency.Complete();
+                        break;
+                    case ScheduleType.ScheduleParallel:
+                        new SharedComponentJob().ScheduleParallel();
+                        Dependency.Complete();
+                        break;
+                }
+                Assert.AreEqual(3+5, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
+            }
+
+            #if !UNITY_DISABLE_MANAGED_COMPONENTS
+            partial struct ManagedSharedComponentJob : IJobEntity
+            {
+                void Execute(ref EcsTestData data, in ManagedSharedData1 e1) => data.value += e1.value.Item1 + e1.value.Item2;
+            }
+
+            public void TestManagedSharedComponent()
+            {
+                EntityManager.AddSharedComponentManaged(s_TestEntity, new ManagedSharedData1 {value = new Tuple<int, int>(2, 3)});
+                new ManagedSharedComponentJob().Run();
+                Assert.AreEqual(3+5, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
+            }
+            #endif
 
             #endregion
 
@@ -681,10 +775,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
                 AfterUpdateVersioning();
@@ -696,10 +792,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -724,10 +822,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
                 AfterUpdateVersioning();
@@ -739,10 +839,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -769,10 +871,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run(query);
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule(query).Complete();
+                        job.Schedule(query);
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel(query).Complete();
+                        job.ScheduleParallel(query);
+                        Dependency.Complete();
                         break;
                 }
 
@@ -785,10 +889,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run(query);
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule(query).Complete();
+                        job.Schedule(query);
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel(query).Complete();
+                        job.ScheduleParallel(query);
+                        Dependency.Complete();
                         break;
                 }
 
@@ -803,7 +909,11 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     WithFilterButNotQueryDynamic(scheduleType);
             }
 
+#if !ENABLE_TRANSFORM_V1
+            [WithChangeFilter(typeof(LocalToWorldTransform))]
+#else
             [WithChangeFilter(typeof(Translation))]
+#endif
             partial struct WithFilterButNotQueryStaticJob : IJobEntity { public void Execute(Entity _) {} }
             void WithFilterButNotQueryStatic(ScheduleType scheduleType)
             {
@@ -816,10 +926,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                             job.Run();
                             break;
                         case ScheduleType.Schedule:
-                            job.Schedule().Complete();
+                            job.Schedule();
+                            Dependency.Complete();
                             break;
                         case ScheduleType.ScheduleParallel:
-                            job.ScheduleParallel().Complete();
+                            job.ScheduleParallel();
+                            Dependency.Complete();
                             break;
                     }
                 });
@@ -831,8 +943,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 Assert.DoesNotThrow(() =>
                 {
+#if !ENABLE_TRANSFORM_V1
+                    var query = GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(LocalToWorldTransform)}});
+                    query.SetChangedVersionFilter(typeof(LocalToWorldTransform));
+#else
                     var query = GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(Translation)}});
                     query.SetChangedVersionFilter(typeof(Translation));
+#endif
                     var job = new WithFilterButNotQueryDynamicJob();
 
                     switch (scheduleType)
@@ -841,10 +958,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                             job.Run(query);
                             break;
                         case ScheduleType.Schedule:
-                            job.Schedule(query).Complete();
+                            job.Schedule(query);
+                            Dependency.Complete();
                             break;
                         case ScheduleType.ScheduleParallel:
-                            job.ScheduleParallel(query).Complete();
+                            job.ScheduleParallel(query);
+                            Dependency.Complete();
                             break;
                     }
                 });
@@ -870,7 +989,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }
             }
 
-            [WithEntityQueryOptions(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.FilterWriteGroup, EntityQueryOptions.IncludePrefab)]
+            [WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.FilterWriteGroup, EntityQueryOptions.IncludePrefab)]
             partial struct WithEntityQueryOptionsStaticSingleAttributeJob : IJobEntity
             {
                 public int AssignValue;
@@ -881,7 +1000,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 const int assignValue = 2;
 
-                EntityManager.AddComponents(s_TestEntity, new ComponentTypes(typeof(Disabled), typeof(Prefab)));
+                EntityManager.AddComponent(s_TestEntity, new ComponentTypeSet(typeof(Disabled), typeof(Prefab)));
                 var writeGroupEntity = EntityManager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataWriteGroup));
 
                 var job = new WithEntityQueryOptionsStaticSingleAttributeJob {AssignValue = assignValue};
@@ -892,10 +1011,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -904,7 +1025,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             }
 
             [WithEntityQueryOptions(EntityQueryOptions.IncludePrefab)]
-            [WithEntityQueryOptions(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.FilterWriteGroup)]
+            [WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.FilterWriteGroup)]
             partial struct WithEntityQueryOptionsStaticMultipleAttributeJob : IJobEntity
             {
                 public int AssignValue;
@@ -915,7 +1036,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 const int assignValue = 2;
 
-                EntityManager.AddComponents(s_TestEntity, new ComponentTypes(typeof(Disabled), typeof(Prefab)));
+                EntityManager.AddComponent(s_TestEntity, new ComponentTypeSet(typeof(Disabled), typeof(Prefab)));
                 var writeGroupEntity = EntityManager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataWriteGroup));
 
                 var job = new WithEntityQueryOptionsStaticMultipleAttributeJob {AssignValue = assignValue};
@@ -926,10 +1047,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -961,10 +1084,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -993,10 +1118,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -1022,7 +1149,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
                 using (var refStartPos = CollectionHelper.CreateNativeArray<int>(10, World.UpdateAllocator.ToAllocator))
                 {
-                    using (var refEndPos = new NativeArray<int>(10, Allocator.TempJob))
+                    using (var refEndPos = CollectionHelper.CreateNativeArray<int>(10, World.UpdateAllocator.ToAllocator))
                     {
                         var assignJob = new MultipleInNestedUsingAssignJob { Value = refEndPos[0] + refStartPos[0] + valueToAssign };
                         var incrementJob = new MultipleInNestedUsingIncrementJob { IncrementBy = incrementBy };
@@ -1033,10 +1160,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                                 assignJob.Run();
                                 break;
                             case ScheduleType.Schedule:
-                                assignJob.Schedule().Complete();
+                                assignJob.Schedule();
+                                Dependency.Complete();
                                 break;
                             case ScheduleType.ScheduleParallel:
-                                assignJob.ScheduleParallel().Complete();
+                                assignJob.ScheduleParallel();
+                                Dependency.Complete();
                                 break;
                         }
 
@@ -1046,10 +1175,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                                 incrementJob.Run();
                                 break;
                             case ScheduleType.Schedule:
-                                incrementJob.Schedule().Complete();
+                                incrementJob.Schedule();
+                                Dependency.Complete();
                                 break;
                             case ScheduleType.ScheduleParallel:
-                                incrementJob.ScheduleParallel().Complete();
+                                incrementJob.ScheduleParallel();
+                                Dependency.Complete();
                                 break;
                         }
                     }
@@ -1079,10 +1210,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -1114,10 +1247,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -1148,10 +1283,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -1160,7 +1297,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             #endregion
 
-            #region EntityInQueryIndex
+            #region Indexes
 
             partial struct CompareEntityQueryIndex : IJobEntity
             {
@@ -1177,7 +1314,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 for (var index = 0; index < entities.Length; index++)
                     EntityManager.SetComponentData(entities[index], new EcsTestData {value = index+1});
 
-                var job = new CompareEntityQueryIndex{Successes = new NativeArray<int>(JobsUtility.MaxJobThreadCount, Allocator.TempJob)};
+                var job = new CompareEntityQueryIndex{Successes = CollectionHelper.CreateNativeArray<int>(JobsUtility.MaxJobThreadCount, EntityManager.World.UpdateAllocator.ToAllocator) };
 
                 switch (scheduleType)
                 {
@@ -1185,10 +1322,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         job.Run();
                         break;
                     case ScheduleType.Schedule:
-                        job.Schedule().Complete();
+                        job.Schedule();
+                        Dependency.Complete();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        job.ScheduleParallel().Complete();
+                        job.ScheduleParallel();
+                        Dependency.Complete();
                         break;
                 }
 
@@ -1201,11 +1340,83 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 job.Successes.Dispose();
             }
 
+
+            [WithAll(typeof(EcsTestDataEnableable))]
+            public partial struct EntityIndexInChunkJob : IJobEntity
+            {
+                [NativeDisableParallelForRestriction] public NativeArray<int> Array;
+                [NativeSetThreadIndex] int threadIndex;
+                void Execute([EntityIndexInChunk] int index) => Array[threadIndex]+=index;
+            }
+
+            public void EntityIndexInChunk(ScheduleType scheduleType)
+            {
+                using var entities = EntityManager.CreateEntity(EntityManager.CreateArchetype(typeof(EcsTestDataEnableable)), 1000, Allocator.Temp);
+                for (var i = 0; i < entities.Length; i+=4)
+                    EntityManager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+                var job = new EntityIndexInChunkJob {Array = CollectionHelper.CreateNativeArray<int>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator)};
+                switch (scheduleType)
+                {
+                    case ScheduleType.Run:
+                        job.Run();
+                        break;
+                    case ScheduleType.Schedule:
+                        job.Schedule();
+                        Dependency.Complete();
+                        break;
+                    case ScheduleType.ScheduleParallel:
+                        job.ScheduleParallel();
+                        Dependency.Complete();
+                        break;
+                }
+                var sum = 0;
+                foreach (var b in job.Array)
+                    sum += b;
+                Assert.AreEqual(47064, sum);
+                EntityManager.DestroyEntity(entities);
+            }
+
+            public partial struct ChunkIndexInQueryJob : IJobEntity
+            {
+                [NativeDisableParallelForRestriction] public NativeArray<bool> Array;
+                void Execute([ChunkIndexInQuery] int index, ref EcsTestData d) => Array[index] = true;
+            }
+
+            public void ChunkIndexInQuery(ScheduleType scheduleType) {
+                var entities = EntityManager.CreateEntity(EntityManager.CreateArchetype(typeof(EcsTestData)), 1000, Allocator.Temp);
+                var chunkCount = GetEntityQuery(typeof(EcsTestData)).CalculateChunkCount();
+                var job = new ChunkIndexInQueryJob {Array = CollectionHelper.CreateNativeArray<bool>(chunkCount, World.UpdateAllocator.ToAllocator)};
+
+                switch (scheduleType)
+                {
+                    case ScheduleType.Run:
+                        job.Run();
+                        break;
+                    case ScheduleType.Schedule:
+                        job.Schedule();
+                        Dependency.Complete();
+                        break;
+                    case ScheduleType.ScheduleParallel:
+                        job.ScheduleParallel();
+                        Dependency.Complete();
+                        break;
+                }
+
+                var passed = true;
+                // Don't make linq cause then no Dots Runtime
+                foreach (var val in job.Array)
+                    passed &= val;
+                Assert.True(passed);
+
+                job.Array.Dispose();
+                entities.Dispose();
+            }
+
             #endregion
 
-#if !UNITY_DISABLE_MANAGED_COMPONENTS
             #region ManagedComponents
-
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DOTSRUNTIME
             public partial struct UnityEngineComponentJob : IJobEntity
             {
                 void Execute(Transform transform) => transform.position = Vector3.up;
@@ -1252,19 +1463,15 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 new UnityEngineScriptableObjectJob().Run();
                 Assert.AreEqual(so.value, 1);
             }
-
+#endif
             public partial struct ManyManagedComponentsJob : IJobEntity
             {
-                public NativeReference<int> Count;
-
                 void Execute(EcsTestManagedComponent t0, EcsTestManagedComponent2 t1, EcsTestManagedComponent3 t2, EcsTestManagedComponent4 t3)
                 {
                     Assert.AreEqual("SomeString", t0.value);
                     Assert.AreEqual("SomeString2", t1.value2);
                     Assert.AreEqual("SomeString3", t2.value3);
                     Assert.AreEqual("SomeString4", t3.value4);
-
-                    Count.Value++;
                 }
             }
 
@@ -1276,14 +1483,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 EntityManager.AddComponentData(entity, new EcsTestManagedComponent3 { value3 = "SomeString3" });
                 EntityManager.AddComponentData(entity, new EcsTestManagedComponent4 { value4 = "SomeString4" });
 
-                var job = new ManyManagedComponentsJob{Count = new NativeReference<int>(0,Allocator.TempJob)};
-                job.Run();
-                Assert.AreEqual(1, job.Count.Value);
-                job.Count.Dispose();
+                new ManyManagedComponentsJob().Run();
             }
-
-            #endregion
 #endif
+            #endregion
 
             #region Safety
 
@@ -1320,6 +1523,118 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
 
             }
+
+            #endregion
+
+            #region EnableableComponents
+
+            partial struct EnableableComponentsJob : IJobEntity
+            {
+                public NativeReference<int> Sum;
+                public void Execute(ref EcsTestDataEnableable e1) => Sum.Value++;
+            }
+
+            public void EnableableComponents(ScheduleType scheduleType)
+            {
+                // Create 50 enabled entities of 100 query matches
+                using var entities = CollectionHelper.CreateNativeArray<Entity>(100, World.UpdateAllocator.ToAllocator);
+                EntityManager.CreateEntity(EntityManager.CreateArchetype(typeof(EcsTestDataEnableable)), entities);
+                for (int i = 0; i < entities.Length; i+=2)
+                    EntityManager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+
+                // Init and Schedule job
+                using var sum = new NativeReference<int>(World.UpdateAllocator.ToAllocator);
+                var job = new EnableableComponentsJob {Sum = sum};
+                switch (scheduleType)
+                {
+                    case ScheduleType.Run:
+                        job.Run();
+                        break;
+                    case ScheduleType.Schedule:
+                        job.Schedule();
+                        Dependency.Complete();
+                        break;
+                }
+
+                // Asserts
+                Assert.AreEqual(50,sum.Value);
+                EntityManager.DestroyEntity(entities);
+            }
+
+            #endregion
+
+            #region EntityInQueryIndex_ArrayWrites
+
+            partial struct EntityInQueryIndex_WriteToArray_Job : IJobEntity
+            {
+                public NativeArray<float> OutValues;
+                public void Execute([EntityInQueryIndex] int entityInQueryIndex, in EcsTestFloatData e1)
+                {
+                    OutValues[entityInQueryIndex] = e1.Value;
+                }
+            }
+
+            public void EntityInQueryIndex_WriteToArray()
+            {
+                var archetype = EntityManager.CreateArchetype(typeof(EcsTestFloatData));
+                int entityCount = 1000;
+                using var entities = EntityManager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+                for (int i = 0; i < entityCount; ++i)
+                {
+                    EntityManager.SetComponentData(entities[i], new EcsTestFloatData{Value = i});
+                }
+                using var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestFloatData>().Build(EntityManager);
+                Assert.AreEqual(entityCount, query.CalculateEntityCount());
+                using var outputValues =
+                    CollectionHelper.CreateNativeArray<float>(entityCount, World.UpdateAllocator.ToAllocator);
+
+                new EntityInQueryIndex_WriteToArray_Job { OutValues = outputValues }.ScheduleParallel(query, default).Complete();
+
+                for (int i = 0, count=outputValues.Length; i < count; ++i)
+                {
+                    Assert.AreEqual((float)i, outputValues[i]);
+                }
+                EntityManager.DestroyEntity(entities);
+            }
+
+            partial struct EntityInQueryIndex_WriteToArray_Enableable_Job : IJobEntity
+            {
+                public NativeArray<int> OutValues;
+                public void Execute([EntityInQueryIndex] int entityInQueryIndex, in EcsTestDataEnableable e1)
+                {
+                    OutValues[entityInQueryIndex] = e1.value;
+                }
+            }
+
+            public void EntityInQueryIndex_WriteToArray_Enableable()
+            {
+                var archetype = EntityManager.CreateArchetype(typeof(EcsTestDataEnableable));
+                int entityCount = 1000;
+                using var entities = EntityManager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+                int matchingEntityCount = 0;
+                for (int i = 0; i < entityCount; ++i)
+                {
+                    if ((i % 10) == 0)
+                    {
+                        EntityManager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+                        EntityManager.SetComponentData(entities[i], new EcsTestDataEnableable(-i));
+                        continue;
+                    }
+                    EntityManager.SetComponentData(entities[i], new EcsTestDataEnableable(matchingEntityCount++));
+                }
+                using var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestDataEnableable>().Build(EntityManager);
+                using var outputValues =
+                    CollectionHelper.CreateNativeArray<int>(query.CalculateEntityCount(), World.UpdateAllocator.ToAllocator);
+
+                new EntityInQueryIndex_WriteToArray_Enableable_Job { OutValues = outputValues }.ScheduleParallel(query, default).Complete();
+
+                for (int i = 0, count=outputValues.Length; i < count; ++i)
+                {
+                    Assert.AreEqual(i, outputValues[i]);
+                }
+                EntityManager.DestroyEntity(entities);
+            }
+
 
             #endregion
 

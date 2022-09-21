@@ -62,7 +62,7 @@ namespace Unity.Scenes
             {
                 var stableTypeHash = typeHashes[i].StableTypeHash;
                 var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(stableTypeHash);
-                if (typeIndex == -1)
+                if (typeIndex == TypeIndex.Null)
                 {
                     typeHashes.Dispose();
                     throw new ArgumentException("The LiveConversion Patch Type Layout doesn't match the Data Layout of the Components. Please Rebuild the Player.");
@@ -91,7 +91,7 @@ namespace Unity.Scenes
             resolver.ResolveObjects(globalObjectIDs, resolvedObjects);
             var reader = new ManagedObjectBinaryReader(bufferReader, resolvedObjects);
 
-            var setSharedComponents = ReadSharedComponentDataChanges(bufferReader, reader, typeHashes);
+            var (setSharedComponents, unmanagedSharedComponentData) = ReadSharedComponentDataChanges(bufferReader, reader, typeHashes);
             var setManagedComponents = ReadManagedComponentDataChanges(bufferReader, reader, typeHashes);
 
             //if (!bufferReader->EndOfBuffer)
@@ -113,6 +113,7 @@ namespace Unity.Scenes
                 blobAssetReferenceChanges,
                 setManagedComponents,
                 setSharedComponents,
+                unmanagedSharedComponentData,
                 linkedEntityGroupAdditions,
                 linkedEntityGroupRemovals,
                 createdBlobAssets,
@@ -120,7 +121,7 @@ namespace Unity.Scenes
                 blobAssetData);
         }
 
-        static PackedSharedComponentDataChange[] ReadSharedComponentDataChanges(UnsafeAppendBuffer.Reader* buffer, ManagedObjectBinaryReader reader, NativeArray<ComponentTypeHash> typeHashes)
+        static (PackedSharedComponentDataChange[], UnsafeAppendBuffer) ReadSharedComponentDataChanges(UnsafeAppendBuffer.Reader* buffer, ManagedObjectBinaryReader reader, NativeArray<ComponentTypeHash> typeHashes)
         {
             buffer->ReadNext<PackedComponent>(out var packedComponents, Allocator.Temp);
             var setSharedComponentDataChanges = new PackedSharedComponentDataChange[packedComponents.Length];
@@ -133,9 +134,16 @@ namespace Unity.Scenes
                 var componentValue = reader.ReadObject(type);
                 setSharedComponentDataChanges[i].Component = packedComponents[i];
                 setSharedComponentDataChanges[i].BoxedSharedValue = componentValue;
+                setSharedComponentDataChanges[i].UnmanagedSharedValueDataOffsetWithManagedFlag =
+                    PackedSharedComponentDataChange.kManagedFlag;
             }
             packedComponents.Dispose();
-            return setSharedComponentDataChanges;
+
+            var length = buffer->ReadNext<int>();
+            var unmanagedSharedComponentData = new UnsafeAppendBuffer(length, 16, Allocator.Persistent);
+            unmanagedSharedComponentData.Add(buffer->ReadNext(length), length);
+
+            return (setSharedComponentDataChanges, unmanagedSharedComponentData);
         }
 
         static PackedManagedComponentDataChange[] ReadManagedComponentDataChanges(UnsafeAppendBuffer.Reader* buffer, ManagedObjectBinaryReader reader, NativeArray<ComponentTypeHash> typeHashes)
@@ -195,7 +203,7 @@ namespace Unity.Scenes
 
             var writer = new ManagedObjectBinaryWriter(buffer);
 
-            WriteSharedComponentDataChanges(buffer, writer, entityChangeSet.SetSharedComponents);
+            WriteSharedComponentDataChanges(buffer, writer, entityChangeSet.SetSharedComponents, entityChangeSet.UnmanagedSharedComponentData);
             WriteManagedComponentDataChanges(buffer, writer, setManagedComponentWithoutCompanionLinks);
 
             var objectTable = writer.GetUnityObjects();
@@ -228,7 +236,7 @@ namespace Unity.Scenes
             removeComponentWithoutCompanionLinks.Dispose();
         }
 
-        static void WriteSharedComponentDataChanges(UnsafeAppendBuffer* buffer, ManagedObjectBinaryWriter writer, PackedSharedComponentDataChange[] changes)
+        static void WriteSharedComponentDataChanges(UnsafeAppendBuffer* buffer, ManagedObjectBinaryWriter writer, PackedSharedComponentDataChange[] changes, UnsafeAppendBuffer unmanagedSharedComponentData)
         {
             buffer->Add(changes.Length);
 
@@ -237,6 +245,10 @@ namespace Unity.Scenes
 
             for (var i = 0; i < changes.Length; i++)
                 writer.WriteObject(changes[i].BoxedSharedValue);
+
+            var length = unmanagedSharedComponentData.Length;
+            buffer->Add(length);
+            buffer->Add(unmanagedSharedComponentData.Ptr, length);
         }
 
         static void WriteManagedComponentDataChanges(UnsafeAppendBuffer* buffer, ManagedObjectBinaryWriter writer, PackedManagedComponentDataChange[] changes)

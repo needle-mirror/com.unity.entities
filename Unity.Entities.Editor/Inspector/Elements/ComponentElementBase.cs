@@ -1,23 +1,25 @@
 using Unity.Entities.Editor.Inspectors;
+using Unity.Platforms.UI;
 using Unity.Properties;
-using Unity.Properties.UI;
 using UnityEditor;
 using UnityEditor.UIElements;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
     abstract class ComponentElementBase : BindableElement
     {
+        public int TypeIndex { get; private set; }
         public ComponentPropertyType Type { get; private set; }
-        public string Path { get; private set; }
+
+        [CreateProperty] public string Path { get; private set; }
         protected string DisplayName { get; private set; }
         protected EntityInspectorContext Context { get; private set; }
         protected EntityContainer Container { get; private set; }
 
         protected ComponentElementBase(IComponentProperty property, EntityInspectorContext context)
         {
+            TypeIndex = property.TypeIndex;
             Type = property.Type;
             Path = property.Name;
             DisplayName = ComponentsUtility.GetComponentDisplayName(property.Name);
@@ -28,24 +30,27 @@ namespace Unity.Entities.Editor
         protected PropertyElement CreateContent<TValue>(IComponentProperty property, ref TValue value)
         {
             Resources.Templates.Inspector.InspectorStyle.AddStyles(this);
-
             InspectorUtility.CreateComponentHeader(this, property.Type, DisplayName);
+
             var foldout = this.Q<Foldout>(className: UssClasses.Inspector.Component.Header);
-            var toggle = foldout.Q<Toggle>();
-            var container = Container;
+            foldout.Q<Toggle>().AddManipulator(new ContextualMenuManipulator(evt => { OnPopulateMenu(evt.menu); }));
 
-            toggle.AddManipulator(new ContextualMenuManipulator(evt => { OnPopulateMenu(evt.menu); }));
-
-            if (!Context.IsReadOnly) 
+            if (!Context.IsReadOnly)
             {
                 if (Type == ComponentPropertyType.ChunkComponent)
                     foldout.contentContainer.Add(new HelpBox("Chunk component data is shared between multiple entities", HelpBoxMessageType.Info));
-            
+
                 if (Type == ComponentPropertyType.SharedComponent)
                     foldout.contentContainer.Add(new HelpBox("Changing shared values will move entities between chunks", HelpBoxMessageType.Info));
             }
-            
+
             var content = new PropertyElement();
+
+            // We set user data to this root PropertyElement to indicate this is a live property displaying runtime data.
+            // So that we can draw this property field with runtime bar being added.
+            if (EditorApplication.isPlaying)
+                content.userData = content;
+
             foldout.contentContainer.Add(content);
             content.AddContext(Context);
             content.SetTarget(value);
@@ -53,6 +58,7 @@ namespace Unity.Entities.Editor
 
             foldout.contentContainer.AddToClassList(UssClasses.Inspector.Component.Container);
 
+            var container = Container;
             if (container.IsReadOnly)
             {
                 SetReadonly(foldout);
@@ -65,15 +71,16 @@ namespace Unity.Entities.Editor
         protected virtual void SetReadonly(VisualElement root)
         {
             root.contentContainer.SetEnabled(false);
+            root.Q<Toggle>(className: UssClasses.Inspector.Component.Enabled).SetEnabled(false);
         }
 
-        protected abstract void OnComponentChanged(PropertyElement element, PropertyPath path);
+        protected abstract void OnComponentChanged(BindingContextElement element, PropertyPath path);
 
         protected abstract void OnPopulateMenu(DropdownMenu menu);
 
         static void OnClicked(ClickEvent evt, EntityInspectorContext context)
         {
-            var element = (VisualElement)evt.target;
+            var element = (VisualElement)evt.currentTarget;
             OnClicked(evt, context, element);
         }
 
@@ -82,7 +89,7 @@ namespace Unity.Entities.Editor
             switch (current)
             {
                 case Foldout foldout:
-                    if (!foldout.Q<Toggle>().worldBound.Contains(evt.position))
+                    if (foldout.enabledInHierarchy || !foldout.Q<Toggle>().worldBound.Contains(evt.position))
                         break;
                     foldout.value = !foldout.value;
                     break;

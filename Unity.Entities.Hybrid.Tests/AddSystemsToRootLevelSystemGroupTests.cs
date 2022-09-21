@@ -5,25 +5,25 @@ namespace Unity.Entities.Tests
 {
     public class AddSystemsToRootLevelSystemGroupTests
     {
-        class GetOtherSystemA : ComponentSystem
+        partial class GetOtherSystemA : SystemBase
         {
             public GetOtherSystemB Other;
 
             protected override void OnCreate()
             {
-                Other = World.GetExistingSystem<GetOtherSystemB>();
+                Other = World.GetExistingSystemManaged<GetOtherSystemB>();
             }
 
             protected override void OnUpdate() {}
         }
 
-        class GetOtherSystemB : ComponentSystem
+        partial class GetOtherSystemB : SystemBase
         {
             public GetOtherSystemA Other;
 
             protected override void OnCreate()
             {
-                Other = World.GetExistingSystem<GetOtherSystemA>();
+                Other = World.GetExistingSystemManaged<GetOtherSystemA>();
             }
 
             protected override void OnUpdate() {}
@@ -35,8 +35,8 @@ namespace Unity.Entities.Tests
             var world = new World("TestWorld");
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, typeof(GetOtherSystemA), typeof(GetOtherSystemB));
 
-            var systemA = world.GetExistingSystem<GetOtherSystemA>();
-            var systemB = world.GetExistingSystem<GetOtherSystemB>();
+            var systemA = world.GetExistingSystemManaged<GetOtherSystemA>();
+            var systemB = world.GetExistingSystemManaged<GetOtherSystemB>();
 
             Assert.AreEqual(systemB, systemA.Other);
             Assert.AreEqual(systemA, systemB.Other);

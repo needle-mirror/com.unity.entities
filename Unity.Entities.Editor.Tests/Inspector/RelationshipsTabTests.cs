@@ -22,10 +22,10 @@ namespace Unity.Entities.Editor.Tests
         public void SetUp()
         {
             m_TestWorld = new World("RelationshipTabTestWorld");
-            var group = m_TestWorld.GetOrCreateSystem<SimulationSystemGroup>();
-            m_SystemA = m_TestWorld.GetOrCreateSystem<SystemA>();
-            m_SystemB = m_TestWorld.GetOrCreateSystem<SystemB>();
-            m_SystemC = m_TestWorld.GetOrCreateSystem<SystemC>();
+            var group = m_TestWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            m_SystemA = m_TestWorld.GetOrCreateSystemManaged<SystemA>();
+            m_SystemB = m_TestWorld.GetOrCreateSystemManaged<SystemB>();
+            m_SystemC = m_TestWorld.GetOrCreateSystemManaged<SystemC>();
             group.AddSystemToUpdateList(m_SystemA);
             group.AddSystemToUpdateList(m_SystemB);
             group.AddSystemToUpdateList(m_SystemC);
@@ -72,14 +72,14 @@ namespace Unity.Entities.Editor.Tests
         {
             using var w = new World("test world");
             var archetype = w.EntityManager.CreateArchetype(typeof(EntityGuid), typeof(EcsTestSharedComp));
-            using var entities = w.EntityManager.CreateEntity(archetype, 2, Allocator.TempJob);
+            using var entities = w.EntityManager.CreateEntity(archetype, 2, w.UpdateAllocator.ToAllocator);
             for (var i = 0; i < entities.Length; i++)
             {
-                w.EntityManager.SetSharedComponentData(entities[i], new EcsTestSharedComp { value = i == 0 ? 123 : 345 });
+                w.EntityManager.SetSharedComponentManaged(entities[i], new EcsTestSharedComp { value = i == 0 ? 123 : 345 });
             }
 
             using var query = w.EntityManager.CreateEntityQuery(typeof(EntityGuid), typeof(EcsTestSharedComp));
-            query.SetSharedComponentFilter(new EcsTestSharedComp { value = 123 });
+            query.SetSharedComponentFilterManaged(new EcsTestSharedComp { value = 123 });
             var queries = stackalloc EntityQuery[] { query };
             var queryList = new UnsafeList<EntityQuery>(queries, 1);
 
