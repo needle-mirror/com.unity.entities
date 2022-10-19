@@ -4,7 +4,7 @@ When you set up an Entities project, there are additional steps you must follow.
 
 ## Unity version
 
-Entities 1.0 is compatible with Unity version 2022.2.0b9 and later.
+Entities 1.0 is compatible with Unity version 2022.2.0b8 and later.
 
 ## Recommended packages
 
@@ -28,11 +28,3 @@ To get the best performance in your Entities project, you should disable Unity's
 > [!NOTE]
 > If you disable **Domain Reloads** [be mindful of your use of static fields and static event handlers](https://docs.unity3d.com/Manual/DomainReloading.html).
 
-## Supported platforms
-
-The following platforms are supported build targets for Entities projects:
-
-* **Mobile:** Android, iOS 
-    * **Note:** Entities Graphics only supports Vulkan on Android in 0.50 and 0.51.
-* **Desktop:** Windows, macOS, Linux
-* **Consoles:** Xbox (One, Series), Playstation (4, 5)

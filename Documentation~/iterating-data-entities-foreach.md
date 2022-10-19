@@ -182,7 +182,7 @@ The following table shows which features are supported in `Entities.ForEach` for
 >[!IMPORTANT]
 > `WithStructuralChanges()` disables Burst. Don't use this option if you want to achieve high levels of performance `Entities.ForEach`. If you want to use this option, use an [`EntityCommandBuffer`](xref:Unity.Entities.EntityCommandBuffer).
 
-An `Entities.ForEach` construction uses Roslyn source generators to translate the code you write for the construction into correct ECS code. This translation means you can express the intent of your algorithm without having to include complex, boilerplate code. However, it meana that some common ways of writing code aren't allowed.
+An `Entities.ForEach` construction uses Roslyn source generators to translate the code you write for the construction into correct ECS code. This translation means you can express the intent of your algorithm without having to include complex, boilerplate code. However, it means that some common ways of writing code aren't allowed.
 
 The following features aren't supported:
 

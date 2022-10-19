@@ -4,7 +4,7 @@ uid: concepts-archetypes
 
 # Archetypes concepts
 
-An **archetype** is a unique identifier for all the [entities](concepts-entities.md) in a [world](concepts-worlds.md) that have the same unique combination of [component](concepts-components.md) types. For example, all the entities in a world that have component types A and B have share an archetype. All the entities that have component types A, B, and C share a different archetype, and all the entities that have component types A and Z share yet another archetype.
+An **archetype** is a unique identifier for all the [entities](concepts-entities.md) in a [world](concepts-worlds.md) that have the same unique combination of [component](concepts-components.md) types. For example, all the entities in a world that have component types A and B share an archetype. All the entities that have component types A, B, and C share a different archetype, and all the entities that have component types A and Z share yet another archetype.
 
 When you add or remove component types from an entity, the world's [`EntityManager`](xref:Unity.Entities.EntityManager) moves the entity to the appropriate archetype. For example, if an entity has component types A, B, and C and you remove its B component, the `EntityManager` moves the entity to the archetype that has component types A and C. If no such archetyps exists, the `EntityManager` creates it. 
 

@@ -4,7 +4,7 @@ You can create both [managed](components-managed.md) and [unmanaged](components-
 
 ## Create an unmanaged shared component
 
-To create an unmanaged shared component, create a class that inherits from `ISharedComponentData`.
+To create an unmanaged shared component, create a struct that implements the marker interface `ISharedComponentData`.
 
 The following code sample shows an unmanaged shared component:
 
@@ -12,7 +12,7 @@ The following code sample shows an unmanaged shared component:
 
 ## Create a managed shared component
 
-To create a managed shared component, create a struct that inherits from `ISharedComponentData`.
+To create a managed shared component, create a class that implements the marker interface `ISharedComponentData`.
 
 The following code sample shows a managed shared component:
 

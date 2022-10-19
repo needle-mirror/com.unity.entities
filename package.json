@@ -1,7 +1,7 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.0.0-exp.8",
+  "version": "1.0.0-exp.12",
   "unity": "2022.2",
   "unityRelease": "0b5",
   "dependencies": {
@@ -26,11 +26,11 @@
     "unity"
   ],
   "upmCi": {
-    "footprint": "b2ef119b52ae1733b5eec764661d964a95076e36"
+    "footprint": "5cb187018748d76358dfea51d35e69f96d3beb09"
   },
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "7f4180a58b7e1c75f6375bd73fb80bd99d195d4e"
+    "revision": "3f0a7e39227bd97f1239a6505a9449425fecfe1e"
   }
 }

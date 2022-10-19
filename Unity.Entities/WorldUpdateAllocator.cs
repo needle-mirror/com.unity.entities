@@ -12,8 +12,7 @@ namespace Unity.Entities
 {
     // ReSharper disable once InconsistentNaming
     [UpdateInGroup(typeof(InitializationSystemGroup))]
-    // Netcode systems use a fixed time update and need a specialized version of the reset system
-    [WorldSystemFilter(WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.Editor)]
+    [WorldSystemFilter(WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.Editor)]
     public struct WorldUpdateAllocatorResetSystem : ISystem
     {
         /// <summary>

@@ -6,14 +6,12 @@ The Entities package lets you use Unity's Entity Component System (ECS), which o
 
 ## Package installation
 
-To use the Entities package, you must have Unity version 2022.2.0b9 and later installed.
+To use the Entities package, you must have Unity version 2022.2.0b8 and later installed.
 
-The Entities packages aren't listed in the Package Manager, even if you've enabled the **Preview Packages** setting. You can use the following ways to install the Entities packages:
+To install the package, open the Package Manager window (**Window &gt; Package Manager**) and perform one of the following options:
 
-* Use **Add package from git URL...** under the **+** menu at the top left of the package manager to add packages either by name (such as `com.unity.entities`), or by Git URL (but this option isn't available for DOTS packages). If you want to use a Git URL instead of just a name in the Package Manager, you must have the git command line tools installed.
-* Directly edit the `Packages\manifest.json` file in the Unity project. You must add both the package name and its version to the file, which you can find by looking at the documentation of each package (such as `"com.unity.entities" : "x.x.x-preview.x"`).
-
-For more information, see the documentation on [Installing hidden packages](https://docs.unity3d.com/Packages/Installation/manual/index.html).
+* [Add the package by its name](xref:upm-ui-quick)
+* [Add the package from its Git URL](xref:upm-ui-giturl)
 
 ## Known issues
 

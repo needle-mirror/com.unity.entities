@@ -10,10 +10,3 @@ The Entities package uses the entity component system (ECS) architecture to orga
 |[Archetypes concepts](concepts-archetypes.md)|An archetype is a unique combination of components, which one or several entities might have.|
 |[Structural changes](concepts-structural-changes.md)|Structural changes are resource-intensive operations that happen that affect the performance of your application.|
 |[System concepts](concepts-systems.md)|Add code to systems to process entities and components.|
-
-## Further information
-
-* [DOTS Cookbook](https://github.com/Unity-Technologies/dots-cookbook): Information about data-oriented design and the fundamentals of Unity's ECS implementation.
-* [DOTS Tutorial](https://github.com/Unity-Technologies/dots-tutorial): A tutorial that guides you through creating a simple scene with Entities.
-
-

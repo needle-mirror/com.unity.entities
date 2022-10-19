@@ -1410,7 +1410,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void WorldUpdateAllocatorResetSystem_Exists()
         {
-            Assert.AreEqual((WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.Editor), TypeManager.GetSystemFilterFlags(typeof(WorldUpdateAllocatorResetSystem)));
+            Assert.AreEqual((WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.Editor), TypeManager.GetSystemFilterFlags(typeof(WorldUpdateAllocatorResetSystem)));
         }
 
 

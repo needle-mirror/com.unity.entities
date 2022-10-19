@@ -4,6 +4,12 @@ uid: changelog
 
 # Changelog
 
+## [1.0.0-exp.12] - 2022-10-19
+
+### Changed
+* updates to package dependencies
+
+
 ## [1.0.0-exp.8] - 2022-09-21
 
 ### Added

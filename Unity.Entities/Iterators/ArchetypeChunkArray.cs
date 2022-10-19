@@ -592,30 +592,26 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(chunkComponentTypeHandle.m_Safety);
 #endif
-            int typeIndexInArchetype = -1;
             if (Hint.Unlikely(chunkComponentTypeHandle.m_LookupCache.Archetype != m_Chunk->Archetype))
             {
-                typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentTypeHandle.m_TypeIndex);
-                // ChunkDataUtility.GetIndexInTypeArray will return -1 if it cannot find the type index.
-                // This should never happen under normal circumstances and will not update the cache
-                // because the state of the actual type is unknown.
-                if (Hint.Unlikely(typeIndexInArchetype == -1))
-                {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    return new EnabledMask(new SafeBitRef(null, 0, chunkComponentTypeHandle.m_Safety), null);
-#else
-                    return new EnabledMask(SafeBitRef.Null, null);
-#endif
-                }
-                chunkComponentTypeHandle.m_LookupCache.Update(m_Chunk->Archetype, new TypeIndex { Value = typeIndexInArchetype });
+                chunkComponentTypeHandle.m_LookupCache.Update(m_Chunk->Archetype, chunkComponentTypeHandle.m_TypeIndex);
             }
-            else
-                typeIndexInArchetype = chunkComponentTypeHandle.m_LookupCache.IndexInArchetype;
-
+            // In case the chunk does not contains the component type (or the internal TypeIndex lookup fails to find a
+            // match), the LookupCache.Update will invalidate the IndexInArchetype.
+            // In such a case, we return an empty EnabledMask.
+            if (Hint.Unlikely(chunkComponentTypeHandle.m_LookupCache.IndexInArchetype == -1))
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                return new EnabledMask(new SafeBitRef(null, 0, chunkComponentTypeHandle.m_Safety), null);
+#else
+                return new EnabledMask(SafeBitRef.Null, null);
+#endif
+            }
             int* ptrChunkDisabledCount = default;
             var ptr = (chunkComponentTypeHandle.IsReadOnly)
-                ? ChunkDataUtility.GetEnabledRefRO(m_Chunk, typeIndexInArchetype).Ptr
-                : ChunkDataUtility.GetEnabledRefRW(m_Chunk, typeIndexInArchetype, chunkComponentTypeHandle.GlobalSystemVersion, out ptrChunkDisabledCount).Ptr;
+                ? ChunkDataUtility.GetEnabledRefRO(m_Chunk, chunkComponentTypeHandle.m_LookupCache.IndexInArchetype).Ptr
+                : ChunkDataUtility.GetEnabledRefRW(m_Chunk, chunkComponentTypeHandle.m_LookupCache.IndexInArchetype,
+                    chunkComponentTypeHandle.GlobalSystemVersion, out ptrChunkDisabledCount).Ptr;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var result = new EnabledMask(new SafeBitRef(ptr, m_BatchStartEntityIndex, chunkComponentTypeHandle.m_Safety), ptrChunkDisabledCount);
 #else

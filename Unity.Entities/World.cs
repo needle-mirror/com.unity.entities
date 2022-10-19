@@ -1187,7 +1187,7 @@ namespace Unity.Entities
         /// <summary>
         /// Retrieve current double rewindable allocator for this World.
         /// </summary>
-        internal DoubleRewindableAllocators* CurrentGroupAllocators => m_Unmanaged.GetImpl().DoubleUpdateAllocators;
+        public DoubleRewindableAllocators* CurrentGroupAllocators => m_Unmanaged.GetImpl().DoubleUpdateAllocators;
 
         /// <summary>
         /// Push group allocator into a stack.

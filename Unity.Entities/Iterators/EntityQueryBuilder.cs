@@ -170,8 +170,7 @@ namespace Unity.Entities
         public EntityQueryBuilder AddAll(ComponentType t)
         {
             _builderDataPtr->_isFinalized = 0;
-            var types = new FixedList32Bytes<ComponentType> { t };
-            return WithAll(ref types);
+            return WithAll(&t, 1);
         }
 
         /// <summary>
@@ -372,8 +371,7 @@ namespace Unity.Entities
         public EntityQueryBuilder AddAny(ComponentType t)
         {
             _builderDataPtr->_isFinalized = 0;
-            var types = new FixedList32Bytes<ComponentType> { t };
-            return WithAny(ref types);
+            return WithAny(&t, 1);
         }
 
 
@@ -588,8 +586,7 @@ namespace Unity.Entities
             // The access mode of types in the None list is forced to ReadOnly; the query will not be accessing these
             // types at all, and should not be requesting read/write access to them.
             t.AccessModeType = ComponentType.AccessMode.ReadOnly;
-            var types = new FixedList32Bytes<ComponentType> { t };
-            return WithNone(ref types);
+            return WithNone(&t, 1);
         }
 
         /// <summary>
