@@ -58,6 +58,11 @@ namespace Unity.Entities
             get { return m_BlobAssets.IsCreated; }
         }
 
+        internal int BlobAssetCount
+        {
+            get { return m_BlobAssets.IsCreated ? m_BlobAssets.Count() : 0; }
+        }
+
         /// <summary>
         /// Call this method to clear the whole content of the Cache
         /// </summary>
@@ -356,8 +361,7 @@ namespace Unity.Entities
                 return false;
             }
             m_BlobAssets.Add(fullHash, blobAssetReference.m_data);
-            if(updateRefCount)
-                m_RefCounterPerBlobHash.Add(fullHash, 1);
+            m_RefCounterPerBlobHash.Add(fullHash, updateRefCount ? 1 : 0);
             return true;
         }
 
@@ -378,46 +382,64 @@ namespace Unity.Entities
 
 
         /// <summary>
-        /// Remove a BlobAssetReference from the store
+        /// Remove a BlobAssetReference from the store if the BlobAssetReference is known
         /// </summary>
         /// <param name="hash">The key associated with the BlobAssetReference</param>
         /// <param name="releaseBlobAsset">If true the BlobAsset data will be released</param>
         /// <typeparam name="T">The type of the BlobAsset</typeparam>
         /// <returns>True if the BLobAsset was removed from the store, false if it wasn't found</returns>
-        public bool Remove<T>(Hash128 hash, bool releaseBlobAsset)
+        /// <exception cref="ArgumentException">Thrown if the BlobAssetReference's refCount is zero</exception>
+        public bool TryRemove<T>(Hash128 hash, bool releaseBlobAsset)
         {
             var fullHash = ComputeKeyAndTypeHash(hash, typeof(T));
 
-            return RemoveWithFullHash(fullHash, releaseBlobAsset);
+            return TryRemoveWithFullHash(fullHash, releaseBlobAsset);
+        }
+
+        /// <summary>Obsolete. Use <see cref="TryRemove{T}(Hash128, bool)"/> instead.</summary>
+        /// <param name="hash">The key associated with the BlobAssetReference</param>
+        /// <param name="releaseBlobAsset">If true the BlobAsset data will be released</param>
+        /// <typeparam name="T">The type of the BlobAsset</typeparam>
+        /// <returns>True if the BlobAsset was removed from the store, false if it wasn't found</returns>
+        [Obsolete("'Remove' has been deprecated; use 'TryRemove' instead. (RemovedAfter Entities 1.0)  (UnityUpgradable) -> TryRemove<T>(*)")]
+        public bool Remove<T>(Hash128 hash, bool releaseBlobAsset)
+        {
+            return TryRemove<T>(hash, releaseBlobAsset);
         }
 
         /// <summary>
-        /// Remove a BlobAssetReference from the store
+        /// Remove a BlobAssetReference from the store if the BlobAssetReference is known
         /// </summary>
         /// <param name="hash">The key associated with the BlobAssetReference</param>
         /// <param name="typeHash">Hash calculated with ComputeTypeHash for the type of BlobAsset</param>
         /// <param name="releaseBlobAsset">If true the BlobAsset data will be released</param>
-        /// <returns>True if the BLobAsset was removed from the store, false if it wasn't found</returns>
-        internal bool Remove(Hash128 hash, uint typeHash, bool releaseBlobAsset)
+        /// <returns>True if the BlobAsset was removed from the store, false if it wasn't found</returns>
+        /// <exception cref="ArgumentException">Thrown if the BlobAssetReference's refCount is zero</exception>
+        internal bool TryRemove(Hash128 hash, uint typeHash, bool releaseBlobAsset)
         {
             var fullHash = ComputeKeyAndTypeHash(hash, typeHash);
 
-            return RemoveWithFullHash(fullHash, releaseBlobAsset);
+            return TryRemoveWithFullHash(fullHash, releaseBlobAsset);
         }
 
         /// <summary>
-        /// Remove a BlobAssetReference from the store
+        /// Remove a BlobAssetReference from the store if the BlobAssetReference is known
         /// </summary>
         /// <param name="fullHash">The full key (object hash + type hash) associated with the BlobAssetReference when it was added to the cache</param>
         /// <param name="releaseBlobAsset">If true the BlobAsset data will be released</param>
         /// <returns>True if the BLobAsset was removed from the store, false if it wasn't found</returns>
-        internal bool RemoveWithFullHash(Hash128 fullHash, bool releaseBlobAsset)
+        /// <exception cref="ArgumentException">Thrown if the BlobAssetReference's refCount is zero</exception>
+        internal bool TryRemoveWithFullHash(Hash128 fullHash, bool releaseBlobAsset)
         {
             if (!m_BlobAssets.TryGetValue(fullHash, out var blobData))
             {
                 return false;
             }
 
+            if (m_RefCounterPerBlobHash[fullHash] == 0)
+            {
+                throw new ArgumentException($"This BlobAsset was added but never used before disposal.");
+            }
             var newRefCount = --m_RefCounterPerBlobHash[fullHash];
 
             if (newRefCount != 0)
@@ -578,7 +600,7 @@ namespace Unity.Entities
             for (int i = 0; i < curDecIndex; i++)
             {
                 // Decrement the hash of the previously assigned Blob Asset
-                Remove<TB>(toDec[i], true);
+                TryRemove<TB>(toDec[i], true);
             }
 
             // Clear the former list of BlobAsset hashes and replace by the new one

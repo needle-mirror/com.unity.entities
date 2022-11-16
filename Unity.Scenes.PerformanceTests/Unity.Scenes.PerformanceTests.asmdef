@@ -3,7 +3,7 @@
     "references": [
         "Unity.PerformanceTesting",
         "Unity.Entities",
-		"Unity.Scenes",		
+		"Unity.Scenes",
         "Unity.Mathematics",
         "Unity.Properties",
         "Unity.Jobs",
@@ -23,5 +23,5 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": []	
+    "versionDefines": []
 }

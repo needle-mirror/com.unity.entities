@@ -1,8 +1,8 @@
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEngine.UIElements;
 
-namespace Unity.Platforms.UI
+namespace Unity.Entities.UI
 {
     [CustomEditor(typeof(InspectorContent), false)]
     class InspectorContentEditor : UnityEditor.Editor

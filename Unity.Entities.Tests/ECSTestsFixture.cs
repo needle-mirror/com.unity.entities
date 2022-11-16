@@ -8,11 +8,52 @@ using Unity.Burst;
 using UnityEngine.LowLevel;
 #endif
 
-#if !NET_DOTS
-#endif
-
 namespace Unity.Entities.Tests
 {
+
+    // If ENABLE_UNITY_COLLECTIONS_CHECKS is not defined we will ignore the test
+    // When using this attribute, consider it to logically AND with any other TestRequiresxxxx attrubute
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+    internal class TestRequiresCollectionChecks : System.Attribute
+    {
+        public TestRequiresCollectionChecks(string msg = null) { }
+    }
+#else
+    internal class TestRequiresCollectionChecks : IgnoreAttribute
+    {
+        public TestRequiresCollectionChecks(string msg = null) : base($"Test requires ENABLE_UNITY_COLLECTION_CHECKS which is not defined{(msg == null ? "." : $": {msg}")}") { }
+    }
+#endif
+
+    // If ENABLE_UNITY_COLLECTIONS_CHECKS and UNITY_DOTS_DEBUG is not defined we will ignore the test
+    // conversely if either of them are defined the test will be run.
+    // When using this attribute, consider it to logically AND with any other TestRequiresxxxx attrubute
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+    internal class TestRequiresDotsDebugOrCollectionChecks: System.Attribute
+    {
+        public TestRequiresDotsDebugOrCollectionChecks(string msg = null) { }
+    }
+#else
+    internal class TestRequiresDotsDebugOrCollectionChecks : IgnoreAttribute
+    {
+        public TestRequiresDotsDebugOrCollectionChecks(string msg = null) : base($"Test requires UNITY_DOTS_DEBUG || ENABLE_UNITY_COLLECTION_CHECKS which neither are defined{(msg == null ? "." : $": {msg}")}") { }
+    }
+#endif
+
+    // Ignores te test when in an il2cpp build only. Please make use of the 'msg' string
+    // to tell others why this test should be ignored
+#if !ENABLE_IL2CPP
+    internal class IgnoreTest_IL2CPP: System.Attribute
+    {
+        public IgnoreTest_IL2CPP(string msg = null) { }
+    }
+#else
+    internal class IgnoreTest_IL2CPP : IgnoreAttribute
+    {
+        public IgnoreTest_IL2CPP(string msg = null) : base($"Test ignored on IL2CPP builds{(msg == null ? "." : $": {msg}")}") { }
+    }
+#endif
+
     public partial class EmptySystem : SystemBase
     {
         protected override void OnUpdate() {}
@@ -206,9 +247,9 @@ namespace Unity.Entities.Tests
         {
             var type = m_Manager.GetComponentTypeHandle<T>(true);
             var chunk = m_Manager.GetChunk(e);
-            Assert.AreEqual(version, chunk.GetChangeVersion(type));
-            Assert.IsFalse(chunk.DidChange(type, version));
-            Assert.IsTrue(chunk.DidChange(type, version - 1));
+            Assert.AreEqual(version, chunk.GetChangeVersion(ref type));
+            Assert.IsFalse(chunk.DidChange(ref type, version));
+            Assert.IsTrue(chunk.DidChange(ref type, version - 1));
         }
 
         public void AssetHasChunkOrderVersion(Entity e, uint version)
@@ -221,9 +262,9 @@ namespace Unity.Entities.Tests
         {
             var type = m_Manager.GetBufferTypeHandle<T>(true);
             var chunk = m_Manager.GetChunk(e);
-            Assert.AreEqual(version, chunk.GetChangeVersion(type));
-            Assert.IsFalse(chunk.DidChange(type, version));
-            Assert.IsTrue(chunk.DidChange(type, version - 1));
+            Assert.AreEqual(version, chunk.GetChangeVersion(ref type));
+            Assert.IsFalse(chunk.DidChange(ref type, version));
+            Assert.IsTrue(chunk.DidChange(ref type, version - 1));
         }
 
         public void AssetHasSharedChangeVersion<T>(Entity e, uint version) where T : unmanaged, ISharedComponentData

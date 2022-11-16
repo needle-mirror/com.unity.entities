@@ -529,6 +529,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void NonExistingSharedComponentDataThrows()
         {
             Entity e = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -889,6 +890,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void TooManySharedComponentsEntity()
         {
             var archetype = m_Manager.CreateArchetype(
@@ -903,6 +905,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void TooManySharedComponentsQuery()
         {
             var archetype = m_Manager.CreateArchetype(
@@ -919,6 +922,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void TooManySharedComponentsEntityArray()
         {
             var archetype = m_Manager.CreateArchetype(

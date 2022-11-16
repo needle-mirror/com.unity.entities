@@ -3,7 +3,7 @@ using System.Linq;
 using JetBrains.Annotations;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Transforms;
 using UnityEngine.UIElements;
 
@@ -51,7 +51,7 @@ namespace Unity.Entities.Editor.Tests
                 nameof(XComponent),
                 nameof(BComponent),
                 nameof(YComponent),
-                nameof(LocalToWorldTransform),
+                nameof(LocalTransform),
                 nameof(DComponent),
                 nameof(LocalToWorld),
             };
@@ -60,7 +60,7 @@ namespace Unity.Entities.Editor.Tests
 
             Assert.That(componentTypes, Is.EquivalentTo(new[]
             {
-                nameof(LocalToWorldTransform),
+                nameof(LocalTransform),
                 nameof(LocalToWorld),
                 nameof(BComponent),
                 nameof(DComponent),
@@ -253,11 +253,11 @@ namespace Unity.Entities.Editor.Tests
 #if !ENABLE_TRANSFORM_V1
             m_World.EntityManager.RemoveComponent<AComponent>(m_InspectedEntity);
             m_World.EntityManager.RemoveComponent<BComponent>(m_InspectedEntity);
-            m_World.EntityManager.AddComponent<LocalToWorldTransform>(m_InspectedEntity);
+            m_World.EntityManager.AddComponent<LocalTransform>(m_InspectedEntity);
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalToWorldTransform),
+                nameof(LocalTransform),
                 $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
             }));
@@ -308,11 +308,11 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void ComponentsTab_UpdateComponentOrder_AddAndRemoveMultipleComponentsMiddle()
         {
-            m_World.EntityManager.AddComponent(m_InspectedEntity, new Unity.Entities.ComponentTypeSet(typeof(LocalToWorldTransform), typeof(CComponent), typeof(DComponent), typeof(YComponent)));
+            m_World.EntityManager.AddComponent(m_InspectedEntity, new Unity.Entities.ComponentTypeSet(typeof(LocalTransform), typeof(CComponent), typeof(DComponent), typeof(YComponent)));
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalToWorldTransform),
+                nameof(LocalTransform),
                 $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(YComponent)}",
@@ -325,7 +325,7 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalToWorldTransform),
+                nameof(LocalTransform),
                 $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}",
@@ -391,12 +391,12 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void ComponentsTab_UpdateComponentOrder_AddAndRemoveRandomOrder1()
         {
-            m_World.EntityManager.AddComponent(m_InspectedEntity, new Unity.Entities.ComponentTypeSet(new ComponentType[] { typeof(BComponent), typeof(EComponent), typeof(CComponent), typeof(LocalToWorldTransform) }));
+            m_World.EntityManager.AddComponent(m_InspectedEntity, new Unity.Entities.ComponentTypeSet(new ComponentType[] { typeof(BComponent), typeof(EComponent), typeof(CComponent), typeof(LocalTransform) }));
             m_Root.ForceUpdateBindings();
 
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalToWorldTransform),
+                nameof(LocalTransform),
                 $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}"
@@ -408,7 +408,7 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalToWorldTransform),
+                nameof(LocalTransform),
                 $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
@@ -484,11 +484,11 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void ComponentsTab_Update_DoesNotChangeEntityVersion()
         {
-            uint GetChangeVersion(EntityQuery entityQuery, ComponentTypeHandle<VersionChangeTestComponent> handle)
+            uint GetChangeVersion(EntityQuery entityQuery, ref ComponentTypeHandle<VersionChangeTestComponent> handle)
             {
                 using var chunks = entityQuery.ToArchetypeChunkArray(Allocator.Temp);
                 Assert.That(chunks.Length, Is.EqualTo(1), $"Should not have multiple chunks of entities with {nameof(VersionChangeTestComponent)}");
-                return chunks[0].GetChangeVersion(handle);
+                return chunks[0].GetChangeVersion(ref handle);
             }
 
             var entityManager = m_World.EntityManager;
@@ -501,18 +501,18 @@ namespace Unity.Entities.Editor.Tests
 
             entityManager.Debug.IncrementGlobalSystemVersion();
             entityManager.AddComponent<VersionChangeTestComponent>(entity);
-            var initialVersion = GetChangeVersion(query, componentTypeHandle);
+            var initialVersion = GetChangeVersion(query, ref componentTypeHandle);
 
             entityManager.Debug.IncrementGlobalSystemVersion();
             m_Root.ForceUpdateBindings();
-            var currentVersion = GetChangeVersion(query, componentTypeHandle);
+            var currentVersion = GetChangeVersion(query, ref componentTypeHandle);
             Assert.That(currentVersion, Is.EqualTo(initialVersion), "Updating the Components Tab changed the entity");
 
             entityManager.Debug.IncrementGlobalSystemVersion();
             var comp = entityManager.GetComponentData<VersionChangeTestComponent>(entity);
             comp.Field += 1;
             entityManager.SetComponentData(entity, comp);
-            currentVersion = GetChangeVersion(query, componentTypeHandle);
+            currentVersion = GetChangeVersion(query, ref componentTypeHandle);
             Assume.That(currentVersion, Is.Not.EqualTo(initialVersion), "This test no longer properly detects changes");
         }
 

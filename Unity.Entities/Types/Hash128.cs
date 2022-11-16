@@ -48,6 +48,20 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Construct a hash from a 32 character hex string
+        /// If the string has the incorrect length or non-hex characters the Value will be all 0
+        /// </summary>
+        /// <param name="value">32 character hex string.</param>
+        /// <param name="guidFormatted">True, if the string value is formatted as a UnityEngine.GUID</param>
+        public unsafe Hash128(string value, bool guidFormatted)
+        {
+            fixed (char* ptr = value)
+            {
+                Value = StringToHash(ptr, value.Length, guidFormatted);
+            }
+        }
+
+        /// <summary>
         /// Convert a Hash128 to a 32-character UTF-16 string of hexadecimal symbols.
         /// </summary>
         /// <returns>Returns the 32-character UTF-16 string of hexadecimal symbols.</returns>
@@ -88,7 +102,7 @@ namespace Unity.Entities
 
         const int k_GUIDStringLength = 32;
 
-        static unsafe uint4 StringToHash(char* guidString, int length)
+        static unsafe uint4 StringToHash(char* guidString, int length, bool guidFormatted = true)
         {
             if (length != k_GUIDStringLength)
                 return default;
@@ -105,18 +119,35 @@ namespace Unity.Entities
             }
 
             uint4 value = default;
-            for (int i = 0; i < 4; i++)
+            if (guidFormatted)
             {
-                uint cur = 0;
-                for (int j = 7; j >= 0; j--)
+                for (int i = 0; i < 4; i++)
                 {
-                    int curHex = hex[i * 8 + j];
-                    if (curHex == -1)
-                        return default;
+                    uint cur = 0;
+                    for (int j = 7; j >= 0; j--)
+                    {
+                        int curHex = hex[i * 8 + j];
+                        if (curHex == -1)
+                            return default;
 
-                    cur |= (uint)(curHex << (j * 4));
+                        cur |= (uint)(curHex << (j * 4));
+                    }
+                    value[i] = cur;
                 }
-                value[i] = cur;
+            }
+            else
+            {
+                int currentHex = 0;
+                for (int i = 0; i < 4; ++i)
+                {
+                    uint currentInt = 0;
+                    for (int j = 0; j < 4; ++j)
+                    {
+                        currentInt |= (uint)(hex[currentHex++] << j * 8 + 4);
+                        currentInt |= (uint)(hex[currentHex++] << j * 8);
+                    }
+                    value[i] = currentInt;
+                }
             }
             return value;
         }
@@ -251,7 +282,6 @@ namespace Unity.Entities
         public static unsafe implicit operator UnityEditor.GUID(Hash128 guid) => *(UnityEditor.GUID*) & guid;
         #endif
 
-        #if UNITY_2019_1_OR_NEWER
         /// <summary>
         /// Implicitly convert a UnityEngine.Hash128 to a Hash128.
         /// </summary>
@@ -265,6 +295,5 @@ namespace Unity.Entities
         /// <param name="guid">The Hash128 to convert.</param>
         /// <returns>The corresponding UnityEngine.Hash128.</returns>
         public static unsafe implicit operator UnityEngine.Hash128(Hash128 guid) => *(UnityEngine.Hash128*) & guid;
-        #endif
     }
 }

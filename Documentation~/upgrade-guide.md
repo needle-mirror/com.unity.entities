@@ -24,81 +24,86 @@ To upgrade from Entities 0.51 to 1.0, you need to do the following:
 
 ## Update Transforms in your project
 
-The default way that Transforms work in Entities 1.0 has changed. This section contains information on how to upgrade your project to work with the new Transforms. For further information on how Transforms work in Entities, see the [Transforms in Entities](transforms-intro.md) documentation. 
+The way that Transforms work in Entities 1.0 has changed. This section contains information on how to upgrade your project to work with the new Transforms. For further information on how Transforms work in Entities, see the [Transforms in Entities](transforms-intro.md) documentation. 
 
 The Transform system is under active development and subject to change up until the 1.0 release. The original, deprecated transform system is available via the `ENABLE_TRANSFORM_V1` define until then.
 
-### UniformScaleTransform
-All transforms now contain a [`UniformScaleTransform`](xref:Unity.Transforms.UniformScaleTransform) struct:
+### LocalTransform
+There are three new transform components. See the [Using Transforms](transforms-using.md) document. For upgrade purposes, however, the only new component of importance is `LocalTransform`:
 
 ```c#
-public struct UniformScaleTransform
-    {
-        public float3 Position;
-        public float Scale;
-        public quaternion Rotation;
-    }
-
-public struct LocalToWorldTransform : IComponentData
-    {
-        UniformScaleTransform Value;
-    }
+public struct LocalTransform : IComponentData, ITransformData
+{
+    public float3 Position;
+    public float Scale;
+    public quaternion Rotation;
+}
 ```
 
 ### Equivalence
-Translation, Rotation, and Scale components are now combined into a single [`LocalToWorldTransform`](xref:Unity.Transforms.LocalToWorldTransform) component like so:
+What was once a threesome of components has now been combined into one component, named `LocalTransform`.
 
-* Translation: `LocalToWorldTransform.Value.Position`
-* Rotation: `LocalToWorldTransform.Value.Rotation`
-* Scale: `LocalToWorldTransform.Value.Scale`
+* Translation: `LocalTransform.Position`
+* Rotation: `LocalTransform.Rotation`
+* Scale: `LocalTransform.Scale`
 
-The following is an example of how to convert your code to use the `LocalToWorldTransform` component:
+The following is an example of how to convert your code to use the `LocalTransform` component:
 
 ```c#
 // BEFORE
 void Execute(ref Translation translation)
-    {
-        translation.Value += math.up();
-    }
+{
+    translation.Value += math.up();
+}
 
 // AFTER
-void Execute(ref LocalToWorldTransform transform)
-    {
-        transform.Value.Position += math.up();
-    }
+void Execute(ref LocalTransform transform)
+{
+    transform.Position += math.up();
+}
 ```
 
 ### Scale
 
-The `NonUniformScale` component has been removed, and there isn't an equivalent. Non-uniform scaling isn't supported in the transform hierarchy. To non-uniformly scale the geometry, use a [`PostTransformMatrix`](xref:Unity.Transforms.PostTransformMatrix) before it's passed on to rendering.
+The `NonUniformScale` component has been removed, and there isn't an equivalent. Non-uniform scaling isn't supported in the transform hierarchy. To non-uniformly scale the geometry, use a [`PostTransformScale`](xref:Unity.Transforms.PostTransformScale) before it's passed on to rendering.
 
 ### Relativity
 
-The `LocalToWorldTransform` component is always in world space. If there is a parent, the `LocalToParentTransform` component is always relative to that parent. When present, the `LocalToParentTransform` component updates the `LocalToWorldTransform` component.
+The `LocalTransform` component is relative to its parent. If there is no [`Parent`](xref:Unity.Transforms.Parent) component, `LocalTransform` will be relative to the origin of the world. In contrast, `WorldTransform` is always relative to the world origin. It is computed and written by `LocalToWorldSystem`. Therefore, `WorldTransform` has a derived value, and writing to it has no effect.
 
-Previously, the Translation, Rotation, and Scale components changed their relativity when used in a hierarchy. Without a parent, Translation, Rotation, and Scale were in world space. With a parent, they were relative to that parent.
-
-[`Parent`](xref:Unity.Transforms.Parent) and [`LocalToParentTransform`](xref:Unity.Transforms.LocalToParentTransform) components always go together. Whenever you add or remove a `Parent` component, you should also add or remove a `LocalToParentTransform` component.
+Note that `WorldTransform` is updated by a system, so it won't reflect changes made in `LocalTransform` until that system has run.
 
 ### Initialization
 
-The following is an example of how to initialize the `LocalToWorldTransform` and `LocalToParentTransform` components:
+The following is an example of how to initialize the `LocalTransform` component:
 
 ```c#
 // BEFORE
 var t = new Translation { Value = new float3(1, 2, 3) };
+var r = new Rotation { Value = quaternion.RotateZ(1) };
+var s = new Scale { Value = 2 }
 
 // AFTER
-var t = new LocalToWorldTransform { Value = UniformScaleTransform.FromPosition(1, 2, 3) };
+var t = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateZ(1), 2);
 ```
 
-To see the full list of initializer variations available, see the API documentation for [`UniformScaleTransform`](xref:Unity.Transforms.UniformScaleTransform).
+To see the full list of initializer variations available, see the API documentation for [`LocalTransform`](xref:Unity.Transforms.LocalTransform). All initializers begin with "From".
 
-You must initialize all transforms. The C# default behavior to initialize a struct with all zeroes is an invalid transform. Where necessary, use [`UniformScaleTransform.Identity`](xref:Unity.Transforms.UniformScaleTransform.Identity) as a default value, like so:
+You must initialize all transforms. The C# default behavior is to initialize a struct with all zeroes, and that is an invalid transform. Where necessary, use [`LocalTransform.Identity`](xref:Unity.Transforms.LocalTransform.Identity) as a default value, like so:
 
 ```c#
-var t = new LocalToWorldTransform { Value = UniformScaleTransform.Identity };
+var t = LocalTransform.Identity;
 ```
+### Changing an individual transform property
+
+To create a new transform that differs in only one property, helper functions are available. For example, to modify only the position, leaving rotation and scale at their original value:
+
+```c#
+t = t.WithPosition(1, 2, 3);
+```
+
+To see the full list of modifier variations available, see the API documentation for [`TransformDataHelpers`](xref:Unity.Transforms.TransformDataHelpers).
+
 ## Update conversions in your project
 
 The previous conversion system has been replaced with Baking. For more information, see the documentation on [Baking](baking.md)
@@ -358,9 +363,9 @@ struct MyJob : IJobChunk
 		while(enumerator.NextEntityIndex(out int i))
 		{
 			// INCORRECT: may count entities that do not match the query
-			int incorrectEntityInQueryIndex = baseEntityIndex + i;
+			int incorrectEntityIndexInQuery = baseEntityIndex + i;
 			// CORRECT: gives the index of the entity relative to all matching entities
-			int entityInQueryIndex = baseEntityIndex + validEntitiesInChunk;
+			int entityIndexInQuery = baseEntityIndex + validEntitiesInChunk;
 			++validEntitiesInChunk;
 		}
 	}
@@ -543,6 +548,51 @@ var query2 = new EntityQueryBuilder(Allocator.Temp)
 
 `SystemBase.Time` and `SystemState.Time` are now deprecated and you should use `SystemAPI.Time `instead. Previously `SystemBase.Time` and `SystemState.Time` acted as aliases for `World.Time`. You should now use`SystemAPI.Time` which works in both `ISystem` and `SystemBase`. In cases where you can’t do that, because you’re outside a system, get hold of the world instead either as `World` or `WorldUnmanged`, which both have a `Time` property.
 
+## Update SystemBase helper methods to SystemAPI
+SystemBase helpers like `GetComponent`, `SetComponent`, `GetSingleton` etc. has been marked for deprecation. Instead use `SystemAPI` inside systems. This also works for `Entities.ForEach` 
+
+In places where `SystemAPI` does not work, you can do the two following things.
+1. For singleton APIs you can get an EntityQuery and use their equating function. Here's an example of one such conversion:
+```csharp
+// Before
+void MyMethod(SystemBase mySystem) {
+    var mySingleton = mySystem.GetSingleton<MySingleton>();
+}
+
+// After
+void MyMethod(SystemBase mySystem) {
+    var myEntityQueryBuilder = new EntityQueryBuilder(mySystem.WorldUpdateAllocator).WithAll<MySingleton>();
+    var myQuery = myEntityQueryBuilder.Build(mySystem);
+    var mySingleton = myQuery.GetSingleton<MySingleton>();
+}
+```
+2. For `GetComponent`, `SetComponent`, `HasComponent`, `GetBuffer` and `Exists`, you can either use the equating EntityManager functions, or cache your own lookups, akin to what SystemAPI does.
+```csharp
+// Before
+void MyMethod(SystemBase mySystem, Entity e) {
+    var myComponent = mySystem.GetComponent<MyComponent>(e);
+}
+
+// After (Option A)
+void MyMethod(SystemBase mySystem, Entity e) {
+    var myComponent = mySystem.EntityManager.GetComponentData<MyComponent>(e);
+}
+
+// After (Option B)
+void MyMethod(SystemBase mySystem, Entity e, ComponentLookup<MyComponent> alreadyUpdatedLookupOfMyComponent) {
+    var myComponent = alreadyUpdatedLookupOfMyComponent[e];
+}
+```
+`GetBuffer` in SystemAPI also currently does not take in a bool of whether or not it's readonly. Therefore it assume it's always ReadWrite.
+Meaning you might have to do the following to convert:
+```csharp
+// Before
+var readonlyBuffer = this.GetBuffer<MyElement>(e, true);
+
+// After
+EntityManager.CompleteDependencyBeforeRO<MyElement>(); // Lookups don't cause syncing so this is needed for giving the exact same effect as before.
+var readonlyBuffer = SystemAPI.GetBufferLookup<MyElement>(true)[e];
+```
 ## Add the Entities Graphics package to your project
 
 The Hybrid Rendering package (com.unity.rendering.hybrid) has been renamed to Entities Graphics (com.unity.entities.graphics) for consistency. The Hybrid Renderer still exists as an empty utility package with a dependency on Entities Graphics so you won't encounter any problem. However, you should add the Entities Graphics package to your project directly to avoid any errors in the future when the Hybrid Renderer package is removed completely.
@@ -557,3 +607,52 @@ From Unity Editor version 2022.2 and later, the **Auto Generate** mode in the Li
 
 This is because when you generate lighting in a project, the Unity Editor opens all loaded subscenes, which might slow down Editor performance. On demand baking is still available and is the recommended way of generating lighting.
 
+## Blob Asset Analysis is now more restrictive
+With the added restrictions you now get a warning when you try to `new` or `default` a blobasset. 
+As a result please instead modify the blobasset.
+e.g.
+```cs
+var myBlob = new MyBlob(...);
+
+struct MyBlob {
+    public MyBlob(...){...}
+}
+```
+Now becomes:
+```cs
+ref var myBlob = ref builder.ConstructRoot<MyBlob>();
+myBlob.Setup(...);
+
+struct MyBlob {
+    public void Setup(...){...}
+}
+```
+
+It's now not possible to use the `fixed type varName[n]` syntax inside a field on a blob. As that will create a pointer. Pointers are illegal in blobs.
+```cs
+unsafe struct MyBlob {
+    public fixed bool Values[128];
+}
+ref var blob = ...; // construct it
+blob.Values[0] = true;
+```
+Now becomes:
+```cs
+using Unity.Collections.LowLevel.Unsafe;
+
+unsafe struct MyBlob {
+    [StructLayout(LayoutKind.Sequential, Size = 128)]
+    public struct Values128
+    {
+        byte @byte;
+        public bool this[int i] {
+            get => UnsafeUtility.ReadArrayElement<bool>(UnsafeUtility.AddressOf(ref @byte), i);
+            set => UnsafeUtility.WriteArrayElement(UnsafeUtility.AddressOf(ref @byte), i, value);
+        }
+    }
+
+    public Values128 Values;
+}
+ref var blob = ...; // construct it
+blob.Values[0] = true;
+```

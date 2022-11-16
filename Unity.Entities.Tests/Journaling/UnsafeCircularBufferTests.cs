@@ -188,8 +188,10 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
             Assert.AreEqual(4, buffer[3]);
             Assert.AreEqual(5, buffer[4]);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<IndexOutOfRangeException>(() => { var value = buffer[-1]; });
             Assert.Throws<IndexOutOfRangeException>(() => { var value = buffer[5]; });
+#endif
         }
 
         [Test]
@@ -211,8 +213,10 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
             Assert.AreEqual(4, buffer.ElementAt(3));
             Assert.AreEqual(5, buffer.ElementAt(4));
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<IndexOutOfRangeException>(() => { var value = buffer.ElementAt(-1); });
             Assert.Throws<IndexOutOfRangeException>(() => { var value = buffer.ElementAt(5); });
+#endif
         }
 
         [Test]
@@ -226,7 +230,10 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
             Assert.AreEqual(2, buffer.Front());
 
             buffer.Clear();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Front());
+#endif
         }
 
         [Test]
@@ -240,7 +247,10 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
             Assert.AreEqual(4, buffer.Back());
 
             buffer.Clear();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Back());
+#endif
         }
 
         [Test]
@@ -394,13 +404,19 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
 
             Assert.IsTrue(buffer.PopFront());
             Assert.AreEqual(0, buffer.Count);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Front());
             Assert.Throws<InvalidOperationException>(() => buffer.Back());
+#endif
 
             Assert.IsFalse(buffer.PopFront());
             Assert.AreEqual(0, buffer.Count);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Front());
             Assert.Throws<InvalidOperationException>(() => buffer.Back());
+#endif
         }
 
         [Test]
@@ -430,13 +446,19 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
 
             Assert.IsTrue(buffer.PopFront(1));
             Assert.AreEqual(0, buffer.Count);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Front());
             Assert.Throws<InvalidOperationException>(() => buffer.Back());
+#endif
 
             Assert.IsFalse(buffer.PopFront(1));
             Assert.AreEqual(0, buffer.Count);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Front());
             Assert.Throws<InvalidOperationException>(() => buffer.Back());
+#endif
         }
 
         [Test]
@@ -466,13 +488,19 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
 
             Assert.IsTrue(buffer.PopBack());
             Assert.AreEqual(0, buffer.Count);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Front());
             Assert.Throws<InvalidOperationException>(() => buffer.Back());
+#endif
 
             Assert.IsFalse(buffer.PopBack());
             Assert.AreEqual(0, buffer.Count);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Front());
             Assert.Throws<InvalidOperationException>(() => buffer.Back());
+#endif
         }
 
         [Test]
@@ -502,13 +530,19 @@ namespace Unity.Entities.LowLevel.Unsafe.Tests
 
             Assert.IsTrue(buffer.PopBack(1));
             Assert.AreEqual(0, buffer.Count);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Front());
             Assert.Throws<InvalidOperationException>(() => buffer.Back());
+#endif
 
             Assert.IsFalse(buffer.PopBack(1));
             Assert.AreEqual(0, buffer.Count);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<InvalidOperationException>(() => buffer.Front());
             Assert.Throws<InvalidOperationException>(() => buffer.Back());
+#endif
         }
 
         [Test]

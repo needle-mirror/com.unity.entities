@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
@@ -41,13 +41,13 @@ namespace Unity.Entities.Editor.Tests
         {
             yield return new TestCaseData(new [] { "Token" }, new[] { "token" }).SetName("Tokens are converted to lowercase");
             yield return new TestCaseData(new [] { "BBBB", "D", "AAA", "CC", "AAAAA" }, new[] { "aaaaa", "bbbb", "cc", "d" }).SetName("Tokens are sorted by length and redundancies are removed");
-            yield return new TestCaseData(new [] { "GameObject", "c:Rotation", "C:Translation" }, new[] { "gameobject" }).SetName("Component tokens are excluded");
+            yield return new TestCaseData(new [] { "GameObject", "c=Rotation", "C=Translation" }, new[] { "gameobject" }).SetName("Component tokens are excluded");
             yield return new TestCaseData(new [] { "GameObject", "\"quoted\"" }, new[] { "gameobject", "quoted" }).SetName("Quote pairs are stripped");
             yield return new TestCaseData(new [] { "\"Game Object (22)\"" }, new[] { "game object (22)" }).SetName("Quoted sentences are preserved");
             yield return new TestCaseData(new [] { "GameObject", "\"\"" }, new[] { "gameobject" }).SetName("Empty quotes are stripped");
             yield return new TestCaseData(new [] { "GameObject", "\"" }, new[] { "gameobject" }).SetName("Unmatched quote characters are stripped");
             yield return new TestCaseData(new [] { "GameObject", "\"Hi", "Hello\"" }, new[] { "gameobject", "hello\"", "\"hi" }).SetName("Quote characters are not stripped when part of a valid token");
-            yield return new TestCaseData(new [] { "c:Rotation", "\"", "\"\"" }, new string[0]).SetName("Returns an empty list if necessary");
+            yield return new TestCaseData(new [] { "c=Rotation", "\"", "\"\"" }, new string[0]).SetName("Returns an empty list if necessary");
         }
 
         [TestCaseSource(nameof(GetTestCases))]
@@ -206,7 +206,7 @@ namespace Unity.Entities.Editor.Tests
                 Assert.That(nodes.Count, Is.EqualTo(0));
             }
 
-            using (var filter = m_HierarchySearch.CreateHierarchyFilter("c:TestComponentA", null, Allocator.TempJob))
+            using (var filter = m_HierarchySearch.CreateHierarchyFilter("c=TestComponentA", null, Allocator.TempJob))
             {
                 nodes.SetFilter(filter);
                 nodes.Refresh(immutable, m_World, m_Mapping);
@@ -219,7 +219,7 @@ namespace Unity.Entities.Editor.Tests
                 CollectionAssert.AreEquivalent(expectedWithA, actualWithA);
             }
 
-            using (var filter = m_HierarchySearch.CreateHierarchyFilter("c:TestComponentB", null, Allocator.TempJob))
+            using (var filter = m_HierarchySearch.CreateHierarchyFilter("c=TestComponentB", null, Allocator.TempJob))
             {
                 nodes.SetFilter(filter);
                 nodes.Refresh(immutable, m_World, m_Mapping);

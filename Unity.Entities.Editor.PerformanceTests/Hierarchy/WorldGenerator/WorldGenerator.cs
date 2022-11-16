@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor.PerformanceTests
     {
         // Minimum set to be picked up by ParentSystem + GUID for tracking entities after changes
 #if !ENABLE_TRANSFORM_V1
-        static readonly ComponentType[] k_BasicArchetype = { typeof(EntityGuid), typeof(LocalToWorld), typeof(LocalToWorldTransform), typeof(LocalToParentTransform) };
+        static readonly ComponentType[] k_BasicArchetype = { typeof(EntityGuid), typeof(LocalToWorld), typeof(WorldTransform), typeof(LocalTransform) };
 #else
         static readonly ComponentType[] k_BasicArchetype = { typeof(EntityGuid), typeof(LocalToWorld), typeof(LocalToParent) };
 #endif

@@ -14,7 +14,7 @@ using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    /// <inheritdoc cref="SystemHandle"/>
+    /// <summary> Obsolete. Use <see cref="SystemHandle"/> instead.</summary>
     [Obsolete("(UnityUpgradable) -> SystemHandle", true)]
     public struct SystemHandleUntyped : IEquatable<SystemHandleUntyped>, IComparable<SystemHandleUntyped>
     {
@@ -153,6 +153,15 @@ namespace Unity.Entities
         /// <summary>
         /// Update the system manually.
         /// </summary>
+        /// <remarks>
+        /// If a system manually calls another system's <see cref="Update(WorldUnmanaged)"/> method from inside its own
+        /// <see cref="ISystem.OnUpdate(ref SystemState)"/> method, <see cref="EntityQuery"/> objects in the caller
+        /// system might see unexpected and incorrect change version numbers based on the processing performed in the
+        /// target system. For this reason, you shouldn't manually update one system from another if both systems are
+        /// processing entity data, especially if either uses <see cref="EntityQuery.SetChangedVersionFilter(ComponentType[])"/>.
+        /// This guidance doesn't apply to <see cref="ComponentSystemGroup"/> or other "pass-through" systems which only
+        /// update other systems without manipulating entity data.
+        /// </remarks>
         /// <param name="world">The <see cref="WorldUnmanaged"/> for the <see cref="World"/> instance this handle belongs to.</param>
         /// <exception cref="InvalidOperationException">Thrown if this SystemHandle is invalid or does not belong to this world.</exception>
         public void Update(WorldUnmanaged world)
@@ -195,7 +204,7 @@ namespace Unity.Entities
         /// </summary>
         public float MaximumDeltaTime;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         byte m_AllowGetSystem;
 #endif
 
@@ -209,7 +218,7 @@ namespace Unity.Entities
         public int Version { get; private set; }
         internal void BumpVersion() => Version++;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         public bool AllowGetSystem
         {
             get => m_AllowGetSystem != 0;
@@ -229,7 +238,7 @@ namespace Unity.Entities
             CurrentTime = default;
             Name = new FixedString128Bytes();
             Name.CopyFromTruncated(worldName);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             m_AllowGetSystem = 1;
 #endif
             SequenceNumber = sequenceNumber;
@@ -533,7 +542,7 @@ namespace Unity.Entities
 
             return statePtr;
         }
-        
+
         [ExcludeFromBurstCompatTesting("Takes managed World")]
 
         internal SystemHandle CreateUnmanagedSystem<T>(World self, bool callOnCreate) where T : unmanaged, ISystem
@@ -655,7 +664,7 @@ namespace Unity.Entities
         internal SystemState* ResolveSystemState(SystemHandle id)
         {
             // Nothing can resolve while we're shutting down.
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (m_AllowGetSystem == 0)
                 return null;
 #endif
@@ -676,7 +685,7 @@ namespace Unity.Entities
         internal SystemState* ResolveSystemStateChecked(SystemHandle id)
         {
             // Nothing can resolve while we're shutting down.
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (m_AllowGetSystem == 0)
                 throw new InvalidOperationException("Shutdown in progress. Can not resolve systems.");
 #endif
@@ -953,7 +962,7 @@ namespace Unity.Entities
 
         internal void BumpVersion() => GetImpl().BumpVersion();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
         internal bool AllowGetSystem
         {
@@ -1002,7 +1011,7 @@ namespace Unity.Entities
              */
             m_Impl->m_EntityManager.Initialize(world);
         }
-        
+
         [ExcludeFromBurstCompatTesting("AllocatorManager accesses managed delegates")]
         internal void Dispose()
         {
@@ -1066,7 +1075,7 @@ namespace Unity.Entities
         [ExcludeFromBurstCompatTesting("Takes managed World")]
         internal SystemHandle CreateUnmanagedSystem<T>(World self, bool callOnCreate) where T : unmanaged, ISystem =>
             GetImpl().CreateUnmanagedSystem<T>(self, callOnCreate);
-        
+
         [ExcludeFromBurstCompatTesting("Uses managed World under the hood")]
         internal SystemHandle GetOrCreateUnmanagedSystem<T>() where T : unmanaged, ISystem =>
             GetImpl().GetOrCreateUnmanagedSystem<T>();
@@ -1088,8 +1097,8 @@ namespace Unity.Entities
 #endif
             GetImpl().DestroyUnmanagedSystem(sysHandle);
         }
-        
-        
+
+
         [ExcludeFromBurstCompatTesting("accesses managed World")]
         internal void DestroyManagedSystemState(SystemState* state) =>
             GetImpl().DestroyManagedSystem(state);
@@ -1189,7 +1198,10 @@ namespace Unity.Entities
         public bool IsSystemValid(SystemHandle id) =>
             GetImpl().IsSystemValid(id);
 
-        /// <inheritdoc cref="WorldUnmanaged.GetUnsafeSystemRef{T}(SystemHandle)"/>
+        /// <summary> Obsolete. Use <see cref="WorldUnmanaged.GetUnsafeSystemRef{T}(SystemHandle)"/> instead.</summary>
+        /// <param name="systemHandle">The system handle</param>
+        /// <typeparam name="T">The unmanaged system</typeparam>
+        /// <returns></returns>
         [Obsolete("Use GetUnsafeSystemRef (UnityUpgradable) -> GetUnsafeSystemRef<T>(*)", true)]
         public ref T ResolveSystem<T>(SystemHandle systemHandle) where T : unmanaged, ISystem
         {

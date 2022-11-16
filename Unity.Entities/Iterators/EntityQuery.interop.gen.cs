@@ -76,7 +76,7 @@ namespace Unity.Entities
         {
             if (!UseDelegate())
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if( _bfp_ResetFilter.Data == IntPtr.Zero)
                     throw new InvalidOperationException("Burst Interop Classes must be initialized manually");
 #endif
@@ -97,7 +97,7 @@ namespace Unity.Entities
         {
             if (!UseDelegate())
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if( _bfp_FreeCachedState.Data == IntPtr.Zero)
                     throw new InvalidOperationException("Burst Interop Classes must be initialized manually");
 #endif

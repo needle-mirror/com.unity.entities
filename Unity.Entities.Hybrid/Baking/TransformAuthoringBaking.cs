@@ -13,25 +13,6 @@ using UnityEngine.Jobs;
 
 namespace Unity.Entities
 {
-    //TODO: DOTS-5445
-    //     Current approach:
-    //         - Doesn't work for CreateAdditionalEntities only for primary entities
-    //         - Creates unnecessary dependency on the transform component
-    class StaticAndActiveBaker : Baker<UnityEngine.Transform>
-    {
-        public override void Bake(UnityEngine.Transform transform)
-        {
-            // Force old school transform hierarchies
-            GetEntity(TransformUsageFlags.Default);
-
-            if (IsStatic())
-                AddComponent(GetEntityWithoutDependency(),new Static());
-
-            if (!IsActive())
-                AddComponent(GetEntityWithoutDependency(),new Disabled());
-        }
-    }
-
     internal struct TransformAuthoringBaking
     {
         EntityManager               _EntityManager;
@@ -241,7 +222,7 @@ namespace Unity.Entities
 
                 TransformAuthoring* transformsRW = null;
 
-                var parents = chunk.GetNativeArray(AdditionalEntityParent);
+                var parents = chunk.GetNativeArray(ref AdditionalEntityParent);
                 var entities = chunk.GetNativeArray(Entities);
 
                 // Replicate static flag onto additional entities from primary entity

@@ -13,7 +13,7 @@ namespace Unity.Scenes.Tests
             var guid = AssetDatabaseCompatibility.PathToGUID(path);
             Assert.IsFalse(guid.Empty());
 
-            var configGUID = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(guid, default, true, true,  false, out var requireRefresh);
+            var configGUID = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(guid, default, true, out var requireRefresh);
             requireRefresh |= SceneWithBuildConfigurationGUIDs.Dirty(guid, default);
 
             if (requireRefresh)

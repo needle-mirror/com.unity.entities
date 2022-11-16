@@ -6,10 +6,12 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Editmode.Content")]
 namespace Unity.Scenes.Editor
 {
-    class SubSceneContextMenu
+    internal class SubSceneContextMenu
     {
         internal enum NewSubSceneMode
         {

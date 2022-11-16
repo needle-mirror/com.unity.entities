@@ -6,7 +6,7 @@ uid: iterating-data-ijobentity
 
 To iterate across `ComponentData` when you have a data transformation that you want in multiple systems, with different invocations, you can use [`IJobEntity`](xref:Unity.Entities.IJobEntity), which is similar to [`Entities.ForEach`](iterating-data-entities-foreach.md).
 
-It creates an [`IJobEntityBatch`](xref:Unity.Entities.IJobEntityBatch) job, so you only have to think about what data you want to transform.
+It creates an [`IJobChunk`](xref:Unity.Entities.IJobChunk) job, so you only have to think about what data you want to transform.
 
 ## Comparison between IJobEntity and Entities.ForEach
 
@@ -23,7 +23,7 @@ It can be rewritten as the following:
 
 To create an `IJobEntity` job, write a struct that uses the `IJobEntity` interface, and implement your own custom `Execute` method. 
 
-Use the `partial` keyword because source generation creates a struct that implements `IJobEntityBatch` in a separate file found inside `project/Temp/GeneratedCode/....`.
+Use the `partial` keyword because source generation creates a struct that implements `IJobChunk` in a separate file found inside `project/Temp/GeneratedCode/....`.
 
 The following example adds one to every SampleComponent every frame.
 [!code-cs[SimpleSample](../DocCodeSamples.Tests/JobEntityExamples.cs#SimpleSample)]
@@ -33,7 +33,7 @@ The following example adds one to every SampleComponent every frame.
 You can specify a query for `IJobEntity` in the following ways:
 
 * Create a query manually, to specify different invocation requirements.
-* Have the implemented IJobEntity do it for you, based on its given `Execute` parameters, and specifications on the job struct using the attributes `[WithAll(params Type)]`, `[WithAny(params Type)]`, `[WithNone(params Type)]`, `[WithChangeFilter(params Type)]` and `[WithEntityQueryOptions((params EntityQueryOptions)]`.
+* Have the implemented IJobEntity do it for you, based on its given `Execute` parameters, and specifications on the job struct using the attributes `[WithAll(params Type)]`, `[WithAny(params Type)]`, `[WithNone(params Type)]`, `[WithChangeFilter(params Type)]` and `[WithOptions((params EntityQueryOptions)]`.
 
 The following example shows both options:
 
@@ -59,12 +59,12 @@ Because `IJobEntity` resembles a job, you can use all attributes that work on a 
 |`Unity.Entities.WithAny(params Type[])`| Set on the job struct. Narrows the query so that the entities have to match any of the types provided.|
 |`Unity.Entities.WithNone(params Type[])`| Set on the job struct. Narrows the query so that the entities have to match none of the types provided.|
 |`Unity.Entities.WithChangeFilter(params Type[])`| Set on the job struct or attach to an argument in `Execute`. Narrows the query so that the entities have to have had changes in the archetype chunk for the given components.|
-|`Unity.Entities.WithEntityQueryOptions(params EntityQueryOptions[])`| Set on the job struct. Changes the scope of the query to use the [`EntityQueryOptions`](xref:Unity.Entities.SystemBase.Entities) described.|
-|`Unity.Entities.EntityInQueryIndex`|  Set on the `int` parameter in `Execute` to get the current index in query, for the current entity iteration. This is the same as `entityInQueryIndex` in `Entities.ForEach`.|
+|`Unity.Entities.WithOptions(params EntityQueryOptions[])`| Set on the job struct. Changes the scope of the query to use the [`EntityQueryOptions`](xref:Unity.Entities.SystemBase.Entities) described.|
+|`Unity.Entities.EntityIndexInQuery`|  Set on the `int` parameter in `Execute` to get the current index in query, for the current entity iteration. This is the same as `entityInQueryIndex` in `Entities.ForEach`.|
 
-The following is an example of `EntityInQueryIndex`:
+The following is an example of `EntityIndexInQuery`:
 
-[!code-cs[EntityInQueryIndex](../DocCodeSamples.Tests/JobEntityExamples.cs#EntityInQueryIndex)]
+[!code-cs[EntityIndexInQuery](../DocCodeSamples.Tests/JobEntityExamples.cs#EntityIndexInQuery)]
 
 ### Execute parameters
 
@@ -82,4 +82,4 @@ The following is a list of all the supported `Execute` parameters you can use in
 |`int`| There are three supported ints:|
 || Mark the `int` with the attribute `[Unity.Entities.ChunkIndexInQuery]` to get the current archetype chunk index in a query.  |
 ||Mark the `int` with the attribute `[Unity.Entities.EntityIndexInChunk]` to get the current entity index in the current archetype chunk. You can add `EntityIndexInChunk` and `ChunkIndexInQuery` to get a unique identifier per entity.|
-||Mark the `int` with the attribute `[Unity.Entities.EntityInQueryIndex]` to get the packed index of the query. This has an impact on performance, using `EntityQuery.CalculateBaseEntityIndexArray[Async]`.|
+||Mark the `int` with the attribute `[Unity.Entities.EntityIndexInQuery]` to get the packed index of the query. This has an impact on performance, using `EntityQuery.CalculateBaseEntityIndexArray[Async]`.|

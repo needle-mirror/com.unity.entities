@@ -860,12 +860,12 @@ namespace Unity.Entities.Tests
             public void Execute(in ArchetypeChunk chunk, int chunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 int i = chunkIndex * Chunk.kMaximumEntitiesPerChunk;
-                var testData = chunk.GetNativeArray(EcsTestData);
-                var testData2 = chunk.GetNativeArray(EcsTestData2);
-                var testData3 = chunk.GetNativeArray(EcsTestData3);
-                var testData4 = chunk.GetNativeArray(EcsTestData4);
-                var testData5 = chunk.GetNativeArray(EcsTestData5);
-                int n = chunk.ChunkEntityCount;
+                var testData = chunk.GetNativeArray(ref EcsTestData);
+                var testData2 = chunk.GetNativeArray(ref EcsTestData2);
+                var testData3 = chunk.GetNativeArray(ref EcsTestData3);
+                var testData4 = chunk.GetNativeArray(ref EcsTestData4);
+                var testData5 = chunk.GetNativeArray(ref EcsTestData5);
+                int n = chunk.Count;
                 for (int e = 0; e < n; e++, i++)
                 {
                     testData[e] = new EcsTestData(i);
@@ -1591,9 +1591,11 @@ namespace Unity.Entities.Tests
                 deserializedWorld.Dispose();
             }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
 #if !NET_DOTS // If memory has been unmapped this can throw exceptions other than InvalidOperation
             float f = 1.0f;
             Assert.Throws<InvalidOperationException>(() => f = arrayComponent.array.Value[0]);
+#endif
 #endif
         }
 
@@ -1781,9 +1783,11 @@ namespace Unity.Entities.Tests
                 deserializedWorld.Dispose();
             }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
 #if !UNITY_DOTSRUNTIME // If memory has been unmapped this can throw exceptions other than InvalidOperation
             float f = 1.0f;
             Assert.Throws<InvalidOperationException>(() => f = arrayComponent.array.Value[0]);
+#endif
 #endif
         }
 
@@ -2018,6 +2022,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme] // DOTS Runtime Managed Component Serialization
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntities_HandlesNullManagedComponents()
         {
             var e = m_Manager.CreateEntity(typeof(ManagedComponent));
@@ -2038,6 +2043,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme] // DOTS Runtime Managed Component Serialization
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntities_RemapsEntitiesInManagedComponents()
         {
             int numberOfEntitiesPerManager = 10000;
@@ -2097,6 +2103,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme] // DOTS Runtime Managed Component Serialization
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntities_ManagedComponents()
         {
             int expectedEntityCount = 1000;
@@ -2364,6 +2371,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme] // DOTS Runtime Managed Component Serialization
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntitiesManagedComponentWithCustomClass_ManagedComponents()
         {
             int expectedEntityCount = 100;
@@ -2689,6 +2697,7 @@ namespace Unity.Entities.Tests
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         [DotsRuntimeFixme] // Unity.Properties support required
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntities_WithBlobAssetReferencesInManagedComponents()
         {
             {

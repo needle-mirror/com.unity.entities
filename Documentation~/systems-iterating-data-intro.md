@@ -1,4 +1,4 @@
-# Iterating over data
+# Iterate over component data
 
 Iterating over data is one of the most common tasks you need to perform when you create a system. A system typically processes a set of entities, reads data from one or more components, performs a calculation, and then writes the result to another component.
 
@@ -6,13 +6,13 @@ The most efficient way to iterate over entities and components is in a job that 
 
 This section explains how to iterate over entity data in the following ways:
 
-
 |**Topic**|**Description**|
 |---|---|
-|[Iterate over data with `Entities.ForEach`](iterating-data-entities-foreach.md)|How to process component data entity by entity with [`SystemBase.Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities).|
-|[Iterate over data with `IJobEntity`](iterating-data-ijobentity.md)| How to write once and create multiple schedules with [`IJobEntity`](xref:Unity.Entities.IJobEntity).|
-|[Iterate over batches of data](iterating-data-ijobentitybatch.md)| How to iterate over [archetype chunks](concepts-archetypes.md#archetype-chunks) that contain matching entities with [`IJobEntityBatch`](xref:Unity.Entities.IJobEntityBatch).|
-|[Iterate manually over data](iterating-manually.md)| How to manually iterate over entities or archetype chunks.|
+|[Using SystemAPI.Query to iterate over data](systems-systemapi-query.md)|Iterate through a collection of data on the main thread.|
+|[Iterate over data with `IJobEntity`](iterating-data-ijobentity.md)| Write once and create multiple schedules with [`IJobEntity`](xref:Unity.Entities.IJobEntity).|
+| [Iterate over chunks of data](iterating-data-ijobchunk.md)| Iterate over [archetype chunks](concepts-archetypes.md#archetype-chunks) that contain matching entities with `IJobChunk`. |
+|[Iterate manually over data](iterating-manually.md)| Manually iterate over entities or archetype chunks.|
+|[Iterate with Entities.ForEach in SystemBase systems](iterating-data-entities-foreach.md)|Use `Entities.ForEach` in SystemBase to iterate over entities.|
 
 ## Additional resources
 

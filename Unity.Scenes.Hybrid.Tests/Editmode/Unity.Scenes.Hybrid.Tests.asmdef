@@ -18,7 +18,8 @@
         "Unity.Scenes.Hybrid.Tests.Playmode",
         "Unity.Build",
         "Unity.Scenes.Editor.Tests",
-        "Unity.Entities.TestComponents"
+        "Unity.Entities.TestComponents",
+        "Unity.Entities.Build"
     ],
     "includePlatforms": [
         "Editor"
@@ -33,6 +34,12 @@
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
-    "versionDefines": [],
+  "versionDefines": [
+    {
+      "name": "com.unity.platforms",
+      "expression": "",
+      "define": "USING_PLATFORMS_PACKAGE"
+    }
+  ],
     "noEngineReferences": false
 }

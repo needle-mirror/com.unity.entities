@@ -152,6 +152,65 @@ namespace Doc.CodeSamples.Tests
 
                 #endregion
             }
+            {
+                #region query-builder-chunk-component-all
+
+                var entityWithPlayerComponent = EntityManager.CreateEntity();
+                EntityManager.AddComponent<Player>(entityWithPlayerComponent);
+
+                var entityWithPlayerChunkComponent = EntityManager.CreateEntity();
+                EntityManager.AddComponent(entityWithPlayerChunkComponent, ComponentType.ChunkComponent<Player>());
+
+                // This query will only match entityWithPlayerComponent
+                var playerQuery = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<Player>()
+                    .Build(this);
+
+                // This query will only match entityWithPlayerChunkComponent
+                var chunkPlayerQuery = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllChunkComponent<Player>()
+                    .Build(this);
+
+                #endregion
+            }
+            {
+                #region query-builder-chunk-component-any
+
+                var entityWithPlayerComponent = EntityManager.CreateEntity();
+                EntityManager.AddComponent<Player>(entityWithPlayerComponent);
+
+                var entityWithPlayerChunkComponent = EntityManager.CreateEntity();
+                EntityManager.AddComponent(entityWithPlayerChunkComponent, ComponentType.ChunkComponent<Player>());
+
+                // This query will match both entityWithPlayerComponent and entityWithPlayerChunkComponent
+                var playerQuery = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAny<Player>()
+                    .WithAnyChunkComponent<Player>()
+                    .Build(this);
+
+                #endregion
+            }
+            {
+                #region query-builder-chunk-component-none
+
+                var entityWithPlayerComponent = EntityManager.CreateEntity();
+                EntityManager.AddComponent<Player>(entityWithPlayerComponent);
+
+                var entityWithPlayerChunkComponent = EntityManager.CreateEntity();
+                EntityManager.AddComponent(entityWithPlayerChunkComponent, ComponentType.ChunkComponent<Player>());
+
+                // This query will only match entityWithPlayerChunkComponent, excluding entityWithPlayerComponent
+                var noPlayerQuery = new EntityQueryBuilder(Allocator.Temp)
+                    .WithNone<Player>()
+                    .Build(this);
+
+                // This query will only match entityWithPlayerComponent, excluding entityWithPlayerChunkComponent
+                var noChunkPlayerQuery = new EntityQueryBuilder(Allocator.Temp)
+                    .WithNoneChunkComponent<Player>()
+                    .Build(this);
+
+                #endregion
+            }
         }
 
         protected override void OnUpdate()
@@ -330,10 +389,11 @@ namespace Doc.CodeSamples.Tests
             var displacements = query.ToComponentDataArray<Displacement>(Allocator.Temp);
 
             for (int i = 0; i < positions.Length; i++)
-                positions[i] = new ObjectPosition
-                {
-                    Value = positions[i].Value + displacements[i].Value
-                };
+                positions[i] =
+                    new ObjectPosition
+                    {
+                        Value = positions[i].Value + displacements[i].Value
+                    };
         }
     }
 

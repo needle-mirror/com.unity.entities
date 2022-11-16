@@ -1,6 +1,6 @@
 using System.Collections;
 using JetBrains.Annotations;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Serialization.Editor;
 using UnityEngine.UIElements;
 

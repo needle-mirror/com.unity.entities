@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Unity.Platforms.UI
+namespace Unity.Entities.UI
 {
     sealed class ContentWindow : EditorWindow
     {

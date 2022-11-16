@@ -14,7 +14,6 @@ namespace Unity.Entities
         static void Initialize()
         {
             DefaultWorldInitialization.Initialize("Default World", false);
-            GameObjectSceneUtility.AddGameObjectSceneReferences();
         }
     }
 #endif

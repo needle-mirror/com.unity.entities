@@ -51,8 +51,8 @@ namespace Unity.Entities.Tests.TestSystemAPI
         protected override void OnUpdate() {
             var e = EntityManager.CreateEntity(
 #if !ENABLE_TRANSFORM_V1
-                typeof(LocalToWorldTransform),
-                typeof(LocalToWorld), typeof(LocalToParentTransform));
+                typeof(LocalTransform),
+                typeof(LocalToWorld), typeof(WorldTransform));
 #else
                 typeof(Translation), typeof(Rotation),
                 typeof(LocalToWorld), typeof(LocalToParent));
@@ -81,9 +81,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
         protected override void OnDestroy() {}
         protected override void OnUpdate() {
 #if !ENABLE_TRANSFORM_V1
-            var e = EntityManager.CreateEntity(typeof(LocalToWorldTransform),
-                typeof(LocalToWorld), typeof(LocalToParentTransform));
-            EntityManager.AddComponentData(e, new LocalToWorldTransform{Value = UniformScaleTransform.FromPosition(5, 5, 5)});
+            var e = EntityManager.CreateEntity(typeof(LocalTransform),
+                typeof(LocalToWorld), typeof(WorldTransform));
+            EntityManager.AddComponentData(e, LocalTransform.FromPosition(5, 5, 5));
 #else
             var e = EntityManager.CreateEntity(typeof(Rotation),
                 typeof(LocalToWorld), typeof(LocalToParent));
@@ -92,6 +92,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
             var containingEntity = EntityManager.CreateEntity();
             EntityManager.AddComponentData(containingEntity, new EcsTestDataEntity(1, e));
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<InvalidOperationException>(() =>
             {
                 Entities.ForEach((in EcsTestDataEntity data) =>
@@ -100,12 +101,13 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     transform.TranslateLocal(5);
                 }).WithoutBurst().Run();
             });
+#endif
 
             Entities.ForEach((in EcsTestDataEntity data) =>
                 Assert.AreEqual(new float3(5), SystemAPI.GetAspectRO<TransformAspect>(data.value1).LocalPosition)
             ).WithoutBurst().ScheduleParallel(Dependency).Complete();
         }
     }
-    #endregion
+#endregion
 }
 #endif

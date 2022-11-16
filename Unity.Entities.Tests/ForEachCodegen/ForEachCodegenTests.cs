@@ -412,6 +412,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 #endif
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void JobDebuggerSafetyThrowsInRun()
         {
@@ -433,6 +434,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.Throws<InvalidOperationException>(() => { TestSystem.ScheduleEcsTestData(); });
             jobHandle.Complete();
         }
+#endif
 
         [Test]
         public void ForEachWithCustomDelegateTypeWithMoreThan8Parameters()
@@ -1221,7 +1223,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void RunWithFilterButNotQuery()
             {
 #if !ENABLE_TRANSFORM_V1
-                Entities.WithChangeFilter<LocalToWorldTransform>().ForEach((Entity entity) => { }).Run();
+                Entities.WithChangeFilter<LocalTransform>().ForEach((Entity entity) => { }).Run();
 #else
                 Entities.WithChangeFilter<Translation>().ForEach((Entity entity) => { }).Run();
 #endif

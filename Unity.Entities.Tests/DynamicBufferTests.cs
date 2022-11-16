@@ -140,6 +140,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires dynamic buffer safety checks")]
         public void SetCapacitySmallerThanLengthThrows()
         {
             var dstEntity = m_Manager.CreateEntity(typeof(DynamicBufferElement));
@@ -209,7 +210,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var buffer = chunk.GetBufferAccessor(BufferTypeRO)[0];
+                var buffer = chunk.GetBufferAccessor(ref BufferTypeRO)[0];
                 IntArray[0] += buffer.Length;
             }
         }
@@ -223,7 +224,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var buffer = chunk.GetBufferAccessor(BufferTypeRW)[0];
+                var buffer = chunk.GetBufferAccessor(ref BufferTypeRW)[0];
                 buffer.Add(10);
             }
         }
@@ -327,6 +328,7 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DOTSRUNTIME // DOTS Runtime does not support regex
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void WritingToReadOnlyBufferTriggersSafetySystem()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -337,6 +339,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void WritingToReadOnlyBufferTriggersSafetySystem_BufferLookup()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));

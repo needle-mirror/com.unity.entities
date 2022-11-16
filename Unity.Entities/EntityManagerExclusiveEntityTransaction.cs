@@ -20,17 +20,17 @@ namespace Unity.Entities
             get
             {
                 // Note this can't use read/write checking
-                #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
-                #endif
+#endif
                 return m_EntityDataAccess->DependencyManager->ExclusiveTransactionDependency;
             }
             set
             {
                 // Note this can't use read/write checking
-                #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
-                #endif
+#endif
                 m_EntityDataAccess->DependencyManager->ExclusiveTransactionDependency = value;
             }
         }
@@ -45,6 +45,7 @@ namespace Unity.Entities
             if (IsInExclusiveTransaction)
                 return false;
 #endif
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
 #endif
@@ -100,9 +101,12 @@ namespace Unity.Entities
         /// <seealso cref="BeginExclusiveEntityTransaction()"/>
         public void EndExclusiveEntityTransaction()
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (m_IsInExclusiveTransaction == 1)
                 throw new InvalidOperationException("Transactions can only be ended from the main thread");
+        #endif
+
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
         #endif
 

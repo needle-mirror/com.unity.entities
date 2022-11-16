@@ -1,6 +1,6 @@
 using System;
 
-namespace Unity.Platforms.UI
+namespace Unity.Entities.UI
 {
     /// <summary>
     /// Custom parameters to use when a <see cref="ContentProvider"/> is displayed in the inspector.

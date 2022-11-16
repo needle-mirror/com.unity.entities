@@ -69,16 +69,16 @@ namespace DocCodeSamples.Tests
     }
     #endregion
 
-    #region EntityInQueryIndex
+    #region EntityIndexInQuery
     [BurstCompile]
     partial struct CopyPositionsJob : IJobEntity
     {
         public NativeArray<float3> copyPositions;
 
         // Iterates over all `LocalToWorld` and stores their position inside `copyPositions`.
-        public void Execute([EntityInQueryIndex] int entityInQueryIndex, in LocalToWorld localToWorld)
+        public void Execute([EntityIndexInQuery] int entityIndexInQuery, in LocalToWorld localToWorld)
         {
-            copyPositions[entityInQueryIndex] = localToWorld.Position;
+            copyPositions[entityIndexInQuery] = localToWorld.Position;
         }
     }
 

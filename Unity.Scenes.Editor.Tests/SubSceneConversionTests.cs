@@ -59,7 +59,7 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             AssetDatabaseCompatibility.GetArtifactPaths(hash, out var artifactPaths);
 
             var exportedTypesFile = "";
@@ -157,20 +157,20 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.IsTrue(originalHash.IsValid);
 
             // Clear Cache (First time this creates global dependency asset, so we will test both steps)
             EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
 
-            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.IsTrue(newHashCreated.IsValid);
             Assert.AreNotEqual(originalHash, newHashCreated);
 
             // Clear Cache (This updates existing asset)
             EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
 
-            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.IsTrue(newHashUpdated.IsValid);
             Assert.AreNotEqual(newHashCreated, newHashUpdated);
             Assert.AreNotEqual(originalHash, newHashUpdated);
@@ -180,7 +180,7 @@ namespace Unity.Scenes.Editor.Tests
             AssetDatabase.Refresh();
 
             // With the dependency deleted, the hash should return to the original
-            var finalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var finalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.AreEqual(originalHash, finalHash);
         }
 
@@ -196,13 +196,13 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.IsTrue(hash.IsValid);
 
             m_Texture1.wrapMode = m_Texture1.wrapMode == TextureWrapMode.Repeat ? TextureWrapMode.Mirror : TextureWrapMode.Repeat;
             AssetDatabase.SaveAssets();
 
-            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.NoImport);
+            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.NoImport);
             Assert.AreNotEqual(hash, newHash);
             Assert.IsFalse(newHash.IsValid);
         }
@@ -262,8 +262,6 @@ namespace Unity.Scenes.Editor.Tests
             var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID,
                 world.EntityManager.GetComponentData<SceneSystemData>(world.GetOrCreateSystem<SceneSystem>()).BuildConfigurationGUID,
                 true,
-                true,
-                LiveConversionSettings.IsBuiltinBuildsEnabled,
                 ImportMode.Synchronous);
             Assert.IsTrue(hash.IsValid, "Failed to import SubScene.");
 
@@ -697,7 +695,7 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.IsTrue(hash.IsValid);
         }
 
@@ -715,7 +713,7 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.IsTrue(hash.IsValid);
         }
 
@@ -733,18 +731,18 @@ namespace Unity.Scenes.Editor.Tests
             });
 
             var buildSettings = default(Unity.Entities.Hash128);
-            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.IsTrue(originalHash.IsValid);
 
             SubSceneInspectorUtility.ForceReimport(new []{subScene});
 
-            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.IsTrue(newHashCreated.IsValid);
             Assert.AreNotEqual(originalHash, newHashCreated);
 
             SubSceneInspectorUtility.ForceReimport(new []{subScene});
 
-            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, true, ImportMode.Synchronous);
             Assert.IsTrue(newHashUpdated.IsValid);
             Assert.AreNotEqual(newHashCreated, newHashUpdated);
             Assert.AreNotEqual(originalHash, newHashUpdated);
@@ -785,6 +783,43 @@ namespace Unity.Scenes.Editor.Tests
                     EntitiesAssert.Contains(manager, EntityMatch.Partial(new SceneSectionValue(1)));
                 }
             }
+        }
+
+        [Test]
+        public void SubScene_WithLongName_ImportsAndLoads()
+        {
+            string sceneName = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, sceneName, false, () =>
+            {
+                var go = new GameObject("GO");
+                var component = go.AddComponent<SceneSectionValueAuthoring>();
+                component.Value = 1;
+                return new List<GameObject> { go };
+            });
+            subScene.AutoLoadScene = false;
+            subScene.gameObject.SetActive(false);
+
+            SubSceneInspectorUtility.ForceReimport(new []{subScene});
+
+            {
+                using (var world = TestWorldSetup.CreateEntityWorld("World", false))
+                {
+                    var manager = world.EntityManager;
+
+                    var resolveParams = new SceneSystem.LoadParameters
+                    {
+                        Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
+                    };
+
+                    Unity.Entities.Hash128 sceneGuid = AssetDatabaseCompatibility.PathToGUID(AssetDatabase.GetAssetPath(subScene.SceneAsset));
+                    var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, sceneGuid, resolveParams);
+                    world.Update();
+
+                    EntitiesAssert.Contains(manager, EntityMatch.Partial(new SceneSectionValue(1)));
+                }
+            }
+
+            LogAssert.NoUnexpectedReceived();
         }
     }
 }

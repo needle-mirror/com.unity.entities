@@ -6,12 +6,12 @@ This page outlines all the different version numbers ECS uses, and the condition
 
 ## Version number structure
 
-All version numbers are 32-bit signed integers. They always increase unless they wrap around: signed integer overflow is a defined behavior in C#. This means that to compare version numbers, you should use the (in)equality operator, not relational operators.
+All version numbers are 32-bit signed integers. They always increase unless they wrap around: signed integer overflow is a defined behavior in C#. This means that to compare version numbers, you should use the equality (`==`) or inequality (`!=`) operator, not relational operators.
 
 For example, the correct way to check if `VersionB` is more recent than `VersionA` is to use the following:
 
 ```c#
-bool VersionBIsMoreRecent = (VersionB - VersionA) > 0;
+bool VersionBIsMoreRecent == (VersionB - VersionA) > 0;
 ```
 
 There is no guarantee how much a version number increases by.
@@ -24,13 +24,13 @@ For example, before you fetch the position of the enemy that a unit is tracking 
 
 ## World version numbers
 
-ECS increases the version number of a world every time it creates or destroys a manager (such as as a system).
+ECS increases the version number of a world every time it creates or destroys a manager (such as a system).
 
-## Job component system version numbers
+## System version numbers
 
-`EntityDataManager.GlobalVersion` is increased before every job component system update.
+`EntityDataManager.GlobalVersion` is increased before every system update.
 
-You should use this version number in conjunction with `System.LastSystemVersion`. This takes the value of `EntityDataManager.GlobalVersion` after every job component system update.
+You should use this version number in conjunction with `System.LastSystemVersion`. This takes the value of `EntityDataManager.GlobalVersion` after every system update.
 
 You should use this version number in conjunction with `Chunk.ChangeVersion[]`.
 
@@ -43,6 +43,8 @@ You can't access shared components as writeable, even if there is a version numb
 When you use the `WithChangeFilter()` method in an `Entities.ForEach` construction, ECS compares the `Chunk.ChangeVersion` for that specific component to `System.LastSystemVersion`, and it only processes chunks whose component arrays have been accessed as writeable after the system last started running.
 
 For example, if the amount of health points of a group of units is guaranteed not to have changed since the previous frame, you can skip checking if those units should update their damage model.
+
+If a system manually calls another system's `Update()` method from inside its own `OnUpdate()` method, `EntityQuery` objects in the caller system might see unexpected and incorrect change version numbers based on the processing performed in the target system. For this reason, you shouldn't manually update one system from another if both systems are processing entity data, especially if either uses `EntityQuery.SetChangedVersionFilter()`. This guidance doesn't apply to `ComponentSystemGroup` or other "pass-through" systems which only update other systems without manipulating entity data.
 
 ## Non-shared component version numbers 
 

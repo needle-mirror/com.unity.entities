@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Editor.Bridge;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -72,14 +74,19 @@ namespace Unity.Entities.Editor
 
     class HierarchyGameObjectChangeTracker : IDisposable
     {
+        const int k_MinimumQueueLengthForBackgroundUpdate = 1000;
+
         readonly HashSet<Scene> m_LoadedScenes = new HashSet<Scene>();
         readonly HashSet<UnloadedScene> m_UnloadedScenes = new HashSet<UnloadedScene>();
         readonly NativeList<GameObjectChangeTrackerEvent> m_ChangeEventsQueue;
+        readonly NativeHashMap<int,int> m_ChangeEventsIndex;
         NativeArray<GameObjectChangeTrackerEvent> m_SingleGameObjectChangeTrackerEvents;
 
         public HierarchyGameObjectChangeTracker(Allocator allocator)
         {
             m_ChangeEventsQueue = new NativeList<GameObjectChangeTrackerEvent>(2048, allocator);
+            m_ChangeEventsIndex = new NativeHashMap<int, int>(2048, allocator);
+
             m_SingleGameObjectChangeTrackerEvents = new NativeArray<GameObjectChangeTrackerEvent>(1, Allocator.Persistent);
 
             GameObjectChangeTrackerBridge.GameObjectsChanged += OnGameObjectsChanged;
@@ -98,6 +105,7 @@ namespace Unity.Entities.Editor
             m_LoadedScenes.Clear();
             m_UnloadedScenes.Clear();
             m_ChangeEventsQueue.Clear();
+            m_ChangeEventsIndex.Clear();
 
             for (var i = 0; i < SceneManager.sceneCount; i++)
             {
@@ -111,11 +119,12 @@ namespace Unity.Entities.Editor
         }
 
         void OnGameObjectsChanged(in NativeArray<GameObjectChangeTrackerEvent> events)
-            => new MergeEventsJob { Events = m_ChangeEventsQueue, EventsToAdd = events }.Run();
+            => new MergeEventsJob { EventsIndex = m_ChangeEventsIndex, Events = m_ChangeEventsQueue, EventsToAdd = events }.Run();
 
         public void Dispose()
         {
             m_ChangeEventsQueue.Dispose();
+            m_ChangeEventsIndex.Dispose();
             m_SingleGameObjectChangeTrackerEvents.Dispose();
 
             GameObjectChangeTrackerBridge.GameObjectsChanged -= OnGameObjectsChanged;
@@ -169,7 +178,7 @@ namespace Unity.Entities.Editor
             m_LoadedScenes.Remove(scene);
         }
 
-        public void GetChanges(HierarchyGameObjectChanges changes)
+        public void GetChanges(HierarchyGameObjectChanges changes, bool isBackgroundUpdate)
         {
             changes.Clear();
 
@@ -189,10 +198,11 @@ namespace Unity.Entities.Editor
                 m_UnloadedScenes.Clear();
             }
 
-            if (m_ChangeEventsQueue.Length > 0)
+            if (m_ChangeEventsQueue.Length > (isBackgroundUpdate ? k_MinimumQueueLengthForBackgroundUpdate : 0))
             {
                 changes.GameObjectChangeTrackerEvents.CopyFrom(m_ChangeEventsQueue.AsArray());
                 m_ChangeEventsQueue.Clear();
+                m_ChangeEventsIndex.Clear();
             }
         }
 
@@ -200,28 +210,38 @@ namespace Unity.Entities.Editor
         internal struct MergeEventsJob : IJob
         {
             public NativeList<GameObjectChangeTrackerEvent> Events;
+            public NativeHashMap<int,int> EventsIndex;
+
             [ReadOnly] public NativeArray<GameObjectChangeTrackerEvent> EventsToAdd;
 
-            public void Execute()
+            public unsafe void Execute()
             {
+                var eventsToAddPtr = (GameObjectChangeTrackerEvent*)EventsToAdd.GetUnsafeReadOnlyPtr();
+                var eventsIndexWorstCaseCapacity = EventsIndex.Count + EventsToAdd.Length;
+                var indexNeedResize = EventsIndex.Capacity < eventsIndexWorstCaseCapacity;
+
                 for (var i = 0; i < EventsToAdd.Length; i++)
                 {
-                    var evtToAdd = EventsToAdd[i];
-                    var merged = false;
-                    for (var j = 0; j < Events.Length; j++)
+                    ref var evtToAdd = ref eventsToAddPtr[i];
+                    if (!EventsIndex.TryGetValue(evtToAdd.InstanceId, out var existingIndex))
                     {
-                        ref var existingEvent = ref Events.ElementAt(j);
-                        if (existingEvent.InstanceId != evtToAdd.InstanceId)
-                            continue;
+                        if (indexNeedResize)
+                        {
+                            EventsIndex.Capacity = math.ceilpow2(eventsIndexWorstCaseCapacity);
+                            indexNeedResize = false;
+                        }
 
-                        var e = Events[j];
-                        Events[j] = new GameObjectChangeTrackerEvent(e.InstanceId, e.EventType | evtToAdd.EventType);
-                        merged = true;
-                        break;
-                    }
-
-                    if (!merged)
+                        EventsIndex.Add(evtToAdd.InstanceId, Events.Length);
                         Events.Add(evtToAdd);
+                    }
+                    else
+                    {
+                        ref var existingEvent = ref Events.ElementAt(existingIndex);
+                        if ((existingEvent.EventType & evtToAdd.EventType) != evtToAdd.EventType)
+                        {
+                            Events[existingIndex] = new GameObjectChangeTrackerEvent(existingEvent.InstanceId, existingEvent.EventType | evtToAdd.EventType);
+                        }
+                    }
                 }
             }
         }

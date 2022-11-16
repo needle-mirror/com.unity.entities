@@ -62,6 +62,11 @@ namespace Unity.Entities.Editor
         HierarchyNodeStore.IntegrateEntityChangesEnumerator m_IntegrateEntityChangesEnumerator;
 
         /// <summary>
+        /// A nested 'Enumerator' used to handle the implementation details of integrating gameobject changes over several ticks.
+        /// </summary>
+        HierarchyNodeStore.IntegrateGameObjectChangesEnumerator m_IntegrateGameObjectChangesEnumerator;
+
+        /// <summary>
         /// A nested 'Enumerator' used to handle the implementation details of building the immutable data set over several ticks.
         /// </summary>
         HierarchyNodeStore.ExportImmutableEnumerator m_ExportImmutableEnumerator;
@@ -77,6 +82,7 @@ namespace Unity.Entities.Editor
         PrefabStage m_PrefabStage;
 
         public int EntityChangeIntegrationBatchSize { get; set; } = 1000;
+        public int GameObjectChangeIntegrationBatchSize { get; set; } = 100;
         public int ExportImmutableBatchSize { get; set; } = 1000;
 
         public UpdateStep Step => m_Step;
@@ -108,6 +114,7 @@ namespace Unity.Entities.Editor
                     case UpdateStep.GetGameObjectChanges:
                     case UpdateStep.GetPrefabStageChanges:
                     case UpdateStep.IntegrateGameObjectChanges:
+                        return m_IntegrateGameObjectChangesEnumerator.Progress * kEntityChangeProgress;
                     case UpdateStep.IntegratePrefabStageChanges:
                         return 0f;
                     case UpdateStep.IntegrateEntityChanges:
@@ -123,6 +130,8 @@ namespace Unity.Entities.Editor
         }
 
         public object Current => null;
+
+        public bool IsHierarchyVisible { private get; set; }
 
         public HierarchyUpdater(HierarchyNodeStore hierarchyNodeStore, HierarchyNodeImmutableStore hierarchyNodeImmutableStore, HierarchyNameStore hierarchyNameStore, HierarchyNodes hierarchyNodes, Allocator allocator)
         {
@@ -199,6 +208,17 @@ namespace Unity.Entities.Editor
 
                 switch (state)
                 {
+                    case UpdateStep.Start:
+                    {
+                        if (!IsHierarchyVisible)
+                        {
+                            state = UpdateStep.GetGameObjectChanges;
+                            continue;
+                        }
+
+                        break;
+                    }
+
                     case UpdateStep.GetEntityChanges:
                     {
                         if (null == m_HierarchyEntityChangeTracker)
@@ -209,9 +229,25 @@ namespace Unity.Entities.Editor
 
                         break;
                     }
+
+                    case UpdateStep.GetGameObjectChanges:
+                        break;
+
+                    case UpdateStep.GetPrefabStageChanges:
+                    {
+                        if (!IsHierarchyVisible)
+                        {
+                            state = UpdateStep.IntegrateGameObjectChanges;
+                            continue;
+                        }
+
+                        break;
+                    }
+
                     case UpdateStep.IntegrateEntityChanges:
                     {
-                        if (m_HierarchyEntityChanges.HasChanges())
+                        // We're checking if the given world still exist in unit tests scenarios world could be disposed while we are still invoking the updater.
+                        if (m_HierarchyEntityChanges.HasChanges() && m_World is { IsCreated: true })
                         {
                             // Delegate the implementation to another enumerator.
                             m_IntegrateEntityChangesEnumerator = m_HierarchyNodeStore.CreateIntegrateEntityChangesEnumerator(m_World, m_HierarchyEntityChanges, EntityChangeIntegrationBatchSize);
@@ -227,7 +263,17 @@ namespace Unity.Entities.Editor
 
                     case UpdateStep.IntegrateGameObjectChanges:
                     {
-                        if (!m_HierarchyGameObjectChanges.HasChanges())
+                        if (m_HierarchyGameObjectChanges.HasChanges())
+                        {
+                            // Delegate the implementation to another enumerator.
+                            m_IntegrateGameObjectChangesEnumerator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_HierarchyGameObjectChanges, GameObjectChangeIntegrationBatchSize);
+                        }
+                        else if (!IsHierarchyVisible)
+                        {
+                            state = UpdateStep.End;
+                            continue;
+                        }
+                        else
                         {
                             // No changes to integrate move on to linear packing.
                             state = UpdateStep.IntegratePrefabStageChanges;
@@ -237,9 +283,19 @@ namespace Unity.Entities.Editor
                         break;
                     }
 
+                    case UpdateStep.IntegratePrefabStageChanges:
+                    {
+                        if (m_HierarchyPrefabStageChanges.GameObjectChangeTrackerEvents.Length == 0)
+                        {
+                            state = UpdateStep.ExportImmutable;
+                            continue;
+                        }
+                        break;
+                    }
+
                     case UpdateStep.ExportImmutable:
                     {
-                        if (m_HierarchyNodeStore.GetRootChangeVersion() != m_HierarchyNodeImmutableStore.GetReadBuffer().ChangeVersion)
+                        if (IsHierarchyVisible && m_HierarchyNodeStore.GetRootChangeVersion() != m_HierarchyNodeImmutableStore.GetReadBuffer().ChangeVersion)
                         {
                             m_ExportImmutableEnumerator = m_HierarchyNodeStore.CreateBuildImmutableEnumerator(m_World, m_ExportImmutableState,m_HierarchyNodeImmutableStore.GetWriteBuffer(), m_HierarchyNodeImmutableStore.GetReadBuffer(), ExportImmutableBatchSize);
                         }
@@ -285,7 +341,7 @@ namespace Unity.Entities.Editor
                 }
                 case UpdateStep.GetGameObjectChanges:
                 {
-                    m_HierarchyGameObjectChangeTracker.GetChanges(m_HierarchyGameObjectChanges);
+                    m_HierarchyGameObjectChangeTracker.GetChanges(m_HierarchyGameObjectChanges, !IsHierarchyVisible);
                     SetState(UpdateStep.GetPrefabStageChanges);
                     return true;
                 }
@@ -308,7 +364,11 @@ namespace Unity.Entities.Editor
 
                 case UpdateStep.IntegrateGameObjectChanges:
                 {
-                    m_HierarchyNodeStore.IntegrateGameObjectChanges(m_HierarchyGameObjectChanges);
+                    if (m_IntegrateGameObjectChangesEnumerator.MoveNext())
+                        return true;
+
+                    m_IntegrateGameObjectChangesEnumerator = default;
+
                     m_HierarchyNameStore?.IntegrateGameObjectChanges(m_HierarchyGameObjectChanges);
                     SetState(UpdateStep.IntegratePrefabStageChanges);
                     return true;

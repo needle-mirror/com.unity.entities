@@ -245,7 +245,7 @@ namespace Unity.Entities
                 elements[sysIndex].nAfter = -1; // "Remove()"
             }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             for (int i = 0; i < elements.Length; ++i)
             {
                 if (elements[i].nAfter != -1)

@@ -1,7 +1,9 @@
 using System;
 using NUnit.Framework;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Transforms;
 using UnityEngine;
@@ -146,8 +148,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void WithEntityQueryOptions([Values] ScheduleType scheduleType, [Values] JobEntityTestsEntityQueryOptions jobEntityTestsEntityQueryOptions)
-            => m_TestSystem.WithEntityQueryOptions(scheduleType, jobEntityTestsEntityQueryOptions);
+        public void WithOptions([Values] ScheduleType scheduleType, [Values] JobEntityTestsEntityQueryOptions jobEntityTestsEntityQueryOptions)
+            => m_TestSystem.WithOptions(scheduleType, jobEntityTestsEntityQueryOptions);
 
         #endregion
 
@@ -178,10 +180,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         #endregion
 
-        #region EntityInQueryIndex
+        #region EntityIndexInQuery
 
         [Test]
-        public void EntityInQueryIndex([Values] ScheduleType scheduleType) => m_TestSystem.EntityInQueryIndex(scheduleType);
+        public void EntityIndexInQuery([Values] ScheduleType scheduleType) => m_TestSystem.EntityIndexInQuery(scheduleType);
 
         [Test]
         public void ChunkIndexInQuery([Values] ScheduleType scheduleType) => m_TestSystem.ChunkIndexInQuery(scheduleType);
@@ -207,36 +209,55 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void ManyManagedComponents() => m_TestSystem.ManyManagedComponents();
 #endif
-        #endregion
+#endregion
 
-        #region Safety
+#region Safety
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void JobDebuggerSafetyThrows([Values] ScheduleType scheduleType) => m_TestSystem.JobDebuggerSafetyThrows(scheduleType);
+#endif
 
-        #endregion
+#endregion
 
-        #region EnableableComponents
+#region EnableableComponents
         [Test]
         public void EnableableComponents([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType) => m_TestSystem.EnableableComponents(scheduleType);
 
-        #endregion
+#endregion
 
-        #region EntityInQueryIndex_ArrayWrites
-
-        [Test]
-        public void EntityInQueryIndex_WriteToArray_NoSafetyError() => m_TestSystem.EntityInQueryIndex_WriteToArray();
+#region EntityIndexInQuery_ArrayWrites
 
         [Test]
-        public void EntityInQueryIndex_WriteToArray_Enableable_NoSafetyError() =>
-            m_TestSystem.EntityInQueryIndex_WriteToArray_Enableable();
+        public void EntityIndexInQuery_WriteToArray_NoSafetyError() => m_TestSystem.EntityIndexInQuery_WriteToArray();
 
-        #endregion
+        [Test]
+        public void EntityIndexInQuery_WriteToArray_Enableable_NoSafetyError() =>
+            m_TestSystem.EntityIndexInQuery_WriteToArray_Enableable();
+
+#endregion
+
+#region Scheduling
+
+    // Ensures DOTS-6550 won't happen again (auto assign state.Dependency when Explicit handle is provided)
+    [Test]
+    public void AutoDependencyOnlyAddedWhenExplicitJobHandlePassed() => World.GetOrCreateSystem<MyTestSystem.AutoDependencyOnlyAddedWhenExplicitJobHandlePassedSystem>().Update(World.Unmanaged);
+
+    [Test]
+    public void UsingCodeGenInsideAScheduleObjectInit() => m_TestSystem.UsingCodeGenInsideAScheduleObjectInit();
+#endregion
+
+#region Interfaces
+    [Test]
+    public void JobEntityChunkBeginEnd() => m_TestSystem.TestJobEntityChunkBeginEnd();
+    [Test]
+    public void OnChunkEnd() => m_TestSystem.TestOnChunkEnd();
+#endregion
 
         partial class MyTestSystem : SystemBase
         {
             protected override void OnCreate() {}
 
-            #region AddTwoComponents
+#region AddTwoComponents
             partial struct AddTwoComponentsJob : IJobEntity
             {
                 public void Execute(ref EcsTestData e1, in EcsTestData2 e2) => e1.value += e2.value0;
@@ -264,9 +285,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(k_EcsTestDataValue + k_EcsTestData2Value, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
 
             }
-            #endregion
+#endregion
 
-            #region AssignUniformValue
+#region AssignUniformValue
 
             partial struct AssignValueJob : IJobEntity
             {
@@ -297,9 +318,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(valueToAssign, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
 
-            #endregion
+#endregion
 
-            #region WithTagParam
+#region WithTagParam
 
             partial struct WithTagParamJob : IJobEntity
             {
@@ -330,9 +351,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(valueToAssign, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
 
-            #endregion
+#endregion
 
-            #region WithAll
+#region WithAll
 
             public void WithAll(ScheduleType scheduleType, JobEntityTestsWithAll jobEntityTestsWithAll)
             {
@@ -440,9 +461,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }
                 Assert.AreEqual(valueToAssign, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
-            #endregion
+#endregion
 
-            #region WithNone
+#region WithNone
 
             public void WithNone(ScheduleType scheduleType, bool isStatic)
             {
@@ -514,9 +535,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(k_EcsTestDataValue, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value); // Nothing changed
             }
 
-            #endregion
+#endregion
 
-            #region WithAny
+#region WithAny
 
             public void WithAny(ScheduleType scheduleType, bool isStatic)
             {
@@ -589,9 +610,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(k_EcsTestDataValue, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value); // Nothing changed
             }
 
-            #endregion
+#endregion
 
-            #region SharedComponent
+#region SharedComponent
 
             public void WithAllSharedComponent(ScheduleType scheduleType, bool isStatic)
             {
@@ -720,7 +741,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(3+5, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
 
-            #if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
             partial struct ManagedSharedComponentJob : IJobEntity
             {
                 void Execute(ref EcsTestData data, in ManagedSharedData1 e1) => data.value += e1.value.Item1 + e1.value.Item2;
@@ -732,11 +753,11 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 new ManagedSharedComponentJob().Run();
                 Assert.AreEqual(3+5, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
-            #endif
+#endif
 
-            #endregion
+#endregion
 
-            #region ChangeFilter
+#region ChangeFilter
 
             public void WithChangeFilter(ScheduleType scheduleTypeBeforeChange, ScheduleType scheduleTypeAfterChange, JobEntityTestsChangeFilter jobEntityTestsChangeFilter)
             {
@@ -910,7 +931,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             }
 
 #if !ENABLE_TRANSFORM_V1
-            [WithChangeFilter(typeof(LocalToWorldTransform))]
+            [WithChangeFilter(typeof(LocalTransform))]
 #else
             [WithChangeFilter(typeof(Translation))]
 #endif
@@ -944,8 +965,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.DoesNotThrow(() =>
                 {
 #if !ENABLE_TRANSFORM_V1
-                    var query = GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(LocalToWorldTransform)}});
-                    query.SetChangedVersionFilter(typeof(LocalToWorldTransform));
+                    var query = GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(LocalTransform)}});
+                    query.SetChangedVersionFilter(typeof(LocalTransform));
 #else
                     var query = GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(Translation)}});
                     query.SetChangedVersionFilter(typeof(Translation));
@@ -969,41 +990,41 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 });
             }
 
-            #endregion
+#endregion
 
-            #region EntityQueryOptions
+#region EntityQueryOptions
 
             [WriteGroup(typeof(EcsTestData))]
             struct EcsTestDataWriteGroup : IComponentData {}
 
-            public void WithEntityQueryOptions(ScheduleType scheduleType, JobEntityTestsEntityQueryOptions jobEntityTestsEntityQueryOptions)
+            public void WithOptions(ScheduleType scheduleType, JobEntityTestsEntityQueryOptions jobEntityTestsEntityQueryOptions)
             {
                 switch (jobEntityTestsEntityQueryOptions)
                 {
                     case JobEntityTestsEntityQueryOptions.StaticSingleAttribute:
-                        WithEntityQueryOptionsStaticSingleAttribute(scheduleType);
+                        WithOptionsStaticSingleAttribute(scheduleType);
                         break;
                     case JobEntityTestsEntityQueryOptions.StaticMultipleAttribute:
-                        WithEntityQueryOptionsStaticMultipleAttribute(scheduleType);
+                        WithOptionsStaticMultipleAttribute(scheduleType);
                         break;
                 }
             }
 
-            [WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.FilterWriteGroup, EntityQueryOptions.IncludePrefab)]
-            partial struct WithEntityQueryOptionsStaticSingleAttributeJob : IJobEntity
+            [WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.FilterWriteGroup, EntityQueryOptions.IncludePrefab)]
+            partial struct WithOptionsStaticSingleAttributeJob : IJobEntity
             {
                 public int AssignValue;
                 public void Execute(ref EcsTestData testData) => testData.value = AssignValue;
             }
 
-            void WithEntityQueryOptionsStaticSingleAttribute(ScheduleType scheduleType)
+            void WithOptionsStaticSingleAttribute(ScheduleType scheduleType)
             {
                 const int assignValue = 2;
 
                 EntityManager.AddComponent(s_TestEntity, new ComponentTypeSet(typeof(Disabled), typeof(Prefab)));
                 var writeGroupEntity = EntityManager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataWriteGroup));
 
-                var job = new WithEntityQueryOptionsStaticSingleAttributeJob {AssignValue = assignValue};
+                var job = new WithOptionsStaticSingleAttributeJob {AssignValue = assignValue};
 
                 switch (scheduleType)
                 {
@@ -1024,22 +1045,22 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(assignValue,EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
 
-            [WithEntityQueryOptions(EntityQueryOptions.IncludePrefab)]
-            [WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.FilterWriteGroup)]
-            partial struct WithEntityQueryOptionsStaticMultipleAttributeJob : IJobEntity
+            [WithOptions(EntityQueryOptions.IncludePrefab)]
+            [WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.FilterWriteGroup)]
+            partial struct WithOptionsStaticMultipleAttributeJob : IJobEntity
             {
                 public int AssignValue;
                 public void Execute(ref EcsTestData testData) => testData.value = AssignValue;
             }
 
-            void WithEntityQueryOptionsStaticMultipleAttribute(ScheduleType scheduleType)
+            void WithOptionsStaticMultipleAttribute(ScheduleType scheduleType)
             {
                 const int assignValue = 2;
 
                 EntityManager.AddComponent(s_TestEntity, new ComponentTypeSet(typeof(Disabled), typeof(Prefab)));
                 var writeGroupEntity = EntityManager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataWriteGroup));
 
-                var job = new WithEntityQueryOptionsStaticMultipleAttributeJob {AssignValue = assignValue};
+                var job = new WithOptionsStaticMultipleAttributeJob {AssignValue = assignValue};
 
                 switch (scheduleType)
                 {
@@ -1060,9 +1081,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(assignValue,EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
 
-            #endregion
+#endregion
 
-            #region Combinatorial
+#region Combinatorial
             partial struct WithJobAndThenJobEntityJob : IJobEntity
             {
                 public int IncrementBy;
@@ -1189,9 +1210,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(valueToAssign + incrementBy, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
 
-            #endregion
+#endregion
 
-            #region Buffer
+#region Buffer
 
             partial struct AddItemToDynamicBuffer : IJobEntity
             {
@@ -1295,18 +1316,18 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(k_DynamicBufferFirstItem + k_DynamicBufferSecondItem, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
             }
 
-            #endregion
+#endregion
 
-            #region Indexes
+#region Indexes
 
             partial struct CompareEntityQueryIndex : IJobEntity
             {
                 [NativeDisableParallelForRestriction] public NativeArray<int> Successes;
                 [NativeSetThreadIndex] int m_NativeThreadIndex;
-                public void Execute([EntityInQueryIndex]int entityInQueryIndex, in EcsTestData value) => Successes[m_NativeThreadIndex] += entityInQueryIndex == value.value ? 1 : 0;
+                public void Execute([Unity.Entities.EntityIndexInQuery]int entityIndexInQuery, in EcsTestData value) => Successes[m_NativeThreadIndex] += entityIndexInQuery == value.value ? 1 : 0;
             }
 
-            public void EntityInQueryIndex(ScheduleType scheduleType)
+            public void EntityIndexInQuery(ScheduleType scheduleType)
             {
                 var entityArchetype = EntityManager.CreateArchetype(typeof(EcsTestData));
 
@@ -1412,9 +1433,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 entities.Dispose();
             }
 
-            #endregion
+#endregion
 
-            #region ManagedComponents
+#region ManagedComponents
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
 #if !UNITY_DOTSRUNTIME
             public partial struct UnityEngineComponentJob : IJobEntity
@@ -1486,9 +1507,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 new ManyManagedComponentsJob().Run();
             }
 #endif
-            #endregion
+#endregion
 
-            #region Safety
+#region Safety
 
             partial struct JobDebuggerSafetyThrowsJob : IJobEntity
             {
@@ -1524,9 +1545,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             }
 
-            #endregion
+#endregion
 
-            #region EnableableComponents
+#region EnableableComponents
 
             partial struct EnableableComponentsJob : IJobEntity
             {
@@ -1561,20 +1582,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 EntityManager.DestroyEntity(entities);
             }
 
-            #endregion
+#endregion
 
-            #region EntityInQueryIndex_ArrayWrites
+#region EntityIndexInQuery_ArrayWrites
 
-            partial struct EntityInQueryIndex_WriteToArray_Job : IJobEntity
+            partial struct EntityIndexInQuery_WriteToArray_Job : IJobEntity
             {
                 public NativeArray<float> OutValues;
-                public void Execute([EntityInQueryIndex] int entityInQueryIndex, in EcsTestFloatData e1)
+                public void Execute([Unity.Entities.EntityIndexInQuery] int entityIndexInQuery, in EcsTestFloatData e1)
                 {
-                    OutValues[entityInQueryIndex] = e1.Value;
+                    OutValues[entityIndexInQuery] = e1.Value;
                 }
             }
 
-            public void EntityInQueryIndex_WriteToArray()
+            public void EntityIndexInQuery_WriteToArray()
             {
                 var archetype = EntityManager.CreateArchetype(typeof(EcsTestFloatData));
                 int entityCount = 1000;
@@ -1588,7 +1609,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 using var outputValues =
                     CollectionHelper.CreateNativeArray<float>(entityCount, World.UpdateAllocator.ToAllocator);
 
-                new EntityInQueryIndex_WriteToArray_Job { OutValues = outputValues }.ScheduleParallel(query, default).Complete();
+                new EntityIndexInQuery_WriteToArray_Job { OutValues = outputValues }.ScheduleParallel(query, default).Complete();
 
                 for (int i = 0, count=outputValues.Length; i < count; ++i)
                 {
@@ -1597,16 +1618,16 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 EntityManager.DestroyEntity(entities);
             }
 
-            partial struct EntityInQueryIndex_WriteToArray_Enableable_Job : IJobEntity
+            partial struct EntityIndexInQuery_WriteToArray_Enableable_Job : IJobEntity
             {
                 public NativeArray<int> OutValues;
-                public void Execute([EntityInQueryIndex] int entityInQueryIndex, in EcsTestDataEnableable e1)
+                public void Execute([Unity.Entities.EntityIndexInQuery] int entityIndexInQuery, in EcsTestDataEnableable e1)
                 {
-                    OutValues[entityInQueryIndex] = e1.value;
+                    OutValues[entityIndexInQuery] = e1.value;
                 }
             }
 
-            public void EntityInQueryIndex_WriteToArray_Enableable()
+            public void EntityIndexInQuery_WriteToArray_Enableable()
             {
                 var archetype = EntityManager.CreateArchetype(typeof(EcsTestDataEnableable));
                 int entityCount = 1000;
@@ -1626,7 +1647,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 using var outputValues =
                     CollectionHelper.CreateNativeArray<int>(query.CalculateEntityCount(), World.UpdateAllocator.ToAllocator);
 
-                new EntityInQueryIndex_WriteToArray_Enableable_Job { OutValues = outputValues }.ScheduleParallel(query, default).Complete();
+                new EntityIndexInQuery_WriteToArray_Enableable_Job { OutValues = outputValues }.ScheduleParallel(query, default).Complete();
 
                 for (int i = 0, count=outputValues.Length; i < count; ++i)
                 {
@@ -1636,9 +1657,99 @@ namespace Unity.Entities.Tests.ForEachCodegen
             }
 
 
-            #endregion
+#endregion
 
-            protected override void OnUpdate() { }
+
+#region Scheduling
+        partial struct AutoDependencyOnlyAddedWhenExplicitJobHandlePassedJob : IJobEntity
+        {
+            public ComponentLookup<EcsTestData> datas;
+            void Execute(Entity e) => datas[e] = new EcsTestData(5);
+        }
+
+        internal partial struct AutoDependencyOnlyAddedWhenExplicitJobHandlePassedSystem : ISystem
+        {
+            public void OnCreate(ref SystemState state) {}
+
+            public void OnDestroy(ref SystemState state) {}
+
+            public void OnUpdate(ref SystemState state)
+            {
+                var lookup = SystemAPI.GetComponentLookup<EcsTestData>();
+                var a = new AutoDependencyOnlyAddedWhenExplicitJobHandlePassedJob{datas = lookup};
+                var x = a.Schedule(state.Dependency);
+                Assert.That(state.Dependency, Is.Not.EqualTo(x));
+                state.Dependency = x;
+                Assert.That(state.Dependency, Is.EqualTo(x));
+            }
+        }
+
+        partial struct UsingCodeGenInsideAScheduleObjectInitJob : IJobEntity
+        {
+            public ComponentLookup<EcsTestData> datas;
+            void Execute(Entity e) => datas[e] = new EcsTestData(5);
+        }
+        public void UsingCodeGenInsideAScheduleObjectInit()
+        {
+            Assert.DoesNotThrow(() =>
+            {
+                Assert.That(SystemAPI.GetComponent<EcsTestData>(s_TestEntity).value, Is.EqualTo(k_EcsTestDataValue));
+                new UsingCodeGenInsideAScheduleObjectInitJob
+                {
+                    datas = SystemAPI.GetComponentLookup<EcsTestData>()
+                }.Schedule(SystemAPI.QueryBuilder().WithAll<EcsTestData>().Build(), Dependency).Complete();
+                Assert.That(SystemAPI.GetComponent<EcsTestData>(s_TestEntity).value, Is.EqualTo(5));
+            });
+        }
+
+#endregion
+#region Interfaces
+        partial struct JobEntityChunkBeginEndJob : IJobEntity, IJobEntityChunkBeginEnd
+        {
+            public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+                => chunk.HasChunkComponent<EcsTestData2>();
+            void Execute(ref EcsTestData data) => data.value = 5;
+            public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask, bool chunkWasExecuted) {}
+        }
+
+        public void TestJobEntityChunkBeginEnd()
+        {
+            var e1 = EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+            var e2 = EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+            EntityManager.AddChunkComponentData<EcsTestData2>(e2);
+            new JobEntityChunkBeginEndJob().Run();
+
+            Assert.That(SystemAPI.GetComponent<EcsTestData>(e1).value==0);
+            Assert.That(SystemAPI.GetComponent<EcsTestData>(e2).value==5);
+        }
+
+        partial struct OnChunkEndJob : IJobEntity, IJobEntityChunkBeginEnd
+        {
+            public ComponentTypeHandle<EcsTestData2> data2Handle;
+            public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+                => chunk.HasChunkComponent(ref data2Handle);
+            void Execute(ref EcsTestData data) => data.value = 5;
+
+            public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask, bool chunkWasExecuted)
+            {
+                if (chunkWasExecuted)
+                    chunk.SetChunkComponentData(ref data2Handle, new EcsTestData2(10));
+            }
+        }
+
+        public void TestOnChunkEnd()
+        {
+            var e1 = EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+            var e2 = EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+            EntityManager.AddChunkComponentData<EcsTestData2>(e2);
+            new OnChunkEndJob{data2Handle = SystemAPI.GetComponentTypeHandle<EcsTestData2>()}.Run();
+
+            Assert.That(SystemAPI.GetComponent<EcsTestData>(e1).value==0);
+            Assert.That(SystemAPI.GetComponent<EcsTestData>(e2).value==5);
+            Assert.That(EntityManager.GetChunkComponentData<EcsTestData2>(e2).GetValue()==10);
+        }
+#endregion
+        protected override void OnUpdate() { }
         }
     }
 }

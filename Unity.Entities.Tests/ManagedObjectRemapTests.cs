@@ -8,6 +8,7 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Unity.Entities.Tests
 {
     [TestFixture]
+    [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
     public class ManagedObjectRemapTests
     {
         struct StructWithEntityReference

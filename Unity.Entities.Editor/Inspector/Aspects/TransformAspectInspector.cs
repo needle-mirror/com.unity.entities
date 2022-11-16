@@ -1,5 +1,5 @@
 ﻿using JetBrains.Annotations;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Transforms;
 using UnityEditor;
 using UnityEngine.UIElements;
@@ -75,9 +75,8 @@ namespace Unity.Entities.Editor
             var localRotation = new Vector3Field {label = "Local Rotation", bindingPath = "LocalRotation"}.WithIconPrefix(toolHandleLocalName);
             var globalRotation = new Vector3Field {label = "Global Rotation", bindingPath = "Rotation"}.WithIconPrefix(toolHandleGlobalName);
 
-            var hasLocalToParentComp = Target.World.EntityManager.HasComponent<LocalToParentTransform>(Target.Entity);
-            var localUniformScale = new FloatField {label = "Local Uniform Scale", bindingPath = hasLocalToParentComp ? "LocalToParent.Scale" : "LocalToWorld.Scale"}.WithIconPrefix(toolHandleLocalName);
-            var globalUniformScale = new FloatField {label = "Global Uniform Scale", bindingPath = "LocalToWorld.Scale"}.WithIconPrefix(toolHandleGlobalName);
+            var localUniformScale = new FloatField {label = "Local Uniform Scale", bindingPath = "LocalTransformData.Scale"}.WithIconPrefix(toolHandleLocalName);
+            var globalUniformScale = new FloatField {label = "Global Uniform Scale", bindingPath = "WorldTransformData.Scale"}.WithIconPrefix(toolHandleGlobalName);
 
             root.Add(new ContextualElement
             (

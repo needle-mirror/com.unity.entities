@@ -190,6 +190,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void GetComponentBoxedThrowsWhenInterfaceNotFound()
         {
             var entity = m_Manager.CreateEntity();
@@ -197,6 +198,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void EntityArchetypeFromDifferentEntityManagerThrows()
         {
             using (var world = new World("Temp"))
@@ -263,7 +265,7 @@ namespace Unity.Entities.Tests
 
                 foreach (var chunk in chunks)
                 {
-                    var bools = chunk.GetNativeArray(boolsType);
+                    var bools = chunk.GetNativeArray(ref boolsType);
                     var entities = chunk.GetNativeArray(entsType);
 
                     for (var i = 0; i < chunk.Count; ++i)
@@ -319,7 +321,7 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(BigComponentWithAlign1), typeof(ComponentWithAlign8), maxCapacityTagType);
             var entity = m_Manager.CreateEntity(archetype);
             // Get a pointer to the first bigger-aligned component
-            var p0 = m_Manager.GetComponentDataRawRW(entity, TypeManager.GetTypeIndex<Entity>());
+            var p0 = m_Manager.GetComponentDataRawRO(entity, TypeManager.GetTypeIndex<Entity>());
             var p1 = m_Manager.GetComponentDataRawRW(entity, TypeManager.GetTypeIndex<BigComponentWithAlign1>());
             var p2 = m_Manager.GetComponentDataRawRW(entity, TypeManager.GetTypeIndex<ComponentWithAlign8>());
             Assert.IsTrue(p0 < p1 && p1 < p2, "Order of components in memory is not as expected");
@@ -351,8 +353,8 @@ namespace Unity.Entities.Tests
             unsafe fixed byte val[WillFitWithAlign.kWillFitSize + 1];
         }
 
-
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public unsafe void CreatingArchetypeWithToLargeEntityThrows()
         {
             Assert.DoesNotThrow(() => m_Manager.CreateArchetype(typeof(BigComponentWithAlign1), typeof(WillFitWithAlign)));
@@ -767,6 +769,7 @@ namespace Unity.Entities.Tests
         // - Asserting throws
 #if !UNITY_DOTSRUNTIME
         [Test,DotsRuntimeFixme]
+        [TestRequiresCollectionChecks("Requires Atomic Safety Handles for dispose checks")]
         public void EntityManager_DoubleDispose_UsesCustomOwnerTypeName()
         {
             World tempWorld = new World("TestWorld");
@@ -886,7 +889,7 @@ namespace Unity.Entities.Tests
 
                 foreach (var chunk in chunks)
                 {
-                    var components = chunk.GetManagedComponentAccessor(ManagedComponentType, m_Manager);
+                    var components = chunk.GetManagedComponentAccessor(ref ManagedComponentType, m_Manager);
                     var entities = chunk.GetNativeArray(entsType);
 
                     Assert.AreEqual(chunk.Count, components.Length);
@@ -925,7 +928,7 @@ namespace Unity.Entities.Tests
 
                     foreach (var chunk in chunks)
                     {
-                        var components = chunk.GetManagedComponentAccessor(managedComponentType, m_Manager);
+                        var components = chunk.GetManagedComponentAccessor(ref managedComponentType, m_Manager);
                         Assert.AreEqual(0, components.Length);
                     }
                 }
@@ -1112,6 +1115,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void AddMismatchedManagedComponentThrows()
         {
             var entity = m_Manager.CreateEntity();
@@ -1625,6 +1629,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CompleteDependencyBeforeRO([Values] bool withComplete)
         {
             var e = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -1655,6 +1660,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CompleteDependencyBeforeRW([Values] bool withComplete)
         {
             var e = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -1691,7 +1697,6 @@ namespace Unity.Entities.Tests
                 var data = data1FromEntity[e];
             });
         }
-
 #endif // !DOTS_DISABLE_DEBUG_NAMES
 
 #if DOTS_DISABLE_DEBUG_NAMES

@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Burst;
@@ -7,7 +8,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Serialization;
 using Unity.Mathematics;
-using UnityEngine;
+using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
@@ -217,9 +218,6 @@ namespace Unity.Entities
             get { return ((BlobAssetHeader*) m_Ptr) - 1; }
         }
 
-
-
-#if !NET_DOTS
         /// <summary>
         /// This member is exposed to Unity.Properties to support EqualityComparison and Serialization within managed objects.
         /// </summary>
@@ -237,13 +235,13 @@ namespace Unity.Entities
         /// 3) ManagedObjectClone - When cloning managed objects Unity.Properties does not have access to the internal pointer field. This property is used to copy the bits for this struct.
         /// </remarks>
         // ReSharper disable once UnusedMember.Local
+        [RequiredMember]
         [Properties.CreateProperty]
         long SerializedHash
         {
             get => m_Align8Union;
             set => m_Align8Union = value;
         }
-#endif
 
         [BurstDiscard]
         void ValidateNonBurst()
@@ -793,12 +791,45 @@ namespace Unity.Entities
             }
         }
 
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        private static void ThrowOnCopyOfBlobArrayFields(Type t)
+        {
+            ThrowOnCopyOfBlobArrayFieldsRecursive(t, t);
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        private static void ThrowOnCopyOfBlobArrayFieldsRecursive(Type t, Type rootType)
+        {
+            if (t.IsPointer || t.IsPrimitive || t.IsEnum || t == typeof(string))
+                return;
+
+            if (t.IsGenericType)
+            {
+                if (t.GetGenericTypeDefinition() == typeof(BlobArray<>))
+                    throw new InvalidOperationException($"Type {rootType.Name} cannot be copied because it contains nested fields of type BlobArray<>.");
+                if (t.GetGenericTypeDefinition() == typeof(BlobPtr<>))
+                    throw new InvalidOperationException($"Type {rootType.Name} cannot be copied because it contains nested fields of type BlobPtr<>.");
+            }
+
+            var fields = t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            for (int i = 0, count = fields?.Length ?? 0; i < count; ++i)
+            {
+                var field = fields[i];
+                ThrowOnCopyOfBlobArrayFieldsRecursive(field.FieldType, rootType);
+            }
+        }
+
         /// <summary>
         /// Copies the elements of this BlobArray to a new managed array.
         /// </summary>
         /// <returns>An array containing copies of the elements of the BlobArray.</returns>
+        /// <exception cref="InvalidOperationException">Throws InvalidOperationException if the array type contains
+        /// nested <see cref="BlobArray{T}"/>, <see cref="BlobString"/> or <see cref="BlobPtr{T}"/> fields.</exception>
         public T[] ToArray()
         {
+            ThrowOnCopyOfBlobArrayFields(typeof(T));
+
             var result = new T[m_Length];
             if (m_Length > 0)
             {

@@ -17,22 +17,6 @@ namespace Unity.Scenes
     public struct ResourceMetaData
     {
         /// <summary>
-        /// For scenes, if AutoLoad is true, the scene will be loaded when the player starts.
-        /// </summary>
-        [Flags]
-        public enum Flags
-        {
-            /// <summary>
-            /// Doesn't automatically load the scene.
-            /// </summary>
-            None = 0,
-            /// <summary>
-            /// Loads the scene when the player starts.
-            /// </summary>
-            AutoLoad = 1
-        }
-
-        /// <summary>
         /// Currently Scene types are supported, assetbundles will need to be supported when dependencies are implemented.
         /// </summary>
         public enum Type
@@ -52,10 +36,28 @@ namespace Unity.Scenes
         /// </summary>
         public Hash128 ResourceId;
 
+#if UNITY_DOTSRUNTIME
+        /// <summary>
+        /// For scenes, if AutoLoad is true, the scene will be loaded when the player starts.
+        /// </summary>
+        [Flags]
+        public enum Flags
+        {
+            /// <summary>
+            /// Doesn't automatically load the scene.
+            /// </summary>
+            None = 0,
+            /// <summary>
+            /// Loads the scene when the player starts.
+            /// </summary>
+            AutoLoad = 1
+        }
+
         /// <summary>
         /// Flags to control the behavior of the asset.
         /// </summary>
         public Flags ResourceFlags;
+#endif
 
         /// <summary>
         /// The type of resource.

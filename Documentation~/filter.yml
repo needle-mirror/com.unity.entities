@@ -80,3 +80,6 @@ apiRules:
   - exclude:
       uidRegex: ^Unity\.Entities\.SystemBaseRegistry
       type: Type
+  - exclude:
+      uidRegex: ^Unity\.Entities\.FastEquality
+      type: Type

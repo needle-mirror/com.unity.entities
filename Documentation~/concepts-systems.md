@@ -1,12 +1,12 @@
 # System concepts
 
-A **system** provides the logic that transforms [component](concepts-components.md) data from its current state to its next state. For example, a system might update the positions of all moving entities by their velocity multiplied by the time interval since the previous update.
+A **system** provides the logic that transforms [component](concepts-components.md) data from its current state to its next state. For example, a system might update the positions of all moving entities by their velocity multiplied by the time interval since the previous update. 
 
 A system runs on the main thread once per frame. Systems are organized into a hierarchy of system groups that you can use to organize the order that systems should update in.
 
-You can create either an unmanaged, or a managed system in Entities. To define a managed system, create a class that inherits from [`SystemBase`](xref:Unity.Entities.SystemBase). To define an unmanaged system, create a struct that inherits from [`ISystem`](xref:Unity.Entities.ISystem).
+You can create either an unmanaged, or a managed system in Entities. To define a managed system, create a class that inherits from [`SystemBase`](xref:Unity.Entities.SystemBase). To define an unmanaged system, create a struct that inherits from [`ISystem`](xref:Unity.Entities.ISystem). For more information, see [Systems overview](systems-intro.md).
 
-Both `ISystem` and `SystemBase` have three methods you can override `OnUpdate`, `OnCreate` and `OnDestroy`. A system's `OnUpdate` method is executed once per frame.
+Both `ISystem` and `SystemBase` have three methods you can override: `OnUpdate`, `OnCreate` and `OnDestroy`. A system's `OnUpdate` method is executed once per frame.
 
 A system can only process entities in one [world](concepts-worlds.md), so a system is associated with a particular world. You can use the [`World`](xref:Unity.Entities.ComponentSystemBase.World) property to return the world that the system is attached to.
 
@@ -18,28 +18,16 @@ To disable the automatic bootstrapping process, use the scripting define `#UNITY
 
 There are several types of systems you can use:
 
-* [`SystemBase`](xref:Unity.Entities.SystemBase): Provides a base class for managed systems. 
-* [`ISystem`](xref:Unity.Entities.ISystem): Provides an interface for unmanaged systems.
-* [`EntityCommandBufferSystem`](xref:Unity.Entities.EntityCommandBufferSystem): Provides [entity command buffer](systems-entity-command-buffers.md) instances for other systems. This allows you to group [structural changes](concepts-structural-changes.md) together to improve the performance of your application.
+* [`SystemBase`](systems-systembase.md): Provides a base class for managed systems. 
+* [`ISystem`](systems-isystem.md): Provides an interface for unmanaged systems.
+* [`EntityCommandBufferSystem`](systems-entity-command-buffers.md): Provides entity command bufferinstances for other systems. This allows you to group [structural changes](concepts-structural-changes.md) together to improve the performance of your application.
 * [`ComponentSystemGroup`](xref:Unity.Entities.ComponentSystemGroup): Provides a nested organization and update order for systems.
 
 ## System groups
 
 A system group can have systems and other system groups as its children. A system group has an update method that you can override, and the base method updates the group's children in a sorted order. 
 
-Every time you add a group to a system group, it re-sorts the system update order. To control the update order of a system group, add the [`UpdateBefore`](xref:Unity.Entities.UpdateBeforeAttribute) or [`UpdateAfter`](xref:Unity.Entities.UpdateAfterAttribute) attribute to a system to specify which systems it should update before or after. These attributes only apply relative to children of the same system group. For example:
-
-```c#
-// If PeachSystem and DaisySystem are children of the same group, then the
-// entity component system puts PeachSystem somewhere before DaisySystem in 
-// the sorted order.
-    [UpdateBefore(typeof(DaisySystem))]
-    public partial class PeachSystem : SystemBase { }
-```
-
-To create a system group, create a class that inherits from [`ComponentSystemGroup`](xref:Unity.Entities.ComponentSystemGroup). Because systems belong to a world, you must use [`World.GetOrCreateSystem`](xref:Unity.Entities.World.GetOrCreateSystem*) to create a system. To add a system to a group, use `group.AddSystemToUpdateList`. You can add other system groups to existing system groups.
-
-For more information, see the documentation on [System update order](systems-update-order.md).
+For more information, see the documentation on [System groups](systems-update-order.md).
 
 ## Inspecting systems
 
@@ -58,6 +46,6 @@ In the Editor, the following icons represent the different types of Systems. You
 
 ## Additional resources
 
-* [Accessing data with systems](systems-intro.md)
+* [Accessing data with systems](systems-overview.md)
 * [Systems window reference](editor-systems-window.md)
 * [System update order](systems-update-order.md)

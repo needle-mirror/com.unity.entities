@@ -216,6 +216,11 @@ namespace Unity.Entities
         /// The size of this data change. This is be the size in <see cref="EntityChangeSet.ComponentData"/> for this entry.
         /// </summary>
         public int Size;
+
+        /// <summary>
+        /// If this component has a enable bit change. -1 = no change, 0 = false, 1 = true
+        /// </summary>
+        public int Enabled;
     }
 
     /// <summary>
@@ -287,17 +292,9 @@ namespace Unity.Entities
     public struct PackedSharedComponentDataChange
     {
         /// <summary>
-        /// Represents a bit mask that indicates if the share component data is managed.
-        /// </summary>
-        public const int kManagedFlag = 1 << 31;
-        /// <summary>
         /// Represents the entity and component the patch is targeted at.
         /// </summary>
         public PackedComponent Component;
-        /// <summary>
-        /// Represents the shared component value for managed components.
-        /// </summary>
-        public object BoxedSharedValue;
         /// <summary>
         /// Represents the field offset of the shared component data for unmanaged components.
         /// </summary>
@@ -305,6 +302,14 @@ namespace Unity.Entities
         /// For managed components, this field contains the bit matching <see cref="PackedSharedComponentDataChange.kManagedFlag"/>) set to 1.
         /// </remarks>
         public int UnmanagedSharedValueDataOffsetWithManagedFlag;
+        /// <summary>
+        /// Represents a bit mask that indicates if the share component data is managed.
+        /// </summary>
+        public const int kManagedFlag = 1 << 31;
+        /// <summary>
+        /// Represents the shared component value for managed components.
+        /// </summary>
+        public object BoxedSharedValue;
     }
 
     // To consider: Merge PackedManagedComponentDataChange and PackedSharedComponentDataChange
@@ -735,7 +740,7 @@ namespace Unity.Entities
             {
                 Assert.IsFalse(useEnabledMask);
 
-                var components = chunk.GetNativeArray(ComponentTypeHandle);
+                var components = chunk.GetNativeArray(ref ComponentTypeHandle);
                 var entities = chunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {

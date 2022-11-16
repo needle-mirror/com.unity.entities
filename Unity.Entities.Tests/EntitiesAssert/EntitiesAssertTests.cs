@@ -86,10 +86,12 @@ namespace Unity.Entities.Tests
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(entity)));
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Partial(entity)));
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData>(entity)));
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Partial<EcsTestData>(entity)));
+#endif
         }
 
         [Test, Ignore("DOTS-2301")]
@@ -100,6 +102,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Any(entity)));
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData>(entity)));
             Assert.DoesNotThrow(() =>
@@ -125,6 +128,7 @@ namespace Unity.Entities.Tests
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData, EcsTestData2, EcsTestData3>()));
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Partial<EcsTestData, EcsTestData2, EcsTestData3>()));
+#endif
         }
 
         [Test]
@@ -156,8 +160,10 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(entity, new[] { typeof(EcsTestData), typeof(EcsTestData2) })));
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData2>(new[] { typeof(EcsTestData2) }, typeof(EcsTestData))));
+#endif
         }
 
         [Test]
@@ -176,6 +182,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData>(new EcsTestData2(5), entity)));
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData, EcsTestData2>(entity, new EcsTestData2(6))));
             Assert.Throws<AssertionException>(() =>
@@ -185,6 +192,7 @@ namespace Unity.Entities.Tests
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData, EcsTestData2>(entity, new EcsTestData2(5))));
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData, EcsTestData2>(new EcsTestData2(5), entity)));
+#endif
         }
 
         [Test]
@@ -199,16 +207,23 @@ namespace Unity.Entities.Tests
 
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsIntElement>()));
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsIntElement[]>()));
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<List<EcsIntElement>>()));
+#endif
+
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(new EcsIntElement[] { 1, 5, 9 })));
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(EntityMatch.Component((EcsIntElement[] match) => match.Length == 3))));
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(EntityMatch.Component((EcsIntElement[] match) => match.Length == 2))));
+#endif
         }
 
         [Test]

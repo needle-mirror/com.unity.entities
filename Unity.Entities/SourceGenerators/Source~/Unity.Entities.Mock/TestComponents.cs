@@ -1,5 +1,5 @@
-﻿using System.ComponentModel;
-using Unity.Entities;
+﻿using Unity.Entities;
+using Unity.Entities.Serialization;
 
 namespace Unity.Entities.Tests
 {
@@ -81,6 +81,30 @@ namespace Unity.Entities.Tests
     {
         public int value0;
         public Entity value1;
+    }
+
+    public struct MyBlob
+    {
+        public BlobArray<float> myfloats;
+    }
+
+    public struct ManagedBlob
+    {
+        public string s;
+    }
+
+    public struct AnimationBlobData
+    {
+        public BlobArray<float> Keys;
+    }
+
+    public struct EntityPrefabReference
+    {
+        UntypedWeakReferenceId PrefabId;
+    }
+
+    public struct BoidInAnotherAssembly : IComponentData
+    {
     }
 }
 

@@ -257,153 +257,12 @@ namespace Unity.Entities
         }
 
 
-        [BurstCompile]
-        public static Entity* CreateEntityArrayFromEntityArray(
-            Entity* entities,
-            int entityCount,
-            Allocator allocator,
-            EntityQueryData* queryData,
-            EntityComponentStore* ecs,
-            ref EntityQueryMask mask,
-            ref EntityTypeHandle typeHandle,
-            ref EntityQueryFilter filter,
-            out int outEntityArrayLength)
-        {
-            Entity* res = null;
-            if (filter.RequiresMatchesFilter)
-            {
-                var batches = new UnsafeList<ArchetypeChunk>(0, Allocator.TempJob);
-                var matchingArchetypeIndices = new UnsafeList<int>(0, Allocator.TempJob);
-                FindBatchesForEntityArrayWithQuery(ecs, queryData, true, entities, entityCount, &batches, &matchingArchetypeIndices);
-
-                outEntityArrayLength = 0;
-                for (int i = 0; i < batches.Length; ++i)
-                {
-                    var batch = ((ArchetypeChunk*)batches.Ptr)[i];
-                    var match = queryData->MatchingArchetypes.Ptr[matchingArchetypeIndices.Ptr[i]];
-                    if (batch.m_Chunk->MatchesFilter(match, ref filter))
-                        outEntityArrayLength += batch.Count;
-                }
-
-                res = (Entity*)Memory.Unmanaged.Allocate(UnsafeUtility.SizeOf<Entity>() * outEntityArrayLength, UnsafeUtility.AlignOf<Entity>(), allocator);
-                var entityCounter = 0;
-                for (int i = 0; i < batches.Length; ++i)
-                {
-                    var batch = ((ArchetypeChunk*)batches.Ptr)[i];
-                    var match = queryData->MatchingArchetypes.Ptr[matchingArchetypeIndices.Ptr[i]];
-                    if (!batch.m_Chunk->MatchesFilter(match, ref filter))
-                        continue;
-
-                    var destinationPtr = res + entityCounter;
-                    var sourcePtr = batch.GetNativeArray(typeHandle).GetUnsafeReadOnlyPtr();
-                    var copySizeInBytes = sizeof(Entity) * batch.Count;
-
-                    UnsafeUtility.MemCpy(destinationPtr, sourcePtr, copySizeInBytes);
-
-                    entityCounter += batch.Count;
-                }
-
-                batches.Dispose();
-                matchingArchetypeIndices.Dispose();
-            }
-            else
-            {
-                outEntityArrayLength = CalculateEntityCountInEntityArray(entities, entityCount, queryData, ecs, ref mask, ref filter);
-                res = (Entity*)Memory.Unmanaged.Allocate(UnsafeUtility.SizeOf<Entity>() * outEntityArrayLength, UnsafeUtility.AlignOf<Entity>(), allocator);
-
-                var entityCounter = 0;
-                for (int i = 0; i < entityCount; ++i)
-                {
-                    var entity = entities[i];
-                    if (mask.MatchesIgnoreFilter(entity))
-                        res[entityCounter++] = entity;
-                }
-            }
-
-            return res;
-        }
-
-        [BurstCompile]
-        public static byte* CreateComponentDataArrayFromEntityArray(
-            Entity* entities,
-            int entityCount,
-            Allocator allocator,
-            EntityQueryData* queryData,
-            EntityComponentStore* ecs,
-            TypeIndex typeIndex,
-            int typeSizeInChunk,
-            int typeAlign,
-            ref EntityQueryMask mask,
-            ref EntityQueryFilter filter,
-            out int outEntityArrayLength)
-        {
-            byte* res = null;
-            if (filter.RequiresMatchesFilter)
-            {
-                var batches = new UnsafeList<ArchetypeChunk>(0, Allocator.TempJob);
-                var matchingArchetypeIndices = new UnsafeList<int>(0, Allocator.TempJob);
-                FindBatchesForEntityArrayWithQuery(ecs, queryData, true, entities, entityCount, &batches, &matchingArchetypeIndices);
-
-                outEntityArrayLength = 0;
-                for (int i = 0; i < batches.Length; ++i)
-                {
-                    var batch = ((ArchetypeChunk*)batches.Ptr)[i];
-                    var match = queryData->MatchingArchetypes.Ptr[matchingArchetypeIndices.Ptr[i]];
-                    if (batch.m_Chunk->MatchesFilter(match, ref filter))
-                        outEntityArrayLength += batch.Count;
-                }
-
-                res = (byte*)Memory.Unmanaged.Allocate(typeSizeInChunk * outEntityArrayLength, typeAlign, allocator);
-                var outDataOffsetInBytes = 0;
-                for (int i = 0; i < batches.Length; ++i)
-                {
-                    var batch = ((ArchetypeChunk*)batches.Ptr)[i];
-                    var match = queryData->MatchingArchetypes.Ptr[matchingArchetypeIndices.Ptr[i]];
-                    if (!batch.m_Chunk->MatchesFilter(match, ref filter))
-                        continue;
-
-                    var archetype = batch.Archetype.Archetype;
-                    var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
-                    var typeOffset = archetype->Offsets[indexInTypeArray];
-
-                    var src = batch.m_Chunk->Buffer + typeOffset;
-                    var dst = res + (outDataOffsetInBytes * typeSizeInChunk);
-                    var copySize = typeSizeInChunk * batch.Count;
-
-                    UnsafeUtility.MemCpy(dst, src, copySize);
-                    outDataOffsetInBytes += copySize;
-                }
-
-                batches.Dispose();
-                matchingArchetypeIndices.Dispose();
-            }
-            else
-            {
-                outEntityArrayLength = CalculateEntityCountInEntityArray(entities, entityCount, queryData, ecs, ref mask, ref filter);
-                res = (byte*)Memory.Unmanaged.Allocate(typeSizeInChunk * outEntityArrayLength, typeAlign, allocator);
-
-                var outDataOffsetInBytes = 0;
-                for (int i = 0; i < entityCount; ++i)
-                {
-                    var entity = entities[i];
-                    if (mask.MatchesIgnoreFilter(entity))
-                    {
-                        var src = ecs->GetComponentDataWithTypeRO(entity, typeIndex);
-                        var dst = res + outDataOffsetInBytes;
-                        var copySize = typeSizeInChunk;
-
-                        UnsafeUtility.MemCpy(dst, src, copySize);
-                        outDataOffsetInBytes += copySize;
-                    }
-                }
-            }
-
-            return res;
-        }
-
         /// <summary>
-        ///     Creates a NativeArray containing the entities in a given EntityQuery.
+        ///  Obsolete. Use <see cref="CreateEntityListAsync"/> instead.
         /// </summary>
+        /// <remarks> **Obsolete.** Use <see cref="CreateEntityListAsync"/> instead.
+        ///
+        /// Creates a NativeArray containing the entities in a given EntityQuery.</remarks>
         /// <param name="matchingArchetypes">List of matching archetypes.</param>
         /// <param name="allocator">Allocator to use for the array.</param>
         /// <param name="typeHandle">An atomic safety handle required by GatherEntitiesJob so it can call GetNativeArray() on chunks.</param>
@@ -541,10 +400,15 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Creates a NativeArray with the value of a single component for all entities matching the provided query.
-        /// The array will be populated by a job scheduled by this function.
-        /// This function will not sync the needed types in the EntityQueryFilter so they have to be synced manually before calling this function.
+        /// Obsolete. Use <see cref="CreateComponentDataListAsync"/> instead.
         /// </summary>
+        /// <remarks>
+        /// **Obsolete.** Use <see cref="CreateComponentDataListAsync"/> instead.
+        ///
+        /// Creates a NativeArray with the value of a single component for all entities matching the provided query.
+        /// The job that schedules this method populates the NativeArray. This method
+        /// doesn't sync the needed types in the EntityQueryFilter, so you have to be sync them manually before calling this.
+        /// </remarks>
         /// <param name="allocator">Allocator to use for the array.</param>
         /// <param name="typeHandle">Type handle for the component whose values should be extracted.</param>
         /// <param name="entityCount">Number of entities that match the query. Used as the output array size.</param>
@@ -555,7 +419,7 @@ namespace Unity.Entities
         [Obsolete("Use CreateComponentDataListAsync instead. (RemovedAfter Entities 1.0)")]
         public static NativeArray<T> CreateComponentDataArrayAsync<T>(
             Allocator allocator,
-            ComponentTypeHandle<T> typeHandle,
+            ref ComponentTypeHandle<T> typeHandle,
             int entityCount,
             EntityQuery entityQuery,
             out JobHandle outJobHandle,
@@ -592,7 +456,7 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "!NET_DOTS")]
         public static NativeList<T> CreateComponentDataListAsync<T>(
             Allocator allocator,
-            DynamicComponentTypeHandle typeHandle,
+            ref DynamicComponentTypeHandle typeHandle,
             int maxEntityCount,
             EntityQuery entityQuery,
             JobHandle dependsOn,
@@ -636,7 +500,7 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "!NET_DOTS")]
         public static NativeArray<T> CreateComponentDataArray<T>(
             Allocator allocator,
-            ComponentTypeHandle<T> typeHandle,
+            ref ComponentTypeHandle<T> typeHandle,
             int entityCount,
             EntityQuery entityQuery)
             where T : unmanaged, IComponentData
@@ -828,10 +692,11 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary> Obsolete. Use <see cref="CopyFromComponentDataListAsync"/> instead.</summary>
         [Obsolete("Use CopyFromComponentDataListAsync instead. (RemovedAfter Entities 1.0)")]
         public static void CopyFromComponentDataArrayAsync<T>(UnsafeMatchingArchetypePtrList matchingArchetypes,
             NativeArray<T> componentDataArray,
-            ComponentTypeHandle<T> typeHandle,
+            ref ComponentTypeHandle<T> typeHandle,
             EntityQuery entityQuery,
             ref EntityQueryFilter filter,
             out JobHandle jobHandle,
@@ -853,7 +718,7 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "!NET_DOTS")]
         public static void CopyFromComponentDataListAsync<T>(
             NativeList<T> componentDataList,
-            DynamicComponentTypeHandle typeHandle,
+            ref DynamicComponentTypeHandle typeHandle,
             EntityQuery entityQuery,
             JobHandle dependsOn,
             out JobHandle outJobHandle
@@ -883,7 +748,7 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "!NET_DOTS")]
         public static void CopyFromComponentDataArray<T>(
             NativeArray<T> componentDataArray,
-            ComponentTypeHandle<T> typeHandle,
+            ref ComponentTypeHandle<T> typeHandle,
             EntityQuery entityQuery)
             where T : unmanaged, IComponentData
         {
@@ -1217,85 +1082,6 @@ namespace Unity.Entities
             return totalEntityCount;
         }
 
-        [BurstCompile]
-        public static int CalculateEntityCountInEntityArray(
-            Entity* entities,
-            int entityCount,
-            EntityQueryData* queryData,
-            EntityComponentStore* ecs,
-            ref EntityQueryMask mask,
-            ref EntityQueryFilter filter)
-        {
-            var length = 0;
-            if (filter.RequiresMatchesFilter)
-            {
-                using var batches = new UnsafeList<ArchetypeChunk>(0,Allocator.TempJob);
-                using var matchingArchetypeIndices = new UnsafeList<int>(0, Allocator.TempJob);
-                FindBatchesForEntityArrayWithQuery(ecs, queryData, true, entities, entityCount, &batches, &matchingArchetypeIndices);
-
-                for (int i = 0; i < batches.Length; ++i)
-                {
-                    var batch = ((ArchetypeChunk*)batches.Ptr)[i];
-                    var match = queryData->MatchingArchetypes.Ptr[matchingArchetypeIndices.Ptr[i]];
-                    if (batch.m_Chunk->MatchesFilter(match, ref filter))
-                        length += batch.Count;
-                }
-            }
-            else
-            {
-                for (int i = 0; i < entityCount; ++i)
-                {
-                    if (mask.MatchesIgnoreFilter(entities[i]))
-                        length++;
-                }
-            }
-
-            return length;
-        }
-
-        [BurstCompile]
-        public static bool MatchesAnyInEntityArray(
-            Entity* entities,
-            int entityCount,
-            EntityQueryData* queryData,
-            EntityComponentStore* ecs,
-            ref EntityQueryMask mask,
-            ref EntityQueryFilter filter)
-        {
-            if (filter.RequiresMatchesFilter)
-            {
-                var batches = new UnsafeList<ArchetypeChunk>(0, Allocator.TempJob);
-                var matchingArchetypeIndices = new UnsafeList<int>(0, Allocator.TempJob);
-                FindBatchesForEntityArrayWithQuery(ecs, queryData, true, entities, entityCount, &batches, &matchingArchetypeIndices);
-
-                var ret = false;
-                for (int i = 0; i < batches.Length; ++i)
-                {
-                    var batch = ((ArchetypeChunk*)batches.Ptr)[i];
-                    var match = queryData->MatchingArchetypes.Ptr[matchingArchetypeIndices.Ptr[i]];
-                    if (batch.m_Chunk->MatchesFilter(match, ref filter))
-                    {
-                        ret = true;
-                        break;
-                    }
-                }
-
-                batches.Dispose();
-                matchingArchetypeIndices.Dispose();
-                return ret;
-            }
-            else
-            {
-                for (int i = 0; i < entityCount; ++i)
-                {
-                    if (mask.MatchesIgnoreFilter(entities[i]))
-                        return true;
-                }
-            }
-
-            return false;
-        }
-
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) }, RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
         internal static BufferAccessor<T> GetChunkBufferAccessor<T>(Chunk* chunk, bool isWriting, int typeIndexInArchetype, uint systemVersion, AtomicSafetyHandle safety0, AtomicSafetyHandle safety1)
@@ -1348,114 +1134,6 @@ namespace Unity.Entities
         {
             var archetype = chunk->Archetype;
             return chunk->Buffer + archetype->Offsets[indexInArchetype];
-        }
-
-        private static bool FindNextMatchingBatchStart(EntityQueryMask mask, Entity* entities, int totalEntityCount,  ref int currentIndexInEntityArray)
-        {
-            for (; currentIndexInEntityArray < totalEntityCount; ++currentIndexInEntityArray)
-            {
-                var currentEntity = entities[currentIndexInEntityArray];
-
-                if (mask.MatchesIgnoreFilter(currentEntity))
-                    return true;
-            }
-
-            return false;
-        }
-
-        [BurstCompile]
-        public static void FindFilteredBatchesForEntityArrayWithQuery(
-            EntityQueryImpl* query,
-            Entity* entities, int entityCount,
-            UnsafeList<ArchetypeChunk>* batches)
-        {
-            var queryImpl = query->_Access;
-
-            var data = query->_QueryData;
-            var ecs = query->_Access->EntityComponentStore;
-            var queryMask = queryImpl->EntityQueryManager->GetEntityQueryMask(query->_QueryData, ecs);
-
-            ref var filter = ref query->_Filter;
-            var isFiltering = filter.RequiresMatchesFilter;
-
-            // Start first batch
-            var currentIndexInEntityArray = 0;
-            while (FindNextMatchingBatchStart(queryMask, entities, entityCount, ref currentIndexInEntityArray))
-            {
-                var batchStartEntityInChunk = ecs->GetEntityInChunk(entities[currentIndexInEntityArray++]);
-
-                var currentBatchChunk = batchStartEntityInChunk.Chunk;
-                var currentBatchStartIndex = batchStartEntityInChunk.IndexInChunk;
-                var currentBatchCounter = 1;
-
-                for (; currentIndexInEntityArray < entityCount; ++currentIndexInEntityArray, currentBatchCounter++)
-                {
-                    var currentEntityInChunk = ecs->GetEntityInChunk(entities[currentIndexInEntityArray]);
-
-                    // Check if we're looking at the next entity in the same chunk
-                    if (currentEntityInChunk.Chunk != currentBatchChunk || currentEntityInChunk.IndexInChunk != currentBatchStartIndex + currentBatchCounter)
-                        break;
-                }
-
-                if (isFiltering)
-                {
-                    var matchingArchetypeIndex = EntityQueryManager.FindMatchingArchetypeIndexForArchetype(ref data->MatchingArchetypes, currentBatchChunk->Archetype);
-                    if (!currentBatchChunk->MatchesFilter(data->MatchingArchetypes.Ptr[matchingArchetypeIndex], ref filter))
-                        continue;
-                }
-
-                // Finish the batch
-                batches->Add(new ArchetypeChunk
-                {
-                    m_Chunk = currentBatchChunk,
-                    m_EntityComponentStore = ecs,
-                    m_BatchStartEntityIndex = currentBatchStartIndex,
-                    m_BatchEntityCount = currentBatchCounter
-                });
-            }
-        }
-
-        [BurstCompile]
-        public static void FindBatchesForEntityArrayWithQuery(
-            EntityComponentStore* ecs,
-            EntityQueryData* data,
-            bool requiresFilteringOrBatching,
-            Entity* entities,
-            int entityCount,
-            UnsafeList<ArchetypeChunk>* batches,
-            UnsafeList<int>* perBatchMatchingArchetypeIndex)
-        {
-            // Start first batch
-            var currentIndexInEntityArray = 0;
-            while (FindNextMatchingBatchStart(data->EntityQueryMask, entities, entityCount, ref currentIndexInEntityArray))
-            {
-                var batchStartEntityInChunk = ecs->GetEntityInChunk(entities[currentIndexInEntityArray++]);
-
-                var currentBatchChunk = batchStartEntityInChunk.Chunk;
-                var currentBatchStartIndex = batchStartEntityInChunk.IndexInChunk;
-                var currentBatchCounter = 1;
-
-                for (; currentIndexInEntityArray < entityCount; ++currentIndexInEntityArray, currentBatchCounter++)
-                {
-                    var currentEntityInChunk = ecs->GetEntityInChunk(entities[currentIndexInEntityArray]);
-
-                    // Check if we're looking at the next entity in the same chunk
-                    if (currentEntityInChunk.Chunk != currentBatchChunk || currentEntityInChunk.IndexInChunk != currentBatchStartIndex + currentBatchCounter)
-                        break;
-                }
-
-                // Finish the batch
-                batches->Add(new ArchetypeChunk
-                {
-                    m_Chunk = currentBatchChunk,
-                    m_EntityComponentStore = ecs,
-                    m_BatchStartEntityIndex = currentBatchStartIndex,
-                    m_BatchEntityCount = currentBatchCounter
-                });
-
-                if(requiresFilteringOrBatching)
-                    perBatchMatchingArchetypeIndex->Add(EntityQueryManager.FindMatchingArchetypeIndexForArchetype(ref data->MatchingArchetypes, currentBatchChunk->Archetype));
-            }
         }
 
         // Helper struct to bundle some invariant data when computing the enabled-bit mask for several chunks within the same archetype

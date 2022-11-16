@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities.Serialization;
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
 

@@ -1,6 +1,6 @@
 using System;
 using Unity.Assertions;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Serialization.Editor;
 using UnityEditor;
 using UnityEditor.UIElements;

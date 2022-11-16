@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Editor.Bridge;
 using Unity.Scenes;
+using Unity.Scenes.Editor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -99,6 +100,7 @@ namespace Unity.Entities.Editor
 
         static readonly string k_PingSubSceneInHierarchy = L10n.Tr("Ping sub scene in hierarchy");
         static readonly string k_PingSubSceneInProjectWindow = L10n.Tr("Ping sub scene in project window");
+        static readonly string k_SubSceneButtonTooltip = L10n.Tr("Toggle whether the Sub Scene is open for editing.");
 
         const string k_UnityListViewItemName = "unity-list-view__item";
         const string k_UnityTreeViewItemName = "unity-tree-view__item";
@@ -118,12 +120,13 @@ namespace Unity.Entities.Editor
         readonly VisualElement m_Column1;
         readonly VisualElement m_Column2;
 
-        readonly Label m_Name;
+        readonly HierarchyNameElement m_Name;
         readonly Label m_SubSceneState;
         readonly VisualElement m_Icon;
         readonly VisualElement m_SystemButton;
         readonly VisualElement m_PingGameObject;
         readonly VisualElement m_PrefabStageButton;
+        readonly Toggle m_SubSceneButton;
 
         readonly IVisualElementScheduledItem m_UpdateEventHandler;
         IManipulator m_ContextMenuManipulator;
@@ -170,7 +173,7 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// The label representing the name for this element.
         /// </summary>
-        public Label NameLabel => m_Name;
+        public Label NameLabel => m_Name.Label;
 
         /// <summary>
         /// The VisualElement representing the displayed Icon for this element.
@@ -222,16 +225,23 @@ namespace Unity.Entities.Editor
             m_Column1 = m_ContentContainer.Q<VisualElement>(name: "Column 1");
             m_Column2 = m_ContentContainer.Q<VisualElement>(name: "Column 2");
 
-            m_Name = m_ContentContainer.Q<Label>(className: UssClasses.Hierarchy.Item.NameLabel);
+            m_Name = m_ContentContainer.Q<HierarchyNameElement>(className: UssClasses.Hierarchy.Item.Name);
             m_SubSceneState = m_ContentContainer.Q<Label>(className: UssClasses.Hierarchy.Item.SubSceneState);
             m_Icon = m_ContentContainer.Q<VisualElement>(className: UssClasses.Hierarchy.Item.Icon);
             m_SystemButton = m_ContentContainer.Q<VisualElement>(className: UssClasses.Hierarchy.Item.SystemButton);
             m_PingGameObject = m_ContentContainer.Q<VisualElement>(className: UssClasses.Hierarchy.Item.PingGameObjectButton);
             m_PrefabStageButton = m_ContentContainer.Q<VisualElement>(className: UssClasses.Hierarchy.Item.PrefabStageButton);
+            m_SubSceneButton = m_ContentContainer.Q<Toggle>(className: UssClasses.Hierarchy.Item.SubSceneButton);
+
+            m_SubSceneButton.tooltip = k_SubSceneButtonTooltip;
 
             var prefabStageClickable = new Clickable(OnOpenPrefab);
             prefabStageClickable.activators.Add(new ManipulatorActivationFilter {button = MouseButton.LeftMouse, modifiers = EventModifiers.Alt});
             m_PrefabStageButton.AddManipulator(prefabStageClickable);
+
+            m_SubSceneButton.RegisterValueChangedCallback(OnSubSceneToggle);
+
+            m_Name.OnRename += OnElementRenamed;
 
             hierarchy.Add(m_ModeIndent);
             hierarchy.Add(m_IndentContainer);
@@ -240,6 +250,30 @@ namespace Unity.Entities.Editor
 
             m_UpdateEventHandler = schedule.Execute(OnUpdate).Every(k_UpdateRate);
             m_UpdateEventHandler.Pause();
+        }
+
+        void OnElementRenamed(HierarchyNameElement element, bool canceled)
+        {
+            if (canceled) return;
+
+            if (Handle.Kind == NodeKind.GameObject)
+            {
+                var gameObject = Handle.ToGameObject();
+
+                if (null == gameObject)
+                    return;
+
+                Undo.RecordObject(gameObject, "Rename");
+                gameObject.name = element.Text;
+            }
+        }
+
+        public void BeginRename()
+        {
+            if (Handle.Kind != NodeKind.GameObject)
+                return;
+
+            m_Name.BeginRename();
         }
 
         public void RegisterEventListeners()
@@ -296,10 +330,11 @@ namespace Unity.Entities.Editor
 
             var showExpandCollapseToggle = !m_Filtered && node.GetChildCount() > 0;
 
-            m_Name.text = m_Model.GetName(node.GetHandle());
+            m_Name.Text = m_Model.GetName(node.GetHandle());
             m_Toggle.visible = showExpandCollapseToggle;
             m_Toggle.SetValueWithoutNotify(showExpandCollapseToggle && m_Expanded);
             m_PrefabStageButton.SetVisibility(false);
+            m_SubSceneButton.SetVisibility(node.GetHandle().Kind == NodeKind.SubScene);
 
             var depth = node.GetDepth();
 
@@ -349,6 +384,7 @@ namespace Unity.Entities.Editor
         {
             m_UpdateEventHandler.Pause();
             m_ModeIndent.RemoveFromClassList(UssClasses.Hierarchy.Item.RuntimeModeIndent);
+            m_ModeIndent.RemoveFromClassList(UssClasses.Hierarchy.Item.PrefabOverrideIndent);
             m_ContentContainer.RemoveFromClassList(UssClasses.Hierarchy.Item.Prefab);
             m_ContentContainer.RemoveFromClassList(UssClasses.Hierarchy.Item.PrefabRoot);
             m_ContentContainer.RemoveFromClassList(UssClasses.Hierarchy.Item.SceneNode);
@@ -391,8 +427,8 @@ namespace Unity.Entities.Editor
 
         void AddEntityStyle(HierarchyNode.Immutable node)
         {
-            m_Model.DataModeChanged += UpdateModeIndentColor;
-            UpdateModeIndentColor();
+            m_Model.DataModeChanged += UpdateIndentColor;
+            UpdateIndentColor();
             m_Icon.AddToClassList(UssClasses.Hierarchy.Item.IconEntity);
 
             if (m_Model.GetUnityObject(node.GetHandle()))
@@ -404,7 +440,7 @@ namespace Unity.Entities.Editor
 
         void RemoveEntityStyle()
         {
-            m_Model.DataModeChanged -= UpdateModeIndentColor;
+            m_Model.DataModeChanged -= UpdateIndentColor;
             m_Icon.RemoveFromClassList(UssClasses.Hierarchy.Item.IconEntity);
             m_PingGameObject.RemoveFromClassList(UssClasses.Hierarchy.Item.VisibleOnHover);
             m_PingGameObject.UnregisterCallback<MouseUpEvent>(OnPingGameObject);
@@ -412,8 +448,8 @@ namespace Unity.Entities.Editor
 
         void AddGameObjectStyle(HierarchyNode.Immutable node)
         {
-            m_Model.DataModeChanged += UpdateModeIndentColor;
-            UpdateModeIndentColor();
+            m_Model.DataModeChanged += UpdateIndentColor;
+            UpdateIndentColor();
 
             m_Icon.AddToClassList(UssClasses.Hierarchy.Item.IconGameObject);
 
@@ -436,11 +472,26 @@ namespace Unity.Entities.Editor
 
         void RemoveGameObjectStyle()
         {
-            m_Model.DataModeChanged -= UpdateModeIndentColor;
+            m_Model.DataModeChanged -= UpdateIndentColor;
         }
 
-        void UpdateModeIndentColor()
+        /// <summary>
+        /// The left indent is used for both the runtime (orange) and prefab override (blue) bars. We should never have a situation where we need to show both.
+        /// </summary>
+        void UpdateIndentColor()
         {
+            if (Handle.Kind == NodeKind.GameObject)
+            {
+                var gameObject = Handle.ToGameObject();
+                var prefabType = m_Model.GetPrefabType(Handle);
+
+                var showOverride = null != gameObject
+                                    && prefabType == HierarchyModel.HierarchyPrefabType.PrefabRoot
+                                    && PrefabUtility.HasPrefabInstanceAnyOverrides(Handle.ToGameObject(), false);
+
+                m_ModeIndent.EnableInClassList(UssClasses.Hierarchy.Item.PrefabOverrideIndent, showOverride);
+            }
+
             switch (Handle.Kind)
             {
                 case NodeKind.GameObject when m_Model.DataMode is DataMode.Mixed:
@@ -449,8 +500,8 @@ namespace Unity.Entities.Editor
                     m_ModeIndent.EnableInClassList(UssClasses.Hierarchy.Item.RuntimeModeIndent, unityObject && !unityObject.scene.isSubScene);
                     break;
                 }
-                case NodeKind.SubScene or NodeKind.DynamicSubScene:
                 case NodeKind.GameObject:
+                case NodeKind.SubScene:
                 case NodeKind.Entity:
                     m_ModeIndent.EnableInClassList(UssClasses.Hierarchy.Item.RuntimeModeIndent, m_Model.DataMode is DataMode.Mixed or DataMode.Runtime);
                     break;
@@ -475,8 +526,8 @@ namespace Unity.Entities.Editor
 
         void AddSubSceneStyle(HierarchyNode.Immutable node)
         {
-            m_Model.DataModeChanged += UpdateModeIndentColor;
-            UpdateModeIndentColor();
+            m_Model.DataModeChanged += UpdateIndentColor;
+            UpdateIndentColor();
             AddToClassList(UssClasses.Hierarchy.Item.SubSceneNode);
             m_Name.AddToClassList(UssClasses.Hierarchy.Item.NameScene);
             m_Icon.AddToClassList(UssClasses.Hierarchy.Item.IconScene);
@@ -489,7 +540,7 @@ namespace Unity.Entities.Editor
 
         void RemoveSubSceneStyle()
         {
-            m_Model.DataModeChanged -= UpdateModeIndentColor;
+            m_Model.DataModeChanged -= UpdateIndentColor;
             RemoveFromClassList(UssClasses.Hierarchy.Item.SubSceneNode);
             m_Name.RemoveFromClassList(UssClasses.Hierarchy.Item.NameScene);
             m_Icon.RemoveFromClassList(UssClasses.Hierarchy.Item.IconScene);
@@ -530,6 +581,10 @@ namespace Unity.Entities.Editor
                 };
 
                 style.opacity = state == HierarchyModel.SubSceneLoadedState.NotLoaded ? 0.5f : 1f;
+
+                var subScene = m_Model.GetSubSceneFromNodeHandle(Handle);
+                m_SubSceneButton.SetEnabled(subScene != null);
+                m_SubSceneButton.SetValueWithoutNotify(subScene && subScene.IsLoaded);
             }
             else if (Handle.Kind == NodeKind.Scene)
             {
@@ -561,6 +616,8 @@ namespace Unity.Entities.Editor
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
+
+                UpdateIndentColor();
             }
         }
 
@@ -569,8 +626,8 @@ namespace Unity.Entities.Editor
             var str = default(FixedString64Bytes);
             m_Model.GetName(Handle, ref str);
 
-            if (!str.Equals(m_Name.text))
-                m_Name.text = str.ToString();
+            if (!str.Equals(m_Name.Text))
+                m_Name.Text = str.ToString();
         }
 
         void OnSubSceneContextMenu(ContextualMenuPopulateEvent evt)
@@ -605,6 +662,53 @@ namespace Unity.Entities.Editor
             var alternativePrefabMode = (defaultPrefabMode == PrefabStage.Mode.InContext) ? PrefabStage.Mode.InIsolation : PrefabStage.Mode.InContext;
             var mode = (evt as MouseUpEvent).modifiers.HasFlag(EventModifiers.Alt) ? alternativePrefabMode : defaultPrefabMode;
             PrefabStageUtility.OpenPrefab(assetPath, prefabInstance, mode);
+        }
+
+        void OnSubSceneToggle(ChangeEvent<bool> evt)
+        {
+            var subScene = m_Model.GetSubSceneFromNodeHandle(Handle);
+
+            if (evt.newValue)
+            {
+                Scenes.Editor.SubSceneUtility.EditScene(subScene);
+            }
+            else
+            {
+                var subScenes = GetSubScenesRecursive(subScene);
+                SubSceneInspectorUtility.CloseAndAskSaveIfUserWantsTo(subScenes);
+            }
+        }
+
+        SubScene[] GetSubScenesRecursive(params SubScene[] subScenes)
+        {
+            var visited = new HashSet<SubScene>();
+            var result = new List<SubScene>();
+            var stack = new Stack<SubScene>();
+
+            foreach (var s in subScenes)
+                stack.Push(s);
+
+            while (stack.Count>0)
+            {
+                var subScene = stack.Pop();
+
+                if (visited.Contains(subScene) || !subScene.EditingScene.isLoaded)
+                    continue;
+
+                visited.Add(subScene);
+                result.Add(subScene);
+
+                if (subScene.SceneAsset == null)
+                    continue;
+
+                foreach (var subSceneGameObject in subScene.EditingScene.GetRootGameObjects())
+                    foreach (var childSubScene in subSceneGameObject.GetComponentsInChildren<SubScene>())
+                        stack.Push(childSubScene);
+            }
+
+            var array = result.ToArray();
+            Array.Reverse(array);
+            return array;
         }
     }
 }

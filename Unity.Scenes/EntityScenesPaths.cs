@@ -1,10 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using Unity.Collections;
-using Unity.Core;
-using Unity.Entities.Serialization;
 #if !NET_DOTS
 using System.Linq;
 #endif
@@ -15,25 +11,12 @@ namespace Unity.Scenes
 {
     internal class EntityScenesPaths
     {
-        internal static Type SubSceneImporterType = null;
-
-        internal const string k_SceneInfoFileName = "catalog.bin";
-        internal const string k_EntitySceneSubDir = "EntityScenes";
-
-        internal static string GetSceneInfoPath(string sceneLoadDir)
-        {
-            return $"{sceneLoadDir}/{k_SceneInfoFileName}";
-        }
-
         internal enum PathType
         {
             EntitiesUnityObjectReferences,
-            EntitiesUnityObjectReferencesBundle,
             EntitiesAssetDependencyGUIDs,
             EntitiesBinary,
-            EntitiesConversionLog,
             EntitiesHeader,
-            EntitiesSharedReferencesBundle,
             EntitiesWeakAssetRefs,
             EntitiesGlobalUsage,
             EntitiesExportedTypes
@@ -46,10 +29,7 @@ namespace Unity.Scenes
                 // these must all be lowercase
                 case PathType.EntitiesUnityObjectReferences: return "asset";
                 case PathType.EntitiesBinary: return "entities";
-                case PathType.EntitiesUnityObjectReferencesBundle: return "bundle";
                 case PathType.EntitiesHeader: return "entityheader";
-                case PathType.EntitiesConversionLog: return "conversionlog";
-                case PathType.EntitiesSharedReferencesBundle: return "bundle";
                 case PathType.EntitiesAssetDependencyGUIDs: return "dependencies";
                 case PathType.EntitiesWeakAssetRefs: return "weakassetrefs";
                 case PathType.EntitiesGlobalUsage: return "globalusage";
@@ -59,14 +39,34 @@ namespace Unity.Scenes
             throw new ArgumentException($"Unknown PathType {pathType}");
         }
 
+        internal static Type SubSceneImporterType = null;
+        internal const string k_SceneInfoFileName = "scene_info.bin";
+        internal const string k_EntitySceneSubDir = "EntityScenes";
+
+        internal static string FullPathForFile(string rootPath, string relPath)
+        {
+#if ENABLE_CONTENT_DELIVERY
+            return Unity.Entities.Content.ContentDeliverySystem.Instance.PathRemapFunc(relPath);
+#else
+            return $"{rootPath}/{relPath}";
+#endif
+        }
+
+        internal static string RelativePathForSceneFile(Hash128 sceneGUID, PathType type, int sectionIndex)
+        {
+            return $"{k_EntitySceneSubDir}/{GetFileName(sceneGUID, type, sectionIndex)}";
+        }
+
+        internal static string RelativePathForSceneInfoFile => $"{k_EntitySceneSubDir}/{k_SceneInfoFileName}";
+
 #if UNITY_EDITOR
 
         static Dictionary<Hash128, string> s_HashToString = new Dictionary<Hash128, string>();
 
 
-        internal static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, bool isBakingEnabled, bool isBuiltInEnabled, ImportMode importMode)
+        internal static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, ImportMode importMode)
         {
-            var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGUID, buildConfigurationGUID, isBuildingForEditor, isBakingEnabled, isBuiltInEnabled, out var mustRequestRefresh);
+            var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGUID, buildConfigurationGUID, isBuildingForEditor, out var mustRequestRefresh);
             if (mustRequestRefresh)
                 UnityEditor.AssetDatabase.Refresh();
 
@@ -105,12 +105,6 @@ namespace Unity.Scenes
 
 
 #endif // UNITY_EDITOR
-
-        internal static string GetLoadPath(Hash128 sceneGUID, PathType type, int sectionIndex, string sceneLoadDir)
-        {
-            return $"{sceneLoadDir}/{RelativePathFolderFor(sceneGUID, type, sectionIndex)}";
-        }
-
         internal static string GetFileName(Hash128 sceneGUID, PathType type, int sectionIndex)
         {
             var extension = GetExtension(type);
@@ -119,22 +113,13 @@ namespace Unity.Scenes
                 case PathType.EntitiesBinary:
                     return $"{sceneGUID}.{sectionIndex}.{extension}";
                 case PathType.EntitiesHeader:
-                case PathType.EntitiesConversionLog:
                 case PathType.EntitiesExportedTypes:
                     return $"{sceneGUID}.{extension}";
                 case PathType.EntitiesUnityObjectReferences:
-                case PathType.EntitiesUnityObjectReferencesBundle:
                     return $"{sceneGUID}.{sectionIndex}.{extension}";
-                case PathType.EntitiesSharedReferencesBundle:
-                    return $"{sceneGUID}.{extension}";
                 default:
                     throw new ArgumentException();
             }
-        }
-
-        internal static string RelativePathFolderFor(Hash128 sceneGUID, PathType type, int sectionIndex)
-        {
-            return $"{k_EntitySceneSubDir}/{GetFileName(sceneGUID, type, sectionIndex)}";
         }
 
         static unsafe string MakeRandomFileName()

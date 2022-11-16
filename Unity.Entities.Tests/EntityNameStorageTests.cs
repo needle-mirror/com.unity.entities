@@ -6,6 +6,7 @@ using System.Threading;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Entities.Tests;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Random = Unity.Mathematics.Random;
@@ -95,6 +96,7 @@ namespace Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void EntityName_ThrowsOn_Long_Strings()
         {
             string validString = "This is a string that is exactly 62 characters, padddddddding";

@@ -41,7 +41,7 @@ namespace Unity.Entities.Editor.Tests
             
             Assert.DoesNotThrow(() =>
             {
-                m_Hierarchy.Update();
+                m_Hierarchy.Update(true);
             });
         }
     }

@@ -193,16 +193,18 @@ namespace Unity.Entities.Editor
                 public const string IconScene = Icon + "--scene";
                 public const string IconEntity = Icon + "--entity";
                 public const string IconGameObject = Icon + "--gameobject";
-                public const string NameLabel = k_Item + "__name-label";
+                public const string Name = k_Item + "__name";
                 public const string SubSceneState = k_Item + "__subscene-state-label";
-                public const string NameScene = NameLabel + "--scene";
+                public const string NameScene = Name + "--scene";
                 public const string SystemButton = k_Item + "__system-button";
                 public const string PingGameObjectButton = k_Item + "__ping-gameobject-button";
                 public const string PrefabStageButton = k_Item + "__prefab-stage-button";
+                public const string SubSceneButton = k_Item + "__subscene-button";
                 public const string VisibleOnHover = k_Item + "__visible-on-hover";
                 public const string Prefab = k_Item + "--prefab";
                 public const string PrefabRoot = k_Item + "--prefab-root";
                 public const string RuntimeModeIndent = "runtime";
+                public const string PrefabOverrideIndent = "prefab";
             }
         }
 
@@ -258,7 +260,6 @@ namespace Unity.Entities.Editor
             {
                 const string k_TabBase = EntityInspector + "-aspects-tab";
                 public const string Content = k_TabBase + "__content";
-                public const string ViewAllComponents = k_TabBase + "__view-all-components";
             }
 
             public static class RelationshipsTab

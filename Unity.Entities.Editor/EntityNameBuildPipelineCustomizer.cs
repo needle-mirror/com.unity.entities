@@ -1,3 +1,4 @@
+#if USING_PLATFORMS_PACKAGE
 using System;
 using Unity.Build;
 using Unity.Build.Classic;
@@ -28,4 +29,4 @@ namespace Unity.Entities.Editor
         }
     }
 }
-
+#endif

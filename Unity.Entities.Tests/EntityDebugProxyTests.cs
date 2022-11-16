@@ -162,15 +162,20 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(new Entity_(World, entityEnabled, false).ToString(), matchingEntities[0].ToString());
             Assert.AreEqual(new Entity_(World, enabledEnabled2, false).ToString(), matchingEntities[1].ToString());
 
-            matchingEntities = new EntityQueryDebugView(m_Manager.UniversalQuery).MatchingEntities;
+            var debugView = new EntityQueryDebugView(m_Manager.UniversalQuery);
+            matchingEntities = debugView.MatchingEntities;
             Assert.AreEqual(3, matchingEntities.Length);
             Assert.AreEqual(new Entity_(World, entityDisabled, false).ToString(), matchingEntities[0].ToString());
             Assert.AreEqual(new Entity_(World, entityEnabled, false).ToString(), matchingEntities[1].ToString());
             Assert.AreEqual(new Entity_(World, enabledEnabled2, false).ToString(), matchingEntities[2].ToString());
 
             query.Dispose();
+            
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            // This code relies on Atomic Safety Handles for detecting disposal
             Assert.AreEqual(null, debug.MatchingEntities);
             Assert.AreEqual(null, debug.MatchingChunks);
+#endif
         }
 
 

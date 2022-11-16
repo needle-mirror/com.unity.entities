@@ -21,7 +21,7 @@ namespace Unity.Entities.PerformanceTests
                 in v128 chunkEnabledMask)
             {
                 var components = (EcsTestDataEnableable*)chunk.GetComponentDataPtrRW(ref TestDataHandleRW);
-                var enumerator = new ChunkEntityEnumerator(useEnabledMask,chunkEnabledMask,chunk.ChunkEntityCount);
+                var enumerator = new ChunkEntityEnumerator(useEnabledMask,chunkEnabledMask,chunk.Count);
                 while(enumerator.NextEntityIndex(out var i))
                 {
                     components[i].value++;
@@ -39,7 +39,7 @@ namespace Unity.Entities.PerformanceTests
             {
                 Assert.IsFalse(useEnabledMask);
                 var components = (EcsTestDataEnableable*)chunk.GetComponentDataPtrRW(ref TestDataHandleRW);
-                int chunkEntityCount = chunk.ChunkEntityCount;
+                int chunkEntityCount = chunk.Count;
                 for(int i=0; i<chunkEntityCount; ++i)
                 {
                     components[i].value++;

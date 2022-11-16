@@ -1,20 +1,17 @@
+using JetBrains.Annotations;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Entities.Serialization;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
-using Unity.Mathematics;
-using UnityEngine.Profiling;
-using UnityEngine.Scripting;
-using JetBrains.Annotations;
 using Unity.Profiling;
+using UnityEngine.Scripting;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.Tiny.Core")]
@@ -49,6 +46,7 @@ namespace Unity.Entities
     [DebuggerTypeProxy(typeof(EntityManagerDebugView))]
     [DebuggerDisplay("{Debugger_GetName}")]
     [GenerateTestsForBurstCompatibility]
+    [BurstCompile]
     public unsafe partial struct EntityManager : IEquatable<EntityManager>
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -75,9 +73,9 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (IsInExclusiveTransaction == !m_EntityDataAccess->IsInExclusiveTransaction)
             {
-
                 if (IsInExclusiveTransaction)
                     throw new InvalidOperationException("EntityManager cannot be used from this context because it is part of an exclusive transaction that has already ended.");
+
                 throw new InvalidOperationException("EntityManager cannot be used from this context because it is not part of the exclusive transaction that is currently active.");
             }
 #endif
@@ -155,7 +153,7 @@ namespace Unity.Entities
         /// </summary>
         public int EntityOrderVersion => GetCheckedEntityDataAccess()->EntityComponentStore->EntityOrderVersion;
 
-        /// <inheritdoc cref="EntityOrderVersion"/>
+        /// <summary> Obsolete. Use <see cref="EntityOrderVersion"/> instead.</summary>
         [Obsolete("EntityManager.Version has been deprecated. Use EntityOrderVersion instead (UnityUpgradable) -> EntityOrderVersion")]
         public int Version => GetCheckedEntityDataAccess()->EntityComponentStore->EntityOrderVersion;
 
@@ -167,7 +165,7 @@ namespace Unity.Entities
         /// The ECS framework uses the GlobalSystemVersion to track changes in a conservative, efficient fashion.
         /// Changes are recorded per component per chunk.
         /// </remarks>
-        /// <seealso cref="ArchetypeChunk.DidChange{T}(ComponentTypeHandle{T},uint)"/>
+        /// <seealso cref="ArchetypeChunk.DidChange{T}(ref ComponentTypeHandle{T},uint)"/>
         /// <seealso cref="EntityQueryFilter.ChangedFilter"/>
         public uint GlobalSystemVersion => GetCheckedEntityDataAccess()->EntityComponentStore->GlobalSystemVersion;
 
@@ -507,6 +505,12 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// <typeparam name="T">The type of the managed object.</typeparam>
         /// <returns>The managed object, cast to type T.</returns>
+        /// <remarks>
+        /// Accessing data in a managed object forfeits many opportunities for increased performance. Using
+        /// managed objects should be avoided or used sparingly.
+        /// 
+        /// The method also works for adding managed objects implementing `IComponentData`, but `GetComponentData` is the preferred method for those objects.
+        /// </remarks>
         [ExcludeFromBurstCompatTesting("Returns managed object")]
         public T GetComponentObject<T>(Entity entity)
         {
@@ -522,6 +526,12 @@ namespace Unity.Entities
         /// <param name="componentType">The type of the managed object.</param>
         /// <typeparam name="T">The return type of the managed object.</typeparam>
         /// <returns>The managed object, cast to type T.</returns>
+        /// <remarks>
+        /// Accessing data in a managed object forfeits many opportunities for increased performance. Using
+        /// managed objects should be avoided or used sparingly.
+        /// 
+        /// The method also works for adding managed objects implementing `IComponentData`, but `GetComponentData` is the preferred method for those objects.
+        /// </remarks>
         [ExcludeFromBurstCompatTesting("Returns managed object")]
         public T GetComponentObject<T>(Entity entity, ComponentType componentType)
         {
@@ -536,6 +546,12 @@ namespace Unity.Entities
         /// <param name="system">The system handle.</param>
         /// <typeparam name="T">The type of the managed object.</typeparam>
         /// <returns>The managed object, cast to type T.</returns>
+        /// <remarks>
+        /// Accessing data in a managed object forfeits many opportunities for increased performance. Using
+        /// managed objects should be avoided or used sparingly.
+        /// 
+        /// The method also works for adding managed objects implementing `IComponentData`, but `GetComponentData` is the preferred method for those objects.
+        /// </remarks>
         [ExcludeFromBurstCompatTesting("Returns managed object")]
         public T GetComponentObject<T>(SystemHandle system)
         {
@@ -551,6 +567,12 @@ namespace Unity.Entities
         /// <param name="componentType">The type of the managed object.</param>
         /// <typeparam name="T">The return type of the managed object.</typeparam>
         /// <returns>The managed object, cast to type T.</returns>
+        /// <remarks>
+        /// Accessing data in a managed object forfeits many opportunities for increased performance. Using
+        /// managed objects should be avoided or used sparingly.
+        /// 
+        /// The method also works for adding managed objects implementing `IComponentData`, but `GetComponentData` is the preferred method for those objects.
+        /// </remarks>
         [ExcludeFromBurstCompatTesting("Returns managed object")]
         public T GetComponentObject<T>(SystemHandle system, ComponentType componentType)
         {
@@ -571,7 +593,10 @@ namespace Unity.Entities
             return access->GetSharedComponentCount();
         }
 
-        /// <inheritdoc cref="SetSharedComponentManaged{T}(Unity.Entities.Entity,T)"/>
+        /// <summary> Obsolete. Use <see cref="SetSharedComponentManaged{T}(Unity.Entities.Entity,T)"/> instead.</summary>
+        /// <param name="entity">The entity</param>
+        /// <param name="componentData">A shared component object containing the values to set.</param>
+        /// <typeparam name="T">The shared component type.</typeparam>
         [Obsolete("Use SetSharedComponentManaged<T> (UnityUpgradable) -> SetSharedComponentManaged<T>(*)", true)]
         public void SetSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
@@ -585,10 +610,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before setting the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entity">The entity</param>
         /// <param name="componentData">A shared component object containing the values to set.</param>
@@ -621,10 +646,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before setting the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entities">The target entities</param>
         /// <param name="componentData">A shared component object containing the values to set.</param>
@@ -655,10 +680,10 @@ namespace Unity.Entities
         /// <remarks>
         /// The component data stays in the same chunk, the internal shared component data indices will be adjusted.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before setting the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="query">The query where matching entities will be assigned the shared component to.</param>
         /// <param name="componentData">A shared component object containing the values to set.</param>
@@ -720,7 +745,7 @@ namespace Unity.Entities
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                if (Burst.CompilerServices.Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
+                if (Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
                 {
                     var typeIndex = type.TypeIndex;
                     access->JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
@@ -729,7 +754,10 @@ namespace Unity.Entities
 #endif
             }
         }
-        /// <inheritdoc cref="SetSharedComponentManaged{T}(Unity.Entities.Entity,T)"/>
+        /// <summary> Obsolete. Use <see cref="SetSharedComponentManaged{T}(Unity.Entities.Entity,T)"/> instead.</summary>
+        /// <param name="query">The query where matching entities will be assigned the shared component to.</param>
+        /// <param name="componentData">A shared component object containing the values to set.</param>
+        /// <typeparam name="T">The shared component type.</typeparam>
         [Obsolete("Use SetSharedComponentManaged<T> (UnityUpgradable) -> SetSharedComponentManaged<T>(*)", true)]
         public void SetSharedComponentData<T>(EntityQuery query, T componentData) where T : struct, ISharedComponentData
         {}
@@ -739,10 +767,10 @@ namespace Unity.Entities
         /// <remarks>
         /// The component data stays in the same chunk, the internal shared component data indices will be adjusted.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before setting the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="query">The query where matching entities will be assigned the shared component to.</param>
         /// <param name="componentData">A shared component object containing the values to set.</param>
@@ -807,7 +835,7 @@ namespace Unity.Entities
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                if (Burst.CompilerServices.Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
+                if (Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
                 {
                     var typeIndex = type.TypeIndex;
                     access->JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
@@ -830,7 +858,10 @@ namespace Unity.Entities
             return access->GetSharedComponentData_Unmanaged<T>(entity);
         }
 
-        /// <inheritdoc cref="GetSharedComponent{T}(Unity.Entities.Entity)"/>
+        /// <summary> Obsolete. Use <see cref="GetSharedComponent{T}(Unity.Entities.Entity)"/> instead.</summary>
+        /// <param name="entity">The target entity</param>
+        /// <typeparam name="T">The type of the unmanaged shared component to look up on the target entity</typeparam>
+        /// <returns>The index of the target entity's value for the shared component of type <typeparamref name="T"/>.</returns>
         [Obsolete("Use GetSharedComponent<T> (UnityUpgradable) -> GetSharedComponent<T>(*)", true)]
         public T GetUnmanagedSharedComponentData<T>(Entity entity) where T : unmanaged, ISharedComponentData
         {
@@ -853,7 +884,10 @@ namespace Unity.Entities
             return ecs->GetSharedComponentDataIndex(entity, typeIndex);
         }
 
-        /// <inheritdoc cref="GetSharedComponentIndex{T}"/>
+        /// <summary> Obsolete. Use <see cref="GetSharedComponentIndex{T}"/> instead.</summary>
+        /// <param name="entity">The target entity</param>
+        /// <typeparam name="T">The type of the unmanaged shared component to look up on the target entity</typeparam>
+        /// <returns>The index of the target entity's value for the shared component of type <typeparamref name="T"/>.</returns>
         [Obsolete("Use GetSharedComponentIndex<T> (UnityUpgradable) -> GetSharedComponentIndex<T>(*)", true)]
         public int GetUnmanagedSharedComponentDataIndex<T>(Entity entity) where T : unmanaged, ISharedComponentData
         {
@@ -881,14 +915,21 @@ namespace Unity.Entities
             return access->GetSharedComponentData_Unmanaged<T>(sharedComponentIndex);
         }
 
-        /// <inheritdoc cref="GetSharedComponent{T}(int)"/>
+        /// <summary> Obsolete. Use <see cref="GetSharedComponent{T}(int)"/> instead.</summary>
+        /// <param name="sharedComponentIndex">The index of the shared component in the internal shared component
+        /// list.</param>
+        /// <typeparam name="T">The data type of the shared component.</typeparam>
+        /// <returns>A copy of the shared component.</returns>
         [Obsolete("Use GetSharedComponent<T> (UnityUpgradable) -> GetSharedComponent<T>(*)", true)]
         public T GetUnmanagedSharedComponentData<T>(int sharedComponentIndex) where T : unmanaged, ISharedComponentData
         {
             return default;
         }
 
-        /// <inheritdoc cref="SetSharedComponent{T}(Entity,T)"/>
+        /// <summary> Obsolete. Use <see cref="SetSharedComponent{T}(Entity,T)"/> instead.</summary>
+        /// <param name="entity">The entity</param>
+        /// <param name="componentData">An unmanaged shared component object containing the values to set.</param>
+        /// <typeparam name="T">The shared component type.</typeparam>
         [Obsolete("Use SetSharedComponent<T> (UnityUpgradable) -> SetSharedComponent<T>(*)", true)]
         public void SetUnmanagedSharedComponentData<T>(Entity entity, T componentData)
             where T : unmanaged, ISharedComponentData
@@ -903,10 +944,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before setting the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entity">The entity</param>
         /// <param name="componentData">An unmanaged shared component object containing the values to set.</param>
@@ -932,10 +973,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before setting the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entities">The target entities</param>
         /// <param name="componentData">An unmanaged shared component object containing the values to set.</param>
@@ -964,7 +1005,10 @@ namespace Unity.Entities
             access->EndStructuralChanges(ref changes);
         }
 
-        /// <inheritdoc cref="GetSharedComponentManaged{T}(Unity.Entities.Entity)"/>
+        /// <summary> Obsolete. Use <see cref="GetSharedComponentManaged{T}(Unity.Entities.Entity)"/> instead.</summary>
+        /// <param name="entity">The entity.</param>
+        /// <typeparam name="T">The type of shared component.</typeparam>
+        /// <returns>A copy of the shared component.</returns>
         [Obsolete("Use GetSharedComponentManaged<T> (UnityUpgradable) -> GetSharedComponentManaged<T>(*)", true)]
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
         {
@@ -1000,7 +1044,11 @@ namespace Unity.Entities
             return ecs->GetSharedComponentDataIndex(entity, typeIndex);
         }
 
-        /// <inheritdoc cref="GetSharedComponentManaged{T}(int)"/>
+        /// <summary> Obsolete. Use <see cref="GetSharedComponentManaged{T}(int)"/> instead.</summary>
+        /// <param name="sharedComponentIndex">The index of the shared component in the internal shared component
+        /// list.</param>
+        /// <typeparam name="T">The data type of the shared component.</typeparam>
+        /// <returns>A copy of the shared component.</returns>
         [Obsolete("Use GetSharedComponentManaged<T> (UnityUpgradable) -> GetSharedComponentManaged<T>(*)", true)]
         public T GetSharedComponentData<T>(int sharedComponentIndex) where T : struct, ISharedComponentData
         {
@@ -1051,7 +1099,10 @@ namespace Unity.Entities
             return access->GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
         }
 
-        /// <inheritdoc cref="GetAllUniqueSharedComponentsManaged{T}(System.Collections.Generic.List{T})"/>
+        /// <summary> Obsolete. Use <see cref="GetAllUniqueSharedComponentsManaged{T}(System.Collections.Generic.List{T})"/> instead.</summary>
+        /// <param name="sharedComponentValues">A List&lt;T&gt; object to receive the unique instances of the
+        /// shared component of type T.</param>
+        /// <typeparam name="T">The type of shared component.</typeparam>
         [Obsolete("Use GetAllUniqueSharedComponentsManaged<T> (UnityUpgradable) -> GetAllUniqueSharedComponentsManaged<T>(*)", true)]
         public void GetAllUniqueSharedComponentData<T>(List<T> sharedComponentValues) where T : struct, ISharedComponentData
         {}
@@ -1064,6 +1115,8 @@ namespace Unity.Entities
         /// All entities with the same archetype and the same values for a shared component are stored in the same set
         /// of chunks. This function finds the unique shared components existing across chunks and archetype and
         /// fills a list with copies of those components.
+        /// Note that the first element of the output list will always be the default value for <typeparamref name="T"/>,
+        /// even if no entities or chunks currently use that value.
         /// </remarks>
         /// <param name="sharedComponentValues">A List&lt;T&gt; object to receive the unique instances of the
         /// shared component of type T.</param>
@@ -1076,7 +1129,12 @@ namespace Unity.Entities
             access->GetAllUniqueSharedComponents(sharedComponentValues);
         }
 
-        /// <inheritdoc cref="GetAllUniqueSharedComponentsManaged{T}(List{T},List{int})"/>
+        /// <summary> Obsolete. Use <see cref="GetAllUniqueSharedComponentsManaged{T}(List{T},List{int})"/> instead.</summary>
+        /// <param name="sharedComponentValues">A List&lt;T&gt; object to receive the unique instances of the
+        /// shared component of type T.</param>
+        /// <param name="sharedComponentIndices">A List&lt;int&gt; object to receive the unique instances of the
+        /// shared components' indices.</param>
+        /// <typeparam name="T">The type of shared component.</typeparam>
         [Obsolete(
             "Use GetAllUniqueSharedComponentsManaged<T> (UnityUpgradable) -> GetAllUniqueSharedComponentsManaged<T>(*)",
             true)]
@@ -1100,7 +1158,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="sharedComponentValues">A List&lt;T&gt; object to receive the unique instances of the
         /// shared component of type T.</param>
-        /// <param name="sharedComponentIndices">A List&lt;int&gt; object to receive the unique instances of the 
+        /// <param name="sharedComponentIndices">A List&lt;int&gt; object to receive the unique instances of the
         /// shared components' indices.</param>
         /// <typeparam name="T">The type of shared component.</typeparam>
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
@@ -1111,7 +1169,14 @@ namespace Unity.Entities
             access->GetAllUniqueSharedComponents(sharedComponentValues, sharedComponentIndices);
         }
 
-        /// <inheritdoc cref="GetAllUniqueSharedComponentsManaged{T}(List{T},List{int},List{int})"/>
+        /// <summary> Obsolete. Use <see cref="GetAllUniqueSharedComponentsManaged{T}(List{T},List{int},List{int})"/> instead.</summary>
+        /// <param name="sharedComponentValues">A List&lt;T&gt; object to receive the unique instances of the
+        /// shared component of type T.</param>
+        /// <param name="sharedComponentIndices">A List&lt;int&gt; object to receive the unique instances of the
+        /// shared components' indices.</param>
+        /// <param name="sharedComponentVersions">A List&lt;int&gt; object to receive the unique instances of the
+        /// shared components' versions.</param>
+        /// <typeparam name="T">The type of shared component.</typeparam>
         [Obsolete(
             "Use GetAllUniqueSharedComponentsManaged<T> (UnityUpgradable) -> GetAllUniqueSharedComponentsManaged<T>(*)",
             true)]
@@ -1140,9 +1205,9 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="sharedComponentValues">A List&lt;T&gt; object to receive the unique instances of the
         /// shared component of type T.</param>
-        /// <param name="sharedComponentIndices">A List&lt;int&gt; object to receive the unique instances of the 
+        /// <param name="sharedComponentIndices">A List&lt;int&gt; object to receive the unique instances of the
         /// shared components' indices.</param>
-        /// <param name="sharedComponentVersions">A List&lt;int&gt; object to receive the unique instances of the 
+        /// <param name="sharedComponentVersions">A List&lt;int&gt; object to receive the unique instances of the
         /// shared components' versions.</param>
         /// <typeparam name="T">The type of shared component.</typeparam>
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
@@ -1160,6 +1225,8 @@ namespace Unity.Entities
         /// All entities with the same archetype and the same values for a shared component are stored in the same set
         /// of chunks. This function finds the unique shared components existing across chunks and archetype and
         /// fills a list with copies of those components.
+        /// Note that the first element of the output list will always be the default value for <typeparamref name="T"/>,
+        /// even if no entities or chunks currently use that value.
         /// </remarks>
         /// <param name="sharedComponentValues">A List&lt;T&gt; object to receive the unique instances of the
         /// shared component of type T.</param>
@@ -1173,7 +1240,11 @@ namespace Unity.Entities
             access->GetAllUniqueSharedComponents_Unmanaged<T>(out *sharedComponentValues.m_ListData, allocator);
         }
 
-        /// <inheritdoc cref="AddSharedComponent{T}(Unity.Entities.Entity,T)"/>
+        /// <summary> Obsolete. Use <see cref="AddSharedComponent{T}(Unity.Entities.Entity,T)"/> instead.</summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="componentData">The shared component value to set.</param>
+        /// <typeparam name="T">The shared component type.</typeparam>
+        /// <returns>Returns false if the entity already has the shared component. The shared component value is set either way.</returns>
         [Obsolete("Use AddSharedComponent<T> (UnityUpgradable) -> AddSharedComponent<T>(*)", true)]
         public bool AddUnmanagedSharedComponentData<T>(Entity entity, T componentData)
             where T : unmanaged, ISharedComponentData
@@ -1191,10 +1262,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <returns>Returns false if the entity already has the shared component. The shared component value is set either way.</returns>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
@@ -1234,10 +1305,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">An element of <paramref name="entities"/> is invalid or does not exist.</exception>
         /// <param name="entities">The array of entities.</param>
@@ -1381,10 +1452,10 @@ namespace Unity.Entities
         /// The entities must have the same components. However, this function can swap the components of entities in
         /// different worlds, so they do not need to have identical archetype instances.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before swapping the components and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before swapping the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="leftChunk">A chunk containing one of the entities to swap.</param>
         /// <param name="leftIndex">The index within the `leftChunk` of the entity and components to swap. Must be in
@@ -1440,10 +1511,10 @@ namespace Unity.Entities
         /// If the <see cref="Entity"/> object refers to an entity that already has the specified <see cref="ComponentType"/>,
         /// the function returns false without performing any modifications.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The Entity.</param>
@@ -1474,10 +1545,10 @@ namespace Unity.Entities
         /// If the <see cref="Entity"/> object refers to an entity that already has the specified <see cref="ComponentType"/>,
         /// the function returns false without performing any modifications.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="system">The system handle.</param>
@@ -1504,10 +1575,10 @@ namespace Unity.Entities
         /// If the <see cref="Entity"/> object refers to an entity that already has the specified <see cref="ComponentType"/>,
         /// the function returns false without performing any modifications.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before addting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The Entity.</param>
@@ -1535,10 +1606,10 @@ namespace Unity.Entities
         /// If the <see cref="Entity"/> object refers to an entity that already has the specified <see cref="ComponentType"/>,
         /// the function returns false without performing any modifications.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before addting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="system">The system handle.</param>
@@ -1642,10 +1713,10 @@ namespace Unity.Entities
         ///
         /// The added components have the default values for the type.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before addting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entityQuery">The EntityQuery defining the entities to modify.</param>
         /// <param name="componentType">The type of component to add.</param>
@@ -1680,14 +1751,14 @@ namespace Unity.Entities
         /// Adds components to a set of entities defined by a EntityQuery.
         /// </summary>
         /// <remarks>
-        /// You can use this method to add a [component](https://docs.unity3d.com/ScriptReference/Unity.Collections.Allocator.html) to an Entity.
+        /// You can use this method to add a component to an Entity.
         ///
         /// The added components have the default values for the type.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before addting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entityQuery">The EntityQuery defining the entities to modify.</param>
         /// <param name="componentTypeSet">The type of components to add.</param>
@@ -1774,10 +1845,10 @@ namespace Unity.Entities
         ///
         /// The added components have the default values for the type.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entityQuery">The EntityQuery defining the entities to modify.</param>
         /// <typeparam name="T">The type of component to add.</typeparam>
@@ -1799,10 +1870,10 @@ namespace Unity.Entities
         ///
         /// The added components have the default values for the type.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating these chunks and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the chunk. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The `entities` array refers to an entity that does not exist.</exception>
         /// <param name="entities">An array of Entity objects.</param>
@@ -1822,7 +1893,7 @@ namespace Unity.Entities
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             // Have to record here because method is not using EntityDataAccess
-            if (Burst.CompilerServices.Hint.Unlikely(ecs->m_RecordToJournal != 0))
+            if (Hint.Unlikely(ecs->m_RecordToJournal != 0))
                 access->JournalAddRecord_AddComponent(default, in entities, &componentType.TypeIndex, 1);
 #endif
 
@@ -1866,14 +1937,14 @@ namespace Unity.Entities
         /// Adds components to a specified collection of entities.
         /// </summary>
         /// <remarks>
-        /// You can use this method to add a [component](https://docs.unity3d.com/ScriptReference/Unity.Collections.Allocator.html) to an Entity.
+        /// You can use this method to add a component to an Entity.
         ///
         /// The added components have the default values for the type.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entities">The collection of entities to modify.</param>
         /// <param name="componentTypeSet">The type of components to add.</param>
@@ -1893,7 +1964,7 @@ namespace Unity.Entities
         /// Removes multiple components from a specified colleciton of entities.
         /// </summary>
         /// <remarks>
-        /// You can use this method to remove a [component](https://docs.unity3d.com/ScriptReference/Unity.Collections.Allocator.html) from an Entity
+        /// You can use this method to remove a component from an Entity
         ///
         /// It's OK if some or all of the components to remove are already missing from the entity.
         ///
@@ -1902,10 +1973,10 @@ namespace Unity.Entities
         ///
         /// If any of the types are a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose() on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entities">The collection of entities to modify.</param>
@@ -1934,10 +2005,10 @@ namespace Unity.Entities
         ///
         /// If componentType is a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose() on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating these chunks and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the chunk. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The `entities` array refers to an entity that does not exist.</exception>
         /// <param name="entities">An array of Entity objects.</param>
@@ -1967,10 +2038,10 @@ namespace Unity.Entities
         ///
         /// The added components have the default values for the type.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating these chunks and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The `entities` array refers to an entity that does not exist.</exception>
         /// <param name="entities">An array of Entity objects.</param>
@@ -1986,7 +2057,7 @@ namespace Unity.Entities
         /// Adds a set of component to an entity associated with a system.
         /// </summary>
         /// <remarks>
-        /// You can use this method to add a [component](https://docs.unity3d.com/ScriptReference/Unity.Collections.Allocator.html) to an Entity.
+        /// You can use this method to add a component to an Entity.
         ///
         /// Adding components changes the entity's archetype and results in the entity being moved to a different
         /// chunk.
@@ -1996,10 +2067,10 @@ namespace Unity.Entities
         /// If the <see cref="Entity"/> object refers to an entity that has been destroyed, this function throws an ArgumentError
         /// exception.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding these components and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="system">The system handle.</param>
@@ -2015,7 +2086,7 @@ namespace Unity.Entities
         /// Adds a set of component to an entity.
         /// </summary>
         /// <remarks>
-        /// You can use this method to add a [component](https://docs.unity3d.com/ScriptReference/Unity.Collections.Allocator.html) to an Entity.
+        /// You can use this method to add a component to an Entity.
         ///
         /// Adding components changes the entity's archetype and results in the entity being moved to a different
         /// chunk.
@@ -2025,10 +2096,10 @@ namespace Unity.Entities
         /// If the <see cref="Entity"/> object refers to an entity that has been destroyed, this function throws an ArgumentError
         /// exception.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding these components and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity to modify.</param>
@@ -2046,7 +2117,7 @@ namespace Unity.Entities
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             // Have to record here because method is not using EntityDataAccess
-            if (Burst.CompilerServices.Hint.Unlikely(ecs->m_RecordToJournal != 0))
+            if (Hint.Unlikely(ecs->m_RecordToJournal != 0))
                 access->JournalAddRecord_AddComponent(default, &entity, 1, typeSet.Types, typeSet.Length);
 #endif
 
@@ -2072,7 +2143,9 @@ namespace Unity.Entities
         }
 
 
-        /// <inheritdoc cref="AddComponent(Entity,ComponentTypeSet)"/>
+        /// <summary> Obsolete. Use <see cref="AddComponent(Entity,ComponentTypeSet)"/> instead.</summary>
+        /// <param name="entity">The entity to modify.</param>
+        /// <param name="componentTypeSet">The types of components to add.</param>
         // We can't use (UnityUpgradable) reliably here, since the parameter type ComponentTypes is also being renamed
         // to ComponentTypeSet. So for now it's just a warning that wraps the new function.
         [Obsolete("AddComponents() has been renamed to AddComponent(). AddComponents() will be removed in a future package release.", false)]
@@ -2095,10 +2168,10 @@ namespace Unity.Entities
         ///
         /// If componentType is a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose() on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity to modify.</param>
@@ -2127,10 +2200,10 @@ namespace Unity.Entities
         ///
         /// If componentType is a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose() on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="system">The system handle.</param>
@@ -2150,7 +2223,7 @@ namespace Unity.Entities
         /// Removes multiple components from an entity.
         /// </summary>
         /// <remarks>
-        /// You can use this method to remove a [component](https://docs.unity3d.com/ScriptReference/Unity.Collections.Allocator.html) from an Entity
+        /// You can use this method to remove a component from an Entity
         ///
         /// It's OK if some or all of the components to remove are already missing from the entity.
         ///
@@ -2159,10 +2232,10 @@ namespace Unity.Entities
         ///
         /// If any of the types are a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose() on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity to modify.</param>
@@ -2175,7 +2248,7 @@ namespace Unity.Entities
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             // Have to record here because method is not using EntityDataAccess
-            if (Burst.CompilerServices.Hint.Unlikely(ecs->m_RecordToJournal != 0))
+            if (Hint.Unlikely(ecs->m_RecordToJournal != 0))
                 access->JournalAddRecord_RemoveComponent(default, &entity, 1, componentTypeSet.Types, componentTypeSet.Length);
 #endif
 
@@ -2213,10 +2286,10 @@ namespace Unity.Entities
         ///
         /// If componentType is a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose() on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entityQuery">The EntityQuery defining the entities to modify.</param>
         /// <param name="componentType">The type of component to remove.</param>
@@ -2250,7 +2323,7 @@ namespace Unity.Entities
         /// Removes a set of components from a set of entities defined by an EntityQuery.
         /// </summary>
         /// <remarks>
-        /// You can use this method to remove a [component](https://docs.unity3d.com/ScriptReference/Unity.Collections.Allocator.html) from an Entity
+        /// You can use this method to remove a component from an Entity
         ///
         /// It's OK if some or all of the components to remove are already missing from some or all of the entities.
         ///
@@ -2259,10 +2332,10 @@ namespace Unity.Entities
         ///
         /// If any of the types are a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose() on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entityQuery">The EntityQuery defining the entities to modify.</param>
         /// <param name="componentTypeSet">The types of components to add.</param>
@@ -2306,10 +2379,10 @@ namespace Unity.Entities
         ///
         /// If T is a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose() on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity.</param>
@@ -2335,10 +2408,10 @@ namespace Unity.Entities
         ///
         /// If T is a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose() on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="system">The system handle.</param>
@@ -2362,10 +2435,10 @@ namespace Unity.Entities
         /// Removing a component changes an entity's archetype and results in the entity being moved to a different
         /// chunk.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entityQuery">The EntityQuery defining the entities to modify.</param>
         /// <typeparam name="T">The type of component to remove.</typeparam>
@@ -2389,10 +2462,10 @@ namespace Unity.Entities
         ///
         /// If T is a managed component which implements <see cref="IDisposable"/>, this operation will invoke Dispose()  on the component value.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entities">An array identifying the entities to modify.</param>
         /// <typeparam name="T">The type of component to remove.</typeparam>
@@ -2414,10 +2487,10 @@ namespace Unity.Entities
         /// Adding a component changes an entity's archetype and results in the entity being moved to a different
         /// chunk.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity.</param>
@@ -2447,10 +2520,10 @@ namespace Unity.Entities
         /// Adding a component changes an entity's archetype and results in the entity being moved to a different
         /// chunk.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="system">The system handle.</param>
@@ -2477,10 +2550,10 @@ namespace Unity.Entities
         /// that entity's archetype and results in the entity being moved to a different chunk (that does not have the
         /// removed component).
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <returns>False if the entity did not have the component.</returns>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
@@ -2505,10 +2578,10 @@ namespace Unity.Entities
         /// instance through either the chunk itself or through an entity stored in that chunk. In either case, getting
         /// or setting the component reads or writes the same data.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <returns>False if the entity already had the chunk component. The chunk component's value is set regardless.</returns>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
@@ -2531,10 +2604,10 @@ namespace Unity.Entities
         /// A chunk component is common to all entities in a chunk. You can access a chunk <see cref="IComponentData"/>
         /// instance through either the chunk itself or through an entity stored in that chunk.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entityQuery">The EntityQuery identifying the chunks to modify.</param>
         /// <param name="componentData">The data to set.</param>
@@ -2565,7 +2638,7 @@ namespace Unity.Entities
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
                     // Have to record here because method is not using EntityDataAccess
-                    if (Burst.CompilerServices.Hint.Unlikely(ecs->m_RecordToJournal != 0))
+                    if (Hint.Unlikely(ecs->m_RecordToJournal != 0))
                         access->JournalAddRecord_AddComponent(default, chunkPtr, chunks.Length, &componentTypeIndexForAdd, 1);
 #endif
 
@@ -2591,10 +2664,10 @@ namespace Unity.Entities
         /// A chunk component is common to all entities in a chunk. You can access a chunk <see cref="IComponentData"/>
         /// instance through either the chunk itself or through an entity stored in that chunk.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before removing the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before removing the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entityQuery">The EntityQuery identifying the chunks to modify.</param>
         /// <typeparam name="T">The type of component to remove.</typeparam>
@@ -2619,10 +2692,10 @@ namespace Unity.Entities
         /// (You can add a buffer component with the regular AddComponent methods, but unlike those methods, this
         /// method conveniently also returns the new buffer.)
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the buffer and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity.</param>
@@ -2650,10 +2723,10 @@ namespace Unity.Entities
         ///
         /// The method also works for adding managed objects implementing `IComponentData`, but `AddComponentData` is the preferred method for those objects.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the object and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the object. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entity">The entity to modify.</param>
         /// <param name="componentData">An object inheriting UnityEngine.Component.</param>
@@ -2687,10 +2760,10 @@ namespace Unity.Entities
         ///
         /// The method also works for adding managed objects implementing `IComponentData`, but `AddComponentData` is the preferred method for those objects.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the object and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the object. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="system">The system handle with the system entity to modify.</param>
         /// <param name="componentData">An object inheriting UnityEngine.Component.</param>
@@ -2711,7 +2784,11 @@ namespace Unity.Entities
             SetComponentObject(system.m_Entity, type, componentData);
         }
 
-        /// <inheritdoc cref="AddSharedComponentManaged{T}(Unity.Entities.Entity,T)"/>
+        /// <summary> Obsolete. Use <see cref="AddSharedComponentManaged{T}(Unity.Entities.Entity,T)"/> instead.</summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="componentData">The shared component value to set.</param>
+        /// <typeparam name="T">The shared component type.</typeparam>
+        /// <returns>Returns false if the entity already has the shared component. The shared component value is set either way.</returns>
         [Obsolete("Use AddSharedComponentManaged (UnityUpgradable) -> AddSharedComponentManaged<T>(*)", true)]
         public bool AddSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
@@ -2729,10 +2806,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <returns>Returns false if the entity already has the shared component. The shared component value is set either way.</returns>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
@@ -2770,10 +2847,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">A target <see cref="Entity"/> does not exist.</exception>
         /// <param name="entities">The target entities</param>
@@ -2808,10 +2885,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entityQuery">The EntityQuery defining a set of entities to modify.</param>
@@ -2877,7 +2954,7 @@ namespace Unity.Entities
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    if (Burst.CompilerServices.Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
+                    if (Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
                     {
                         var typeIndex = componentType.TypeIndex;
                         access->JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
@@ -2888,7 +2965,10 @@ namespace Unity.Entities
             }
         }
 
-        /// <inheritdoc cref="AddSharedComponentManaged{T}(Unity.Entities.Entity,T)"/>
+        /// <summary> Obsolete. Use <see cref="AddSharedComponentManaged{T}(Unity.Entities.Entity,T)"/> instead.</summary>
+        /// <param name="entityQuery">The EntityQuery defining a set of entities to modify.</param>
+        /// <param name="componentData">The data to set.</param>
+        /// <typeparam name="T">The data type of the shared component.</typeparam>
         [Obsolete("Use AddSharedComponentManaged (UnityUpgradable) -> AddSharedComponentManaged<T>(*)")]
         public void AddSharedComponentData<T>(EntityQuery entityQuery, T componentData) where T : struct, ISharedComponentData {}
 
@@ -2902,10 +2982,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entityQuery">The EntityQuery defining a set of entities to modify.</param>
@@ -2973,7 +3053,7 @@ namespace Unity.Entities
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    if (Burst.CompilerServices.Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
+                    if (Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
                     {
                         var typeIndex = componentType.TypeIndex;
                         access->JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
@@ -2996,10 +3076,10 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity whose archetype to change.</param>
@@ -3068,7 +3148,9 @@ namespace Unity.Entities
         {
             return GetCheckedEntityDataAccess()->IsEnabled(entity);
         }
-        /// <inheritdoc cref="IsEnabled(Entity)"/>
+        /// <summary> Obsolete. Use <see cref="IsEnabled(Entity)"/> instead.</summary>
+        /// <param name="entity">The entity to check</param>
+        /// <returns>True if the target entity does not have <see cref="Disabled"/> tag component, or false if it does.</returns>
         [Obsolete("This function has been renamed to IsEnabled().  (RemovedAfter Entities 1.0) (UnityUpgradable) -> IsEnabled(*)", false)]
         public bool GetEnabled(Entity entity)
         {
@@ -3088,9 +3170,9 @@ namespace Unity.Entities
         /// <seealso cref="SetComponentEnabled{T}(Entity,bool)"/>
         /// <seealso cref="ComponentLookup{T}.IsComponentEnabled(Entity)"/>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
-        public bool IsComponentEnabled<T>(Entity entity) where T:
+        public bool IsComponentEnabled<T>(Entity entity) where T :
 #if UNITY_DISABLE_MANAGED_COMPONENTS
-            struct,
+            unmanaged,
 #endif
             IEnableableComponent
         {
@@ -3100,6 +3182,45 @@ namespace Unity.Entities
                 access->DependencyManager->CompleteWriteDependency(typeIndex);
             return access->IsComponentEnabled(entity, typeIndex);
         }
+
+        /// <summary>
+        /// Checks whether a given <see cref="ComponentType"/> is enabled on the specified system using <see cref="SystemHandle"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="SystemHandle"/> does not exist.</exception>
+        /// <typeparam name="T">The component type whose enabled status should be checked. This type must implement the
+        /// <see cref="IEnableableComponent"/> interface.</typeparam>
+        /// <param name="systemHandle">The system whose component should be checked.</param>
+        /// <returns>True if the specified component is enabled, or false if it is disabled.</returns>
+        /// <seealso cref="SetComponentEnabled{T}(SystemHandle,bool)"/>
+        /// <seealso cref="ComponentLookup{T}.IsComponentEnabled(SystemHandle)"/>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
+        public bool IsComponentEnabled<T>(SystemHandle systemHandle) where T :
+#if UNITY_DISABLE_MANAGED_COMPONENTS
+            unmanaged,
+#endif
+            IEnableableComponent => IsComponentEnabled<T>(systemHandle.m_Entity);
+
+        /// <summary>
+        /// Enable or disable a <see cref="ComponentType"/> on the specified <see cref="SystemHandle"/>.
+        /// </summary>
+        /// <remarks>
+        /// This operation does not cause a structural change, and does not affect the current value of the component.
+        /// To enable/disable components from a job, use <see cref="ComponentLookup{T}.SetComponentEnabled(SystemHandle,bool)"/>.
+        /// </remarks>
+        /// <exception cref="ArgumentException">The <see cref="SystemHandle"/> does not exist.</exception>
+        /// <typeparam name="T">The component type to enable or disable. This type must implement the
+        /// <see cref="IEnableableComponent"/> interface.</typeparam>
+        /// <param name="systemHandle">The system whose component should be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        /// <seealso cref="IsComponentEnabled{T}(SystemHandle)"/>
+        /// <seealso cref="ComponentLookup{T}.SetComponentEnabled(SystemHandle,bool)"/>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
+        public void SetComponentEnabled<T>(SystemHandle systemHandle, bool value) where T :
+#if UNITY_DISABLE_MANAGED_COMPONENTS
+            unmanaged,
+#endif
+            IEnableableComponent => SetComponentEnabled<T>(systemHandle.m_Entity, value);
+
         /// <summary>
         /// Checks whether a given <see cref="ComponentType"/> is enabled on the specified <see cref="Entity"/>.
         /// </summary>
@@ -3142,7 +3263,7 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
         public void SetComponentEnabled<T>(Entity entity, bool value) where T:
 #if UNITY_DISABLE_MANAGED_COMPONENTS
-            struct,
+            unmanaged,
 #endif
             IEnableableComponent
         {
@@ -3187,10 +3308,10 @@ namespace Unity.Entities
         /// The EntityManager creates the entity in the first available chunk with the matching archetype that has
         /// enough space.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="archetype">The archetype for the new entity.</param>
         /// <returns>The Entity object that you can use to access the entity.</returns>
@@ -3212,10 +3333,10 @@ namespace Unity.Entities
         /// The EntityManager creates the entity in the first available chunk with the matching archetype that has
         /// enough space.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="types">The types of components to add to the new entity.</param>
         /// <returns>The Entity object that you can use to access the entity.</returns>
@@ -3232,10 +3353,10 @@ namespace Unity.Entities
         /// <remarks>
         /// The EntityManager creates the entity in the first available chunk with the archetype having no components.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <returns>The Entity object that you can use to access the entity.</returns>
         [StructuralChangeMethod]
@@ -3306,6 +3427,16 @@ namespace Unity.Entities
         public void CreateEntity(EntityArchetype archetype, int entityCount)
         {
             var access = GetCheckedEntityDataAccess();
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            // When entities journaling recording is enabled, we make a temp array to record the entities created
+            if (Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
+            {
+                using var entities = CreateEntity(archetype, entityCount, Allocator.Temp);
+                return;
+            }
+#endif
+
             access->PrepareForAdditiveStructuralChanges(archetype.Archetype);
             var changes = access->BeginAdditiveStructuralChanges();
             access->CreateEntityDuringStructuralChange(archetype, null, entityCount);
@@ -3369,10 +3500,10 @@ namespace Unity.Entities
         /// Destroys all entities in an array.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before destroying the entity and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before destroying the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entities">An array containing the Entity objects of the entities to destroy.</param>
         [StructuralChangeMethod]
@@ -3385,10 +3516,10 @@ namespace Unity.Entities
         /// Destroys all entities in a slice of an array.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before destroying the entity and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before destroying the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entities">The slice of an array containing the Entity objects of the entities to destroy.</param>
         [StructuralChangeMethod]
@@ -3401,10 +3532,10 @@ namespace Unity.Entities
         /// Destroys an entity.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before destroying the entity and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before destroying the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="entity">The Entity object of the entity to destroy.</param>
         [StructuralChangeMethod]
@@ -3423,10 +3554,10 @@ namespace Unity.Entities
         /// If the source entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component,
         /// the entire group is cloned as a new set of entities. Entity references on components that are being cloned to entities inside
         /// the set are remapped to the instantiated entities.
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="srcEntity">The entity to clone.</param>
         /// <returns>The Entity object for the new entity.</returns>
@@ -3452,10 +3583,10 @@ namespace Unity.Entities
         /// If the source entity has a <see cref="LinkedEntityGroup"/> component, the entire group is cloned as a new
         /// set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating these entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="srcEntity">The entity to clone.</param>
         /// <param name="outputEntities">An array to receive the Entity objects of the root entity in each clone.
@@ -3480,10 +3611,10 @@ namespace Unity.Entities
         /// If the source entity has a <see cref="LinkedEntityGroup"/> component, the entire group is cloned as a new
         /// set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating these entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="srcEntity">The entity to clone.</param>
         /// <param name="instanceCount">The number of entities to instantiate with the same components as the source entity.</param>
@@ -3514,10 +3645,10 @@ namespace Unity.Entities
         /// This method overload ignores the <see cref="LinkedEntityGroup"/> component,
         /// since the group of entities that will be cloned is passed explicitly.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="srcEntities">The set of entities to clone</param>
         /// <param name="outputEntities">the set of entities that were cloned. outputEntities.Length must match srcEntities.Length</param>
@@ -3541,10 +3672,10 @@ namespace Unity.Entities
         /// This method overload ignores the <see cref="LinkedEntityGroup"/> component,
         /// since the group of entities that will be cloned is passed explicitly.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="srcEntities">The set of entities to clone</param>
         /// <param name="outputEntities">the set of entities that were cloned. outputEntities.Length must match srcEntities.Length</param>
@@ -3743,10 +3874,10 @@ namespace Unity.Entities
         /// Each <see cref="World"/> has one EntityManager, which manages all the entities in that world. This function
         /// allows you to transfer entities from one World to another.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before moving the entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before moving the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="srcEntities">The EntityManager whose entities are appropriated.</param>
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
@@ -3768,10 +3899,10 @@ namespace Unity.Entities
         /// Each world has one EntityManager, which manages all the entities in that world. This function
         /// allows you to transfer entities from one World to another.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before moving the entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before moving the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="output">An array to receive the Entity objects of the transferred entities.</param>
         /// <param name="srcEntities">The EntityManager whose entities are appropriated.</param>
@@ -3797,10 +3928,10 @@ namespace Unity.Entities
         /// Each world has one EntityManager, which manages all the entities in that world. This function
         /// allows you to transfer entities from one World to another.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before moving the entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before moving the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="output">An array to receive the Entity objects of the transferred entities.</param>
         /// <param name="srcEntities">The EntityManager whose entities are appropriated.</param>
@@ -3825,10 +3956,10 @@ namespace Unity.Entities
         /// Each World has one EntityManager, which manages all the entities in that world. This function
         /// allows you to transfer entities from one world to another.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before moving the entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before moving the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="srcEntities">The EntityManager whose entities are appropriated.</param>
         /// <param name="entityRemapping">A set of entity transformations to make during the transfer.</param>
@@ -3852,10 +3983,10 @@ namespace Unity.Entities
         /// Each world has one EntityManager, which manages all the entities in that world. This function
         /// allows you to transfer entities from one World to another.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before moving the entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before moving the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="srcEntities">The EntityManager whose entities are appropriated.</param>
         /// <param name="filter">A EntityQuery that defines the entities to move. Must be part of the source
@@ -3880,10 +4011,10 @@ namespace Unity.Entities
         /// Each world has one EntityManager, which manages all the entities in that world. This function
         /// allows you to transfer entities from one World to another.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before moving the entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before moving the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="output">An array to receive the Entity objects of the transferred entities.</param>
         /// <param name="srcEntities">The EntityManager whose entities are appropriated.</param>
@@ -3910,10 +4041,10 @@ namespace Unity.Entities
         /// Each world has one EntityManager, which manages all the entities in that world. This function
         /// allows you to transfer entities from one World to another.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before moving the entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before moving the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="srcEntities">The EntityManager whose entities are appropriated.</param>
         /// <param name="filter">A EntityQuery that defines the entities to move. Must be part of the source
@@ -3940,10 +4071,10 @@ namespace Unity.Entities
         /// Each world has one EntityManager, which manages all the entities in that world. This function
         /// allows you to transfer entities from one World to another.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before moving the entities and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before moving the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="output">An array to receive the Entity objects of the transferred entities.</param>
         /// <param name="srcEntities">The EntityManager whose entities are appropriated.</param>
@@ -4027,7 +4158,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Obsolete. Use <see cref="CompleteAllTrackedJobs"/>.
+        /// Obsolete. Use <see cref="CompleteAllTrackedJobs"/> instead.
         /// </summary>
         [Obsolete("CompleteAllJobs() has been deprecated. Use CompleteAllTrackedJobs() instead (RemovedAfter 2023-04-08) (UnityUpgradable) -> CompleteAllTrackedJobs()", true)]
         public void CompleteAllJobs()
@@ -4266,7 +4397,8 @@ namespace Unity.Entities
             var access = GetCheckedEntityDataAccess();
             fixed(ComponentType* requiredComponentsPtr = requiredComponents)
             {
-                return access->EntityQueryManager->CreateEntityQuery(access, requiredComponentsPtr, requiredComponents.Length);
+                var query = access->EntityQueryManager->CreateEntityQuery(access, requiredComponentsPtr, requiredComponents.Length);
+                return query;
             }
         }
 
@@ -4292,6 +4424,12 @@ namespace Unity.Entities
         /// <returns>The EntityQuery corresponding to the queryDesc.</returns>
         public EntityQuery CreateEntityQuery(in EntityQueryBuilder queriesDesc)
         {
+            var query = CreateEntityQueryUnowned(queriesDesc);
+            return query;
+        }
+
+        internal EntityQuery CreateEntityQueryUnowned(in EntityQueryBuilder queriesDesc)
+        {
             var access = GetCheckedEntityDataAccess();
             return access->EntityQueryManager->CreateEntityQuery(access, queriesDesc);
         }
@@ -4300,10 +4438,10 @@ namespace Unity.Entities
         /// Gets all the chunks managed by this EntityManager.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before getting these chunks and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before getting the chunk. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="allocator">The type of allocation for creating the NativeArray to hold the ArchetypeChunk
         /// objects.</param>
@@ -4319,10 +4457,10 @@ namespace Unity.Entities
         /// Gets all the chunks managed by this EntityManager, including the meta chunks (containing chunk components).
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before getting these chunks and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before getting the chunk. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="allocator">The type of allocation for creating the NativeArray to hold the ArchetypeChunk
         /// objects.</param>
@@ -4369,8 +4507,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// This method is deprecated; use <see cref="EntityQuery.GetEntityQueryMask"/> instead.
+        /// This method is obsolete. Use <see cref="EntityQuery.GetEntityQueryMask"/> instead.
         /// </summary>
+        /// <remarks>**Obsolete.** Use <see cref="EntityQuery.GetEntityQueryMask"/> instead.</remarks>
         /// <param name="query">The query whose mask should be returned</param>
         /// <returns>A query mask for the provided query</returns>
         [Obsolete("Use EntityQuery.GetEntityQueryMask()")]
@@ -4687,6 +4826,17 @@ namespace Unity.Entities
             return ptr;
         }
 
+        internal void SetEnableableComponent(Entity entity, TypeIndex typeIndex, bool value)
+        {
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var deps = access->DependencyManager;
+            ecs->AssertEntityHasComponent(entity, typeIndex);
+            deps->CompleteReadAndWriteDependency(typeIndex);
+
+            access->SetComponentEnabled(entity, typeIndex, value);
+        }
+
         [ExcludeFromBurstCompatTesting("Returns managed object")]
         internal object GetSharedComponentData(Entity entity, TypeIndex typeIndex)
         {
@@ -4835,6 +4985,61 @@ namespace Unity.Entities
             srcAccess->EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
         }
 
+        [BurstCompile]
+        static void RemapChunksForFilteredMove(ref NativeArray<ArchetypeChunk> chunks,
+            ref NativeArray<RemapChunk> remapChunks,
+            ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping,
+            ref NativeList<IntPtr> managedChunks, out int managedComponentCount,
+            EntityComponentStore* dstEntityComponentStore, EntityComponentStore* srcEntityComponentStore)
+        {
+            int chunkCount = chunks.Length;
+
+            Archetype* previousSrcArchetype = null;
+            Archetype* dstArchetype = null;
+            managedComponentCount = 0;
+
+            using var toDestroy = new NativeList<Entity>(Allocator.TempJob);
+            for (int i = 0; i < chunkCount; ++i)
+            {
+                var chunk = chunks[i].m_Chunk;
+                var archetype = chunk->Archetype;
+
+                // Move Chunk World. ChangeVersion:Yes OrderVersion:Yes
+                if (previousSrcArchetype != archetype)
+                {
+                    dstArchetype = dstEntityComponentStore->GetOrCreateArchetype(archetype->Types, archetype->TypesCount);
+                    previousSrcArchetype = archetype;
+                }
+
+                remapChunks[i] = new RemapChunk {chunk = chunk, dstArchetype = dstArchetype};
+
+                if (dstArchetype->NumManagedComponents > 0)
+                {
+                    managedComponentCount += chunk->Count * dstArchetype->NumManagedComponents;
+                    managedChunks.Add((IntPtr)chunk);
+                }
+
+                if (archetype->MetaChunkArchetype != null)
+                {
+                    Entity srcEntity = chunk->metaChunkEntity;
+                    Entity dstEntity;
+
+                    dstEntityComponentStore->CreateEntities(dstArchetype->MetaChunkArchetype, &dstEntity, 1);
+
+                    var srcEntityInChunk = srcEntityComponentStore->GetEntityInChunk(srcEntity);
+                    var dstEntityInChunk = dstEntityComponentStore->GetEntityInChunk(dstEntity);
+
+                    ChunkDataUtility.CopyComponents(srcEntityInChunk.Chunk, srcEntityInChunk.IndexInChunk, dstEntityInChunk.Chunk, dstEntityInChunk.IndexInChunk, 1,
+                        dstEntityComponentStore->GlobalSystemVersion);
+                    EntityRemapUtility.AddEntityRemapping(ref entityRemapping, srcEntity, dstEntity);
+
+                    toDestroy.Add(srcEntity);
+                }
+            }
+            if (toDestroy.Length > 0)
+                srcEntityComponentStore->DestroyEntities((Entity*)toDestroy.GetUnsafeReadOnlyPtr(), toDestroy.Length);
+        }
+
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
         internal void MoveChunksFromFiltered(
             NativeArray<ArchetypeChunk> chunks,
@@ -4854,51 +5059,10 @@ namespace Unity.Entities
                 chunks = chunks
             }.Run();
 
-            int chunkCount = chunks.Length;
-            var remapChunks = new NativeArray<RemapChunk>(chunkCount, Allocator.TempJob);
-
-            Archetype* previousSrcArchetypee = null;
-            Archetype* dstArchetype = null;
             int managedComponentCount = 0;
-
+            var remapChunks = new NativeArray<RemapChunk>(chunks.Length, Allocator.TempJob);
             NativeList<IntPtr> managedChunks = new NativeList<IntPtr>(0, Allocator.TempJob);
-
-            for (int i = 0; i < chunkCount; ++i)
-            {
-                var chunk = chunks[i].m_Chunk;
-                var archetype = chunk->Archetype;
-
-                // Move Chunk World. ChangeVersion:Yes OrderVersion:Yes
-                if (previousSrcArchetypee != archetype)
-                {
-                    dstArchetype = ecs->GetOrCreateArchetype(archetype->Types, archetype->TypesCount);
-                }
-
-                remapChunks[i] = new RemapChunk {chunk = chunk, dstArchetype = dstArchetype};
-
-                if (dstArchetype->NumManagedComponents > 0)
-                {
-                    managedComponentCount += chunk->Count * dstArchetype->NumManagedComponents;
-                    managedChunks.Add((IntPtr)chunk);
-                }
-
-                if (archetype->MetaChunkArchetype != null)
-                {
-                    Entity srcEntity = chunk->metaChunkEntity;
-                    Entity dstEntity;
-
-                    ecs->CreateEntities(dstArchetype->MetaChunkArchetype, &dstEntity, 1);
-
-                    var srcEntityInChunk = srcEntityComponentStore->GetEntityInChunk(srcEntity);
-                    var dstEntityInChunk = ecs->GetEntityInChunk(dstEntity);
-
-                    ChunkDataUtility.CopyComponents(srcEntityInChunk.Chunk, srcEntityInChunk.IndexInChunk, dstEntityInChunk.Chunk, dstEntityInChunk.IndexInChunk, 1,
-                        ecs->GlobalSystemVersion);
-                    EntityRemapUtility.AddEntityRemapping(ref entityRemapping, srcEntity, dstEntity);
-
-                    srcEntityComponentStore->DestroyEntities(&srcEntity, 1);
-                }
-            }
+            RemapChunksForFilteredMove(ref chunks, ref remapChunks, ref entityRemapping, ref managedChunks, out managedComponentCount, ecs, srcEntityComponentStore);
 
             NativeArray<int> srcManagedIndices = default;
             NativeArray<int> dstManagedIndices = default;
@@ -5286,7 +5450,7 @@ namespace Unity.Entities
         struct MoveFilteredChunksBetweenArchetypeJob : IJob
         {
             [Collections.ReadOnly] public NativeArray<RemapChunk> RemapChunks;
-            [Collections.ReadOnly] public NativeParallelHashMap<int, int> RemapShared;
+            [Collections.ReadOnly] public NativeHashMap<int, int> RemapShared;
 
             public void Execute()
             {
@@ -5580,7 +5744,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to create.</typeparam>
         /// <returns>The Entity object that you can use to access the singleton component entity.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the component type has no fields, is enableable, or an entity containing it already exists.</exception>
-        public static Entity CreateSingleton<T>(this EntityManager manager, FixedString64Bytes name = default) where T : class, IComponentData
+        public static Entity CreateSingleton<T>(this EntityManager manager, FixedString64Bytes name = default) where T : class, IComponentData, new()
         {
             return manager.CreateSingletonEntityInternal<T>(name);
         }
@@ -5598,14 +5762,14 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to create.</typeparam>
         /// <returns>The Entity object that you can use to access the singleton component entity.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the component type has no fields, is enableable, or an entity containing it already exists.</exception>
-        public static Entity CreateSingleton<T>(this EntityManager manager, T componentData, FixedString64Bytes name = default) where T : class, IComponentData
+        public static Entity CreateSingleton<T>(this EntityManager manager, T componentData, FixedString64Bytes name = default) where T : class, IComponentData, new()
         {
             var entity = manager.CreateSingletonEntityInternal<T>(name);
             manager.SetComponentData(entity, componentData);
             return entity;
         }
 
-        private static Entity CreateSingletonEntityInternal<T>(this EntityManager manager, FixedString64Bytes name = default) where T : class, IComponentData
+        private static Entity CreateSingletonEntityInternal<T>(this EntityManager manager, FixedString64Bytes name = default) where T : class, IComponentData, new()
         {
             var componentType = ComponentType.ReadWrite<T>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -5634,7 +5798,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to retrieve.</typeparam>
         /// <returns>A struct of type T containing the component value.</returns>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
-        public static T GetComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData
+        public static T GetComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData, new()
         {
             var access = manager.GetCheckedEntityDataAccess();
             return access->GetComponentData<T>(entity, access->ManagedComponentStore);
@@ -5649,7 +5813,7 @@ namespace Unity.Entities
         /// <returns>A struct of type T containing the component value.</returns>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the system isn't from thie world.</exception>
-        public static T GetComponentData<T>(this EntityManager manager, SystemHandle system) where T : class, IComponentData
+        public static T GetComponentData<T>(this EntityManager manager, SystemHandle system) where T : class, IComponentData, new()
         {
             var access = manager.GetCheckedEntityDataAccess();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -5667,7 +5831,7 @@ namespace Unity.Entities
         /// <param name="componentData">The data to set.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
-        public static void SetComponentData<T>(this EntityManager manager, Entity entity, T componentData) where T : class, IComponentData
+        public static void SetComponentData<T>(this EntityManager manager, Entity entity, T componentData) where T : class, IComponentData, new()
         {
             var type = ComponentType.ReadWrite<T>();
             manager.SetComponentObject(entity, type, componentData);
@@ -5682,7 +5846,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the system isn't from thie world.</exception>
-        public static void SetComponentData<T>(this EntityManager manager, SystemHandle system, T componentData) where T : class, IComponentData
+        public static void SetComponentData<T>(this EntityManager manager, SystemHandle system, T componentData) where T : class, IComponentData, new()
         {
             var access = manager.GetCheckedEntityDataAccess();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -5705,7 +5869,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>A struct of type T containing the component value.</returns>
         /// <exception cref="ArgumentException">Thrown if the ArchetypeChunk object is invalid.</exception>
-        public static T GetChunkComponentData<T>(this EntityManager manager, ArchetypeChunk chunk) where T : class, IComponentData
+        public static T GetChunkComponentData<T>(this EntityManager manager, ArchetypeChunk chunk) where T : class, IComponentData, new()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (chunk.Invalid())
@@ -5727,7 +5891,7 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>A struct of type T containing the component value.</returns>
-        public static T GetChunkComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData
+        public static T GetChunkComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData, new()
         {
             var access = manager.GetCheckedEntityDataAccess();
             access->EntityComponentStore->AssertEntitiesExist(&entity, 1);
@@ -5748,7 +5912,7 @@ namespace Unity.Entities
         /// <param name="componentValue">The component data to set.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="ArgumentException">Thrown if the ArchetypeChunk object is invalid.</exception>
-        public static void SetChunkComponentData<T>(this EntityManager manager, ArchetypeChunk chunk, T componentValue) where T : class, IComponentData
+        public static void SetChunkComponentData<T>(this EntityManager manager, ArchetypeChunk chunk, T componentValue) where T : class, IComponentData, new()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (chunk.Invalid())
@@ -5766,17 +5930,17 @@ namespace Unity.Entities
         /// Adding a component changes an entity's archetype and results in the entity being moved to a different
         /// chunk.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="manager">This entity manager.</param>
         /// <param name="entity">The entity.</param>
         /// <param name="componentData">The data to set.</param>
         /// <typeparam name="T">The type of component.</typeparam>
-        public static void AddComponentData<T>(this EntityManager manager, Entity entity, T componentData) where T : class, IComponentData
+        public static void AddComponentData<T>(this EntityManager manager, Entity entity, T componentData) where T : class, IComponentData, new()
         {
             var type = ComponentType.ReadWrite<T>();
 
@@ -5803,7 +5967,7 @@ namespace Unity.Entities
         /// <param name="src">The Entity the managed component will be removed from</param>
         /// <param name="dst">The Entity the managed component will be added to</param>
         /// <typeparam name="T">The managed component type.</typeparam>
-        public static void MoveComponent<T>(this EntityManager manager, Entity src, Entity dst) where T : class,IComponentData
+        public static void MoveComponent<T>(this EntityManager manager, Entity src, Entity dst) where T : class, IComponentData, new()
         {
 
             var access = manager.GetCheckedEntityDataAccess();
@@ -5834,16 +5998,16 @@ namespace Unity.Entities
         /// instance through either the chunk itself or through an entity stored in that chunk. In either case, getting
         /// or setting the component reads or writes the same data.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="manager">This entity manager.</param>
         /// <param name="entity">The entity.</param>
         /// <typeparam name="T">The type of component, which must implement IComponentData.</typeparam>
-        public static void AddChunkComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData
+        public static void AddChunkComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData, new()
         {
             manager.AddComponent(entity, ComponentType.ChunkComponent<T>());
         }
@@ -5858,16 +6022,16 @@ namespace Unity.Entities
         /// A chunk component is common to all entities in a chunk. You can access a chunk <see cref="IComponentData"/>
         /// instance through either the chunk itself or through an entity stored in that chunk.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before adding the component and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
         /// </remarks>
         /// <param name="manager">This entity manager.</param>
         /// <param name="entityQuery">The EntityQuery identifying the chunks to modify.</param>
         /// <param name="componentData">The data to set.</param>
         /// <typeparam name="T">The type of component, which must implement IComponentData.</typeparam>
-        public static void AddChunkComponentData<T>(this EntityManager manager, EntityQuery entityQuery, T componentData) where T : class, IComponentData
+        public static void AddChunkComponentData<T>(this EntityManager manager, EntityQuery entityQuery, T componentData) where T : class, IComponentData, new()
         {
             var access = manager.GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
@@ -5904,7 +6068,7 @@ namespace Unity.Entities
             }
         }
 
-        static void SetChunkComponent<T>(this EntityManager manager, NativeArray<ArchetypeChunk> chunks, T componentData) where T : class, IComponentData
+        static void SetChunkComponent<T>(this EntityManager manager, NativeArray<ArchetypeChunk> chunks, T componentData) where T : class, IComponentData, new()
         {
             var type = TypeManager.GetTypeIndex<T>();
             for (int i = 0; i < chunks.Length; i++)

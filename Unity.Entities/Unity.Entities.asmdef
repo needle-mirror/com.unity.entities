@@ -1,5 +1,6 @@
 {
     "name": "Unity.Entities",
+    "rootNamespace": "",
     "references": [
         "Unity.Collections",
         "Unity.Burst",
@@ -8,10 +9,8 @@
         "Unity.Properties",
         "Unity.Properties.Reflection",
         "Unity.Serialization",
-        "Unity.Jobs",
         "Unity.Profiling.Core"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
@@ -25,5 +24,6 @@
             "expression": "0.4.0-preview.6",
             "define": "UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE"
         }
-    ]
+    ],
+    "noEngineReferences": false
 }

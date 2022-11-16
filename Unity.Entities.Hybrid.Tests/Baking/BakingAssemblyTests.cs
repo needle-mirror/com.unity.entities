@@ -1,7 +1,8 @@
 using NUnit.Framework;
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build;
+#endif
 using Unity.Entities.Build;
-using Unity.Entities.Build.Editor;
 using Unity.Entities.Conversion;
 using Unity.Scenes.Editor.Tests;
 using UnityEngine;
@@ -35,6 +36,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             m_Settings.TearDown();
         }
 
+#if USING_PLATFORMS_PACKAGE
         [Test]
         public void BakingExcludeAssemblyTests()
         {
@@ -76,6 +78,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             entity = m_BakingSystem.GetEntity(go);
             Assert.AreEqual(false, manager.HasComponent<ComponentInAssemblyComponent>(entity));
         }
+#endif
 
         [Test]
         public void BakingExcludeAssemblyTests_BuiltInBuildsPath()
@@ -88,34 +91,47 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             go.AddComponent<ComponentInAssemblyAuthoring>();
 
             // Create the a setting with a filter and another one without a filter
-            var normalSettings = MakeDefaultSettings();
-            var excludeSettings = MakeDefaultSettings();
-            var playerSettings = (EntitiesClientSettings)DotsGlobalSettings.Instance.GetClientSettingAsset();
-            playerSettings.FilterSettings = new BakingSystemFilterSettings("Unity.Entities.Hybrid.Tests.SeparateAssembly");
-            excludeSettings.DotsSettings = playerSettings;
-            normalSettings.DotsSettings = playerSettings;
-            excludeSettings.IsBuiltInBuildsEnabled = true;
+            var originalFilter = EntitiesClientSettings.instance.FilterSettings;
+            try
+            {
+                var clearFilter = new BakingSystemFilterSettings();
+                var testFilter = new BakingSystemFilterSettings("Unity.Entities.Hybrid.Tests.SeparateAssembly");
 
-            // Bake the gameobject
-            BakingUtility.BakeGameObjects(World, new[] {go}, normalSettings);
+                EntitiesClientSettings.instance.FilterSettings = clearFilter;
 
-            // With regular baking it is expected that the baker runs and the component is added
-            var entity = m_BakingSystem.GetEntity(go);
-            Assert.AreEqual(true, manager.HasComponent<ComponentInAssemblyComponent>(entity));
+                var bakingSettingsNormal = MakeDefaultSettings();
+                bakingSettingsNormal.DotsSettings = EntitiesClientSettings.instance;
+                var bakingSettingsExclude = MakeDefaultSettings();
+                bakingSettingsExclude.DotsSettings = EntitiesClientSettings.instance;
 
-            // With the filter we expect that the baker hasn't run and the component is not in the entity
-            BakingUtility.BakeGameObjects(World, new[] {go}, excludeSettings);
-            entity = m_BakingSystem.GetEntity(go);
-            Assert.AreEqual(false, manager.HasComponent<ComponentInAssemblyComponent>(entity));
+                // Bake the gameobject
+                BakingUtility.BakeGameObjects(World, new[] {go}, bakingSettingsNormal);
 
-            // We repeat the same two checks to make sure nothing is left that affects this
-            BakingUtility.BakeGameObjects(World, new[] {go}, normalSettings);
-            entity = m_BakingSystem.GetEntity(go);
-            Assert.AreEqual(true, manager.HasComponent<ComponentInAssemblyComponent>(entity));
+                // With regular baking it is expected that the baker runs and the component is added
+                var entity = m_BakingSystem.GetEntity(go);
+                Assert.AreEqual(true, manager.HasComponent<ComponentInAssemblyComponent>(entity));
 
-            BakingUtility.BakeGameObjects(World, new[] {go}, excludeSettings);
-            entity = m_BakingSystem.GetEntity(go);
-            Assert.AreEqual(false, manager.HasComponent<ComponentInAssemblyComponent>(entity));
+                // With the filter we expect that the baker hasn't run and the component is not in the entity
+                EntitiesClientSettings.instance.FilterSettings = testFilter;
+                BakingUtility.BakeGameObjects(World, new[] {go}, bakingSettingsExclude);
+                entity = m_BakingSystem.GetEntity(go);
+                Assert.AreEqual(false, manager.HasComponent<ComponentInAssemblyComponent>(entity));
+
+                // We repeat the same two checks to make sure nothing is left that affects this
+                EntitiesClientSettings.instance.FilterSettings = clearFilter;
+                BakingUtility.BakeGameObjects(World, new[] {go}, bakingSettingsNormal);
+                entity = m_BakingSystem.GetEntity(go);
+                Assert.AreEqual(true, manager.HasComponent<ComponentInAssemblyComponent>(entity));
+
+                EntitiesClientSettings.instance.FilterSettings = testFilter;
+                BakingUtility.BakeGameObjects(World, new[] {go}, bakingSettingsExclude);
+                entity = m_BakingSystem.GetEntity(go);
+                Assert.AreEqual(false, manager.HasComponent<ComponentInAssemblyComponent>(entity));
+            }
+            finally
+            {
+                EntitiesClientSettings.instance.FilterSettings = originalFilter;
+            }
         }
     }
 }

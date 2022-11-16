@@ -53,8 +53,8 @@ namespace Unity.Scenes.Editor
         {
             sceneMetaDataRef = default;
 
-            if(!sceneGUID.IsValid)
-                throw new ArgumentException($"Invalid GUID {sceneGUID}");
+            if (!sceneGUID.IsValid)
+                return false;
 
             var importMode = async ? ImportMode.Asynchronous : ImportMode.Synchronous;
             var hash = AssetDatabaseCompatibility.GetArtifactHash(sceneGUID, GameObjectSceneMetaDataImporterType, importMode);

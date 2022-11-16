@@ -56,9 +56,9 @@ namespace Unity.Entities.CodeGen.Tests
                     Entities
                         .WithName("RotationSpeedSystem_ForEach")
 #if !ENABLE_TRANSFORM_V1
-                        .ForEach((ref LocalToWorldTransform transform) =>
+                        .ForEach((ref LocalTransform transform) =>
                         {
-                            transform.Value.Rotation = math.mul(math.normalize(transform.Value.Rotation), quaternion.AxisAngle(math.up(), deltaTime));
+                            transform.Rotation = math.mul(math.normalize(transform.Rotation), quaternion.AxisAngle(math.up(), deltaTime));
                         })
 #else
                         .ForEach((ref Rotation rotation) =>
@@ -141,9 +141,9 @@ namespace Unity.Entities.CodeGen.Tests
                         if ((q > 0) && EntityManager.HasComponent<EcsTestData2>(entity))
                         {
 #if !ENABLE_TRANSFORM_V1
-                            EntityManager.SetComponentData(entity, new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(.0f, 1.0f, .0f)});
+                            EntityManager.SetComponentData(entity, LocalTransform.FromPosition(.0f, 1.0f, .0f));
                             var r = EntityManager.Instantiate(entity);
-                            EntityManager.AddComponentData(EntityManager.Instantiate(entity), new LocalToParentTransform());
+                            EntityManager.AddComponentData(EntityManager.Instantiate(entity), new LocalTransform());
 #else
                             EntityManager.SetComponentData(entity, new Translation{Value = new float3(.0f, 1.0f, .0f)});
                             var r = EntityManager.Instantiate(entity);
@@ -194,7 +194,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .WithoutBurst()
                     .ForEach((Entity entity, in EcsTestData testData) =>
                     {
-                        fromGet = GetComponent<EcsTestData>(entity).value;
+                        fromGet = SystemAPI.GetComponent<EcsTestData>(entity).value;
                         fromCom = foo[entity].value;
 
                     })
@@ -235,7 +235,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .WithAll<EcsTestData>()
                     .ForEach((Entity e, in EcsTestData2 x, in EcsTestData3 y, in EcsTestData4 z) =>
                     {
-                        Ignore(HasComponent<EcsTestData>(e));
+                        Ignore(SystemAPI.HasComponent<EcsTestData>(e));
                         Ignore(x);
                         Ignore(y);
                         Ignore(z);

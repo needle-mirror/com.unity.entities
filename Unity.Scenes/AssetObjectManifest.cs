@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using Hash128 = Unity.Entities.Hash128;
+using Unity.Entities.Serialization;
 
 namespace Unity.Scenes
 {
@@ -39,31 +40,5 @@ namespace Unity.Scenes
         }
     }
     #endif
-
-    [System.Serializable]
-    internal struct RuntimeGlobalObjectId : IEquatable<RuntimeGlobalObjectId>
-    {
-        public ulong   SceneObjectIdentifier0;
-        public ulong   SceneObjectIdentifier1;
-        public Hash128 AssetGUID;
-        public int     IdentifierType;
-
-        public bool Equals(RuntimeGlobalObjectId other)
-        {
-            return SceneObjectIdentifier0 == other.SceneObjectIdentifier0 && SceneObjectIdentifier1 == other.SceneObjectIdentifier1 && AssetGUID.Equals(other.AssetGUID) && IdentifierType == other.IdentifierType;
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                var hashCode = SceneObjectIdentifier0.GetHashCode();
-                hashCode = (hashCode * 397) ^ SceneObjectIdentifier1.GetHashCode();
-                hashCode = (hashCode * 397) ^ AssetGUID.GetHashCode();
-                hashCode = (hashCode * 397) ^ IdentifierType;
-                return hashCode;
-            }
-        }
-    }
 }
 #endif

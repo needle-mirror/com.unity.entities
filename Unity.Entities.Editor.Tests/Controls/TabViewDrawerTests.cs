@@ -1,7 +1,7 @@
 ﻿using System;
 using JetBrains.Annotations;
 using NUnit.Framework;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Serialization.Editor;
 using UnityEditor;
 using UnityEngine.UIElements;

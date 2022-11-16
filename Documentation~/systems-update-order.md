@@ -2,9 +2,23 @@
 uid: systems-update-order
 ---
 
-# Update order of systems
+# System groups
 
-To specify the update order of your systems, you can use the [`ComponentSystemGroup`](xref:Unity.Entities.ComponentSystemGroup) class. To place a system in a group, use the [`UpdateInGroup`](xref:Unity.Entities.UpdateInGroupAttribute) attribute on the system's class declaration. You can then use the [`UpdateBefore`](xref:Unity.Entities.UpdateBeforeAttribute) or [`UpdateAfter`](xref:Unity.Entities.UpdateAfterAttribute) attributes to specify the order that the systems must update in.
+A system group can have systems and other system groups as its children. A system group has an update method that you can override, and the base method updates the group's children in a sorted order. 
+
+To create a system group, create a class that inherits from [`ComponentSystemGroup`](xref:Unity.Entities.ComponentSystemGroup). Because systems belong to a world, you must use [`World.GetOrCreateSystem`](xref:Unity.Entities.World.GetOrCreateSystem*) to create a system. To add a system to a group, use `group.AddSystemToUpdateList`. You can add other system groups to existing system groups.
+
+## Update order of systems
+
+Every time you add a group to a system group, it re-sorts the system update order. To control the update order of a system group, add the [`UpdateBefore`](xref:Unity.Entities.UpdateBeforeAttribute) or [`UpdateAfter`](xref:Unity.Entities.UpdateAfterAttribute) attribute to a system to specify which systems it should update before or after. These attributes only apply relative to children of the same system group. For example:
+
+```c#
+// If PeachSystem and DaisySystem are children of the same group, then the
+// entity component system puts PeachSystem somewhere before DaisySystem in 
+// the sorted order.
+    [UpdateBefore(typeof(DaisySystem))]
+    public partial class PeachSystem : SystemBase { }
+```
 
 There are a set of [default system groups](#default-system-groups) that you can use to update systems in the correct phase of a frame. You can nest one group inside another so that all systems in your group update in the correct phase and update according to the order within their group.
 
@@ -22,6 +36,7 @@ You can use the following attributes on a system to determine its update order:
 |---|---|
 |`UpdateInGroup`| Specify a `ComponentSystemGroup` that this system should be a member of. If you don't set this attribute, Unity automatically adds it to the default world's `SimulationSystemGroup`. For more information, see the section on [Default system groups](#default-system-groups).|
 |`UpdateBefore`<br/>`UpdateAfter`| Order systems relative to other systems. The system type specified for these attributes must be a member of the same group. Unity handles ordering across group boundaries at the appropriate deepest group that contains both systems.<br/><br/> For example, if `CarSystem` is in `CarGroup`, and `TruckSystem` is in `TruckGroup`, and `CarGroup` and `TruckGroup` are both members of `VehicleGroup`, then the ordering of `CarGroup` and `TruckGroup` implicitly determines the relative ordering of `CarSystem` and `TruckSystem`. You don't need to explicitly order the systems.|
+|`CreateBefore`<br/>`CreateAfter`| Order system creation relative to other systems. The same ordering rules for `UpdateBefore` and `UpdateAfter` apply here. By default, systems are created in the same order they are updated. These attributes override the default behavior. System destruction order is defined as the reverse of creation order.|
 |`DisableAutoCreation`|Prevents Unity from creating the system during the default world initialization. You must explicitly create and update the system. However, you can add a system with this tag to a `ComponentSystemGroup`’s update list, and it automatically updates just like the other systems in that list.|
 
 If you add the `DisableAutoCreation` attribute to a component system or system group, Unity doesn't create it or add it to the default system groups. To manually create the system, use [`World.GetOrCreateSystem<MySystem>()`](xref:Unity.Entities.World.GetOrCreateSystem*) and call `MySystem.Update()` from the main thread to update it. You can use this to insert systems elsewhere in the Unity player loop, for example, if you have a system that should run later or earlier in the frame.

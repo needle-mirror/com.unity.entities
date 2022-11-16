@@ -10,7 +10,8 @@ namespace Unity.Entities
     /// </summary>
     /// <typeparam name="T">Type of the Object that is going to be referenced by UnityObjectRef.</typeparam>
     /// <remarks>Stores the Object's instance ID. This means that the reference is only valid during the baking process.</remarks>
-    public struct UnityObjectRef<T> where T : Object
+    public struct UnityObjectRef<T> : IEquatable<UnityObjectRef<T>>
+        where T : Object
     {
         internal int instanceId;
         /// <summary>
@@ -46,6 +47,58 @@ namespace Unity.Entities
             get => this;
             [ExcludeFromBurstCompatTesting("Sets managed object")]
             set => this = value;
+        }
+
+        /// <summary>
+        /// Checks if this reference and another reference are equal.
+        /// </summary>
+        /// <param name="other">The UnityObjectRef to compare for equality.</param>
+        /// <returns>True if the two lists are equal.</returns>
+        public bool Equals(UnityObjectRef<T> other)
+        {
+            return instanceId == other.instanceId;
+        }
+
+        /// <summary>
+        /// Checks if this object references the same UnityEngine.Object as another object.
+        /// </summary>
+        /// <param name="obj">The object to compare.</param>
+        /// <returns>True, if the <paramref name="obj"/> parameter is a UnityEngine.Object instance that points to the same
+        /// instance as this.</returns>
+        public override bool Equals(object obj)
+        {
+            return obj is UnityObjectRef<T> other && Equals(other);
+        }
+
+        /// <summary>
+        /// Computes a hash code for this object.
+        /// </summary>
+        /// <returns>The hash code.</returns>
+        public override int GetHashCode()
+        {
+            return instanceId.GetHashCode();
+        }
+
+        /// <summary>
+        /// Checks if two <see cref="UnityObjectRef{T}"/> are equal.
+        /// </summary>
+        /// <param name="left">The first reference to compare for equality.</param>
+        /// <param name="right">The second reference to compare for equality.</param>
+        /// <returns>True if the two references are equal.</returns>
+        public static bool operator ==(UnityObjectRef<T> left, UnityObjectRef<T> right)
+        {
+            return left.Equals(right);
+        }
+
+        /// <summary>
+        /// Checks if two <see cref="UnityObjectRef{T}"/> aren't equal.
+        /// </summary>
+        /// <param name="left">The first reference to compare for equality.</param>
+        /// <param name="right">The second reference to compare for equality.</param>
+        /// <returns>True if the two references are not equal.</returns>
+        public static bool operator !=(UnityObjectRef<T> left, UnityObjectRef<T> right)
+        {
+            return !left.Equals(right);
         }
     }
 }

@@ -24,7 +24,7 @@ namespace Unity.Entities.Editor
             AddCreateGameObjectItemsToMenu(menu, Selection.transforms.Select(t => t.gameObject).ToArray(), false, false, true, scene.handle, MenuUtilsBridge.ContextMenuOrigin.Scene);
         }
 
-        void BuildGameObjectContextMenu(DropdownMenu menu, GameObject gameObject)
+        void BuildGameObjectContextMenu(DropdownMenu menu, GameObject gameObject, VisualElement element)
         {
             menu.AppendAction(L10n.Tr("Cut"), _ => ClipboardUtilityBridge.CutGameObject(), gameObject != null ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
             menu.AppendAction(L10n.Tr("Copy"), _ => ClipboardUtilityBridge.CopyGameObject(), gameObject != null ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
@@ -39,6 +39,9 @@ namespace Unity.Entities.Editor
 
             menu.AppendSeparator();
 
+            var item = element as HierarchyListViewItem;
+
+            menu.AppendAction(L10n.Tr("Rename"), _ => item.BeginRename(), gameObject != null && null != item ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
             menu.AppendAction(L10n.Tr("Duplicate"), _ => ClipboardUtilityBridge.DuplicateGameObject(null), gameObject != null ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
             menu.AppendAction(L10n.Tr("Delete"), _=> DeleteGameObject(gameObject), gameObject != null ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
 
@@ -65,8 +68,11 @@ namespace Unity.Entities.Editor
 
             SceneHierarchyHooksBridge.AddCustomGameObjectContextMenuItems(menu, gameObject);
 
-            menu.AppendSeparator();
-            menu.AppendAction(L10n.Tr("Properties..."), _ => PropertyEditorBridge.OpenPropertyEditorOnSelection());
+            if (item != null)
+            {
+                menu.AppendSeparator();
+                menu.AppendAction(L10n.Tr("Properties..."), _ => PropertyEditorBridge.OpenPropertyEditorOnSelection());
+            }
         }
 
         void AddCreateGameObjectItemsToMenu(DropdownMenu menu,

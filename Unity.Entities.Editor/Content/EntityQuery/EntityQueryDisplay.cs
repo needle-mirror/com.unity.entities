@@ -4,7 +4,7 @@ using System.Linq;
 using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEngine.UIElements;
 
@@ -132,11 +132,7 @@ namespace Unity.Entities.Editor
             m_EntitiesSearchElement.AddSearchFilterProperty("id", new PropertyPath("InstanceId"));
             m_EntitiesSearchElement.AddSearchFilterPopupItem("id", "Instance Id");
             entitiesSearchContainer.Add(m_EntitiesSearchElement);
-#if UNITY_2022_2_OR_NEWER
             m_EntitiesListView = new ListView { fixedItemHeight = 18, showAlternatingRowBackgrounds = AlternatingRowBackground.None, selectionType = SelectionType.Single };
-#else
-            m_EntitiesListView = new ListView { itemHeight = 18, showAlternatingRowBackgrounds = AlternatingRowBackground.None, selectionType = SelectionType.Single };
-#endif
             m_EntitiesListView.AddToClassList(UssClasses.Content.Query.EntityQuery.ListView);
 
             m_EntitiesSearchElement.RegisterSearchQueryHandler<EntityViewData>(search =>
@@ -185,11 +181,7 @@ namespace Unity.Entities.Editor
             m_ComponentTab.Add(m_NoComponentResultMessage);
             m_ComponentTab.Add(m_UniversalQueryMessage);
 
-#if UNITY_2022_2_OR_NEWER
             m_ComponentsListView = new ListView { fixedItemHeight = 18, showAlternatingRowBackgrounds = AlternatingRowBackground.None, selectionType = SelectionType.Single };
-#else
-            m_ComponentsListView = new ListView { itemHeight = 18, showAlternatingRowBackgrounds = AlternatingRowBackground.None, selectionType = SelectionType.Single };
-#endif
             m_ComponentsListView.AddToClassList(UssClasses.Content.Query.EntityQuery.ListView);
             m_ComponentsListView.makeItem += () =>
             {

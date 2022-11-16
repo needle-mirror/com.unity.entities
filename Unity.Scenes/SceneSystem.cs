@@ -30,7 +30,7 @@ namespace Unity.Scenes
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(SceneSystemGroup))]
     [BurstCompile]
-    public partial struct SceneSystem : ISystem
+    public partial struct SceneSystem : ISystem, ISystemStartStop
     {
         /// <summary>
         /// Parameters for loading scenes.
@@ -82,6 +82,27 @@ namespace Unity.Scenes
 #endif
 
         /// <summary>
+        /// Callback invoked when the system starts running.
+        /// </summary>
+        /// <param name="state">The entity system state.</param>
+        public void OnStartRunning(ref SystemState state)
+        {
+#if !UNITY_EDITOR
+            LoadCatalogData(ref state);
+#endif
+        }
+
+        /// <summary>
+        /// Callback invoked when the system stops running.
+        /// </summary>
+        /// <param name="state">The entity system state.</param>
+        public void OnStopRunning(ref SystemState state)
+        {
+        
+        }
+
+
+        /// <summary>
         /// Callback invoked when the system is created.
         /// </summary>
         /// <param name="state">The entity system state.</param>
@@ -94,22 +115,18 @@ namespace Unity.Scenes
             });
 
             state.EntityManager.AddComponentData(state.SystemHandle, new SceneSystemData());
+        }
 
-#if !UNITY_DOTSRUNTIME && !UNITY_EDITOR
-            var sceneInfoPath = EntityScenesPaths.GetSceneInfoPath(SceneLoadDir);
-            if (FileUtilityHybrid.FileExists(sceneInfoPath))
+        void LoadCatalogData(ref SystemState state)
+        {
+#if !UNITY_DOTSRUNTIME
+            var fullSceneInfoPath = EntityScenesPaths.FullPathForFile(SceneLoadDir, EntityScenesPaths.RelativePathForSceneInfoFile);
+            if (FileUtilityHybrid.FileExists(fullSceneInfoPath))
             {
-                if (!BlobAssetReference<ResourceCatalogData>.TryRead(sceneInfoPath, ResourceCatalogData.CurrentFileFormatVersion, out catalogData))
+                if (!BlobAssetReference<ResourceCatalogData>.TryRead(fullSceneInfoPath, ResourceCatalogData.CurrentFileFormatVersion, out catalogData))
                 {
-                    Debug.LogError($"Unable to read catalog data from {sceneInfoPath}.");
+                    Debug.LogError($"Unable to read catalog data from {fullSceneInfoPath}.");
                     return;
-                }
-
-                for (int i = 1; i < catalogData.Value.resources.Length; i++)
-                {
-                    if (catalogData.Value.resources[i].ResourceType == ResourceMetaData.Type.Scene &&
-                        (catalogData.Value.resources[i].ResourceFlags & ResourceMetaData.Flags.AutoLoad) == ResourceMetaData.Flags.AutoLoad)
-                        LoadSceneAsync(state.WorldUnmanaged, catalogData.Value.resources[i].ResourceId, new LoadParameters() { Flags = SceneLoadFlags.LoadAsGOScene});
                 }
             }
 #endif
@@ -164,13 +181,6 @@ namespace Unity.Scenes
         /// <returns>True if the scene is loaded.</returns>
         public static bool IsSceneLoaded(WorldUnmanaged world, Entity entity)
         {
-#if !UNITY_DOTSRUNTIME
-            if (world.EntityManager.HasComponent<GameObjectReference>(entity))
-            {
-                return GameObjectSceneUtility.IsGameObjectSceneLoaded(world, entity);
-            }
-#endif
-
             if (!world.EntityManager.HasComponent<SceneReference>(entity))
                 return false;
 
@@ -215,7 +225,7 @@ namespace Unity.Scenes
         /// <returns>An entity representing the loading state of the scene.</returns>
         public static Entity LoadSceneAsync(WorldUnmanaged world, EntitySceneReference sceneReferenceId, LoadParameters parameters = default)
         {
-            return LoadSceneAsync(world, sceneReferenceId.SceneId.AssetId, parameters);
+            return LoadSceneAsync(world, sceneReferenceId.SceneId.GlobalId.AssetGUID, parameters);
         }
 
         /// <summary>
@@ -228,7 +238,7 @@ namespace Unity.Scenes
         /// <returns>An entity representing the loading state of the prefab.</returns>
         public static Entity LoadPrefabAsync(WorldUnmanaged world, EntityPrefabReference prefabReferenceId, LoadParameters parameters = default)
         {
-            return LoadSceneAsync(world, prefabReferenceId.PrefabId.AssetId, parameters);
+            return LoadSceneAsync(world, prefabReferenceId.PrefabId.GlobalId.AssetGUID, parameters);
         }
 
         /// <summary>
@@ -247,12 +257,6 @@ namespace Unity.Scenes
                 return Entity.Null;
             }
 
-#if !UNITY_DOTSRUNTIME
-            if ((parameters.Flags & SceneLoadFlags.LoadAsGOScene) == SceneLoadFlags.LoadAsGOScene)
-            {
-                return GameObjectSceneUtility.LoadGameObjectSceneAsync(world, sceneGUID, parameters);
-            }
-#endif
             return LoadEntitySceneAsync(world, sceneGUID, parameters);
         }
 
@@ -269,7 +273,6 @@ namespace Unity.Scenes
                     if (r.SceneGUID == sceneGUID)
                         sceneEntity = e;
                 }
-
             }
 
             if (sceneEntity == Entity.Null)
@@ -287,8 +290,9 @@ namespace Unity.Scenes
 
             if (parameters.AutoLoad && world.EntityManager.HasComponent<ResolvedSectionEntity>(sceneEntity))
             {
-                foreach (var s in world.EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity))
-                    world.EntityManager.AddComponentData(s.SectionEntity, requestSceneLoaded);
+                var resolvedSectionEntities = world.EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity).ToNativeArray(Allocator.Temp);
+                for (int i = 0; i < resolvedSectionEntities.Length; i++)
+                    world.EntityManager.AddComponentData(resolvedSectionEntities[i].SectionEntity, requestSceneLoaded);
             }
         }
 
@@ -300,13 +304,6 @@ namespace Unity.Scenes
         /// <param name="parameters">The load parameters for the scene or prefab.</param>
         public static void LoadSceneAsync(WorldUnmanaged world, Entity sceneEntity, LoadParameters parameters = default)
         {
-#if !UNITY_DOTSRUNTIME
-            if (world.EntityManager.HasComponent<GameObjectReference>(sceneEntity))
-            {
-                GameObjectSceneUtility.LoadGameObjectSceneAsync(world, sceneEntity, parameters);
-                return;
-            }
-#endif
             LoadEntitySceneAsync(world, sceneEntity, parameters);
         }
 
@@ -347,11 +344,6 @@ namespace Unity.Scenes
             /// Retains the request components in the entity that represents the scene load state.
             /// </summary>
             DontRemoveRequestSceneLoaded = 1 << 3,
-            /// <summary>
-            /// Removes the <see cref="GameObjectSceneSubScene"/> buffer from the scene entity
-            /// and removes the sub scene proxy entities.
-            /// </summary>
-            DestroySubSceneProxyEntities = 1 << 4,
         }
 
         /// <summary>
@@ -362,13 +354,6 @@ namespace Unity.Scenes
         /// <param name="unloadParams">Parameters controlling the unload process.  These are ignored for GameObject scenes.</param>
         public static void UnloadScene(WorldUnmanaged world, Entity sceneEntity, UnloadParameters unloadParams = UnloadParameters.Default)
         {
-#if !UNITY_DOTSRUNTIME
-            if (world.EntityManager.HasComponent<GameObjectReference>(sceneEntity))
-            {
-                GameObjectSceneUtility.UnloadGameObjectScene(world, sceneEntity, unloadParams);
-                return;
-            }
-#endif
             bool removeRequest = (unloadParams & UnloadParameters.DontRemoveRequestSceneLoaded) == 0;
             bool destroySceneProxyEntity = (unloadParams & UnloadParameters.DestroySceneProxyEntity) != 0;
             bool destroySectionProxyEntities = (unloadParams & UnloadParameters.DestroySectionProxyEntities) != 0;
@@ -499,5 +484,6 @@ namespace Unity.Scenes
                 }
             }
         }
+
     }
 }

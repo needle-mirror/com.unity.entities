@@ -45,3 +45,9 @@ HierarchyListViewItem.hierarchy-item__subscene-node.unity-list-view__item--selec
 {
     background-color: var(--runtime-mode-indent-color);
 }
+
+.unity-tree-view__item-mode-indent.prefab
+{
+    background-color: var(--prefab-override-indent-color);
+}
+

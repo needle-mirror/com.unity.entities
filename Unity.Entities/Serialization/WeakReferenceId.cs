@@ -1,5 +1,7 @@
 using System;
 using UnityEngine;
+using Unity.Collections.LowLevel.Unsafe;
+using System.Runtime.InteropServices;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -7,220 +9,165 @@ using UnityEditor;
 namespace Unity.Entities.Serialization
 {
     /// <summary>
-    /// The type of weak reference generated during the baking of a scene.
+    /// Enumeration of weak reference types.
     /// </summary>
-    internal enum WeakReferenceGenerationType : short
+    public enum WeakReferenceGenerationType : short
     {
         /// <summary>
-        /// The weak reference points to a Scene asset.
+        /// Unknown generation type, this usually indicates that the <seealso cref="UntypedWeakReferenceId"/> has not been initialized.
         /// </summary>
-        Scene,
+        Unknown,
         /// <summary>
-        /// The weak reference points to a Prefab asset.
+        /// Reference to an object derived from <seealso cref="UnityEngine.Object"/>.
         /// </summary>
-        Prefab,
+        UnityObject,
         /// <summary>
-        /// The weak reference points to a Texture asset.
+        /// Texture asset for DOTS Runtime.
         /// </summary>
-        Texture
-        //Support will be added in the future
-        //UnityObject,
-        //Blob
+        Texture,
+        /// <summary>
+        /// Reference to a GameObject based scene.
+        /// </summary>
+        GameObjectScene,
+        /// <summary>
+        /// Reference to an Entity based scene.
+        /// </summary>
+        SubScene,
+        /// <summary>
+        /// Reference to a converted prefab.
+        /// </summary>
+        EntityPrefab,
+        /// <summary>
+        /// Reference to a collection of referenced <seealso cref="UnityEngine.Object"/>s from a sub scene.
+        /// </summary>
+        SubSceneObjectReferences
     };
 
-    internal struct UntypedWeakReferenceId : IEquatable<UntypedWeakReferenceId>
+    // Workaround to be able to store UntypedWeakReferenceId in a blob.
+    // Usually we want to issue an error when storing UntypedWeakReferenceId in a blob to alert users that this is not yet supported
+    // But in this specific case we know what we are doing. This type must be binary compatible with  UntypedWeakReferenceId
+    internal struct UnsafeUntypedWeakReferenceId
     {
-        public Hash128 AssetId;
-        public long LfId;
+        public UnsafeUntypedWeakReferenceId(UntypedWeakReferenceId weakAssetRef)
+        {
+            GlobalId = weakAssetRef.GlobalId;
+            GenerationType = weakAssetRef.GenerationType;
+        }
+        public RuntimeGlobalObjectId GlobalId;
+        public WeakReferenceGenerationType GenerationType;
+    }
+
+    /// <summary>
+    /// USed to identify weakly referenced data.
+    /// </summary>
+    [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
+    public struct UntypedWeakReferenceId : IEquatable<UntypedWeakReferenceId>
+    {
+        /// <summary>
+        /// The global object id.  This matches the editor global id.
+        /// </summary>
+        public RuntimeGlobalObjectId GlobalId;
+
+        /// <summary>
+        /// The type of reference this is.
+        /// It is aliased to RuntimeGlobalObjectId.SceneObjectIdentifier1.
+        /// </summary>
         public WeakReferenceGenerationType GenerationType;
 
-        public static bool operator ==(UntypedWeakReferenceId left, UntypedWeakReferenceId right)
+        /// <summary>
+        /// Construct a reference given the global id and generation type.
+        /// </summary>
+        /// <param name="globalObjId">The global object id.</param>
+        /// <param name="genType">The generation type.</param>
+        public UntypedWeakReferenceId(RuntimeGlobalObjectId globalObjId, WeakReferenceGenerationType genType)
         {
-            return left.Equals(right);
+            GlobalId = globalObjId;
+            GenerationType = genType;
         }
 
-        public static bool operator !=(UntypedWeakReferenceId left, UntypedWeakReferenceId right)
+        /// <summary>
+        /// Construct new UntypedWeakReferenceId.
+        /// </summary>
+        /// <param name="guid">The asset guid.</param>
+        /// <param name="localFileIdentifier">The object local identifier.</param>
+        /// <param name="idType">The object type.</param>
+        /// <param name="genType">The id generation type.</param>
+        public UntypedWeakReferenceId(Hash128 guid, long localFileIdentifier, int idType, WeakReferenceGenerationType genType)
         {
-            return !left.Equals(right);
+            GlobalId = new RuntimeGlobalObjectId { AssetGUID = guid, SceneObjectIdentifier0 = localFileIdentifier, IdentifierType = idType };
+            GenerationType = genType;
         }
 
-        public bool Equals(UntypedWeakReferenceId other)
-        {
-            return AssetId.Equals(other.AssetId) && LfId == other.LfId && GenerationType == other.GenerationType;
-        }
+        /// <summary>
+        /// Checks if this reference is equal to another reference.
+        /// </summary>
+        /// <param name="other">The id to compare to.</param>
+        /// <returns>True if the GenerationType and GlobalId are equal.</returns>
+        public bool Equals(UntypedWeakReferenceId other) => GenerationType == other.GenerationType && GlobalId.Equals(other.GlobalId);
 
+        /// <summary>
+        /// Converts the id to a string.
+        /// </summary>
+        /// <returns>The string representation of this id.</returns>
+        public override string ToString() => GlobalId.ToString();
+
+        /// <summary>
+        /// Checks if this reference is equal to another object.
+        /// </summary>
+        /// <param name="obj">The object to compare to.</param>
+        /// <returns>True if the other object is an <seealso cref="UntypedWeakReferenceId"/> and is equal.</returns>
         public override bool Equals(object obj)
         {
             return obj is UntypedWeakReferenceId other && Equals(other);
         }
 
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                var hashCode = AssetId.GetHashCode();
-                hashCode = (hashCode * 397) ^ LfId.GetHashCode();
-                hashCode = (hashCode * 397) ^ (int) GenerationType;
-                return hashCode;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Encapsulates a serializable reference to a Prefab asset.
-    /// </summary>
-    public struct EntityPrefabReference : IEquatable<EntityPrefabReference>
-    {
-        internal UntypedWeakReferenceId PrefabId;
-
-        internal EntityPrefabReference(UntypedWeakReferenceId prefabId)
-        {
-            PrefabId = prefabId;
-        }
+        /// <inheritdoc/>
+        public bool IsValid => GlobalId.IsValid;
 
         /// <summary>
-        /// Checks if two reference objects are equal.
+        /// Returns the hash code of this id.
         /// </summary>
-        /// <remarks>Two <see cref="EntityPrefabReference"/> are equal if they store the same asset GUIDs.</remarks>
-        /// <param name="left">The first reference object to compare for equality.</param>
-        /// <param name="right">The second reference object to compare for equality.</param>
-        /// <returns>True if the two reference objects are equal.</returns>
-        public static bool operator ==(EntityPrefabReference left, EntityPrefabReference right)
+        /// <returns>The hash code of this id.</returns>
+        public override int GetHashCode() => GlobalId.GetHashCode();
+
+        /// <inheritdoc/>
+        public static bool operator ==(UntypedWeakReferenceId left, UntypedWeakReferenceId right)
         {
             return left.Equals(right);
         }
 
-        /// <summary>
-        /// Checks if two reference objects are unequal.
-        /// </summary>
-        /// <remarks>Two <see cref="EntityPrefabReference"/> are equal if they store the same asset GUIDs.</remarks>
-        /// <param name="left">The first reference object to compare for inequality.</param>
-        /// <param name="right">The second reference object to compare for inequality.</param>
-        /// <returns>True if the two reference objects are unequal.</returns>
-        public static bool operator !=(EntityPrefabReference left, EntityPrefabReference right)
+        /// <inheritdoc/>
+        public static bool operator !=(UntypedWeakReferenceId left, UntypedWeakReferenceId right)
         {
             return !left.Equals(right);
         }
 
-        /// <summary>
-        /// Initializes and returns an instance of EntityPrefabReference.
-        /// </summary>
-        /// <param name="guid">The guid of the prefab asset.</param>
-        public EntityPrefabReference(Hash128 guid)
-        {
-            PrefabId = new UntypedWeakReferenceId
-            {
-                AssetId = guid,
-                LfId = 0,
-                GenerationType = WeakReferenceGenerationType.Prefab
-            };
-        }
-
 #if UNITY_EDITOR
         /// <summary>
-        /// Initializes and returns an instance of EntityPrefabReference.
+        /// Get a weak reference from a Unity object reference.
         /// </summary>
-        /// <param name="prefab">The referenced prefab asset.</param>
-        public EntityPrefabReference(GameObject prefab) : this(
-            AssetDatabase.GUIDFromAssetPath(AssetDatabase.GetAssetPath(prefab)))
+        /// <param name="obj">The object to reference.</param>
+        /// <returns>The ide if the reference.</returns>
+        public static UntypedWeakReferenceId CreateFromObjectInstance(UnityEngine.Object obj)
         {
+            if (obj == null)
+                return default;
+
+            var goid = UnityEditor.GlobalObjectId.GetGlobalObjectIdSlow(obj.GetInstanceID());
+            var rtgoid = UnsafeUtility.As<GlobalObjectId, RuntimeGlobalObjectId>(ref goid);
+            return new UntypedWeakReferenceId(rtgoid, typeof(SceneAsset) == obj.GetType() ? WeakReferenceGenerationType.GameObjectScene : WeakReferenceGenerationType.UnityObject);
+        }
+
+        /// <summary>
+        /// Gets an object from its id.
+        /// </summary>
+        /// <param name="id">The object id.</param>
+        /// <returns>The object referenced by the id or null if the id is invalid.</returns>
+        public static UnityEngine.Object GetEditorObject(UntypedWeakReferenceId id)
+        {
+            return GlobalObjectId.GlobalObjectIdentifierToObjectSlow(UnsafeUtility.As<RuntimeGlobalObjectId, GlobalObjectId>(ref id.GlobalId));
         }
 #endif
-
-        /// <summary>
-        /// Checks if this reference holds the same asset GUID as the other reference.
-        /// </summary>
-        /// <param name="other">The other weak reference object to compare to.</param>
-        /// <returns>True if the asset GUID of both are equal.</returns>
-        public bool Equals(EntityPrefabReference other)
-        {
-            return PrefabId.Equals(other.PrefabId);
-        }
-
-        /// <summary>
-        /// Overrides the default Object.Equals method.
-        /// </summary>
-        /// <param name="obj">An object to compare for equality.</param>
-        /// <returns>True if this EntityPrefabReference and the object are equal.</returns>
-        public override bool Equals(object obj)
-        {
-            return obj is EntityPrefabReference other && Equals(other);
-        }
-
-        /// <summary>
-        /// Overrides the default Object.GetHashCode method.
-        /// </summary>
-        /// <returns>The hash code of this EntityPrefabReference.</returns>
-        public override int GetHashCode()
-        {
-            return PrefabId.GetHashCode();
-        }
-    }
-
-    /// <summary>
-    /// Encapsulates a serializable reference to a Scene asset.
-    /// </summary>
-    public struct EntitySceneReference : IEquatable<EntitySceneReference>
-    {
-        internal UntypedWeakReferenceId SceneId;
-
-        internal EntitySceneReference(UntypedWeakReferenceId sceneId)
-        {
-            SceneId = sceneId;
-        }
-
-        /// <summary>
-        /// Initializes and returns an instance of EntitySceneReference.
-        /// </summary>
-        /// <param name="guid">The guid of the scene asset.</param>
-        public EntitySceneReference(Hash128 guid)
-        {
-            SceneId = new UntypedWeakReferenceId
-            {
-                AssetId = guid,
-                LfId = 0,
-                GenerationType = WeakReferenceGenerationType.Scene
-            };
-        }
-
-#if UNITY_EDITOR
-        /// <summary>
-        /// Initializes and returns an instance of EntitySceneReference.
-        /// </summary>
-        /// <param name="sceneAsset">The referenced <see cref="SceneAsset"/>.</param>
-        public EntitySceneReference(SceneAsset sceneAsset) : this(
-            AssetDatabase.GUIDFromAssetPath(AssetDatabase.GetAssetPath(sceneAsset)))
-        {
-        }
-#endif
-
-        /// <summary>
-        /// Checks if this reference holds the same asset GUID as the other reference.
-        /// </summary>
-        /// <param name="other">The other weak reference object to compare to.</param>
-        /// <returns>True if the asset GUID of both are equal.</returns>
-        public bool Equals(EntitySceneReference other)
-        {
-            return SceneId.Equals(other.SceneId);
-        }
-
-        /// <summary>
-        /// Overrides the default Object.Equals method.
-        /// </summary>
-        /// <param name="obj">An object to compare for equality.</param>
-        /// <returns>True if this EntitySceneReference and the object are equal.</returns>
-        public override bool Equals(object obj)
-        {
-            return obj is EntitySceneReference other && Equals(other);
-        }
-
-        /// <summary>
-        /// Overrides the default Object.GetHashCode method.
-        /// </summary>
-        /// <returns>The hash code of this EntitySceneReference.</returns>
-        public override int GetHashCode()
-        {
-            return SceneId.GetHashCode();
-        }
     }
 }

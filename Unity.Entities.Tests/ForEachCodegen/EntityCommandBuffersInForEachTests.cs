@@ -711,15 +711,15 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.AddComponentForEntityQuery(entityQuery, new EcsTestData());
+                                    ecb.AddComponent(entityQuery, new EcsTestData());
 
-                                    ecb.AddComponentForEntityQuery<EcsTestData2>(entityQuery);
-                                    ecb.AddComponentForEntityQuery(entityQuery, ComponentType.ReadOnly<EcsTestData3>());
-                                    ecb.AddComponentForEntityQuery(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData4>(), ComponentType.ReadOnly<EcsTestData5>()));
-                                    ecb.AddSharedComponentForEntityQuery(entityQuery, new EcsTestSharedComp());
+                                    ecb.AddComponent<EcsTestData2>(entityQuery);
+                                    ecb.AddComponent(entityQuery, ComponentType.ReadOnly<EcsTestData3>());
+                                    ecb.AddComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData4>(), ComponentType.ReadOnly<EcsTestData5>()));
+                                    ecb.AddSharedComponent(entityQuery, new EcsTestSharedComp());
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-                                    ecb.AddComponentForEntityQuery(entityQuery, new EcsTestManagedComponent());
-                                    ecb.AddComponentObjectForEntityQuery(entityQuery, new EcsTestManagedComponent2());
+                                    ecb.AddComponent(entityQuery, new EcsTestManagedComponent());
+                                    ecb.AddComponentObject(entityQuery, new EcsTestManagedComponent2());
 #endif
                                 })
                             .Run();
@@ -735,15 +735,15 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.AddComponentForEntityQuery(entityQuery, new EcsTestData());
+                                    ecb.AddComponent(entityQuery, new EcsTestData());
 
-                                    ecb.AddComponentForEntityQuery<EcsTestData2>(entityQuery);
-                                    ecb.AddComponentForEntityQuery(entityQuery, ComponentType.ReadOnly<EcsTestData3>());
-                                    ecb.AddComponentForEntityQuery(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData4>(), ComponentType.ReadOnly<EcsTestData5>()));
-                                    ecb.AddSharedComponentForEntityQuery(entityQuery, new EcsTestSharedComp());
+                                    ecb.AddComponent<EcsTestData2>(entityQuery);
+                                    ecb.AddComponent(entityQuery, ComponentType.ReadOnly<EcsTestData3>());
+                                    ecb.AddComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData4>(), ComponentType.ReadOnly<EcsTestData5>()));
+                                    ecb.AddSharedComponent(entityQuery, new EcsTestSharedComp());
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-                                    ecb.AddComponentForEntityQuery(entityQuery, new EcsTestManagedComponent());
-                                    ecb.AddComponentObjectForEntityQuery(entityQuery, new EcsTestManagedComponent2());
+                                    ecb.AddComponent(entityQuery, new EcsTestManagedComponent());
+                                    ecb.AddComponentObject(entityQuery, new EcsTestManagedComponent2());
 #endif
                                 })
                             .Run();
@@ -794,10 +794,10 @@ namespace Unity.Entities.Tests
                                 (EntityCommandBuffer ecb) =>
                                 {
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-                                    ecb.SetComponentObjectForEntityQuery(entityQuery, new EcsTestManagedComponent{ value = "MyNewValue1" });
-                                    ecb.SetComponentForEntityQuery(entityQuery, new EcsTestManagedComponent2 { value2 = "MyNewValue2" });
+                                    ecb.SetComponentObject(entityQuery, new EcsTestManagedComponent{ value = "MyNewValue1" });
+                                    ecb.SetComponent(entityQuery, new EcsTestManagedComponent2 { value2 = "MyNewValue2" });
 #endif
-                                    ecb.SetSharedComponentForEntityQuery(entityQuery, new EcsTestSharedComp { value = 10 });
+                                    ecb.SetSharedComponent(entityQuery, new EcsTestSharedComp { value = 10 });
                                 })
                             .Run();
                         break;
@@ -811,10 +811,10 @@ namespace Unity.Entities.Tests
                                 (EntityCommandBuffer ecb) =>
                                 {
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-                                    ecb.SetComponentObjectForEntityQuery(entityQuery, new EcsTestManagedComponent{ value = "MyNewValue1" });
-                                    ecb.SetComponentForEntityQuery(entityQuery, new EcsTestManagedComponent2 { value2 = "MyNewValue2" });
+                                    ecb.SetComponentObject(entityQuery, new EcsTestManagedComponent{ value = "MyNewValue1" });
+                                    ecb.SetComponent(entityQuery, new EcsTestManagedComponent2 { value2 = "MyNewValue2" });
 #endif
-                                    ecb.SetSharedComponentForEntityQuery(entityQuery, new EcsTestSharedComp { value = 10 });
+                                    ecb.SetSharedComponent(entityQuery, new EcsTestSharedComp { value = 10 });
                                 })
                             .Run();
 
@@ -842,9 +842,9 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.RemoveComponentForEntityQuery<EcsTestTag>(entityQuery);
-                                    ecb.RemoveComponentForEntityQuery(entityQuery, ComponentType.ReadOnly<EcsTestData>());
-                                    ecb.RemoveComponentForEntityQuery(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>(), ComponentType.ReadOnly<EcsTestData3>()));
+                                    ecb.RemoveComponent<EcsTestTag>(entityQuery);
+                                    ecb.RemoveComponent(entityQuery, ComponentType.ReadOnly<EcsTestData>());
+                                    ecb.RemoveComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>(), ComponentType.ReadOnly<EcsTestData3>()));
                                 })
                             .Run();
                         break;
@@ -854,9 +854,9 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.RemoveComponentForEntityQuery<EcsTestTag>(entityQuery);
-                                    ecb.RemoveComponentForEntityQuery(entityQuery, ComponentType.ReadOnly<EcsTestData>());
-                                    ecb.RemoveComponentForEntityQuery(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>(), ComponentType.ReadOnly<EcsTestData3>()));
+                                    ecb.RemoveComponent<EcsTestTag>(entityQuery);
+                                    ecb.RemoveComponent(entityQuery, ComponentType.ReadOnly<EcsTestData>());
+                                    ecb.RemoveComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>(), ComponentType.ReadOnly<EcsTestData3>()));
                                 })
                             .Run();
 
@@ -890,7 +890,7 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.DestroyEntitiesForEntityQuery(entityQuery);
+                                    ecb.DestroyEntity(entityQuery);
                                 })
                             .Run();
                         break;
@@ -902,7 +902,7 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.DestroyEntitiesForEntityQuery(entityQuery);
+                                    ecb.DestroyEntity(entityQuery);
                                 })
                             .Run();
 

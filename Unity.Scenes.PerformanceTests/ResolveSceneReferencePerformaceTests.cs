@@ -15,13 +15,13 @@ namespace Unity.Scenes.PerformanceTests
                 "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e",
                 "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.0.entities",
                 "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.0.asset",
-                "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.0.bundle",
+                "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.0.weakassetrefs",
                 "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.10.entities",
                 "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.10.asset",
-                "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.10.bundle",
+                "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.10.weakassetrefs",
                 "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.20.entities",
                 "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.20.asset",
-                "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.20.bundle",
+                "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.20.weakassetrefs",
                 "VirtualArtifacts/Extra/e3/e3d8c8b443a8b5151a7b437546b3b53e.entityheader"
             };
 
@@ -34,13 +34,13 @@ namespace Unity.Scenes.PerformanceTests
                     loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesHeader));
                     loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesBinary, 0));
                     loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, 0));
-                    loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesUnityObjectReferencesBundle, 0));
+                    loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesWeakAssetRefs, 0));
                     loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesBinary, 10));
                     loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, 10));
-                    loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesUnityObjectReferencesBundle, 10));
+                    loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesWeakAssetRefs, 10));
                     loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesBinary, 20));
                     loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, 20));
-                    loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesUnityObjectReferencesBundle, 20));
+                    loadPaths.Add(EntityScenesPaths.GetLoadPathFromArtifactPaths(testPaths, EntityScenesPaths.PathType.EntitiesWeakAssetRefs, 20));
                 }
             })
             .WarmupCount(1)

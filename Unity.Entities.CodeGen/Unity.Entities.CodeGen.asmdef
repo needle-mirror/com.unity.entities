@@ -1,11 +1,11 @@
 {
     "name": "Unity.Entities.CodeGen",
+    "rootNamespace": "",
     "references": [
         "Unity.Burst",
         "Unity.Collections",
         "Unity.Entities",
-        "Unity.Jobs",
-		"Unity.Properties"
+        "Unity.Properties"
     ],
     "includePlatforms": [
         "Editor"
@@ -17,8 +17,11 @@
         "Mono.Cecil.dll",
         "Mono.Cecil.Rocks.dll",
         "Mono.Cecil.Pdb.dll",
-		"Unity.IL2CPP",
-		"Unity.IL2CPP.Common"
+        "Unity.IL2CPP",
+        "Unity.IL2CPP.Common"
     ],
-    "autoReferenced": false
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

@@ -16,7 +16,7 @@ namespace Unity.Entities
     [NativeContainer]
     internal struct EntityQuerySafetyHandles
     {
-        // All IJobEntityBatchWithIndex jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
+        // All IJobChunk jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
         // jobs without any other safety handles are still running (haven't been synced).
         internal AtomicSafetyHandle m_Safety0;
         // TODO(DOTS-6573): Enable this path in DOTSRT once it supports AtomicSafetyHandle.SetExclusiveWeak()

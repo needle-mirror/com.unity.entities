@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 
 namespace Unity.Entities.Tests
@@ -26,6 +26,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         unsafe public void AssertCanAddComponent_SingleComponent_InvalidCases()
         {
             var access = m_Manager.GetCheckedEntityDataAccess();
@@ -85,6 +86,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         unsafe public void AssertCanAddComponent_MultipleComponents_InvalidCases()
         {
             var access = m_Manager.GetCheckedEntityDataAccess();

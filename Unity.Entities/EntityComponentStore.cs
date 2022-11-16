@@ -597,17 +597,22 @@ namespace Unity.Entities
                     $"Maximum Entities in World is {k_MaximumEntitiesPerWorld}. Attempted to allocate {newValue}.");
             }
         }
-        internal void EnsureCapacity(int value)
+
+        internal void EnsureCapacity(int value, bool forceFullReinitialization = false)
         {
             long oldValue = m_EntitiesCapacity;
             long newValue = value;
             // Capacity can never be decreased since entity lookups would start failing as a result
-            if (newValue <= oldValue)
+            if (newValue <= oldValue) {
+                // When a full reinit is requested, we should run the init logic in all cases.
+                if (forceFullReinitialization)
+                    InitializeAdditionalCapacity(0);
                 return;
+            }
             ThrowIfEntitiesPerWorldIsTooHigh(newValue);
             ResizeUnmanagedArrays(oldValue, newValue);
             var startNdx = 0;
-            if(m_EntitiesCapacity > 0)
+            if (m_EntitiesCapacity > 0 && !forceFullReinitialization)
                 startNdx = m_EntitiesCapacity - 1;
             m_EntitiesCapacity = (int)newValue;
             InitializeAdditionalCapacity(startNdx);
@@ -1282,20 +1287,12 @@ namespace Unity.Entities
         public void AllocateConsecutiveEntitiesForLoading(int count)
         {
             int newCapacity = count + 1; // make room for Entity.Null
-            EnsureCapacity(newCapacity + 1); // the last entity is used to indicate we ran out of space
+            // The last entity is used to indicate we ran out of space.
+            // We need to also reset _all_ entities, not just the new ones because we are manually manipulating
+            // the free list here by setting the next free entity index.
+            EnsureCapacity(newCapacity + 1, true);
             m_NextFreeEntityIndex = newCapacity;
             m_EntityCreateDestroyVersion++;
-
-            for (int i = 1; i < newCapacity; ++i)
-            {
-                Assert.IsTrue(m_EntityInChunkByEntity[i].Chunk == null); //  Loading into non-empty entity manager is not supported.
-
-                m_EntityInChunkByEntity[i].IndexInChunk = 0;
-                m_VersionByEntity[i] = 0;
-#if !DOTS_DISABLE_DEBUG_NAMES
-                m_NameByEntity[i] = new EntityName();
-#endif
-            }
         }
 
         public void AddExistingEntitiesInChunk(Chunk* chunk)
@@ -1482,7 +1479,7 @@ namespace Unity.Entities
             }
 
             // If defaultValue is null, we assume we are looking for a non-default SharedComponent
-            if (defaultValue != null && TypeManager.EqualsWithBurst(newData, defaultValue, typeIndex))
+            if (defaultValue != null && TypeManager.SharedComponentEquals(newData, defaultValue, typeIndex))
             {
                 return 0;
             }
@@ -1495,7 +1492,7 @@ namespace Unity.Entities
             // It's most likely a hash computation produces 0, and if it's the case, we will end up...computing it again
             if (hashCode == 0)
             {
-                hashCode = TypeManager.GetHashCodeWithBurst(newData, typeIndex);
+                hashCode = TypeManager.SharedComponentGetHashCode(newData, typeIndex);
             }
 
             int itemIndex;
@@ -1513,7 +1510,7 @@ namespace Unity.Entities
             infos = CheckGetSharedComponentInfo(typeIndex);
             do
             {
-                if (TypeManager.EqualsWithBurst((byte*) components->Ptr + (itemIndex * typeSize), newData, typeIndex))
+                if (TypeManager.SharedComponentEquals((byte*) components->Ptr + (itemIndex * typeSize), newData, typeIndex))
                 {
                     return itemIndex;
                 }
@@ -1540,7 +1537,7 @@ namespace Unity.Entities
             if (hashCode == 0)
             {
                 // No data, means we're inserting the default value, we will exit before we need a hash
-                hashCode = data!=null ? TypeManager.GetHashCodeWithBurst(data, typeIndex) : 0;
+                hashCode = data!=null ? TypeManager.SharedComponentGetHashCode(data, typeIndex) : 0;
             }
 
             var elementIndex = FindSharedComponentIndex(
@@ -2416,7 +2413,7 @@ namespace Unity.Entities
             Archetype* dstArchetype = null;
             ChunkAllocate<Archetype>(&dstArchetype);
             ChunkAllocate<ComponentTypeInArchetype>(&dstArchetype->Types, count);
-            ChunkAllocate<ComponentTypeInArchetype>(&dstArchetype->EnableableTypeIndexInArchetype, numEnableableComponents);
+            ChunkAllocate<int>(&dstArchetype->EnableableTypeIndexInArchetype, numEnableableComponents);
             ChunkAllocate<int>(&dstArchetype->Offsets, count);
             ChunkAllocate<int>(&dstArchetype->SizeOfs, count);
             ChunkAllocate<int>(&dstArchetype->BufferCapacities, count);

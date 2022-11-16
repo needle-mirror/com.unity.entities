@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Collections;
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build;
 using Unity.Build.Common;
+#endif
 using Unity.Entities;
 using Unity.Entities.Build;
 using Unity.Entities.Conversion;
@@ -34,8 +36,10 @@ namespace Unity.Scenes.Editor
         Dictionary<Hash128, Scene>                 _GUIDToEditScene = new Dictionary<Hash128, Scene>();
 
         internal readonly Hash128                  _ConfigurationGUID;
+#if USING_PLATFORMS_PACKAGE
         BuildConfiguration                         _BuildConfiguration;
-        private DotsPlayerSettings                 _SettingAsset;
+#endif
+        IEntitiesPlayerSettings                    _SettingAsset;
         UnityEngine.Hash128                        _BuildConfigurationArtifactHash;
 
         static readonly List<LiveConversionConnection>   k_AllConnections = new List<LiveConversionConnection>();
@@ -45,23 +49,13 @@ namespace Unity.Scenes.Editor
             _ConfigurationGUID = configGuid;
             if (configGuid != default)
             {
-                if (!LiveConversionSettings.IsBuiltinBuildsEnabled)
-                {
-                    _BuildConfiguration = BuildConfiguration.LoadAsset(configGuid);
-                    if (_BuildConfiguration == null)
-                    {
-                        Debug.LogError($"Unable to load build configuration asset from guid {configGuid}.");
-                    }
-                }
-                else
-                {
-                    var path = AssetDatabase.GUIDToAssetPath(configGuid);
-                    _SettingAsset = AssetDatabase.LoadAssetAtPath<DotsPlayerSettings>(path);
-                    if (_SettingAsset == null)
-                    {
-                        Debug.LogError($"Unable to load {nameof(DotsPlayerSettings)} asset from guid {configGuid} at path {path}");
-                    }
-                }
+                _SettingAsset = DotsGlobalSettings.Instance.GetSettingsAsset(configGuid);
+            }
+            if (_SettingAsset == null)
+            {
+                // default to the standard entities client settings asset
+                _SettingAsset = DotsGlobalSettings.Instance.GetClientSettingAsset();
+                _ConfigurationGUID = _SettingAsset.GUID;
             }
 
             ObjectChangeEvents.changesPublished += OnEditorChangeEvents;
@@ -234,38 +228,6 @@ namespace Unity.Scenes.Editor
             return false;
         }
 
-        // NOTE: This needs to be removed once LiveConversion is no longer supported.
-        class GameObjectPrefabLiveConversionSceneTracker : AssetPostprocessor
-        {
-            static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths)
-            {
-                // This is not necessary for baking anymore. Just skip.
-                if (LiveConversionSettings.IsBakingEnabled)
-                    return;
-
-                var connections = LiveConversionConnection.k_AllConnections;
-                if (connections.Count == 0)
-                    return;
-                {
-                    bool hasDependencies = false;
-                    foreach (var c in connections)
-                        hasDependencies |= c.HasAssetDependencies();
-                    if (!hasDependencies)
-                        return;
-                }
-
-                foreach (var assetPath in importedAssets)
-                {
-                    var instanceId = AssetDatabase.LoadAssetAtPath<Object>(assetPath).GetInstanceID();
-                    foreach (var connection in connections)
-                    {
-                        foreach (var diff in connection._SceneGUIDToLiveConversion)
-                            diff.Value.ChangeTracker.MarkAssetChanged(instanceId);
-                    }
-                }
-            }
-        }
-
         public static void GlobalDirtyLiveConversion()
         {
             GlobalDirtyID++;
@@ -333,7 +295,7 @@ namespace Unity.Scenes.Editor
             // If build configuration changed, we need to trigger a full conversion
             if (_ConfigurationGUID != default)
             {
-                var buildConfigurationDependencyHash = AssetDatabaseCompatibility.GetAssetDependencyHash(_ConfigurationGUID);
+                var buildConfigurationDependencyHash = DotsGlobalSettings.Instance.GetSettingsAsset(_ConfigurationGUID)?.GetHash() ?? default;
                 if (_BuildConfigurationArtifactHash != buildConfigurationDependencyHash)
                 {
                     _BuildConfigurationArtifactHash = buildConfigurationDependencyHash;
@@ -352,6 +314,12 @@ namespace Unity.Scenes.Editor
             for (int i = 0; i != EditorSceneManager.sceneCount; i++)
             {
                 var scene = EditorSceneManager.GetSceneAt(i);
+
+                //this is to avoid trying to get the guid of a scene loaded from a content archive during play mode
+                if (!scene.path.StartsWith("Assets/", System.StringComparison.OrdinalIgnoreCase) &&
+                    !scene.path.StartsWith("Packages/", System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 var sceneGUID = AssetDatabaseCompatibility.PathToGUID(scene.path);
 
                 if (_LoadedScenes.Contains(sceneGUID))
@@ -438,7 +406,11 @@ namespace Unity.Scenes.Editor
             try
             {
                 var editScene = _GUIDToEditScene[sceneGUID];
-                var didChange = LiveConversionDiffGenerator.UpdateLiveConversion(editScene, sceneGUID, ref liveConversion, mode, globalArtifactVersion, _ConfigurationGUID, _BuildConfiguration, _SettingAsset, out var changes);
+                var didChange = LiveConversionDiffGenerator.UpdateLiveConversion(editScene, sceneGUID, ref liveConversion, mode, globalArtifactVersion, _ConfigurationGUID,
+#if USING_PLATFORMS_PACKAGE
+                    _BuildConfiguration,
+#endif
+                    _SettingAsset, out var changes);
                 if (didChange)
                     changeSets.Add(changes);
             }

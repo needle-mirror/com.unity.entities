@@ -41,13 +41,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 switch (scheduleType)
                 {
                     case ScheduleType.Run:
-                        Entities.ForEach((ref EcsTestComponentWithBool td) => { td.value = Exists(entity); }).Run();
+                        Entities.ForEach((ref EcsTestComponentWithBool td) => { td.value = SystemAPI.Exists(entity); }).Run();
                         break;
                     case ScheduleType.Schedule:
-                        Entities.ForEach((ref EcsTestComponentWithBool td) => { td.value = Exists(entity); }).Schedule();
+                        Entities.ForEach((ref EcsTestComponentWithBool td) => { td.value = SystemAPI.Exists(entity); }).Schedule();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        Entities.ForEach((ref EcsTestComponentWithBool td) => { td.value = Exists(entity); }).ScheduleParallel();
+                        Entities.ForEach((ref EcsTestComponentWithBool td) => { td.value = SystemAPI.Exists(entity); }).ScheduleParallel();
                         break;
                 }
 
@@ -61,15 +61,15 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 switch (scheduleType)
                 {
                     case ScheduleType.Run:
-                        Entities.ForEach((ref EcsTestComponentWithBool td) => td.value = Exists(GetBufferLookup<EcsComplexEntityRefElement>(true)[entity][0].Entity)).Run();
+                        Entities.ForEach((ref EcsTestComponentWithBool td) => td.value = SystemAPI.Exists(GetBufferLookup<EcsComplexEntityRefElement>(true)[entity][0].Entity)).Run();
                         break;
 
                     case ScheduleType.Schedule:
-                        Entities.ForEach((ref EcsTestComponentWithBool td) => td.value = Exists(GetBufferLookup<EcsComplexEntityRefElement>(true)[entity][0].Entity)).Schedule();
+                        Entities.ForEach((ref EcsTestComponentWithBool td) => td.value = SystemAPI.Exists(GetBufferLookup<EcsComplexEntityRefElement>(true)[entity][0].Entity)).Schedule();
                         break;
 
                     case ScheduleType.ScheduleParallel:
-                        Entities.ForEach((ref EcsTestComponentWithBool td) => td.value = Exists(GetBufferLookup<EcsComplexEntityRefElement>(true)[entity][0].Entity)).ScheduleParallel();
+                        Entities.ForEach((ref EcsTestComponentWithBool td) => td.value = SystemAPI.Exists(GetBufferLookup<EcsComplexEntityRefElement>(true)[entity][0].Entity)).ScheduleParallel();
                         break;
                 }
 
@@ -106,30 +106,30 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         Entities.ForEach((ref EcsTestData td) =>
                         {
                             var entityHolder = GetBufferLookup<EcsComplexEntityRefElement>(true)[entity];
-                            td.value += Exists(entityHolder[0].Entity)?1:0;
-                            td.value += Exists(entityHolder[1].Entity)?2:0;
-                            td.value += Exists(entityHolder[2].Entity)?4:0; // Doesn't exist
-                            td.value += Exists(entityHolder[3].Entity)?8:0;
+                            td.value += SystemAPI.Exists(entityHolder[0].Entity)?1:0;
+                            td.value += SystemAPI.Exists(entityHolder[1].Entity)?2:0;
+                            td.value += SystemAPI.Exists(entityHolder[2].Entity)?4:0; // Doesn't exist
+                            td.value += SystemAPI.Exists(entityHolder[3].Entity)?8:0;
                         }).Run();
                         break;
                     case ScheduleType.Schedule:
                         Entities.ForEach((ref EcsTestData td) =>
                         {
                             var entityHolder = GetBufferLookup<EcsComplexEntityRefElement>(true)[entity];
-                            td.value += Exists(entityHolder[0].Entity)?1:0;
-                            td.value += Exists(entityHolder[1].Entity)?2:0;
-                            td.value += Exists(entityHolder[2].Entity)?4:0; // Doesn't exist
-                            td.value += Exists(entityHolder[3].Entity)?8:0;
+                            td.value += SystemAPI.Exists(entityHolder[0].Entity)?1:0;
+                            td.value += SystemAPI.Exists(entityHolder[1].Entity)?2:0;
+                            td.value += SystemAPI.Exists(entityHolder[2].Entity)?4:0; // Doesn't exist
+                            td.value += SystemAPI.Exists(entityHolder[3].Entity)?8:0;
                         }).Schedule();
                         break;
                     case ScheduleType.ScheduleParallel:
                         Entities.ForEach((ref EcsTestData td) =>
                         {
                             var entityHolder = GetBufferLookup<EcsComplexEntityRefElement>(true)[entity];
-                            td.value += Exists(entityHolder[0].Entity)?1:0;
-                            td.value += Exists(entityHolder[1].Entity)?2:0;
-                            td.value += Exists(entityHolder[2].Entity)?4:0; // Doesn't exist
-                            td.value += Exists(entityHolder[3].Entity)?8:0;
+                            td.value += SystemAPI.Exists(entityHolder[0].Entity)?1:0;
+                            td.value += SystemAPI.Exists(entityHolder[1].Entity)?2:0;
+                            td.value += SystemAPI.Exists(entityHolder[2].Entity)?4:0; // Doesn't exist
+                            td.value += SystemAPI.Exists(entityHolder[3].Entity)?8:0;
                         }).ScheduleParallel();
                         break;
                 }

@@ -1,7 +1,10 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Entities.Build;
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build;
 using Unity.Build.Common;
+#endif
 using Unity.Entities.Conversion;
 using UnityEditor;
 using Hash128 = Unity.Entities.Hash128;
@@ -33,29 +36,15 @@ namespace Unity.Scenes.Hybrid.Tests
 #if UNITY_EDITOR
             try
             {
-                BuildConfiguration.CreateAsset(m_BuildConfigPath, config =>
-                {
-                    config.SetComponent(new SceneList
-                    {
-                        SceneInfos = new List<SceneList.SceneInfo>
-                        {
-                            new SceneList.SceneInfo
-                            {
-                                Scene = GlobalObjectId.GetGlobalObjectIdSlow(
-                                    AssetDatabase.LoadAssetAtPath<SceneAsset>(m_SubScenePath))
-                            }
-                        }
-                    });
-                });
-                m_BuildConfigurationGUID = new GUID(AssetDatabase.AssetPathToGUID(m_BuildConfigPath));
+                m_BuildConfigurationGUID = DotsGlobalSettings.Instance.GetClientGUID();
                 m_SceneGUID = new GUID(AssetDatabase.AssetPathToGUID(m_SubScenePath));
 
-                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(m_SceneGUID, m_BuildConfigurationGUID, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled,
+                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(m_SceneGUID, m_BuildConfigurationGUID, true,
                     out var requestRefresh);
                 if (requestRefresh)
                     AssetDatabase.Refresh();
                 m_SceneWithBuildSettingsPath = SceneWithBuildConfigurationGUIDs.GetSceneWithBuildSettingsPath(guid);
-                EntityScenesPaths.GetSubSceneArtifactHash(m_SceneGUID, m_BuildConfigurationGUID, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled,
+                EntityScenesPaths.GetSubSceneArtifactHash(m_SceneGUID, m_BuildConfigurationGUID, true,
                     ImportMode.Synchronous);
             }
             catch

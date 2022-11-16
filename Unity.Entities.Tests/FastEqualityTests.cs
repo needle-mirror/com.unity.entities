@@ -11,7 +11,7 @@ using Unity.Burst;
 namespace Unity.Entities.Tests
 {
     [BurstCompile]
-    public class FastEqualityTests
+    public unsafe class FastEqualityTests
     {
         [StructLayout(LayoutKind.Sequential)]
         struct Simple
@@ -100,64 +100,105 @@ namespace Unity.Entities.Tests
             public Nephew nephew;
         }
 
-        [Test]
-        public void ClassLayout()
+        class ParentAbstractGetHashCode : IEquatable<ParentAbstractGetHashCode>
         {
-            var ti = FastEquality.CreateTypeInfo(typeof(ClassInStruct));
-            Assert.IsNotNull(ti.GetHashFn);
-            Assert.IsNotNull(ti.EqualFn);
+            public bool Equals(ParentAbstractGetHashCode other)
+            {
+                return false;
+            }
+
+            virtual public int GetHashCode(int someoverload)
+            {
+                return 0;
+            }
+        }
+
+        class ChildComponentMultipleHashCodes : ParentAbstractGetHashCode
+        {
+            public override int GetHashCode()
+            {
+                int hash = 17;
+
+                return hash;
+            }
+        }
+
+        [Test]
+        public unsafe void TestFindCorrectEqualityMethods()
+        {
+            var ti = FastEquality.CreateTypeInfo(typeof(ChildComponentMultipleHashCodes), true);
+            // Don't take the parent IEquatable methods
+            Assert.IsTrue(ti.EqualsDelegateIndex == FastEquality.TypeInfo.Null.EqualsDelegateIndex);
+            // Ensure we can find our hashcode without error
+            Assert.IsTrue(ti.GetHashCodeDelegateIndex != FastEquality.TypeInfo.Null.GetHashCodeDelegateIndex);
+        }
+
+        [Test]
+        public unsafe void ClassLayout()
+        {
+            var ti = FastEquality.CreateTypeInfo(typeof(ClassInStruct), true);
+            Assert.IsTrue(ti.EqualsDelegateIndex != FastEquality.TypeInfo.Null.EqualsDelegateIndex);
+            Assert.IsTrue(ti.GetHashCodeDelegateIndex != FastEquality.TypeInfo.Null.GetHashCodeDelegateIndex);
         }
 
         [Test]
         public void EqualsInt4()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(int4));
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(int4), true);
 
-            Assert.IsTrue(FastEquality.Equals(new int4(1, 2, 3, 4), new int4(1, 2, 3, 4), typeInfo));
-            Assert.IsFalse(FastEquality.Equals(new int4(1, 2, 3, 4), new int4(1, 2, 3, 5), typeInfo));
-            Assert.IsFalse(FastEquality.Equals(new int4(1, 2, 3, 4), new int4(0, 2, 3, 4), typeInfo));
-            Assert.IsFalse(FastEquality.Equals(new int4(1, 2, 3, 4), new int4(5, 6, 7, 8), typeInfo));
+            var a  = new int4(1, 2, 3, 4);
+            var aa = new int4(1, 2, 3, 4);
+            var b = new int4(1, 2, 3, 5);
+            var c = new int4(0, 2, 3, 4);
+            var d = new int4(5, 6, 7, 8);
+            Assert.IsTrue( FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref d), in typeInfo));
         }
 
         [Test]
         public void EqualsPadding()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(EndPadding));
-
-            Assert.IsTrue(FastEquality.Equals(new EndPadding(1, 2), new EndPadding(1, 2), typeInfo));
-            Assert.IsFalse(FastEquality.Equals(new EndPadding(1, 2), new EndPadding(1, 3), typeInfo));
-            Assert.IsFalse(FastEquality.Equals(new EndPadding(1, 2), new EndPadding(4, 2), typeInfo));
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(EndPadding), true);
+            var a = new EndPadding(1, 2);
+            var b = new EndPadding(1, 2);
+            var c = new EndPadding(1, 3);
+            var d = new EndPadding(4, 2);
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref d), in typeInfo));
         }
 
         [Test]
         public unsafe void EqualsFixedArray()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(FixedArrayStruct));
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(FixedArrayStruct), true);
 
             var a = new FixedArrayStruct();
-            a.array[0] = 123;
-            a.array[1] = 234;
-            a.array[2] = 345;
+            var b = new FixedArrayStruct();
+            a.array[0] = b.array[0] = 123;
+            a.array[1] = b.array[1] = 234;
+            a.array[2] = b.array[2] = 345;
 
-            var b = a;
-
-            Assert.IsTrue(FastEquality.Equals(a, b, typeInfo));
+            Assert.IsTrue(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
 
             b.array[1] = 456;
 
-            Assert.IsFalse(FastEquality.Equals(a, b, typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
         }
 
         [Test]
         public void EqualsEnum()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(EnumStruct));
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(EnumStruct), true);
 
             var a = new EnumStruct { nephew = Nephew.Huey };
+            var aa = new EnumStruct { nephew = Nephew.Huey };
             var b = new EnumStruct { nephew = Nephew.Dewey };
 
-            Assert.IsTrue(FastEquality.Equals(a, a, typeInfo));
-            Assert.IsFalse(FastEquality.Equals(a, b, typeInfo));
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b),  in typeInfo));
         }
         [DisableAutoTypeRegistration]
         struct TypeWithoutHashCodeOverride : ISharedComponentData, IEquatable<TypeWithoutHashCodeOverride>
@@ -175,75 +216,80 @@ namespace Unity.Entities.Tests
         [Test]
         public void ForgettingGetHashCodeIsAnError()
         {
-            var ex = Assert.Throws<ArgumentException>(() => FastEquality.CreateTypeInfo(typeof(TypeWithoutHashCodeOverride)));
+            var ex = Assert.Throws<ArgumentException>(() => FastEquality.CreateTypeInfo(typeof(TypeWithoutHashCodeOverride), true));
             Assert.IsTrue(ex.Message.Contains("GetHashCode"));
         }
 
         struct DoubleEquals : ISharedComponentData, IEquatable<DoubleEquals>
         {
+            public int Value;
+
             public bool Equals(DoubleEquals other)
             {
-                return true;
+                return Value == other.Value;
             }
 
             public override bool Equals(object obj)
             {
+                if(obj is DoubleEquals)
+                    return Value == ((DoubleEquals)obj).Value;
                 return false;
             }
 
             public override int GetHashCode()
             {
-                return 0;
+                return Value;
             }
         }
 
         [Test]
         public void CorrectEqualsIsUsed()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(DoubleEquals));
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(DoubleEquals), true);
             var a = new DoubleEquals {};
             var b = new DoubleEquals {};
-            bool iseq = FastEquality.Equals<DoubleEquals>(a, b, typeInfo);
+            bool iseq = FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo);
 
             Assert.IsTrue(iseq);
         }
 
         [BurstCompile(CompileSynchronously = true)]
-        private static unsafe bool EqualsBurst(ref Entity a, ref Entity b)
+        private static unsafe bool EqualsBurst(ref Entity a, ref Entity b, ref FastEquality.TypeInfo typeInfo)
         {
-            return FastEquality.Equals(a, b);
+            return FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo);
         }
 
         [BurstCompile(CompileSynchronously = true)]
-        private static unsafe int GetHashCodeBurst(ref Entity a)
+        private static unsafe int GetHashCodeBurst(ref Entity a, ref FastEquality.TypeInfo typeInfo)
         {
-            return FastEquality.GetHashCode(a);
+            return FastEquality.GetHashCode(UnsafeUtility.AddressOf(ref a), in typeInfo);
         }
 
         [Test]
         public void FastEqualityWorksFromBurst()
         {
             TypeManager.Initialize();
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(Entity), true);
 
             Entity a1 = new Entity() {Index = 1, Version = 2};
             Entity a2 = a1;
             Entity b = new Entity() {Index = 2, Version = 1};
-            var monoA1EqualsA2 = FastEquality.Equals(a1, a2);
-            var monoA1EqualsB = FastEquality.Equals(a1, b);
-            var burstA1EqualsA2 = EqualsBurst(ref a1, ref a2);
-            var burstA1EqualsB = EqualsBurst(ref a1, ref b);
+            var monoA1EqualsA2 = FastEquality.Equals(UnsafeUtility.AddressOf(ref a1), UnsafeUtility.AddressOf(ref a2), in typeInfo);
+            var monoA1EqualsB = FastEquality.Equals(UnsafeUtility.AddressOf(ref a1), UnsafeUtility.AddressOf(ref b), in typeInfo);
+            var burstA1EqualsA2 = EqualsBurst(ref a1, ref a2, ref typeInfo);
+            var burstA1EqualsB = EqualsBurst(ref a1, ref b, ref typeInfo);
 
             Assert.IsTrue(monoA1EqualsA2);
             Assert.IsTrue(burstA1EqualsA2);
             Assert.IsFalse(monoA1EqualsB);
             Assert.IsFalse(burstA1EqualsB);
 
-            var monoA1GetHashCode = FastEquality.GetHashCode(a1);
-            var monoA2GetHashCode = FastEquality.GetHashCode(a2);
-            var monoBGetHashCode = FastEquality.GetHashCode(b);
-            var burstA1GetHashCode = GetHashCodeBurst(ref a1);
-            var burstA2GetHashCode = GetHashCodeBurst(ref a2);
-            var burstBGetHashCode = GetHashCodeBurst(ref b);
+            var monoA1GetHashCode = FastEquality.GetHashCode(UnsafeUtility.AddressOf(ref a1), in typeInfo);
+            var monoA2GetHashCode = FastEquality.GetHashCode(UnsafeUtility.AddressOf(ref a2), in typeInfo);
+            var monoBGetHashCode = FastEquality.GetHashCode(UnsafeUtility.AddressOf(ref b), in typeInfo);
+            var burstA1GetHashCode = GetHashCodeBurst(ref a1, ref typeInfo);
+            var burstA2GetHashCode = GetHashCodeBurst(ref a2, ref typeInfo);
+            var burstBGetHashCode = GetHashCodeBurst(ref b, ref typeInfo);
 
             Assert.AreEqual(monoA1GetHashCode, burstA1GetHashCode);
             Assert.AreEqual(monoA2GetHashCode, burstA2GetHashCode);
@@ -286,7 +332,7 @@ namespace Unity.Entities.Tests
         public void ManagedComponentEquals()
         {
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent));
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent), true);
                 var obj1 = new EcsTestManagedComponent() { value = "SomeString" };
                 var obj12 = new EcsTestManagedComponent() { value = "SomeString" };
                 var obj2 = new EcsTestManagedComponent() { value = "SomeOtherString" };
@@ -296,7 +342,7 @@ namespace Unity.Entities.Tests
             }
 
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray));
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray), true);
                 var tex1 = new UnityEngine.Texture2D(512, 512);
                 var tex2 = new UnityEngine.Texture2D(512, 512);
                 var tex3 = new UnityEngine.Texture2D(512, 512);
@@ -323,7 +369,7 @@ namespace Unity.Entities.Tests
             }
 
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentImplementsIEquatable));
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentImplementsIEquatable), true);
                 var obj = new ComponentImplementsIEquatable();
                 Assert.IsTrue(FastEquality.ManagedEquals(obj, obj, typeInfo));
                 Assert.IsTrue(obj.EqualsWasCalled);
@@ -334,7 +380,7 @@ namespace Unity.Entities.Tests
         public void ManagedComponentGetHashCode()
         {
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent));
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent), true);
                 var obj1 = new EcsTestManagedComponent() { value = "SomeString" };
                 var obj12 = new EcsTestManagedComponent() { value = "SomeString" };
                 var obj2 = new EcsTestManagedComponent() { value = "SomeOtherString" };
@@ -344,7 +390,7 @@ namespace Unity.Entities.Tests
             }
 
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray));
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray), true);
                 var tex1 = new UnityEngine.Texture2D(512, 512);
                 var tex2 = new UnityEngine.Texture2D(512, 512);
                 var tex3 = new UnityEngine.Texture2D(512, 512);
@@ -371,13 +417,60 @@ namespace Unity.Entities.Tests
             }
 
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentOverridesGetHashCode));
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentOverridesGetHashCode), true);
                 var obj = new ComponentOverridesGetHashCode();
                 Assert.AreEqual(FastEquality.ManagedGetHashCode(obj, typeInfo), FastEquality.ManagedGetHashCode(obj, typeInfo));
-                Assert.IsTrue(obj.GetHashCodeWasCalled);
+                Assert.IsTrue(obj.GetHashCodeWasCalled); 
             }
         }
 
+
+        public struct GenericComponent<T> : IComponentData
+            where T : unmanaged
+        {
+            public byte mByte;
+            public T mT;
+            public int mInt;
+        }
+
+        static unsafe void ValidateEqualsForGeneric<T>(T val) where T : unmanaged
+        {
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(GenericComponent<T>), true);
+            var aa = default(GenericComponent<T>);
+            var ab = default(GenericComponent<T>);
+            var ba = default(GenericComponent<T>);
+            var bb = default(GenericComponent<T>);
+            UnsafeUtility.MemSet(&aa, 0xDD, UnsafeUtility.SizeOf<GenericComponent<T>>());
+            UnsafeUtility.MemSet(&ba, 0xDD, UnsafeUtility.SizeOf<GenericComponent<T>>());
+
+            UnsafeUtility.MemSet(&ab, 0x77, UnsafeUtility.SizeOf<GenericComponent<T>>());
+            UnsafeUtility.MemSet(&bb, 0x77, UnsafeUtility.SizeOf<GenericComponent<T>>());
+
+            aa.mByte = ab.mByte = 0x11;
+            aa.mT = ab.mT = val;
+            aa.mInt = ab.mInt = 0x22222222;
+
+            ba.mByte = bb.mByte = 0x22;
+            ba.mT = bb.mT = val;
+            ba.mInt = bb.mInt = 0x22222222;
+
+            Assert.IsTrue(FastEquality.Equals(UnsafeUtility.AddressOf(ref aa), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsTrue(FastEquality.Equals(UnsafeUtility.AddressOf(ref aa), UnsafeUtility.AddressOf(ref ab), in typeInfo));
+
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref aa), UnsafeUtility.AddressOf(ref ba), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref aa), UnsafeUtility.AddressOf(ref bb), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref ab), UnsafeUtility.AddressOf(ref ba), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref ab), UnsafeUtility.AddressOf(ref bb), in typeInfo));
+        }
+
+        [Test]
+        public unsafe void EqualsGenericComponentPadding()
+        {
+            ValidateEqualsForGeneric<byte>(0xAA);
+            ValidateEqualsForGeneric<ushort>(0xAAAA);
+            ValidateEqualsForGeneric<uint>(0xAAAAAAAA);
+            ValidateEqualsForGeneric<ulong>(0xAAAAAAAAAAAAAAAA);
+        }
 #endif
     }
 }

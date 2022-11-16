@@ -451,13 +451,15 @@ namespace Unity.Entities
 
             using (var createdBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
             using (var destroyedBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
+            using (var sameHashDifferentAddressBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
             {
                 new GatherCreatedAndDestroyedBlobAssets
                 {
                     CreatedBlobAssets = createdBlobAssets,
                     DestroyedBlobAssets = destroyedBlobAssets,
                     AfterBlobAssets = srcBlobAssets,
-                    BeforeBlobAssets = dstBlobAssets
+                    BeforeBlobAssets = dstBlobAssets,
+                    SameHashDifferentAddressBlobAssets = sameHashDifferentAddressBlobAssets
                 }.Run();
 
                 for (var i = 0; i < destroyedBlobAssets.Length; i++)
@@ -494,7 +496,30 @@ namespace Unity.Entities
 
                     var blobAssetPtr = batch->AllocateBlobAsset(createdBlobAssets[i].Data,
                         createdBlobAssets[i].Length, createdBlobAssets[i].Header->Hash);
-                    remap.TryAdd(createdBlobAssets[i], blobAssetPtr);
+                    remap.Add(createdBlobAssets[i], blobAssetPtr);
+                }
+
+                for (int i = 0; i < sameHashDifferentAddressBlobAssets.Length; i++)
+                {
+                    var update = sameHashDifferentAddressBlobAssets[i];
+
+                    using (var keys = remap.GetKeyArray(Allocator.Temp))
+                    using (var values = remap.GetValueArray(Allocator.Temp))
+                    {
+                        for (var remapIndex = 0; remapIndex < values.Length; remapIndex++)
+                        {
+                            if (values[remapIndex].Hash != update.Hash)
+                                continue;
+
+                            if (keys[remapIndex].Data != update.Data)
+                            {
+                                remap.Remove(keys[remapIndex]);
+                                remap.Add(update, values[remapIndex]);
+                            }
+
+                            break;
+                        }
+                    }
                 }
 
                 if (destroyedBlobAssets.Length > 0 || createdBlobAssets.Length > 0)

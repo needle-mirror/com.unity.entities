@@ -1,5 +1,5 @@
 using Unity.Entities.Editor.Inspectors;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Properties;
 using UnityEditor;
 using UnityEditor.UIElements;

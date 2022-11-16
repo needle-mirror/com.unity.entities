@@ -99,66 +99,75 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CommandBuffer_AddComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddComponentForEntityQuery(_syncChangeFilterTypesSystem.EntityQuery, typeof(EcsTestData3)));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddComponent(_syncChangeFilterTypesSystem.EntityQuery, typeof(EcsTestData3)));
             }
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CommandBuffer_RemoveComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.RemoveComponentForEntityQuery(_syncChangeFilterTypesSystem.EntityQuery, typeof(EcsTestData)));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.RemoveComponent(_syncChangeFilterTypesSystem.EntityQuery, typeof(EcsTestData)));
             }
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CommandBuffer_DestroyEntityWithEntityQuery_Syncs_ChangeFilterTypes()
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.DestroyEntitiesForEntityQuery(_syncChangeFilterTypesSystem.EntityQuery));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.DestroyEntity(_syncChangeFilterTypesSystem.EntityQuery));
             }
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CommandBuffer_AddSharedComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddSharedComponentForEntityQuery(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7)));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddSharedComponent(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7)));
             }
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void EntityManager_RemoveComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
             AssertThrowsIfAnyJobNotCompleted(() => m_Manager.RemoveComponent(_syncChangeFilterTypesSystem.EntityQuery, ComponentType.ReadWrite<EcsTestData>()));
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void EntityManager_AddComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
             AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddComponent(_syncChangeFilterTypesSystem.EntityQuery, ComponentType.ReadWrite<EcsTestData3>()));
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void EntityManager_AddChunkComponentDataWithEntityQuery_Syncs_ChangeFilterTypes()
         {
             AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddChunkComponentData(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestData3(7)));
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void EntityManager_RemoveChunkComponentDataWithEntityQuery_Syncs_ChangeFilterTypes()
         {
             AssertThrowsIfAnyJobNotCompleted(() => m_Manager.RemoveChunkComponentData<EcsTestData3>(_syncChangeFilterTypesSystem.EntityQuery));
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void EntityManager_AddSharedComponentDataWithEntityQuery_Syncs_ChangeFilterTypes()
         {
             AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddSharedComponentManaged(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7)));

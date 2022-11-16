@@ -1,4 +1,4 @@
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Inspectors

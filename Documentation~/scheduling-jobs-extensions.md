@@ -14,8 +14,8 @@ For an overview of the jobs system see [C# Job System](https://docs.unity3d.com/
 
 The [Jobs package](https://docs.unity3d.com/Packages/com.unity.jobs@latest) extends the job system to support ECS. It contains:
 
-* [`IJobParallelForDeferExtensions`](https://docs.unity3d.com/Packages/com.unity.jobs@latest?preview=1&subfolder=/api/Unity.Jobs.IJobParallelForDeferExtensions.html)
-* [`IJobFilter`](https://docs.unity3d.com/Packages/com.unity.jobs@latest?preview=1&subfolder=/api/Unity.Jobs.IJobFilter.html)
-* [`JobParallelIndexListExtensions`](https://docs.unity3d.com/Packages/com.unity.jobs@latest?preview=1&subfolder=/api/Unity.Jobs.JobParallelIndexListExtensions.html)
-* [`Job​Struct​Produce<T>`](https://docs.unity3d.com/Packages/com.unity.jobs@latest?preview=1&subfolder=/api/Unity.Jobs.JobParallelIndexListExtensions.JobStructProduce-1.html)
+* [`IJobParallelForDeferExtensions`](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/api/Unity.Jobs.IJobParallelForDeferExtensions.html)
+* [`IJobFilter`](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/api/Unity.Jobs.IJobFilter.html)
+* [`JobParallelIndexListExtensions`](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/api/Unity.Jobs.JobParallelIndexListExtensions.html)
+* [`Job​Struct​Produce<T>`](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/api/Unity.Jobs.JobParallelIndexListExtensions.JobStructProduce-1.html)
 

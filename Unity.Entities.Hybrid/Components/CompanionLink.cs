@@ -22,7 +22,14 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            UnityObject.DestroyImmediate(Companion);
+#if UNITY_EDITOR
+            if (Application.isPlaying)
+                UnityObject.Destroy(Companion);
+            else
+                UnityObject.DestroyImmediate(Companion);
+#else
+            UnityObject.Destroy(Companion);
+#endif
         }
 
         public object Clone()

@@ -84,6 +84,11 @@ namespace UnityEditor.UI
 
                             SubSceneInspectorUtility.CloseAndAskSaveIfUserWantsTo(subScenes);
                         }
+
+                        // When opening or closing the scene from the hierarchy, the scene does not become dirty.
+                        // Because of that, the SubSceneInspector cannot refresh itself automatically and update the
+                        // state of the selected subscenes.
+                        SubSceneInspectorUtility.RepaintSubSceneInspector();
                     }
 
                     if (buttonRect.Contains(evt.mousePosition))

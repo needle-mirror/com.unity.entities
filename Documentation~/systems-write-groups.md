@@ -137,7 +137,7 @@ public class AddingSystem : SystemBase
        };
        m_Query = GetEntityQuery(queryDescription);
    }
-   // Define IJobEntityBatch struct and schedule...
+   // Define IJobChunk struct and schedule...
 }
 ```
 

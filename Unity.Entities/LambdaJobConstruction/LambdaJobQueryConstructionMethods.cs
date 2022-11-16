@@ -171,15 +171,6 @@ namespace Unity.Entities
         public static ForEachLambdaJobDescription WithSharedComponentFilter<T1, T2>(this ForEachLambdaJobDescription description, [AllowDynamicValue] T1 sharedComponent1, [AllowDynamicValue] T2 sharedComponent2) where T1 : struct, ISharedComponentData where T2 : struct, ISharedComponentData => description;
 
         /// <summary>
-        /// Only iterate through entities that are contained in the NativeArray of entities parameter.
-        /// </summary>
-        /// <param name="entities">NativeArray of entities to match with</param>
-        /// <param name="description">The target object</param>
-        /// <returns>The target object, suitable for chaining multiple methods</returns>
-        [Obsolete("The WithFilter(entities) feature will be removed. As a replacement, add the entities to a NativeHashSet and use NativeHashSet.Contains(e) in the job as an early out. (RemovedAfter Entities 1.0)")]
-        public static ForEachLambdaJobDescription WithFilter(this ForEachLambdaJobDescription description, [AllowDynamicValue] NativeArray<Entity> entities) => description;
-
-        /// <summary>
         /// Capture the query you have defined using WithAny/WithAll/WithNone
         /// </summary>
         /// <param name="description">The target object</param>

@@ -190,6 +190,19 @@ namespace Unity.Entities.Tests
         public int GetValue() => value0;
     }
 
+    internal struct EcsTestEmptyEnableable1 : IComponentData, IEnableableComponent{}
+
+    internal struct EcsTestEmptyEnableable2 : IComponentData, IEnableableComponent{}
+
+    internal struct EcsTestEnableableBuffer1 : IBufferElementData, IEnableableComponent
+    {
+        public int Value;
+    }
+    internal struct EcsTestEnableableBuffer2 : IBufferElementData, IEnableableComponent
+    {
+        public int Value;
+    }
+
     internal struct EcsTestNonComponent
     {
         public int Value;
@@ -212,6 +225,7 @@ namespace Unity.Entities.Tests
         public float Value1;
         public float Value2;
     }
+
 
     internal struct EcsTestSharedComp : ISharedComponentData
     {
@@ -688,6 +702,7 @@ namespace Unity.Entities.Tests
 
     internal struct EcsTestSharedTag : ISharedComponentData
     {
+        public int Value;
     }
 
     internal struct EcsTestComponentWithBool : IComponentData, IEquatable<EcsTestComponentWithBool>

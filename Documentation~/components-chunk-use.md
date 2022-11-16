@@ -1,6 +1,6 @@
 # Use chunk components
 
-Chunk components use a different set of APIs to add, remove, get, and set them compared to other component types. For example, to add chunk components to an entity, you use [`EntityManager.AddComponentData`](xref:Unity.Entities.EntityManager.GetChunkComponentData*) instead of the regular [`EntityManager.AddComponent`](xref:Unity.Entities.EntityManager.AddComponent*).
+Chunk components use a different set of APIs to add, remove, get, and set them compared to other component types. For example, to add chunk components to an entity, you use [`EntityManager.AddChunkComponentData`](xref:Unity.Entities.EntityManager.AddChunkComponentData*) instead of the regular [`EntityManager.AddComponent`](xref:Unity.Entities.EntityManager.AddComponent*).
 
 The following code sample shows how to add, set, and get a chunk component. It assumes a chunk component called `ExampleChunkComp` and a non-chunk component called `ExampleComponent` exists:
 

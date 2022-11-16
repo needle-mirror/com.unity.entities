@@ -11,7 +11,7 @@ This page contains an overview of some key APIs that make up Unity's Entity Comp
 | [Entity](xref:Unity.Entities.Entity) | The fundamental identifier in ECS. |
 | [EntityArchetype](xref:Unity.Entities.EntityArchetype) | A unique combination of component types. For more information, see [Archetype concepts](xref:concepts-archetypes). |
 | [EntityQuery](xref:Unity.Entities.EntityQuery) | Select entities with specific characteristics. For more information, see [Querying entity data with an entity query](xref:systems-entityquery). |
-| [EntityQueryDesc](xref:Unity.Entities.EntityQueryDesc) | Create [EntityQuery](xref:Unity.Entities.EntityQuery) objects. |
+| [EntityQueryBuilder](xref:Unity.Entities.EntityQueryBuilder) | Create [EntityQuery](xref:Unity.Entities.EntityQuery) objects. |
 | [EntityManager](xref:Unity.Entities.EntityManager) | Manages entities and provides utility methods. |
 | [World](xref:Unity.Entities.World) | An isolated collection of entities. For more information see [World concepts](xref:concepts-worlds) |
 
@@ -26,16 +26,17 @@ This page contains an overview of some key APIs that make up Unity's Entity Comp
 
 | **System types** | **Description** |
 | :--- | :--- |
+| [ISystem](xref:Unity.Entities.ISystem)|An interface to create systems from.|
 | [ComponentSystemBase](xref:Unity.Entities.ComponentSystemBase) | Defines a set of basic functionality for systems. For more information, see [Creating systems with SystemBase](xref:systems-systembase). |
 | [SystemBase](xref:Unity.Entities.SystemBase) | The base class to extend when writing a system. |
 | [ComponentSystemGroup](xref:Unity.Entities.ComponentSystemGroup) | A group of systems that update as a unit. For more information, see [System groups](xref:systems-update-order). |
 
-| **ECS job types**|**Description**|
-|:---|:---|
-| [Entities.ForEach](xref:Unity.Entities.SystemBase.Entities) | An implicitly created job that iterates over a set of entities. For more information, see [Iterate over data with Entities.ForEach](xref:iterating-data-entities-foreach). |
-| [Job.WithCode](xref:Unity.Entities.SystemBase.Job) | An implicitly created single job.  |
-| [IJobEntity](xref:Unity.Entities.IJobEntity)  | An interface to implicitly create a job that iterates over the entities. For more information, see [Iterate over component data with IJobEntity](xref:iterating-data-ijobentity).  |
-| [IJobEntityBatch](xref:Unity.Entities.IJobEntityBatch) | An interface to explicitly create a job that iterates over the entities returned by an entity query in batches. |
+| **ECS job types** | **Description**                                                                                                                                                                                         |
+|:---|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [IJobEntity](xref:Unity.Entities.IJobEntity) | An interface to implicitly create a job that iterates over the entities. For more information, see [Iterate over component data with IJobEntity](xref:iterating-data-ijobentity).                       |
+| [Entities.ForEach](xref:Unity.Entities.SystemBase.Entities) | An implicitly created job that iterates over a set of entities. For more information, see [Iterate over data with Entities.ForEach](xref:iterating-data-entities-foreach).                              |
+| [Job.WithCode](xref:Unity.Entities.SystemBase.Job) | An implicitly created single job.                                                                                                                                                                       |
+| [IJobChunk](xref:Unity.Entities.IJobChunk)  | An interface to explicitly create a job that iterates over the chunks matched by an entity query. For more information, see [Iterate over data with IJobChunk](xref:iterating-data-ijobchunk).          |
 
 | **Other important types** |**Description** |
 | :--- | :--- |
@@ -44,6 +45,7 @@ This page contains an overview of some key APIs that make up Unity's Entity Comp
 | [ComponentType](xref:Unity.Entities.ComponentType) | Define types when creating entity queries. |
 | [BlobBuilder](xref:Unity.Entities.BlobBuilder) | A utility class to create blob assets, which are immutable data structures that can be safely shared between jobs using [BlobAssetReference](xref:Unity.Entities.BlobAssetReference`1) instances. |
 | [ICustomBootstrap](xref:Unity.Entities.ICustomBootstrap) | An interface to implement to create your own system loop. |
+| [SystemAPI](xref:Unity.Entities.SystemAPI)|Class that gives access to access to buffers, components, time, enumeration, singletons and more. This also includes any [IAspect](xref:Unity.Entities.IAspect), [IJobEntity](xref:Unity.Entities.IJobEntity), [SystemBase](xref:Unity.Entities.SystemBase), and [ISystem](xref:Unity.Entities.ISystem).|
 
 | **Attributes** | **Description**|
 | :--- | :--- |

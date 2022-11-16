@@ -1,3 +1,4 @@
+using System;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Properties;
@@ -7,17 +8,17 @@ namespace Unity.Transforms
 {
     /// <summary>
     /// The TransformAspect allows access to the entity's transforms.
-    /// If the entity has a parent, the TransformAspect will automatically keep LocalToWorldTransform and
-    /// LocalToParentTransform in sync with each other.
+    /// If the entity has a parent, the TransformAspect will automatically keep LocalTransform and
+    /// WorldTransform in sync with each other.
     /// </summary>
     public readonly partial struct TransformAspect : IAspect
     {
-        readonly RefRW<LocalToWorldTransform>   m_LocalToWorldTransform;
+        readonly RefRW<LocalTransform>  m_LocalTransform;
         [Optional]
-        readonly RefRW<LocalToParentTransform>  m_LocalToParentTransform;
+        readonly RefRW<WorldTransform>  m_WorldTransform;
         [Optional]
         // TODO: This should be RO, blocked by DOTS-6308
-        readonly RefRW<ParentToWorldTransform>  m_ParentToWorldTransform;
+        readonly RefRW<ParentTransform> m_ParentTransform;
 
         // --- Properties R/W ---
 
@@ -25,15 +26,19 @@ namespace Unity.Transforms
         /// The local to world transform, or how the entity is positioned, rotated and scaled in world space.
         /// </summary>
         [CreateProperty]
-        public UniformScaleTransform LocalToWorld
+        public WorldTransform WorldTransform
         {
-            get => m_LocalToWorldTransform.ValueRO.Value;
+            get => m_WorldTransform.ValueRO;
             set
             {
-                m_LocalToWorldTransform.ValueRW.Value = value;
+                m_WorldTransform.ValueRW = value;
                 if (HasParent())
                 {
-                    m_LocalToParentTransform.ValueRW.Value = ParentToWorld.InverseTransformTransform(value);
+                    m_LocalTransform.ValueRW = (LocalTransform)ParentTransform.InverseTransformTransform(value);
+                }
+                else
+                {
+                    m_LocalTransform.ValueRW = (LocalTransform)value;
                 }
             }
         }
@@ -42,69 +47,130 @@ namespace Unity.Transforms
         /// The local to parent transform, or how the entity is positioned, rotated and scaled relative to its parent.
         /// </summary>
         [CreateProperty]
-        public UniformScaleTransform LocalToParent
+        public LocalTransform LocalTransform
         {
-            get => m_LocalToParentTransform.ValueRO.Value;
+            get => m_LocalTransform.ValueRO;
             set
             {
-                m_LocalToParentTransform.ValueRW.Value = value;
+                m_LocalTransform.ValueRW = value;
                 if (HasParent())
                 {
-                    m_LocalToWorldTransform.ValueRW.Value = ParentToWorld.TransformTransform(value);
+                    m_WorldTransform.ValueRW = (WorldTransform)ParentTransform.TransformTransform(value);
+                }
+                else
+                {
+                    m_WorldTransform.ValueRW = (WorldTransform)value;
                 }
             }
         }
 
         /// <summary>The world space position of the entity.</summary>
+        /// <remarks>This value may be stale by up to one frame. <see cref="LocalPosition"/> is always up to date.</remarks>
         [CreateProperty]
-        public float3 Position
+        public float3 WorldPosition
         {
-            get => m_LocalToWorldTransform.ValueRO.Value.Position;
+            get => m_WorldTransform.ValueRO.Position;
             set
             {
-                m_LocalToWorldTransform.ValueRW.Value.Position = value;
+                m_WorldTransform.ValueRW.Position = value;
                 if (HasParent())
                 {
-                    m_LocalToParentTransform.ValueRW.Value.Position =
-                        ParentToWorld.InverseTransformPoint(value);
+                    m_LocalTransform.ValueRW.Position = ParentTransform.InverseTransformPoint(value);
+                }
+                else
+                {
+                    m_LocalTransform.ValueRW.Position = value;
                 }
             }
         }
-
-        /// <summary>The world space rotation of the entity.</summary>
+        /// <summary>Obsolete. Use <see cref="WorldPosition"/> instead.</summary>
+        [Obsolete("This property is ambiguously named, and will be removed. Use LocalPosition (preferred) or worldPosition instead. (RemovedAfter Entities 1.0)", false)]
         [CreateProperty]
-        public quaternion Rotation
+        public float3 Position
         {
-            // Gets the cached value, last written by TransformHierarchySystem
-            get => m_LocalToWorldTransform.ValueRO.Value.Rotation;
+            get => WorldPosition;
+            set => WorldPosition = value;
+        }
+
+        /// <summary>The world space scale of the entity.</summary>
+        /// <remarks>This value may be stale by up to one frame. <see cref="LocalScale"/> is always up to date.</remarks>
+        [CreateProperty]
+        public float WorldScale
+        {
+            // Gets the cached value, last written by LocalToWorldSystem
+            get => m_WorldTransform.ValueRO.Scale;
 
             // If entity has a parent, this will write to the relative transform, which has not yet been cached
             set
             {
-                m_LocalToWorldTransform.ValueRW.Value.Rotation = value;
+                m_WorldTransform.ValueRW.Scale = value;
                 if (HasParent())
                 {
-                    m_LocalToParentTransform.ValueRW.Value.Rotation =
-                        ParentToWorld.InverseTransformRotation(value);
+                    m_LocalTransform.ValueRW.Scale = ParentTransform.InverseTransformScale(value);
+                }
+                else
+                {
+                    m_LocalTransform.ValueRW.Scale = value;
                 }
             }
+        }
+
+        /// <summary>Obsolete. Use <see cref="WorldScale"/> instead.</summary>
+        [Obsolete("This property is ambiguously named, and will be removed. Use LocalScale (preferred) or WorldScale instead. (RemovedAfter Entities 1.0)", false)]
+        [CreateProperty]
+        public float Scale
+        {
+            get => WorldScale;
+            set => WorldScale = value;
+        }
+
+        /// <summary>The world space rotation of the entity.</summary>
+        /// <remarks>This value may be stale by up to one frame. <see cref="LocalRotation"/> is always up to date.</remarks>
+        [CreateProperty]
+        public quaternion WorldRotation
+        {
+            // Gets the cached value, last written by LocalToWorldSystem
+            get => m_WorldTransform.ValueRO.Rotation;
+
+            // If entity has a parent, this will write to the relative transform, which has not yet been cached
+            set
+            {
+                m_WorldTransform.ValueRW.Rotation = value;
+                if (HasParent())
+                {
+                    m_LocalTransform.ValueRW.Rotation = ParentTransform.InverseTransformRotation(value);
+                }
+                else
+                {
+                    m_LocalTransform.ValueRW.Rotation = value;
+                }
+            }
+        }
+
+        /// <summary>Obsolete. Use <see cref="WorldRotation"/> instead.</summary>
+        [Obsolete("This property is ambiguously named, and will be removed. Use LocalRotation (preferred) or WorldRotation instead. (RemovedAfter Entities 1.0)", false)]
+        [CreateProperty]
+        public quaternion Rotation
+        {
+            get => WorldRotation;
+            set => WorldRotation = value;
         }
 
         /// <summary>The position of this entity relative to its parent.</summary>
         [CreateProperty]
         public float3 LocalPosition
         {
-            get => HasParent() ? m_LocalToParentTransform.ValueRO.Value.Position : m_LocalToWorldTransform.ValueRO.Value.Position;
+            get => m_LocalTransform.ValueRO.Position;
             set
             {
+                m_LocalTransform.ValueRW.Position = value;
                 if (HasParent())
                 {
-                    m_LocalToParentTransform.ValueRW.Value.Position = value;
-                    m_LocalToWorldTransform.ValueRW.Value.Position = ParentToWorld.TransformPoint(value);
+                    m_WorldTransform.ValueRW.Position = ParentTransform.TransformPoint(value);
                 }
                 else
                 {
-                    m_LocalToWorldTransform.ValueRW.Value.Position = value;
+                    m_WorldTransform.ValueRW.Position = value;
                 }
             }
         }
@@ -113,17 +179,36 @@ namespace Unity.Transforms
         [CreateProperty]
         public quaternion LocalRotation
         {
-            get => HasParent() ? m_LocalToParentTransform.ValueRO.Value.Rotation : m_LocalToWorldTransform.ValueRO.Value.Rotation;
+            get => m_LocalTransform.ValueRO.Rotation;
             set
             {
+                m_LocalTransform.ValueRW.Rotation = value;
                 if (HasParent())
                 {
-                    m_LocalToParentTransform.ValueRW.Value.Rotation = value;
-                    m_LocalToWorldTransform.ValueRW.Value.Rotation = ParentToWorld.TransformRotation(value);
+                    m_WorldTransform.ValueRW.Rotation = ParentTransform.TransformRotation(value);
                 }
                 else
                 {
-                    m_LocalToWorldTransform.ValueRW.Value.Rotation = value;
+                    m_WorldTransform.ValueRW.Rotation = value;
+                }
+            }
+        }
+
+        /// <summary>The scale of this entity relative to its parent.</summary>
+        [CreateProperty]
+        public float LocalScale
+        {
+            get => m_LocalTransform.ValueRO.Scale;
+            set
+            {
+                m_LocalTransform.ValueRW.Scale = value;
+                if (HasParent())
+                {
+                    m_WorldTransform.ValueRW.Scale = ParentTransform.TransformScale(value);
+                }
+                else
+                {
+                    m_WorldTransform.ValueRW.Scale = value;
                 }
             }
         }
@@ -132,15 +217,15 @@ namespace Unity.Transforms
         // --------------------
 
         /// <summary>This is a copy of the parent's LocalToWorld transform</summary>
-        public UniformScaleTransform ParentToWorld
+        public ParentTransform ParentTransform
         {
-            get => m_ParentToWorldTransform.ValueRO.Value;
+            get => m_ParentTransform.ValueRO;
         }
 
         /// <summary>The forward direction in world space.</summary>
         public float3 Forward
         {
-            get => LocalToWorld.Forward();
+            get => WorldTransform.Forward();
         }
 
         /// <summary>The back direction in world space.</summary>
@@ -152,7 +237,7 @@ namespace Unity.Transforms
         /// <summary>The up direction in world space.</summary>
         public float3 Up
         {
-            get => LocalToWorld.Up();
+            get => WorldTransform.Up();
         }
 
         /// <summary>The down direction in world space.</summary>
@@ -164,7 +249,7 @@ namespace Unity.Transforms
         /// <summary>The right direction in world space.</summary>
         public float3 Right
         {
-            get => LocalToWorld.Right();
+            get => WorldTransform.Right();
         }
 
         /// <summary>The left direction in world space.</summary>
@@ -174,39 +259,39 @@ namespace Unity.Transforms
         }
 
         /// <summary>Convert the LocalToWorld transform into a matrix.</summary>
-        public float4x4 LocalToWorldMatrix
+        public float4x4 WorldMatrix
         {
-            get => LocalToWorld.ToMatrix();
+            get => WorldTransform.ToMatrix();
         }
 
         /// <summary>Convert the inverse of the LocalToWorld transform into a matrix.</summary>
-        public float4x4 WorldToLocalMatrix
+        public float4x4 InverseWorldMatrix
         {
-            get => LocalToWorld.Inverse().ToMatrix();
+            get => WorldTransform.Inverse().ToMatrix();
         }
 
         /// <summary>Convert the ParentToWorld transform into a matrix.</summary>
-        public float4x4 ParentToWorldMatrix
+        public float4x4 ParentMatrix
         {
-            get => ParentToWorld.ToMatrix();
+            get => ParentTransform.ToMatrix();
         }
 
         /// <summary>Convert the inverse of the ParentToWorld transform into a matrix.</summary>
-        public float4x4 WorldToParentMatrix
+        public float4x4 InverseParentMatrix
         {
-            get => ParentToWorld.Inverse().ToMatrix();
+            get => ParentTransform.Inverse().ToMatrix();
         }
 
         /// <summary>Convert the LocalToParent transform into a matrix.</summary>
-        public float4x4 LocalToParentMatrix
+        public float4x4 LocalMatrix
         {
-            get => LocalToParent.ToMatrix();
+            get => LocalTransform.ToMatrix();
         }
 
         /// <summary>Convert the inverse of the LocalToParent transform into a matrix.</summary>
-        public float4x4 ParentToLocalMatrix
+        public float4x4 InverseLocalMatrix
         {
-            get => LocalToParent.Inverse().ToMatrix();
+            get => LocalTransform.Inverse().ToMatrix();
         }
 
         // --- Methods ---
@@ -217,7 +302,7 @@ namespace Unity.Transforms
         {
             if (HasParent())
             {
-                translation = ParentToWorld.InverseTransformDirection(translation);
+                translation = ParentTransform.InverseTransformDirection(translation);
             }
             TranslateLocal(translation);
         }
@@ -228,7 +313,7 @@ namespace Unity.Transforms
         {
             if (HasParent())
             {
-                var childWorldRotation = math.mul(m_ParentToWorldTransform.ValueRO.Value.Rotation, LocalRotation);
+                var childWorldRotation = math.mul(m_ParentTransform.ValueRO.Rotation, LocalRotation);
                 rotation = math.mul(math.mul(math.inverse(childWorldRotation), rotation), childWorldRotation);
             }
             RotateLocal(rotation);
@@ -238,15 +323,15 @@ namespace Unity.Transforms
         /// <param name="translation">The relative translation.</param>
         public void TranslateLocal(float3 translation)
         {
+            var newLocalPosition = m_LocalTransform.ValueRW.Position + translation;
+            m_LocalTransform.ValueRW.Position = newLocalPosition;
             if (HasParent())
             {
-                m_LocalToParentTransform.ValueRW.Value.Position += translation;
-                m_LocalToWorldTransform.ValueRW.Value.Position =
-                    ParentToWorld.TransformPoint(m_LocalToParentTransform.ValueRO.Value.Position);
+                m_WorldTransform.ValueRW.Position = ParentTransform.TransformPoint(newLocalPosition);
             }
             else
             {
-                m_LocalToWorldTransform.ValueRW.Value.Position += translation;
+                m_WorldTransform.ValueRW.Position = newLocalPosition;
             }
         }
 
@@ -254,15 +339,15 @@ namespace Unity.Transforms
         /// <param name="rotation">The relative rotation.</param>
         public void RotateLocal(quaternion rotation)
         {
+            var newLocalRotation = math.mul(m_LocalTransform.ValueRO.Rotation, rotation);
+            m_LocalTransform.ValueRW.Rotation = math.mul(m_LocalTransform.ValueRO.Rotation, rotation);
             if (HasParent())
             {
-                m_LocalToParentTransform.ValueRW.Value.Rotation = math.mul(m_LocalToParentTransform.ValueRO.Value.Rotation, rotation);
-                m_LocalToWorldTransform.ValueRW.Value.Rotation =
-                    ParentToWorld.TransformRotation(m_LocalToParentTransform.ValueRO.Value.Rotation);
+                m_WorldTransform.ValueRW.Rotation = ParentTransform.TransformRotation(newLocalRotation);
             }
             else
             {
-                m_LocalToWorldTransform.ValueRW.Value.Rotation = math.mul(LocalToWorld.Rotation, rotation);
+                m_WorldTransform.ValueRW.Rotation = newLocalRotation;
             }
         }
 
@@ -271,7 +356,7 @@ namespace Unity.Transforms
         /// <returns>The transformed point</returns>>
         public float3 TransformPointParentToWorld(float3 point)
         {
-            return ParentToWorld.TransformPoint(point);
+            return ParentTransform.TransformPoint(point);
         }
 
         /// <summary>Transform a point from world space into parent space.</summary>
@@ -279,7 +364,7 @@ namespace Unity.Transforms
         /// <returns>The transformed point</returns>>
         public float3 TransformPointWorldToParent(float3 point)
         {
-            return ParentToWorld.InverseTransformPoint(point);
+            return ParentTransform.InverseTransformPoint(point);
         }
 
         /// <summary>Transform a point from local space into world space.</summary>
@@ -287,7 +372,7 @@ namespace Unity.Transforms
         /// <returns>The transformed point</returns>>
         public float3 TransformPointLocalToWorld(float3 point)
         {
-            return LocalToWorld.TransformPoint(point);
+            return WorldTransform.TransformPoint(point);
         }
 
         /// <summary>Transform a point from world space into local space.</summary>
@@ -295,7 +380,7 @@ namespace Unity.Transforms
         /// <returns>The transformed point</returns>>
         public float3 TransformPointWorldToLocal(float3 point)
         {
-            return LocalToWorld.InverseTransformPoint(point);
+            return WorldTransform.InverseTransformPoint(point);
         }
 
         /// <summary>Transform a direction vector from parent space into world space.</summary>
@@ -303,7 +388,7 @@ namespace Unity.Transforms
         /// <returns>The transformed direction</returns>>
         public float3 TransformDirectionParentToWorld(float3 direction)
         {
-            return ParentToWorld.TransformDirection(direction);
+            return ParentTransform.TransformDirection(direction);
         }
 
         /// <summary>Transform a direction vector from world space into parent space.</summary>
@@ -311,7 +396,7 @@ namespace Unity.Transforms
         /// <returns>The transformed direction</returns>>
         public float3 TransformDirectionWorldToParent(float3 direction)
         {
-            return ParentToWorld.InverseTransformDirection(direction);
+            return ParentTransform.InverseTransformDirection(direction);
         }
 
         /// <summary>Transform a direction vector from local space into world space.</summary>
@@ -319,7 +404,7 @@ namespace Unity.Transforms
         /// <returns>The transformed direction</returns>>
         public float3 TransformDirectionLocalToWorld(float3 direction)
         {
-            return LocalToWorld.TransformDirection(direction);
+            return WorldTransform.TransformDirection(direction);
         }
 
         /// <summary>Transform a direction vector from world space into local space.</summary>
@@ -327,7 +412,7 @@ namespace Unity.Transforms
         /// <returns>The transformed direction</returns>>
         public float3 TransformDirectionWorldToLocal(float3 direction)
         {
-            return LocalToWorld.InverseTransformDirection(direction);
+            return WorldTransform.InverseTransformDirection(direction);
         }
 
         /// <summary>Transform a rotation quaternion from parent space into world space.</summary>
@@ -335,7 +420,7 @@ namespace Unity.Transforms
         /// <returns>The transformed direction</returns>>
         public float3 TransformRotationParentToWorld(float3 rotation)
         {
-            return ParentToWorld.TransformDirection(rotation);
+            return ParentTransform.TransformDirection(rotation);
         }
 
         /// <summary>Transform a rotation quaternion from world space into parent space.</summary>
@@ -343,7 +428,7 @@ namespace Unity.Transforms
         /// <returns>The transformed direction</returns>>
         public float3 TransformRotationWorldToParent(float3 rotation)
         {
-            return ParentToWorld.InverseTransformDirection(rotation);
+            return ParentTransform.InverseTransformDirection(rotation);
         }
 
         /// <summary>Transform a rotation quaternion from local space into world space.</summary>
@@ -351,7 +436,7 @@ namespace Unity.Transforms
         /// <returns>The transformed direction</returns>>
         public float3 TransformRotationLocalToWorld(float3 rotation)
         {
-            return LocalToWorld.TransformDirection(rotation);
+            return WorldTransform.TransformDirection(rotation);
         }
 
         /// <summary>Transform a rotation quaternion from world space into local space.</summary>
@@ -359,7 +444,7 @@ namespace Unity.Transforms
         /// <returns>The transformed direction</returns>>
         public float3 TransformRotationWorldToLocal(float3 rotation)
         {
-            return LocalToWorld.InverseTransformDirection(rotation);
+            return WorldTransform.InverseTransformDirection(rotation);
         }
 
         /// <summary>
@@ -382,7 +467,7 @@ namespace Unity.Transforms
         {
             if (HasParent())
             {
-                targetPosition = ParentToWorld.InverseTransformPoint(targetPosition);
+                targetPosition = ParentTransform.InverseTransformPoint(targetPosition);
             }
 
             var targetDir = targetPosition - LocalPosition;
@@ -393,7 +478,7 @@ namespace Unity.Transforms
 
         bool HasParent()
         {
-            return m_LocalToParentTransform.IsValid && m_ParentToWorldTransform.IsValid;
+            return m_ParentTransform.IsValid;
         }
     }
 }
@@ -414,7 +499,7 @@ namespace Unity.Transforms
 
         /// <summary>The world space translation of this TransformAspect.</summary>
         [CreateProperty]
-        public float3 Position
+        public float3 WorldPosition
         {
             get => HasParent() ? math.transform(ParentToWorldMatrix, LocalPosition) : LocalPosition;
             set
@@ -422,16 +507,33 @@ namespace Unity.Transforms
                 LocalPosition = HasParent() ? math.transform(WorldToParentMatrix, value) : value;
             }
         }
+        /// <summary>Obsolete. Use <see cref="WorldPosition"/> instead.</summary>
+        [Obsolete("This property is ambiguously named, and will be removed. Use LocalPosition (preferred) or WorldPosition instead. (RemovedAfter Entities 1.0)", false)]
+        [CreateProperty]
+        public float3 Position
+        {
+            get => WorldPosition;
+            set => WorldPosition = value;
+        }
+
 
         /// <summary>The world space rotation of this TransformAspect.</summary>
         [CreateProperty]
-        public quaternion Rotation
+        public quaternion WorldRotation
         {
             get => HasParent() ? math.mul(new quaternion(ParentToWorldMatrix), LocalRotation) : LocalRotation;
             set
             {
                 LocalRotation = HasParent() ? math.mul(new quaternion(WorldToParentMatrix), value) : value;
             }
+        }
+        /// <summary>Obsolete. Use <see cref="WorldRotation"/> instead.</summary>
+        [Obsolete("This property is ambiguously named, and will be removed. Use LocalRotation (preferred) or WorldRotation instead. (RemovedAfter Entities 1.0)", false)]
+        [CreateProperty]
+        public quaternion Rotation
+        {
+            get => WorldRotation;
+            set => WorldRotation = value;
         }
 
         /// <summary>The translation of this TransformAspect relative to its parent.</summary>

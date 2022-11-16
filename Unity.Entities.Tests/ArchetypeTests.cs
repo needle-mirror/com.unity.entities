@@ -4,6 +4,14 @@ namespace Unity.Entities.Tests
 {
     class ArchetypeTests : ECSTestsFixture
     {
+        private unsafe T[] ToManagedArray<T>(T* values, int length) where T : unmanaged
+        {
+            var array = new T[length];
+            for (int i = 0; i < length; ++i)
+                array[i] = values[i];
+            return array;
+        }
+
         [Test]
         unsafe public void DiffArchetype_AddRemove()
         {
@@ -16,8 +24,10 @@ namespace Unity.Entities.Tests
             EntityArchetype.CalculateDifference(before, after, added, out var addedTypesCount, removed, out var removedTypesCount);
 
             Assert.AreEqual(2, addedTypesCount);
-            Assert.AreEqual(TypeManager.GetTypeIndex(typeof(EcsTestData2)), added[0]);
-            Assert.AreEqual(TypeManager.GetTypeIndex(typeof(EcsTestData5)), added[1]);
+            Assert.That(ToManagedArray(added, addedTypesCount), Is.EquivalentTo(new TypeIndex[] {
+                ComponentType.ReadOnly<EcsTestData2>().TypeIndex,
+                ComponentType.ReadOnly<EcsTestData5>().TypeIndex,
+            }));
             Assert.AreEqual(1, removedTypesCount);
             Assert.AreEqual(TypeManager.GetTypeIndex(typeof(EcsTestData4)), removed[0]);
         }
@@ -34,8 +44,10 @@ namespace Unity.Entities.Tests
             EntityArchetype.CalculateDifference(before, after, added, out var addedTypesCount, removed, out var removedTypesCount);
 
             Assert.AreEqual(2, addedTypesCount);
-            Assert.AreEqual(TypeManager.GetTypeIndex(typeof(EcsTestData)), added[0]);
-            Assert.AreEqual(TypeManager.GetTypeIndex(typeof(EcsTestData2)), added[1]);
+            Assert.That(ToManagedArray(added, addedTypesCount), Is.EquivalentTo(new TypeIndex[] {
+                ComponentType.ReadOnly<EcsTestData>().TypeIndex,
+                ComponentType.ReadOnly<EcsTestData2>().TypeIndex,
+            }));
             Assert.AreEqual(0, removedTypesCount);
         }
 
@@ -51,8 +63,10 @@ namespace Unity.Entities.Tests
             EntityArchetype.CalculateDifference(before, after, added, out var addedTypesCount, removed, out var removedTypesCount);
 
             Assert.AreEqual(2, removedTypesCount);
-            Assert.AreEqual(TypeManager.GetTypeIndex(typeof(EcsTestData)), removed[0]);
-            Assert.AreEqual(TypeManager.GetTypeIndex(typeof(EcsTestData2)), removed[1]);
+            Assert.That(ToManagedArray(removed, removedTypesCount), Is.EquivalentTo(new TypeIndex[] {
+                ComponentType.ReadOnly<EcsTestData>().TypeIndex,
+                ComponentType.ReadOnly<EcsTestData2>().TypeIndex,
+            }));
             Assert.AreEqual(0, addedTypesCount);
         }
 

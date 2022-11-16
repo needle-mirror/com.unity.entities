@@ -113,6 +113,8 @@ namespace Unity.Entities.Tests
             public FixedStepTestSimulationSystemGroup()
             {
                 float defaultFixedTimestep = 1.0f / 60.0f;
+
+                // Set FixedRateSimpleManager to be the rate manager and create a system group allocator
                 SetRateManagerCreateAllocator(new RateUtils.FixedRateSimpleManager(defaultFixedTimestep));
             }
         }
@@ -253,10 +255,12 @@ namespace Unity.Entities.Tests
                     1, 2, // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
         }
 
         [Test]
@@ -300,11 +304,13 @@ namespace Unity.Entities.Tests
                 });
             allocatorBlocksSystem.Blocks.Clear();
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             // Allocated with RateSystemGroupDoubleAllocators
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
 
             // Second group of updates
             fixedSimGroup.RemoveSystemFromUpdateList(allocNativeArraySystem);
@@ -453,10 +459,12 @@ namespace Unity.Entities.Tests
                     1, 2, // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
         }
 
         [Test]
@@ -501,11 +509,13 @@ namespace Unity.Entities.Tests
                     1, 2, // SystemUpdateCount = 2, allocator1, before 1 block, allocate 512k, after 2 blocks with block size (128k, 512k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             // Allocated with world update allocator
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
 
             // Outer with group owned update allocator
             CollectionAssert.AreEqual(updateTimesSystem.Updates,
@@ -522,10 +532,12 @@ namespace Unity.Entities.Tests
                     2, 3, // SystemUpdateCount = 2, allocator1, before 2 blocks, allocate 512k, after 2 blocks with block size (128k, 512k, 1024k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
         }
 
         [Test]
@@ -570,11 +582,13 @@ namespace Unity.Entities.Tests
                     1, 2, // SystemUpdateCount = 2, allocator1, before 1 block, allocate 512k, after 2 blocks with block size (128k, 512k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             // Allocated with world update allocator
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
 
             // Outer with group owned update allocator
             CollectionAssert.AreEqual(updateTimesSystem.Updates,
@@ -591,10 +605,12 @@ namespace Unity.Entities.Tests
                     2, 3, // SystemUpdateCount = 2, allocator1, before 2 blocks, allocate 512k, after 2 blocks with block size (128k, 512k, 1024k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
         }
 
         [Test]
@@ -686,10 +702,12 @@ namespace Unity.Entities.Tests
                     2, 3, // SystemUpdateCount = 3, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystemOuter.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
 
             CollectionAssert.AreEqual(updateTimesSystemInner.Updates,
                 new[]
@@ -707,10 +725,12 @@ namespace Unity.Entities.Tests
                     2, 3, // SystemUpdateCount = 3, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystemInner.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
         }
 
         [Test]
@@ -768,10 +788,12 @@ namespace Unity.Entities.Tests
                     2, 3, // SystemUpdateCount = 3, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystemB.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
 
             CollectionAssert.AreEqual(updateTimesSystemA.Updates,
                 new[]
@@ -789,10 +811,12 @@ namespace Unity.Entities.Tests
                     2, 3, // SystemUpdateCount = 3, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
                 });
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 allocNativeArraySystemA.GroupAllocatorArray[0] = 0xEF;
             });
+#endif
         }
 
         partial struct RecordUpdateTimesISystem : ISystem
@@ -945,11 +969,13 @@ namespace Unity.Entities.Tests
 
             var allocArrays = World.EntityManager.GetComponentData<AllocateNativeArrayComponent>(allocNativeArrayISystem);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             var groupAllocatorArray = allocArrays.GroupAllocatorArray;
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 groupAllocatorArray[0] = 0xEF;
             });
+#endif
         }
 
         [Test]
@@ -996,11 +1022,13 @@ namespace Unity.Entities.Tests
             // Allocated with RateSystemGroupDoubleAllocators
             var allocArrays = World.EntityManager.GetComponentData<AllocateNativeArrayComponent>(allocNativeArrayISystem);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             var groupAllocatorArray = allocArrays.GroupAllocatorArray;
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 groupAllocatorArray[0] = 0xEF;
             });
+#endif
 
             // Second group of updates ------------------
             fixedSimGroup.RemoveSystemFromUpdateList(allocNativeArrayISystem);
@@ -1079,11 +1107,13 @@ namespace Unity.Entities.Tests
 
             var allocArrays = World.EntityManager.GetComponentData<AllocateNativeArrayComponent>(allocNativeArrayISystem);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             var groupAllocatorArray = allocArrays.GroupAllocatorArray;
             Assert.Throws<ObjectDisposedException>(() =>
             {
                 groupAllocatorArray[0] = 0xEF;
             });
+#endif
         }
     }
 }

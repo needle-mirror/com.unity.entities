@@ -231,7 +231,6 @@ namespace Unity.Entities.CodeGen
                         typeGenInfo.BlobAssetRefOffsetIndex,
                         0,
                         0,
-                        0, // FastEqualityIndex - should be 0 until we can remove field altogether
                         typeGenInfo.AlignAndSize.size
                     );
                     *((TypeInfo*)pData + i) = typeInfo;
@@ -275,7 +274,6 @@ namespace Unity.Entities.CodeGen
                 EmitLoadConstant(il, typeGenInfo.BlobAssetRefOffsetIndex);
                 EmitLoadConstant(il, typeGenInfo.WeakAssetRefOffsets.Count);
                 EmitLoadConstant(il, typeGenInfo.WeakAssetRefOffsetIndex);
-                EmitLoadConstant(il, 0); // FastEqualityIndex - should be 0 until we can remove field altogether
                 EmitLoadConstant(il, typeGenInfo.AlignAndSize.size);
 
                 il.Emit(OpCodes.Newobj, m_TypeInfoConstructorRef);
@@ -951,7 +949,7 @@ namespace Unity.Entities.CodeGen
                 // DOTSR-1865
                 && typeCategory != TypeCategory.ISharedComponentData)
             {
-                throw new ArgumentException($"Found a managed component '{typeRef.FullName}'. Managed components are not supported when building for the Tiny configuration. Change the type to be a struct or build with the NetStandard 2.0 configuration.");
+                throw new ArgumentException($"Found a managed component '{typeRef.FullName}'. Managed components are not supported when building for the Tiny configuration. Change the type to be a struct or build with the NetStandard 2.1 configuration.");
             }
 
             int typeIndex = m_TotalTypeCount++;

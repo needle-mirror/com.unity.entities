@@ -5,15 +5,33 @@ using Unity.Jobs;
 
 namespace Unity.Entities.CodeGeneratedJobForEach
 {
+    /// <summary>Attribute indicating that this parameter can be a dynamic value (coming from a variable instead of compile-type value).
+    /// Only used by types in the Entities package.</summary>
     [AttributeUsage(AttributeTargets.Parameter)]
-    internal class AllowDynamicValueAttribute : Attribute { }
+    class AllowDynamicValueAttribute : Attribute { }
 
+    /// <summary>Interface indicating that this type is used to construct a lambda job.  Only used by types in the Entities package.</summary>
     public interface ILambdaJobDescription { }
+
+    /// <summary>Interface indicating that this type is used to construct a lambda job.  Only used by types in the Entities package.</summary>
     public interface ILambdaJobExecutionDescription { }
+
+    /// <summary>Interface indicating that this type is used to construct a lambda job.  Only used by types in the Entities package.</summary>
     public interface ILambdaSingleJobExecutionDescription { }
+
+    /// <summary>
+    /// Interface that allows you to define your own delegate type and ForEach overload.
+    /// </summary>
+    /// <remarks>
+    /// This interface allows you to use as many arguments as you want and to put the ref/in/value parameters in any order you want.
+    /// For more information, see the user manual documentation on [Custom delegates](xref:iterating-data-entities-foreach).
+    /// </remarks>
     public interface ISupportForEachWithUniversalDelegate { }
+
+    /// <summary>Interface indicating that this type is used to construct a lambda job.  Only used by types in the Entities package.</summary>
     public interface ISingleJobDescription {}
 
+    /// <summary>Description type used to define an Entities.ForEach.  This is typically accessed via the Entity property on a system.</summary>
     public struct ForEachLambdaJobDescription : ILambdaJobDescription, ILambdaJobExecutionDescription, ISupportForEachWithUniversalDelegate
     {
         //this overload exists here with the sole purpose of being able to give the user a not-totally-horrible
@@ -36,6 +54,8 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         {
         }
     }
+
+    /// <summary>Description type used to define a Job.WithCode.  This is typically accessed via the Job property on a system.</summary>
     public struct LambdaSingleJobDescription : ILambdaJobDescription, ILambdaSingleJobExecutionDescription, ISingleJobDescription
     {
     }
@@ -48,6 +68,8 @@ namespace Unity.Entities
     /// </summary>
     public static class LambdaJobDescriptionConstructionMethods
     {
+        /// <summary>Attribute indicating that this parameter can be a dynamic value (coming from a variable instead of compile-type value).
+        /// Only used by types in the Entities package.</summary>
         [AttributeUsage(AttributeTargets.Method)]
         internal class AllowMultipleInvocationsAttribute : Attribute {}
 
@@ -150,21 +172,6 @@ namespace Unity.Entities
         /// <returns>The target object, suitable for chaining multiple methods</returns>
         [AllowMultipleInvocations]
         public static TDescription WithNativeDisableParallelForRestriction<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
-
-        /// <summary>
-        /// Specifies the the unit of work that will be processed by each worker thread.
-        /// Must be used with ScheduleParallel.
-        /// </summary>
-        /// <param name="description">The target object</param>
-        /// <param name="granularity">If `ScheduleGranularity.Chunk` is passed (the safe default),
-        /// work is distributed at the level of whole chunks. This can lead to poor load balancing in cases where the
-        /// number of chunks being processed is low (fewer than the number of available worker threads), and the cost to
-        /// process each entity is high. In these cases, pass `ScheduleGranularity.Entity`
-        /// to distribute work at the level of individual entities.</param>
-        /// <typeparam name="TDescription">Type of target object</typeparam>
-        /// <returns>The target object, suitable for chaining multiple methods</returns>
-        [Obsolete("This feature will be removed; the previous default chunk-level granularity will be restored. For entity-level granularity, use IJobParallelFor. (RemovedAfter Entities 1.0)")]
-        public static TDescription WithScheduleGranularity<TDescription>(this TDescription description, ScheduleGranularity granularity) where TDescription : ILambdaJobDescription => description;
     }
 
     /// <summary>

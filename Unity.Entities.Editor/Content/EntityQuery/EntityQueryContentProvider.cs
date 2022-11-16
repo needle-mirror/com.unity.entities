@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Serialization;
 using Unity.Serialization.Json;
 using UnityEditor;

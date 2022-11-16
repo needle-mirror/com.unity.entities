@@ -1,5 +1,6 @@
 {
     "name": "Unity.Entities.Editor.PerformanceTests",
+    "rootNamespace": "",
     "references": [
         "Unity.Burst",
         "Unity.Collections",
@@ -8,23 +9,26 @@
         "Unity.Entities.Editor.Tests",
         "Unity.InternalAPIEditorBridge.002",
         "Unity.InternalAPIEngineBridge.002",
-        "Unity.Jobs",
         "Unity.Mathematics",
         "Unity.PerformanceTesting",
-        "Unity.Platforms.UI.Editor",
-        "Unity.Transforms"
-    ],
-    "optionalUnityReferences": [
-        "TestAssemblies"
+        "Unity.Entities.UI.Editor",
+        "Unity.Transforms",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
     ],
     "includePlatforms": [
         "Editor"
     ],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": []
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

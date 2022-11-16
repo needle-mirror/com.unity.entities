@@ -282,6 +282,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void UsingDisposedWorldThrows()
         {
             var world = new World("WorldX");
@@ -308,6 +309,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void SystemThrowingInOnCreateIsRemoved()
         {
             using (var world = new World("WorldX"))
@@ -335,6 +337,7 @@ namespace Unity.Entities.Tests
 #if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
         [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
 #endif
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void ISystemThrowingInOnCreateIsRemoved()
         {
             using (var world = new World("WorldX"))
@@ -471,6 +474,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void CantDestroySystemDuringSystemExecutionTest()
         {
             //using (var world = new World("WorldX"))
@@ -515,6 +519,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void CantDestroySystemDuringISystemExecutionTest()
         {
             using (var world = new World("WorldX"))
@@ -585,6 +590,7 @@ namespace Unity.Entities.Tests
          * these tests rely on throwing and catching exceptions, which is not a thing in tiny il2cpp
          */
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void TestCreateISystemAndLogExceptionsFailureIsolation_IncorrectManagedField()
         {
             LogAssert.Expect(UnityEngine.LogType.Exception, $"ArgumentException: The system Unity.Entities.Tests.WorldSystemTests+{nameof(ISystemWithIncorrectManageField)} cannot contain managed fields. If you need have to store managed fields in your system, please use SystemBase instead. Reason: ISystemWithIncorrectManageField.BadString is not blittable because it is not of value type (System.String)\n");
@@ -594,6 +600,7 @@ namespace Unity.Entities.Tests
 
 #if !NET_DOTS // Due to regex usage
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void TestCreateISystemAndLogExceptionsFailureIsolation_ThrowInOnCreate()
         {
             // Ensure that there is just a single error, not a bunch of follow on errors

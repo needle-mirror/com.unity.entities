@@ -159,7 +159,7 @@ namespace Unity.Entities.Tests
             where ComponentT : unmanaged, IComponentData
         {
             var dataTypeHandle = manager.GetComponentTypeHandle<ComponentT>(true);
-            var data = chunk.GetNativeArray(dataTypeHandle);
+            var data = chunk.GetNativeArray(ref dataTypeHandle);
             for (int i = 0; i != data.Length; ++i)
                 visitor(data[i]);
             return data.Length;
@@ -274,6 +274,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void StructuralChangeSafety()
         {
             var entity = MyAspect.CreateEntity(m_Manager, false);
@@ -290,6 +291,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
         public void DisallowGettingInvalidAspect()
         {
             var entity = m_Manager.CreateEntity();
@@ -361,14 +363,16 @@ namespace Unity.Entities.Tests
             var entity = MyAspect.CreateEntity(m_Manager, false);
             var test = World.GetOrCreateSystemManaged<TestSystem>();
 
-            var oldVersion = m_Manager.GetChunk(entity).GetChangeVersion(m_Manager.GetComponentTypeHandle<EcsTestData>(true));
+            var oldTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(true);
+            var oldVersion = m_Manager.GetChunk(entity).GetChangeVersion(ref oldTypeHandle);
 
             m_Manager.Debug.SetGlobalSystemVersion(oldVersion + 10);
             test.ContextKind = contextKind;
             test.AccessKind = accessKind;
             test.Update();
 
-            var newVersion = m_Manager.GetChunk(entity).GetChangeVersion(m_Manager.GetComponentTypeHandle<EcsTestData>(true));
+            var newTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(true);
+            var newVersion = m_Manager.GetChunk(entity).GetChangeVersion(ref newTypeHandle);
             switch (accessKind)
             {
                 case AccessKind.ReadOnlyAccess:
@@ -453,12 +457,16 @@ namespace Unity.Entities.Tests
             test.ContextKind = contextKind;
 
             if (readOnlyException)
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.Throws<System.InvalidOperationException>(delegate { test.Update(); });
+#endif
+            }
             else
                 test.Update();
 
             var dataTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
-            var data = m_Manager.GetChunk(entity).GetNativeArray(dataTypeHandle);
+            var data = m_Manager.GetChunk(entity).GetNativeArray(ref dataTypeHandle);
             for (int i = 0; i != data.Length; ++i)
             {
                 Assert.AreEqual((operationKind == OperationKind.Read || accessKind == AccessKind.ReadOnlyAccess) ? 0 : 10, data[i].value);
@@ -550,7 +558,11 @@ namespace Unity.Entities.Tests
             test.ContextKind = contextKind;
 
             if (readOnlyException)
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.Throws<System.InvalidOperationException>(delegate { test.Update(); });
+#endif
+            }
             else
                 test.Update();
 
@@ -634,8 +646,7 @@ namespace Unity.Entities.Tests
 
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void AspectSafety_TestForEachSets_IsInForEachDisallowStructuralChangeCounter()
         {
@@ -654,7 +665,10 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, m_Manager.Debug.IsInForEachDisallowStructuralChangeCounter);
             Assert.AreEqual(1, counter);
         }
+#endif
+
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
         public void AspectSafety_MoveNextTooFar()
         {
             var e = m_Manager.CreateEntity(MyAspect.RequiredComponentsRO);
@@ -684,6 +698,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void AspectSafety_AccessingDisposedQueryEnumeratorThrows()
         {
             var e = m_Manager.CreateEntity(MyAspect.RequiredComponentsRO);
@@ -692,14 +707,25 @@ namespace Unity.Entities.Tests
             var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
             var iterator = MyAspect.Query(query, typeHandle);
             query.Dispose();
+
             Assert.Throws<ObjectDisposedException>(() => iterator.MoveNext());
             Assert.Throws<ObjectDisposedException>(() => iterator.Dispose());
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             m_Manager.Debug.SetIsInForEachDisallowStructuralChangeCounter(0);
+#endif
         }
+
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Dispose checks require safety codepaths to be enabled")]
         public void AspectSafety_AbuseDisposedEnumeratorThrows([Values(0, 1, 2)] int disposeScenario)
         {
+#if !ENABLE_UNITY_COLLECTIONS_CHECKS
+            // This scenario relies on collection checks
+            if (disposeScenario == 1)
+                return;
+#endif
+
             var e = m_Manager.CreateEntity(MyAspect.RequiredComponentsRO);
 
             var query = m_Manager.CreateEntityQuery(MyAspect.RequiredComponentsRO);
@@ -713,24 +739,37 @@ namespace Unity.Entities.Tests
                 iterator.Dispose();
             else if (disposeScenario == 1)
                 iterator.Dispose();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             else
                 m_Manager.Debug.SetIsInForEachDisallowStructuralChangeCounter(0);
+#endif
+
             m_Manager.DestroyEntity(e);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (disposeScenario == 1)
                 m_Manager.Debug.SetIsInForEachDisallowStructuralChangeCounter(1);
+#endif
 
             Assert.Throws<ObjectDisposedException>(() => { var value = iterator.Current; });
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() => iterator.MoveNext());
+#endif
             Assert.Throws<ObjectDisposedException>(() => { var value = iterator.Current; });
+
 
             //Assert.Throws<ObjectDisposedException>(() => { var value = iteratorFirstElement.Current; }); // NativeArray enumarator no longer throws for use after free
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<ObjectDisposedException>(() => { iteratorFirstElement.MoveNext(); });
+#endif
             //Assert.Throws<ObjectDisposedException>(() => { var value = iteratorFirstElement.Current; }); // NativeArray enumarator no longer throws for use after fr
 
             // Clean up
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (disposeScenario == 1)
                 m_Manager.Debug.SetIsInForEachDisallowStructuralChangeCounter(0);
+#endif
 
             unsafe
             {
@@ -738,11 +777,12 @@ namespace Unity.Entities.Tests
                 {
                     iterator.Dispose();
                     var access = m_Manager.GetCheckedEntityDataAccess();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                     access->DependencyManager->ForEachStructuralChange.Depth = 0;
+#endif
                 }
             }
         }
-#endif
 
         [Test]
         public void Aspect_With_Same_Name_But_Different_Namespace_Works()

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 
 namespace Unity.Entities.Editor
 {

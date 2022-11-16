@@ -114,6 +114,7 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
                 builder.AppendLine(typeFieldInfo.Type switch
                 {
                     QueryType.ManagedComponent         => $"                                state.EntityManager.CompleteDependencyBeforeRW<{typeFieldInfo.TypeSymbolFullName}>();",
+                    QueryType.UnityEngineComponent     => $"                                state.EntityManager.CompleteDependencyBeforeRW<{typeFieldInfo.TypeArgumentFullName}>();",
                     QueryType.RefRW                    => $"                                state.EntityManager.CompleteDependencyBeforeRW<{typeFieldInfo.TypeArgumentFullName}>();",
                     QueryType.RefRO                    => $"                                state.EntityManager.CompleteDependencyBeforeRO<{typeFieldInfo.TypeArgumentFullName}>();",
                     QueryType.UnmanagedSharedComponent => $"                                state.EntityManager.CompleteDependencyBeforeRO<{typeFieldInfo.TypeSymbolFullName}>();",

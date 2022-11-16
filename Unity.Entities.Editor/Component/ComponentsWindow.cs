@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Serialization.Editor;
 using UnityEditor;
 using UnityEngine;
@@ -166,10 +166,7 @@ namespace Unity.Entities.Editor
             m_ListView.makeItem = () => new ComponentTypeView();
             m_ListView.bindItem = (element, i) =>
             {
-                if (!(element is ComponentTypeView comp))
-                    return;
-
-                comp.UpdateTarget(m_FilteredTypes[i]);
+                ((ComponentTypeView)element).UpdateTarget(m_FilteredTypes[i]);
             };
             m_ListView.itemsSource = m_FilteredTypes;
             m_ListView.selectionChanged += objects =>

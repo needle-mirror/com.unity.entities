@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -284,8 +285,178 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, RefCount1);
         }
 
+
         [Test]
-        // TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
+        public void EntityDiffer_GetChanges_CreateEntityAndSetEnableableComponent_IncrementalChanges()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
+            {
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestEmptyEnableable1), typeof(EcsTestEmptyEnableable2), typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2));
+
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                SrcEntityManager.SetComponentEnabled<EcsTestEmptyEnableable1>(entity, true);
+                SrcEntityManager.SetComponentEnabled<EcsTestEmptyEnableable2>(entity, false);
+                SrcEntityManager.SetComponentEnabled<EcsTestDataEnableable>(entity, true);
+                SrcEntityManager.SetComponentEnabled<EcsTestDataEnableable2>(entity, false);
+
+                var entityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
+                var empty1TypeIndex = TypeManager.GetTypeIndex<EcsTestEmptyEnableable1>(); // empty component
+                var empty2TypeIndex = TypeManager.GetTypeIndex<EcsTestEmptyEnableable2>(); // empty component
+                var component1TypeIndex = TypeManager.GetTypeIndex<EcsTestDataEnableable>(); // non-empty component
+                var component2TypeIndex = TypeManager.GetTypeIndex<EcsTestDataEnableable2>(); // non-empty component
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(6, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(4, changes.ForwardChangeSet.SetComponents.Length); // Enabled to true are ignored in the differ
+
+                    var packedComponents = changes.ForwardChangeSet.TypeHashes;
+                    foreach (var setComponent in changes.ForwardChangeSet.SetComponents)
+                    {
+                        var componentHash = packedComponents[setComponent.Component.PackedTypeIndex];
+                        var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(componentHash.StableTypeHash);
+                        if (typeIndex == entityGuidTypeIndex)
+                        {
+                            Assert.AreEqual(-1, setComponent.Enabled); // Is not enableable
+                        }
+                        else if (typeIndex == empty2TypeIndex)
+                        {
+                            Assert.AreEqual(0, setComponent.Enabled); // Set to false
+                        }
+                        else if (typeIndex == component1TypeIndex)
+                        {
+                            Assert.AreEqual(-1, setComponent.Enabled); // Set to true, but enableable bit is ignored
+                        }
+                        else if (typeIndex == component2TypeIndex)
+                        {
+                            Assert.AreEqual(0, setComponent.Enabled); // Set to false
+                        }
+                        else
+                        {
+                            // Simulate and EcsTestEnableableComp1 are empty and set to true, so are ignored when being added
+                            throw new ArgumentException("There should be not other components in the changeset");
+                        }
+                    }
+                }
+
+                SrcEntityManager.SetComponentEnabled<EcsTestEmptyEnableable1>(entity, false); // empty component
+                SrcEntityManager.SetComponentEnabled<EcsTestDataEnableable>(entity, false); // non-empty component
+                SrcEntityManager.SetComponentData(entity, new EcsTestDataEnableable2{value0 = 1}); // Changes to component, but no enableable bit change
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.SetComponents.Length);
+
+                    var packedComponents = changes.ForwardChangeSet.TypeHashes;
+                    foreach (var setComponent in changes.ForwardChangeSet.SetComponents)
+                    {
+                        var componentHash = packedComponents[setComponent.Component.PackedTypeIndex];
+                        var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(componentHash.StableTypeHash);
+                        if (typeIndex == empty1TypeIndex)
+                        {
+                            Assert.AreEqual(0, setComponent.Enabled);// Set to false
+                        }
+                        else if (typeIndex == component1TypeIndex)
+                        {
+                            Assert.AreEqual(0, setComponent.Enabled);// Set to false
+                        }
+                        else if (typeIndex == component2TypeIndex)
+                        {
+                            Assert.AreEqual(-1, setComponent.Enabled); // No enableable changes
+                        }
+                        else
+                        {
+                            throw new ArgumentException("There should be not other components in the changeset");
+                        }
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void EntityDiffer_GetChanges_CreateEntityAndSetEnableableBuffer_IncrementalChanges()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
+            {
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestEnableableBuffer1), typeof(EcsTestEnableableBuffer2));
+
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                SrcEntityManager.SetComponentEnabled<EcsTestEnableableBuffer1>(entity, true);
+                SrcEntityManager.SetComponentEnabled<EcsTestEnableableBuffer2>(entity, false);
+
+                var entityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
+                var buffer1TypeIndex = TypeManager.GetTypeIndex<EcsTestEnableableBuffer1>();
+                var buffer2TypeIndex = TypeManager.GetTypeIndex<EcsTestEnableableBuffer2>();
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);// Enabled to true are ignored in the differ
+
+                    var packedComponents = changes.ForwardChangeSet.TypeHashes;
+                    foreach (var setComponent in changes.ForwardChangeSet.SetComponents)
+                    {
+                        var componentHash = packedComponents[setComponent.Component.PackedTypeIndex];
+                        var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(componentHash.StableTypeHash);
+                        if (typeIndex == entityGuidTypeIndex)
+                        {
+                            Assert.AreEqual(-1, setComponent.Enabled); // Is not enableable
+                        }
+                        else if (typeIndex == buffer2TypeIndex)
+                        {
+                            Assert.AreEqual(0, setComponent.Enabled); // Set to false
+                        }
+                        else
+                        {
+                            // Simulate and EcsTestEnableableBuffer1 are set to true, so are ignored when being added
+                            throw new ArgumentException("There should be not other components in the changeset");
+                        }
+                    }
+                }
+
+
+                SrcEntityManager.SetComponentEnabled<EcsTestEnableableBuffer1>(entity, false);
+                var buffer = SrcEntityManager.GetBuffer<EcsTestEnableableBuffer2>(entity, false); // Changes to buffer, but no enableable bit change
+                buffer.Add(new EcsTestEnableableBuffer2 {Value = 1});
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
+
+                    Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents[0].Enabled); // Set to false (EcsTestEnableableBuffer1)
+                    Assert.AreEqual(-1, changes.ForwardChangeSet.SetComponents[1].Enabled); // No enableable changes (EcsTestEnableableBuffer2)
+
+                    var packedComponents = changes.ForwardChangeSet.TypeHashes;
+                    foreach (var setComponent in changes.ForwardChangeSet.SetComponents)
+                    {
+                        var componentHash = packedComponents[setComponent.Component.PackedTypeIndex];
+                        var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(componentHash.StableTypeHash);
+                        if (typeIndex == buffer1TypeIndex)
+                        {
+                            Assert.AreEqual(0, setComponent.Enabled);// Set to false
+                        }
+                        else if (typeIndex == buffer2TypeIndex)
+                        {
+                            Assert.AreEqual(-1, setComponent.Enabled); // No enableable changes
+                        }
+                        else
+                        {
+                            throw new ArgumentException("There should be not other components in the changeset");
+                        }
+                    }
+                }
+            }
+        }
+
+        [Test]
         [DotsRuntimeFixme("Do not support EntityNames - DOTS-3862")]
         public void EntityDifferDetectsNameChanges()
         {

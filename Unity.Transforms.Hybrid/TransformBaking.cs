@@ -21,7 +21,7 @@ internal partial class TransformBakingSystem : SystemBase
         LocalToWorld         = 1,
 #if !ENABLE_TRANSFORM_V1
         Transform            = 2,
-        PostTransformMatrix  = 4,
+        PostTransformScale   = 4,
         Parent               = 8
 #else
         TR                   = 2,
@@ -44,9 +44,9 @@ internal partial class TransformBakingSystem : SystemBase
 
         public ComponentTypeHandle<LocalToWorld>       LocalToWorld;
 #if !ENABLE_TRANSFORM_V1
-        public ComponentTypeHandle<LocalToWorldTransform> LocalToWorldTransform;
-        public ComponentTypeHandle<LocalToParentTransform> LocalToParentTransform;
-        public ComponentTypeHandle<PostTransformMatrix> PostTransformMatrix;
+        public ComponentTypeHandle<WorldTransform>      WorldTransform;
+        public ComponentTypeHandle<LocalTransform>      LocalTransform;
+        public ComponentTypeHandle<PostTransformScale>  PostTransformScale;
 #else
         public ComponentTypeHandle<Translation>        Translation;
         public ComponentTypeHandle<Rotation>           Rotation;
@@ -57,7 +57,7 @@ internal partial class TransformBakingSystem : SystemBase
         public EntityQueryMask                         Static;
 #if !ENABLE_TRANSFORM_V1
         public EntityQueryMask                         HasTransform;
-        public EntityQueryMask                         HasPostTransformMatrix;
+        public EntityQueryMask                         HasPostTransformScale;
 #else
         public EntityQueryMask                         HasTR;
         public EntityQueryMask                         HasScale;
@@ -80,8 +80,8 @@ internal partial class TransformBakingSystem : SystemBase
             if (HasTransform.MatchesIgnoreFilter(batchInChunk))
                 chunkCategory |= RequestedTransformCategory.Transform;
 
-            if (HasPostTransformMatrix.MatchesIgnoreFilter(batchInChunk))
-                chunkCategory |= RequestedTransformCategory.PostTransformMatrix;
+            if (HasPostTransformScale.MatchesIgnoreFilter(batchInChunk))
+                chunkCategory |= RequestedTransformCategory.PostTransformScale;
 #else
             if (HasTR.MatchesIgnoreFilter(batchInChunk))
                 chunkCategory = RequestedTransformCategory.TR;
@@ -114,7 +114,7 @@ internal partial class TransformBakingSystem : SystemBase
 
                     if (!IsUniformScale(transformAuthoring.LocalScale))
                     {
-                        value |= RequestedTransformCategory.PostTransformMatrix;
+                        value |= RequestedTransformCategory.PostTransformScale;
                     }
 #else
                     value |= RequestedTransformCategory.TR;
@@ -146,19 +146,13 @@ internal partial class TransformBakingSystem : SystemBase
                    math.abs(scale.x - scale.z) <= k_Tolerance &&
                    math.abs(scale.y - scale.z) <= k_Tolerance;
         }
-
-        [BurstCompile]
-        float GetUniformScale(float3 scale)
-        {
-            return math.max(scale.x, math.max(scale.y, scale.z));
-        }
 #else
 #endif
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
             Assert.IsFalse(useEnabledMask);
-            var transforms = chunk.GetNativeArray(Transform);
+            var transforms = chunk.GetNativeArray(ref Transform);
             var entities = chunk.GetNativeArray(Entities);
 
             //if (batchInChunk.DidOrderChange(ChangeVersion))
@@ -169,17 +163,17 @@ internal partial class TransformBakingSystem : SystemBase
             var chunkCategory = GetChunkCategory(chunk);
             var isStatic = Static.MatchesIgnoreFilter(chunk);
 
-            var localToWorlds = chunk.GetNativeArray(LocalToWorld);
+            var localToWorlds = chunk.GetNativeArray(ref LocalToWorld);
 #if !ENABLE_TRANSFORM_V1
-            var localToWorldTransforms = chunk.GetNativeArray(LocalToWorldTransform);
-            var localToParentTransforms = chunk.GetNativeArray(LocalToParentTransform);
-            var postTransformMatrices = chunk.GetNativeArray(PostTransformMatrix);
+            var WorldTransforms = chunk.GetNativeArray(ref WorldTransform);
+            var LocalTransforms = chunk.GetNativeArray(ref LocalTransform);
+            var postTransformScales = chunk.GetNativeArray(ref PostTransformScale);
 #else
-            var translations = chunk.GetNativeArray(Translation);
-            var rotations = chunk.GetNativeArray(Rotation);
-            var scales = chunk.GetNativeArray(Scale);
+            var translations = chunk.GetNativeArray(ref Translation);
+            var rotations = chunk.GetNativeArray(ref Rotation);
+            var scales = chunk.GetNativeArray(ref Scale);
 #endif
-            var parents = chunk.GetNativeArray(Parent);
+            var parents = chunk.GetNativeArray(ref Parent);
 
             for (int i = 0; i != transforms.Length; i++)
             {
@@ -214,62 +208,73 @@ internal partial class TransformBakingSystem : SystemBase
 #if !ENABLE_TRANSFORM_V1
                 // Transform
                 var chunkHasTransform = HasFlag(chunkCategory, RequestedTransformCategory.Transform);
-                var chunkHasPostTransformMatrix = HasFlag(chunkCategory, RequestedTransformCategory.PostTransformMatrix);
-                var chunkHasParent = HasFlag(chunkCategory, RequestedTransformCategory.Parent);
+                var chunkHasPostTransformScale = HasFlag(chunkCategory, RequestedTransformCategory.PostTransformScale);
                 var requestedHasTransform = HasFlag(requestedMode, RequestedTransformCategory.Transform);
-                var requestedHasPostTransformMatrix = HasFlag(requestedMode, RequestedTransformCategory.PostTransformMatrix);
-                var requestedHasParent = HasFlag(requestedMode, RequestedTransformCategory.Parent);
+                var requestedHasPostTransformScale = HasFlag(requestedMode, RequestedTransformCategory.PostTransformScale);
 
-                var chunkHasLocalToWorld = chunkHasTransform;
-                var chunkHasLocalToParent = chunkHasTransform && chunkHasParent;
-                var requestedHasLocalToWorld = requestedHasTransform;
-                var requestedHasLocalToParent = requestedHasTransform && requestedHasParent;
+                // !!! For now we always add a LocalTransform and WorldTransform
+                // There is a potential optimization here.
+                var chunkHasLocalTransform = chunkHasTransform;
+                var chunkHasWorldTransform = chunkHasTransform;
 
-                var localUniformScale = GetUniformScale(transforms[i].LocalScale);
+                var requestedHasWorldTransform = requestedHasTransform;
+                var requestedHasLocalTransform = requestedHasTransform;
 
-                if (chunkHasLocalToWorld && requestedHasLocalToWorld)
+                float localUniformScale = 1.0f;
+                var postTransformScale = float3x3.identity;
+                if (IsUniformScale(transforms[i].LocalScale))
                 {
-                    localToWorldTransforms[i] = new LocalToWorldTransform { Value = UniformScaleTransform.FromPositionRotationScale(transforms[i].LocalPosition, transforms[i].LocalRotation, localUniformScale) };
+                    localUniformScale = transforms[i].LocalScale.x;
                 }
-                else if (requestedHasLocalToWorld)
+                else
                 {
-                    Commands.AddComponent(unfilteredChunkIndex, entity, new LocalToWorldTransform() { Value = UniformScaleTransform.FromPositionRotationScale(transforms[i].LocalPosition, transforms[i].LocalRotation, localUniformScale) });
-                }
-                else if (chunkHasLocalToWorld)
-                {
-                    Commands.RemoveComponent<LocalToWorldTransform>(unfilteredChunkIndex, entity);
+                    postTransformScale = float3x3.Scale(transforms[i].LocalScale);
                 }
 
-                if (chunkHasLocalToParent && requestedHasLocalToParent)
+                var localTransform = Unity.Transforms.LocalTransform.FromPositionRotationScale(
+                    transforms[i].LocalPosition, transforms[i].LocalRotation, localUniformScale);
+
+                if (chunkHasWorldTransform && requestedHasWorldTransform)
                 {
-                    localToParentTransforms[i] = new LocalToParentTransform { Value = UniformScaleTransform.FromPositionRotationScale(transforms[i].LocalPosition, transforms[i].LocalRotation, localUniformScale) };
+                    WorldTransforms[i] = (WorldTransform)localTransform;
                 }
-                else if (requestedHasLocalToParent)
+                else if (requestedHasWorldTransform)
                 {
-                    Commands.AddComponent(unfilteredChunkIndex, entity, new LocalToParentTransform() { Value = UniformScaleTransform.FromPositionRotationScale(transforms[i].LocalPosition, transforms[i].LocalRotation, localUniformScale) });
+                    Commands.AddComponent(unfilteredChunkIndex, entity, (WorldTransform)localTransform);
                 }
-                else if (chunkHasLocalToParent)
+                else if (chunkHasWorldTransform)
                 {
-                    Commands.RemoveComponent<LocalToParentTransform>(unfilteredChunkIndex, entity);
+                    Commands.RemoveComponent<WorldTransform>(unfilteredChunkIndex, entity);
                 }
 
-                if (chunkHasPostTransformMatrix && requestedHasPostTransformMatrix)
+                if (chunkHasLocalTransform && requestedHasLocalTransform)
                 {
-                    var localToWorldMatrix = transforms[i].LocalToWorld;
-                    var localToWorldTransform = UniformScaleTransform.FromMatrix(localToWorldMatrix);
-                    var postTransformMatrix = math.mul(localToWorldTransform.ToInverseMatrix(), localToWorldMatrix);
-                    postTransformMatrices[i] = new PostTransformMatrix { Value = postTransformMatrix };
+                    LocalTransforms[i] = localTransform;
                 }
-                else if (requestedHasPostTransformMatrix)
+                else if (requestedHasLocalTransform)
                 {
-                    var localToWorldMatrix = transforms[i].LocalToWorld;
-                    var localToWorldTransform = UniformScaleTransform.FromMatrix(localToWorldMatrix);
-                    var postTransformMatrix = math.mul(localToWorldTransform.ToInverseMatrix(), localToWorldMatrix);
-                    Commands.AddComponent(unfilteredChunkIndex, entity, new PostTransformMatrix { Value = postTransformMatrix });
+                    Commands.AddComponent(unfilteredChunkIndex, entity, localTransform);
                 }
-                else if (chunkHasPostTransformMatrix)
+                else if (chunkHasLocalTransform)
                 {
-                    Commands.RemoveComponent<PostTransformMatrix>(unfilteredChunkIndex, entity);
+                    Commands.RemoveComponent<LocalTransform>(unfilteredChunkIndex, entity);
+                }
+
+                if (chunkHasPostTransformScale && requestedHasPostTransformScale)
+                {
+                    postTransformScales[i] = new PostTransformScale { Value = postTransformScale };
+                }
+                else if (requestedHasPostTransformScale)
+                {
+                    var componentTypes = new ComponentTypeSet(ComponentType.ReadWrite<PostTransformScale>(),
+                        ComponentType.ReadWrite<PropagateLocalToWorld>());
+
+                    Commands.AddComponent(unfilteredChunkIndex, entity, componentTypes);
+                    Commands.SetComponent(unfilteredChunkIndex, entity, new PostTransformScale { Value = postTransformScale });
+                }
+                else if (chunkHasPostTransformScale)
+                {
+                    Commands.RemoveComponent<PostTransformScale>(unfilteredChunkIndex, entity);
                 }
 #else
                 // Translation/Rotation
@@ -362,13 +367,13 @@ internal partial class TransformBakingSystem : SystemBase
 #if !ENABLE_TRANSFORM_V1
         _Job.HasTransform = GetEntityQuery(new EntityQueryDesc
         {
-            All = new []{ComponentType.ReadOnly<LocalToWorldTransform>()},
+            All = new []{ComponentType.ReadOnly<WorldTransform>()},
             Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
         }).GetEntityQueryMask();
 
-        _Job.HasPostTransformMatrix = GetEntityQuery(new EntityQueryDesc
+        _Job.HasPostTransformScale = GetEntityQuery(new EntityQueryDesc
         {
-            All = new []{ComponentType.ReadOnly<PostTransformMatrix>()},
+            All = new []{ComponentType.ReadOnly<PostTransformScale>()},
             Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
         }).GetEntityQueryMask();
 #else
@@ -406,9 +411,9 @@ internal partial class TransformBakingSystem : SystemBase
         _Job.LocalToWorld = GetComponentTypeHandle<LocalToWorld>();
         _Job.Parent = GetComponentTypeHandle<Parent>();
 #if !ENABLE_TRANSFORM_V1
-        _Job.LocalToWorldTransform = GetComponentTypeHandle<LocalToWorldTransform>();
-        _Job.LocalToParentTransform = GetComponentTypeHandle<LocalToParentTransform>();
-        _Job.PostTransformMatrix = GetComponentTypeHandle<PostTransformMatrix>();
+        _Job.WorldTransform = GetComponentTypeHandle<WorldTransform>();
+        _Job.LocalTransform = GetComponentTypeHandle<LocalTransform>();
+        _Job.PostTransformScale = GetComponentTypeHandle<PostTransformScale>();
 #else
         _Job.Translation = GetComponentTypeHandle<Translation>();
         _Job.Rotation = GetComponentTypeHandle<Rotation>();

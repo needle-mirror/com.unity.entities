@@ -570,7 +570,7 @@ namespace Unity.Entities
             }
         }
 
-        /// <inheritdoc cref="RateManager"/>
+        /// <summary>Obsolete. Use <see cref="RateManager"/> instead.</summary>
         [Obsolete("This property has been renamed to RateManager. (RemovedAfter Entities 1.0) (UnityUpgradable) -> RateManager")]
         public IRateManager FixedRateManager
         {
@@ -713,19 +713,23 @@ namespace Unity.Entities
     }
 
     /// <summary>
-    /// This class only contains deprecated extension methods, and should not be used.
+    /// Obsolete. This class only contains deprecated extension methods.
     /// </summary>
     [Obsolete("This class will soon be empty and will be removed. (RemovedAfter Entities 1.0)")]
     public static class ComponentSystemGroupExtensions
     {
-        /// <inheritdoc cref="ComponentSystemGroup.RemoveSystemFromUpdateList(ComponentSystemBase)"/>
+        /// <summary> Obsolete. Use <see cref="ComponentSystemGroup.RemoveSystemFromUpdateList(ComponentSystemBase)"/> instead.</summary>
+        /// <param name="self">The component system group.</param>
+        /// <param name="sysHandle">TheSystemHandle</param>        
         [Obsolete("RemoveUnmanagedSystemFromUpdateList has been deprecated. Please use RemoveSystemFromUpdateList. (RemovedAfter Entities 1.0)")]
         public static void RemoveUnmanagedSystemFromUpdateList(this ComponentSystemGroup self, SystemHandle sysHandle)
         {
             self.RemoveSystemFromUpdateList(sysHandle);
         }
 
-        /// <inheritdoc cref="ComponentSystemGroup.AddSystemToUpdateList(ComponentSystemBase)"/>
+        /// <summary> Obsolete. Use <see cref="ComponentSystemGroup.AddSystemToUpdateList(ComponentSystemBase)"/> instead.</summary>
+        /// <param name="self">The component system group.</param>
+        /// <param name="sysHandle">TheSystemHandle</param>
         [Obsolete("AddUnmanagedSystemToUpdateList has been deprecated. Please use AddSystemToUpdateList. (RemovedAfter Entities 1.0)")]
         public static void AddUnmanagedSystemToUpdateList(this ComponentSystemGroup self, SystemHandle sysHandle)
         {

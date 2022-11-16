@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 
 namespace Unity.Entities.Editor
 {
@@ -52,9 +52,9 @@ namespace Unity.Entities.Editor
 
             foreach (var token in query.Tokens)
             {
-                if (token.StartsWith(Constants.SystemSchedule.k_ComponentToken, StringComparison.OrdinalIgnoreCase))
+                if (token.StartsWith(Constants.ComponentSearch.TokenOp, StringComparison.OrdinalIgnoreCase))
                 {
-                    componentNameList.Value.Add(token.Substring(Constants.SystemSchedule.k_ComponentToken.Length));
+                    componentNameList.Value.Add(token.Substring(Constants.ComponentSearch.TokenOp.Length));
                 }
                 else if (token.StartsWith(Constants.SystemSchedule.k_SystemDependencyToken, StringComparison.OrdinalIgnoreCase))
                 {

@@ -143,6 +143,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
         [Test]
         [IgnoreInPortableTests("Assert.Throws isn't supported; the test runner doesn't currently find the lambda function.")]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void DestroyEntity_EntityOperations_ShouldThrowWhenRequired()
         {
             TestSystem.DestroyEntity_EntityOperations_ShouldThrowWhenRequired();
@@ -162,6 +163,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
         [Test]
         [IgnoreInPortableTests("Assert.Throws isn't supported; the test runner doesn't currently find the lambda function.")]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void RemoveComponent_GetOrSetOfRemovedComponent_Throws()
         {
             TestSystem.RemoveComponent_GetOrSetOfRemovedComponent_Throws();

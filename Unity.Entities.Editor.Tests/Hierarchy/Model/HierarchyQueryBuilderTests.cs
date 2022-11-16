@@ -14,18 +14,18 @@ namespace Unity.Entities.Editor.Tests
             yield return new TestCaseData("", false);
             yield return new TestCaseData(string.Empty, false);
             yield return new TestCaseData("some random string", false);
-            yield return new TestCaseData("c:SomeTypeThatDoesntExist", false);
-            yield return new TestCaseData($"c:{nameof(EcsTestData)}", true);
-            yield return new TestCaseData($"c: {nameof(EcsTestData)}", true);
-            yield return new TestCaseData($"C:{nameof(EcsTestData)}", true);
-            yield return new TestCaseData($"C: {nameof(EcsTestData)}", true);
-            yield return new TestCaseData($"someothertextc:{nameof(EcsTestData)}", false);
-            yield return new TestCaseData($"c:!{nameof(EcsTestData)}", false);
-            yield return new TestCaseData($"C:!{nameof(EcsTestData)}", false);
-            yield return new TestCaseData($"c: !{nameof(EcsTestData)}", false);
-            yield return new TestCaseData($"c:{nameof(EcsTestData2)} c:{nameof(EcsTestData)}", true);
-            yield return new TestCaseData($"c:{nameof(EcsTestData2)} c:{nameof(EcsTestSharedComp)}", true);
-            yield return new TestCaseData($"with c:{nameof(EcsTestData2)} some c:{nameof(EcsTestData)} text c:{nameof(EcsTestSharedComp)} in between", true);
+            yield return new TestCaseData("c=SomeTypeThatDoesntExist", false);
+            yield return new TestCaseData($"c={nameof(EcsTestData)}", true);
+            yield return new TestCaseData($"c={nameof(EcsTestData)}", true);
+            yield return new TestCaseData($"C={nameof(EcsTestData)}", true);
+            yield return new TestCaseData($"C={nameof(EcsTestData)}", true);
+            yield return new TestCaseData($"someothertextc={nameof(EcsTestData)}", false);
+            yield return new TestCaseData($"c=!{nameof(EcsTestData)}", false);
+            yield return new TestCaseData($"C=!{nameof(EcsTestData)}", false);
+            yield return new TestCaseData($"c=!{nameof(EcsTestData)}", false);
+            yield return new TestCaseData($"c={nameof(EcsTestData2)} c={nameof(EcsTestData)}", true);
+            yield return new TestCaseData($"c={nameof(EcsTestData2)} c={nameof(EcsTestSharedComp)}", true);
+            yield return new TestCaseData($"with c={nameof(EcsTestData2)} some c={nameof(EcsTestData)} text c={nameof(EcsTestSharedComp)} in between", true);
         }
 
         [TestCaseSource(nameof(ParseQueryCaseSource))]
@@ -44,24 +44,24 @@ namespace Unity.Entities.Editor.Tests
         {
             var componentType = TypeManager.AllTypes.First(x => x.Category == typeCategory && x.Type != null && x.Type.Name != x.Type.FullName).Type;
 
-            var r = HierarchyQueryBuilder.BuildQuery($"c:{componentType.FullName}");
+            var r = HierarchyQueryBuilder.BuildQuery($"c={componentType.FullName}");
             Assert.That(r.IsValid, Is.True);
             if (typeCategory == TypeManager.TypeCategory.EntityData)
             {
-                Assert.That(r.EntityQueryDesc.Any, Is.Empty);
+                Assert.That(r.EntityQueryDesc.All, Is.Empty);
             }
             else
             {
-                Assert.That(r.EntityQueryDesc.Any, Is.EquivalentTo(new ComponentType[] { componentType }));
+                Assert.That(r.EntityQueryDesc.All, Is.EquivalentTo(new ComponentType[] { componentType }));
             }
             Assert.That(r.EntityQueryDesc.None, Is.Empty);
-            Assert.That(r.EntityQueryDesc.All, Is.Empty);
+            Assert.That(r.EntityQueryDesc.Any, Is.Empty);
         }
 
         [Test]
         public void QueryBuilder_ResultQueryIncludesPrefabsAndDisabledEntities()
         {
-            var r = HierarchyQueryBuilder.BuildQuery($"c:{typeof(EntityGuid).FullName}");
+            var r = HierarchyQueryBuilder.BuildQuery($"c={typeof(EntityGuid).FullName}");
             Assert.That(r.EntityQueryDesc.Options & EntityQueryOptions.IncludeDisabledEntities, Is.EqualTo(EntityQueryOptions.IncludeDisabledEntities));
             Assert.That(r.EntityQueryDesc.Options & EntityQueryOptions.IncludePrefab, Is.EqualTo(EntityQueryOptions.IncludePrefab));
         }
@@ -69,7 +69,7 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void QueryBuilder_ExtractUnmatchedString()
         {
-            var r = HierarchyQueryBuilder.BuildQuery($"with c:{nameof(EcsTestData2)} some c:{nameof(EcsTestData)} text c:{nameof(EcsTestSharedComp)} in between");
+            var r = HierarchyQueryBuilder.BuildQuery($"with c={nameof(EcsTestData2)} some c={nameof(EcsTestData)} text c={nameof(EcsTestSharedComp)} in between");
             Assert.That(r.Filter, Is.EqualTo("with  some  text  in between"));
         }
 
@@ -77,7 +77,7 @@ namespace Unity.Entities.Editor.Tests
         public void QueryBuilder_ReportStatusAndErrorComponentType()
         {
             var erroneousComponentType = nameof(EcsTestData) + Guid.NewGuid().ToString("N");
-            var r = HierarchyQueryBuilder.BuildQuery($"c:{erroneousComponentType}");
+            var r = HierarchyQueryBuilder.BuildQuery($"c={erroneousComponentType}");
 
             Assert.That(r, Is.EqualTo(HierarchyQueryBuilder.Result.Invalid(erroneousComponentType)));
         }

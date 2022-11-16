@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -24,6 +25,24 @@ namespace Unity.Entities.CodeGen.Cloner
                     continue;
                 }
 
+                foreach (var rewrittenProperty in properties.Rewritten)
+                {
+                    if (!properties.OriginalLookup.ContainsKey(rewrittenProperty.Source))
+                    {
+                        throw new InvalidOperationException(
+                            $"Method Cloner ILPP: Cannot find property {rewrittenProperty.Source} in {typeDef.FullName}. " +
+                            $"Property candidates are {string.Join(", ", properties.OriginalLookup.Keys)}");
+                    }
+
+                    var originalProperty = properties.OriginalLookup[rewrittenProperty.Source];
+                    if (rewrittenProperty.Definition.GetMethod != null)
+                        methods.Rewritten.Add((rewrittenProperty.Definition.GetMethod, originalProperty.GetMethod.Name));
+                    if (rewrittenProperty.Definition.SetMethod != null)
+                        methods.Rewritten.Add((rewrittenProperty.Definition.SetMethod, originalProperty.SetMethod.Name+"_"+originalProperty.SetMethod.Parameters[0].ParameterType.FullName));
+                    typeDef.Properties.Remove((((PropertyDefinition Definition, string ConstructorArgument))rewrittenProperty).Definition);
+                    madeChange = true;
+                }
+
                 var originalMethodIdsToDefinitions = methods.Original.ToDictionary(GetMethodNameAndParamsAsString, method => method);
 
                 foreach (var rewrittenMethod in methods.Rewritten)
@@ -36,21 +55,6 @@ namespace Unity.Entities.CodeGen.Cloner
                     }
 
                     typeDef.UpdateOriginalMethod(originalMethodIdsToDefinitions, rewrittenMethod);
-                    madeChange = true;
-                }
-
-                var originalPropertyIdsToDefinitions = properties.Original.ToDictionary(GetPropertyName, method => method);
-
-                foreach (var rewrittenProperty in properties.Rewritten)
-                {
-                    if (!originalPropertyIdsToDefinitions.ContainsKey(rewrittenProperty.Source))
-                    {
-                        throw new InvalidOperationException(
-                            $"Method Cloner ILPP: Cannot find method {rewrittenProperty.Source} in {typeDef.FullName}. " +
-                            $"Method candidates are {string.Join(", ", originalMethodIdsToDefinitions.Keys)}");
-                    }
-
-                    typeDef.UpdateOriginalProperty(originalPropertyIdsToDefinitions, rewrittenProperty);
                     madeChange = true;
                 }
             }
@@ -81,11 +85,6 @@ namespace Unity.Entities.CodeGen.Cloner
             }
 
             return typeName;
-        }
-
-        static string GetPropertyName(PropertyDefinition propertyDefinition)
-        {
-            return $"{propertyDefinition.DeclaringType.ToString().Replace("/", ".")}.{propertyDefinition.Name}";
         }
 
         static string GetMethodNameAndParamsAsString(MethodReference method)

@@ -43,10 +43,10 @@ namespace Doc.CodeSamples.Tests
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var compValue = chunk.GetChunkComponentData(ChunkComponentATypeHandle);
+                var compValue = chunk.GetChunkComponentData(ref ChunkComponentATypeHandle);
                 var squared = compValue.Value * compValue.Value;
 
-                chunk.SetChunkComponentData(ChunkComponentATypeHandle, new ChunkComponentA() { Value = squared });
+                chunk.SetChunkComponentData(ref ChunkComponentATypeHandle, new ChunkComponentA() { Value = squared });
             }
         }
 
@@ -131,14 +131,14 @@ namespace Doc.CodeSamples.Tests
                 Assert.IsFalse(useEnabledMask);
 
                 bool chunkHasChanges
-                    = chunk.DidChange(LocalToWorldTypeHandleInfo,
+                    = chunk.DidChange(ref LocalToWorldTypeHandleInfo,
                         L2WChangeVersion);
 
                 if (!chunkHasChanges)
                     return; // early out if the chunk transforms haven't changed
 
                 NativeArray<LocalToWorld> transforms
-                    = chunk.GetNativeArray<LocalToWorld>(LocalToWorldTypeHandleInfo);
+                    = chunk.GetNativeArray<LocalToWorld>(ref LocalToWorldTypeHandleInfo);
                 UnityEngine.Bounds bounds = new UnityEngine.Bounds();
                 bounds.center = transforms[0].Position;
                 for (int i = 1; i < transforms.Length; i++)
@@ -146,7 +146,7 @@ namespace Doc.CodeSamples.Tests
                     bounds.Encapsulate(transforms[i].Position);
                 }
                 chunk.SetChunkComponentData(
-                    ChunkAabbTypeHandleInfo,
+                    ref ChunkAabbTypeHandleInfo,
                     new ChunkAABB() { Value = bounds.ToAABB() });
             }
         }

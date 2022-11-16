@@ -89,7 +89,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        partial class IterateThroughComponent_WithEntityQueryOptionsSystem : SystemBase
+        partial class IterateThroughComponent_WithOptionsSystem : SystemBase
         {
             public Entity Entity { get; private set; }
 
@@ -104,7 +104,7 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                foreach (var ecsTestData in Query<RefRW<EcsTestData>>().WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities))
+                foreach (var ecsTestData in Query<RefRW<EcsTestData>>().WithOptions(EntityQueryOptions.IncludeDisabledEntities))
                     ecsTestData.ValueRW.value += 1;
             }
         }
@@ -141,7 +141,7 @@ namespace Unity.Entities.Tests
                 public ComponentTypeHandle<EcsTestDataEnableable> TypeHandle;
                 public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
                 {
-                    chunk.SetComponentEnabled(TypeHandle, 0, true);
+                    chunk.SetComponentEnabled(ref TypeHandle, 0, true);
                 }
             }
 
@@ -188,6 +188,21 @@ namespace Unity.Entities.Tests
                 ref var sumData = ref state.EntityManager.GetComponentDataRW<SumData>(state.SystemHandle).ValueRW;
                 foreach (var ecsTestData in Query<EcsTestData>())
                     sumData.sum += ecsTestData.value;
+            }
+        }
+
+        partial struct IterateThroughTagComponent : ISystem
+        {
+            public void OnCreate(ref SystemState state)
+                => state.EntityManager.AddComponent<EcsTestTag>(state.EntityManager.CreateEntity());
+
+            public void OnDestroy(ref SystemState state) {}
+
+            public void OnUpdate(ref SystemState state)
+            {
+                var taggedEntity = GetSingletonEntity<EcsTestTag>();
+                foreach (var (tag, entity) in Query<RefRO<EcsTestTag>>().WithEntityAccess())
+                    Assert.That(entity == taggedEntity);
             }
         }
 
@@ -344,7 +359,7 @@ namespace Unity.Entities.Tests
                 switch (QueryExtensionToTest)
                 {
                     case QueryExtension.NoExtension:
-                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
                         {
                             myAspect._Data.ValueRW = new EcsTestData { value = 10 };
                             myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
@@ -355,7 +370,7 @@ namespace Unity.Entities.Tests
                         }
                         break;
                     case QueryExtension.All:
-                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithAll<EcsTestTag>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithAll<EcsTestTag>().WithOptions(EntityQueryOptions.IncludeSystems))
                         {
                             myAspect._Data.ValueRW = new EcsTestData { value = 10 };
                             myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
@@ -366,7 +381,7 @@ namespace Unity.Entities.Tests
                         }
                         break;
                     case QueryExtension.Any:
-                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithAny<EcsIntElement>().WithAny<EcsTestTag>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithAny<EcsIntElement>().WithAny<EcsTestTag>().WithOptions(EntityQueryOptions.IncludeSystems))
                         {
                             myAspect._Data.ValueRW = new EcsTestData { value = 10 };
                             myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
@@ -377,7 +392,7 @@ namespace Unity.Entities.Tests
                         }
                         break;
                     case QueryExtension.None:
-                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithNone<EcsTestTag>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithNone<EcsTestTag>().WithOptions(EntityQueryOptions.IncludeSystems))
                         {
                             myAspect._Data.ValueRW = new EcsTestData { value = 10 };
                             myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
@@ -412,7 +427,7 @@ namespace Unity.Entities.Tests
                 switch (ReturnTypeToTest)
                 {
                     case QueryReturnType.IdentifierName:
-                        foreach (var queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                        foreach (var queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
                         {
                             queryReturnType.Item1._Data.ValueRW = new EcsTestData { value = 10 };
 
@@ -427,7 +442,7 @@ namespace Unity.Entities.Tests
                         }
                         break;
                     case QueryReturnType.TupleWithNamedElementsAndExplicitTypes:
-                        foreach ((MyAspect myAspect, RefRW<EcsTestData3> ecsTestData3) queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                        foreach ((MyAspect myAspect, RefRW<EcsTestData3> ecsTestData3) queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
                         {
                             queryReturnType.myAspect._Data.ValueRW = new EcsTestData { value = 10 };
                             queryReturnType.myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
@@ -438,7 +453,7 @@ namespace Unity.Entities.Tests
                         }
                         break;
                     case QueryReturnType.TupleWithNamedElementsAndImplicitTypes:
-                        foreach ((var myAspect, var ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                        foreach ((var myAspect, var ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
                         {
                             myAspect._Data.ValueRW = new EcsTestData { value = 10 };
                             myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
@@ -449,7 +464,7 @@ namespace Unity.Entities.Tests
                         }
                         break;
                     case QueryReturnType.TupleWithoutNamedElements:
-                        foreach ((MyAspect, RefRW<EcsTestData3>) queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                        foreach ((MyAspect, RefRW<EcsTestData3>) queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
                         {
                             queryReturnType.Item1._Data.ValueRW = new EcsTestData { value = 10 };
 
@@ -464,7 +479,7 @@ namespace Unity.Entities.Tests
                         }
                         break;
                     case QueryReturnType.ParenthesizedVariable:
-                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
                         {
                             myAspect._Data.ValueRW = new EcsTestData { value = 10 };
                             myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
@@ -526,10 +541,12 @@ namespace Unity.Entities.Tests
                 else
                 {
                     var syncHandle1 = syncHandle;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     Assert.Throws<InvalidOperationException>(() =>
                     {
                         syncHandle1[0] = 2;
                     });
+#endif
                     state.CompleteDependency();
                     syncHandle1[0] = 2;
                 }
@@ -560,7 +577,7 @@ namespace Unity.Entities.Tests
 
             public void OnUpdate(ref SystemState state)
             {
-                foreach (var myAspect in Query<MyAspect>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                foreach (var myAspect in Query<MyAspect>().WithOptions(EntityQueryOptions.IncludeSystems))
                 {
                     myAspect._Data.ValueRW.value += myAspect._Data2.ValueRO.value0 + myAspect._Data2.ValueRO.value1; // 10 + 20 + 20 == 50
                     OnUpdate1(ref state);
@@ -572,7 +589,7 @@ namespace Unity.Entities.Tests
         {
             public void OnUpdate1(ref SystemState state)
             {
-                foreach (var (myAspect, ecsTestData3) in SystemAPI.Query<MyAspect, RefRW<EcsTestData3>>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                foreach (var (myAspect, ecsTestData3) in SystemAPI.Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
                 {
                     ecsTestData3.ValueRW.value0 += myAspect._Data.ValueRO.value; // 30 + 50 == 80
                     ecsTestData3.ValueRW.value1 += myAspect._Data.ValueRO.value; // 30 + 50 == 80
@@ -658,7 +675,7 @@ namespace Unity.Entities.Tests
 
             public void OnUpdate(ref SystemState state)
             {
-                foreach (var ecsTestData3 in Query<RefRW<EcsTestData3>>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                foreach (var ecsTestData3 in Query<RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
                 {
                     var testData3_ValueRW = ecsTestData3;
                     testData3_ValueRW.ValueRW.value0 = 10;
@@ -705,7 +722,7 @@ namespace Unity.Entities.Tests
 
             public void OnUpdate(ref SystemState state)
             {
-                foreach (var (ecsTestData3, ecsTestData2) in Query<RefRW<EcsTestData3>, RefRO<EcsTestData2>>().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                foreach (var (ecsTestData3, ecsTestData2) in Query<RefRW<EcsTestData3>, RefRO<EcsTestData2>>().WithOptions(EntityQueryOptions.IncludeSystems))
                 {
                     var testData3_ValueRW = ecsTestData3;
                     testData3_ValueRW.ValueRW.value0 = 1 * ecsTestData2.ValueRO.value0;
@@ -725,7 +742,7 @@ namespace Unity.Entities.Tests
 
             public void OnUpdate(ref SystemState state)
             {
-                foreach (var (data, entity) in Query<RefRW<EcsTestDataEntity>>().WithEntityAccess().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                foreach (var (data, entity) in Query<RefRW<EcsTestDataEntity>>().WithEntityAccess().WithOptions(EntityQueryOptions.IncludeSystems))
                     data.ValueRW.value1 = entity;
             }
         }
@@ -739,7 +756,7 @@ namespace Unity.Entities.Tests
 
             public void OnUpdate(ref SystemState state)
             {
-                foreach (var (aspect, entity) in Query<EntityTestAspect>().WithEntityAccess().WithEntityQueryOptions(EntityQueryOptions.IncludeSystems))
+                foreach (var (aspect, entity) in Query<EntityTestAspect>().WithEntityAccess().WithOptions(EntityQueryOptions.IncludeSystems))
                     aspect.SetEntity(entity);
             }
         }
@@ -848,9 +865,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void ForEachIteration_ThroughComponent_WithEntityQueryOptions()
+        public void ForEachIteration_ThroughComponent_WithOptions()
         {
-            var system = World.GetOrCreateSystemManaged<IterateThroughComponent_WithEntityQueryOptionsSystem>();
+            var system = World.GetOrCreateSystemManaged<IterateThroughComponent_WithOptionsSystem>();
             system.Update();
 
             var ecsTestData = GetComponent<EcsTestData>(system.Entity);
@@ -868,6 +885,10 @@ namespace Unity.Entities.Tests
             var ecsTestData = GetComponent<EcsTestData>(enableSystem.Entity);
             Assert.AreEqual(1, ecsTestData.value);
         }
+
+        [Test]
+        public void ForEachIteration_IterateThroughTagComponent()
+            => World.GetOrCreateSystem<IterateThroughTagComponent>().Update(World.Unmanaged);
 
         [Test]
         public void ForEachIteration_ThroughComponent_WithChangeFilter()
@@ -1170,6 +1191,43 @@ namespace Unity.Entities.Tests
 
             DisabledState = ref World.EntityManager.GetComponentDataRW<DisabledData>(system).ValueRW;
             Assert.AreEqual(!disabledComponent, DisabledState.IsComponentEnabled);
+        }
+
+        partial class IdiomaticForEach_WithChangeFilter_Variations : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                // change filter in query, read-only
+                foreach (var (data1, data2) in Query<RefRO<EcsTestData>, RefRW<EcsTestData2>>().WithChangeFilter<EcsTestData>())
+                    data2.ValueRW.value0 = data1.ValueRO.value;
+
+                // change filter in query, read-write
+                foreach (var data3 in Query<RefRW<EcsTestData3>>().WithChangeFilter<EcsTestData3>())
+                    data3.ValueRW.value0++;
+
+                // change filter not in query
+                foreach (var data4 in Query<RefRW<EcsTestData4>>().WithChangeFilter<EcsTestData5>())
+                    data4.ValueRW.value0++;
+            }
+        }
+
+        [Test]
+        public unsafe void IdiomaticForEach_WithChangeFilter_UsesReadOnly()
+        {
+            var system = World.GetOrCreateSystem<IdiomaticForEach_WithChangeFilter_Variations>();
+            var state = World.Unmanaged.ResolveSystemState(system);
+
+            var types0 = state->EntityQueries[0].GetQueryTypes();
+            var expected0 = new [] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() };
+            CollectionAssert.AreEquivalent(expected0, types0);
+
+            var types1 = state->EntityQueries[1].GetQueryTypes();
+            var expected1 = new [] { ComponentType.ReadWrite<EcsTestData3>() };
+            CollectionAssert.AreEquivalent(expected1, types1);
+
+            var types2 = state->EntityQueries[2].GetQueryTypes();
+            var expected2 = new [] { ComponentType.ReadOnly<EcsTestData5>(), ComponentType.ReadWrite<EcsTestData4>() };
+            CollectionAssert.AreEquivalent(expected2, types2);
         }
     }
 }

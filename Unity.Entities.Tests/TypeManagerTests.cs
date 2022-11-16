@@ -736,6 +736,18 @@ namespace Unity.Entities.Tests
         [DisableAutoTypeRegistration]
         struct Shared : ISharedComponentData, IEnableableComponent
         {
+            public int mVal;
+        }
+
+        [DisableAutoTypeRegistration]
+        struct EmptyBufferComponent : IBufferElementData
+        {
+
+        }
+
+        [DisableAutoTypeRegistration]
+        struct EmptySharedComponent : ISharedComponentData
+        {
 
         }
 
@@ -754,6 +766,10 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(Shared), @"\bdisabled\b", TestName = "Implements both ISharedComponentData and IEnableableComponent")]
 
         [TestCase(typeof(float), @"\b(not .*|in)valid\b", TestName = "Not valid component type")]
+
+        [TestCase(typeof(EmptyBufferComponent), @"\b(is .*|in)valid\b", TestName = "IBufferElementData types cannot be empty")]
+        [TestCase(typeof(EmptySharedComponent), @"\b(is .*|in)valid\b", TestName = "ISharedComponentData types cannot be empty")]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures(Type type, string keywordPattern)
         {
             Assert.That(
@@ -811,17 +827,9 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(TypeManager.IsEnableable(TypeManager.GetTypeIndex<OptionalEnableableComponent>()));
         }
 
-        [Test]
-        public void ManagedFieldLayoutWorks()
-        {
-            var t  = TypeManager.GetTypeInfo<EcsStringSharedComponent>();
-            var layout = TypeManager.GetFastEqualityTypeInfo(t);
-            Assert.IsNotNull(layout.GetHashFn);
-            Assert.IsNotNull(layout.EqualFn);
-        }
-
         [TestCase(typeof(UnityEngine.Transform))]
         [TestCase(typeof(TypeManagerTests))]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         public void BuildComponentType_WithClass_WhenUnityEngineObjectTypeIsNull_ThrowsArgumentException(Type type)
         {
             var componentType = TypeManager.UnityEngineObjectType;
@@ -840,6 +848,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         public void BuildComponentType_WithNonComponent_WhenUnityEngineObjectTypeIsCorrect_ThrowsArgumentException()
         {
             var componentType = TypeManager.UnityEngineObjectType;
@@ -928,7 +937,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
 #if !ENABLE_TRANSFORM_V1
-                Entities.ForEach((Entity e, ref LocalToWorldTransform t) =>
+                Entities.ForEach((Entity e, ref LocalTransform t) =>
 #else
                 Entities.ForEach((Entity e, ref Translation t) =>
 #endif
@@ -1054,12 +1063,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         public void TestNestedNativeContainersFails()
         {
             Assert.Throws<ArgumentException>(
                 () => TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new Dictionary<Type, ulong>(), new HashSet<Type>()));
         }
-
 #endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -1211,35 +1220,6 @@ namespace Unity.Entities.Tests
 
         // Tests including Unityengine, or reflection
 #if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
-        [DisableAutoTypeRegistration]
-        class ManagedComponentDataNoDefaultConstructor : IComponentData, IEquatable<ManagedComponentDataNoDefaultConstructor>
-        {
-            string String;
-
-            public ManagedComponentDataNoDefaultConstructor(int s)
-            {
-                String = s.ToString();
-            }
-
-            public bool Equals(ManagedComponentDataNoDefaultConstructor other)
-            {
-                throw new NotImplementedException();
-            }
-
-            public override int GetHashCode()
-            {
-                return 0;
-            }
-        }
-
-        [TestCase(typeof(ManagedComponentDataNoDefaultConstructor), @"\b(default constructor)\b", TestName = "Class IComponentData with no default constructor")]
-        public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures_ManagedComponents(Type type, string keywordPattern)
-        {
-            Assert.That(
-                () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new HashSet<Type>()),
-                Throws.ArgumentException.With.Message.Matches(keywordPattern)
-            );
-        }
 
 #pragma warning disable 649
         class TestScriptableObjectWithFields : UnityEngine.ScriptableObject
@@ -1281,6 +1261,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         public void TestNestedArrayNativeContainersFails()
         {
             Assert.Throws<ArgumentException>(

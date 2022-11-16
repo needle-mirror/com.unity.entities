@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Editor.Bridge;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEngine.UIElements;
 using ListView = Unity.Editor.Bridge.ListView;
@@ -96,11 +96,7 @@ namespace Unity.Entities.Editor
                     Selection.activeObject = null;
             });
 
-#if UNITY_2020_1_OR_NEWER
             m_SystemListView.onSelectionChange += OnSelectionChanged;
-#else
-            m_SystemListView.onSelectionChanged += OnSelectionChanged;
-#endif
 
             Add(m_SystemListView);
         }

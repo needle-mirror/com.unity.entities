@@ -884,7 +884,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    ecb.AddComponentForEntityQuery(group, typeof(EcsTestData2));
+                    ecb.AddComponent(group, typeof(EcsTestData2));
                 })
                 .SampleGroup("Record")
                 .WarmupCount(1)
@@ -918,7 +918,7 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-                    ecb.AddComponentForEntityQuery(group, typeof(EcsTestData2));
+                    ecb.AddComponent(group, typeof(EcsTestData2));
                 })
                 .CleanUp(() =>
                 {
@@ -938,7 +938,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    ecb.RemoveComponentForEntityQuery(group, typeof(EcsTestData));
+                    ecb.RemoveComponent(group, typeof(EcsTestData));
                 })
                 .SampleGroup("Record")
                 .WarmupCount(1)
@@ -972,7 +972,7 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-                    ecb.RemoveComponentForEntityQuery(group, typeof(EcsTestData));
+                    ecb.RemoveComponent(group, typeof(EcsTestData));
                 })
                 .CleanUp(() =>
                 {
@@ -992,7 +992,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    ecb.DestroyEntitiesForEntityQuery(group);
+                    ecb.DestroyEntity(group);
                 })
                 .SampleGroup("Record")
                 .WarmupCount(1)
@@ -1026,7 +1026,7 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-                    ecb.DestroyEntitiesForEntityQuery(group);
+                    ecb.DestroyEntity(group);
                 })
                 .CleanUp(() =>
                 {
@@ -1046,7 +1046,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    ecb.AddSharedComponentForEntityQuery(group, new EcsTestSharedComp {value = 1});
+                    ecb.AddSharedComponent(group, new EcsTestSharedComp {value = 1});
                 })
                 .SampleGroup("Record")
                 .WarmupCount(1)
@@ -1080,7 +1080,7 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-                    ecb.AddSharedComponentForEntityQuery(group, new EcsTestSharedComp {value = 1});
+                    ecb.AddSharedComponent(group, new EcsTestSharedComp {value = 1});
                 })
                 .CleanUp(() =>
                 {

@@ -154,6 +154,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void AddMultipleComponentsWithQuery_AddingEntityComponentTypeThrows()
         {
             var componentTypes = new ComponentTypeSet(
@@ -179,6 +180,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void AddMultipleComponentsWithQuery_ExceedMaxSharedComponentsThrows()
         {
             var componentTypes = new ComponentTypeSet(new ComponentType[] {
@@ -253,6 +255,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void AddMultipleComponentsWithQuery_ExceedChunkCapacityThrows()
         {
             var componentTypes = new ComponentTypeSet(typeof(EcsTestDataHuge)); // add really big component(s)
@@ -430,7 +433,8 @@ namespace Unity.Entities.Tests
 #endif
         IComponentData
         {
-            return m_Manager.GetChunk(e).GetChangeVersion(m_Manager.GetComponentTypeHandle<T>(true));
+            var typeHandle = m_Manager.GetComponentTypeHandle<T>(true);
+            return m_Manager.GetChunk(e).GetChangeVersion(ref typeHandle);
         }
 
         uint GetSharedComponentDataVersion<T>(Entity e) where T : struct, ISharedComponentData

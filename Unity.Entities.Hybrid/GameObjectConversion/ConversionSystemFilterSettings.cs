@@ -8,6 +8,7 @@ using Assembly = System.Reflection.Assembly;
 namespace Unity.Entities.Conversion
 {
 #if UNITY_EDITOR
+#if USING_PLATFORMS_PACKAGE
     public sealed class ConversionSystemFilterSettings : Unity.Build.IBuildComponent
     {
         HashSet<Assembly> m_ExcludedDomainAssemblies;
@@ -101,5 +102,6 @@ namespace Unity.Entities.Conversion
             m_IsDirty = false;
         }
     }
+#endif
 #endif
 }

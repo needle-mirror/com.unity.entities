@@ -106,6 +106,11 @@ namespace Unity.Scenes.Editor
                     {
                         var scene = EditorSceneManager.GetSceneAt(i);
 
+                        //this is to avoid trying to get the guid of a scene loaded from a content archive during play mode
+                        if (!scene.path.StartsWith("Assets/", System.StringComparison.OrdinalIgnoreCase) &&
+                            !scene.path.StartsWith("Packages/", System.StringComparison.OrdinalIgnoreCase))
+                            continue;
+
                         var sceneGUID = AssetDatabaseCompatibility.PathToGUID(scene.path);
                         if (_EditorLiveConversion.HasScene(sceneGUID))
                         {

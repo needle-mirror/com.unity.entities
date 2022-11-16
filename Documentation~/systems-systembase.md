@@ -2,7 +2,7 @@
 uid: systems-systembase
 ---
 
-# Create a system with SystemBase
+# SystemBase overview
 
 To create a managed system, implement the abstract class [`SystemBase`](xref:Unity.Entities.SystemBase).
 
@@ -13,7 +13,7 @@ All system events run on the main thread. It's best practice to use the `OnUpdat
 * [`Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities): Iterates over component data.
 * [`Job.WithCode`](xref:Unity.Entities.SystemBase.Job): Execute a lambda expression as a single, background job.
 * [`IJobEntity`](xref:Unity.Entities.IJobEntity): Iterates over component data in multiple systems.
-* [`IJobEntityBatch`](xref:Unity.Entities.IJobEntityBatch): Iterates over data by [archetype chunk](concepts-archetypes.md#archetype-chunks).
+* [`IJobChunk`](xref:Unity.Entities.IJobChunk): Iterates over data by [archetype chunk](concepts-archetypes.md#archetype-chunks).
 
 The following example illustrates using `Entities.ForEach` to implement a system that updates one component based on the value of another:
  
@@ -26,7 +26,7 @@ There are several callback methods within `SystemBase` that Unity invokes at var
 * [`OnCreate`](xref:Unity.Entities.ComponentSystemBase.OnCreate): Called when a system is created.
 * [`OnStartRunning`](xref:Unity.Entities.ComponentSystemBase.OnStartRunning): Called before the first call to `OnUpdate` and whenever a system resumes running.
 * [`OnUpdate`](xref:Unity.Entities.SystemBase.OnUpdate): Called every frame as long as the system has work to do. For more information on what determines when a system has work to do, see [`ShouldRunSystem`](xref:Unity.Entities.ComponentSystemBase.ShouldRunSystem).
-* [`OnStopRunning`](xref:Unity.Entities.ComponentSystemBase.OnStopRunning): Called before `OnDestroy`. Also called whenever the system stops running, which happens if no entities match the system's [`EntityQuery`](xref:Unity.Entities.EntityQuery), or if the system's [`Enabled`](xref:Unity.Entities.ComponentSystemBase.Enabled)property is set to `false`.
+* [`OnStopRunning`](xref:Unity.Entities.ComponentSystemBase.OnStopRunning): Called before `OnDestroy`. Also called whenever the system stops running, which happens if no entities match the system's [`RequireForUpdate`](xref:Unity.Entities.SystemState.RequireForUpdate], or if the system's [`Enabled`](xref:Unity.Entities.ComponentSystemBase.Enabled)property is set to `false`. Note if no [`RequireForUpdate`](xref:Unity.Entities.SystemState.RequireForUpdate] is specified, the system will run continuously unless disabled or destroyed.
 * [`OnDestroy`](xref:Unity.Entities.ComponentSystemBase.OnDestroy): Called when a system is destroyed.
 
 The following diagram illustrates a system's event order:

@@ -439,21 +439,4 @@ namespace Unity.Entities
             }
         }
     }
-
-    // Burst-compatibility tests
-    [BurstCompile]
-    struct DummyJobChunk : IJobChunk
-    {
-        public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
-        {
-        }
-    }
-    [BurstCompile]
-    static class DummyJobChunkScheduler
-    {
-        public static void Schedule()
-        {
-            new DummyJobChunk().Run(default(EntityQuery));
-        }
-    }
 }

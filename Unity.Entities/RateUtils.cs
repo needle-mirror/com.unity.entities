@@ -7,13 +7,15 @@ using Unity.Collections;
 
 namespace Unity.Entities
 {
-    /// <inheritdoc cref="IRateManager"/>
+    /// <summary> Obsolete. Use <see cref="IRateManager"/> instead.</summary>
     [Obsolete("This interface has been renamed to IRateManager (RemovedAFter Entities 1.0)", true)]
     public interface IFixedRateManager
     {
-        /// <inheritdoc cref="IRateManager.ShouldGroupUpdate"/>
+        /// <summary> Obsolete. Use <see cref="IRateManager.ShouldGroupUpdate"/> instead.</summary>
+        /// <param name="group">The system group to check</param>
+        /// <returns>True if <paramref name="group"/> should update its member systems, or false if the group should skip its update.</returns>
         bool ShouldGroupUpdate(ComponentSystemGroup group);
-        /// <inheritdoc cref="IRateManager.Timestep"/>
+        /// <summary> Obsolete. Use <see cref="IRateManager.Timestep"/> instead.</summary>
         float Timestep { get; set; }
     }
     /// <summary>
@@ -87,13 +89,13 @@ namespace Unity.Entities
             /// <inheritdoc cref="IRateManager.ShouldGroupUpdate"/>
             public bool ShouldGroupUpdate(ComponentSystemGroup group)
             {
-                // if this is true, means we're being called a second or later time in a loop
+                // if this is true, means we're being called a second or later time in a loop.
                 if (m_DidPushTime)
                 {
                     group.World.PopTime();
                     m_DidPushTime = false;
 
-                    // Update the group allocators and restore the old one
+                    // Update the group allocators and restore the old allocator
                     group.World.RestoreGroupAllocator(m_OldGroupAllocators);
 
                     return false;
@@ -107,8 +109,11 @@ namespace Unity.Entities
 
                 m_DidPushTime = true;
 
+                // Back up current world or group allocator.
                 m_OldGroupAllocators = group.World.CurrentGroupAllocators;
+                // Replace current world or group allocator with this system group allocator.
                 group.World.SetGroupAllocator(group.RateGroupAllocators);
+
                 return true;
             }
         }

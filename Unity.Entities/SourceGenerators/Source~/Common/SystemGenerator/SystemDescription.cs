@@ -115,12 +115,12 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
             return entityTypeLookupField.GeneratedFieldName;
         }
 
-        public string GetOrCreateEntityTypeHandleField(ITypeSymbol typeSymbol)
+        public string GetOrCreateEntityTypeHandleField()
         {
-            var entityTypeHandleFieldDescription = new EntityTypeHandleFieldDescription(typeSymbol);
+            var entityTypeHandleFieldDescription = EntityTypeHandleFieldDescription.CreateInstance();
             NonQueryFields.Add(entityTypeHandleFieldDescription);
 
-            return entityTypeHandleFieldDescription.GeneratedFieldName;
+            return EntityTypeHandleFieldDescription.GeneratedFieldName;
         }
 
         public string GetOrCreateTypeHandleField(ITypeSymbol typeSymbol, bool isReadOnly)

@@ -612,7 +612,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                NativeArray<EcsTestData> chunkData = chunk.GetNativeArray(TestTypeHandle);
+                NativeArray<EcsTestData> chunkData = chunk.GetNativeArray(ref TestTypeHandle);
 
                 for (int i = 0; i < chunk.Count; ++i)
                 {

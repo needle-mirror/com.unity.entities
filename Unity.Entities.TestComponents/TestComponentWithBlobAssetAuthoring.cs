@@ -17,17 +17,13 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(TestComponentWithBlobAssetAuthoring authoring)
             {
-                var builder = new BlobBuilder(Allocator.Temp);
-                builder.ConstructRoot<int>() = authoring.Version;
-                var blob = builder.CreateBlobAssetReference<int>(Allocator.Persistent);
-
-                AddBlobAsset(blob, out Hash128 hash);
+                var blobReference = BlobAssetUtility.CreateBlobAsset(authoring.Version);
+                AddBlobAsset(ref blobReference, out Hash128 _);
 
                 AddComponent(new Component
                 {
-                    BlobAssetRef = blob
+                    BlobAssetRef = blobReference
                 });
-                builder.Dispose();
             }
         }
     }

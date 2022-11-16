@@ -17,7 +17,8 @@ namespace Doc.CodeSamples.Tests
     {
         protected override void OnUpdate()
         {
-            Entities.ForEach((ref ObjectPosition translation,
+            Entities
+                .ForEach((ref ObjectPosition translation,
                 in Velocity velocity) =>
                 {
                     translation.Value += velocity.Value;
@@ -136,7 +137,8 @@ namespace Doc.CodeSamples.Tests
                 .ScheduleParallel(); // Execute in parallel for each chunk of entities
 
             //Schedule the second job, which depends on the first
-            Job.WithCode(() =>
+            Job
+                .WithCode(() =>
             {
                 int result = 0;
                 for (int i = 0; i < intermediateSums.Length; i++)

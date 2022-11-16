@@ -56,7 +56,7 @@ namespace Unity.Entities
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 Assert.IsFalse(useEnabledMask);
-                var components = chunk.GetNativeArray(ComponentTypeHandle);
+                var components = chunk.GetNativeArray(ref ComponentTypeHandle);
                 var entities = chunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {
@@ -78,7 +78,7 @@ namespace Unity.Entities
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 Assert.IsFalse(useEnabledMask);
-                var components = chunk.GetNativeArray(ComponentTypeHandle);
+                var components = chunk.GetNativeArray(ref ComponentTypeHandle);
                 var entities = chunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {
@@ -100,7 +100,7 @@ namespace Unity.Entities
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 Assert.IsFalse(useEnabledMask);
-                var components = chunk.GetNativeArray(EntityGuidComponentTypeHandle);
+                var components = chunk.GetNativeArray(ref EntityGuidComponentTypeHandle);
                 var entities = chunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {
@@ -121,7 +121,7 @@ namespace Unity.Entities
                 var count = 0;
                 for (var chunkIndex = 0; chunkIndex < Chunks.Length; chunkIndex++)
                 {
-                    var linkedEntityGroups = Chunks[chunkIndex].GetBufferAccessor(LinkedEntityGroupTypeHandle);
+                    var linkedEntityGroups = Chunks[chunkIndex].GetBufferAccessor(ref LinkedEntityGroupTypeHandle);
                     for (var linkedEntityGroupIndex = 0; linkedEntityGroupIndex < linkedEntityGroups.Length; linkedEntityGroupIndex++)
                     {
                         count += linkedEntityGroups[linkedEntityGroupIndex].Length;
@@ -142,7 +142,7 @@ namespace Unity.Entities
             {
                 Assert.IsFalse(useEnabledMask);
 
-                var linkedEntityGroups = chunk.GetBufferAccessor(LinkedEntityGroupTypeHandle);
+                var linkedEntityGroups = chunk.GetBufferAccessor(ref LinkedEntityGroupTypeHandle);
 
                 for (var bufferIndex = 0; bufferIndex != linkedEntityGroups.Length; bufferIndex++)
                 {
@@ -324,8 +324,7 @@ namespace Unity.Entities
                     entityGuidToEntity,
                     entityToEntityGuid);
 
-// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
-#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+#if !DOTS_DISABLE_DEBUG_NAMES
                 s_ApplyEntityNamesProfilerMarker.Begin();
                 ApplyEntityNames(
                     entityManager,
@@ -513,8 +512,7 @@ namespace Unity.Entities
             }
         }
 
-// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
-#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+#if !DOTS_DISABLE_DEBUG_NAMES
         [BurstCompile]
         internal struct ApplyNamesJob : IJob
         {
@@ -633,50 +631,95 @@ namespace Unity.Entities
             }
         }
 
-        [GenerateTestsForBurstCompatibility]
         [BurstCompile]
-        internal static void ApplyAddComponents(
+        struct ApplyAddComponentsJob : IJobFor
+        {
+            [NativeDisableUnsafePtrRestriction]
+            public EntityComponentStore* store;
+            [ReadOnly]
+            public NativeArray<PackedComponent> AddComponents;
+            [ReadOnly]
+            public NativeArray<EntityGuid> PackedEntityGuids;
+            [ReadOnly]
+            public NativeMultiHashMap<int, Entity> PackedEntities;
+            [ReadOnly]
+            public NativeArray<ComponentType> PackedTypes;
+            public int LinkedEntityGroupTypeIndex;
+
+            public NativeList<SetComponentError>.ParallelWriter ComponentAlreadyExists;
+
+            public EntityCommandBuffer.ParallelWriter ecb;
+
+            public void Execute(int index)
+            {
+                var packedComponent = AddComponents[index];
+
+                if (!PackedEntities.TryGetFirstValue(packedComponent.PackedEntityIndex, out var entity, out var iterator))
+                {
+                    return;
+                }
+
+                var component = PackedTypes[packedComponent.PackedTypeIndex];
+
+                do
+                {
+                    if (!store->HasComponent(entity, component.TypeIndex))
+                    {
+                        // magic is required to force the first entity in the LinkedEntityGroup to be the entity
+                        // that owns the component. this magic doesn't seem to exist at a lower level, so let's
+                        // shim it in here. we'll probably need to move the magic lower someday.
+                        if (component.TypeIndex == LinkedEntityGroupTypeIndex)
+                        {
+                            ecb.AddComponent(index, entity, component);
+                            ecb.AppendToBuffer(index, entity, new LinkedEntityGroup(){Value = entity});
+                        }
+                        else
+                        {
+                            ecb.AddComponent(index, entity, component);
+                        }
+                    }
+                    else
+                    {
+                        ComponentAlreadyExists.AddNoResize(new SetComponentError
+                        {
+                            ComponentType = component, Guid = PackedEntityGuids[packedComponent.PackedEntityIndex]
+                        });
+                    }
+                } while (PackedEntities.TryGetNextValue(out entity, ref iterator));
+            }
+        }
+
+        static void ApplyAddComponents(
             in EntityManager entityManager,
             in NativeArray<PackedComponent> addComponents,
             in NativeArray<EntityGuid> packedEntityGuids,
             in NativeMultiHashMap<int, Entity> packedEntities,
             in NativeArray<ComponentType> packedTypes)
         {
-            var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
+            var componentAlreadyExists = new NativeList<SetComponentError>(addComponents.Length, Allocator.TempJob);
+            var ecb = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.SinglePlayback);
 
-            for (var i = 0; i < addComponents.Length; i++)
+            new ApplyAddComponentsJob()
             {
-                var packedComponent = addComponents[i];
+                store = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
+                AddComponents = addComponents,
+                PackedEntities = packedEntities,
+                PackedEntityGuids = packedEntityGuids,
+                PackedTypes = packedTypes,
+                LinkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>(),
+                ComponentAlreadyExists = componentAlreadyExists.AsParallelWriter(),
+                ecb = ecb.AsParallelWriter()
+            }.ScheduleParallel(addComponents.Length, 32, default).Complete();
 
-                if (!packedEntities.TryGetFirstValue(packedComponent.PackedEntityIndex, out var entity, out var iterator))
-                {
-                    continue;
-                }
-
-                var component = packedTypes[packedComponent.PackedTypeIndex];
-
-                do
-                {
-                    if (!entityManager.HasComponent(entity, component))
-                    {
-                        entityManager.AddComponent(entity, component);
-
-                        // magic is required to force the first entity in the LinkedEntityGroup to be the entity
-                        // that owns the component. this magic doesn't seem to exist at a lower level, so let's
-                        // shim it in here. we'll probably need to move the magic lower someday.
-                        if (component.TypeIndex == linkedEntityGroupTypeIndex)
-                        {
-                            var buffer = entityManager.GetBuffer<LinkedEntityGroup>(entity);
-                            buffer.Add(entity);
-                        }
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"AddComponent({packedEntityGuids[packedComponent.PackedEntityIndex]}, {component}) but the component already exists.");
-                    }
-                }
-                while (packedEntities.TryGetNextValue(out entity, ref iterator));
+            for (int i = 0; i < componentAlreadyExists.Length; i++)
+            {
+                var error = componentAlreadyExists[i];
+                Debug.LogWarning($"AddComponent({error.Guid}, {error.ComponentType}) but the component already exists.");
             }
+
+            ecb.Playback(entityManager);
+            ecb.Dispose();
+            componentAlreadyExists.Dispose();
         }
 
         [GenerateTestsForBurstCompatibility]
@@ -722,6 +765,95 @@ namespace Unity.Entities
             }
         }
 
+         struct ManagedComponentData
+        {
+            public int packedIndex;
+            public TypeIndex typeIndex;
+            public Entity entity;
+
+            public ManagedComponentData(int packedIndex, TypeIndex typeIndex, Entity entity)
+            {
+                this.packedIndex = packedIndex;
+                this.typeIndex = typeIndex;
+                this.entity = entity;
+            }
+        }
+
+         struct UnmanagedPackedComponentData
+         {
+             public int offset;
+             public PackedComponent packedComponent;
+         }
+
+        [BurstCompile]
+        struct ApplySetSharedComponentsJob : IJobFor
+        {
+            [NativeDisableUnsafePtrRestriction]
+            public EntityComponentStore* store;
+            [ReadOnly]
+            public NativeArray<UnmanagedPackedComponentData> UnmanagedPackedComponents;
+            public UnsafeAppendBuffer UnmanagedSharedComponentData;
+            [ReadOnly]
+            public NativeArray<EntityGuid> PackedEntityGuids;
+            [ReadOnly]
+            public NativeMultiHashMap<int, Entity> PackedEntities;
+            [ReadOnly]
+            public NativeArray<ComponentType> PackedTypes;
+
+            public NativeList<SetComponentError>.ParallelWriter EntityDoesNotExist;
+            public NativeList<SetComponentError>.ParallelWriter ComponentDoesNotExist;
+            public NativeList<ManagedComponentData>.ParallelWriter SetManagedComponents;
+
+            public EntityCommandBuffer.ParallelWriter ecb;
+
+            public void Execute(int index)
+            {
+                var packedComponent = UnmanagedPackedComponents[index].packedComponent;
+
+                if (!PackedEntities.TryGetFirstValue(packedComponent.PackedEntityIndex, out var entity, out var iterator))
+                {
+                    return;
+                }
+
+                var component = PackedTypes[packedComponent.PackedTypeIndex];
+
+                do
+                {
+                    if (!store->Exists(entity))
+                    {
+                        EntityDoesNotExist.AddNoResize(new SetComponentError
+                        {
+                            ComponentType = component, Guid = PackedEntityGuids[packedComponent.PackedEntityIndex]
+                        });
+                    }
+                    else if (!store->HasComponent(entity, component))
+                    {
+                        ComponentDoesNotExist.AddNoResize(new SetComponentError
+                        {
+                            ComponentType = component, Guid = PackedEntityGuids[packedComponent.PackedEntityIndex]
+                        });
+                    }
+                    else
+                    {
+                        var offset = UnmanagedPackedComponents[index].offset;
+
+                        if ((offset & PackedSharedComponentDataChange.kManagedFlag) != 0)
+                        {
+                            SetManagedComponents.AddNoResize(new ManagedComponentData(index, component.TypeIndex, entity));
+                        }
+                        else
+                        {
+                            var componentDataAddr = offset != (-1 & ~PackedSharedComponentDataChange.kManagedFlag)
+                                ? UnmanagedSharedComponentData.Ptr + offset
+                                : null;
+
+                            ecb.UnsafeSetSharedComponentNonDefault(0, entity, componentDataAddr, component.TypeIndex);
+                        }
+                    }
+                } while (PackedEntities.TryGetNextValue(out entity, ref iterator));
+            }
+        }
+
         static void ApplySetSharedComponents(
             EntityManager entityManager,
             PackedSharedComponentDataChange[] sharedComponentDataChanges,
@@ -731,55 +863,67 @@ namespace Unity.Entities
             NativeArray<ComponentType> packedTypes)
         {
             s_ApplySetSharedComponentsProfilerMarker.Begin();
-            for (var i = 0; i < sharedComponentDataChanges.Length; i++)
+
+            NativeArray<UnmanagedPackedComponentData> unmanagedPackedComponents = new NativeArray<UnmanagedPackedComponentData>(sharedComponentDataChanges.Length, Allocator.TempJob);
+            int noManagedEntities = 0;
+
+            for (int i = 0; i < sharedComponentDataChanges.Length; i++)
             {
                 var packedSharedComponentDataChange = sharedComponentDataChanges[i];
+                var offset = packedSharedComponentDataChange.UnmanagedSharedValueDataOffsetWithManagedFlag;
                 var packedComponent = packedSharedComponentDataChange.Component;
+                unmanagedPackedComponents[i] = new UnmanagedPackedComponentData(){offset = offset, packedComponent = packedComponent};
 
-                if (!packedEntities.TryGetFirstValue(packedComponent.PackedEntityIndex, out var entity, out var iterator))
-                {
-                    continue;
-                }
-
-                var component = packedTypes[packedComponent.PackedTypeIndex];
-
-                do
-                {
-                    if (!entityManager.Exists(entity))
-                    {
-                        Debug.LogWarning($"SetComponent<{component}>({packedEntityGuid[packedComponent.PackedEntityIndex]}) but entity does not exist.");
-                    }
-                    else if (!entityManager.HasComponent(entity, component))
-                    {
-                        Debug.LogWarning($"SetComponent<{component}>({packedEntityGuid[packedComponent.PackedEntityIndex]}) but component does not exist.");
-                    }
-                    else
-                    {
-                        var offset = packedSharedComponentDataChange.UnmanagedSharedValueDataOffsetWithManagedFlag;
-
-                        if ((offset & PackedSharedComponentDataChange.kManagedFlag) != 0)
-                        {
-                            entityManager.SetSharedComponentDataBoxedDefaultMustBeNull(entity, component.TypeIndex, packedSharedComponentDataChange.BoxedSharedValue);
-                        }
-                        else
-                        {
-                            var componentDataAddr = offset != (-1 & ~PackedSharedComponentDataChange.kManagedFlag)
-                                ? unmanagedSharedComponentData.Ptr + offset
-                                : null;
-                            SetUnmanagedSharedComponentData(entityManager, entity, componentDataAddr, component.TypeIndex);
-                        }
-                    }
-                }
-                while (packedEntities.TryGetNextValue(out entity, ref iterator));
+                // Prepare the size for setManagedComponents
+                if ((offset & PackedSharedComponentDataChange.kManagedFlag) != 0)
+                    noManagedEntities += packedEntities.CountValuesForKey(packedComponent.PackedEntityIndex);
             }
-            s_ApplySetSharedComponentsProfilerMarker.End();
-        }
 
-        [BurstCompile]
-        static void SetUnmanagedSharedComponentData(in EntityManager entityManager, in Entity entity,
-            byte* componentDataAddr, TypeIndex typeIndex)
-        {
-            entityManager.SetSharedComponentNonDefault(entity, componentDataAddr, typeIndex);
+            var entityDoesNotExist = new NativeList<SetComponentError>(sharedComponentDataChanges.Length, Allocator.TempJob);
+            var componentDoesNotExist = new NativeList<SetComponentError>(sharedComponentDataChanges.Length, Allocator.TempJob);
+            var setManagedComponentsToEntities = new NativeList<ManagedComponentData>(noManagedEntities, Allocator.TempJob);
+            var ecb = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.SinglePlayback);
+
+            new ApplySetSharedComponentsJob()
+            {
+                store = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
+                UnmanagedPackedComponents = unmanagedPackedComponents,
+                UnmanagedSharedComponentData = unmanagedSharedComponentData,
+                PackedEntities = packedEntities,
+                PackedEntityGuids = packedEntityGuid,
+                PackedTypes = packedTypes,
+                ComponentDoesNotExist = componentDoesNotExist.AsParallelWriter(),
+                EntityDoesNotExist = entityDoesNotExist.AsParallelWriter(),
+                SetManagedComponents = setManagedComponentsToEntities.AsParallelWriter(),
+                ecb = ecb.AsParallelWriter()
+            }.ScheduleParallel(unmanagedPackedComponents.Length, 64, default).Complete();
+            unmanagedPackedComponents.Dispose();
+
+            for (var i = 0; i < setManagedComponentsToEntities.Length; i++)
+            {
+                var managedComponent = setManagedComponentsToEntities[i];
+                ecb.UnsafeSetSharedComponentManagedNonDefault(managedComponent.entity, sharedComponentDataChanges[managedComponent.packedIndex].BoxedSharedValue, managedComponent.typeIndex);
+            }
+
+            for (int i = 0; i < entityDoesNotExist.Length; i++)
+            {
+                var error = entityDoesNotExist[i];
+                Debug.LogWarning($"SetComponent<{error.ComponentType}>({error.Guid}) but entity does not exist.");
+            }
+            for (int i = 0; i < componentDoesNotExist.Length; i++)
+            {
+                var error = componentDoesNotExist[i];
+                Debug.LogWarning($"SetComponent<{error.ComponentType}>({error.Guid}) but entity does not exist.");
+            }
+
+            ecb.Playback(entityManager);
+            ecb.Dispose();
+
+            entityDoesNotExist.Dispose();
+            componentDoesNotExist.Dispose();
+            setManagedComponentsToEntities.Dispose();
+
+            s_ApplySetSharedComponentsProfilerMarker.End();
         }
 
         static void ApplySetManagedComponents(
@@ -898,6 +1042,14 @@ namespace Unity.Entities
                             }
                             else
                             {
+                                // Both IComponentData and IBufferElement can be enableable (as well as empty)
+                                // if the enabled value is changed since last frame (-1 == unchanged, 0 == changed to false, 1 == changed to true)
+                                if (packedComponentDataChange.Enabled > -1)
+                                {
+                                    EntityManager.SetEnableableComponent(entity, component.TypeIndex,
+                                        packedComponentDataChange.Enabled == 1);
+                                }
+
                                 if (componentTypeInArchetype.IsZeroSized)
                                 {
                                     // Nothing to set.
@@ -957,6 +1109,7 @@ namespace Unity.Entities
             s_ApplySetComponentsProfilerMarker.Begin();
             var entityDoesNotExist = new NativeList<SetComponentError>(Allocator.TempJob);
             var componentDoesNotExist = new NativeList<SetComponentError>(Allocator.TempJob);
+
             new ApplySetComponentsJob
             {
                 Changes = changes,

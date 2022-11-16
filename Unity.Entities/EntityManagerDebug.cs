@@ -261,7 +261,7 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             /// <summary>
-            /// Returns true if we are inside of a Entities.ForEach or IJobEntityBatch.Run and thus can not allow structural changes at the same time.
+            /// Returns true if we are inside of a Entities.ForEach or IJobChunk.Run and thus can not allow structural changes at the same time.
             /// </summary>
             internal bool IsInForEachDisallowStructuralChange =>
                 m_Manager.GetCheckedEntityDataAccess()->DependencyManager->ForEachStructuralChange.Depth != 0;
@@ -472,7 +472,7 @@ namespace Unity.Entities
                 {
                     Assert.IsFalse(useEnabledMask);
                     var entities = chunk.GetNativeArray(EntityType);
-                    var guids = chunk.GetNativeArray(GuidType);
+                    var guids = chunk.GetNativeArray(ref GuidType);
 
                     for (int i = 0; i != entities.Length; i++)
                         EntityLookup.Add(guids[i].OriginatingId, entities[i]);
@@ -562,14 +562,16 @@ namespace Unity.Entities
             /// Several checks to ensure that the <see cref="EntityComponentStore"/> and <see cref="ManagedComponentStore"/>
             /// have all references that are expected at this time as well as the expected number of entities.
             /// </summary>
-            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
             public void CheckInternalConsistency()
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // Note that this is awkwardly written to avoid all safety checks except "we were created".
                 // This is so unit tests can run out of the test body with jobs running and exclusive transactions still opened.
                 AtomicSafetyHandle.CheckExistsAndThrow(m_Manager.m_Safety);
+#endif
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 var eda = m_Manager.m_EntityDataAccess;
                 var mcs = eda->ManagedComponentStore;
 

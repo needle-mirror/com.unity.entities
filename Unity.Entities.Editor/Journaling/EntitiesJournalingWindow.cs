@@ -57,8 +57,8 @@ namespace Unity.Entities.Editor
             }
         }
 
-        const string k_RecordIndexToken = "i";
-        const string k_RecordTypeToken = "t";
+        const string k_RecordIndexToken = "ri";
+        const string k_RecordTypeToken = "rt";
         const string k_FrameIndexToken = "f";
         const string k_WorldNameToken = "w";
         const string k_WorldIndexToken = "wi";
@@ -88,7 +88,7 @@ namespace Unity.Entities.Editor
         static readonly string s_ExportTooltip = L10n.Tr("Export to CSV");
         static readonly string s_ClearTooltip = L10n.Tr("Clear recorded data");
         static readonly string s_DetailsTooltip = L10n.Tr("Toggle details view");
-        static readonly string s_RecordIndex = L10n.Tr("Index");
+        static readonly string s_RecordIndex = L10n.Tr("Record Index");
         static readonly string s_RecordType = L10n.Tr("Record Type");
         static readonly string s_Summary = L10n.Tr("Summary");
         static readonly string s_FrameIndex = L10n.Tr("Frame");
@@ -191,20 +191,21 @@ namespace Unity.Entities.Editor
 
             var searchContainer = window.Q("search-container");
             var searchElement = searchContainer.Q<SearchElement>("search");
-            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, ulong>(k_RecordIndexToken, r => r.Index, s_RecordIndex);
+            var defaultSearchOptions = new SearchFilterOptions();
+            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, ulong>(k_RecordIndexToken, r => r.Index, s_RecordIndex, "", defaultSearchOptions, "=");
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, string>(k_RecordTypeToken, r => r.RecordType.ToString(), s_RecordType);
-            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, int>(k_FrameIndexToken, r => r.FrameIndex, s_FrameIndex);
+            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, int>(k_FrameIndexToken, r => r.FrameIndex, s_FrameIndex, "", defaultSearchOptions, "=");
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, string>(k_WorldNameToken, GetWorldName, s_WorldName);
-            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, ulong>(k_WorldIndexToken, r => r.World.SequenceNumber, s_WorldIndex);
+            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, ulong>(k_WorldIndexToken, r => r.World.SequenceNumber, s_WorldIndex, "", defaultSearchOptions, "=");
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<string>>(k_SystemToken, r => new[] { GetExecutingSystemName(r), GetOriginSystemName(r) }, s_System);
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, string>(k_ExecutingSystemToken, GetExecutingSystemName, s_ExecutingSystem);
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, string>(k_OriginSystemToken, GetOriginSystemName, s_OriginSystem);
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<string>>(k_EntityNameToken, r => r.Entities.Select(e => e.Name), s_EntityName);
-            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<int>>(k_EntityIndexToken, r => r.Entities.Select(e => e.Index), s_EntityIndex);
-            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, int>(k_EntityCountToken, r => r.Entities.Length, s_EntityCount);
+            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<int>>(k_EntityIndexToken, r => r.Entities.Select(e => e.Index), s_EntityIndex, "", defaultSearchOptions, "=");
+            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, int>(k_EntityCountToken, r => r.Entities.Length, s_EntityCount, "", defaultSearchOptions, "=");
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<string>>(k_ComponentTypeNameToken, r => r.ComponentTypes.Select(t => t.Name), s_ComponentTypeName);
-            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<int>>(k_ComponentTypeIndexToken, r => r.ComponentTypes.Select(t => t.TypeIndex.Value), s_ComponentTypeIndex);
-            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, int>(k_ComponentCountToken, r => r.ComponentTypes.Length, s_ComponentCount);
+            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<int>>(k_ComponentTypeIndexToken, r => r.ComponentTypes.Select(t => t.TypeIndex.Value), s_ComponentTypeIndex, "", defaultSearchOptions, "=");
+            searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, int>(k_ComponentCountToken, r => r.ComponentTypes.Length, s_ComponentCount, "", defaultSearchOptions, "=");
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<string>>(k_ComponentDataValueToken, GetComponentDataText, s_ComponentDataValue);
 
             var detailsButton = toolbar.Q<Button>("details");

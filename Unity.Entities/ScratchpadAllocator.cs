@@ -9,12 +9,14 @@ using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
-
+    /// <summary>
+    /// A fast allocator which allocates memory from its scratchpad.
+    /// </summary>
     [BurstCompile]
     [GenerateTestsForBurstCompatibility]
     public unsafe struct ScratchpadAllocator : AllocatorManager.IAllocator
     {
-        public const int kMaximumAlignment = 16384; // 16k, can't align any coarser than this many bytes
+        const int kMaximumAlignment = 16384; // 16k, can't align any coarser than this many bytes
         byte* m_pointer; // pointer to the memory preserved
         internal AllocatorManager.AllocatorHandle m_handle;
         internal int m_bytes;

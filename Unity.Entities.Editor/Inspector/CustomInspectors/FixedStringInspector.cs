@@ -1,7 +1,7 @@
 ﻿using System;
 using JetBrains.Annotations;
 using Unity.Collections;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Inspectors

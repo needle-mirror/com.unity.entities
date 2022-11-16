@@ -105,6 +105,7 @@ namespace Unity.Entities.Tests.Types
         struct EcsTestTag16 : IComponentData {};
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component safety checks")]
         public unsafe void ComponentTypes_TooManyTypes_Throws()
         {
             var typesArray = new ComponentType[]{
@@ -117,17 +118,18 @@ namespace Unity.Entities.Tests.Types
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component safety checks")]
         public void DisallowDuplicateTypes()
         {
-            #if UNITY_DOTSRUNTIME
+#if UNITY_DOTSRUNTIME
                     Assert.Throws<ArgumentException>(() => new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)));
                     Assert.Throws<ArgumentException>(() => new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)));
-            #else
+#else
                     Assert.That(() => new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)), Throws.ArgumentException
                         .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"Unity.Entities.Tests.EcsTestData\""));
                     Assert.That(() => new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)), Throws.ArgumentException
                         .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"Unity.Entities.Tests.EcsTestData\""));
-            #endif
+#endif
         }
     }
 }

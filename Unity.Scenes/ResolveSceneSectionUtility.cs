@@ -48,16 +48,16 @@ namespace Unity.Scenes
             AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out var paths);
             var sceneHeaderPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesHeader);
 #else
-            var sceneHeaderPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1, sceneLoadDir);
+            var sceneHeaderPath = EntityScenesPaths.FullPathForFile(sceneLoadDir, EntityScenesPaths.RelativePathForSceneFile(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1));
 #endif
             if (!ReadHeader(sceneHeaderPath, out var sceneMetaData, sceneGUID, out var headerBlobOwner))
                 return false;
             var sectionPaths = new UnsafeList<ResolvedSectionPath>(sceneMetaData.Value.Sections.Length, Allocator.Temp);
 
 #if UNITY_EDITOR
-            SceneHeaderUtility.BuildSectionPaths(ref sectionPaths, ref sceneMetaData.Value, paths);
+            SceneHeaderUtility.BuildSectionPaths(ref sectionPaths, ref sceneMetaData.Value, sceneGUID, paths, artifactHash);
 #else
-            SceneHeaderUtility.BuildSectionPathsForAssetBundles(ref sectionPaths, ref sceneMetaData.Value, sceneGUID, sceneLoadDir);
+            SceneHeaderUtility.BuildSectionPathsForContentArchives(ref sectionPaths, ref sceneMetaData.Value, sceneGUID, sceneLoadDir);
 #endif
 
             var resolveSceneSectionArchetypes = CreateResolveSceneSectionArchetypes(manager);
@@ -114,16 +114,6 @@ namespace Unity.Scenes
 
                 AddSectionMetadataComponents(sectionEntity, ref sceneMetaData.SceneSectionCustomMetadata[i], entityManager);
 
-                if (sceneMetaData.Dependencies.Length > 0)
-                {
-                    ref var deps = ref sceneMetaData.Dependencies[i];
-                    if (deps.Length > 0)
-                    {
-                        var bundleSet = entityManager.AddBuffer<BundleElementData>(sectionEntity);
-                        bundleSet.ResizeUninitialized(deps.Length);
-                        UnsafeUtility.MemCpy(bundleSet.GetUnsafePtr(), deps.GetUnsafePtr(), sizeof(Hash128) * deps.Length);
-                    }
-                }
                 var linkedEntityGroup = entityManager.GetBuffer<LinkedEntityGroup>(sceneEntity);
                 linkedEntityGroup.Add(new LinkedEntityGroup { Value = sectionEntity });
             }

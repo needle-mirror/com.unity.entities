@@ -54,19 +54,19 @@ namespace Unity.Transforms
             {
                 Assert.IsFalse(useEnabledMask);
 
-                var hasScale = chunk.Has(ScaleTypeHandle);
-                var hasNonUniformScale = chunk.Has(NonUniformScaleTypeHandle);
-                var hasCompositeScale = chunk.Has(CompositeScaleTypeHandle);
+                var hasScale = chunk.Has(ref ScaleTypeHandle);
+                var hasNonUniformScale = chunk.Has(ref NonUniformScaleTypeHandle);
+                var hasCompositeScale = chunk.Has(ref CompositeScaleTypeHandle);
 
                 if (hasCompositeScale)
                 {
-                    var didChange = chunk.DidChange(CompositeScaleTypeHandle, LastSystemVersion) ||
-                        chunk.DidChange(ChildTypeHandle, LastSystemVersion);
+                    var didChange = chunk.DidChange(ref CompositeScaleTypeHandle, LastSystemVersion) ||
+                        chunk.DidChange(ref ChildTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
-                    var chunkCompositeScales = chunk.GetNativeArray(CompositeScaleTypeHandle);
-                    var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
+                    var chunkCompositeScales = chunk.GetNativeArray(ref CompositeScaleTypeHandle);
+                    var chunkChildren = chunk.GetBufferAccessor(ref ChildTypeHandle);
                     for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
                     {
                         var inverseScale = math.inverse(chunkCompositeScales[i].Value);
@@ -83,13 +83,13 @@ namespace Unity.Transforms
                 }
                 else if (hasScale)
                 {
-                    var didChange = chunk.DidChange(ScaleTypeHandle, LastSystemVersion) ||
-                        chunk.DidChange(ChildTypeHandle, LastSystemVersion);
+                    var didChange = chunk.DidChange(ref ScaleTypeHandle, LastSystemVersion) ||
+                        chunk.DidChange(ref ChildTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
-                    var chunkScales = chunk.GetNativeArray(ScaleTypeHandle);
-                    var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
+                    var chunkScales = chunk.GetNativeArray(ref ScaleTypeHandle);
+                    var chunkChildren = chunk.GetBufferAccessor(ref ChildTypeHandle);
                     for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
                     {
                         var inverseScale = float4x4.Scale(1.0f / chunkScales[i].Value);
@@ -106,13 +106,13 @@ namespace Unity.Transforms
                 }
                 else // if (hasNonUniformScale)
                 {
-                    var didChange = chunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion) ||
-                        chunk.DidChange(ChildTypeHandle, LastSystemVersion);
+                    var didChange = chunk.DidChange(ref NonUniformScaleTypeHandle, LastSystemVersion) ||
+                        chunk.DidChange(ref ChildTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
-                    var chunkNonUniformScales = chunk.GetNativeArray(NonUniformScaleTypeHandle);
-                    var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
+                    var chunkNonUniformScales = chunk.GetNativeArray(ref NonUniformScaleTypeHandle);
+                    var chunkChildren = chunk.GetBufferAccessor(ref ChildTypeHandle);
                     for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
                     {
                         var inverseScale = float4x4.Scale(1.0f / chunkNonUniformScales[i].Value);

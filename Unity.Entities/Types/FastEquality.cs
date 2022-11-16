@@ -25,9 +25,90 @@ namespace Unity.Entities
     [BurstCompile]
     public partial struct FastEquality
     {
+        static List<Delegate> s_ComponentDelegates;
 
-// While UNITY_DOTSRUNTIME not using Tiny BCL can compile most of this code, UnsafeUtility doesn't currently provide a
-// FieldOffset method so we disable for UNITY_DOTSRUNTIME rather than NET_DOTS
+        internal struct LayoutInfo
+        {
+            public ushort Size;
+            public ushort Offset;
+        }
+
+        /// <summary>
+        /// Type holding one component's Equals and GetHashCode implementations as well as the size
+        /// of the underlying unmanaged component type
+        /// </summary>
+        [GenerateTestsForBurstCompatibility]
+        public struct TypeInfo : IDisposable
+        {
+            /// <summary>
+            /// Equals method delegate for comparing two component instances whose type is not known at compile time.
+            /// </summary>
+            public unsafe delegate bool CompareEqualDelegate(void* lhs, void* rhs);
+
+            /// <summary>
+            /// GetHashCode method delegate for hashing a component whose type is not known at compile time.
+            /// </summary>
+            public unsafe delegate int GetHashCodeDelegate(void* obj);
+
+            /// <summary>
+            /// Equals method delegate for comparing two managed components.
+            /// </summary>
+            public unsafe delegate bool ManagedCompareEqualDelegate(object lhs, object rhs);
+
+            /// <summary>
+            /// GetHashCode method delegate for hashing a managed component.
+            /// </summary>
+            public unsafe delegate int ManagedGetHashCodeDelegate(object obj);
+
+            internal NativeArray<LayoutInfo> LayoutInfo;
+
+            /// <summary>
+            /// Holds the index for the Equals delegate to use when comparing two instances of a component.
+            /// </summary>
+            internal ushort EqualsDelegateIndex;
+
+            /// <summary>
+            /// Holds the index for the GetHashCode delegate to use for a component.
+            /// </summary>
+            internal ushort GetHashCodeDelegateIndex;
+
+            /// <summary>
+            /// Represents an invalid TypeInfo instance.
+            /// </summary>
+            public static TypeInfo Null => new TypeInfo();
+
+            public void Dispose()
+            {
+                LayoutInfo.Dispose();
+            }
+        }
+
+        static ushort AddDelegate(Delegate d)
+        {
+            int index = s_ComponentDelegates.Count;
+            s_ComponentDelegates.Add(d);
+            Assert.IsTrue(index < ushort.MaxValue);
+            return (ushort)index;
+        }
+
+        static Delegate GetDelegate(ushort index)
+        {
+            return s_ComponentDelegates[index];
+        }
+
+        static internal void Initialize()
+        {
+            s_ComponentDelegates = new List<Delegate>();
+            AddDelegate(null); // reserve index 0 as null element
+        }
+
+        static internal void Shutdown()
+        {
+            s_ComponentDelegates.Clear();
+        }
+
+        // While UNITY_DOTSRUNTIME not using Tiny BCL can compile most of this code, UnsafeUtility doesn't currently provide a
+        // FieldOffset method so we disable for UNITY_DOTSRUNTIME rather than NET_DOTS
 #if !UNITY_DOTSRUNTIME
         static readonly ProfilerMarker ManagedEqualsMarker = new ProfilerMarker("FastEquality.ManagedEquals with IPropertyVisitor fallback (Missing IEquatable interface)");
 
@@ -39,8 +120,11 @@ namespace Unity.Entities
                 return CreateTypeInfoBlittable(typeof(T));
         }
 
-        internal static TypeInfo CreateTypeInfo(Type type)
+        internal static TypeInfo CreateTypeInfo(Type type, bool generateBlittableInfo = false)
         {
+#if ENABLE_IL2CPP
+            generateBlittableInfo = true;
+#endif
             if (TypeUsesDelegates(type))
                 return CreateManagedTypeInfo(type);
             else
@@ -103,102 +187,136 @@ namespace Unity.Entities
                 }
 
                 // Type must override GetHashCode()
-                var ghcMethod = t.GetMethod(nameof(GetHashCode));
-                if (ghcMethod.DeclaringType != t)
+                var ghcMethod = t.GetMethod(nameof(GetHashCode), BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, Array.Empty<Type>(), null);
+                if (ghcMethod == null || ghcMethod.DeclaringType != t)
                 {
                     throw new ArgumentException($"type {t} is a/has managed references or implements IEquatable<T>, you must also override GetHashCode()");
                 }
             }
 
-            MethodInfo equalsFn = null;
-            MethodInfo getHashFn = null;
+            ushort equalsDelegateIndex = TypeInfo.Null.EqualsDelegateIndex;
+            ushort getHashCodeDelegateIndex = TypeInfo.Null.GetHashCodeDelegateIndex;
 
             if (t.IsClass)
             {
                 if (typeof(IEquatable<>).MakeGenericType(t).IsAssignableFrom(t))
-                    equalsFn = typeof(ManagedCompareImpl<>).MakeGenericType(t).GetMethod(nameof(ManagedCompareImpl<Dummy>.CompareFunc));
-
-                var ghcMethod = t.GetMethod(nameof(GetHashCode));
-                if (ghcMethod.DeclaringType == t)
-                    getHashFn = typeof(ManagedGetHashCodeImpl<>).MakeGenericType(t).GetMethod(nameof(ManagedGetHashCodeImpl<Dummy>.GetHashCodeFunc));
-
-                return new TypeInfo
                 {
-                    EqualFn = equalsFn != null ? Delegate.CreateDelegate(typeof(TypeInfo.ManagedCompareEqualDelegate), equalsFn) : null,
-                    GetHashFn = getHashFn != null ? Delegate.CreateDelegate(typeof(TypeInfo.ManagedGetHashCodeDelegate), getHashFn) : null,
-                };
+                    var equalsFn = typeof(ManagedCompareImpl<>).MakeGenericType(t).GetMethod(nameof(ManagedCompareImpl<Dummy>.CompareFunc));
+                    equalsDelegateIndex = AddDelegate(Delegate.CreateDelegate(typeof(TypeInfo.ManagedCompareEqualDelegate), equalsFn));
+                }
+
+                var ghcMethod = t.GetMethod(nameof(GetHashCode), BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, Array.Empty<Type>(), null);
+                if (ghcMethod != null && ghcMethod.DeclaringType == t)
+                {
+                    var getHashFn = typeof(ManagedGetHashCodeImpl<>).MakeGenericType(t).GetMethod(nameof(ManagedGetHashCodeImpl<Dummy>.GetHashCodeFunc));
+                    getHashCodeDelegateIndex = AddDelegate(Delegate.CreateDelegate(typeof(TypeInfo.ManagedGetHashCodeDelegate), getHashFn));
+                }
             }
             else
             {
-                equalsFn = typeof(CompareImpl<>).MakeGenericType(t).GetMethod(nameof(CompareImpl<Dummy>.CompareFunc));
-                getHashFn = typeof(GetHashCodeImpl<>).MakeGenericType(t).GetMethod(nameof(GetHashCodeImpl<Dummy>.GetHashCodeFunc));
-
-                return new TypeInfo
-                {
-                    EqualFn = Delegate.CreateDelegate(typeof(TypeInfo.CompareEqualDelegate), equalsFn),
-                    GetHashFn = Delegate.CreateDelegate(typeof(TypeInfo.GetHashCodeDelegate), getHashFn),
-                    TypeSize = (uint) UnsafeUtility.SizeOf(t)
-                };
+                var equalsFn = typeof(CompareImpl<>).MakeGenericType(t).GetMethod(nameof(CompareImpl<Dummy>.CompareFunc));
+                equalsDelegateIndex = AddDelegate(Delegate.CreateDelegate(typeof(TypeInfo.CompareEqualDelegate), equalsFn));
+                
+                var getHashFn = typeof(GetHashCodeImpl<>).MakeGenericType(t).GetMethod(nameof(GetHashCodeImpl<Dummy>.GetHashCodeFunc));
+                getHashCodeDelegateIndex = AddDelegate(Delegate.CreateDelegate(typeof(TypeInfo.GetHashCodeDelegate), getHashFn));
             }
+
+            return new TypeInfo
+            {
+                EqualsDelegateIndex = equalsDelegateIndex,
+                GetHashCodeDelegateIndex = getHashCodeDelegateIndex
+            };
         }
 
-        private static TypeInfo CreateTypeInfoBlittable(Type type)
+        private static TypeInfo CreateTypeInfoBlittable(Type type, Dictionary<Type, List<LayoutInfo>> cache = null)
         {
-            return new TypeInfo { TypeSize = (uint) UnsafeUtility.SizeOf(type)};
+            return new TypeInfo
+            {
+                LayoutInfo = CreateDescriptor(type, cache)
+            };
         }
 
+        internal static NativeArray<LayoutInfo> CreateDescriptor(Type type, Dictionary<Type, List<LayoutInfo>> cache = null)
+        {
+            if (cache == null)
+                cache = new Dictionary<Type, List<LayoutInfo>>();
+
+            var layoutInfo = FindFields(type, cache);
+
+            return new NativeArray<LayoutInfo>(layoutInfo.ToArray(), Allocator.Persistent);
+        }
+
+        private static List<LayoutInfo> FindFields(Type type, Dictionary<Type, List<LayoutInfo>> cache, int parentOffset = 0, int fixedSizeArrayLength = 1)
+        {
+            if (cache.TryGetValue(type, out var cachedInfo))
+                return cachedInfo;
+
+            if (!type.IsValueType)
+                throw new ArgumentException($"{type} is not allowed: only value types are supported");
+
+            if (type.IsGenericTypeDefinition)
+                throw new ArgumentException($"{type} is not allowed: only concrete, fully-closed types are supported");
+
+            var result = new List<LayoutInfo>();
+            result.Add(new LayoutInfo { Size = 0, Offset = 0 });
+
+            int nextExpectedPackedOffset = parentOffset;
+            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            foreach (var field in fields)
+            {
+                int fieldOffset = parentOffset + UnsafeUtility.GetFieldOffset(field);
+                if (nextExpectedPackedOffset != fieldOffset)
+                    result.Add(new LayoutInfo { Size = 0, Offset = (ushort)fieldOffset });
+
+                if (field.FieldType.IsPrimitive || field.FieldType.IsPointer)
+                {
+                    int sizeOf = -1;
+
+                    if (field.FieldType.IsPointer)
+                        sizeOf = UnsafeUtility.SizeOf<IntPtr>();
+                    else
+                        sizeOf = UnsafeUtility.SizeOf(field.FieldType) * fixedSizeArrayLength;
+
+                    if (fieldOffset + sizeOf > ushort.MaxValue)
+                        throw new ArgumentException($"Structures larger than 64k are not supported");
+
+                    // If we are tightly packed this will update the size appropriately, if we aren't it's updating
+                    // the size from 0 to the correct run length (the offset is set at the top of the loop)
+                    var lastIndex = result.Count - 1;
+                    var layoutInfo = result[lastIndex];
+                    layoutInfo.Size += (ushort)sizeOf;
+                    result[lastIndex] = layoutInfo;
+
+                    nextExpectedPackedOffset = fieldOffset + sizeOf;
+                }
+                else
+                {
+                    // Fixed arrays end up being wrapped in a struct with the FixedBuffer attribute
+                    var fixedAttr = field.GetCustomAttribute<FixedBufferAttribute>();
+                    if (fixedAttr != null)
+                        fixedSizeArrayLength = fixedAttr.Length;
+
+                    var structInfos = FindFields(field.FieldType, cache, fieldOffset, fixedSizeArrayLength);
+                    cache.TryAdd(field.FieldType, structInfos);
+
+                    if (structInfos.Count == 1)
+                    {
+                        // We are tightly packed thus far, so only extend the size of our last contiguous run
+                        var layoutInfo = result[0];
+                        layoutInfo.Size += structInfos[0].Size;
+                        result[0] = layoutInfo;
+                    }
+                    else
+                    {
+                        result.AddRange(structInfos);
+                    }
+                }
+            }
+            return result;
+        }
 #endif
 
-        /// <summary>
-        /// Type holding one component's Equals and GetHashCode implementations as well as the size
-        /// of the underlying unmanaged component type
-        /// </summary>
-        public struct TypeInfo
-        {
-            /// <summary>
-            /// Equals method delegate for comparing two component instances whose type is not known at compile time.
-            /// </summary>
-            public unsafe delegate bool CompareEqualDelegate(void* lhs, void* rhs);
-
-            /// <summary>
-            /// GetHashCode method delegate for hashing a component whose type is not known at compile time.
-            /// </summary>
-            public unsafe delegate int GetHashCodeDelegate(void* obj);
-
-            /// <summary>
-            /// Equals method delegate for comparing two managed components.
-            /// </summary>
-            public unsafe delegate bool ManagedCompareEqualDelegate(object lhs, object rhs);
-
-            /// <summary>
-            /// GetHashCode method delegate for hashing a managed component.
-            /// </summary>
-            public unsafe delegate int ManagedGetHashCodeDelegate(object obj);
-
-            /// <summary>
-            /// Size of an unmanaged component type.
-            /// </summary>
-            public uint TypeSize;
-
-            /// <summary>
-            /// Holds the Equals delegate to use when comparing two instances of a component.
-            /// </summary>
-            public Delegate EqualFn;
-
-            /// <summary>
-            /// Holds the GetHashCode delegate to use for a component.
-            /// </summary>
-            public Delegate GetHashFn;
-
-            /// <summary>
-            /// Represents an invalid TypeInfo instance.
-            /// </summary>
-            public static TypeInfo Null => new TypeInfo();
-        }
-
-
-        private const int FNV_32_PRIME = 0x01000193;
-
+    private const int FNV_32_PRIME = 0x01000193;
 #if !UNITY_DOTSRUNTIME
 
         /// <summary>
@@ -210,9 +328,11 @@ namespace Unity.Entities
         /// <returns>Hash code of the managed component</returns>
         public static unsafe int ManagedGetHashCode(object lhs, TypeInfo typeInfo)
         {
-            var fn = (TypeInfo.ManagedGetHashCodeDelegate)typeInfo.GetHashFn;
-            if (fn != null)
+            if (typeInfo.GetHashCodeDelegateIndex != TypeInfo.Null.GetHashCodeDelegateIndex)
+            {
+                var fn = (TypeInfo.ManagedGetHashCodeDelegate) GetDelegate(typeInfo.GetHashCodeDelegateIndex);
                 return fn(lhs);
+            }
 
             var hash = 0;
             using (var buffer = new UnsafeAppendBuffer(16, 16, Allocator.Temp))
@@ -220,7 +340,7 @@ namespace Unity.Entities
                 var writer = new ManagedObjectBinaryWriter(&buffer);
                 writer.WriteObject(lhs);
 
-                hash = Hash32(buffer.Ptr, (uint) buffer.Length);
+                hash = Hash32(buffer.Ptr, buffer.Length);
 
                 foreach (var obj in writer.GetUnityObjects())
                 {
@@ -233,67 +353,62 @@ namespace Unity.Entities
         }
 #endif
 
-        internal static unsafe int GetHashCode<T>(T lhs) where T : struct
+#if !UNITY_DOTSRUNTIME
+        [BurstDiscard]
+        static unsafe void GetHashCodeUsingDelegate(void* dataPtr, TypeInfo typeInfo, ref bool didWork, ref int hash)
         {
-            return Hash32((byte*)UnsafeUtility.AddressOf(ref lhs), (uint) UnsafeUtility.SizeOf<T>());
-        }
-
-        /// <summary>
-        /// Returns the hash code for an unmanaged component.
-        /// </summary>
-        /// <typeparam name="T">Type of unmanaged component.</typeparam>
-        /// <param name="lhs">Component to hash.</param>
-        /// <param name="typeInfo">TypeInfo to provide the GetHashCode method to invoke.</param>
-        /// <returns>Hash code of the component</returns>
-        public static unsafe int GetHashCode<T>(T lhs, TypeInfo typeInfo) where T : struct
-        {
-            return GetHashCode(UnsafeUtility.AddressOf(ref lhs), typeInfo);
-        }
-
-        /// <summary>
-        /// Returns the hash code for an unmanaged component.
-        /// </summary>
-        /// <typeparam name="T">Type of unmanaged component.</typeparam>
-        /// <param name="lhs">Component to hash.</param>
-        /// <param name="typeInfo">TypeInfo to provide the GetHashCode method to invoke</param>
-        /// <returns>Hash code of the component</returns>
-        public static unsafe int GetHashCode<T>(ref T lhs, TypeInfo typeInfo) where T : struct
-        {
-            return GetHashCode(UnsafeUtility.AddressOf(ref lhs), typeInfo);
-        }
-
-        /// <summary>
-        /// Returns the hash code for an unmanaged component.
-        /// </summary>
-        /// <param name="dataPtr">Pointer to component.</param>
-        /// <param name="typeInfo">TypeInfo to provide the GetHashCode method to invoke.</param>
-        /// <returns>Hash code of the component</returns>
-        public static unsafe int GetHashCode(void* dataPtr, TypeInfo typeInfo)
-        {
-            if (typeInfo.GetHashFn != null)
+            if (typeInfo.GetHashCodeDelegateIndex != TypeInfo.Null.GetHashCodeDelegateIndex)
             {
-                TypeInfo.GetHashCodeDelegate fn = (TypeInfo.GetHashCodeDelegate)typeInfo.GetHashFn;
-                return fn(dataPtr);
+                var fn = (TypeInfo.GetHashCodeDelegate) GetDelegate(typeInfo.GetHashCodeDelegateIndex);
+                hash = fn(dataPtr);
+                didWork = true;
             }
+        }
+#endif
 
-            return Hash32((byte*) dataPtr, typeInfo.TypeSize);
+        [GenerateTestsForBurstCompatibility]
+        internal static unsafe int GetHashCode(void* dataPtr, in TypeInfo typeInfo)
+        {
+#if !UNITY_DOTSRUNTIME
+            int hash = 0;
+            bool didWork = false;
+            GetHashCodeUsingDelegate(dataPtr, typeInfo, ref didWork, ref hash);
+            if(didWork)
+                return hash;
+#endif
+
+            return GetHashCodeBlittable(dataPtr, in typeInfo);
         }
 
         [BurstCompile]
-        internal static unsafe int Hash32(byte* input, uint len)
+        private static unsafe int GetHashCodeBlittable(void* dataPtr, in TypeInfo typeInfo)
         {
             int hash = 0;
-            for (int i = 0; i < len; ++i)
+            var layoutInfo = typeInfo.LayoutInfo;
+            int len = layoutInfo.Length;
+            for (int i = 0; i < len; i++)
+            {
+                var info = layoutInfo[i];
+                hash ^= Hash32((byte*)dataPtr + info.Offset, info.Size, hash);
+            }
+
+            return hash;
+        }
+
+        [BurstCompile]
+        internal static unsafe int Hash32(byte* ptr, int length, int seed = 0)
+        {
+            int hash = seed;
+            for (int i = 0; i < length; ++i)
             {
                 hash *= FNV_32_PRIME;
-                hash ^= input[i];
+                hash ^= ptr[i];
             }
 
             return hash;
         }
 
 #if !UNITY_DOTSRUNTIME
-
         /// <summary>
         /// Compares two managed component types.
         /// </summary>
@@ -303,10 +418,11 @@ namespace Unity.Entities
         /// <returns>Returns true if the components are equal. False otherwise.</returns>
         public static unsafe bool ManagedEquals(object lhs, object rhs, TypeInfo typeInfo)
         {
-            var fn = (TypeInfo.ManagedCompareEqualDelegate)typeInfo.EqualFn;
-
-            if (fn != null)
+            if (typeInfo.EqualsDelegateIndex != TypeInfo.Null.EqualsDelegateIndex)
+            {
+                var fn = (TypeInfo.ManagedCompareEqualDelegate) GetDelegate(typeInfo.EqualsDelegateIndex);
                 return fn(lhs, rhs);
+            }
 
             using (ManagedEqualsMarker.Auto())
             {
@@ -315,41 +431,19 @@ namespace Unity.Entities
         }
 #endif
 
-        internal static unsafe bool Equals<T>(T lhs, T rhs) where T : struct
+#if !UNITY_DOTSRUNTIME
+        [BurstDiscard]
+        static unsafe void EqualsUsingDelegate(void* lhsPtr, void* rhsPtr, TypeInfo typeInfo, ref bool didWork, ref int result)
         {
-            return UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref lhs), UnsafeUtility.AddressOf(ref rhs), UnsafeUtility.SizeOf<T>()) == 0;
+            if (typeInfo.EqualsDelegateIndex != TypeInfo.Null.EqualsDelegateIndex)
+            {
+                var fn = (TypeInfo.CompareEqualDelegate) GetDelegate(typeInfo.EqualsDelegateIndex);
+                // Note, a match returns 0 to mirror the Equals code below for the unmanaged case where we memcmp
+                result = fn(lhsPtr, rhsPtr) ? 0 : 1;
+                didWork = true;
+            }
         }
-
-        internal static unsafe bool Equals(void* lhs, void* rhs, int typeSize)
-        {
-            return UnsafeUtility.MemCmp(lhs, rhs, typeSize) == 0;
-        }
-
-        /// <summary>
-        /// Compares two component types.
-        /// </summary>
-        /// <typeparam name="T">Type of component.</typeparam>
-        /// <param name="lhs">Component on the left-side of the comparison.</param>
-        /// <param name="rhs">Component on the right-side of the comparison.</param>
-        /// <param name="typeInfo">TypeInfo to provide the Equals method to invoke.</param>
-        /// <returns>Returns true if the components are equal. False otherwise.</returns>
-        public static unsafe bool Equals<T>(T lhs, T rhs, TypeInfo typeInfo) where T : struct
-        {
-            return Equals(UnsafeUtility.AddressOf(ref lhs), UnsafeUtility.AddressOf(ref rhs), typeInfo);
-        }
-
-        /// <summary>
-        /// Compares two component types.
-        /// </summary>
-        /// <typeparam name="T">Type of component.</typeparam>
-        /// <param name="lhs">Component on the left-side of the comparison.</param>
-        /// <param name="rhs">Component on the right-side of the comparison.</param>
-        /// <param name="typeInfo">TypeInfo to provide the Equals method to invoke.</param>
-        /// <returns>Returns true if the components are equal. False otherwise.</returns>
-        public static unsafe bool Equals<T>(ref T lhs, ref T rhs, TypeInfo typeInfo) where T : struct
-        {
-            return Equals(UnsafeUtility.AddressOf(ref lhs), UnsafeUtility.AddressOf(ref rhs), typeInfo);
-        }
+#endif
 
         /// <summary>
         /// Compares two component types.
@@ -358,17 +452,35 @@ namespace Unity.Entities
         /// <param name="rhsPtr">Pointer to the component on the right-side of the comparison.</param>
         /// <param name="typeInfo">TypeInfo to provide the Equals method to invoke.</param>
         /// <returns>Returns true if the components are equal. False otherwise.</returns>
-        public static unsafe bool Equals(void* lhsPtr, void* rhsPtr, TypeInfo typeInfo)
+        [GenerateTestsForBurstCompatibility]
+        public static unsafe bool Equals(void* lhsPtr, void* rhsPtr, in TypeInfo typeInfo)
         {
 #if !UNITY_DOTSRUNTIME
-            if (typeInfo.EqualFn != null)
-            {
-                var fn = (TypeInfo.CompareEqualDelegate)typeInfo.EqualFn;
-                return fn(lhsPtr, rhsPtr);
-            }
+            int result = 0;
+            bool didWork = false;
+            EqualsUsingDelegate(lhsPtr, rhsPtr, typeInfo, ref didWork, ref result);
+            if (didWork)
+                return result == 0;
 #endif
+            return EqualsBlittable(lhsPtr, rhsPtr, in typeInfo);
+        }
 
-            return Equals(lhsPtr, rhsPtr, (int) typeInfo.TypeSize);
+        [BurstCompile]
+        private static unsafe bool EqualsBlittable(void* lhsPtr, void* rhsPtr, in TypeInfo typeInfo)
+        {
+            int result = 0;
+            var layoutInfo = typeInfo.LayoutInfo;
+            int len = layoutInfo.Length;
+            for (int i = 0; i < len; i++)
+            {
+                var info = layoutInfo[i];
+                var leftPtr = (byte*)lhsPtr + info.Offset;
+                var rightPtr = (byte*)rhsPtr + info.Offset;
+                result |= UnsafeUtility.MemCmp(leftPtr, rightPtr, info.Size);
+            }
+
+            return result == 0;
+
         }
 
 #if !UNITY_DOTSRUNTIME
@@ -380,14 +492,12 @@ namespace Unity.Entities
             if (t.IsClass && typeof(IComponentData).IsAssignableFrom(t))
                 return true;
 #endif
-            if (!t.IsValueType)
-                return false;
-
             // Things with managed references must use delegate comparison.
             if (!UnsafeUtility.IsUnmanaged(t))
                 return true;
 
-            return typeof(IEquatable<>).MakeGenericType(t).IsAssignableFrom(t);
+            // If an unmanaged shared component but custom equality methods have been provided then use them
+            return typeof(ISharedComponentData).IsAssignableFrom(t) && typeof(IEquatable<>).MakeGenericType(t).IsAssignableFrom(t);
         }
 
         /// <summary>
@@ -406,8 +516,8 @@ namespace Unity.Entities
                 if (typeof(IEquatable<>).MakeGenericType(type).IsAssignableFrom(type))
                     output.Add(typeof(ManagedCompareImpl<>).MakeGenericType(type).ToString());
 
-                var ghcMethod = type.GetMethod(nameof(GetHashCode));
-                if (ghcMethod.DeclaringType == type)
+                var ghcMethod = type.GetMethod(nameof(GetHashCode), BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly, null, Array.Empty<Type>(), null);
+                if (ghcMethod != null && ghcMethod.DeclaringType == type)
                     output.Add(typeof(ManagedGetHashCodeImpl<>).MakeGenericType(type).ToString());
             }
             else
@@ -415,179 +525,6 @@ namespace Unity.Entities
                 output.Add(typeof(CompareImpl<>).MakeGenericType(type).ToString());
                 output.Add(typeof(GetHashCodeImpl<>).MakeGenericType(type).ToString());
             }
-        }
-
-#endif
-    }
-
-    /// <summary>
-    /// Provides fast equality and hash code computation, compatible with Burst, for unmanaged types implementing the IEquatable{T} interface
-    /// </summary>
-    /// <remarks>
-    /// The public user based APIs are exposed through <see cref="TypeManager.EqualsWithBurst"/> and <see cref="TypeManager.GetHashCodeWithBurst"/>.
-    /// </remarks>
-    public struct BurstEquality
-    {
-        private struct Dummy : IEquatable<Dummy>
-        {
-            public bool Equals(Dummy other)
-            {
-                return true;
-            }
-
-            public override int GetHashCode()
-            {
-                return 0;
-            }
-        }
-
-        [BurstCompile]
-        private struct CompareImpl<T> where T : struct, IEquatable<T>
-        {
-            [BurstCompile(CompileSynchronously = true)]
-            public static unsafe bool CompareFunc(void* lhs, void* rhs)
-            {
-                return UnsafeUtility.AsRef<T>(lhs).Equals(UnsafeUtility.AsRef<T>(rhs));
-            }
-        }
-
-        [BurstCompile]
-        private struct GetHashCodeImpl<T> where T : struct, IEquatable<T>
-        {
-            [BurstCompile(CompileSynchronously = true)]
-            public static unsafe int GetHashCodeFunc(void* lhs)
-            {
-                return UnsafeUtility.AsRef<T>(lhs).GetHashCode();
-            }
-        }
-
-        /// <summary>
-        /// Delegate to use when Burst compiling a component's Equals implementation.
-        /// </summary>
-        public unsafe delegate bool CompareEqualDelegate(void* lhs, void* rhs);
-
-        /// <summary>
-        /// Delegate to use when Burst compiling a component's GetHashCode implementation.
-        /// </summary>
-        public unsafe delegate int GetHashCodeDelegate(void* lhs);
-
-
-        /// <summary>
-        /// Wrapper type holding a component's Equals and GetHashCode implementations.
-        /// </summary>
-        public readonly struct TypeInfo
-        {
-            /// <summary>
-            /// Equals method delegate.
-            /// </summary>
-            public readonly CompareEqualDelegate CompareEqualMono;
-
-            /// <summary>
-            /// GetHashCode method delegate.
-            /// </summary>
-            public readonly GetHashCodeDelegate GetHashCodeMono;
-
-            /// <summary>
-            /// Internal. Used by codegen.
-            /// </summary>
-            public readonly struct BurstOnly
-            {
-                /// <summary>
-                /// Internal. Used by codegen.
-                /// </summary>
-                public bool NotDefault { get; }
-
-                [BurstDiscard]
-                private static void CheckDelegate(ref bool useDelegate)
-                {
-                    //@TODO: This should use BurstCompiler.IsEnabled once that is available as an efficient API.
-                    useDelegate = true;
-                }
-
-                /// <summary>
-                /// Used to determine if we should use the Burst compiled delegate or use the managed delegate.
-                /// </summary>
-                /// <returns>Returns true if we should use the managed delegate.</returns>
-                public static bool UseDelegate()
-                {
-                    bool result = false;
-                    CheckDelegate(ref result);
-                    return result;
-                }
-
-                /// <summary>
-                /// Burst function pointer for Equals()
-                /// </summary>
-                public readonly FunctionPointer<CompareEqualDelegate> CompareEqualBurst;
-                /// <summary>
-                /// Burst function pointer for GetHashCode()
-                /// </summary>
-                public readonly FunctionPointer<GetHashCodeDelegate> GetHashCodeBurst;
-
-                /// <summary>
-                /// Internal. Used by codegen.
-                /// </summary>
-                /// <param name="equalBurstFunction">Equals Burst function pointer</param>
-                /// <param name="getHashBurstFunction">GetHashCode Burst function pointer</param>
-                public BurstOnly(FunctionPointer<CompareEqualDelegate> equalBurstFunction, FunctionPointer<GetHashCodeDelegate> getHashBurstFunction)
-                {
-                    NotDefault = true;
-                    CompareEqualBurst = equalBurstFunction;
-                    GetHashCodeBurst = getHashBurstFunction;
-                }
-            }
-
-            private readonly BurstOnly _burst;
-
-            /// <summary>
-            /// Internal. Used by codegen.
-            /// </summary>
-            public BurstOnly Burst => _burst;
-
-            /// <summary>
-            /// Internal. Used by codegen.
-            /// </summary>
-            /// <param name="equalDel">Equals delegate</param>
-            /// <param name="getHashDel">GetHashCode delegate</param>
-            /// <param name="equalBurstFunction">Equals Burst function pointer</param>
-            /// <param name="getHashBurstFunction">GetHashCode Burst function pointer</param>
-            public TypeInfo(CompareEqualDelegate equalDel, GetHashCodeDelegate getHashDel, FunctionPointer<CompareEqualDelegate> equalBurstFunction, FunctionPointer<GetHashCodeDelegate> getHashBurstFunction)
-            {
-                CompareEqualMono = equalDel;
-                GetHashCodeMono = getHashDel;
-                _burst = new BurstOnly(equalBurstFunction, getHashBurstFunction);
-            }
-        }
-
-#if !UNITY_DOTSRUNTIME
-        /// <summary>
-        /// Creates TypeInfo for a given component type.
-        /// </summary>
-        /// <param name="type">Component type.</param>
-        /// <param name="typeInfo">Output TypeInfo.</param>
-        /// <returns>Returns true if equality info can be generated. False if the component's equality methods cannot be
-        /// burst compiled (or the type itself isn't Burst compatible).</returns>
-        public static bool Create(Type type, out TypeInfo typeInfo)
-        {
-            // Burst equality works only for unmanaged types implementing the IEquatable<T> and ISharedComponentData interfaces
-            if (UnsafeUtility.IsUnmanaged(type) == false ||
-                typeof(IEquatable<>).MakeGenericType(type).IsAssignableFrom(type) == false ||
-                typeof(ISharedComponentData).IsAssignableFrom(type) == false)
-            {
-                typeInfo = default;
-                return false;
-            }
-
-            var equalsFn = typeof(CompareImpl<>).MakeGenericType(type).GetMethod(nameof(CompareImpl<Dummy>.CompareFunc));
-            var equalDel = (CompareEqualDelegate) Delegate.CreateDelegate(typeof(CompareEqualDelegate), equalsFn);
-            var equalBurstFunction = BurstCompiler.CompileFunctionPointer(equalDel);
-
-            var getHashFn = typeof(GetHashCodeImpl<>).MakeGenericType(type).GetMethod(nameof(GetHashCodeImpl<Dummy>.GetHashCodeFunc));
-            var getHashDel = (GetHashCodeDelegate) Delegate.CreateDelegate(typeof(GetHashCodeDelegate), getHashFn);
-            var getHashBurstFunction = BurstCompiler.CompileFunctionPointer(getHashDel);
-
-            typeInfo = new TypeInfo(equalDel, getHashDel, equalBurstFunction, getHashBurstFunction);
-            return true;
         }
 #endif
     }

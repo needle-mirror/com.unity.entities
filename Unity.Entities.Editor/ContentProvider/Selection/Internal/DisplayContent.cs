@@ -3,7 +3,7 @@ using Unity.Properties;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Unity.Platforms.UI
+namespace Unity.Entities.UI
 {
     partial class DisplayContent
     {

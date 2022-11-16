@@ -150,7 +150,7 @@ namespace Unity.Scenes
             {
                 Assert.IsFalse(useEnabledMask);
                 var entities = chunk.GetNativeArray(EntitiesHandle);
-                var liveConvertedSceneStates = chunk.GetNativeArray(LiveConvertedSceneStateHandle);
+                var liveConvertedSceneStates = chunk.GetNativeArray(ref LiveConvertedSceneStateHandle);
                 int count = chunk.Count;
                 for (int i = 0; i < count; ++i)
                 {
@@ -204,7 +204,7 @@ namespace Unity.Scenes
             //@TODO: Check if the scene or section is requested to be loaded
             if (sceneEntity == Entity.Null)
             {
-                Debug.LogWarning($"'{changeSet.SceneName}' ({{changeSet.sceneGUID}}) was ignored in live conversion since it is not loaded.");
+                Debug.LogWarning($"'{changeSet.SceneName}' (Scene GUID {changeSet.SceneGUID}) was ignored in live conversion since it is not loaded.");
                 return;
             }
 
@@ -234,8 +234,11 @@ namespace Unity.Scenes
                 dstEntities.AddBuffer<ResolvedSectionEntity>(sceneEntity).Add(new ResolvedSectionEntity { SectionEntity = sectionEntity});
 
 #if UNITY_EDITOR
-                dstEntities.SetName(sectionEntity, "SceneSection (Live converted): " + changeSet.SceneName);
-                dstEntities.SetName(sceneEntity, "Scene (Live converted): " + changeSet.SceneName);
+                var sceneNameFs64 = new FixedString64Bytes();
+                FixedStringMethods.CopyFromTruncated(ref sceneNameFs64, "SceneSection (Live converted): " + changeSet.SceneName);
+                dstEntities.SetName(sectionEntity, sceneNameFs64);
+                FixedStringMethods.CopyFromTruncated(ref sceneNameFs64, "Scene (Live converted): " + changeSet.SceneName);
+                dstEntities.SetName(sceneEntity, sceneNameFs64);
 #endif
             }
             else

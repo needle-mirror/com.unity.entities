@@ -21,7 +21,7 @@ namespace Unity.Entities.Tests
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var testDataArray = chunk.GetNativeArray(EcsTestTypeHandle);
+                var testDataArray = chunk.GetNativeArray(ref EcsTestTypeHandle);
                 testDataArray[0] = new EcsTestData
                 {
                     value = unfilteredChunkIndex
@@ -73,6 +73,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void IJobChunk_RunWithoutDependency_Throws()
         {
@@ -90,6 +91,7 @@ namespace Unity.Entities.Tests
                 handle.Complete();
             }
         }
+#endif
 
         struct ChunkBaseEntityIndexJob : IJobChunk
         {
@@ -102,9 +104,9 @@ namespace Unity.Entities.Tests
                 var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
                 while(enumerator.NextEntityIndex(out int i))
                 {
-                    int entityInQueryIndex = baseEntityIndex + validEntitiesInChunk;
+                    int entityIndexInQuery = baseEntityIndex + validEntitiesInChunk;
                     // If JobsUtility.PatchBufferMinMaxRanges() is not called correctly, this array write will fail
-                    OutPerEntityData[entityInQueryIndex] = i;
+                    OutPerEntityData[entityIndexInQuery] = i;
                     ++validEntitiesInChunk;
                 }
             }
@@ -185,7 +187,7 @@ namespace Unity.Entities.Tests
                 if (!IsChunkInitialized(chunk))
                     continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
                 FastAssert.Greater(chunk.Count, 0); // empty batches should not have been Execute()ed
-                FastAssert.AreEqual(chunk.ChunkEntityCount, chunk.Count);
+                FastAssert.AreEqual(chunk.Count, chunk.Count);
                 FastAssert.IsFalse(chunkUseEnabledMasks[chunkIndex]);
                 //Assert.AreEqual(default(v128), chunkUseEnabledMasks[chunkIndex]); // contents are undefined
                 var chunkEntities = chunk.GetNativeArray(entityTypeHandle);
@@ -255,7 +257,7 @@ namespace Unity.Entities.Tests
                 if (!IsChunkInitialized(chunk))
                     continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
                 FastAssert.Greater(chunk.Count, 0); // empty batches should not have been Execute()ed
-                FastAssert.AreEqual(chunk.ChunkEntityCount, chunk.Count);
+                FastAssert.AreEqual(chunk.Count, chunk.Count);
                 FastAssert.IsFalse(chunkUseEnabledMasks[chunkIndex]);
                 //Assert.AreEqual(default(v128), chunkUseEnabledMasks[chunkIndex]); // contents are undefined
                 var chunkEntities = chunk.GetNativeArray(entityTypeHandle);
@@ -300,6 +302,7 @@ namespace Unity.Entities.Tests
 
 #if !NET_DOTS // DOTS Runtimes does not support regex
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void ParallelArrayWriteTriggersSafetySystem()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -339,7 +342,7 @@ namespace Unity.Entities.Tests
             public ComponentTypeHandle<EcsTestData> EcsTestDataTypeHandle;
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var testData = chunk.GetNativeArray(EcsTestDataTypeHandle);
+                var testData = chunk.GetNativeArray(ref EcsTestDataTypeHandle);
                 Assert.AreEqual(unfilteredChunkIndex, testData[0].value);
             }
         }
@@ -452,7 +455,7 @@ namespace Unity.Entities.Tests
             public ComponentTypeHandle<EcsTestDataEnableable> TestDataHandle;
             public unsafe void Execute(in ArchetypeChunk chunk, int chunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var enumerator = new ChunkEntityEnumerator(useEnabledMask,chunkEnabledMask,chunk.ChunkEntityCount);
+                var enumerator = new ChunkEntityEnumerator(useEnabledMask,chunkEnabledMask,chunk.Count);
                 var components = (EcsTestDataEnableable*)chunk.GetComponentDataPtrRW(ref TestDataHandle);
                 while(enumerator.NextEntityIndex(out var i))
                 {
@@ -555,6 +558,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         // TODO(DOTS-6573): This test can be enabled once DOTSRT supports AtomicSafetyHandle.SetExclusiveWeak()
 #if !UNITY_DOTSRUNTIME
         [Test]
@@ -572,6 +576,7 @@ namespace Unity.Entities.Tests
             // With the correct dependency, it's fine.
             Assert.DoesNotThrow(() => job2.Schedule(handle1).Complete());
         }
+#endif
 #endif
     }
 

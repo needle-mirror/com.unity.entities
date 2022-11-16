@@ -580,10 +580,11 @@ namespace Unity.Entities
             else
             {
                 ResetCreateCommandBatching(chain);
-                var cmd = (EntityCommand*)Reserve(chain, sortKey, sizeof(EntityCommand));
+                var sizeNeeded = Align(sizeof(EntityCommand), ALIGN_64_BIT);
+                var cmd = (EntityCommand*)Reserve(chain, sortKey, sizeNeeded);
 
                 cmd->Header.CommandType = op;
-                cmd->Header.TotalSize = sizeof(EntityCommand);
+                cmd->Header.TotalSize = sizeNeeded;
                 cmd->Header.SortKey = chain->m_LastSortKey;
                 cmd->Entity = e;
                 cmd->IdentityIndex = index;
@@ -658,10 +659,11 @@ namespace Unity.Entities
             else
             {
                 ResetCreateCommandBatching(chain);
-                var cmd = (EntityCommand*)Reserve(chain, sortKey, sizeof(EntityCommand));
+                var sizeNeeded = Align(sizeof(EntityCommand), ALIGN_64_BIT);
+                var cmd = (EntityCommand*)Reserve(chain, sortKey, sizeNeeded);
 
                 cmd->Header.CommandType = op;
-                cmd->Header.TotalSize = sizeof(EntityCommand);
+                cmd->Header.TotalSize = sizeNeeded;
                 cmd->Header.SortKey = chain->m_LastSortKey;
                 cmd->Entity = e;
                 cmd->IdentityIndex = firstIndex;
@@ -1273,6 +1275,11 @@ namespace Unity.Entities
             where T : struct
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
+            AddEntitySharedComponentCommand(chain, sortKey, op, e, hashCode, typeIndex, boxedObject);
+        }
+
+        internal void AddEntitySharedComponentCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, int hashCode, TypeIndex typeIndex, object boxedObject)
+        {
             var sizeNeeded = Align(sizeof(EntitySharedComponentCommand), ALIGN_64_BIT);
 
             ResetCommandBatching(chain);
@@ -1309,6 +1316,11 @@ namespace Unity.Entities
             //       even on zero size components.
             var typeSize = UnsafeUtility.SizeOf<T>();
             var typeIndex = TypeManager.GetTypeIndex<T>();
+            AddEntityUnmanagedSharedComponentCommand(chain, sortKey, op, e, hashCode, typeIndex, typeSize, componentData);
+        }
+
+        internal void AddEntityUnmanagedSharedComponentCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, int hashCode, TypeIndex typeIndex, int typeSize, void* componentData)
+        {
             var sizeNeeded = Align(sizeof(EntityUnmanagedSharedComponentCommand) + typeSize, ALIGN_64_BIT);
 
             ResetCommandBatching(chain);
@@ -1338,6 +1350,9 @@ namespace Unity.Entities
 
         internal byte* Reserve(EntityCommandBufferChain* chain, int sortKey, int size)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            Assert.AreEqual(Align(size, ALIGN_64_BIT), size, $"Misaligned size. Expected alignment of {ALIGN_64_BIT}. Unaligned access can cause crashes on ARM.");
+#endif
             int newSortKey = sortKey;
             if (newSortKey < chain->m_LastSortKey)
             {
@@ -1540,7 +1555,7 @@ namespace Unity.Entities
         /// </summary>
         public bool IsEmpty => (m_Data == null) ? true : m_Data->m_RecordedChainCount == 0;
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal void EnforceSingleThreadOwnership()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -1851,9 +1866,11 @@ namespace Unity.Entities
         }
 
         /// <summary>Records a command to add a dynamic buffer to an entity.</summary>
-        /// <remarks>Behavior at Playback: If the entity already has this type of dynamic buffer, the dynamic buffer will just be set.
-        /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-        /// or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
+        /// <remarks>At playback, if the entity already has this type of dynamic buffer, 
+        /// this method sets the dynamic buffer contents. If the entity doesn't have a 
+        /// <see cref="DynamicBuffer{T}"/> component that stores elements of type T, then 
+        /// this method adds a DynamicBuffer component with the provided contents. If the 
+        /// entity is destroyed before playback, or is deferred, an error is thrown.</remarks>
         /// <param name="e">The entity to add the dynamic buffer to.</param>
         /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
         /// <returns>The <see cref="DynamicBuffer{T}"/> that will be added when the command plays back.</returns>
@@ -2272,6 +2289,14 @@ namespace Unity.Entities
                 ECBCommand.RemoveMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, componentTypeSet);
         }
 
+        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery, ComponentType)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
+        /// <param name="componentType">The type of component to add.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent(*)")]
+        public void AddComponentForEntityQuery(EntityQuery entityQuery, ComponentType componentType)
+            => AddComponent(entityQuery, componentType);
+
         /// <summary>Records a command to add a component to all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
@@ -2285,13 +2310,21 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponentForEntityQuery(EntityQuery entityQuery, ComponentType componentType)
+        public void AddComponent(EntityQuery entityQuery, ComponentType componentType)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AppendMultipleEntitiesComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.AddComponentForMultipleEntities, entityQuery, componentType);
         }
+
+        /// <summary>Obsolete. Use <see cref="AddComponent{T}(EntityQuery)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
+        /// <typeparam name="T"> The type of component to add. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent<T>(*)")]
+        public void AddComponentForEntityQuery<T>(EntityQuery entityQuery)
+            => AddComponent<T>(entityQuery);
 
         /// <summary>Records a command to add a component to all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2306,10 +2339,19 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponentForEntityQuery<T>(EntityQuery entityQuery)
+        public void AddComponent<T>(EntityQuery entityQuery)
         {
-            AddComponentForEntityQuery(entityQuery, ComponentType.ReadWrite<T>());
+            AddComponent(entityQuery, ComponentType.ReadWrite<T>());
         }
+
+        /// <summary>Obsolete. Use <see cref="AddComponent{T}(EntityQuery, T)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
+        /// <param name="value">The value to set on the new component in playback for all entities matching the query.</param>
+        /// <typeparam name="T"> The type of component to add. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent<T>(*)")]
+        public void AddComponentForEntityQuery<T>(EntityQuery entityQuery, T value) where T : unmanaged, IComponentData
+            => AddComponent<T>(entityQuery, value);
 
         /// <summary>Records a command to add a component to all entities matching a query. Also sets the value of this new component on all the matching entities.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2325,13 +2367,21 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponentForEntityQuery<T>(EntityQuery entityQuery, T value) where T : unmanaged, IComponentData
+        public void AddComponent<T>(EntityQuery entityQuery, T value) where T : unmanaged, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AppendMultipleEntitiesComponentCommandWithValue(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.AddComponentForMultipleEntities, entityQuery, value);
         }
+
+        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery, ComponentTypeSet)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the components are added. </param>
+        /// <param name="componentTypeSet">The types of components to add.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent(*)")]
+        public void AddComponentForEntityQuery(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+            => AddComponent(entityQuery, componentTypeSet);
 
         /// <summary>Records a command to add multiple components to all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2346,7 +2396,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponentForEntityQuery(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+        public void AddComponent(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2368,7 +2418,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddSharedComponentForEntityQueryManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+        public void AddSharedComponentManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2403,6 +2453,15 @@ namespace Unity.Entities
         }
 
 
+        /// <summary>Obsolete. Use <see cref="AddSharedComponent{T}(EntityQuery, T)"/> instead.</summary>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
+        /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use AddSharedComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddSharedComponent<T>(*)")]
+        public void AddSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component) where T : unmanaged, ISharedComponentData
+            => AddSharedComponent<T>(entityQuery, component);
+
         /// <summary> Records a command to add a unmanaged shared component to all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
@@ -2417,7 +2476,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component)
+        public void AddSharedComponent<T>(EntityQuery entityQuery, T component)
             where T : unmanaged, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
@@ -2442,6 +2501,14 @@ namespace Unity.Entities
                 isDefaultObject ? null : componentAddr);
         }
 
+        /// <summary>Obsolete. Use <see cref="AddComponentObject(EntityQuery, object)"/> instead.</summary>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to.</param>
+        /// <param name="componentData"> The component object to add. </param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use AddComponentObject (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponentObject(*)")]
+        public void AddComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
+            => AddComponentObject(entityQuery, componentData);
+
         /// <summary> Records a command to add a hybrid component and set its value for all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
@@ -2456,7 +2523,7 @@ namespace Unity.Entities
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         /// <exception cref="ArgumentNullException">Throws if componentData is null.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
+        public void AddComponentObject(EntityQuery entityQuery, object componentData)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2470,6 +2537,14 @@ namespace Unity.Entities
             m_Data->AppendMultipleEntitiesComponentCommandWithObject(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.AddComponentObjectForMultipleEntities, entityQuery, componentData, type);
         }
+
+        /// <summary> Obsolete. Use <see cref="SetComponentObject(EntityQuery, object)"/> instead.</summary>
+        /// <param name="entityQuery"> The query specifying which entities to set the component value for.</param>
+        /// <param name="componentData"> The component object to set.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use SetComponentObject (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetComponentObject(*)")]
+        public void SetComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
+            => SetComponentObject(entityQuery, componentData);
 
         /// <summary> Records a command to set a hybrid component value for all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2485,7 +2560,7 @@ namespace Unity.Entities
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         /// <exception cref="ArgumentNullException">Throws if componentData is null.</exception>
         [SupportedInEntitiesForEach]
-        public void SetComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
+        public void SetComponentObject(EntityQuery entityQuery, object componentData)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2499,6 +2574,15 @@ namespace Unity.Entities
             m_Data->AppendMultipleEntitiesComponentCommandWithObject(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.SetComponentObjectForMultipleEntities, entityQuery, componentData, type);
         }
+
+        /// <summary>Obsolete. Use <see cref="SetSharedComponentManaged{T}(EntityQuery, T)"/> instead.</summary>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
+        /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use SetSharedComponentManaged (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetSharedComponentManaged<T>(*)")]
+        public void SetSharedComponentForEntityQueryManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+            => SetSharedComponentManaged<T>(entityQuery, component);
 
         /// <summary> Records a command to set a possibly-managed shared component value on all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2515,7 +2599,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void SetSharedComponentForEntityQueryManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+        public void SetSharedComponentManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2547,6 +2631,15 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>Obsolete. Use <see cref="SetSharedComponent{T}(Unity.Entities.EntityQuery,T)"/> instead.</summary>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
+        /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use SetSharedComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetSharedComponent<T>(*)")]
+        public void SetSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component) where T : unmanaged, ISharedComponentData
+            => SetSharedComponent<T>(entityQuery, component);
+
         /// <summary> Records a command to set an unmanaged shared component value on all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
@@ -2562,7 +2655,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void SetSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component)
+        public void SetSharedComponent<T>(EntityQuery entityQuery, T component)
             where T : unmanaged, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
@@ -2585,6 +2678,14 @@ namespace Unity.Entities
                 isDefaultObject ? null : componentAddr);
         }
 
+        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery, ComponentType)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities from which the component is removed. </param>
+        /// <param name="componentType">The types of component to remove.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use RemoveComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> RemoveComponent(*)")]
+        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, ComponentType componentType)
+            => RemoveComponent(entityQuery, componentType);
+
         /// <summary>Records a command to remove a component from all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
@@ -2598,13 +2699,21 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, ComponentType componentType)
+        public void RemoveComponent(EntityQuery entityQuery, ComponentType componentType)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AppendMultipleEntitiesComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.RemoveComponentForMultipleEntities, entityQuery, componentType);
         }
+
+        /// <summary>Obsolete. Use <see cref="RemoveComponent{T}(EntityQuery)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities from which the component is removed. </param>
+        /// <typeparam name="T"> The type of component to remove. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use RemoveComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> RemoveComponent<T>(*)")]
+        public void RemoveComponentForEntityQuery<T>(EntityQuery entityQuery)
+            => RemoveComponent<T>(entityQuery);
 
         /// <summary>Records a command to remove a component from all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2619,10 +2728,18 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void RemoveComponentForEntityQuery<T>(EntityQuery entityQuery)
+        public void RemoveComponent<T>(EntityQuery entityQuery)
         {
-            RemoveComponentForEntityQuery(entityQuery, ComponentType.ReadWrite<T>());
+            RemoveComponent(entityQuery, ComponentType.ReadWrite<T>());
         }
+
+        /// <summary>Obsolete. Use <see cref="RemoveComponent(Unity.Entities.EntityQuery,Unity.Entities.ComponentTypeSet)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
+        /// <param name="componentTypeSet">The types of components to remove.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use RemoveComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> RemoveComponent(*)")]
+        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+            => RemoveComponent(entityQuery, componentTypeSet);
 
         /// <summary>Records a command to remove multiple components from all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2637,13 +2754,20 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+        public void RemoveComponent(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AppendMultipleEntitiesMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.RemoveMultipleComponentsForMultipleEntities, entityQuery, componentTypeSet);
         }
+
+        /// <summary>Obsolete. Use <see cref="DestroyEntity(Unity.Entities.EntityQuery)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to destroy.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use DestroyEntity (RemovedAfter Entities 1.0) (UnityUpgradable) -> DestroyEntity(*)")]
+        public void DestroyEntitiesForEntityQuery(EntityQuery entityQuery)
+            => DestroyEntity(entityQuery);
 
         /// <summary>Records a command to destroy all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2655,7 +2779,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void DestroyEntitiesForEntityQuery(EntityQuery entityQuery)
+        public void DestroyEntity(EntityQuery entityQuery)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2675,8 +2799,8 @@ namespace Unity.Entities
         {
             var defaultValue = default(T);
 
-            hashCode = TypeManager.GetHashCodeWithBurst(UnsafeUtility.AddressOf(ref component), TypeManager.GetTypeIndex<T>());
-            return TypeManager.EqualsWithBurst(UnsafeUtility.AddressOf(ref defaultValue),
+            hashCode = TypeManager.SharedComponentGetHashCode(UnsafeUtility.AddressOf(ref component), TypeManager.GetTypeIndex<T>());
+            return TypeManager.SharedComponentEquals(UnsafeUtility.AddressOf(ref defaultValue),
                 UnsafeUtility.AddressOf(ref component),
                 TypeManager.GetTypeIndex<T>());
         }
@@ -2861,6 +2985,50 @@ namespace Unity.Entities
                     e,
                     hashCode,
                     isDefaultObject ? null : componentAddr);
+            }
+        }
+
+        /// <summary>
+        /// Only for inserting a non-default value
+        /// </summary>
+        internal void UnsafeSetSharedComponentManagedNonDefault(Entity e, object sharedComponent, TypeIndex typeIndex)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+
+            int hashCode = sharedComponent != null ? TypeManager.GetHashCode(sharedComponent, typeIndex) : 0;
+            if (typeIndex.IsManagedType)
+            {
+                m_Data->AddEntitySharedComponentCommand(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetSharedComponentData,
+                    e,
+                    hashCode,
+                    typeIndex,
+                    sharedComponent);
+            }
+            else
+            {
+                byte* componentAddr = null;
+                if (sharedComponent != null)
+                {
+#if !UNITY_DOTSRUNTIME
+                    componentAddr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(sharedComponent, out var gcHandle) + TypeManager.ObjectOffset;
+#else
+                    throw new NotSupportedException("This API is not supported when called with unmanaged shared component on DOTS Runtime");
+#endif
+                }
+                m_Data->AddEntityUnmanagedSharedComponentCommand(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetUnmanagedSharedComponentData,
+                    e,
+                    hashCode,
+                    typeIndex,
+                    TypeManager.GetTypeInfo(typeIndex).TypeSize,
+                    componentAddr);
+
             }
         }
 
@@ -4449,7 +4617,9 @@ namespace Unity.Entities
             parallelWriter.m_ArrayInvalidationSafety = m_ArrayInvalidationSafety;
             parallelWriter.m_SafetyReadOnlyCount = 0;
             parallelWriter.m_SafetyReadWriteCount = 3;
+#endif
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (m_Data->m_Allocator.ToAllocator == Allocator.Temp)
             {
                 throw new InvalidOperationException($"{nameof(EntityCommandBuffer.ParallelWriter)} can not use Allocator.Temp; use the EntityCommandBufferSystem's RewindableAllocator instead");
@@ -4491,7 +4661,7 @@ namespace Unity.Entities
             [NativeSetThreadIndex]
             internal int m_ThreadIndex;
 
-            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
             private void CheckWriteAccess()
             {
                 if (m_Data == null)
@@ -4506,8 +4676,8 @@ namespace Unity.Entities
             /// <summary>Records a command to create an entity with specified archetype.</summary>
             /// <remarks>Behavior at Playback: This command will throw an error if the archetype contains the <see cref="Prefab"/> tag.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="archetype">The archetype of the new entity.</param>
             /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
@@ -4521,8 +4691,8 @@ namespace Unity.Entities
 
             /// <summary>Records a command to create an entity with no components.</summary>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -4556,8 +4726,8 @@ namespace Unity.Entities
             /// <remarks>An instantiated entity will have the same components and component values as the prefab entity, minus the Prefab tag component.
             /// Behavior at Playback: This command will throw an error if the source entity was destroyed before playback.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity prefab.</param>
             /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
@@ -4579,8 +4749,8 @@ namespace Unity.Entities
             /// <remarks>An instantiated entity will have the same components and component values as the prefab entity, minus the Prefab tag component.
             /// Behavior at Playback: This command will throw an error if the source entity was destroyed before playback.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity prefab.</param>
             /// <param name="entities">The NativeArray of entities that will be populated with realized entities when this EntityCommandBuffer is played back.</param>
@@ -4607,8 +4777,8 @@ namespace Unity.Entities
             /// <remarks>Behavior at Playback: This command will throw an error if any of the entities are still deferred or were destroyed between recording and playback,
             /// or if the entity has the <see cref="Prefab"/> tag.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity to destroy.</param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -4624,8 +4794,8 @@ namespace Unity.Entities
             /// This command will throw an error if any of the entities are still deferred or were destroyed between recording and playback,
             /// or if any of the entities have the <see cref="Prefab"/> tag.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities">The NativeArray of entities to destroy.</param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -4642,8 +4812,8 @@ namespace Unity.Entities
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the component added. </param>
             /// <param name="component">The value to add on the new component in playback for the entity.</param>
@@ -4661,8 +4831,8 @@ namespace Unity.Entities
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="typeIndex"> The TypeIndex of the component being set. </param>
             /// <param name="typeSize"> The Size of the type of the component being set. </param>
@@ -4681,8 +4851,8 @@ namespace Unity.Entities
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
             /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component added. </param>
             /// <param name="component">The value to add on the new component in playback for all entities in the NativeArray.</param>
@@ -4702,8 +4872,8 @@ namespace Unity.Entities
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the component added. </param>
             /// <typeparam name="T"> The type of component to add. </typeparam>
@@ -4720,8 +4890,8 @@ namespace Unity.Entities
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
             /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component added. </param>
             /// <typeparam name="T"> The type of component to add. </typeparam>
@@ -4741,8 +4911,8 @@ namespace Unity.Entities
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to get the additional component. </param>
             /// <param name="componentType"> The type of component to add. </param>
@@ -4759,8 +4929,8 @@ namespace Unity.Entities
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
             /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component added. </param>
             /// <param name="componentType"> The type of component to add. </param>
@@ -4779,8 +4949,8 @@ namespace Unity.Entities
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to get additional components. </param>
             /// <param name="typeSet"> The types of components to add. </param>
@@ -4797,8 +4967,8 @@ namespace Unity.Entities
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
             /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the components added. </param>
             /// <param name="typeSet"> The types of components to add. </param>
@@ -4813,12 +4983,14 @@ namespace Unity.Entities
             }
 
             /// <summary>Records a command to add a dynamic buffer to an entity.</summary>
-            /// <remarks>Behavior at Playback: If the entity already has this type of dynamic buffer, the dynamic buffer will just be set.
-            /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-            /// or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
+            /// <remarks>At playback, if the entity already has this type of dynamic buffer, 
+            /// this method sets the dynamic buffer contents. If the entity doesn't have a 
+            /// <see cref="DynamicBuffer{T}"/> component that stores elements of type T, then 
+            /// this method adds a DynamicBuffer component with the provided contents. If the 
+            /// entity is destroyed before playback, or is deferred, an error is thrown.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity to add the dynamic buffer to.</param>
             /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
@@ -4839,8 +5011,8 @@ namespace Unity.Entities
             /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity to set the dynamic buffer on.</param>
             /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
@@ -4861,8 +5033,8 @@ namespace Unity.Entities
             /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity to which the dynamic buffer belongs.</param>
             /// <param name="element">The new element to add to the <see cref="DynamicBuffer{T}"/> component.</param>
@@ -4882,8 +5054,8 @@ namespace Unity.Entities
             /// if this entity is still deferred, if the entity doesn't have the component type,
             /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to set the component value of. </param>
             /// <param name="component"> The component value to set. </param>
@@ -4901,8 +5073,8 @@ namespace Unity.Entities
             /// if this entity is still deferred, if the entity doesn't have the component type,
             /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to set the component value of. </param>
             /// <param name="typeIndex"> The TypeIndex of the component being set. </param>
@@ -4918,6 +5090,28 @@ namespace Unity.Entities
             }
 
             /// <summary>
+            /// Records a command to add or remove the <see cref="Disabled"/> component. By default EntityQuery does not include entities containing the Disabled component.
+            /// Enabled entities are processed by systems, disabled entities are not.
+            ///
+            /// If the entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component, the entire group will be enabled or disabled.
+            /// </summary>
+            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// if the entity has the <see cref="Prefab"/> tag, or if this entity is still deferred.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
+            /// <param name="e">The entity whose component should be enabled or disabled.</param>
+            /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+            [GenerateTestsForBurstCompatibility]
+            public void SetEnabled(int sortKey, Entity e, bool value)
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+                m_Data->AddEntityEnabledCommand(chain, sortKey, ECBCommand.SetEntityEnabled, e, value);
+            }
+
+            /// <summary>
             /// Records a command to enable or disable a <see cref="ComponentType"/> on the specified <see cref="Entity"/>. This operation
             /// does not cause a structural change, or affect the value of the component. For the purposes
             /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
@@ -4927,8 +5121,8 @@ namespace Unity.Entities
             /// <typeparam name="T">The component type to enable or disable. This type must implement the
             /// <see cref="IEnableableComponent"/> interface.</typeparam>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity whose component should be enabled or disabled.</param>
             /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
@@ -4948,8 +5142,8 @@ namespace Unity.Entities
             /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity whose component should be enabled or disabled.</param>
             /// <param name="componentType">The component type to enable or disable. This type must implement the
@@ -4967,8 +5161,8 @@ namespace Unity.Entities
             /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the EntityNameStore has reached its limit.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to set the name value of. </param>
             /// <param name="name"> The name to set. </param>
@@ -4985,8 +5179,8 @@ namespace Unity.Entities
             /// Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the component removed. </param>
             /// <typeparam name="T"> The type of component to remove. </typeparam>
@@ -5001,8 +5195,8 @@ namespace Unity.Entities
             /// Will throw an error if one of these entities is destroyed before playback,
             /// if one of these entities is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component removed. </param>
             /// <typeparam name="T"> The type of component to remove. </typeparam>
@@ -5017,8 +5211,8 @@ namespace Unity.Entities
             /// Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the component removed. </param>
             /// <param name="componentType"> The type of component to remove. </param>
@@ -5035,8 +5229,8 @@ namespace Unity.Entities
             /// Will throw an error if one of these entities is destroyed before playback,
             /// if one of these entities is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have the component removed. </param>
             /// <param name="componentType"> The type of component to remove. </param>
@@ -5055,8 +5249,8 @@ namespace Unity.Entities
             /// Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to have the components removed. </param>
             /// <param name="typeSet"> The types of components to remove. </param>
@@ -5073,8 +5267,8 @@ namespace Unity.Entities
             /// Will throw an error if one of these entities is destroyed before playback,
             /// if one of these entities is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to have components removed. </param>
             /// <param name="typeSet"> The types of components to remove. </param>
@@ -5093,8 +5287,8 @@ namespace Unity.Entities
             /// if this entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to add the shared component value to. </param>
             /// <param name="sharedComponent"> The shared component value to add. </param>
@@ -5117,8 +5311,8 @@ namespace Unity.Entities
             /// if this entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to add the shared component value to. </param>
             /// <param name="sharedComponent"> The shared component value to add. </param>
@@ -5144,8 +5338,8 @@ namespace Unity.Entities
             /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to add the shared component value to. </param>
             /// <param name="sharedComponent"> The shared component value to add. </param>
@@ -5192,8 +5386,8 @@ namespace Unity.Entities
             /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to add the shared component value to. </param>
             /// <param name="sharedComponent"> The shared component value to add. </param>
@@ -5225,8 +5419,8 @@ namespace Unity.Entities
             /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to set the shared component value of. </param>
             /// <param name="sharedComponent"> The shared component value to set. </param>
@@ -5268,8 +5462,8 @@ namespace Unity.Entities
             /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e"> The entity to set the shared component value of. </param>
             /// <param name="sharedComponent"> The shared component value to set. </param>
@@ -5294,12 +5488,35 @@ namespace Unity.Entities
                     componentData);
             }
 
+            /// <summary>
+            /// Only for inserting a non-default value
+            /// </summary>
+            internal void UnsafeSetSharedComponentNonDefault(int sortKey, Entity e, void* componentDataPtr, TypeIndex typeIndex)
+            {
+                CheckWriteAccess();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                var isManaged = TypeManager.IsManagedSharedComponent(typeIndex);
+                UnityEngine.Assertions.Assert.IsFalse(isManaged, $"{typeIndex}: is managed and was passed to UnsafeSetSharedComponentNonDefault");
+#endif
+                // Guarantee that it is non-default
+                m_Data->AddEntityUnmanagedSharedComponentCommand(
+                    ThreadChain,
+                    sortKey,
+                    ECBCommand.SetUnmanagedSharedComponentData,
+                    e,
+                    TypeManager.SharedComponentGetHashCode(componentDataPtr, typeIndex),
+                    typeIndex,
+                    TypeManager.GetTypeInfo(typeIndex).TypeSize,
+                    componentDataPtr);
+            }
+
             /// <summary> Records a command to set a shared component value on a NativeArray of entities.</summary>
             /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
             /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to set the shared component value of. </param>
             /// <param name="sharedComponent"> The shared component value to set. </param>
@@ -5344,8 +5561,8 @@ namespace Unity.Entities
             /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
             /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="entities"> The NativeArray of entities to set the shared component value of. </param>
             /// <param name="sharedComponent"> The shared component value to set. </param>
@@ -5378,8 +5595,8 @@ namespace Unity.Entities
             /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
             /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
             /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
@@ -5403,8 +5620,8 @@ namespace Unity.Entities
             /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
             /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
             /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
@@ -5426,8 +5643,8 @@ namespace Unity.Entities
             /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
             /// if the entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if any of the matching linked entities do not already have the component.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
             /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to set the component for.
@@ -5451,8 +5668,8 @@ namespace Unity.Entities
             /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback or
             /// if the entity is still deferred.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
-            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
-            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
+            /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
+            /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
             /// pass the 'unfilteredChunkIndex' value from <see cref="IJobChunk.Execute"/>.</param>
             /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
             /// <param name="component"> The component value to set. </param>
@@ -5520,7 +5737,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public static void SetComponent<T>(this EntityCommandBuffer ecb, Entity e, T component) where T : class, IComponentData
+        public static void SetComponent<T>(this EntityCommandBuffer ecb, Entity e, T component) where T : class, IComponentData, new()
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
@@ -5540,13 +5757,23 @@ namespace Unity.Entities
         /// <param name="e">The entity whose component should be enabled or disabled.</param>
         /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
         [SupportedInEntitiesForEach]
-        public static void SetComponentEnabled<T>(this EntityCommandBuffer ecb, Entity e, bool value) where T : class, IEnableableComponent
+        public static void SetComponentEnabled<T>(this EntityCommandBuffer ecb, Entity e, bool value) where T : class, IEnableableComponent, new()
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
             ecb.m_Data->AddEntityComponentEnabledCommand(&ecb.m_Data->m_MainThreadChain, ecb.MainThreadSortKey,
                 ECBCommand.SetComponentEnabled, e, TypeManager.GetTypeIndex<T>(), value);
         }
+
+        /// <summary>Obsolete. Use <see cref="AddComponent{T}(Unity.Entities.EntityCommandBuffer,Unity.Entities.EntityQuery,T)"/> instead.</summary>
+        /// <param name="ecb"> This entity command buffer.</param>
+        /// <param name="query"> The query specifying which entities to add the component value to.</param>
+        /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of component to add.</typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent<T>(*)")]
+        public static void AddComponentForEntityQuery<T>(this EntityCommandBuffer ecb, EntityQuery query, T component) where T : class, IComponentData, new()
+            => AddComponent<T>(ecb, query, component);
 
         /// <summary> Records a command to add a managed component and set its value for all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -5562,10 +5789,20 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public static void AddComponentForEntityQuery<T>(this EntityCommandBuffer ecb, EntityQuery query, T component) where T : class, IComponentData
+        public static void AddComponent<T>(this EntityCommandBuffer ecb, EntityQuery query, T component) where T : class, IComponentData, new()
         {
-            ecb.AddComponentObjectForEntityQuery(query, component);
+            ecb.AddComponentObject(query, component);
         }
+
+        /// <summary>Obsolete. Use <see cref="SetComponent{T}(Unity.Entities.EntityCommandBuffer,Unity.Entities.EntityQuery,T)"/> instead.</summary>
+        /// <param name="ecb"> This entity command buffer.</param>
+        /// <param name="query"> The query specifying which entities to set the component value for.</param>
+        /// <param name="component"> The component value to set.</param>
+        /// <typeparam name="T"> The type of component to set.</typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use SetComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetComponent<T>(*)")]
+        public static void SetComponentForEntityQuery<T>(this EntityCommandBuffer ecb, EntityQuery query, T component) where T : class, IComponentData, new()
+            => SetComponent<T>(ecb, query, component);
 
         /// <summary> Records a command to set a managed component value for all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -5581,9 +5818,9 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public static void SetComponentForEntityQuery<T>(this EntityCommandBuffer ecb, EntityQuery query, T component) where T : class, IComponentData
+        public static void SetComponent<T>(this EntityCommandBuffer ecb, EntityQuery query, T component) where T : class, IComponentData, new()
         {
-            ecb.SetComponentObjectForEntityQuery(query, component);
+            ecb.SetComponentObject(query, component);
         }
 
         internal static void AddEntityComponentCommandFromMainThread<T>(EntityCommandBufferData* ecbd, int sortKey, ECBCommand op, Entity e, T component) where T : class

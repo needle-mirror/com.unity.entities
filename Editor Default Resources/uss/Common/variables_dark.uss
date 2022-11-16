@@ -54,6 +54,7 @@
     --subscene-background-hover: #595959;
     --subscene-border: #232323;
     --runtime-mode-indent-color: #FFA53C;
+    --prefab-override-indent-color: #0F80BE;
 
     /* Prefab stage colors */
     --prefab-stage-background-color: #404040;

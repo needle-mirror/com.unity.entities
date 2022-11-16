@@ -4,6 +4,7 @@ using System;
 using UnityEditor;
 using UnityEditor.Experimental;
 using Hash128 = UnityEngine.Hash128;
+using System.Runtime.CompilerServices;
 
 namespace Unity.Scenes
 {
@@ -14,7 +15,7 @@ namespace Unity.Scenes
         NoImport
     }
 
-    static class AssetDatabaseCompatibility
+    internal static class AssetDatabaseCompatibility
     {
         internal static bool IsAssetImportWorkerProcess() => AssetDatabase.IsAssetImportWorkerProcess();
         internal static void UnregisterCustomDependencyPrefixFilter(string prefixFilter) => AssetDatabase.UnregisterCustomDependencyPrefixFilter(prefixFilter);

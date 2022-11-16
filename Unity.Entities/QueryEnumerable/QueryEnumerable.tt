@@ -175,7 +175,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO and EnabledRefRW that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerable<<#=typeParamString#>> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -405,7 +405,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.

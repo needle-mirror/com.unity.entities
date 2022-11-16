@@ -87,6 +87,23 @@ namespace Unity.Entities.SourceGen.SystemGeneratorCommon
             return replacedUpUntilThisNode;
         }
 
+        public override SyntaxNode VisitMethodDeclaration(MethodDeclarationSyntax node)
+        {
+            var replacedUpUntilThisNode = base.VisitMethodDeclaration(node) as MethodDeclarationSyntax;
+
+            if (replacedUpUntilThisNode?.ExpressionBody is { } expressionBody)
+            {
+                replacedUpUntilThisNode = replacedUpUntilThisNode.WithExpressionBody(null);
+                replacedUpUntilThisNode = replacedUpUntilThisNode.WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
+                replacedUpUntilThisNode = replacedUpUntilThisNode.WithBody(
+                    replacedUpUntilThisNode.ReturnType is PredefinedTypeSyntax predefinedTypeSyntax && predefinedTypeSyntax.Keyword.IsKind(SyntaxKind.VoidKeyword)
+                        ? SyntaxFactory.Block(SyntaxFactory.ExpressionStatement(expressionBody.Expression))
+                        : SyntaxFactory.Block(SyntaxFactory.ReturnStatement(expressionBody.Expression)));
+            }
+
+            return replacedUpUntilThisNode;
+        }
+
         public override SyntaxNode VisitDoStatement(DoStatementSyntax node)
         {
             var replacedUpUntilThisNode = base.VisitDoStatement(node) as DoStatementSyntax;

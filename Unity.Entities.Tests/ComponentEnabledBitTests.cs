@@ -18,6 +18,14 @@ namespace Unity.Entities.Tests
 {
     partial class ComponentEnabledBitTests : ECSTestsFixture
     {
+        private unsafe T[] ToManagedArray<T>(T* values, int length) where T : unmanaged
+        {
+            var array = new T[length];
+            for (int i = 0; i < length; ++i)
+                array[i] = values[i];
+            return array;
+        }
+
         [Test]
         public unsafe void IsComponentEnabled_NewEntities_IsTrue()
         {
@@ -97,19 +105,29 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RegressionTest6416()
+        public void RemoveMultipleEnableableComponents_PreservesEnabledBits()
         {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2),
-                typeof(EcsTestDataEnableable3), typeof(EcsTestDataEnableable4));
+            // The Type <-> TypeIndex mapping is not guaranteed to stay constant across runs, so we don't
+            // know at compile time what order these components will appear in the archetype. So, we sort them
+            // by TypeIndex at runtime, and perform all remaining actions indirectly through the sorted table.
+            var sortedComponentTypes = new ComponentType[]
+            {
+                ComponentType.ReadWrite<EcsTestDataEnableable>(),
+                ComponentType.ReadWrite<EcsTestDataEnableable2>(),
+                ComponentType.ReadWrite<EcsTestDataEnableable3>(),
+                ComponentType.ReadWrite<EcsTestDataEnableable4>(),
+            };
+            Array.Sort(sortedComponentTypes);
+            var archetype = m_Manager.CreateArchetype(sortedComponentTypes);
             var ent = m_Manager.CreateEntity(archetype);
-            m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(ent, false);
-            m_Manager.SetComponentEnabled<EcsTestDataEnableable4>(ent, false);
+            m_Manager.SetComponentEnabled(ent, sortedComponentTypes[0], false);
+            m_Manager.SetComponentEnabled(ent, sortedComponentTypes[3], false);
             // This should not hit an assert while cloning the enabled bits
             Assert.DoesNotThrow(() => m_Manager.RemoveComponent(ent,
-                new ComponentTypeSet(typeof(EcsTestDataEnableable3), typeof(EcsTestDataEnableable4))));
-            // The bits should clone successfully
-            Assert.IsTrue(m_Manager.IsComponentEnabled<EcsTestDataEnableable>(ent));
-            Assert.IsFalse(m_Manager.IsComponentEnabled<EcsTestDataEnableable2>(ent));
+                new ComponentTypeSet(sortedComponentTypes[1], sortedComponentTypes[3])));
+            // The bits for the remaining types should clone successfully
+            Assert.IsTrue(m_Manager.IsComponentEnabled(ent, sortedComponentTypes[2]));
+            Assert.IsFalse(m_Manager.IsComponentEnabled(ent, sortedComponentTypes[0]));
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -223,6 +241,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity component safety checks")]
         public unsafe void SetEnabled_ThrowsWithNonIEnableableComponent()
         {
             var type = ComponentType.ReadOnly<EcsTestData>();
@@ -685,8 +704,16 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(3, archetype.Archetype->EnableableTypesCount); // Simulate + EcsTestDataEnableable + EcsTestDataEnableable2
 
             var types = archetype.Archetype->Types;
-            Assert.AreEqual(enableableTypeA.TypeIndex, types[archetype.Archetype->EnableableTypeIndexInArchetype[0]].TypeIndex);
-            Assert.AreEqual(enableableTypeB.TypeIndex, types[archetype.Archetype->EnableableTypeIndexInArchetype[1]].TypeIndex);
+            Assert.That(new TypeIndex[]
+                {
+                    types[archetype.Archetype->EnableableTypeIndexInArchetype[0]].TypeIndex,
+                    types[archetype.Archetype->EnableableTypeIndexInArchetype[1]].TypeIndex,
+                },
+                Is.EquivalentTo(new TypeIndex[]
+                {
+                    enableableTypeA.TypeIndex,
+                    enableableTypeB.TypeIndex,
+                }));
         }
 
         [Test]
@@ -891,7 +918,7 @@ namespace Unity.Entities.Tests
                 var enableableTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
 
                 var firstChunk = chunks[0];
-                firstChunk.SetComponentEnabled(enableableTypeHandle, 10, false);
+                firstChunk.SetComponentEnabled(ref enableableTypeHandle, 10, false);
 
                 var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
 
@@ -1231,10 +1258,10 @@ namespace Unity.Entities.Tests
             {
                 var enableableTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
                 var firstChunk = chunks[0];
-                firstChunk.SetComponentEnabled(enableableTypeHandle, 0, false);
-                firstChunk.SetComponentEnabled(enableableTypeHandle, 32, false);
-                firstChunk.SetComponentEnabled(enableableTypeHandle, 33, false);
-                firstChunk.SetComponentEnabled(enableableTypeHandle, 34, false);
+                firstChunk.SetComponentEnabled(ref enableableTypeHandle, 0, false);
+                firstChunk.SetComponentEnabled(ref enableableTypeHandle, 32, false);
+                firstChunk.SetComponentEnabled(ref enableableTypeHandle, 33, false);
+                firstChunk.SetComponentEnabled(ref enableableTypeHandle, 34, false);
 
                 var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
 
@@ -1546,7 +1573,7 @@ namespace Unity.Entities.Tests
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 var entities = chunk.GetNativeArray(EntityType);
-                EnableableType.SetComponentEnabled(entities[0], false);
+                EnableableType.SetBufferEnabled(entities[0], false);
             }
         }
 
@@ -1570,11 +1597,12 @@ namespace Unity.Entities.Tests
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 var entities = chunk.GetNativeArray(EntityType);
-                NonEnableableType.SetComponentEnabled(entities[0], false);
+                NonEnableableType.SetBufferEnabled(entities[0], false);
             }
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Relies on job safety system")]
         public void WritingBitsToReadOnlyData_TriggersSafetySystem_ComponentLookup()
         {
             m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
@@ -1585,6 +1613,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Relies on job safety system")]
         public void WritingBitsToReadOnlyBuffer_TriggersSafetySystem_ComponentLookup()
         {
             m_Manager.CreateEntity(typeof(EcsIntElementEnableable));
@@ -1595,6 +1624,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity component safety checks")]
         public void WritingBitsForNonEnableableDataType_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
@@ -1605,6 +1635,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity component safety checks")]
         public void WritingBitsForNonEnableableBufferType_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -1620,7 +1651,7 @@ namespace Unity.Entities.Tests
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                chunk.SetComponentEnabled(EnableableType, 0, true);
+                chunk.SetComponentEnabled(ref EnableableType, 0, true);
             }
         }
 
@@ -1630,11 +1661,12 @@ namespace Unity.Entities.Tests
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                chunk.SetComponentEnabled(EnableableType, 0, true);
+                chunk.SetComponentEnabled(ref EnableableType, 0, true);
             }
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Relies on job safety system")]
         public void WritingBitsToReadOnlyData_TriggersSafetySystem_ArchetypeChunk()
         {
             m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
@@ -1645,6 +1677,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Relies on job safety system")]
         public void WritingBitsToReadOnlyBuffer_TriggersSafetySystem_ArchetypeChunk()
         {
             m_Manager.CreateEntity(typeof(EcsIntElementEnableable));

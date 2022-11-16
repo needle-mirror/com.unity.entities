@@ -49,10 +49,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 switch (scheduleType)
                 {
                     case ScheduleType.Run:
-                        Entities.ForEach((ref EcsTestData td) => { td.value = GetBuffer<EcsIntElement>(entity)[0].Value; }).Run();
+                        Entities.ForEach((ref EcsTestData td) => { td.value = SystemAPI.GetBuffer<EcsIntElement>(entity)[0].Value; }).Run();
                         break;
                     case ScheduleType.Schedule:
-                        Entities.ForEach((ref EcsTestData td) => { td.value = GetBuffer<EcsIntElement>(entity)[0].Value; }).Schedule();
+                        Entities.ForEach((ref EcsTestData td) => { td.value = SystemAPI.GetBuffer<EcsIntElement>(entity)[0].Value; }).Schedule();
                         break;
 
                     // Flagged as an DC0063 error at compile-time with sourcegen
@@ -145,7 +145,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 Entities.ForEach((ref EcsTestDataEntity tde) =>
                 {
-                    tde.value0 = GetBuffer<EcsIntElement>(tde.value1)[0].Value + GetBuffer<EcsIntElement>(tde.value1)[0].Value;
+                    tde.value0 = SystemAPI.GetBuffer<EcsIntElement>(tde.value1)[0].Value + SystemAPI.GetBuffer<EcsIntElement>(tde.value1)[0].Value;
                 }).Schedule();
                 Dependency.Complete();
             }
@@ -154,13 +154,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 Entities.ForEach((Entity entity, ref EcsTestDataEntity tde) =>
                 {
-                    tde.value0 += GetBuffer<EcsIntElement>(tde.value1)[0].Value;
-                    tde.value0 += GetBuffer<EcsIntElement>(tde.value1)[0].Value;
+                    tde.value0 += SystemAPI.GetBuffer<EcsIntElement>(tde.value1)[0].Value;
+                    tde.value0 += SystemAPI.GetBuffer<EcsIntElement>(tde.value1)[0].Value;
                 }).Schedule();
                 Entities.ForEach((Entity entity, ref EcsTestDataEntity tde) =>
                 {
-                    tde.value0 += GetBuffer<EcsIntElement>(tde.value1)[0].Value;
-                    tde.value0 += GetBuffer<EcsIntElement>(tde.value1)[0].Value;
+                    tde.value0 += SystemAPI.GetBuffer<EcsIntElement>(tde.value1)[0].Value;
+                    tde.value0 += SystemAPI.GetBuffer<EcsIntElement>(tde.value1)[0].Value;
                 }).Schedule();
                 Dependency.Complete();
             }
@@ -173,7 +173,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     Entities
                         .ForEach((Entity entity, in EcsTestDataEntity tde) =>
                     {
-                        var buffer = GetBuffer<EcsIntElement>(tde.value1);
+                        var buffer = SystemAPI.GetBuffer<EcsIntElement>(tde.value1);
                         var val = buffer[0].Value;
                         buffer.Clear();
                         buffer.Add(new EcsIntElement() { Value = val * innerCapture * outerCapture });
@@ -241,7 +241,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         {
                             if (StaticMethod())
                             {
-                                var buffer = GetBuffer<EcsIntElement>(tde.value1);
+                                var buffer = SystemAPI.GetBuffer<EcsIntElement>(tde.value1);
                                 buffer.Clear();
                                 buffer.Add(new EcsIntElement() { Value = 42 });
                             }

@@ -9,9 +9,9 @@ namespace Unity.Entities.Editor
 #if !ENABLE_TRANSFORM_V1
         static readonly string[] k_TopComponents =
         {
-            nameof(LocalToWorldTransform),
-            nameof(LocalToParentTransform),
-            nameof(PostTransformMatrix),
+            nameof(WorldTransform),
+            nameof(LocalTransform),
+            nameof(PostTransformScale),
             nameof(LocalToWorld),
             nameof(Parent),
         };

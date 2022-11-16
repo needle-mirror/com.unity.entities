@@ -68,7 +68,7 @@ namespace Unity.Entities
             while (enumeratorBlob.MoveNext())
             {
                 var blobHash = enumeratorBlob.Current;
-                blobAssetStore.Remove(blobHash.Item2, blobHash.Item1, true);
+                blobAssetStore.TryRemove(blobHash.Item2, blobHash.Item1, true);
             }
             enumeratorBlob.Dispose();
             ReferencedBlobAssets.Clear();

@@ -27,13 +27,14 @@ namespace Unity.Scenes.Editor
         /// </summary>
         public static bool LiveConversionEnabled
         {
-            get => EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveConversionEnabled", true);
+            // Keep this a session state, so nobody is accidentally leaving this off while hidden behind internal settings
+            get => SessionState.GetBool("Unity.Entities.Streaming.SubScene.LiveBakingEnabled", true);
             set
             {
                 if (LiveConversionEnabled == value)
                     return;
 
-                EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveConversionEnabled", value);
+                SessionState.SetBool("Unity.Entities.Streaming.SubScene.LiveBakingEnabled", value);
                 LiveConversionConnection.GlobalDirtyLiveConversion();
                 LiveConversionModeChanged();
             }

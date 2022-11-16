@@ -20,6 +20,14 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
 
         partial class MyTestSystem : SystemBase
         {
+            private unsafe T[] ToManagedArray<T>(T* values, int length) where T : unmanaged
+            {
+                var array = new T[length];
+                for (int i = 0; i < length; ++i)
+                    array[i] = values[i];
+                return array;
+            }
+
             public unsafe void WithAll_WithAny_WithNone_WithOptions()
             {
                 var query = SystemAPI.QueryBuilder().WithAll<EcsTestData>().WithAny<EcsTestData2>().WithNone<EcsTestData3>().WithOptions(EntityQueryOptions.IncludeDisabledEntities).Build();
@@ -68,8 +76,10 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(2, archetypeQuery2.AnyCount);
 
                 Assert.AreEqual(ComponentType.ReadWrite<EcsTestData2>().TypeIndex, archetypeQuery2.All[0]);
-                Assert.AreEqual(ComponentType.ReadWrite<EcsTestData3>().TypeIndex, archetypeQuery2.Any[0]);
-                Assert.AreEqual(ComponentType.ReadWrite<EcsTestData4>().TypeIndex, archetypeQuery2.Any[1]);
+                Assert.That(ToManagedArray(archetypeQuery2.Any, archetypeQuery2.AnyCount), Is.EquivalentTo(new TypeIndex[] {
+                    ComponentType.ReadOnly<EcsTestData3>().TypeIndex,
+                    ComponentType.ReadOnly<EcsTestData4>().TypeIndex,
+                }));
             }
 
             public unsafe void CreateMultipleArchetypeQueries()

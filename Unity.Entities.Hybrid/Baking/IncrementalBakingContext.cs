@@ -13,7 +13,7 @@ using Object = UnityEngine.Object;
 namespace Unity.Entities.Baking
 {
 
-    // This translates change events high level instructions (Instantiate prefab / Destroy hierachy)
+    // This translates change events high level instructions (Instantiate prefab / Destroy hierarchy)
     // into a flattened list of instructions on what to bake / revert / create / destroy
     // It does this incrementally and it also handles dependencies that were registered in the previous bake.
     internal struct IncrementalBakingContext
@@ -50,6 +50,12 @@ namespace Unity.Entities.Baking
             // These components also need to be reverted (If they existed before)
             public HashSet<BakeComponent> BakeComponents;
 
+            /// <summary>
+            /// The GameObjects to bake when some GameObject property has changed (static, active).
+            /// </summary>
+            /// <remarks>Contains both the created and the changed GameObjects.</remarks>
+            public HashSet<GameObject> BakeGameObjects;
+
             // The components that need to be reverted, because it was removed (Not present in bake components)
             public UnsafeParallelHashSet<int>     RevertComponents;
 
@@ -78,6 +84,7 @@ namespace Unity.Entities.Baking
                 CreatedGameObjects = new List<GameObject>(1024);
                 DestroyedGameObjects = new NativeList<int>(Allocator.Persistent);
                 BakeComponents = new HashSet<BakeComponent>();
+                BakeGameObjects = new HashSet<GameObject>(1024);
                 RevertComponents = new UnsafeParallelHashSet<int>(16, Allocator.Persistent);
                 PotentiallyRenamedGameObjects = new List<GameObject>();
                 ChangedTransforms = new NativeList<int>(16, Allocator.Persistent);
@@ -91,6 +98,7 @@ namespace Unity.Entities.Baking
                 if (DestroyedGameObjects.IsCreated)
                     DestroyedGameObjects.Dispose();
                 BakeComponents = null;
+                BakeGameObjects = null;
                 if (RevertComponents.IsCreated)
                     RevertComponents.Dispose();
                 PotentiallyRenamedGameObjects = null;
@@ -102,6 +110,7 @@ namespace Unity.Entities.Baking
             public void Clear(bool clearTransforms = true)
             {
                 BakeComponents.Clear();
+                BakeGameObjects.Clear();
                 RevertComponents.Clear();
                 CreatedGameObjects.Clear();
                 DestroyedGameObjects.Clear();
@@ -117,6 +126,7 @@ namespace Unity.Entities.Baking
                     return CreatedGameObjects.Count != 0 ||
                            DestroyedGameObjects.Length != 0 ||
                            BakeComponents.Count != 0 ||
+                           BakeGameObjects.Count != 0 ||
                            RevertComponents.Count() != 0 ||
                            PotentiallyRenamedGameObjects.Count != 0 ||
                            ChangedTransforms.Length != 0;
@@ -241,11 +251,13 @@ namespace Unity.Entities.Baking
             {
                 foreach (var root in sceneRoots)
                 {
-                    _BakeInstructionsCache.CreatedGameObjects.AddRange(root.GetComponentsInChildren<Transform>(true).Select(transform =>
+                    var additionalGameObjects = root.GetComponentsInChildren<Transform>(true).Select(transform =>
                     {
                         // Debug.Log($"BuildInitialInstructions - CreateGameObject: {transform.gameObject.GetInstanceID()} (transform.gameObject)");
                         return transform.gameObject;
-                    }));
+                    }).ToArray();
+                    _BakeInstructionsCache.CreatedGameObjects.AddRange(additionalGameObjects);
+                    _BakeInstructionsCache.BakeGameObjects.UnionWith(additionalGameObjects);
 
                     _BakeInstructionsCache.ChangedTransforms.Add(root.gameObject.GetInstanceID());
                 }
@@ -314,7 +326,7 @@ namespace Unity.Entities.Baking
             UpdateHierarchy(batch, ref _IncrementalBakingDataCache);
 
             _BakeInstructionsCache.Clear();
-            var changedComponentsIncludingDependencies = new UnsafeParallelHashSet<int>(1024, Allocator.TempJob);
+            var changedAuthoringObjectsIncludingDependencies = new UnsafeParallelHashSet<int>(1024, Allocator.TempJob);
 
             var revertComponents = _BakeInstructionsCache.RevertComponents;
             var destroyedGameObjects = _BakeInstructionsCache.DestroyedGameObjects;
@@ -322,6 +334,8 @@ namespace Unity.Entities.Baking
             CollectGameObjectsWithTransformChanged(ref batch, _BakeInstructionsCache.ChangedTransforms);
 
             var prepareJobHandle = transformAuthoringBaking.Prepare(_Hierarchy, _BakeInstructionsCache.ChangedTransforms);
+
+            _BakeInstructionsCache.BakeGameObjects.UnionWith(_IncrementalBakingDataCache.ChangedGameObjects.Select(x => x.gameObject));
 
             // _IncrementalConversionDataCache.ChangedGameObjects implies that the game object was either created or new components were added or a component was removed.
             // _Components has a copy of the last converted authoring gameobject -> component list. Thus we can create precise instructions for:
@@ -386,7 +400,7 @@ namespace Unity.Entities.Baking
                 ChangedLocalToWorldIndices = _BakeInstructionsCache.ChangedTransforms
             };
 
-            _Dependencies.CalculateDependencies(ref _Components, ref _IncrementalBakingDataCache, changedSceneTransforms, ref changedComponentsIncludingDependencies, prepareJobHandle, assetsChanged);
+            _Dependencies.CalculateDependencies(ref _Components, ref _IncrementalBakingDataCache, changedSceneTransforms, ref changedAuthoringObjectsIncludingDependencies, prepareJobHandle, assetsChanged);
 
             // _IncrementalConversionDataCache.RemovedInstanceIds is a flattened list of game object instance IDs.
             // - All previous components need to be reverted
@@ -394,11 +408,13 @@ namespace Unity.Entities.Baking
             //@TODO: DOTS-5454
             foreach (var gameObjectID in _IncrementalBakingDataCache.RemovedGameObjects)
             {
+                changedAuthoringObjectsIncludingDependencies.Remove(gameObjectID);
+
                 // Debug.Log($"BuildIncrementalInstructions: Destroy GameObject: {gameObjectID}" );
                 foreach (var component in _Components.GetComponents(gameObjectID))
                 {
                     revertComponents.Add(component.InstanceID);
-                    changedComponentsIncludingDependencies.Remove(component.InstanceID);
+                    changedAuthoringObjectsIncludingDependencies.Remove(component.InstanceID);
 
                     IncrementalBakingLog.RecordComponentDestroyed(component.InstanceID);
                 }
@@ -415,9 +431,16 @@ namespace Unity.Entities.Baking
 
             // _IncrementalConversionDataCache.ChangedComponents are components where content of the component has changed (not added / removed)
             // - Thus we need to revert & bake them
-            foreach (var componentID in changedComponentsIncludingDependencies)
+            foreach (var componentID in changedAuthoringObjectsIncludingDependencies)
             {
-                var component = (Component) Resources.InstanceIDToObject(componentID);
+                var obj =  Resources.InstanceIDToObject(componentID);
+                if (obj is GameObject gameObject)
+                {
+                    _BakeInstructionsCache.BakeGameObjects.Add(gameObject);
+                    continue;
+                }
+
+                var component = (Component) obj;
                 if (component == null)
                 {
                     //@TODO: DOTS-5454
@@ -442,7 +465,7 @@ namespace Unity.Entities.Baking
                 _BakeInstructionsCache.BakeComponents.Add(bake);
             }
 
-            changedComponentsIncludingDependencies.Dispose();
+            changedAuthoringObjectsIncludingDependencies.Dispose();
 
             return _BakeInstructionsCache;
         }
@@ -459,6 +482,8 @@ namespace Unity.Entities.Baking
                 var go = (GameObject)Resources.InstanceIDToObject(gameObjectID);
                 IncrementalHierarchyFunctions.AddRecurse(_Hierarchy, go, allGameObjects);
             }
+
+            _BakeInstructionsCache.BakeGameObjects.UnionWith(allGameObjects);
 
             foreach (var changedGameObject in allGameObjects)
             {

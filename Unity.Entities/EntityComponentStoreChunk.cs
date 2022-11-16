@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Unity.Assertions;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -29,8 +30,11 @@ namespace Unity.Entities
 
         internal bool IsComponentEnabled(Chunk* chunk, int indexInChunk, int typeIndexInArchetype)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             // the bitmask size is always 128 bits, so make sure we're not indexing outside the chunk's capacity.
-            Assert.IsTrue(indexInChunk < chunk->Capacity);
+            if (Hint.Unlikely(indexInChunk < 0 || indexInChunk >= chunk->Capacity))
+                throw new ArgumentException($"indexInChunk {indexInChunk} is outside the valid range [0..{chunk->Capacity-1}]");
+#endif
 
             var isComponentEnabled = ChunkDataUtility.GetEnabledRefRO(chunk, typeIndexInArchetype);
             return isComponentEnabled.IsSet(indexInChunk);
@@ -50,8 +54,11 @@ namespace Unity.Entities
         {
             var archetype = chunk->Archetype;
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             // the bit array size is padded up to 64 bits, so we validate we're not indexing outside the valid data.
-            Assert.IsTrue(indexInChunk < chunk->Capacity);
+            if (Hint.Unlikely(indexInChunk < 0 || indexInChunk >= chunk->Capacity))
+                throw new ArgumentException($"indexInChunk {indexInChunk} is outside the valid range [0..{chunk->Capacity-1}]");
+#endif
 
             var bits = ChunkDataUtility.GetEnabledRefRW(chunk, typeIndexInArchetype, out var ptrChunkDisabledCount);
             var numStridesIntoBits = (indexInChunk / 64);

@@ -72,11 +72,11 @@ namespace Unity.Transforms
                 Assert.IsFalse(useEnabledMask);
 
                 bool updateChildrenTransform =
-                    chunk.DidChange<LocalToWorld>(LocalToWorldTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange<Child>(ChildTypeHandle, LastSystemVersion);
+                    chunk.DidChange<LocalToWorld>(ref LocalToWorldTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange<Child>(ref ChildTypeHandle, LastSystemVersion);
 
-                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldTypeHandle);
-                var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
+                var chunkLocalToWorld = chunk.GetNativeArray(ref LocalToWorldTypeHandle);
+                var chunkChildren = chunk.GetBufferAccessor(ref ChildTypeHandle);
                 for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
                 {
                     var localToWorldMatrix = chunkLocalToWorld[i].Value;

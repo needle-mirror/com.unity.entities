@@ -21,7 +21,7 @@ namespace Unity.Entities.PerformanceTests
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
             Assert.IsFalse(useEnabledMask);
-            var data = chunk.GetNativeArray(EcsTestDataRW);
+            var data = chunk.GetNativeArray(ref EcsTestDataRW);
             for (int i = 0; i < chunk.Count; i++)
             {
                 data[i] = new EcsTestData {value = 10};
@@ -310,7 +310,7 @@ namespace Unity.Entities.PerformanceTests
         public enum Type
         {
             JobEntity,
-            JobEntityBatch
+            JobChunk
         }
 
         [Test, Performance]
@@ -318,7 +318,7 @@ namespace Unity.Entities.PerformanceTests
         public void JobEntityOnUpdate_SchedulePerformance(
             [Values(100, 10000, 5000000)] int numEntities,
             [Values(10, 100)] int numUniqueArchetypes,
-            [Values(Type.JobEntity, Type.JobEntityBatch)] Type type)
+            [Values(Type.JobEntity, Type.JobChunk)] Type type)
         {
             using (var archetypes = CreateUniqueArchetypes(m_Manager, numUniqueArchetypes, World.UpdateAllocator.ToAllocator, typeof(EcsTestData)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
@@ -343,7 +343,7 @@ namespace Unity.Entities.PerformanceTests
                             .SampleGroup("IJobEntity")
                             .Run();
                         break;
-                    case Type.JobEntityBatch:
+                    case Type.JobChunk:
                         var handle_ = default(JobHandle);
                         var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
                         Measure.Method(() =>
@@ -356,7 +356,7 @@ namespace Unity.Entities.PerformanceTests
                             .WarmupCount(5)
                             .MeasurementCount(1)
                             .CleanUp(() => {handle_.Complete();})
-                            .SampleGroup("IJobEntityBatch")
+                            .SampleGroup("IJobChunk")
                             .Run();
                         break;
                 }
@@ -368,7 +368,7 @@ namespace Unity.Entities.PerformanceTests
         public void JobEntityOnUpdate_ScheduleParallelPerformance(
             [Values(100, 10000, 5000000)] int numEntities,
             [Values(10, 100)] int numUniqueArchetypes,
-            [Values(Type.JobEntity, Type.JobEntityBatch)] Type type)
+            [Values(Type.JobEntity, Type.JobChunk)] Type type)
         {
             using (var archetypes = CreateUniqueArchetypes(m_Manager, numUniqueArchetypes, World.UpdateAllocator.ToAllocator, typeof(EcsTestData)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
@@ -393,7 +393,7 @@ namespace Unity.Entities.PerformanceTests
                             .SampleGroup("IJobEntity")
                             .Run();
                         break;
-                    case Type.JobEntityBatch:
+                    case Type.JobChunk:
                         var handle_ = default(JobHandle);
                         var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
                         Measure.Method(() =>
@@ -406,7 +406,7 @@ namespace Unity.Entities.PerformanceTests
                             .WarmupCount(5)
                             .MeasurementCount(1)
                             .CleanUp(() => {handle_.Complete();})
-                            .SampleGroup("IJobEntityBatch")
+                            .SampleGroup("IJobChunk")
                             .Run();
                         break;
                 }
@@ -418,7 +418,7 @@ namespace Unity.Entities.PerformanceTests
         public void JobEntityOnUpdate_ExecutingPerformance(
             [Values(100, 10000, 5000000)] int numEntities,
             [Values(10, 100)] int numUniqueArchetypes,
-            [Values(Type.JobEntity, Type.JobEntityBatch)] Type type)
+            [Values(Type.JobEntity, Type.JobChunk)] Type type)
         {
             using (var archetypes = CreateUniqueArchetypes(m_Manager, numUniqueArchetypes, World.UpdateAllocator.ToAllocator, typeof(EcsTestData)))
             using (var basicQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
@@ -438,7 +438,7 @@ namespace Unity.Entities.PerformanceTests
                             .MeasurementCount(1)
                             .Run();
                         break;
-                    case Type.JobEntityBatch:
+                    case Type.JobChunk:
                         var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
                         Measure.Method(() =>
                             {
@@ -449,7 +449,7 @@ namespace Unity.Entities.PerformanceTests
                             })
                             .WarmupCount(5)
                             .MeasurementCount(1)
-                            .SampleGroup("IJobEntityBatch")
+                            .SampleGroup("IJobChunk")
                             .Run();
                         break;
                 }
@@ -647,124 +647,6 @@ namespace Unity.Entities.PerformanceTests
                 .SampleGroup("ScheduleAndRun")
                 .Run();
         }
-
-#pragma warning disable 618 // IJobEntityBatchWithIndex is obsolete
-        [Test, Performance]
-        [Category("Performance")]
-        public void JobEntityBatchOnUpdate_Performance_EnabledBits_AllEnabled(
-            [Values(ScheduleType.Run)] ScheduleType scheduleType,
-            [Values(100,10_000)] int numChunks)
-        {
-            EntityArchetype archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
-
-            using (var entities = CollectionHelper.CreateNativeArray<Entity>(length: numChunks * archetype.ChunkCapacity, World.UpdateAllocator.ToAllocator))
-            {
-                m_Manager.CreateEntity(archetype, entities);
-                var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
-                var ecsDataTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
-
-                var job = new EnabledBitsBatchWithIndex()
-                {
-                    TestDataHandleRW = ecsDataTypeHandle
-                };
-
-                Measure
-                    .Method(() =>
-                    {
-                        job.Run(query);
-                    })
-                    .WarmupCount(5)
-                    .MeasurementCount(10)
-                    .CleanUp(() => { World.UpdateAllocator.Rewind();})
-                    .Run();
-            }
-        }
-
-        [Test, Performance]
-        [Category("Performance")]
-        public void JobEntityBatchOnUpdate_Performance_EnabledBits_Alternating(
-            [Values(ScheduleType.Run)] ScheduleType scheduleType,
-            [Values(100,10_000)] int numChunks)
-        {
-            EntityArchetype archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
-
-            using (var entities = CollectionHelper.CreateNativeArray<Entity>(length: numChunks * archetype.ChunkCapacity, World.UpdateAllocator.ToAllocator))
-            {
-                m_Manager.CreateEntity(archetype, entities);
-
-                for(int i = 1; i < entities.Length; i += 2)
-                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i],false);
-
-                var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
-                var ecsDataTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
-
-                var job = new EnabledBitsBatchWithIndex()
-                {
-                    TestDataHandleRW = ecsDataTypeHandle
-                };
-
-                Measure
-                    .Method(() =>
-                    {
-                        job.Run(query);
-                    })
-                    .WarmupCount(5)
-                    .MeasurementCount(10)
-                    .CleanUp(() => { World.UpdateAllocator.Rewind();})
-                    .Run();
-            }
-        }
-
-        [BurstCompile(CompileSynchronously = true)]
-        public struct EnabledBitsBatchWithIndex : IJobEntityBatchWithIndex
-        {
-            public ComponentTypeHandle<EcsTestDataEnableable> TestDataHandleRW;
-
-            public unsafe void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery)
-            {
-                var components = (EcsTestDataEnableable*)batchInChunk.GetComponentDataPtrRW(ref TestDataHandleRW);
-                for(int i = 0; i < batchInChunk.Count; i++)
-                {
-                    components[i].value++;
-                }
-            }
-        }
-
-        [Test, Performance]
-        [Category("Performance")]
-        public void JobEntityBatchOnUpdate_Performance_EnabledBits_Ranges(
-            [Values(ScheduleType.Run)] ScheduleType scheduleType,
-            [Values(100,10_000)] int numChunks)
-        {
-            EntityArchetype archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
-
-            using (var entities = CollectionHelper.CreateNativeArray<Entity>(length: numChunks * archetype.ChunkCapacity, World.UpdateAllocator.ToAllocator))
-            {
-                m_Manager.CreateEntity(archetype, entities);
-
-                for(int i = 1; i < entities.Length; i += 10)
-                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i],false);
-
-                var query = m_Manager.CreateEntityQuery(typeof(EcsTestDataEnableable));
-                var ecsDataTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
-
-                var job = new EnabledBitsBatchWithIndex()
-                {
-                    TestDataHandleRW = ecsDataTypeHandle
-                };
-
-                Measure
-                    .Method(() =>
-                    {
-                        job.Run(query);
-                    })
-                    .WarmupCount(5)
-                    .MeasurementCount(10)
-                    .CleanUp(() => { World.UpdateAllocator.Rewind();})
-                    .Run();
-            }
-        }
-#pragma warning disable 618 // IJobEntityBatchWithIndex is obsolete
     }
 }
 #endif

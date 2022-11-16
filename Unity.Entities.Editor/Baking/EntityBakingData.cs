@@ -9,7 +9,6 @@ namespace Unity.Entities.Editor
 
         public Entity PrimaryEntity;
         public Entity[] AdditionalEntities;
-        public LogEventData[] LogEvents;
         public EntityManager EntityManager;
 
         public void Dispose()

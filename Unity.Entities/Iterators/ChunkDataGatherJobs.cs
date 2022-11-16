@@ -226,8 +226,8 @@ namespace Unity.Entities
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
-            int baseEntityInQueryIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
-            Entity* destinationPtr = (Entity*)Entities + baseEntityInQueryIndex;
+            int baseEntityIndexInQuery = ChunkBaseEntityIndices[unfilteredChunkIndex];
+            Entity* destinationPtr = (Entity*)Entities + baseEntityIndexInQuery;
             Entity* sourcePtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
             if (useEnabledMask)
             {
@@ -244,7 +244,7 @@ namespace Unity.Entities
             }
             else
             {
-                UnsafeUtility.MemCpy(destinationPtr, sourcePtr, chunk.ChunkEntityCount * sizeof(Entity));
+                UnsafeUtility.MemCpy(destinationPtr, sourcePtr, chunk.Count * sizeof(Entity));
             }
         }
     }
@@ -258,10 +258,10 @@ namespace Unity.Entities
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
-            int baseEntityInQueryIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
-            Entity* dstEntities = (Entity*)OutputList.Ptr + baseEntityInQueryIndex;
+            int baseEntityIndexInQuery= ChunkBaseEntityIndices[unfilteredChunkIndex];
+            Entity* dstEntities = (Entity*)OutputList.Ptr + baseEntityIndexInQuery;
             Entity* srcEntities = chunk.GetEntityDataPtrRO(EntityTypeHandle);
-            int chunkEntityCount = chunk.ChunkEntityCount;
+            int chunkEntityCount = chunk.Count;
             int copyCount = useEnabledMask ? EnabledBitUtility.countbits(chunkEnabledMask) : chunkEntityCount;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Entity* dstEnd = (Entity*)OutputList.Ptr + OutputList.Capacity;
@@ -287,7 +287,7 @@ namespace Unity.Entities
             }
             else
             {
-                UnsafeUtility.MemCpy(dstEntities, srcEntities, chunk.ChunkEntityCount * sizeof(Entity));
+                UnsafeUtility.MemCpy(dstEntities, srcEntities, chunk.Count * sizeof(Entity));
             }
             Interlocked.Add(ref *(OutputList.Length), copyCount);
         }
@@ -308,9 +308,9 @@ namespace Unity.Entities
             int typeOffset = archetype->Offsets[indexInTypeArray];
             ushort typeSize = archetype->SizeOfs[indexInTypeArray];
 
-            int baseEntityInQueryIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
+            int baseEntityIndexInQuery = ChunkBaseEntityIndices[unfilteredChunkIndex];
             byte* srcBytes = chunk.m_Chunk->Buffer + typeOffset;
-            byte* dstBytes = ComponentData + (baseEntityInQueryIndex * typeSize);
+            byte* dstBytes = ComponentData + (baseEntityIndexInQuery * typeSize);
             if (useEnabledMask)
             {
                 v128 maskCopy = chunkEnabledMask;
@@ -325,7 +325,7 @@ namespace Unity.Entities
             }
             else
             {
-                UnsafeUtility.MemCpy(dstBytes, srcBytes, chunk.ChunkEntityCount * typeSize);
+                UnsafeUtility.MemCpy(dstBytes, srcBytes, chunk.Count * typeSize);
             }
         }
     }
@@ -344,10 +344,10 @@ namespace Unity.Entities
             var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeHandle.m_TypeIndex);
             var typeSize = archetype->SizeOfs[indexInTypeArray];
 
-            int baseEntityInQueryIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
-            byte* dstBytes = OutputList.Ptr + (baseEntityInQueryIndex * typeSize);
+            int baseEntityIndexInQuery = ChunkBaseEntityIndices[unfilteredChunkIndex];
+            byte* dstBytes = OutputList.Ptr + (baseEntityIndexInQuery * typeSize);
             byte* srcBytes = ChunkDataUtility.GetComponentDataWithTypeRO(chunk.m_Chunk, 0, TypeHandle.m_TypeIndex);
-            int chunkEntityCount = chunk.ChunkEntityCount;
+            int chunkEntityCount = chunk.Count;
             int copyCount = useEnabledMask ? EnabledBitUtility.countbits(chunkEnabledMask) : chunkEntityCount;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             var dstEnd = OutputList.Ptr + (OutputList.Capacity * typeSize);
@@ -373,7 +373,7 @@ namespace Unity.Entities
             }
             else
             {
-                UnsafeUtility.MemCpy(dstBytes, srcBytes, chunk.ChunkEntityCount * typeSize);
+                UnsafeUtility.MemCpy(dstBytes, srcBytes, chunk.Count * typeSize);
             }
             Interlocked.Add(ref *(OutputList.Length), copyCount);
         }
@@ -394,9 +394,9 @@ namespace Unity.Entities
             int indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
             ushort typeSize = archetype->SizeOfs[indexInTypeArray];
 
-            int baseEntityInQueryIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
+            int baseEntityIndexInQuery = ChunkBaseEntityIndices[unfilteredChunkIndex];
             var dstBytes = ChunkDataUtility.GetComponentDataWithTypeRW(chunk.m_Chunk, 0, TypeIndex, GlobalSystemVersion);
-            var srcBytes = ComponentData + (baseEntityInQueryIndex * typeSize);
+            var srcBytes = ComponentData + (baseEntityIndexInQuery * typeSize);
             if (useEnabledMask)
             {
                 v128 maskCopy = chunkEnabledMask;
@@ -411,7 +411,7 @@ namespace Unity.Entities
             }
             else
             {
-                UnsafeUtility.MemCpy(dstBytes, srcBytes, chunk.ChunkEntityCount * typeSize);
+                UnsafeUtility.MemCpy(dstBytes, srcBytes, chunk.Count * typeSize);
             }
         }
     }
@@ -429,10 +429,10 @@ namespace Unity.Entities
             int indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeHandle.m_TypeIndex);
             ushort typeSize = archetype->SizeOfs[indexInTypeArray];
 
-            int baseEntityInQueryIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
+            int baseEntityIndexInQuery = ChunkBaseEntityIndices[unfilteredChunkIndex];
             byte* dstBytes = ChunkDataUtility.GetComponentDataWithTypeRW(chunk.m_Chunk, 0, TypeHandle.m_TypeIndex, TypeHandle.GlobalSystemVersion);
-            byte* srcBytes = InputList.Ptr + (baseEntityInQueryIndex * typeSize);
-            int chunkEntityCount = chunk.ChunkEntityCount;
+            byte* srcBytes = InputList.Ptr + (baseEntityIndexInQuery * typeSize);
+            int chunkEntityCount = chunk.Count;
             int copyCount = useEnabledMask ? EnabledBitUtility.countbits(chunkEnabledMask) : chunkEntityCount;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             var srcEnd = InputList.Ptr + (*InputList.Length * typeSize);
@@ -457,7 +457,7 @@ namespace Unity.Entities
             }
             else
             {
-                UnsafeUtility.MemCpy(dstBytes, srcBytes, chunk.ChunkEntityCount * typeSize);
+                UnsafeUtility.MemCpy(dstBytes, srcBytes, chunk.Count * typeSize);
             }
         }
     }

@@ -1,5 +1,5 @@
 using System;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 
 namespace Unity.Entities.Editor
@@ -82,7 +82,7 @@ namespace Unity.Entities.Editor
     static class EntityInspectorContextClassExtensions
     {
         public static bool TryGetComponentData<T>(this EntityInspectorContext context, out T component)
-            where T : class, IComponentData
+            where T : class, IComponentData, new()
         {
             if (!context.TargetExists() || !context.EntityManager.HasComponent<T>(context.Entity))
             {
@@ -95,7 +95,7 @@ namespace Unity.Entities.Editor
         }
 
         public static bool TryGetChunkComponentData<T>(this EntityInspectorContext context, out T component)
-            where T : class, IComponentData
+            where T : class, IComponentData, new()
         {
             if (!context.TargetExists() || !context.EntityManager.HasComponent<T>(context.Entity))
             {

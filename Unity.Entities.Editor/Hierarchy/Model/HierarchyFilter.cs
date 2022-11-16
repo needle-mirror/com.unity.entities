@@ -77,12 +77,12 @@ namespace Unity.Entities.Editor
             foreach (var token in inputTokens)
             {
                 // Component
-                if (token.StartsWith($"{Constants.Hierarchy.ComponentToken}:", StringComparison.OrdinalIgnoreCase))
+                if (token.StartsWith(Constants.ComponentSearch.TokenOp, StringComparison.OrdinalIgnoreCase))
                     continue;
                 
-                if (token.StartsWith($"{Constants.Hierarchy.IndexToken}:", StringComparison.OrdinalIgnoreCase))
+                if (token.StartsWith(Constants.Hierarchy.EntityIndexTokenOpEqual, StringComparison.OrdinalIgnoreCase))
                 {
-                    var startIndex = Constants.Hierarchy.IndexToken.Length + 1;
+                    var startIndex = Constants.Hierarchy.EntityIndexTokenOpEqual.Length;
                     var length = token.Length - startIndex;
 
                     if (length == 0)

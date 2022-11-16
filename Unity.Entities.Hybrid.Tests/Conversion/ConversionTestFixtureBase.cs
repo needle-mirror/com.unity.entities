@@ -36,7 +36,7 @@ namespace Unity.Entities.Tests.Conversion
         readonly Dictionary<string, int> m_ObjectNames = new Dictionary<string, int>();
 
 #if !ENABLE_TRANSFORM_V1
-        protected static readonly IEnumerable<Type> k_CommonComponents = new[] { typeof(Simulate), typeof(LocalToWorldTransform), typeof(LocalToWorld) };
+        protected static readonly IEnumerable<Type> k_CommonComponents = new[] { typeof(Simulate), typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld) };
 #else
         protected static readonly IEnumerable<Type> k_CommonComponents = new[] { typeof(Simulate), typeof(Translation), typeof(Rotation), typeof(LocalToWorld) };
 #endif
@@ -44,7 +44,7 @@ namespace Unity.Entities.Tests.Conversion
         protected static readonly IEnumerable<Type> k_RootComponents = k_CommonComponents.Append(typeof(LinkedEntityGroup));
         protected static readonly IEnumerable<Type> k_StaticRootComponents = k_StaticComponents.Append(typeof(LinkedEntityGroup));
 #if !ENABLE_TRANSFORM_V1
-        protected static readonly IEnumerable<Type> k_ChildComponents  = k_CommonComponents.Concat(new[] { typeof(Parent), typeof(LocalToParentTransform) });
+        protected static readonly IEnumerable<Type> k_ChildComponents  = k_CommonComponents.Concat(new[] { typeof(Parent) });
 #else
         protected static readonly IEnumerable<Type> k_ChildComponents  = k_CommonComponents.Concat(new[] { typeof(Parent), typeof(LocalToParent) });
 #endif

@@ -1,4 +1,5 @@
-﻿using System;
+#if !USE_IMPROVED_DATAMODE
+using System;
 using System.Collections;
 using NUnit.Framework;
 using UnityEditor;
@@ -138,3 +139,4 @@ namespace Unity.Entities.Editor.Tests
     }
 #endif //DOTSHIERARCHY_ENABLE_DATAMODES
 }
+#endif

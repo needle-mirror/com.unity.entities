@@ -21,6 +21,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity component data safety checks")]
         public void TestMissingGetDataRef()
         {
             var e = m_Manager.CreateEntity();
@@ -29,7 +30,10 @@ namespace Unity.Entities.Tests
             Assert.Throws<ArgumentException>(() => EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(Entity.Null, isReadOnly: false));
         }
 
+        // This test works in all managed player configs whether safety checks are enabled or not since accessing a null with throw
+        // however the error message will be different depending if safety checks are enabled or not
         [Test]
+        [IgnoreTest_IL2CPP("IL2CPP will not throw a null check when reading null and instead will crash.")]
         public void TestOptionalMissing()
         {
             var e = m_Manager.CreateEntity();

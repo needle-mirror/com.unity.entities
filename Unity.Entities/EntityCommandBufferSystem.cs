@@ -5,7 +5,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
     using UnityEngine.Profiling;
 #endif
 
@@ -21,7 +21,7 @@ namespace Unity.Entities
         /// <summary>
         /// Sets the list of command buffers to play back when this system updates.
         /// </summary>
-        /// <remarks> 
+        /// <remarks>
         /// This method is only intended for internal use, but must be in the public API due to language
         /// restrictions. Command buffers created with `CreateCommandBuffer` are automatically added to
         /// the system's list of pending buffers to play back.
@@ -185,7 +185,7 @@ namespace Unity.Entities
 
             int length = PendingBuffers.Length;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             List<string> playbackErrorLog = null;
             bool completeAllJobsBeforeDispose = false;
 #endif
@@ -198,7 +198,7 @@ namespace Unity.Entities
                 }
                 if (playBack)
                 {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                     try
                     {
 #if ENABLE_PROFILER
@@ -227,15 +227,18 @@ namespace Unity.Entities
                     buffer.Playback(EntityManager);
 #endif
                 }
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 try
                 {
                     if (completeAllJobsBeforeDispose)
                     {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                         // If we get here, there was an error during playback (potentially a race condition on the
                         // buffer itself), and we should wait for all jobs writing to this command buffer to complete before attempting
                         // to dispose of the command buffer to prevent a potential race condition.
                         buffer.WaitForWriterJobs();
+#endif
                         completeAllJobsBeforeDispose = false;
                     }
                     buffer.Dispose();
@@ -257,7 +260,7 @@ namespace Unity.Entities
                 PendingBuffers[i] = buffer;
             }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (playbackErrorLog != null)
             {
 #if !NET_DOTS
@@ -289,7 +292,7 @@ namespace Unity.Entities
         /// <param name="allocator">The allocator to allocate from, when building the command buffer</param>
         /// <param name="world">The world that this command buffer buffers changes for</param>
         /// <returns>Returns the command buffer</returns>
-        public static unsafe EntityCommandBuffer CreateCommandBuffer(
+        public static EntityCommandBuffer CreateCommandBuffer(
             ref UnsafeList<EntityCommandBuffer> pendingBuffers,
             Allocator allocator,
             WorldUnmanaged world)
@@ -311,7 +314,7 @@ namespace Unity.Entities
         /// <param name="pendingBuffers">The list of command buffers to append to</param>
         /// <param name="world">The world that this command buffer buffers changes for</param>
         /// <returns>Returns the command buffer</returns>
-        public static unsafe EntityCommandBuffer CreateCommandBuffer(
+        public static EntityCommandBuffer CreateCommandBuffer(
             ref UnsafeList<EntityCommandBuffer> pendingBuffers,
             WorldUnmanaged world)
         {
@@ -319,8 +322,24 @@ namespace Unity.Entities
         }
     }
 
+    /// <summary>
+    /// Extension methods for EntityCommandBufferSystem.
+    /// </summary>
     public static class ECBExtensionMethods
     {
+        /// <summary>
+        /// Every unmanaged Singleton that implements IECBSingleton must be registered by this function, at the end of
+        /// its owner's EntityCommandBufferSystem.OnCreate method, in order to prepare the Singleton with the
+        /// unmanaged data necessary for it to work from unmanaged code, without holding a managed reference to the
+        /// EntityCommandBufferSystem.
+        /// </summary>
+        /// <param name="system">The managed EntityCommandBufferSystem that owns the Singleton</param>
+        /// <param name="pendingBuffers">The list of command buffers in the managed System to append to</param>
+        /// <param name="world">The world that this command buffer buffers changes for</param>
+        /// <param name="entityName">An optional Entity name for the Singleton Entity</param>
+        /// <typeparam name="T">
+        /// The unmanaged Singleton type, that corresponds to the managed EntityCommandBufferSystem subclass
+        /// </typeparam>
         public static void RegisterSingleton<T>(
             this EntityCommandBufferSystem system,
             ref UnsafeList<EntityCommandBuffer> pendingBuffers,
@@ -332,7 +351,8 @@ namespace Unity.Entities
             if (!string.IsNullOrWhiteSpace(entityName))
                 world.EntityManager.SetName(e, entityName);
 
-            ref var s = ref system.GetSingletonRW<T>().ValueRW;
+            var query = new EntityQueryBuilder(system.WorldUpdateAllocator).WithAllRW<T>().Build(system);
+            ref var s = ref query.GetSingletonRW<T>().ValueRW;
 
             s.SetPendingBufferList(ref pendingBuffers);
             s.SetAllocator(system.m_EntityCommandBufferAllocator.Allocator.ToAllocator);

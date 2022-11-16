@@ -41,7 +41,7 @@ namespace Unity.Transforms.Hybrid.Tests
 
         static IEnumerable<int> GetInstanceIds(GameObject go)
         {
-            var open = new Stack<Transform>();
+            var open = new Stack<UnityEngine.Transform>();
             open.Push(go.transform);
             while (open.Count > 0)
             {

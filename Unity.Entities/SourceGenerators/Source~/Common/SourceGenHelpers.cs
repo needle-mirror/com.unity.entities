@@ -41,12 +41,13 @@ namespace Unity.Entities.SourceGen.Common
                 return;
             }
 
+            bool isDotsRuntime = context.ParseOptions.PreprocessorSymbolNames.Contains("UNITY_DOTSRUNTIME");
             InUnity2021OrNewer = context.ParseOptions.PreprocessorSymbolNames.Contains("UNITY_2021_1_OR_NEWER");
 
             if (!context.AdditionalFiles.Any() || string.IsNullOrEmpty(context.AdditionalFiles[0].Path))
                 return;
 
-            ProjectPath = InUnity2021OrNewer ? context.AdditionalFiles[0].GetText().ToString() : context.AdditionalFiles[0].Path;
+            ProjectPath = InUnity2021OrNewer && !isDotsRuntime ? context.AdditionalFiles[0].GetText().ToString() : context.AdditionalFiles[0].Path;
         }
 
         static string GetTempGeneratedPathToFile(string fileNameWithExtension)

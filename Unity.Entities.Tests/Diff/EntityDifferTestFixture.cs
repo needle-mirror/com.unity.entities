@@ -133,19 +133,19 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         protected static bool HasManagedComponent<TComponentData>(EntityManager entityManager, EntityGuid entityGuid)
-            where TComponentData : class, IComponentData
+            where TComponentData : class, IComponentData, new()
         {
             return entityManager.HasComponent<TComponentData>(GetEntity(entityManager, entityGuid));
         }
 
         protected static TComponentData GetManagedComponentData<TComponentData>(EntityManager entityManager, EntityGuid entityGuid)
-            where TComponentData : class, IComponentData
+            where TComponentData : class, IComponentData, new()
         {
             return entityManager.GetComponentData<TComponentData>(GetEntity(entityManager, entityGuid));
         }
 
         protected static void SetManagedComponentData<TComponentData>(EntityManager entityManager, EntityGuid entityGuid, TComponentData data)
-            where TComponentData : class, IComponentData
+            where TComponentData : class, IComponentData, new()
         {
             var entity = GetEntity(entityManager, entityGuid);
             entityManager.SetComponentData(entity, data);

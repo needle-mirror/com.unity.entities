@@ -9,6 +9,7 @@ using Unity.Transforms;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 using UnityEngine;
+using UnityEngine.SocialPlatforms;
 using Object = UnityEngine.Object;
 
 namespace Unity.Entities.Tests.Conversion
@@ -142,11 +143,14 @@ namespace Unity.Entities.Tests.Conversion
         private static object[] GlobalData(float3 pos, quaternion rotation, float3 scale)
         {
 #if !ENABLE_TRANSFORM_V1
-            var transform =
-                UniformScaleTransform.FromPositionRotationScale(pos, rotation, math.max(math.max(scale.x, scale.y), scale.z));
+            // TransformData does not support per-object non-uniform scale
+            Unity.Assertions.Assert.AreApproximatelyEqual(scale.x, scale.y);
+            Unity.Assertions.Assert.AreApproximatelyEqual(scale.x, scale.z);
+            var transform = LocalTransform.FromPositionRotationScale(pos, rotation, scale.x);
             return new object[]
             {
-                new LocalToWorldTransform {Value = transform},
+                transform,
+                (WorldTransform)transform,
                 new LocalToWorld {Value = transform.ToMatrix()}
             };
 #else
@@ -197,22 +201,22 @@ namespace Unity.Entities.Tests.Conversion
         );
 
         [DisableAutoCreation]
-        class TransformUsageBaker : Baker<Transform>
+        class TransformUsageBaker : Baker<UnityEngine.Transform>
         {
             internal static TransformUsageFlags Flags;
 
-            public override void Bake(Transform authoring)
+            public override void Bake(UnityEngine.Transform authoring)
             {
                 GetEntity(authoring, Flags);
             }
         }
 
         [DisableAutoCreation]
-        class AssignTransformUsageBaker : Baker<Transform>
+        class AssignTransformUsageBaker : Baker<UnityEngine.Transform>
         {
             internal static readonly Dictionary<GameObject, TransformUsageFlags> Flags = new Dictionary<GameObject, TransformUsageFlags>();
             internal static readonly Dictionary<GameObject, TransformUsageFlags> AdditionalFlags = new Dictionary<GameObject, TransformUsageFlags>();
-            public override void Bake(Transform authoring)
+            public override void Bake(UnityEngine.Transform authoring)
             {
                 if (Flags.TryGetValue(authoring.gameObject, out var flags))
                     GetEntity(authoring, flags);
@@ -223,11 +227,11 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [DisableAutoCreation]
-        class ManualTransformBaker : Baker<Transform>
+        class ManualTransformBaker : Baker<UnityEngine.Transform>
         {
             internal static TransformUsageFlags Flags;
 
-            public override void Bake(Transform authoring)
+            public override void Bake(UnityEngine.Transform authoring)
             {
                 // Pollute the entity with random TransformUsageFlags that should get ignored due to the ManualOverride
                 GetEntity(authoring, TransformUsageFlags.ReadGlobalTransform);
@@ -235,23 +239,25 @@ namespace Unity.Entities.Tests.Conversion
                 var entity = GetEntity(authoring, TransformUsageFlags.ManualOverride);
 
 #if !ENABLE_TRANSFORM_V1
-                AddComponent(entity, new LocalToWorldTransform {Value = UniformScaleTransform.Identity});
+                AddComponent(entity, LocalTransform.Identity);
+                AddComponent(entity, WorldTransform.Identity);
 #else
                 AddComponent(entity, new Translation());
 #endif
             }
         }
         [DisableAutoCreation]
-        class ManualBakeAdditional : Baker<Transform>
+        class ManualBakeAdditional : Baker<UnityEngine.Transform>
         {
-            public override void Bake(Transform authoring)
+            public override void Bake(UnityEngine.Transform authoring)
             {
                 // Pollute the entity with random TransformUsageFlags that should get ignored due to the ManualOverride
                 GetEntity(authoring, TransformUsageFlags.ReadLocalToWorld);
 
                 var entity = CreateAdditionalEntity(TransformUsageFlags.ManualOverride);
 #if !ENABLE_TRANSFORM_V1
-                AddComponent(entity, new LocalToWorldTransform {Value = UniformScaleTransform.Identity});
+                AddComponent(entity, LocalTransform.Identity);
+                AddComponent(entity, WorldTransform.Identity);
 #else
                 AddComponent(entity, new Translation());
 #endif
@@ -293,8 +299,8 @@ namespace Unity.Entities.Tests.Conversion
 
             EntitiesAssert.ContainsOnly(_entityManager,
 #if !ENABLE_TRANSFORM_V1
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorldTransform), typeof(LocalToWorld)),
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorldTransform), typeof(LocalToWorld), typeof(Parent), typeof(LocalToParentTransform)));
+                Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)),
+                Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld), typeof(Parent)));
 #else
                 Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld)),
                 Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent)));
@@ -307,7 +313,7 @@ namespace Unity.Entities.Tests.Conversion
             var go = _objects.CreateGameObject();
             Convert(go, type, typeof(ManualTransformBaker));
 #if !ENABLE_TRANSFORM_V1
-            EntitiesAssert.ContainsOnly(_entityManager, Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorldTransform)));
+            EntitiesAssert.ContainsOnly(_entityManager, Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform)));
 #else
             EntitiesAssert.ContainsOnly(_entityManager, Exact(type, EntityType.PrimaryEntity, typeof(Translation)));
 #endif
@@ -320,7 +326,7 @@ namespace Unity.Entities.Tests.Conversion
             Convert(go, type, typeof(ManualBakeAdditional));
             EntitiesAssert.ContainsOnly(_entityManager,
 #if !ENABLE_TRANSFORM_V1
-                Exact(type, EntityType.AdditionalEntity, typeof(LocalToWorldTransform)),
+                Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform)),
                 Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld)));
 #else
                 Exact(type, EntityType.AdditionalEntity, typeof(Translation)),
@@ -523,8 +529,8 @@ namespace Unity.Entities.Tests.Conversion
             Convert(root, type, typeof(AssignTransformUsageBaker));
             EntitiesAssert.ContainsOnly(_entityManager,
 #if !ENABLE_TRANSFORM_V1
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorldTransform), typeof(LocalToWorld)),
-                Exact(type, EntityType.AdditionalEntity, typeof(LocalToWorldTransform), typeof(LocalToWorld), typeof(LocalToParentTransform), typeof(Parent)));
+                Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)),
+                Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld), typeof(Parent)));
 #else
                 Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld)),
                 Exact(type, EntityType.AdditionalEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld), typeof(LocalToParent), typeof(Parent)));
@@ -540,7 +546,7 @@ namespace Unity.Entities.Tests.Conversion
             Convert(root, type, typeof(AssignTransformUsageBaker));
             EntitiesAssert.ContainsOnly(_entityManager,
 #if !ENABLE_TRANSFORM_V1
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorldTransform), typeof(LocalToWorld)),
+                Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)),
                 Exact(type, EntityType.AdditionalEntity));
 #else
                 Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld)),
@@ -557,7 +563,7 @@ namespace Unity.Entities.Tests.Conversion
 
             Convert(root, type, typeof(AssignTransformUsageBaker));
 #if !ENABLE_TRANSFORM_V1
-            EntitiesAssert.ContainsOnly(_entityManager, ExactUnreferenced(type), Exact(type, EntityType.AdditionalEntity, typeof(LocalToWorldTransform), typeof(LocalToWorld)));
+            EntitiesAssert.ContainsOnly(_entityManager, ExactUnreferenced(type), Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)));
 #else
             EntitiesAssert.ContainsOnly(_entityManager, ExactUnreferenced(type), Exact(type, EntityType.AdditionalEntity, typeof(Rotation), typeof(Translation), typeof(LocalToWorld)));
 #endif
@@ -572,7 +578,7 @@ namespace Unity.Entities.Tests.Conversion
 
             Convert(root, type, typeof(AssignTransformUsageBaker));
 #if !ENABLE_TRANSFORM_V1
-            EntitiesAssert.ContainsOnly(_entityManager, Exact(type), Exact(type, EntityType.AdditionalEntity, typeof(LocalToWorldTransform), typeof(LocalToWorld)));
+            EntitiesAssert.ContainsOnly(_entityManager, Exact(type), Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)));
 #else
             EntitiesAssert.ContainsOnly(_entityManager, Exact(type), Exact(type, EntityType.AdditionalEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld)));
 #endif
@@ -593,8 +599,8 @@ namespace Unity.Entities.Tests.Conversion
             Convert(root, type, typeof(AssignTransformUsageBaker));
 
 #if !ENABLE_TRANSFORM_V1
-            var rootTypes = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorldTransform), typeof(LocalToWorld));
-            var additionalChildTypes = Exact(type, EntityType.AdditionalEntity, typeof(LocalToWorldTransform), typeof(LocalToWorld), typeof(Parent), typeof(LocalToParentTransform));
+            var rootTypes = Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld));
+            var additionalChildTypes = Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld), typeof(Parent));
 #else
             var rootTypes = Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld));
             var additionalChildTypes = Exact(type, EntityType.AdditionalEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
@@ -651,11 +657,11 @@ namespace Unity.Entities.Tests.Conversion
             if (rootFlags == TransformUsageFlags.None)
                 rootMatch = Exact(type);
             else if (rootFlags == TransformUsageFlags.ReadGlobalTransform)
-                rootMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld), typeof(LocalToWorldTransform));
+                rootMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform));
             else
                 rootMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld));
 
-            var childMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld), typeof(LocalToWorldTransform));
+            var childMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform));
 #else
             if (rootFlags == TransformUsageFlags.None)
                 rootMatch = Exact(type);

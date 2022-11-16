@@ -21,7 +21,7 @@ namespace Unity.Entities
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void CheckInternalConsistency(object[] managedComponentData)
         {
             Assert.IsTrue(ManagedChangesTracker.Empty);
@@ -518,11 +518,12 @@ namespace Unity.Entities
                 AssertCanRemoveComponent(ComponentType.FromTypeIndex(typeSet.GetTypeIndex(i)));
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertWillDestroyAllInLinkedEntityGroup(NativeArray<ArchetypeChunk> chunkArray,
-            BufferTypeHandle<LinkedEntityGroup> linkedGroupTypeHandle,
+        [BurstCompile]
+        static void CheckWillDestroyAllInLinkedEntityGroup(ref NativeArray<ArchetypeChunk> chunkArray,
+            ref BufferTypeHandle<LinkedEntityGroup> linkedGroupTypeHandle,
             ref Entity errorEntity,
-            ref Entity errorReferencedEntity)
+            ref Entity errorReferencedEntity,
+            ref EntityComponentStore ecs)
         {
             var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
             var chunksCount = chunkArray.Length;
@@ -540,11 +541,11 @@ namespace Unity.Entities
 
             for (int i = 0; i < chunkArray.Length; ++i)
             {
-                if (!chunks[i].Has(linkedGroupTypeHandle))
+                if (!chunks[i].Has(ref linkedGroupTypeHandle))
                     continue;
 
                 var chunk = chunks[i];
-                var buffers = chunk.GetBufferAccessor(linkedGroupTypeHandle);
+                var buffers = chunk.GetBufferAccessor(ref linkedGroupTypeHandle);
 
                 for (int b = 0; b != buffers.Length; b++)
                 {
@@ -554,9 +555,9 @@ namespace Unity.Entities
                     for (int e = 0; e != entityCount; e++)
                     {
                         var referencedEntity = entities[e];
-                        if (Exists(referencedEntity))
+                        if (ecs.Exists(referencedEntity))
                         {
-                            var referencedChunk = GetChunk(referencedEntity);
+                            var referencedChunk = ecs.GetChunk(referencedEntity);
 
                             if ((referencedChunk->Flags & tempChunkStateFlag) == 0)
                             {
@@ -574,6 +575,16 @@ namespace Unity.Entities
                 Assert.IsTrue((chunk->Flags & tempChunkStateFlag) != 0);
                 chunk->Flags &= ~tempChunkStateFlag;
             }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        public void AssertWillDestroyAllInLinkedEntityGroup(NativeArray<ArchetypeChunk> chunkArray,
+            BufferTypeHandle<LinkedEntityGroup> linkedGroupTypeHandle,
+            ref Entity errorEntity,
+            ref Entity errorReferencedEntity)
+        {
+            CheckWillDestroyAllInLinkedEntityGroup(ref chunkArray, ref linkedGroupTypeHandle, ref errorEntity,
+                ref errorReferencedEntity, ref this);
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]

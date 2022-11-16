@@ -162,6 +162,9 @@ namespace Unity.Entities
                 _BakedEntities.ApplyBakeInstructions(ref _BakingContext._Dependencies, instructions, BlobAssetStore, BakingSettings, ref _BakingContext._Hierarchy, ref _BakingContext._Components);
             }
 
+            // apply the static and active state on the additional entities
+            _BakedEntities.AdditionalEntitiesApplyActiveStaticState();
+
             IncrementalBakingLog.WriteLog(ref _BakingContext._Components);
             IncrementalBakingLog.End();
 

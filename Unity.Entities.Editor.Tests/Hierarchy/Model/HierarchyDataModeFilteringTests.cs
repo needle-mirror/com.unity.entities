@@ -32,7 +32,7 @@ namespace Unity.Entities.Editor.Tests
             m_HierarchyNodeStore.Dispose();
         }
 
-        void BuildTestHierarchy(bool isSubSceneOpened, out HierarchyNodeStore.Immutable nodes, out NativeParallelHashSet<HierarchyNodeHandle> expandedNodes, out HierarchyNodeHandle subSceneNode)
+        void BuildTestHierarchy(bool isSubSceneOpened, out HierarchyNodeStore.Immutable nodes, out NativeParallelHashSet<HierarchyNodeHandle> expandedNodes, out HierarchyNodeHandle subSceneNode, out HierarchyNodeHandle dynamicSubSceneNode)
         {
             var scene = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Scene, 1));
             subSceneNode = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.SubScene, 2), scene);
@@ -50,6 +50,8 @@ namespace Unity.Entities.Editor.Tests
             var entityB = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 6, 1), subSceneNode);
             var entityC = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 7, 1));
             var entityD = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 8, 1));
+            dynamicSubSceneNode = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.SubScene, 9), HierarchyNodeHandle.Root);
+            m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 10, 1), dynamicSubSceneNode);
             m_HierarchyNodeStore.SetSortIndex(entityA, 3);
             m_HierarchyNodeStore.SetSortIndex(entityB, 4);
             m_HierarchyNodeStore.SetSortIndex(entityC, 2);
@@ -71,6 +73,8 @@ namespace Unity.Entities.Editor.Tests
                     "--- 6", // entityB
                     "- 7", // entityC
                     "- 8", // entityD
+                    "- 9", // dynamic subScene
+                    "-- 10", // loaded entity
                 });
             }
             else
@@ -84,10 +88,12 @@ namespace Unity.Entities.Editor.Tests
                     "--- 6", // entityB
                     "- 7", // entityC
                     "- 8", // entityD
+                    "- 9", // dynamic subScene
+                    "-- 10", // loaded entity
                 });
             }
 
-            expandedNodes = new NativeParallelHashSet<HierarchyNodeHandle>(1, AllocatorManager.TempJob);
+            expandedNodes = new NativeParallelHashSet<HierarchyNodeHandle>(2, AllocatorManager.TempJob);
         }
 
         public static IEnumerable GetTestCases()
@@ -107,6 +113,8 @@ namespace Unity.Entities.Editor.Tests
                 "-- 6", // entityB
                 " 7", // entityC
                 " 8", // entityD
+                " 9", // dynamic subScene
+                "- 10", // loaded entity
             }).SetName("BuildExpandedNodes_EditMode_OpenedSubScene_Runtime");
             yield return new TestCaseData( /*isPlaymode*/false, /*isSubSceneOpened*/ false, DataMode.Authoring, new []
             {
@@ -123,6 +131,8 @@ namespace Unity.Entities.Editor.Tests
                 "-- 6", // entityB
                 " 7", // entityC
                 " 8", // entityD
+                " 9", // dynamic subScene
+                "- 10", // loaded entity
             }).SetName("BuildExpandedNodes_EditMode_ClosedSubScene_Runtime");
 
             yield return new TestCaseData( /*isPlaymode*/true, /*isSubSceneOpened*/ true, DataMode.Authoring,  new []
@@ -142,6 +152,8 @@ namespace Unity.Entities.Editor.Tests
                 "-- 6", // entityB
                 " 7", // entityC
                 " 8", // entityD
+                " 9", // dynamic subScene
+                "- 10", // loaded entity
             }).SetName("BuildExpandedNodes_PlayMode_OpenedSubScene_Mixed");
             yield return new TestCaseData( /*isPlaymode*/true, /*isSubSceneOpened*/ true, DataMode.Runtime,  new []
             {
@@ -151,6 +163,8 @@ namespace Unity.Entities.Editor.Tests
                 "-- 6", // entityB
                 " 7", // entityC
                 " 8", // entityD
+                " 9", // dynamic subScene
+                "- 10", // loaded entity
             }).SetName("BuildExpandedNodes_PlayMode_OpenedSubScene_Runtime");
             yield return new TestCaseData( /*isPlaymode*/true, /*isSubSceneOpened*/ false, DataMode.Authoring,  new []
             {
@@ -167,6 +181,8 @@ namespace Unity.Entities.Editor.Tests
                 "-- 6", // entityB
                 " 7", // entityC
                 " 8", // entityD
+                " 9", // dynamic subScene
+                "- 10", // loaded entity
             }).SetName("BuildExpandedNodes_PlayMode_ClosedSubScene_Mixed");
             yield return new TestCaseData( /*isPlaymode*/true, /*isSubSceneOpened*/ false, DataMode.Runtime, new []
             {
@@ -176,15 +192,18 @@ namespace Unity.Entities.Editor.Tests
                 "-- 6", // entityB
                 " 7", // entityC
                 " 8", // entityD
+                " 9", // dynamic subScene
+                "- 10", // loaded entity
             }).SetName("BuildExpandedNodes_PlayMode_ClosedSubScene_Runtime");
         }
 
         [Test, TestCaseSource(nameof(GetTestCases))]
         public unsafe void BuildExpandedNodes([Values] bool isPlaymode, [Values] bool isSubSceneOpened, [Values(DataMode.Authoring, DataMode.Mixed, DataMode.Runtime)] DataMode dataMode, string[] expectedNodes)
         {
-            BuildTestHierarchy(isSubSceneOpened, out var nodes, out var expandedNodes, out var subSceneNode);
+            BuildTestHierarchy(isSubSceneOpened, out var nodes, out var expandedNodes, out var subSceneNode, out var dynamicSubSceneNode);
             var subSceneStateMap = new NativeParallelHashMap<HierarchyNodeHandle, bool>(1, AllocatorManager.TempJob);
             subSceneStateMap.Add(subSceneNode, isSubSceneOpened);
+            subSceneStateMap.Add(dynamicSubSceneNode, false);
 
             var filteredNodes = new NativeList<int>(nodes.Count, AllocatorManager.TempJob);
             var filteredIndexByNode = new NativeList<int>(nodes.Count, AllocatorManager.TempJob);

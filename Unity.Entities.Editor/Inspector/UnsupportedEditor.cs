@@ -160,4 +160,22 @@ namespace Unity.Entities.Editor
 
         protected override string BodyText => k_BodyText;
     }
+
+    class InvalidSelectionEditor : UnsupportedEditor
+    {
+        static readonly string k_BodyText = L10n.Tr("The selection is not valid anymore, please re-select.");
+        static readonly string k_InvalidSelection = L10n.Tr("Invalid Selection");
+        protected override string ItemIconClass => UssClasses.Inspector.UnsupportedInspector.Classes.GameObjectIcon;
+        protected override string ItemName => k_InvalidSelection;
+        protected override string BodyText => k_BodyText;
+    }
+
+    class InvalidEntityEditor : UnsupportedEditor
+    {
+        static readonly string k_BodyText = L10n.Tr("The entity does not exist anymore, please unlock inspector if it is locked or re-select.");
+        static readonly string k_InvalidSelection = L10n.Tr("Invalid Entity");
+        protected override string ItemIconClass => UssClasses.Inspector.UnsupportedInspector.Classes.EntityIcon;
+        protected override string ItemName => k_InvalidSelection;
+        protected override string BodyText => k_BodyText;
+    }
 }

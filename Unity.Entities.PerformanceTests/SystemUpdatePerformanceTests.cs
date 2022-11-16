@@ -193,7 +193,7 @@ namespace Unity.Entities.PerformanceTests
                 var chunkRotationSpeeds = (float*)chunk.GetComponentDataPtrRO(ref RotationSpeedTypeHandle);
 
                 ChunkEntityEnumerator enumerator =
-                    new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.ChunkEntityCount);
+                    new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
 
                 while(enumerator.NextEntityIndex(out var i))
                 {
@@ -231,11 +231,11 @@ namespace Unity.Entities.PerformanceTests
 
                 public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
                 {
-                    var buffers = chunk.GetBufferAccessor(BufferHandle);
+                    var buffers = chunk.GetBufferAccessor(ref BufferHandle);
                     var datas = (EcsTestData*)chunk.GetComponentDataPtrRO(ref DataHandle);
 
                     var enumerator =
-                        new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.ChunkEntityCount);
+                        new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
 
                     while(enumerator.NextEntityIndex(out var e))
                     {

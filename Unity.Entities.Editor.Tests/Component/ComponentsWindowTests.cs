@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Linq;
 using NUnit.Framework;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;

@@ -161,10 +161,10 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, aDuplicate.Value);
 
             // Remove the blob assets with default content hash
-            Assert.IsFalse(m_Store.Remove<int>(hash0, true));
+            Assert.IsFalse(m_Store.TryRemove<int>(hash0, true));
             Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(hash0));
 
-            Assert.IsTrue(m_Store.Remove<int>(hash0, true));
+            Assert.IsTrue(m_Store.TryRemove<int>(hash0, true));
             Assert.AreEqual(0, m_Store.GetBlobAssetRefCounter<int>(hash0));
         }
 
@@ -187,10 +187,10 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, aDuplicate.Value);
 
             // Remove the blob assets with custom hash
-            Assert.IsFalse(m_Store.Remove<int>(k, true));
+            Assert.IsFalse(m_Store.TryRemove<int>(k, true));
             Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter<int>(k));
 
-            Assert.IsTrue(m_Store.Remove<int>(k, true));
+            Assert.IsTrue(m_Store.TryRemove<int>(k, true));
             Assert.AreEqual(0, m_Store.GetBlobAssetRefCounter<int>(k));
         }
 

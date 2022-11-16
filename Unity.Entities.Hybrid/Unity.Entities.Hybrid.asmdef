@@ -5,7 +5,6 @@
         "Unity.Burst",
         "Unity.Collections",
         "Unity.Entities",
-        "Unity.Jobs",
         "Unity.Mathematics",
         "Unity.Mathematics.Extensions",
         "Unity.Build",
@@ -35,6 +34,11 @@
             "name": "com.unity.package-validation-suite",
             "expression": "0.4.0-preview.6",
             "define": "UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE"
+        },
+        {
+            "name": "com.unity.platforms",
+            "expression": "",
+            "define": "USING_PLATFORMS_PACKAGE"
         }
     ],
     "noEngineReferences": false

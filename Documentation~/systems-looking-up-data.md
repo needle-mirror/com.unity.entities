@@ -6,7 +6,7 @@ uid: accessing-looking-up-data
 
 The most efficient way to access and modify your data is to use a [system](concepts-systems.md) with an [entity query](systems-entityquery.md) and a job. This utilizes the CPU resources in the most performant way, with minimal memory cache misses. Ideally you should use the most efficient, fastest path to perform the bulk of data transformations. However, there are times when you might need to access an arbitrary component of an arbitrary entity at an arbitrary point in your program.
 
-You can look up data in an entity's [`IComponentData`](xref:Unity.Entities.IComponentData) and its [dynamic buffers](components-buffer-introducing.md). The way you look up data depends on whether your code uses [`Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities), or an `IJobEntityBatch` job, or some other method on the main thread to execute in a system.
+You can look up data in an entity's [`IComponentData`](xref:Unity.Entities.IComponentData) and its [dynamic buffers](components-buffer-introducing.md). The way you look up data depends on whether your code uses [`Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities), or an `IJobChunk` job, or some other method on the main thread to execute in a system.
 
 ## Look up entity data in a system
 
@@ -23,7 +23,7 @@ If you want to access data stored in a dynamic buffer, you also need to declare 
 
 ## Look up entity data in a job
 
-To access component data at random in a job struct such as [`IJobEntityBatch`](xref:Unity.Entities.IJobEntityBatch), use one of the following types:  
+To access component data at random in a job struct such as [`IJobChunk`](xref:Unity.Entities.IJobChunk), use one of the following types:  
 
 * [`ComponentLookup`](xref:Unity.Entities.ComponentLookup`1)
 * [`BufferLookup`](xref:Unity.Entities.BufferLookup`1 )

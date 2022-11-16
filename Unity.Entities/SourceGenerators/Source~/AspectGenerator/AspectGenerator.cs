@@ -260,7 +260,8 @@ namespace Unity.Entities.SourceGen.Aspect
                 {
                     SourceSyntaxNode = variableDeclaration,
                     FieldName = variableDeclaration.Variables.First().Identifier.ToString(),
-                    ConstructorAssignment = "entity"
+                    ConstructorAssignment = "entity",
+                    IsReadOnly = true
                 };
                 aspectField = aspectDefinition.EntityField;
                 return true;

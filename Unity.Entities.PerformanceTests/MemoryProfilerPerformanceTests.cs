@@ -1,7 +1,9 @@
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.PerformanceTesting;
+using UnityEngine;
 using UnityEngine.Profiling;
 
 namespace Unity.Entities.PerformanceTests
@@ -42,7 +44,7 @@ namespace Unity.Entities.PerformanceTests
         struct TestData30 : IComponentData { public int Value; }
         struct TestData31 : IComponentData { public int Value; }
 
-        readonly Type[] DataTypes =
+        static readonly Type[] DataTypes =
         {
             typeof(TestData00),
             typeof(TestData01),
@@ -117,8 +119,31 @@ namespace Unity.Entities.PerformanceTests
             base.TearDown();
         }
 
+		public static IEnumerable<TestCaseData> DetermineMemoryProfilerUpdateParameters
+        {
+            get
+            {
+                for (int i = 100; i <= 10000; i *= 10)
+                {
+                    int entitiesMax = 10000;
+
+                    // TODO: Calculate dynamic upper range parameter values based on reported available system memeory
+                    if (i == 10000 && SystemInfo.deviceType != DeviceType.Desktop)
+                    {
+                        entitiesMax = 1000; // limiting non-desktop platforms to a lower maximum to account for generally lower system memory
+                    }
+
+                    for (int j = 100; j <= entitiesMax; j *= 10)
+                    {
+                        yield return new TestCaseData(i, j);
+                    }
+                }
+			}
+		}
+
         [Test, Performance]
-        public void MemoryProfiler_Update([Values(100, 1000, 10000)] int archetypeCount, [Values(100, 1000, 10000)] int entityCount)
+		[TestCaseSource(nameof(DetermineMemoryProfilerUpdateParameters))]
+        public void MemoryProfiler_Update(int archetypeCount, int entityCount)
         {
             using (var archetypes = CreateUniqueArchetypes(archetypeCount, Allocator.Temp))
             {

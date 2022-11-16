@@ -32,7 +32,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.CreateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(32, cmdView.TotalSizeInBytes);
+#endif
 
             var createCmdView = cmdView as EntityCommandBuffer.CreateCommandView;
             Assert.IsFalse(createCmdView.EntityArchetype.Valid);
@@ -55,7 +57,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.CreateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(32, cmdView.TotalSizeInBytes);
+#endif
 
             var createCmdView = cmdView as EntityCommandBuffer.CreateCommandView;
             Assert.AreEqual(archetype, createCmdView.EntityArchetype);
@@ -78,7 +82,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.InstantiateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(28, cmdView.TotalSizeInBytes);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
+            Assert.AreEqual(32, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(prefab, entityCmdView.Entity);
@@ -102,7 +108,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.InstantiateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(28, cmdView.TotalSizeInBytes);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
+            Assert.AreEqual(32, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(prefab, entityCmdView.Entity);
@@ -125,7 +133,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.DestroyEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(28, cmdView.TotalSizeInBytes);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
+            Assert.AreEqual(32, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -150,7 +160,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddBuffer, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(112, cmdView.TotalSizeInBytes);
+#endif
 
             var bufferCmdView = cmdView as EntityCommandBuffer.EntityBufferCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsIntElement>();
@@ -184,7 +196,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[1];
             Assert.AreEqual(ECBCommand.AddBufferWithEntityFixUp, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(128, cmdView.TotalSizeInBytes);
+#endif
 
             var bufferCmdView = cmdView as EntityCommandBuffer.EntityBufferCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsComplexEntityRefElement>();
@@ -218,7 +232,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetBuffer, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(112, cmdView.TotalSizeInBytes);
+#endif
 
             var bufferCmdView = cmdView as EntityCommandBuffer.EntityBufferCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsIntElement>();
@@ -251,7 +267,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[1];
             Assert.AreEqual(ECBCommand.SetBufferWithEntityFixUp, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(128, cmdView.TotalSizeInBytes);
+#endif
 
             var bufferCmdView = cmdView as EntityCommandBuffer.EntityBufferCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsComplexEntityRefElement>();
@@ -283,7 +301,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AppendToBuffer, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -314,7 +334,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[1];
             Assert.AreEqual(ECBCommand.AppendToBufferWithEntityFixUp, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(48, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -346,7 +368,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -376,7 +400,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[1];
             Assert.AreEqual(ECBCommand.AddComponentWithEntityFixUp, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(48, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -406,7 +432,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -434,7 +462,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -464,7 +494,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddMultipleComponents, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(104, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -505,7 +537,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentLinkedEntityGroup, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(64, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(rootEntity, entityCmdView.Entity);
@@ -552,7 +586,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetComponentLinkedEntityGroup, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(64, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(rootEntity, entityCmdView.Entity);
@@ -596,7 +632,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.ReplaceComponentLinkedEntityGroup, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(rootEntity, entityCmdView.Entity);
@@ -626,7 +664,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -656,7 +696,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[1];
             Assert.AreEqual(ECBCommand.SetComponentWithEntityFixUp, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(48, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -687,7 +729,9 @@ namespace Unity.Entities.Tests
             var enabledCommand = commands[0];
             Assert.AreEqual(ECBCommand.SetEntityEnabled, enabledCommand.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, enabledCommand.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(32, enabledCommand.TotalSizeInBytes);
+#endif
 
             var enabledEntityCmdView = enabledCommand as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, enabledEntityCmdView.Entity);
@@ -701,7 +745,9 @@ namespace Unity.Entities.Tests
             var disabledCommand = commands[1];
             Assert.AreEqual(ECBCommand.SetEntityEnabled, disabledCommand.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, disabledCommand.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(32, disabledCommand.TotalSizeInBytes);
+#endif
 
             var disabledEntityCmdView = disabledCommand as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, disabledEntityCmdView.Entity);
@@ -729,7 +775,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetName, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(96, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -742,7 +790,7 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-        [Test]
+            [Test]
         public void EntityCommandBufferDebugView_RemoveComponent_ContainsExpectedData()
         {
             var ent = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -756,7 +804,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -784,7 +834,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(40, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -815,7 +867,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveMultipleComponents, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(104, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -840,7 +894,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.AddComponentForEntityQuery<EcsTestData2>(query);
+            ecb.AddComponent<EcsTestData2>(query);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -849,7 +903,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(56, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -880,7 +936,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.AddComponentForEntityQuery(query, ComponentType.ReadWrite<EcsTestData2>());
+            ecb.AddComponent(query, ComponentType.ReadWrite<EcsTestData2>());
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -889,7 +945,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(56, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -920,7 +978,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.AddComponentForEntityQuery(query, new EcsTestData2 { value0 = 17, value1 = 23 });
+            ecb.AddComponent(query, new EcsTestData2 { value0 = 17, value1 = 23 });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -929,7 +987,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(64, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -964,7 +1024,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.AddComponentForEntityQuery(query, componentTypes);
+            ecb.AddComponent(query, componentTypes);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -973,7 +1033,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddMultipleComponentsForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(120, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -1008,7 +1070,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.AddSharedComponentForEntityQuery(query, new EcsTestSharedComp { value = 17 });
+            ecb.AddSharedComponent(query, new EcsTestSharedComp { value = 17 });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1017,7 +1079,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(80, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandView_WithUnmanagedSharedValue;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -1054,7 +1118,7 @@ namespace Unity.Entities.Tests
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             const string stringValue = "TestValue";
-            ecb.AddComponentObjectForEntityQuery(query, new EcsTestManagedComponent { value = stringValue });
+            ecb.AddComponentObject(query, new EcsTestManagedComponent { value = stringValue });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1063,7 +1127,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentObjectForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(72, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -1098,7 +1164,7 @@ namespace Unity.Entities.Tests
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             const string stringValue = "TestValue";
-            ecb.SetComponentObjectForEntityQuery(query, new EcsTestManagedComponent { value = stringValue });
+            ecb.SetComponentObject(query, new EcsTestManagedComponent { value = stringValue });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1107,7 +1173,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetComponentObjectForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(72, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -1133,7 +1201,7 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-        [Test]
+            [Test]
         public void EntityCommandBufferDebugView_SetSharedComponentForEntityQuery_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -1142,7 +1210,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.SetSharedComponentForEntityQuery(query, new EcsTestSharedComp { value = 17 });
+            ecb.SetSharedComponent(query, new EcsTestSharedComp { value = 17 });
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1151,7 +1219,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(80, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -1185,7 +1255,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.RemoveComponentForEntityQuery(query, ComponentType.ReadWrite<EcsTestData>());
+            ecb.RemoveComponent(query, ComponentType.ReadWrite<EcsTestData>());
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1194,7 +1264,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(56, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -1225,7 +1297,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.RemoveComponentForEntityQuery<EcsTestData>(query);
+            ecb.RemoveComponent<EcsTestData>(query);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1234,7 +1306,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(56, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -1268,7 +1342,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.RemoveComponentForEntityQuery(query, componentTypes);
+            ecb.RemoveComponent(query, componentTypes);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1277,7 +1351,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveMultipleComponentsForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(120, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -1312,7 +1388,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.DestroyEntitiesForEntityQuery(query);
+            ecb.DestroyEntity(query);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1321,7 +1397,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.DestroyMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(48, cmdView.TotalSizeInBytes);
+#endif
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.ToAllocator, multiEntityCmdView.Allocator);
@@ -1353,7 +1431,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddUnmanagedSharedComponentData, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(48, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -1383,7 +1463,9 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetUnmanagedSharedComponentData, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
+#if UNITY_64 // Comparison assumes 64-bit types were used (remove this check when DOTS-7037 is complete)
             Assert.AreEqual(48, cmdView.TotalSizeInBytes);
+#endif
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -1399,4 +1481,4 @@ namespace Unity.Entities.Tests
         }
     }
 #endif
-}
+        }

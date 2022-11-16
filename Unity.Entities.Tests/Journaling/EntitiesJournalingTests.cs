@@ -19,10 +19,25 @@ namespace Unity.Entities.Tests
     [TestFixture]
     unsafe partial class EntitiesJournalingTests : ECSTestsFixture
     {
+#if !UNITY_ANDROID // APK bundling breaks reading from streamingAssets (DOTS-7038)
+        static readonly string k_CSVExportFilePath;
+
+        static EntitiesJournalingTests()
+        {
+#if UNITY_EDITOR
 #if !DOTS_DISABLE_DEBUG_NAMES
-        const string k_CSVExportFilePath = "Packages/com.unity.entities/Unity.Entities.Tests/Journaling/entities-journaling-export.csv";
+            k_CSVExportFilePath = "Packages/com.unity.entities/Unity.Entities.Tests/Journaling/entities-journaling-export.csv";
 #else
-        const string k_CSVExportFilePath = "Packages/com.unity.entities/Unity.Entities.Tests/Journaling/entities-journaling-export-no-debug-names.csv";
+            k_CSVExportFilePath = "Packages/com.unity.entities/Unity.Entities.Tests/Journaling/entities-journaling-export-no-debug-names.csv";
+#endif
+#else
+#if !DOTS_DISABLE_DEBUG_NAMES
+            k_CSVExportFilePath = Path.Combine(UnityEngine.Application.streamingAssetsPath, "Journaling", "entities-journaling-export.csv");
+#else
+            k_CSVExportFilePath = Path.Combine(UnityEngine.Application.streamingAssetsPath, "Journaling", "entities-journaling-export-no-debug-names.csv");
+#endif
+#endif
+        }
 #endif
 
         public partial class TestEmptySystemManaged : SystemBase
@@ -244,7 +259,9 @@ namespace Unity.Entities.Tests
         {
             Assert.That(actual.Index, Is.EqualTo(expected.Index));
             Assert.That(actual.RecordType, Is.EqualTo(expected.RecordType));
-            Assert.That(actual.FrameIndex, Is.Zero); // Can't test, assume zero
+
+            // Can't test -- this value is non-deterministic
+            //Assert.That(actual.FrameIndex, Is.Zero);
 
             if (expected.World == null)
             {
@@ -284,13 +301,9 @@ namespace Unity.Entities.Tests
             }
             else
             {
-                Assert.That(actual.ComponentTypes.Length, Is.EqualTo(expected.ComponentTypes.Length));
-                for (var i = 0; i < expected.ComponentTypes.Length; ++i)
-                {
-                    var componentType = expected.ComponentTypes[i];
-                    var componentTypeView = actual.ComponentTypes[i];
-                    Assert.That(componentTypeView.TypeIndex, Is.EqualTo(componentType.TypeIndex));
-                }
+                var actualTypeIndexes = actual.ComponentTypes.Select(c => c.TypeIndex).ToArray();
+                var expectedTypeIndexes = expected.ComponentTypes.Select(c => c.TypeIndex).ToArray();
+                Assert.That(actualTypeIndexes, Is.EquivalentTo(expectedTypeIndexes));
             }
 
             if (expected.Data == null)
@@ -302,7 +315,6 @@ namespace Unity.Entities.Tests
             }
             else
             {
-                //Assert.That(actual.Data.Length, Is.EqualTo(data.Length));
                 Assert.That(actual.Data, Is.EqualTo(expected.Data));
             }
         }
@@ -567,6 +579,23 @@ namespace Unity.Entities.Tests
                     m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(EcsTestData)), entities);
                 }
 
+                CheckRecords(
+                    new RecordDesc(0, RecordType.CreateEntity, World, entities: ToArray(entities), componentTypes: ToArray(typeof(EcsTestData), typeof(Simulate)))
+                );
+            }
+        }
+
+        [Test]
+        public void CreateEntity_WithArchetypeAndEntityCount()
+        {
+            using (var scope = new RecordScope())
+            {
+                m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(EcsTestData)), 10);
+            }
+
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            using (var entities = query.ToEntityArray(Allocator.Temp))
+            {
                 CheckRecords(
                     new RecordDesc(0, RecordType.CreateEntity, World, entities: ToArray(entities), componentTypes: ToArray(typeof(EcsTestData), typeof(Simulate)))
                 );
@@ -1052,9 +1081,9 @@ namespace Unity.Entities.Tests
             using (var scope = new RecordScope())
             {
                 for (var i = 0; i < chunk.Count; ++i)
-                    chunk.SetComponentEnabled(typeHandle, i, false);
+                    chunk.SetComponentEnabled(ref typeHandle, i, false);
                 for (var i = 0; i < chunk.Count; ++i)
-                    chunk.SetComponentEnabled(typeHandle, i, true);
+                    chunk.SetComponentEnabled(ref typeHandle, i, true);
             }
 
             CheckRecords(
@@ -1094,9 +1123,9 @@ namespace Unity.Entities.Tests
             using (var scope = new RecordScope())
             {
                 for (var i = 0; i < chunk.Count; ++i)
-                    chunk.SetComponentEnabled(typeHandle, i, false);
+                    chunk.SetComponentEnabled(ref typeHandle, i, false);
                 for (var i = 0; i < chunk.Count; ++i)
-                    chunk.SetComponentEnabled(typeHandle, i, true);
+                    chunk.SetComponentEnabled(ref typeHandle, i, true);
             }
 
             CheckRecords(
@@ -1485,8 +1514,8 @@ namespace Unity.Entities.Tests
                     for (var i = 0; i < chunks.Length; ++i)
                     {
                         var chunk = chunks[i];
-                        var chunkEcsTestData = chunk.GetDynamicComponentDataArrayReinterpret<int>(ecsTestDataDynamic, UnsafeUtility.SizeOf<int>());
-                        var chunkEcsTestData2 = chunk.GetDynamicComponentDataArrayReinterpret<int2>(ecsTestDataDynamic2, UnsafeUtility.SizeOf<int2>());
+                        var chunkEcsTestData = chunk.GetDynamicComponentDataArrayReinterpret<int>(ref ecsTestDataDynamic, UnsafeUtility.SizeOf<int>());
+                        var chunkEcsTestData2 = chunk.GetDynamicComponentDataArrayReinterpret<int2>(ref ecsTestDataDynamic2, UnsafeUtility.SizeOf<int2>());
                     }
                 }
 
@@ -1576,7 +1605,9 @@ namespace Unity.Entities.Tests
             );
         }
 
+#if !UNITY_ANDROID // APK bundling breaks reading from streamingAssets (DOTS-7038)
         [Test]
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Properties is crashing due to generic interface usage breaking non-generic-sharing IL2CPP builds")]
         public void ExportToCSV()
         {
             using (var entities = m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3)), 3, Allocator.Temp))
@@ -1589,10 +1620,35 @@ namespace Unity.Entities.Tests
 #else
                 var actual = lines.ToArray();
                 var expected = File.ReadAllLines(k_CSVExportFilePath, Encoding.UTF8);
-                Assert.That(actual, Is.EqualTo(expected));
+                Assert.IsTrue(actual.Length > 1);
+                Assert.IsTrue(expected.Length > 1);
+                Assert.AreEqual(expected.Length, actual.Length);
+
+                var frameIndexColumnNumber = Array.IndexOf(expected[0].Split(','), "FrameIndex");
+                // start at 1 to skip the CSV header
+                for (int line = 1; line < expected.Length; ++line)
+                {
+                    var actualLine = actual[line];
+                    var expectedLine = expected[line];
+
+                    var actualColumns = actualLine.Split(',');
+                    var expectedColumns = expectedLine.Split(',');
+                    Assert.AreEqual(expectedColumns.Length, actualColumns.Length);
+
+                    int numColumns = expectedColumns.Length;
+                    for (int column = 0; column < numColumns; ++column)
+                    {
+                        // Frame indices are non-deterministic so skip comparing them
+                        if (column == frameIndexColumnNumber)
+                            continue;
+
+                        Assert.AreEqual(expectedColumns[column], actualColumns[column]);
+                    }
+                }
 #endif
             }
         }
+#endif
 
         [Test]
         public void VerifyOriginSystemID()
@@ -1618,6 +1674,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void EntityJournalErrorAdded_DoesNotExist_EntityManager()
         {
             var e = m_Manager.CreateEntity();
@@ -1636,6 +1693,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void EntityJournalErrorAdded_DoesNotHaveComponent_EntityManager()
         {
             var e = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -1673,6 +1731,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void EntityJournalErrorAdded_ValidOriginSystem_DestroyedEntity()
         {
             using (var world = new World("World A"))
@@ -1688,6 +1747,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void EntityJournalErrorAdded_ValidOriginSystem_RemovedComponent()
         {
             using (var world = new World("World A"))
@@ -1703,6 +1763,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void EntityJournalErrorAdded_DoesNotExist_EntityCommandBuffer()
         {
             // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
@@ -1723,7 +1784,7 @@ namespace Unity.Entities.Tests
             ecb2.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                ecb2.AddComponentForEntityQuery(query, typeof(EcsTestData));
+                ecb2.AddComponent(query, typeof(EcsTestData));
             }
 
             m_Manager.DestroyEntity(entities[0]);
@@ -1732,6 +1793,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void EntityJournalErrorAdded_DoesNotHaveComponent_EntityCommandBuffer()
         {
             // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
@@ -1751,7 +1813,7 @@ namespace Unity.Entities.Tests
             ecb2.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
-                ecb2.SetSharedComponentForEntityQuery(query, new EcsTestSharedComp { value = 10 });
+                ecb2.SetSharedComponent(query, new EcsTestSharedComp { value = 10 });
             }
 
             m_Manager.RemoveComponent<EcsTestSharedComp>(entities[0]);

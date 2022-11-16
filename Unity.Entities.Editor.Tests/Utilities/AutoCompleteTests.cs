@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -161,6 +161,44 @@ namespace Unity.Entities.Editor.Tests
                 var final = input.Substring(0, componentType.Index) + completedToken + input.Substring(componentType.Index + componentType.Length);
                 return (final, componentType.Index + completedToken.Length);
             }
+        }
+    }
+
+    class AutoCompleteComponentTests
+    {
+        public class TestCase
+        {
+            public string token;
+            public bool shouldAutoComplete;
+
+            public override string ToString()
+            {
+                return $"{token} -> {shouldAutoComplete}";
+            }
+        }
+
+        static TestCase[] testCases = new []
+        {
+            new TestCase() { token = "c", shouldAutoComplete = false },
+            new TestCase() { token = "C", shouldAutoComplete = false },
+
+            new TestCase() { token = "c=", shouldAutoComplete = false },
+            new TestCase() { token = "c=a", shouldAutoComplete = true },
+            new TestCase() { token = "c=acc", shouldAutoComplete = true },
+            new TestCase() { token = "C=", shouldAutoComplete = false },
+            new TestCase() { token = "C=acc", shouldAutoComplete = true },
+
+            new TestCase() { token = "c:", shouldAutoComplete = false },
+            new TestCase() { token = "c:a", shouldAutoComplete = false },
+            new TestCase() { token = "C:", shouldAutoComplete = false },
+            new TestCase() { token = "C:a", shouldAutoComplete = false },
+        };
+
+        [Test]
+        public void Run([ValueSource(nameof(testCases))] TestCase testCase)
+        {
+            var autoComplete = ComponentTypeAutoComplete.Instance;
+            Assert.AreEqual(autoComplete.ShouldStartAutoCompletion(testCase.token, testCase.token.Length), testCase.shouldAutoComplete);
         }
     }
 }

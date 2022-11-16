@@ -58,31 +58,31 @@ namespace Unity.Transforms
 
                 bool changed =
                     chunk.DidOrderChange(LastSystemVersion) ||
-                    chunk.DidChange(TranslationTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(ScaleTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(CompositeScaleTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(RotationTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(CompositeRotationTypeHandle, LastSystemVersion);
+                    chunk.DidChange(ref TranslationTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref NonUniformScaleTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref ScaleTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref CompositeScaleTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref RotationTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref CompositeRotationTypeHandle, LastSystemVersion);
                 if (!changed)
                 {
                     return;
                 }
 
-                var chunkTranslations = chunk.GetNativeArray(TranslationTypeHandle);
-                var chunkNonUniformScales = chunk.GetNativeArray(NonUniformScaleTypeHandle);
-                var chunkScales = chunk.GetNativeArray(ScaleTypeHandle);
-                var chunkCompositeScales = chunk.GetNativeArray(CompositeScaleTypeHandle);
-                var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
-                var chunkCompositeRotations = chunk.GetNativeArray(CompositeRotationTypeHandle);
-                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldTypeHandle);
-                var hasTranslation = chunk.Has(TranslationTypeHandle);
-                var hasCompositeRotation = chunk.Has(CompositeRotationTypeHandle);
-                var hasRotation = chunk.Has(RotationTypeHandle);
+                var chunkTranslations = chunk.GetNativeArray(ref TranslationTypeHandle);
+                var chunkNonUniformScales = chunk.GetNativeArray(ref NonUniformScaleTypeHandle);
+                var chunkScales = chunk.GetNativeArray(ref ScaleTypeHandle);
+                var chunkCompositeScales = chunk.GetNativeArray(ref CompositeScaleTypeHandle);
+                var chunkRotations = chunk.GetNativeArray(ref RotationTypeHandle);
+                var chunkCompositeRotations = chunk.GetNativeArray(ref CompositeRotationTypeHandle);
+                var chunkLocalToWorld = chunk.GetNativeArray(ref LocalToWorldTypeHandle);
+                var hasTranslation = chunkTranslations.IsCreated;
+                var hasCompositeRotation = chunkCompositeRotations.IsCreated;
+                var hasRotation = chunkRotations.IsCreated;
                 var hasAnyRotation = hasCompositeRotation || hasRotation;
-                var hasNonUniformScale = chunk.Has(NonUniformScaleTypeHandle);
-                var hasScale = chunk.Has(ScaleTypeHandle);
-                var hasCompositeScale = chunk.Has(CompositeScaleTypeHandle);
+                var hasNonUniformScale = chunkNonUniformScales.IsCreated;
+                var hasScale = chunkScales.IsCreated;
+                var hasCompositeScale = chunkCompositeScales.IsCreated;
                 var hasAnyScale = hasScale || hasNonUniformScale || hasCompositeScale;
                 var count = chunk.Count;
 

@@ -53,7 +53,7 @@ namespace Unity.Entities.Editor
 
 
 #if DISABLE_ENTITIES_JOURNALING
-    class EntitiesJournalingSettingsInspector : Unity.Platforms.UI.Inspector<EntitiesJournalingSettings>
+    class EntitiesJournalingSettingsInspector : Unity.Entities.UI.Inspector<EntitiesJournalingSettings>
     {
         public override UnityEngine.UIElements.VisualElement Build()
         {

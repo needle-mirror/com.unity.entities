@@ -21,8 +21,8 @@ namespace Unity.Entities.Tests
         {
             public int SingletonProperty
             {
-                get => GetSingleton<EcsTestData>().value;
-                set => SetSingleton(new EcsTestData {value = value});
+                get => SystemAPI.GetSingleton<EcsTestData>().value;
+                set => SystemAPI.SetSingleton(new EcsTestData {value = value});
             }
 
             public struct SingletonDataInSystem : IComponentData
@@ -40,32 +40,32 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(expected: 0, defaultSingletonValue);
 
                 SingletonProperty = 10;
-                Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
+                Assert.AreEqual(10, SystemAPI.GetSingleton<EcsTestData>().value);
             }
 
             public void GetSetSingleton()
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
 
-                SetSingleton(new EcsTestData(10));
-                Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
+                SystemAPI.SetSingleton(new EcsTestData(10));
+                Assert.AreEqual(10, SystemAPI.GetSingleton<EcsTestData>().value);
             }
 
             public void GetSingletonRW_ByRef_Modifies_Singleton()
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
 
-                ref var singleton = ref GetSingletonRW<EcsTestData>().ValueRW;
+                ref var singleton = ref SystemAPI.GetSingletonRW<EcsTestData>().ValueRW;
                 singleton.value = 10;
                 Assert.AreEqual(10, SystemAPI.GetSingleton<EcsTestData>().value);
 
-                GetSingletonRW<EcsTestData>().ValueRW.value = 33;
+                SystemAPI.GetSingletonRW<EcsTestData>().ValueRW.value = 33;
                 Assert.AreEqual(33, SystemAPI.GetSingleton<EcsTestData>().value);
 
-                ref var s1 = ref GetSingletonRW<EcsTestData>().ValueRW;
+                ref var s1 = ref SystemAPI.GetSingletonRW<EcsTestData>().ValueRW;
                 s1.value = 42;
 
-                ref var s2 = ref GetSingletonRW<EcsTestData>().ValueRW;
+                ref var s2 = ref SystemAPI.GetSingletonRW<EcsTestData>().ValueRW;
                 s2.value = 31;
                 Assert.AreEqual(s2.value, s1.value);
             }
@@ -79,7 +79,7 @@ namespace Unity.Entities.Tests
                     value = expected
                 });
 
-                var singleton = GetSingletonRW<EcsTestData>().ValueRW;
+                var singleton = SystemAPI.GetSingletonRW<EcsTestData>().ValueRW;
                 singleton.value = 10;
                 Assert.AreEqual(expected, SystemAPI.GetSingleton<EcsTestData>().value);
             }
@@ -88,14 +88,14 @@ namespace Unity.Entities.Tests
             {
                 EntityManager.CreateEntity(typeof(SystemBase_TestSystem.SingletonDataInSystem));
 
-                SetSingleton(new SystemBase_TestSystem.SingletonDataInSystem() { value = 10.0f });
-                Assert.AreEqual(10, GetSingleton<SystemBase_TestSystem.SingletonDataInSystem>().value);
+                SystemAPI.SetSingleton(new SystemBase_TestSystem.SingletonDataInSystem() { value = 10.0f });
+                Assert.AreEqual(10, SystemAPI.GetSingleton<SystemBase_TestSystem.SingletonDataInSystem>().value);
             }
 
             T GenericMethodWithSingletonAccess<T>(T value) where T : unmanaged, IComponentData
             {
-                SetSingleton(value);
-                return GetSingleton<T>();
+                SystemAPI.SetSingleton(value);
+                return SystemAPI.GetSingleton<T>();
             }
 
             public void GetSetSingletonWithGenericParameter()
@@ -103,14 +103,14 @@ namespace Unity.Entities.Tests
                 EntityManager.CreateEntity(typeof(EcsTestData));
 
                 GenericMethodWithSingletonAccess(new EcsTestData(10));
-                Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
+                Assert.AreEqual(10, SystemAPI.GetSingleton<EcsTestData>().value);
             }
 
             struct TestStruct { }
 
             int SingletonAccessInGenericMethodWithInParameter<T>(in T inArgument) where T: struct
             {
-                return GetSingleton<EcsTestData>().value;
+                return SystemAPI.GetSingleton<EcsTestData>().value;
             }
 
             public void GetSingletonInGenericMethodWithInParameter()
@@ -182,9 +182,9 @@ namespace Unity.Entities.Tests
                 var entity = EntityManager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestData), typeof(EcsTestData2));
 
                 EntityManager.SetComponentData(entity, new EcsTestData(10));
-                Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
+                Assert.AreEqual(10, SystemAPI.GetSingleton<EcsTestData>().value);
 
-                SetSingleton(new EcsTestData2(100));
+                SystemAPI.SetSingleton(new EcsTestData2(100));
                 Assert.AreEqual(100, EntityManager.GetComponentData<EcsTestData2>(entity).value0);
             }
 
@@ -193,17 +193,18 @@ namespace Unity.Entities.Tests
                 EntityManager.CreateEntity(typeof(EcsTestData2));
                 EntityManager.CreateEntity(typeof(EcsTestData));
 
-                Entities.WithoutBurst().ForEach((in EcsTestData2 data2) => { SetSingleton(new EcsTestData(10)); }).Run();
+                var query = SystemAPI.QueryBuilder().WithAllRW<EcsTestData>().Build();
+                Entities.WithoutBurst().ForEach((in EcsTestData2 data2) => { query.SetSingleton(new EcsTestData(10)); }).Run();
                 int value = 0;
-                Entities.WithoutBurst().ForEach((in EcsTestData2 data2) => { value = GetSingleton<EcsTestData>().value; }).Run();
+                Entities.WithoutBurst().ForEach((in EcsTestData2 data2) => { value = query.GetSingleton<EcsTestData>().value; }).Run();
 
                 Assert.AreEqual(10, value);
             }
 
             public void GetSetSingletonZeroThrows()
             {
-                Assert.Throws<InvalidOperationException>(() => SetSingleton(new EcsTestData()));
-                Assert.Throws<InvalidOperationException>(() => GetSingleton<EcsTestData>());
+                Assert.Throws<InvalidOperationException>(() => SystemAPI.SetSingleton(new EcsTestData()));
+                Assert.Throws<InvalidOperationException>(() => SystemAPI.GetSingleton<EcsTestData>());
             }
 
             // Throws due to a singleton component only being allowed on a single Entity
@@ -212,8 +213,8 @@ namespace Unity.Entities.Tests
                 EntityManager.CreateEntity(typeof(EcsTestData));
                 EntityManager.CreateEntity(typeof(EcsTestData));
 
-                Assert.Throws<InvalidOperationException>(() => SetSingleton(new EcsTestData()));
-                Assert.Throws<InvalidOperationException>(() => GetSingleton<EcsTestData>());
+                Assert.Throws<InvalidOperationException>(() => SystemAPI.SetSingleton(new EcsTestData()));
+                Assert.Throws<InvalidOperationException>(() => SystemAPI.GetSingleton<EcsTestData>());
             }
 
             public void RequireSingletonWorks()
@@ -229,27 +230,27 @@ namespace Unity.Entities.Tests
 
             public void HasSingletonWorks()
             {
-                Assert.IsFalse(HasSingleton<EcsTestData>());
+                Assert.IsFalse(SystemAPI.HasSingleton<EcsTestData>());
                 EntityManager.CreateEntity(typeof(EcsTestData));
-                Assert.IsTrue(HasSingleton<EcsTestData>());
+                Assert.IsTrue(SystemAPI.HasSingleton<EcsTestData>());
             }
 
             public void HasSingleton_ReturnsTrueWithEntityWithOnlyComponent()
             {
-                Assert.IsFalse(HasSingleton<EcsTestData>());
+                Assert.IsFalse(SystemAPI.HasSingleton<EcsTestData>());
 
                 EntityManager.CreateEntity(typeof(EcsTestData));
-                Assert.IsTrue(HasSingleton<EcsTestData>());
+                Assert.IsTrue(SystemAPI.HasSingleton<EcsTestData>());
 
                 EntityManager.CreateEntity(typeof(EcsTestData));
-                Assert.IsFalse(HasSingleton<EcsTestData>());
+                Assert.IsFalse(SystemAPI.HasSingleton<EcsTestData>());
             }
 
             public void GetSingletonEntityWorks()
             {
                 var entity = EntityManager.CreateEntity(typeof(EcsTestData));
 
-                var singletonEntity = GetSingletonEntity<EcsTestData>();
+                var singletonEntity = SystemAPI.GetSingletonEntity<EcsTestData>();
                 Assert.AreEqual(entity, singletonEntity);
             }
 
@@ -266,14 +267,14 @@ namespace Unity.Entities.Tests
             public void SetSingletonWithExpressionWithPreprocessorTriviaWorks()
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
-                SetSingleton(new EcsTestData()
+                SystemAPI.SetSingleton(new EcsTestData()
                 {
 #if SOME_DEFINE
                     value = 3
 #endif
                 });
 
-                Assert.AreEqual(3, GetSingleton<EcsTestData>().value);
+                Assert.AreEqual(3, SystemAPI.GetSingleton<EcsTestData>().value);
             }
 
             public struct GenericDataType<T> : IComponentData where T : unmanaged
@@ -284,28 +285,29 @@ namespace Unity.Entities.Tests
             {
                 EntityManager.CreateEntity(typeof(GenericDataType<int>));
 
-                SetSingleton(new GenericDataType<int>() { value = 10 });
-                Assert.AreEqual(10, GetSingleton<GenericDataType<int>>().value);
+                SystemAPI.SetSingleton(new GenericDataType<int>() { value = 10 });
+                Assert.AreEqual(10, SystemAPI.GetSingleton<GenericDataType<int>>().value);
             }
 
-    #if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
             public void GetSetSingleton_ManagedComponents()
             {
-                var entity = EntityManager.CreateEntity(typeof(EcsTestManagedComponent));
+                var entity = EntityManager.CreateEntity();
+                EntityManager.AddComponentObject(entity, new EcsTestManagedComponent());
 
                 const string kTestVal = "SomeString";
-                this.SetSingleton(new EcsTestManagedComponent() { value = kTestVal });
-                Assert.AreEqual(kTestVal, this.GetSingleton<EcsTestManagedComponent>().value);
+                SystemAPI.ManagedAPI.GetSingleton<EcsTestManagedComponent>().value = kTestVal;
+                Assert.AreEqual(kTestVal, SystemAPI.ManagedAPI.GetSingleton<EcsTestManagedComponent>().value);
             }
 
             public void HasSingletonWorks_ManagedComponents()
             {
-                Assert.IsFalse(this.HasSingleton<EcsTestManagedComponent>());
+                Assert.IsFalse(SystemAPI.ManagedAPI.HasSingleton<EcsTestManagedComponent>());
                 EntityManager.CreateEntity(typeof(EcsTestManagedComponent));
-                Assert.IsTrue(this.HasSingleton<EcsTestManagedComponent>());
+                Assert.IsTrue(SystemAPI.ManagedAPI.HasSingleton<EcsTestManagedComponent>());
             }
 
-    #endif
+#endif
         }
 
         [Test]
@@ -332,19 +334,22 @@ namespace Unity.Entities.Tests
         public void SystemBase_SingletonMethodsWithValidFilter_GetsAndSets() => TestSystem.SingletonMethodsWithValidFilter_GetsAndSets();
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void SystemBase_SingletonMethodsWithInvalidFilter_Throws() => TestSystem.SingletonMethodsWithInvalidFilter_Throws();
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
+        public void SystemBase_GetSetSingletonZeroThrows() => TestSystem.GetSetSingletonZeroThrows();
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
+        public void SystemBase_GetSetSingletonMultipleThrows() => TestSystem.GetSetSingletonMultipleThrows();
 
         [Test]
         public void SystemBase_GetSetSingletonMultipleComponents() => TestSystem.GetSetSingletonMultipleComponents();
 
         [Test]
         public void SystemBase_GetSetSingletonInEntitiesForEach() => TestSystem.GetSetSingletonInEntitiesForEach();
-
-        [Test]
-        public void SystemBase_GetSetSingletonZeroThrows() => TestSystem.GetSetSingletonZeroThrows();
-
-        [Test]
-        public void SystemBase_GetSetSingletonMultipleThrows() => TestSystem.GetSetSingletonMultipleThrows();
 
         [Test]
         public void SystemBase_RequireSingletonWorks() => TestSystem.RequireSingletonWorks();

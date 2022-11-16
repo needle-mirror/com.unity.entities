@@ -126,7 +126,7 @@ namespace Unity.Entities.Editor
             else if(currentNode.Kind is NodeKind.GameObject)
             {
                 var gameObject = currentNode.ToGameObject();
-                BuildGameObjectContextMenu(evt.menu, gameObject);
+                BuildGameObjectContextMenu(evt.menu, gameObject, target);
             }
             else if (currentNode.Kind is NodeKind.SubScene)
             {
@@ -155,7 +155,7 @@ namespace Unity.Entities.Editor
             }
             else
             {
-                BuildGameObjectContextMenu(evt.menu, null);
+                BuildGameObjectContextMenu(evt.menu, null, null);
             }
 
             RemoveDuplicateAndTrailingSeparators(evt.menu);
@@ -180,6 +180,13 @@ namespace Unity.Entities.Editor
         {
             var selectedGameObject = selectedHandle.Kind is NodeKind.GameObject ? selectedHandle.ToGameObject() : null;
 
+            if (selectedHandle.Kind is NodeKind.SubScene)
+            {
+                var subScene = m_Model.GetSubSceneFromNodeHandle(selectedHandle);
+                if (subScene)
+                    selectedGameObject = subScene.gameObject;
+            }
+
             switch (commandName)
             {
                 case EventCommandNamesBridge.Delete:
@@ -191,6 +198,9 @@ namespace Unity.Entities.Editor
                     ClipboardUtilityBridge.DuplicateGameObject(null);
                     break;
                 case EventCommandNamesBridge.Rename:
+                    var item = m_HierarchyElement.HierarchyMultiColumnListView.GetItem(selectedHandle);
+                    item.BeginRename();
+                    break;
                 case EventCommandNamesBridge.Cut:
                     ClipboardUtilityBridge.CutGameObject();
                     break;

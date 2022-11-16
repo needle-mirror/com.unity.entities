@@ -136,7 +136,7 @@ namespace Unity.Entities.Editor.PerformanceTests
             for (var i = 0; i < chunks.Length; i++)
             {
                 var c = chunks[i];
-                totalUtilization += (float)c.ChunkEntityCount / c.Capacity;
+                totalUtilization += (float)c.Count / c.Capacity;
             }
 
             var averageUtilization = totalUtilization / chunks.Length;

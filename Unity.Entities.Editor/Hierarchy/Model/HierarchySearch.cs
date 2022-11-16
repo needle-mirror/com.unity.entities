@@ -93,6 +93,12 @@ namespace Unity.Entities.Editor
             if (index == -1)
                 return;
 
+            if (m_World == null)
+            {
+                mask.Clear();
+                return;
+            }
+
             new FilterByIndex
             {
                 Index = index,
@@ -115,6 +121,12 @@ namespace Unity.Entities.Editor
         {
             if (null == queryDesc)
                 return;
+
+            if (m_World == null)
+            {
+                mask.Clear();
+                return;
+            }
 
             if (!m_EntityQueryCache.Equals(queryDesc, m_World))
             {
@@ -143,12 +155,15 @@ namespace Unity.Entities.Editor
                 // Reset all bits to true. The job will remove any unmatched entries.
                 m_EntityNameStorageMask.SetBits(0, true, m_EntityNameStorageMask.Length);
 
-                new BuildEntityNameStoragePatternCacheLowerInvariant<FixedString64Bytes>
+                if (m_World != null)
                 {
-                    EntityNameStorageMask = m_EntityNameStorageMask,
-                    Tokens = tokens,
-                    EntityNameStorageLowerInvariant = m_HierarchyNameStore.EntityNameStorageLowerInvariant
-                }.Run();
+                    new BuildEntityNameStoragePatternCacheLowerInvariant<FixedString64Bytes>
+                    {
+                        EntityNameStorageMask = m_EntityNameStorageMask,
+                        Tokens = tokens,
+                        EntityNameStorageLowerInvariant = m_HierarchyNameStore.EntityNameStorageLowerInvariant
+                    }.Run();
+                }
 #endif
 
                 new FilterByNameLowerInvariant<FixedString64Bytes>
@@ -158,7 +173,7 @@ namespace Unity.Entities.Editor
                     ExcludeUnnamedNodes = ExcludeUnnamedNodes,
 #if !DOTS_DISABLE_DEBUG_NAMES
                     EntityNameStorageMask = m_EntityNameStorageMask,
-                    NameByEntity = m_HierarchyNameStore.NameByEntity,
+                    NameByEntity = m_World != null ? m_HierarchyNameStore.NameByEntity : null,
 #endif
                     NameByHandleLowerInvariant = m_HierarchyNameStore.NameByHandleLowerInvariant,
                     NodeMatchesMask = mask,
@@ -322,6 +337,7 @@ namespace Unity.Entities.Editor
             [ReadOnly] public HierarchyNodeStore.Immutable Nodes;
             [ReadOnly] public NativeList<TPattern> Tokens;
             [ReadOnly] public bool ExcludeUnnamedNodes;
+            [ReadOnly] public bool CurrentWorldExists;
 
 #if !DOTS_DISABLE_DEBUG_NAMES
             [ReadOnly] public NativeBitArray EntityNameStorageMask;

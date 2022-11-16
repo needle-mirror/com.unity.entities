@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
@@ -7,57 +7,52 @@ using System.Collections.Generic;
 using UnityEditor.Experimental;
 using System.IO;
 using Unity.Entities.Build;
-using Unity.Entities.Conversion;
-using UnityEditor.Build.Reporting;
 using UnityEngine;
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build.Classic.Private;
+#endif
+using UnityEditor.SceneManagement;
 
 namespace Unity.Scenes.Editor
 {
+    internal sealed class EntitySectionBundlesInBuild
+    {
+        internal List<Hash128> SceneGUIDs = new List<Hash128>();
+        internal List<ArtifactKey> ArtifactKeys = new List<ArtifactKey>();
+
+        public void Add(Hash128 sceneGUID, ArtifactKey artifactKey)
+        {
+            SceneGUIDs.Add(sceneGUID);
+            ArtifactKeys.Add(artifactKey);
+        }
+
+        public void Add(IEnumerable<Hash128> sceneGUIDs, IEnumerable<ArtifactKey> artifactKeys)
+        {
+            SceneGUIDs.AddRange(sceneGUIDs);
+            ArtifactKeys.AddRange(artifactKeys);
+        }
+    }
+
+    internal struct RootSceneInfo
+    {
+        public string Path;
+        public Hash128 Guid;
+    }
+
+    internal interface IEntitySceneBuildCustomizer
+    {
+        public void RegisterAdditionalFilesToDeploy(Hash128[] rootSceneGUIDs, Hash128[] entitySceneGUIDs, EntitySectionBundlesInBuild additionalImports, Action<string, string> addAdditionalFile);
+    }
+
     internal class EntitySceneBuildPlayerProcessor : BuildPlayerProcessor
     {
-        private static readonly List<string> m_FilesCopiedToStreamingAssetFolder = new List<string>();
-        private static bool m_CreatedStreamingAssetFolder;
-        private static bool m_CreatedEntitySceneFolder;
-
-        class PostProcessBuild : IPostprocessBuildWithReport
-        {
-            public int callbackOrder => int.MaxValue;
-
-            public void OnPostprocessBuild(BuildReport report)
-            {
-                if (m_CreatedStreamingAssetFolder)
-                {
-                    Directory.Delete(Application.streamingAssetsPath, true);
-                    File.Delete(Application.streamingAssetsPath + ".meta");
-                }
-                else
-                {
-                    if (m_CreatedEntitySceneFolder)
-                    {
-                        Directory.Delete(Application.streamingAssetsPath + "/" + EntityScenesPaths.k_EntitySceneSubDir, true);
-                        File.Delete(Application.streamingAssetsPath + "/" + EntityScenesPaths.k_EntitySceneSubDir + ".meta");
-                    }
-
-                    //Delete remaining files
-                    foreach (var file in m_FilesCopiedToStreamingAssetFolder)
-                    {
-                        if(File.Exists(file))
-                            File.Delete(file);
-                        //Delete meta file
-                        if(File.Exists(file + ".meta"))
-                            File.Delete(file + ".meta");
-                    }
-                }
-            }
-        }
+        private string m_BuildWorkingDir = $"../Library/BuildWorkingDir/{PlayerSettings.productName}";
+        private BuildPlayerContext m_BuildPlayerContext;
 
         void RegisterAdditionalFileToDeploy(string from, string to)
         {
-            var parent = Path.GetDirectoryName(to);
-            Directory.CreateDirectory(parent);
-            File.Copy(from, to, true);
-            m_FilesCopiedToStreamingAssetFolder.Add(to);
+            var realPath = Path.GetFullPath(from);
+            m_BuildPlayerContext.AddAdditionalPathToStreamingAssets(realPath, to);
         }
 
         [InitializeOnLoadMethod]
@@ -68,9 +63,6 @@ namespace Unity.Scenes.Editor
 
         static BuildPlayerOptions HandleGetBuild(BuildPlayerOptions opts)
         {
-            if (!LiveConversionSettings.IsBuiltinBuildsEnabled)
-                throw new BuildFailedException("Can't build from the Unity build settings window. Make sure to enable Preferences -> Entities -> Builtin Builds Enabled.");
-
             opts = BuildPlayerWindow.DefaultBuildMethods.GetBuildPlayerOptions(opts);
             var instance = DotsGlobalSettings.Instance;
 
@@ -91,29 +83,56 @@ namespace Unity.Scenes.Editor
 
         public override void PrepareForBuild(BuildPlayerContext buildPlayerContext)
         {
-            m_FilesCopiedToStreamingAssetFolder.Clear();
-            m_CreatedStreamingAssetFolder = false;
-            m_CreatedEntitySceneFolder = false;
-
+#if USING_PLATFORMS_PACKAGE
             if (BuildPlayerStep.BuildFromBuildConfiguration)
                 return;
+#endif
 
-            if (!LiveConversionSettings.IsBakingEnabled || !LiveConversionSettings.IsBuiltinBuildsEnabled)
-                return;
+            if(Directory.Exists(m_BuildWorkingDir))
+                Directory.Delete(m_BuildWorkingDir, true);
+
+            m_BuildPlayerContext = buildPlayerContext;
 
             // Retrieve list of subscenes to import from the root scenes added to the player settings
-            var rootSceneInfos = new List<ResourceCatalogBuildCode.RootSceneInfo>();
-            for (int i = 0; i < buildPlayerContext.BuildPlayerOptions.scenes.Length; i++)
+            var rootSceneInfos = new List<RootSceneInfo>();
+            var rootSceneGUIDs = new List<Hash128>();
+            var subSceneGuids = new HashSet<Hash128>();
+
+            // If Scenes is empty, the default behaviour is to build the current scene, so we cannot use the GetSubScenes call as it is an importer
+            if (buildPlayerContext.BuildPlayerOptions.scenes == null ||
+                buildPlayerContext.BuildPlayerOptions.scenes.Length == 0)
             {
-                var rootScenePath = buildPlayerContext.BuildPlayerOptions.scenes[i];
-                rootSceneInfos.Add(new ResourceCatalogBuildCode.RootSceneInfo()
+                var subScenes = SubScene.AllSubScenes;
+                subSceneGuids = new HashSet<Hash128>(subScenes.Where(x => x.SceneGUID.IsValid).Select(x => x.SceneGUID).Distinct());
+
+                var rootScenePath = EditorSceneManager.GetActiveScene().path;
+
+                if(string.IsNullOrEmpty(rootScenePath))
+                    throw new SystemException("Entities currently cannot build a Scene that has not yet been saved for the first time.");
+
+                var rootSceneGUID = AssetDatabase.GUIDFromAssetPath(rootScenePath);
+                rootSceneInfos.Add(new RootSceneInfo()
                 {
-                    AutoLoad = i == 0, //only first one will be loaded at start
                     Path = rootScenePath,
-                    Guid = AssetDatabase.GUIDFromAssetPath(rootScenePath)
+                    Guid = rootSceneGUID
                 });
             }
-            var subSceneGuids = new HashSet<Hash128>(rootSceneInfos.SelectMany(rootScene => EditorEntityScenes.GetSubScenes(rootScene.Guid)));
+            else
+            {
+                for (int i = 0; i < buildPlayerContext.BuildPlayerOptions.scenes.Length; i++)
+                {
+                    var rootScenePath = buildPlayerContext.BuildPlayerOptions.scenes[i];
+                    var rootSceneGUID = AssetDatabase.GUIDFromAssetPath(rootScenePath);
+
+                    rootSceneGUIDs.Add(rootSceneGUID);
+                    rootSceneInfos.Add(new RootSceneInfo()
+                    {
+                        Path = rootScenePath,
+                        Guid = rootSceneGUID
+                    });
+                }
+                subSceneGuids = new HashSet<Hash128>(rootSceneInfos.SelectMany(rootScene => EditorEntityScenes.GetSubScenes(rootScene.Guid)));
+            }
 
             // Import subscenes and deploy entity scene files and bundles
             var artifactKeys = new Dictionary<Hash128, ArtifactKey>();
@@ -128,24 +147,28 @@ namespace Unity.Scenes.Editor
             binaryFiles.Add(artifactKeys.Keys, artifactKeys.Values);
 
             var target = EditorUserBuildSettings.activeBuildTarget;
-            if (!Directory.Exists(Application.streamingAssetsPath))
-                m_CreatedStreamingAssetFolder = true;
-            if (!Directory.Exists(Application.streamingAssetsPath + "/" +EntityScenesPaths.k_EntitySceneSubDir))
-                m_CreatedEntitySceneFolder = true;
 
-            EntitySceneBuildUtility.PrepareAdditionalFiles(binaryFiles.SceneGUIDs.ToArray(), binaryFiles.ArtifactKeys.ToArray(), target, RegisterAdditionalFileToDeploy, Application.streamingAssetsPath);
+            var entitySceneGUIDs = binaryFiles.SceneGUIDs.ToArray();
+
+            // Add any other from customizers
+            var types = TypeCache.GetTypesDerivedFrom<IEntitySceneBuildCustomizer>();
+            foreach (var type in types)
+            {
+                var buildCustomizer = (IEntitySceneBuildCustomizer)Activator.CreateInstance(type);
+                buildCustomizer.RegisterAdditionalFilesToDeploy(rootSceneGUIDs.ToArray(), entitySceneGUIDs, binaryFiles, RegisterAdditionalFileToDeploy);
+            }
+
+            EntitySceneBuildUtility.PrepareAdditionalFiles(playerGuid, binaryFiles.SceneGUIDs.ToArray(), binaryFiles.ArtifactKeys.ToArray(), target, RegisterAdditionalFileToDeploy);
 
             // Create and deploy resource catalog containing data of gameobject scenes that needs to be loaded in SceneSystem.Create
             AddResourceCatalog(rootSceneInfos.ToArray(), RegisterAdditionalFileToDeploy);
         }
 
-        void AddResourceCatalog(ResourceCatalogBuildCode.RootSceneInfo[] sceneInfos, Action<string, string> registerAdditionalFileToDeploy)
+        void AddResourceCatalog(RootSceneInfo[] sceneInfos, Action<string, string> registerAdditionalFileToDeploy)
         {
-            var workingDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, $"../Library/BuildWorkingDir/{PlayerSettings.productName}"));
-            Directory.CreateDirectory(workingDirectory);
-            var tempFile = System.IO.Path.Combine(workingDirectory, EntityScenesPaths.k_SceneInfoFileName);
+            var tempFile = Path.GetFullPath(Path.Combine(Application.dataPath, m_BuildWorkingDir, EntityScenesPaths.RelativePathForSceneInfoFile));
             ResourceCatalogBuildCode.WriteCatalogFile(sceneInfos, tempFile);
-            registerAdditionalFileToDeploy(tempFile, System.IO.Path.Combine(Application.streamingAssetsPath, EntityScenesPaths.k_SceneInfoFileName));
+            registerAdditionalFileToDeploy(tempFile, EntityScenesPaths.RelativePathForSceneInfoFile);
         }
     }
 }

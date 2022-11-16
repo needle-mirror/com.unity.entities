@@ -75,7 +75,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 Assert.AreEqual(42, manager.GetComponentData<TestMetadata>(sectionEntities[2].SectionEntity).SectionIndex);
                 Assert.AreEqual(100, manager.GetComponentData<TestMetadata>(sectionEntities[2].SectionEntity).Value);
 
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(SceneGUID, manager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID, true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous);
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(SceneGUID, manager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID, true, ImportMode.Synchronous);
                 Assert.IsTrue(hash.IsValid);
             }
         }

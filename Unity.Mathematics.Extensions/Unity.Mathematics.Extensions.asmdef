@@ -1,12 +1,18 @@
 {
     "name": "Unity.Mathematics.Extensions",
+    "rootNamespace": "",
     "references": [
         "Unity.Collections",
         "Unity.Burst",
-        "Unity.Jobs",
         "Unity.Mathematics"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [],
-    "excludePlatforms": []
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

@@ -109,6 +109,18 @@ namespace Unity.Entities.Tests.Types
             Assert.That(hashUnity, Is.EqualTo(hashEntitiesToUnity));
         }
 
+        [Test]
+        public void Hash128_CanConvert_UnityEngine_Hash128_Strings()
+        {
+            var hashUnity = new UnityEngine.Hash128(0xa1a2a3a4, 0xb5b6b7b8,0xc1c2c3c4 , 0xd5d6d7d8);
+            var hashEntities = new Hash128(hashUnity.ToString(), false);
+            
+            var hashUnityToEntities = (Hash128)hashUnity;
+            var hashEntitiesToUnity = (UnityEngine.Hash128)hashEntities;
+            
+            Assert.That(hashEntities, Is.EqualTo(hashUnityToEntities));
+            Assert.That(hashUnity, Is.EqualTo(hashEntitiesToUnity));
+        }
         #endif // UNITY_EDITOR
 
         #if !NET_DOTS

@@ -18,7 +18,8 @@ namespace Unity.Entities.TestComponents
     {
         public override void Bake(BlobAssetAddTestAuthoring authoring)
         {
-            var blobReference = AddBlobAsset(authoring.blobValue, out Hash128 objectHash);
+            var blobReference = BlobAssetUtility.CreateBlobAsset(authoring.blobValue);
+            AddBlobAsset(ref blobReference, out Hash128 objectHash);
 
             AddComponent(new BlobAssetReference()
             {
@@ -37,7 +38,9 @@ namespace Unity.Entities.TestComponents
         {
             var customHash = authoring.blobValue.GetHashCode();
             var customCustomHash = new Hash128((uint) customHash, 1, 2, 3);
-            var blobReference = AddBlobAssetWithCustomHash(authoring.blobValue, customCustomHash);
+
+            var blobReference = BlobAssetUtility.CreateBlobAsset(authoring.blobValue);
+            AddBlobAssetWithCustomHash(ref blobReference, customCustomHash);
 
             AddComponent(new BlobAssetReference()
             {
@@ -74,7 +77,8 @@ namespace Unity.Entities.TestComponents
             }
             else
             {
-                blobReference = AddBlobAssetWithCustomHash(authoring.blobValue, customCustomHash);
+                blobReference = BlobAssetUtility.CreateBlobAsset(authoring.blobValue);
+                AddBlobAssetWithCustomHash(ref blobReference, customCustomHash);
                 AddComponent(new BlobAssetGetReference()
                 {
                     blobValue = blobReference.Value,

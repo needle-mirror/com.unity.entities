@@ -3,7 +3,7 @@ using System;
 using System.Linq;
 using Unity.Mathematics;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;

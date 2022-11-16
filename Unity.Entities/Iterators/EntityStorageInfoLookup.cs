@@ -19,7 +19,7 @@ namespace Unity.Entities
         public int IndexInChunk;
     }
 
-    /// <inheritdoc cref="BufferLookup{T}"/>
+    /// <summary> Obsolete. Use <see  cref="BufferLookup{T}"/> instead.</summary>
     [Obsolete("This type has been renamed to EntityStorageInfoLookup. (RemovedAfter Entities 1.0) (UnityUpgradable) -> EntityStorageInfoLookup", true)]
     public unsafe struct StorageInfoFromEntity
     {

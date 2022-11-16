@@ -79,6 +79,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void Instantiate_NegativeCount_Throws()
         {
             var prefab = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -87,8 +88,6 @@ namespace Unity.Entities.Tests
                 var ent = m_Manager.Instantiate(prefab, -1, Allocator.Persistent);
             });
         }
-
-
 
         [Test]
         public void CreateZeroEntities_NoArray()
@@ -106,6 +105,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void CreateEntity_NegativeCount_Throws()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -134,10 +134,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires NativeArray allocator checks which are guarded by ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void CreateEntity_AllocatorNoneOrInvalidThrows()
         {
             var types = new ComponentType[] {typeof(EcsTestData), typeof(EcsTestData2)};
             var archetype = m_Manager.CreateArchetype(types);
+
             Assert.Throws<ArgumentException>(() => m_Manager.CreateEntity(archetype, 10, Allocator.None));
             Assert.Throws<ArgumentException>(() => m_Manager.CreateEntity(archetype, 10, Allocator.Invalid));
         }
@@ -174,6 +176,7 @@ namespace Unity.Entities.Tests
 #endif
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void CreateEntity_InvalidEntityArchetypeThrows()
         {
             var archetype = new EntityArchetype();
@@ -181,6 +184,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires NativeArray allocator checks which are guarded by ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void CreateEntity_PassArray_InvalidEntityArchetypeThrows()
         {
             var arr = new NativeArray<Entity>(10, Allocator.Temp);
@@ -190,6 +194,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires NativeArray allocator checks which are guarded by ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void CreateEntity_ReturnArray_InvalidEntityArchetypeThrows()
         {
             var archetype = new EntityArchetype();
@@ -197,6 +202,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Requires entity data access safety checks")]
         public void CreateEntity_NoArray_InvalidEntityArchetypeThrows()
         {
             var archetype = new EntityArchetype();
@@ -702,6 +708,7 @@ namespace Unity.Entities.Tests
         // TODO: IL2CPP_TEST_RUNNER can't handle Assert.That Throws
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void AddComponent_InvalidEntity1_ShouldThrow()
         {
             var invalidEnt = m_Manager.CreateEntity();
@@ -711,6 +718,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void AddComponentBatched_InvalidEntities_ShouldThrow([Values(10, 100)] int entityCount)
         {
             var invalidEnt = m_Manager.CreateEntity();
@@ -921,6 +929,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void AddChunkComponentToGroupTwice()
         {
             m_Manager.CreateEntity();
@@ -946,6 +955,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires NativeArray allocator checks which are guarded by ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void SetArchetype_InvalidEntityArchetypeThrows()
         {
             var entity = m_Manager.CreateEntity();
@@ -974,6 +984,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires NativeArray allocator checks which are guarded by ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void SetArchetypeRemovingStateComponentThrows()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsCleanup1));
@@ -1090,6 +1101,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires NativeArray allocator checks which are guarded by ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void DestroyEntityQueryWithLinkedEntityGroupPartialDestroyThrows()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestTag));

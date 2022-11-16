@@ -43,8 +43,11 @@ namespace Unity.Entities
         /// </summary>
         public bool IsBuffer => TypeIndex.IsBuffer;
         /// <summary>
-        /// True if the component type is a <see cref="ICleanupComponentData"/>
+        /// Obsolete. Use <see cref="IsCleanupComponent"/> instead.
         /// </summary>
+        /// <remarks> **Obsolete.** Use <see cref="IsCleanupComponent"/> instead.
+        ///
+        /// True if the component type is a <see cref="ICleanupComponentData"/></remarks>
         [Obsolete("IsSystemStateComponent has been renamed to IsCleanupComponent. IsSystemStateComponent will be removed in a future package release. (UnityUpgradable) -> IsCleanupComponent", false)]
         public bool IsSystemStateComponent => TypeIndex.IsCleanupComponent;
         /// <summary>
@@ -52,14 +55,25 @@ namespace Unity.Entities
         /// </summary>
         public bool IsCleanupComponent => TypeIndex.IsCleanupComponent;
         /// <summary>
-        /// True if the component type is a <see cref="ICleanupSharedComponentData"/>
+        /// Obsolete. Use <see cref="IsCleanupComponent"/> instead.
         /// </summary>
+        /// <remarks> **Obsolete.** Use <see cref="IsCleanupComponent"/> instead.
+        ///
+        /// True if the component type is a <see cref="ICleanupSharedComponentData"/>.</remarks>
         [Obsolete("IsSystemStateSharedComponent has been renamed to IsCleanupSharedComponent. IsSystemStateSharedComponent will be removed in a future package release. (UnityUpgradable) -> IsCleanupSharedComponent", false)]
         public bool IsSystemStateSharedComponent => TypeIndex.IsCleanupSharedComponent;
         /// <summary>
         /// True if the component type is a <see cref="ICleanupSharedComponentData"/>
         /// </summary>
         public bool IsCleanupSharedComponent => TypeIndex.IsCleanupSharedComponent;
+        /// <summary>
+        /// Bitflag set for component types inheriting from <seealso cref="ICleanupBufferElementData"/>.
+        /// </summary>
+        public bool IsCleanupBufferComponent => TypeIndex.IsCleanupBufferComponent;
+        /// <summary>
+        /// True if the component type is a <see cref="IComponentData"/>
+        /// </summary>
+        public bool IsComponent => TypeIndex.IsComponentType;
         /// <summary>
         /// True if the component type is a <see cref="ISharedComponentData"/>
         /// </summary>

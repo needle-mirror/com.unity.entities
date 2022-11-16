@@ -50,6 +50,13 @@ namespace Unity.Editor.Bridge
             return s_GetAllPreviewsCachedAccessor;
         }
 
+#if USE_IMPROVED_DATAMODE
+        internal static DataMode GetInspectorWindowDataMode(UnityEditor.Editor editor)
+        {
+            return editor.dataMode;
+        }
+#endif
+
         public static EditorWindow GetPreviewOwner(IPreviewable previewInstance, out bool isSelected)
         {
             isSelected = false;
@@ -99,9 +106,7 @@ namespace Unity.Editor.Bridge
 
         public static void ReloadAllInspectors()
         {
-#if UNITY_2020_1_OR_NEWER
             InspectorWindow.RefreshInspectors();
-#endif
         }
     }
 }

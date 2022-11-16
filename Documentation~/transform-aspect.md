@@ -2,15 +2,13 @@
 
 The [aspect](aspects-intro.md) system has the built in [`TransformAspect`](xref:Unity.Transforms.TransformAspect), which contains references to all three transform components of a child entity:
 
-* [`LocalToWorldTransform`](xref:Unity.Transforms.LocalToWorldTransform)
-* [`LocalToParentTransform`](xref:Unity.Transforms.LocalToParentTransform)
-* [`ParentToWorldTransform`](xref:Unity.Transforms.ParentToWorldTransform) 
+* [`LocalTransform`](xref:Unity.Transforms.LocalTransform)
+* [`WorldTransform`](xref:Unity.Transforms.WorldTransform)
+* [`ParentTransform`](xref:Unity.Transforms.ParentTransform) 
 
-For any root entities, `TransformAspect` only contains a reference to `LocalToWorldTransform`.
+For any root entities, `TransformAspect`'s `LocalTransform` will be the same as `WorldTransform`.
 
-`TransformAspect` is a convenient way to manage the transforms in your project because it contains logic which keeps all of these components in sync with each other. For example, if you want to control the world-space position of a child component without using `TransformAspect`, you have to update both the `LocalToWorldTransform` and `LocalToParentTransform`, and then use `ParentToWorldTransform` in that calculation. 
-
-However, `TransformAspect` manages this for you. This is a convenient way to move Entities that might have a parent.
+`TransformAspect` is a convenient way to work with transforms in your project. It contains logic that keeps `LocalTransform` and `WorldTransform` in sync with each other. It allows you to manipulate an entity in world space, even if it is part of a hierarchy.
 
 This example illustrates using `TransformAspect` to rotate the turret of a tank:
 

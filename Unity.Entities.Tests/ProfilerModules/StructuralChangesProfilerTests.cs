@@ -718,7 +718,7 @@ namespace Unity.Entities.Tests
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             using (var query = manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                ecb.DestroyEntitiesForEntityQuery(query);
+                ecb.DestroyEntity(query);
                 ecb.Playback(manager);
             }
         }
@@ -769,7 +769,7 @@ namespace Unity.Entities.Tests
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             using (var query = manager.CreateEntityQuery(queryType))
             {
-                ecb.AddComponentForEntityQuery(query, type);
+                ecb.AddComponent(query, type);
                 ecb.Playback(manager);
             }
         }
@@ -779,7 +779,7 @@ namespace Unity.Entities.Tests
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             using (var query = manager.CreateEntityQuery(queryType))
             {
-                ecb.AddComponentForEntityQuery(query, types);
+                ecb.AddComponent(query, types);
                 ecb.Playback(manager);
             }
         }
@@ -833,7 +833,7 @@ namespace Unity.Entities.Tests
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             using (var query = manager.CreateEntityQuery(queryType))
             {
-                ecb.RemoveComponentForEntityQuery(query, type);
+                ecb.RemoveComponent(query, type);
                 ecb.Playback(manager);
             }
         }
@@ -843,7 +843,7 @@ namespace Unity.Entities.Tests
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             using (var query = manager.CreateEntityQuery(queryType))
             {
-                ecb.RemoveComponentForEntityQuery(query, types);
+                ecb.RemoveComponent(query, types);
                 ecb.Playback(manager);
             }
         }
@@ -889,7 +889,7 @@ namespace Unity.Entities.Tests
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             using (var query = manager.CreateEntityQuery(typeof(T)))
             {
-                ecb.SetSharedComponentForEntityQuery(query, data);
+                ecb.SetSharedComponent(query, data);
                 ecb.Playback(manager);
             }
         }
@@ -935,7 +935,7 @@ namespace Unity.Entities.Tests
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             using (var query = manager.CreateEntityQuery(typeof(T)))
             {
-                ecb.SetSharedComponentForEntityQueryManaged(query, data);
+                ecb.SetSharedComponentManaged(query, data);
                 ecb.Playback(manager);
             }
         }

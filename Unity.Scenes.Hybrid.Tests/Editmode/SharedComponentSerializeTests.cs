@@ -30,6 +30,8 @@ public class SharedComponentSerializeTests
         public MyEnum EnumValue;
         public UnityEngine.Material Mat;
         public UnityEngine.Object NullObj;
+        public UnityEngine.AnimationCurve Curve;
+        public UnityEngine.AnimationCurve NullCurve;
 
         public static void AreEqual(TestStruct expected, TestStruct value)
         {
@@ -41,13 +43,16 @@ public class SharedComponentSerializeTests
             Assert.AreEqual(expected.NullObj, value.NullObj);
             Assert.IsTrue(expected.MaterialArray.SequenceEqual(value.MaterialArray));
             Assert.IsTrue(expected.MaterialList.SequenceEqual(value.MaterialList));
+            Assert.IsTrue(expected.Curve.Equals(value.Curve), "The AnimationCurve was not serialized correctly.");
+            Assert.AreEqual(expected.NullCurve, value.NullCurve, "The null AnimationCurve was not serialized correctly.");
         }
 
         public bool Equals(TestStruct other)
         {
             return Value == other.Value && Float3.Equals(other.Float3) && Equals(MaterialArray, other.MaterialArray)
                 && Equals(MaterialList, other.MaterialList) && StringValue == other.StringValue
-                && EnumValue == other.EnumValue && Equals(Mat, other.Mat) && Equals(NullObj, other.NullObj);
+                && EnumValue == other.EnumValue && Equals(Mat, other.Mat) && Equals(NullObj, other.NullObj)
+                && Curve.Equals(other.Curve) && Equals(NullCurve, other.NullCurve);
         }
 
         public override int GetHashCode()
@@ -62,6 +67,8 @@ public class SharedComponentSerializeTests
                 hashCode = (hashCode * 397) ^ (int)EnumValue;
                 hashCode = (hashCode * 397) ^ (!ReferenceEquals(Mat, null) ? Mat.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (!ReferenceEquals(NullObj, null) ? NullObj.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (!ReferenceEquals(Curve, null) ? Curve.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (!ReferenceEquals(NullCurve, null) ? NullCurve.GetHashCode() : 0);
                 return hashCode;
             }
         }
@@ -79,6 +86,9 @@ public class SharedComponentSerializeTests
         srcData.MaterialList = new List<Material> { null, material, null, material };
         srcData.Mat = material;
         srcData.NullObj = null;
+        srcData.Curve = AnimationCurve.EaseInOut(0, 1, 2.5f, -1.5f);
+        srcData.Curve.postWrapMode = WrapMode.Loop;
+        srcData.NullCurve = null;
         return srcData;
     }
 

@@ -6,7 +6,6 @@ namespace Unity.Entities.Editor
 {
     static class ToolbarUtility
     {
-#if UNITY_2021_1_OR_NEWER
         static VisualElement s_MainToolbarElement;
         static VisualElement s_PlayModeToolbarElement;
 
@@ -42,6 +41,5 @@ namespace Unity.Entities.Editor
             s_PlayModeToolbarElement = GetMainToolbarRoot()?.Q("ToolbarZonePlayMode");
             return s_PlayModeToolbarElement;
         }
-#endif
     }
 }

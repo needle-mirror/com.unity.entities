@@ -10,6 +10,7 @@ namespace Unity.Entities.Tests
     class MoveEntitiesFromTests : ECSTestsFixture
     {
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires move entities safety checks")]
         public void MoveEntitiesToSameEntityManagerThrows()
         {
             Assert.Throws<ArgumentException>(() => { m_Manager.MoveEntitiesFrom(m_Manager); });
@@ -82,11 +83,13 @@ namespace Unity.Entities.Tests
 
             // We expect that the shared component data matches the correct entities
             var chunks = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(true);
+            var sharedTypeHandle = m_Manager.GetSharedComponentTypeHandle<SharedData1>();
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i];
-                var shared = chunk.GetSharedComponentManaged(m_Manager.GetSharedComponentTypeHandle<SharedData1>(), m_Manager);
-                var testDataArray = chunk.GetNativeArray(m_Manager.GetComponentTypeHandle<EcsTestData>(true));
+                var shared = chunk.GetSharedComponentManaged(sharedTypeHandle, m_Manager);
+                var testDataArray = chunk.GetNativeArray(ref typeHandle);
                 for (int j = 0; j < testDataArray.Length; ++j)
                 {
                     Assert.AreEqual(shared.value, testDataArray[j].value % 5);
@@ -230,11 +233,13 @@ namespace Unity.Entities.Tests
 
             // We expect that the shared component data matches the correct entities
             var chunks = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(true);
+            var sharedTypeHandle = m_Manager.GetSharedComponentTypeHandle<SharedData1>();
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i];
-                var shared = chunk.GetSharedComponentManaged(m_Manager.GetSharedComponentTypeHandle<SharedData1>(), m_Manager);
-                var testDataArray = chunk.GetNativeArray(m_Manager.GetComponentTypeHandle<EcsTestData>(true));
+                var shared = chunk.GetSharedComponentManaged(sharedTypeHandle, m_Manager);
+                var testDataArray = chunk.GetNativeArray(ref typeHandle);
                 for (int j = 0; j < testDataArray.Length; ++j)
                 {
                     Assert.AreEqual(shared.value, testDataArray[i].value % 5);
@@ -275,7 +280,7 @@ namespace Unity.Entities.Tests
             {
                 int sharedIndex = chunk.GetSharedComponentIndex(sharedData1Type);
                 var shared = creationManager.GetSharedComponentManaged<SharedData1>(sharedIndex);
-                chunk.SetChunkComponentData(ecsTestData2Type, new EcsTestData2 {value0 = shared.value, value1 = 47 * shared.value});
+                chunk.SetChunkComponentData(ref ecsTestData2Type, new EcsTestData2 {value0 = shared.value, value1 = 47 * shared.value});
                 chunksPerValue[shared.value]++;
             }
 
@@ -340,6 +345,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires move entities safety checks")]
         public void MoveEntitiesWithChunkHeaderChunksThrows()
         {
             var creationWorld = new World("CreationWorld");
@@ -658,6 +664,7 @@ namespace Unity.Entities.Tests
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         [DotsRuntimeFixme] // No Unity.Properties Support
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void MoveEntitiesPatchesEntityReferences_ManagedComponents([Values] bool useFilteredMove)
         {
             int numberOfEntitiesPerManager = 10000;
@@ -716,6 +723,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme] // No Unity.Properties Support
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void MoveEntitiesPatchesEntityReferencesInCollections_ManagedComponents()
         {
             int numberOfEntitiesPerManager = 100;

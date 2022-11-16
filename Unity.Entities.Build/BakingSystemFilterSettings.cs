@@ -8,6 +8,12 @@ using Assembly = System.Reflection.Assembly;
 namespace Unity.Entities.Build
 {
 #if UNITY_EDITOR
+    /// <summary>
+    /// Holds the set of assemblies which are to be excluded during the baking process.
+    /// </summary>
+    /// <remarks>
+    /// The <see cref="Unity.Entities.Baker{TAuthoringType}"/> types defined in excluded assemblies are ignored during the baking process.
+    /// </remarks>
     [Serializable]
     public sealed class BakingSystemFilterSettings
     {
@@ -18,12 +24,24 @@ namespace Unity.Entities.Build
         // about the change.
         bool m_IsDirty = true;
 
+        /// <summary>
+        /// The list of assemblies containing bakers which are going to be excluded during the baking process.
+        /// </summary>
         [SerializeField]
         public List<UnityEngine.LazyLoadReference<UnityEditorInternal.AssemblyDefinitionAsset>> ExcludedBakingSystemAssemblies =
             new List<UnityEngine.LazyLoadReference<UnityEditorInternal.AssemblyDefinitionAsset>>();
 
+        /// <summary>
+        /// Default constructor.
+        /// </summary>
         public BakingSystemFilterSettings() {}
 
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="excludedAssemblyDefinitionNames">
+        /// The names of assemblies containing bakers which are going to be excluded during the baking process.
+        /// </param>
         public BakingSystemFilterSettings(params string[] excludedAssemblyDefinitionNames)
         {
             foreach (var name in excludedAssemblyDefinitionNames)
@@ -36,6 +54,12 @@ namespace Unity.Entities.Build
             }
         }
 
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <param name="excludedAssemblyDefinitionAssets">
+        /// The list of assemblies containing bakers which are going to be excluded during the baking process.
+        /// </param>
         public BakingSystemFilterSettings(params UnityEditorInternal.AssemblyDefinitionAsset[] excludedAssemblyDefinitionAssets)
         {
             foreach (var asset in excludedAssemblyDefinitionAssets)
@@ -47,7 +71,7 @@ namespace Unity.Entities.Build
             }
         }
 
-        public UnityEditorInternal.AssemblyDefinitionAsset FindAssemblyDefinitionAssetByName(string name)
+        internal UnityEditorInternal.AssemblyDefinitionAsset FindAssemblyDefinitionAssetByName(string name)
         {
             var assetPath = UnityEditor.AssetDatabase.FindAssets($"t: asmdef {name}")
                 .Select(UnityEditor.AssetDatabase.GUIDToAssetPath)
@@ -55,7 +79,8 @@ namespace Unity.Entities.Build
             return UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditorInternal.AssemblyDefinitionAsset>(assetPath);
         }
 
-        public bool ShouldRunConversionSystem(Type type)
+        // TODO: DOTS-7396 - Apply filter to baking systems
+        internal bool ShouldRunConversionSystem(Type type)
         {
             UpdateIfDirty();
             if (m_ExcludedDomainAssemblies == null)
@@ -64,6 +89,11 @@ namespace Unity.Entities.Build
             return !m_ExcludedDomainAssemblies.Contains(type.Assembly);
         }
 
+        /// <summary>
+        /// Checks if an assembly is excluded during the baking process.
+        /// </summary>
+        /// <param name="assembly">The assembly to check.</param>
+        /// <returns>Returns true if the assembly is excluded, otherwise returns false.</returns>
         public bool IsAssemblyExcluded(Assembly assembly)
         {
             UpdateIfDirty();
@@ -73,7 +103,8 @@ namespace Unity.Entities.Build
             return m_ExcludedDomainAssemblies.Contains(assembly);
         }
 
-        public void SetDirty()
+        // TODO: DOTS-7396 - Apply filter to baking systems
+        internal void SetDirty()
         {
             m_IsDirty = true;
         }

@@ -143,9 +143,10 @@ namespace Unity.Entities.Editor.Tests
             var searchElement = m_Root.Q<SearchElement>(className: "entity-inspector-aspects-tab__search-field");
             Assert.That(searchElement, Is.Not.Null);
 
-            var viewAllComponentLabel = m_Root.Q<Label>(className: "entity-inspector-aspects-tab__view-all-components");
-            Assert.That(viewAllComponentLabel, Is.Not.Null);
-            Assert.That(viewAllComponentLabel.text, Is.EqualTo("View All Components"));
+            var noResultLabel = m_Root.Q<Label>(className: "empty-inspector-label");
+            Assert.That(noResultLabel, Is.Not.Null);
+            Assert.That(noResultLabel.text, Is.EqualTo("No aspects."));
+            Assert.That(noResultLabel.style.display.value, Is.EqualTo(DisplayStyle.None));
         }
 
         [Test]

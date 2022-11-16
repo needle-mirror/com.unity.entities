@@ -27,6 +27,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Relies on Atomic Safety Handles for detecting disposed containers")]
         public void JobWithDisposeOnCompletion()
         {
             var testArray = new Collections.NativeArray<int>(10, Collections.Allocator.Persistent);

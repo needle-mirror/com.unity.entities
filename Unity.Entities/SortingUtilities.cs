@@ -5,6 +5,7 @@ using Unity.Jobs;
 using Unity.Burst;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
+using System.Diagnostics;
 
 namespace Unity.Entities
 {
@@ -481,15 +482,14 @@ namespace Unity.Entities
             return arr;
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        // Uncomment when NativeArrayUnsafeUtility includes these conditional checks
-        // [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         private void SharedValueIndicesSetSafetyHandle(ref NativeArray<int> arr)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref arr,
                 NativeArrayUnsafeUtility.GetAtomicSafetyHandle(m_SourceIndexBySortedSourceIndex));
+#endif
         }
 
-#endif
     }
 }

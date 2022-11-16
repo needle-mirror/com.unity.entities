@@ -103,19 +103,16 @@ namespace Unity.Entities.Editor
             // world name column
             var worldName = Target.GetWorldName();
             SetText(m_WorldNameLabel, worldName);
-            m_WorldNameLabel.tooltip = worldName;
             m_WorldNameColumn.SetVisibility(TreeView.ShowWorldColumn);
 
             // namespace column
             var namespaceString = Target.GetNamespace();
             SetText(m_NamespaceLabel, namespaceString);
-            m_NamespaceLabel.tooltip = namespaceString;
             m_NamespaceColumn.SetVisibility(TreeView.ShowNamespaceColumn);
 
             // entity count column
             var entityCount = Target.GetEntityMatches();
             SetText(m_EntityCountLabel, entityCount);
-            m_EntityCountLabel.tooltip = entityCount;
             m_EntityCountColumn.SetVisibility(TreeView.ShowEntityCountColumn);
             if (!TreeView.Show0sInEntityCountAndTimeColumn && entityCount.Equals("0"))
             {

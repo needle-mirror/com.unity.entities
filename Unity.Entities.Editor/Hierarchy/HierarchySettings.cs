@@ -1,6 +1,6 @@
 ﻿using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
@@ -21,6 +21,7 @@ namespace Unity.Entities.Editor
         {
             VisualElement m_MillisecondsPerUpdate;
             VisualElement m_EntityChangeIntegrationBatchSize;
+            VisualElement m_GameObjectChangeIntegrationBatchSize;
             VisualElement m_ExportImmutableBatchSize;
 
             public override VisualElement Build()
@@ -42,11 +43,13 @@ namespace Unity.Entities.Editor
                 {
                     m_MillisecondsPerUpdate = new VisualElement();
                     m_EntityChangeIntegrationBatchSize = new VisualElement();
+                    m_GameObjectChangeIntegrationBatchSize = new VisualElement();
                     m_ExportImmutableBatchSize = new VisualElement();
 
                     // Async specific options.
                     DoDefaultGui(m_MillisecondsPerUpdate, nameof(Configuration) + "." + nameof(HierarchyConfiguration.MaximumMillisecondsPerEditorUpdate));
                     DoDefaultGui(m_EntityChangeIntegrationBatchSize, nameof(Configuration) + "." + nameof(HierarchyConfiguration.EntityChangeIntegrationBatchSize));
+                    DoDefaultGui(m_GameObjectChangeIntegrationBatchSize, nameof(Configuration) + "." + nameof(HierarchyConfiguration.GameObjectChangeIntegrationBatchSize));
                     DoDefaultGui(m_ExportImmutableBatchSize, nameof(Configuration) + "." + nameof(HierarchyConfiguration.ExportImmutableBatchSize));
 
                     updateModeType.Q<EnumField>().RegisterValueChangedCallback(evt =>
@@ -56,6 +59,7 @@ namespace Unity.Entities.Editor
 
                     root.Add(m_MillisecondsPerUpdate);
                     root.Add(m_EntityChangeIntegrationBatchSize);
+                    root.Add(m_GameObjectChangeIntegrationBatchSize);
                     root.Add(m_ExportImmutableBatchSize);
 
                     SetUpdateMode(Target.Configuration.UpdateMode);
@@ -72,6 +76,7 @@ namespace Unity.Entities.Editor
 
                 m_MillisecondsPerUpdate.SetVisibility(isAsync);
                 m_EntityChangeIntegrationBatchSize.SetVisibility(isAsync);
+                m_GameObjectChangeIntegrationBatchSize.SetVisibility(isAsync);
                 m_ExportImmutableBatchSize.SetVisibility(isAsync);
             }
         }

@@ -493,6 +493,7 @@ namespace Unity.Entities
             public void ProcessRange(int index)
             {
                 int createdCount = ReadData.CreatedEntities.Length;
+                int amountToCompute = ComponentChangesBatchCount;
 
                 // The way the code works is that index can be both for Creations and Modifications in order to reduce the size of the code
                 if (index < createdCount)
@@ -526,19 +527,22 @@ namespace Unity.Entities
 
                     // handle the case where we have few entites to process and we need to fall into the other
                     // loop in case we need to
-
-                    if (createdCount >= ComponentChangesBatchCount)
+                    amountToCompute = (index + ComponentChangesBatchCount) - maxCreatedCount;
+                    if (amountToCompute <= 0)
+                    {
                         return;
+                    }
 
                     index = 0;
                 }
                 else
                 {
-                    index -= (createdCount + ComponentChangesBatchCount - 1) & ~(ComponentChangesBatchCount - 1);
+                    index -= createdCount;
                 }
 
                 // Offset as we are handling modifications here
-                int maxCount = math.min(index + ComponentChangesBatchCount, ReadData.ModifiedEntities.Length);
+                // We might need to process less than ComponentChangesBatchCount if we are part of a Created Batch
+                int maxCount = math.min(index + amountToCompute, ReadData.ModifiedEntities.Length);
 
                 for (var i = index; i < maxCount; ++i)
                 {
@@ -655,10 +659,23 @@ namespace Unity.Entities
                     return;
                 }
 
+                int isEnabled = -1;
+                if (afterTypeInArchetype.IsEnableable)
+                {
+                    var isComponentEnabled = ChunkDataUtility.GetEnabledRefRO(afterChunk, afterIndexInTypeArray);
+                    // Default value of an enableable component is true, so we only need to process new components that are false
+                    isEnabled = isComponentEnabled.IsSet(afterEntityIndexInChunk) ? -1 : 0;
+                }
+
                 // IMPORTANT This means `IsZeroSizedInChunk` which is always true for shared components.
                 // Always check shared components first.
                 if (afterTypeInArchetype.IsZeroSized)
                 {
+                    if (isEnabled >= 0)
+                    {
+                        AppendEmptyComponentData(packedComponent, isEnabled);
+                    }
+
                     return;
                 }
 
@@ -670,6 +687,10 @@ namespace Unity.Entities
 
                     if (length == 0)
                     {
+                        if (isEnabled >= 0)
+                        {
+                            AppendEmptyComponentData(packedComponent, isEnabled);
+                        }
                         return;
                     }
 
@@ -694,7 +715,7 @@ namespace Unity.Entities
                     else
                     {
                         var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex.Index];
-                        AppendComponentData(packedComponent, elementPtr, typeInfo->ElementSize * length);
+                        AppendComponentData(packedComponent, elementPtr, typeInfo->ElementSize * length, isEnabled);
                         ExtractPatches(typeInfo, packedComponent, elementPtr, length);
                     }
                 }
@@ -703,7 +724,7 @@ namespace Unity.Entities
                     var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex.Index];
                     var sizeOf = afterArchetype->SizeOfs[afterIndexInTypeArray];
                     var ptr = ChunkDataUtility.GetChunkBuffer(afterChunk) + afterArchetype->Offsets[afterIndexInTypeArray] + afterEntityIndexInChunk * sizeOf;
-                    AppendComponentData(packedComponent, ptr, sizeOf);
+                    AppendComponentData(packedComponent, ptr, sizeOf, isEnabled);
                     ExtractPatches(typeInfo, packedComponent, ptr, 1);
                 }
             }
@@ -750,10 +771,22 @@ namespace Unity.Entities
                     return;
                 }
 
+                int isEnabledAfter = -1;
+                if (afterTypeInArchetype.IsEnableable)
+                {
+                    AreEnableableComponentsEqual(afterChunk, afterIndexInTypeArray, afterEntityIndexInChunk,
+                        beforeChunk, beforeIndexInTypeArray, beforeEntityIndexInChunk, out isEnabledAfter);
+                }
+
                 // IMPORTANT This means `IsZeroSizedInChunk` which is always true for shared components.
                 // Always check shared components first.
                 if (afterTypeInArchetype.IsZeroSized)
                 {
+                    if (isEnabledAfter >= 0)
+                    {
+                        var packedComponent = PackComponent(entityGuid, afterTypeInArchetype.TypeIndex, 1, entryHint);
+                        AppendEmptyComponentData(packedComponent, isEnabledAfter);
+                    }
                     return;
                 }
 
@@ -805,35 +838,39 @@ namespace Unity.Entities
                     {
                         var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex.Index];
 
-                        if (afterLength != beforeLength || !AreComponentsEqual(typeInfo, beforeElementPtr, afterElementPtr, afterLength))
+                        // If the value, or the enableable value is changed
+                        if (afterLength != beforeLength || !AreComponentsEqual(typeInfo, beforeElementPtr, afterElementPtr, afterLength) || isEnabledAfter >= 0)
                         {
                             var packedComponent = PackComponent(entityGuid, afterTypeInArchetype.TypeIndex, 1, entryHint);
-                            AppendComponentData(packedComponent, afterElementPtr, typeInfo->ElementSize * afterLength);
+                            AppendComponentData(packedComponent, afterElementPtr, typeInfo->ElementSize * afterLength, isEnabledAfter);
                             ExtractPatches(typeInfo, packedComponent, afterElementPtr, afterLength);
                         }
                     }
                 }
                 else
                 {
-                    AssertArchetypeSizeOfsMatch(beforeArchetype, beforeIndexInTypeArray, afterArchetype, afterIndexInTypeArray);
+                    AssertArchetypeSizeOfsMatch(beforeArchetype, beforeIndexInTypeArray, afterArchetype,
+                        afterIndexInTypeArray);
 
                     var beforeAddress = ChunkDataUtility.GetChunkBuffer(beforeChunk)
-                        + beforeArchetype->Offsets[beforeIndexInTypeArray]
-                        + beforeArchetype->SizeOfs[beforeIndexInTypeArray]
-                        * beforeEntityIndexInChunk;
+                                        + beforeArchetype->Offsets[beforeIndexInTypeArray]
+                                        + beforeArchetype->SizeOfs[beforeIndexInTypeArray]
+                                        * beforeEntityIndexInChunk;
 
                     var afterAddress = ChunkDataUtility.GetChunkBuffer(afterChunk)
-                        + afterArchetype->Offsets[afterIndexInTypeArray]
-                        + afterArchetype->SizeOfs[afterIndexInTypeArray]
-                        * afterEntityIndexInChunk;
+                                       + afterArchetype->Offsets[afterIndexInTypeArray]
+                                       + afterArchetype->SizeOfs[afterIndexInTypeArray]
+                                       * afterEntityIndexInChunk;
 
                     var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex.Index];
 
-                    if (!AreComponentsEqual(typeInfo, beforeAddress, afterAddress, 1))
+                    // If the value, or the enableable value is changed
+                    if (!AreComponentsEqual(typeInfo, beforeAddress, afterAddress, 1) || isEnabledAfter >= 0)
                     {
                         var packedComponent = PackComponent(entityGuid, afterTypeInArchetype.TypeIndex, 1, entryHint);
-                        AppendComponentData(packedComponent, afterAddress, beforeArchetype->SizeOfs[beforeIndexInTypeArray]);
                         ExtractPatches(typeInfo, packedComponent, afterAddress, 1);
+                        AppendComponentData(packedComponent, afterAddress,
+                            beforeArchetype->SizeOfs[beforeIndexInTypeArray], isEnabledAfter);
                     }
                 }
             }
@@ -852,6 +889,22 @@ namespace Unity.Entities
 
                 return false;
             }
+
+
+            bool AreEnableableComponentsEqual(Chunk* afterChunk, int afterIndexInTypeArray, int afterEntityIndexInChunk,
+                Chunk* beforeChunk, int beforeIndexInTypeArray, int beforeEntityIndexInChunk, out int enabled)
+            {
+                var isComponentEnabledAfter = ChunkDataUtility.GetEnabledRefRO(afterChunk, afterIndexInTypeArray);
+                bool isEnabledAfter = isComponentEnabledAfter.IsSet(afterEntityIndexInChunk);
+
+                var isComponentEnabledBefore = ChunkDataUtility.GetEnabledRefRO(beforeChunk, beforeIndexInTypeArray);
+                bool isEnabledBefore = isComponentEnabledBefore.IsSet(beforeEntityIndexInChunk);
+
+                bool equal = isEnabledAfter == isEnabledBefore;
+                enabled = equal ? -1 : isEnabledAfter ? 1 : 0;
+                return equal;
+            }
+
 
             bool AreComponentsEqual(TypeManager.TypeInfo* typeInfo, byte* beforeAddress, byte* afterAddress, int elementCount)
             {
@@ -1088,10 +1141,36 @@ namespace Unity.Entities
                 {
                     Component = component,
                     Offset = 0,
-                    Size = sizeOf
+                    Size = sizeOf,
+                    Enabled = -1
                 });
 
                 CacheData.ComponentData.AddRange(ptr, sizeOf);
+            }
+
+            void AppendComponentData(PackedComponent component, void* ptr, int sizeOf, int enabled)
+            {
+                CacheData.SetComponents.Add(new PackedComponentDataChange
+                {
+                    Component = component,
+                    Offset = 0,
+                    Size = sizeOf,
+                    Enabled = enabled
+                });
+
+                CacheData.ComponentData.AddRange(ptr, sizeOf);
+            }
+
+            void AppendEmptyComponentData(PackedComponent component, int enabled)
+            {
+                CacheData.SetComponents.Add(new PackedComponentDataChange
+                {
+                    Component = component,
+                    Offset = 0,
+                    Size = 0,
+                    Enabled = enabled
+                });
+
             }
 
             void AddendSharedComponentData(EntityGuid entityGuid, TypeIndex typeIndex, int afterSharedComponentIndex, int beforeSharedComponentIndex = -1)
@@ -1115,6 +1194,19 @@ namespace Unity.Entities
                     BeforeManagedComponentIndex = beforeManagedComponentIndex
                 });
             }
+            void AppendEnableableComponentData(PackedComponent component, void* ptr, int sizeOf)
+            {
+
+                CacheData.SetComponents.Add(new PackedComponentDataChange
+                {
+                    Component = component,
+                    Offset = 0,
+                    Size = sizeOf
+                });
+
+                CacheData.ComponentData.AddRange(ptr, sizeOf);
+            }
+
 
             PackedComponent PackComponent(EntityGuid entityGuid, TypeIndex typeIndex, int tableHint, int entryHint)
             {
@@ -1538,7 +1630,7 @@ namespace Unity.Entities
                     {
                         beforeValueAddr = beforeEntityComponentStore->GetSharedComponentDataAddr_Unmanaged(change.BeforeSharedComponentIndex, change.TypeIndex);
                         if (afterValueAddr != null &&
-                            TypeManager.EqualsWithBurst(beforeValueAddr, afterValueAddr, change.TypeIndex))
+                            TypeManager.SharedComponentEquals(beforeValueAddr, afterValueAddr, change.TypeIndex))
                         {
                             continue;
                         }
@@ -1674,8 +1766,7 @@ namespace Unity.Entities
             return result.ToArray();
         }
 
-// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
-#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+#if !DOTS_DISABLE_DEBUG_NAMES
         [BurstCompile]
         struct GetEntityNamesJob : IJob
         {
@@ -1783,7 +1874,7 @@ namespace Unity.Entities
         /// This method relies on the source buffers the entityGuids was built from. While this could technically be done
         /// while building the entityGuid set, it's a bit more isolated this way so we can remove it easily in the future.
         /// </remarks>
-        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
+        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "!DOTS_DISABLE_DEBUG_NAMES")]
         internal static NameChangeSet GetEntityNames(
             NativeList<CreatedEntity> createdEntities,
             NativeList<DestroyedEntity> destroyedEntities,
@@ -1794,8 +1885,7 @@ namespace Unity.Entities
         {
             var length = createdEntities.Length + destroyedEntities.Length + nameModifiedEntities.Length;
 
-// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
-#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+#if !DOTS_DISABLE_DEBUG_NAMES
             var nameChangeBitsByEntity = afterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameChangeBitsByEntity;
             length += nameChangeBitsByEntity.CountBits(0, nameChangeBitsByEntity.Length);
 #endif
@@ -1809,8 +1899,7 @@ namespace Unity.Entities
             var namesChanges = new NameChangeSet(length, allocator);
             int nameChangeCount = 0;
 
-// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
-#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+#if !DOTS_DISABLE_DEBUG_NAMES
             new GetEntityNamesJob
             {
                 EntityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>(),

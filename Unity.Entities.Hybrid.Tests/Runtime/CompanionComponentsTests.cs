@@ -41,9 +41,9 @@ namespace Unity.Entities.Tests
 
             var entities = query.ToEntityArray(Allocator.Persistent);
 #if !ENABLE_TRANSFORM_V1
-            m_World.EntityManager.SetComponentData(entities[0], new LocalToWorldTransform{Value=UniformScaleTransform.FromPosition(0.0f, 1, 0.0f)});
-            m_World.EntityManager.SetComponentData(entities[1], new LocalToWorldTransform{Value=UniformScaleTransform.FromPosition(0.0f, 2, 0.0f)});
-            m_World.EntityManager.SetComponentData(entities[2], new LocalToWorldTransform{Value=UniformScaleTransform.FromPosition(0.0f, 3, 0.0f)});
+            m_World.EntityManager.SetComponentData(entities[0], LocalTransform.FromPosition(0.0f, 1, 0.0f));
+            m_World.EntityManager.SetComponentData(entities[1], LocalTransform.FromPosition(0.0f, 2, 0.0f));
+            m_World.EntityManager.SetComponentData(entities[2], LocalTransform.FromPosition(0.0f, 3, 0.0f));
 #else
             m_World.EntityManager.SetComponentData(entities[0], new Translation{Value=new float3(0.0f, 1, 0.0f)});
             m_World.EntityManager.SetComponentData(entities[1], new Translation{Value=new float3(0.0f, 2, 0.0f)});

@@ -27,7 +27,6 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
                     typeof(SceneSystemGroup),
                     typeof(SceneSystem),
                     typeof(ResolveSceneReferenceSystem),
-                    typeof(GameObjectSceneSystem),
                     typeof(SceneSectionStreamingSystem)
                 });
             }

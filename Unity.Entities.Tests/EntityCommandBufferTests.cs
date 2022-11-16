@@ -116,7 +116,7 @@ namespace Unity.Entities.Tests
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             using(var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.SinglePlayback))
             {
-                cmds.AddComponentForEntityQuery<EcsTestTag>(query);
+                cmds.AddComponent<EcsTestTag>(query);
                 Assert.IsFalse(CleanupListsAreEmpty(cmds), "ECB has empty cleanup lists prior to playback");
 
                 cmds.Playback(m_Manager);
@@ -128,6 +128,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void Playback_WithSinglePlaybackError_DisposesCapturedEntityArrays()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -137,7 +138,7 @@ namespace Unity.Entities.Tests
             using(var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.SinglePlayback))
             {
                 cmds.AddComponent<EcsTestData2>(ent);
-                cmds.AddComponentForEntityQuery<EcsTestTag>(query); // entity array is captured here
+                cmds.AddComponent<EcsTestTag>(query); // entity array is captured here
                 Assert.IsFalse(CleanupListsAreEmpty(cmds), "ECB has empty cleanup lists prior to playback");
 
                 m_Manager.DestroyEntity(ent); // this will force an ECB playback error before the entity array command is played back
@@ -310,7 +311,6 @@ namespace Unity.Entities.Tests
 
 #endif
 
-#endif
 
         [Test]
         public void SingleWriterEnforced()
@@ -384,6 +384,7 @@ namespace Unity.Entities.Tests
 
             handle.Complete();
         }
+#endif
 
         struct EntityCommandBufferPlaybackJob : IJob
         {
@@ -448,6 +449,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void EntityCommandBufferConcurrent_PlaybackDuringWrite_ThrowsInvalidOperation()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
@@ -461,6 +463,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void EntityCommandBufferConcurrent_DisposeDuringWrite_ThrowsInvalidOperation()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
@@ -519,6 +522,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void CreateEntityWithArchetype_InvalidThrows()
         {
             var a = new EntityArchetype();
@@ -530,6 +534,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void CreateEntityWithArchetype_Parallel_InvalidThrows()
         {
             var a = new EntityArchetype();
@@ -733,6 +738,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public unsafe void UnsafeAddComponent_NullPtr_Asserts()
         {
             var e = m_Manager.CreateEntity();
@@ -758,6 +764,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public unsafe void UnsafeSetComponent_NullPtr_Asserts()
         {
             var e = m_Manager.CreateEntity();
@@ -784,6 +791,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public unsafe void UnsafeAddComponent_WrongSize_Asserts()
         {
             var e = m_Manager.CreateEntity();
@@ -810,6 +818,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public unsafe void UnsafeSetComponent_WrongSize_Asserts()
         {
             var e = m_Manager.CreateEntity();
@@ -962,7 +971,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SetSharedComponentWithDefaultValue()
+        public void AddSharedComponentWithDefaultValue()
         {
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
 
@@ -1021,6 +1030,38 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, sharedCompList.Count);
                 Assert.AreEqual(0, sharedCompList[0].value);
             }
+        }
+
+
+        [Test]
+        public void SetSharedComponentNonDefault()
+        {
+#if !UNITY_DOTSRUNTIME
+            var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.MultiPlayback);
+            var index = TypeManager.GetTypeIndex<EcsTestSharedComp>();
+
+            var e = cmds.CreateEntity();
+            cmds.AddSharedComponent(e, new EcsTestSharedComp());
+            cmds.UnsafeSetSharedComponentManagedNonDefault(e, new EcsTestSharedComp(10), index);
+
+            cmds.Playback(m_Manager);
+            cmds.Playback(m_Manager2);
+
+            {
+                var sharedCompList = new List<EcsTestSharedComp>();
+                m_Manager.GetAllUniqueSharedComponentsManaged<EcsTestSharedComp>(sharedCompList);
+
+                Assert.AreEqual(2, sharedCompList.Count);
+                Assert.AreEqual(10, sharedCompList[1].value);
+            }
+            {
+                var sharedCompList = new List<EcsTestSharedComp>();
+                m_Manager2.GetAllUniqueSharedComponentsManaged<EcsTestSharedComp>(sharedCompList);
+
+                Assert.AreEqual(2, sharedCompList.Count);
+                Assert.AreEqual(10, sharedCompList[1].value);
+            }
+#endif
         }
 
         [Test]
@@ -1229,7 +1270,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
                 cmds.Playback(m_Manager);
             }
 
@@ -1257,7 +1298,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 var originalVal = new EcsTestManagedComponent();
-                cmds.AddComponentObjectForEntityQuery(entityQuery, originalVal);
+                cmds.AddComponentObject(entityQuery, originalVal);
 
                 // modifying entities between record and playback should be OK
                 m_Manager.AddComponent<EcsTestData5>(originalEntities[0]);
@@ -1289,7 +1330,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 var originalVal = new EcsTestManagedComponent();
-                cmds.AddComponentObjectForEntityQuery(entityQuery, originalVal);
+                cmds.AddComponentObject(entityQuery, originalVal);
 
                 // modifying entities between record and playback should be OK
                 m_Manager.AddComponent<EcsTestData5>(originalEntities[0]);
@@ -1321,7 +1362,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 var originalVal = new EcsTestManagedComponent();
-                cmds.SetComponentObjectForEntityQuery(entityQuery, originalVal);
+                cmds.SetComponentObject(entityQuery, originalVal);
 
                 // modifying entities between record and playback should be OK
                 m_Manager.AddComponent<EcsTestData5>(originalEntities[0]);
@@ -1364,7 +1405,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddComponentForEntityQuery(entityQuery, testVal);
+                cmds.AddComponent(entityQuery, testVal);
                 cmds.Playback(m_Manager);
             }
 
@@ -1408,7 +1449,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddSharedComponentForEntityQuery(entityQuery, testVal);
+                cmds.AddSharedComponent(entityQuery, testVal);
                 cmds.Playback(m_Manager);
             }
 
@@ -1453,7 +1494,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.SetSharedComponentForEntityQuery(entityQuery, testVal);
+                cmds.SetSharedComponent(entityQuery, testVal);
                 cmds.Playback(m_Manager);
             }
 
@@ -1487,6 +1528,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void SetSharedComponentForEntityQuery_CaptureAtRecord_Playback_AllEntitiesMustExistAndHaveTheSharedComponent()
         {
             var entity = m_Manager.CreateEntity();
@@ -1506,7 +1548,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.SetSharedComponentForEntityQuery(entityQuery, testVal);
+                cmds.SetSharedComponent(entityQuery, testVal);
                 TestDelegate testDelegate = () => cmds.Playback(m_Manager);
                 Assert.Throws<ArgumentException>(testDelegate);
             }
@@ -1530,7 +1572,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestManagedComponent));
+                cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent));
                 cmds.Playback(m_Manager);
             }
 
@@ -1566,7 +1608,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestSharedComp));
+                cmds.AddComponent(entityQuery, typeof(EcsTestSharedComp));
                 cmds.Playback(m_Manager);
             }
 
@@ -1585,6 +1627,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires move entities safety checks")]
         public void AddComponentForEntityQuery_CaptureAtRecord_SharedComponent_TooMany()
         {
             // test must be updated when kMaxSharedComponentCount is changed
@@ -1602,7 +1645,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 var types = new ComponentTypeSet(typeof(EcsTestSharedComp15), typeof(EcsTestSharedComp16), typeof(EcsTestSharedComp17));
-                cmds.AddComponentForEntityQuery(entityQuery, types);
+                cmds.AddComponent(entityQuery, types);
 
                 // Assert.Throws "Cannot add more than {kMaxSharedComponentCount} SharedComponent to a single Archetype"
                 Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager));
@@ -1627,7 +1670,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 var types = new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData3));
-                cmds.AddComponentForEntityQuery(entityQuery, types);
+                cmds.AddComponent(entityQuery, types);
                 cmds.Playback(m_Manager);
             }
 
@@ -1658,7 +1701,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.RemoveComponentForEntityQuery(entityQuery, typeof(EcsTestData2));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestData2));
                 cmds.Playback(m_Manager);
             }
 
@@ -1695,7 +1738,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.RemoveComponentForEntityQuery(entityQuery, typeof(EcsTestSharedComp));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestSharedComp));
                 cmds.Playback(m_Manager);
             }
 
@@ -1733,7 +1776,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 var types = new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData3));
-                cmds.RemoveComponentForEntityQuery(entityQuery, types);
+                cmds.RemoveComponent(entityQuery, types);
                 cmds.Playback(m_Manager);
             }
 
@@ -1768,7 +1811,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.DestroyEntitiesForEntityQuery(entityQuery);
+                cmds.DestroyEntity(entityQuery);
                 cmds.Playback(m_Manager);
             }
 
@@ -1801,7 +1844,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp {value = 200});
@@ -1849,7 +1892,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponentForEntityQuery(entityQuery, new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData3)));
+                cmds.AddComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData3)));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp {value = 200});
@@ -1881,6 +1924,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires move entities safety checks")]
         public void AddComponentToEntityQuery_OnDifferentEntityManager_Throws_CaptureAtRecord()
         {
             var entity = m_Manager.CreateEntity();
@@ -1892,7 +1936,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
                 Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager2));
             }
         }
@@ -1914,7 +1958,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.RemoveComponentForEntityQuery(entityQuery, typeof(EcsTestData));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestData));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp {value = 200});
@@ -1959,7 +2003,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.RemoveComponentForEntityQuery(entityQuery, new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2)));
+                cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2)));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp {value = 200});
@@ -2017,7 +2061,7 @@ namespace Unity.Entities.Tests
             {
                 entityQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(0));
                 var shared2 = new EcsTestSharedComp2();
-                cmds.AddSharedComponentForEntityQuery(entityQuery, shared2);
+                cmds.AddSharedComponent(entityQuery, shared2);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -2054,7 +2098,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.DestroyEntitiesForEntityQuery(entityQuery);
+                cmds.DestroyEntity(entityQuery);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -2086,7 +2130,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData)))
             {
                 entityQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(0));
-                cmds.DestroyEntitiesForEntityQuery(entityQuery);
+                cmds.DestroyEntity(entityQuery);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -2123,7 +2167,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent1);
 
                 // modifying the entity in between recording and playback should be OK
@@ -2169,7 +2213,7 @@ namespace Unity.Entities.Tests
             {
                 var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -2422,6 +2466,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void DestroyInvalidEntity()
         {
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
@@ -2582,6 +2627,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void PlaybackInvalidatesBuffers()
         {
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
@@ -2624,6 +2670,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void ArrayAliasesOfPendingBuffersAreInvalidateOnResize()
         {
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
@@ -2803,6 +2850,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void AppendToBuffer_BufferDoesNotExist_Fails()
         {
             var e = m_Manager.CreateEntity();
@@ -2917,6 +2965,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires move entities safety checks")]
         public void AddBuffer_OnEntityFromOtherWorld_Fails()
         {
             var e = m_Manager.CreateEntity();
@@ -2935,6 +2984,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void AddBuffer_AfterDispose_WithoutPlayback_Throws()
         {
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
@@ -2950,8 +3000,8 @@ namespace Unity.Entities.Tests
                 () => buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }));
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void ModifyingPrefabEntityThrows_AddComponent_AllVariations()
         {
             EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION = true;
@@ -3038,7 +3088,7 @@ namespace Unity.Entities.Tests
             // Add Managed Component For Multiple Entities
             var query = m_Manager.CreateEntityQuery(typeof(Prefab));
             cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            cmds.AddComponentForEntityQuery(query, new EcsTestManagedComponent());
+            cmds.AddComponent(query, new EcsTestManagedComponent());
             Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager));
             cmds.Dispose();
 #endif
@@ -3047,6 +3097,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void ModifyingPrefabEntityThrows_RemoveComponent_AllVariations()
         {
             EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION = true;
@@ -3084,6 +3135,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void ModifyingPrefabEntityThrows_SetComponent_AllVariations()
         {
             EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION = true;
@@ -3198,7 +3250,7 @@ namespace Unity.Entities.Tests
             // Set Managed Component For Multiple Entities
             var query = m_Manager.CreateEntityQuery(typeof(Prefab));
             cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            cmds.SetComponentForEntityQuery(query, new EcsTestManagedComponent());
+            cmds.SetComponent(query, new EcsTestManagedComponent());
             Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager));
             cmds.Dispose();
 #endif
@@ -3207,6 +3259,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void ModifyingPrefabEntityThrows_DestroyEntity_AllVariations()
         {
             EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION = true;
@@ -3232,6 +3285,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void CreatingPrefabEntityThrows()
         {
             EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION = true;
@@ -3248,6 +3302,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires move entities safety checks")]
         public void AddingPrefabComponentThrows_AllVariations()
         {
             EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION = true;
@@ -3292,6 +3347,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void RemovingPrefabComponentThrows_AllVariations()
         {
             EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION = true;
@@ -3327,7 +3383,6 @@ namespace Unity.Entities.Tests
 
             EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION = false;
         }
-#endif
 
         [Test]
         public void ParallelOnMainThread()
@@ -3373,6 +3428,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void NoTempAllocatorInConcurrent()
         {
             var cmds = new EntityCommandBuffer(Allocator.Temp);
@@ -3524,9 +3580,9 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         [ManagedExceptionInPortableTests] // This test relies on side-effects of running exception generating code
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void EntityCommandBufferSystemPlaybackExceptionIsolation()
         {
             var entityCommandBufferSystem = World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
@@ -3554,9 +3610,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
         }
 
-#endif
-
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void DeferredEntity_FromDifferentCommandBuffer_WithNoDeferredEntities_Throws()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -3573,6 +3628,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void DeferredEntity_CreatedFromDifferentCommandBuffer_Throws()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -3591,6 +3647,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void DeferredEntity_InstantiatedFromDifferentCommandBuffer_Throws()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -3610,6 +3667,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void DeferredEntity_CreatedFromDifferentCommandBuffer_ParallelWriter_Throws()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -3629,6 +3687,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void DeferredEntity_InstantiatedFromDifferentCommandBuffer_ParallelWriter_Throws()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -3649,6 +3708,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void DeferredEntity_OutOfRangeIndex_Throws()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -3769,6 +3829,7 @@ namespace Unity.Entities.Tests
 #if !UNITY_PORTABLE_TEST_RUNNER
         // The portable test runner can't handle the return value from Assert.Throws
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void UninitializedEntityCommandBufferThrows()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer();
@@ -3777,14 +3838,13 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void UninitializedConcurrentEntityCommandBufferThrows()
         {
             EntityCommandBuffer.ParallelWriter cmds = new EntityCommandBuffer.ParallelWriter();
             var exception = Assert.Throws<NullReferenceException>(() => cmds.CreateEntity(0));
             Assert.AreEqual("The EntityCommandBuffer has not been initialized! The EntityCommandBuffer needs to be passed an Allocator when created!", exception.Message);
         }
-
-#endif
 
         [Test]
         public void AddOrSetBufferWithEntity_NeedsFixup_ThrowsOnMultiplePlayback([Values(true, false)] bool setBuffer)
@@ -3816,6 +3876,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager));
             Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager2));
         }
+#endif
 
         [Test]
         public void AddOrSetBufferWithEntity_NeedsFixup_ContainsRealizedEntity([Values(true, false)] bool setBuffer)
@@ -4377,6 +4438,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void DeferredEntities_UsedInTheEntityManager_ShouldThrow()
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
@@ -4418,7 +4480,7 @@ namespace Unity.Entities.Tests
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
                 var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-                cmds.AddSharedComponentForEntityQuery(entityQuery, new EcsTestSharedComp(1));
+                cmds.AddSharedComponent(entityQuery, new EcsTestSharedComp(1));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4474,6 +4536,7 @@ namespace Unity.Entities.Tests
             allEntities.Dispose();
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void Playback_EmptyCommandBuffer_DoesntInvalidateSafetyHandles()
         {
@@ -4486,6 +4549,7 @@ namespace Unity.Entities.Tests
             }
             Assert.DoesNotThrow(() => AtomicSafetyHandle.CheckReadAndThrow(buf.m_Safety0));
         }
+#endif
 
         [Test]
         public void CreateEntity_ManagedComponents()
@@ -4609,7 +4673,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent)))
             {
-                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestManagedComponent2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent2));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4641,7 +4705,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestManagedComponent2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent2));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4687,7 +4751,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponentForEntityQuery(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent2)));
+                cmds.AddComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent2)));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4727,7 +4791,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent)))
             {
-                cmds.RemoveComponentForEntityQuery(entityQuery, typeof(EcsTestManagedComponent));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4773,7 +4837,7 @@ namespace Unity.Entities.Tests
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            cmds.RemoveComponentForEntityQuery(entityQuery, typeof(EcsTestManagedComponent2));
+            cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent2));
 
             // modifying the entity in between recording and playback should be OK
             m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4788,7 +4852,9 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent3>(entities[0]));
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent4>(entities[0]));
                 Assert.AreEqual("SomeString", m_Manager.GetComponentData<EcsTestManagedComponent>(entities[0]).value);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 Assert.Throws<ArgumentException>(() => { m_Manager.GetComponentData<EcsTestManagedComponent2>(entities[0]); });
+#endif
                 Assert.AreEqual("YetAnotherString", m_Manager.GetComponentData<EcsTestManagedComponent3>(entities[0]).value);
                 Assert.AreEqual("SoManyStrings", m_Manager.GetComponentData<EcsTestManagedComponent4>(entities[0]).value);
             }
@@ -4813,7 +4879,7 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.RemoveComponentForEntityQuery(entityQuery, typeof(EcsTestManagedComponent));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4858,7 +4924,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.RemoveComponentForEntityQuery(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent)));
+                cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent)));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4898,7 +4964,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent)))
             {
-                cmds.RemoveComponentForEntityQuery(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent)));
+                cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent)));
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4943,7 +5009,7 @@ namespace Unity.Entities.Tests
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            cmds.RemoveComponentForEntityQuery(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent2)));
+            cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent2)));
 
             // modifying the entity in between recording and playback should be OK
             m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4958,7 +5024,9 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent3>(entities[0]));
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent4>(entities[0]));
                 Assert.AreEqual("SomeString", m_Manager.GetComponentData<EcsTestManagedComponent>(entities[0]).value);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 Assert.Throws<ArgumentException>(() => { m_Manager.GetComponentData<EcsTestManagedComponent2>(entities[0]); });
+#endif
                 Assert.AreEqual("YetAnotherString", m_Manager.GetComponentData<EcsTestManagedComponent3>(entities[0]).value);
                 Assert.AreEqual("SoManyStrings", m_Manager.GetComponentData<EcsTestManagedComponent4>(entities[0]).value);
             }
@@ -5018,6 +5086,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void DestroyInvalidEntity_ManagedComponents()
         {
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
@@ -5120,6 +5189,7 @@ namespace Unity.Entities.Tests
 #endif //!UNITY_DISABLE_MANAGED_COMPONENTS
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void CommandsAfterPlayback_Throws()
         {
             var archetype = m_Manager.CreateArchetype(ComponentType.ReadOnly<EcsTestData>());
@@ -5137,7 +5207,7 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(() => cmds.Instantiate(e,outEntities));
             }
             Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(e));
-            Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntitiesForEntityQuery(query));
+            Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(query));
             Assert.Throws<InvalidOperationException>(() => cmds.AddBuffer<EcsIntElement>(e));
             Assert.Throws<InvalidOperationException>(() => cmds.SetBuffer<EcsIntElement>(e));
             Assert.Throws<InvalidOperationException>(() => cmds.AddSharedComponent(e, new EcsTestSharedComp(10)));
@@ -5146,10 +5216,10 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>())));
             Assert.Throws<InvalidOperationException>(() => cmds.SetComponent(e, new EcsTestData2(10)));
             Assert.Throws<InvalidOperationException>(() => cmds.SetComponent(e, new EcsTestData2(10)));
-            Assert.Throws<InvalidOperationException>(() => cmds.AddComponentForEntityQuery(query, ComponentType.ReadOnly<EcsTestData2>()));
+            Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(query, ComponentType.ReadOnly<EcsTestData2>()));
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>())));
             Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent<EcsTestData>(e));
-            Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponentForEntityQuery(query, ComponentType.ReadOnly<EcsTestData>()));
+            Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(query, ComponentType.ReadOnly<EcsTestData>()));
             Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(e, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData>())));
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new EcsTestManagedComponent()));
@@ -5527,7 +5597,6 @@ namespace Unity.Entities.Tests
                 Ecb.SetSharedComponent(0, DeferredEntities, Value);
             }
         }
-
         [Test]
         public void SetSharedComponent_TargetIsEntityArray_Works()
         {
@@ -5561,6 +5630,58 @@ namespace Unity.Entities.Tests
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData3), typeof(EcsTestSharedComp));
             using var finalEntities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(deferredEntities.Length, finalEntities.Length);
+            for (int i = 0; i < finalEntities.Length; ++i)
+                Assert.AreEqual(value, m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(finalEntities[i]));
+        }
+
+        unsafe struct SetSharedComponentWithNonDefaultValue_Job : IJob
+        {
+            public EntityCommandBuffer.ParallelWriter Ecb;
+            public Entity TestEntity;
+            public Entity Prefab;
+            public EcsTestSharedComp Value;
+            [NativeDisableUnsafePtrRestriction]
+            public void* valuePtr;
+            public TypeIndex typeIndex;
+            public void Execute()
+            {
+                Ecb.UnsafeSetSharedComponentNonDefault(0, TestEntity, valuePtr, typeIndex);
+                var deferredEntity = Ecb.Instantiate(0, Prefab);
+                Ecb.UnsafeSetSharedComponentNonDefault(0, deferredEntity, valuePtr, typeIndex);
+            }
+        }
+
+        [Test]
+        public unsafe void SetSharedComponentNonDefault_TargetIsEntity_Works()
+        {
+            var value = new EcsTestSharedComp(17);
+            void* ptr = &value;
+
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var prefab = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestSharedComp), typeof(Prefab));
+
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            var testEntity = m_Manager.CreateEntity(archetype);
+            var controlEntity = m_Manager.CreateEntity(archetype);
+
+            // Test ParallelWriter
+            new SetSharedComponentWithNonDefaultValue_Job()
+            {
+                Ecb = ecb.AsParallelWriter(),
+                TestEntity = testEntity,
+                Prefab = prefab,
+                valuePtr = ptr,
+                typeIndex = TypeManager.GetTypeIndex<EcsTestSharedComp>()
+            }.Run();
+
+            ecb.Playback(m_Manager);
+            Assert.AreEqual(value, m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(testEntity));
+            Assert.AreNotEqual(value, m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(controlEntity));
+
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData3), typeof(EcsTestSharedComp));
+            using var finalEntities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            Assert.AreEqual(1, finalEntities.Length);
+
             for (int i = 0; i < finalEntities.Length; ++i)
                 Assert.AreEqual(value, m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(finalEntities[i]));
         }
@@ -5692,6 +5813,7 @@ namespace Unity.Entities.Tests
         internal class TestPlaybackWithTraceECBPlaybackSystem : EntityCommandBufferSystem {}
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public unsafe void PlaybackWithTrace_ValidSystem()
         {
             using (var world = new World("World A"))
@@ -5715,6 +5837,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_CreateEntity()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5736,6 +5859,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_InstantiateEntity()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5764,6 +5888,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_DestroyEntity()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5795,6 +5920,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddUnmanagedSharedComponent()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5822,6 +5948,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetUnmanagedSharedComponentData()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5854,6 +5981,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddSharedComponent()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5881,6 +6009,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetSharedComponentData()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5910,6 +6039,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddComponent()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5937,6 +6067,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetComponent()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5964,6 +6095,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_RemoveComponent()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -5991,6 +6123,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddBufferComponent()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6018,6 +6151,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetBufferComponent()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6046,6 +6180,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AppendToBuffer()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6073,6 +6208,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddComponentWithEntityFixup()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6100,6 +6236,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetComponentWithEntityFixup()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6130,6 +6267,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddBufferComponentWithEntityFixup()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6157,6 +6295,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetBufferComponentWithEntityFixup()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6188,6 +6327,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AppendToBufferWithEntityFixup()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6218,6 +6358,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetEnabled()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6248,6 +6389,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetComponentEnabled()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6279,6 +6421,7 @@ namespace Unity.Entities.Tests
 
 #if !DOTS_DISABLE_DEBUG_NAMES
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetName()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6308,6 +6451,7 @@ namespace Unity.Entities.Tests
 #endif
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_DestroyMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6346,6 +6490,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddComponentForMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6374,6 +6519,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddUnmanagedSharedComponentForMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6402,6 +6548,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetUnmanagedSharedComponentForMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6430,6 +6577,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddSharedComponentForMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6458,6 +6606,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetSharedComponentForMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6487,6 +6636,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_RemoveComponentForMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6515,6 +6665,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddMultipleComponentsForMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6548,6 +6699,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_RemoveMultipleComponentsFromMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6581,6 +6733,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddComponentForLinkedEntityGroup_Works()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6641,6 +6794,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetComponentForLinkedEntityGroup_Works()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6701,6 +6855,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_ReplaceComponentForLinkedEntityGroup_Works()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6761,6 +6916,7 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddManagedComponent()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6788,6 +6944,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetManagedComponentData()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6815,6 +6972,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddComponentObjectForMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6826,7 +6984,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 var originalVal = new EcsTestManagedComponent();
-                cmds.AddComponentObjectForEntityQuery(entityQuery, originalVal);
+                cmds.AddComponentObject(entityQuery, originalVal);
                 cmds.Playback(m_Manager);
 
                 using (var entities = entityQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
@@ -6849,6 +7007,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_SetComponentObjectForMultipleEntities()
         {
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = true;
@@ -6860,7 +7019,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 var originalVal = new EcsTestManagedComponent();
-                cmds.SetComponentObjectForEntityQuery(entityQuery, originalVal);
+                cmds.SetComponentObject(entityQuery, originalVal);
                 cmds.Playback(m_Manager);
 
                 using (var entities = entityQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))

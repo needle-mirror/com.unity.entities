@@ -260,6 +260,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
         public void SwapComponents_OutOfRangeIndex_Throws()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -541,7 +542,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var buffer = chunk.GetBufferAccessor(EcsIntElementTypeHandle);
+                var buffer = chunk.GetBufferAccessor(ref EcsIntElementTypeHandle);
                 *Count = buffer.Length;
             }
         }
@@ -579,7 +580,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                chunk.GetNativeArray(Value);
+                chunk.GetNativeArray(ref Value);
             }
         }
 

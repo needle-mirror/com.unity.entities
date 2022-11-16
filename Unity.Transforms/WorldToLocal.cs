@@ -42,11 +42,11 @@ namespace Unity.Transforms
             {
                 Assert.IsFalse(useEnabledMask);
 
-                if (!chunk.DidChange(LocalToWorldTypeHandle, LastSystemVersion))
+                if (!chunk.DidChange(ref LocalToWorldTypeHandle, LastSystemVersion))
                     return;
 
-                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldTypeHandle);
-                var chunkWorldToLocal = chunk.GetNativeArray(WorldToLocalTypeHandle);
+                var chunkLocalToWorld = chunk.GetNativeArray(ref LocalToWorldTypeHandle);
+                var chunkWorldToLocal = chunk.GetNativeArray(ref WorldToLocalTypeHandle);
 
                 for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
                 {

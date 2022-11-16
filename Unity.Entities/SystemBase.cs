@@ -5,6 +5,7 @@ using Unity.Burst;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
+using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
@@ -88,15 +89,16 @@ namespace Unity.Entities
     /// * <seealso cref="AlwaysSynchronizeSystemAttribute"/> -- force a [sync point](xref:concepts-structural-changes) before invoking
     ///   `OnUpdate`.
     ///
-    /// [JobHandle]: https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.html
-    /// [JobHandle.CompleteDependencies]: https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.CombineDependencies.html
-    /// [C# Job]: https://docs.unity3d.com/2019.2/Documentation/Manual/JobSystem.html
+    /// [JobHandle]: xref:Unity.Jobs.JobHandle
+    /// [JobHandle.CompleteDependencies]: xref:Unity.Jobs.JobHandle.CombineDependencies
+    /// [C# Job]: xref:JobSystem
     /// [ECB]: xref:Unity.Entities.EntityCommandBuffer
     /// [ComponentSystemBase.GetEntityQuery]: xref:Unity.Entities.ComponentSystemBase.GetEntityQuery*
     /// [ComponentSystemBase.RequireForUpdate]: xref:Unity.Entities.ComponentSystemBase.RequireForUpdate*
     /// [Entities.ForEach]: xref:iterating-data-entities-foreach
     /// [Job.WithCode]: xref:iterating-data-entities-foreach
     /// </remarks>
+    [RequireDerived]
     public unsafe abstract class SystemBase : ComponentSystemBase
     {
         /// <summary>
@@ -197,7 +199,7 @@ namespace Unity.Entities
         /// * **`WithSharedComponentFilter(ISharedComponentData)`** -- Only select chunks that have a specified value
         ///   for a shared component.
         ///
-        /// * **`WithEntityQueryOptions(EntityQueryOptions)`** -- Specify additonal options defined in a
+        /// * **`WithOptions(EntityQueryOptions)`** -- Specify additonal options defined in a
         ///   <see cref="EntityQueryOptions"/> object.
         ///
         /// * **`WithStoreEntityQueryInField(EntityQuery)`** -- Stores the <see cref="EntityQuery"/> object generated
@@ -376,6 +378,14 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>
         /// Systems should never override `Update()`. Instead, implement system behavior in <see cref="OnUpdate"/>.
+        ///
+        /// If a system manually calls another system's <see cref="Update()"/> method from inside its own
+        /// <see cref="OnUpdate()"/> method, <see cref="EntityQuery"/> objects in the caller
+        /// system might see unexpected and incorrect change version numbers based on the processing performed in the
+        /// target system. For this reason, you shouldn't manually update one system from another if both systems are
+        /// processing entity data, especially if either uses <see cref="EntityQuery.SetChangedVersionFilter(ComponentType[])"/>.
+        /// This guidance doesn't apply to <see cref="ComponentSystemGroup"/> or other "pass-through" systems which only
+        /// update other systems without manipulating entity data.
         /// </remarks>
         public sealed override void Update()
         {
@@ -467,6 +477,7 @@ namespace Unity.Entities
         /// [RequireMatchingQueriesForUpdateAttribute]: xref:Unity.Entities.RequireMatchingQueriesForUpdateAttribute
         /// [ShouldRunSystem]: xref:Unity.Entities.ComponentSystemBase.ShouldRunSystem
         /// </remarks>
+        [RequiredMember]
         protected abstract void OnUpdate();
 
         /// <summary>
@@ -495,6 +506,7 @@ namespace Unity.Entities
         /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
         /// </remarks>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
+        [Obsolete("Use SystemAPI.GetComponent instead (RemovedAfter Entities 1.0)")]
         protected internal T GetComponent<T>(Entity entity) where T : unmanaged, IComponentData
         {
             return EntityManager.GetComponentData<T>(entity);
@@ -526,6 +538,7 @@ namespace Unity.Entities
         /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
         /// </remarks>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
+        [Obsolete("Use SystemAPI.SetComponent instead (RemovedAfter Entities 1.0)")]
         protected internal void SetComponent<T>(Entity entity, T component) where T : unmanaged, IComponentData
         {
             EntityManager.SetComponentData(entity, component);
@@ -560,6 +573,7 @@ namespace Unity.Entities
         /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
         /// </remarks>
         /// <returns>True, if the specified entity has the component.</returns>
+        [Obsolete("Use SystemAPI.HasComponent instead (RemovedAfter Entities 1.0)")]
         protected internal bool HasComponent<T>(Entity entity) where T : unmanaged, IComponentData
         {
             return EntityManager.HasComponent<T>(entity);
@@ -598,8 +612,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets a dictionary-like container containing all components of type T, keyed by Entity.
+        /// Manually gets a dictionary-like container containing all components of type T, keyed by Entity.
         /// </summary>
+        /// <remarks>Remember to call <see cref="ComponentLookup{T}.Update(SystemBase)"/>. </remarks>
         /// <param name="isReadOnly">Whether the data is only read, not written. Access data as
         /// read-only whenever possible.</param>
         /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
@@ -612,12 +627,18 @@ namespace Unity.Entities
         /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
         /// </remarks>
         /// <returns>All component data of type T.</returns>
+        /// <remarks> Prefer using <see cref="SystemAPI.GetComponentLookup{T}"/> as it will cache in OnCreate for you
+        /// and call .Update(this) at the call-site. Also works in Entities.ForEach. </remarks>
         public new ComponentLookup<T> GetComponentLookup<T>(bool isReadOnly = false)
             where T : unmanaged, IComponentData
         {
             return base.GetComponentLookup<T>(isReadOnly);
         }
-        /// <inheritdoc cref="GetComponentLookup{T}"/>
+        /// <summary> Obsolete. Use <see cref="GetComponentLookup{T}"/> instead.</summary>
+        /// <param name="isReadOnly">Whether the data is only read, not written. Access data as
+        /// read-only whenever possible.</param>
+        /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
+        /// <returns>All component data of type T.</returns>
         [Obsolete("This method has been renamed to GetComponentLookup. (RemovedAFter Entities 1.0)", true)] // Can't use (UnityUpgradable) due to similar rename in ComponentSystemBase
         public new ComponentLookup<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
             where T : unmanaged, IComponentData
@@ -640,14 +661,16 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of the buffer's elements.</typeparam>
         /// <returns>The DynamicBuffer object for accessing the buffer contents.</returns>
         /// <exception cref="ArgumentException">Thrown if T is an unsupported type.</exception>
+        [Obsolete("Use SystemAPI.GetBuffer instead (RemovedAfter Entities 1.0)")]
         public DynamicBuffer<T> GetBuffer<T>(Entity entity, bool isReadOnly = false) where T : unmanaged, IBufferElementData
         {
             return CheckedState()->GetBuffer<T>(entity, isReadOnly);
         }
 
         /// <summary>
-        /// Gets a BufferLookup&lt;T&gt; object that can access a <seealso cref="DynamicBuffer{T}"/>.
+        /// Manually gets a BufferLookup&lt;T&gt; object that can access a <seealso cref="DynamicBuffer{T}"/>.
         /// </summary>
+        /// <remarks>Remember to call <see cref="BufferLookup{T}.Update(SystemBase)"/>. </remarks>
         /// <remarks>Assign the returned object to a field of your Job struct so that you can access the
         /// contents of the buffer in a Job.
         /// When you call this method on the main thread, it invokes <see cref="ComponentSystemBase.GetBufferLookup{T}"/>.
@@ -662,11 +685,17 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of <see cref="IBufferElementData"/> stored in the buffer.</typeparam>
         /// <returns>An array-like object that provides access to buffers, indexed by <see cref="Entity"/>.</returns>
         /// <seealso cref="ComponentLookup{T}"/>
+        /// <remarks> Prefer using <see cref="SystemAPI.GetBufferLookup{T}"/> as it will cache in OnCreate for you
+        /// and call .Update(this) at the call-site. Also works in Entities.ForEach. </remarks>
         public new BufferLookup<T> GetBufferLookup<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData
         {
             return base.GetBufferLookup<T>(isReadOnly);
         }
-        /// <inheritdoc cref="GetBufferLookup{T}"/>
+        /// <summary> Obsolete. Use <see cref="GetBufferLookup{T}"/> instead.</summary>
+        /// <param name="isReadOnly">Whether the buffer data is only read or is also written. Access data in
+        /// a read-only fashion whenever possible.</param>
+        /// <typeparam name="T">The type of <see cref="IBufferElementData"/> stored in the buffer.</typeparam>
+        /// <returns>An array-like object that provides access to buffers, indexed by <see cref="Entity"/>.</returns>
         [Obsolete("This method has been renamed to GetBufferLookup. (RemovedAFter Entities 1.0)", true)] // Can't use (UnityUpgradable) due to similar rename in ComponentSystemBase
         public new BufferLookup<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData
         {
@@ -674,8 +703,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets a EntityStorageInfoLookup object that can access a <see cref="EntityStorageInfo"/>.
+        /// Manually gets an EntityStorageInfoLookup object that can access a <see cref="EntityStorageInfo"/>.
         /// </summary>
+        /// <remarks>Remember to call <see cref="EntityStorageInfoLookup.Update(SystemBase)"/>. </remarks>
         /// <remarks>Assign the returned object to a field of your Job struct so that you can access the
         /// contents in a Job.
         ///
@@ -684,8 +714,11 @@ namespace Unity.Entities
         /// <returns>A dictionary-like object that provides access to information about how Entities are stored,
         /// indexed by <see cref="Entity"/>.</returns>
         /// <seealso cref="EntityStorageInfoLookup"/>
+        /// <remarks> Prefer using <see cref="SystemAPI.GetEntityStorageInfoLookup"/> as it will cache in OnCreate for you
+        /// and call .Update(this) at the call-site. </remarks>
         public new EntityStorageInfoLookup GetEntityStorageInfoLookup() => base.GetEntityStorageInfoLookup();
-        /// <inheritdoc cref="GetEntityStorageInfoLookup"/>
+        /// <summary> Obsolete. Use <see cref="GetEntityStorageInfoLookup"/> instead.</summary>
+        /// <returns>True if the given entity exists or the entity has a Cleanup Component that is yet to be destroyed</returns>
         [Obsolete("This method has been renamed to GetEntityStorageInfoLookup. (RemovedAFter Entities 1.0)", true)] // Can't use (UnityUpgradable) due to similar rename in ComponentSystemBase
         public new EntityStorageInfoLookup GetStorageInfoFromEntity() => base.GetEntityStorageInfoLookup();
 
@@ -700,6 +733,7 @@ namespace Unity.Entities
         /// <param name="entity">The entity to check</param>
         /// <returns>True if the given entity exists or the entity has a Cleanup Component that is yet to be destroyed</returns>
         /// <seealso cref="EntityManager.Exists"/>
+        [Obsolete("Use SystemAPI.Exists instead (RemovedAfter Entities 1.0)")]
         public bool Exists(Entity entity)
         {
             return EntityManager.Exists(entity);

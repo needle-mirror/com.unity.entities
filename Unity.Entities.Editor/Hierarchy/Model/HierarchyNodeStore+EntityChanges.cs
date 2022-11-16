@@ -6,6 +6,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEditor;
 
 namespace Unity.Entities.Editor
 {
@@ -219,17 +220,39 @@ namespace Unity.Entities.Editor
                         var subSceneComponent = m_World.EntityManager.GetComponentObject<Scenes.SubScene>(m_Changes.AddedSceneReferenceWithoutSceneTagEntities[i]);
 
                         if (subSceneComponent.SceneAsset != null && !subSceneComponent.gameObject.scene.isSubScene)
-                            m_Hierarchy.m_SceneReferenceEntityToScene.Add(m_Changes.AddedSceneReferenceWithoutSceneTagEntities[i], subSceneComponent.gameObject.scene);
+                        {
+                            var sceneReferenceEntityToScene = m_Hierarchy.m_SceneReferenceEntityToScene;
+                            sceneReferenceEntityToScene[m_Changes.AddedSceneReferenceWithoutSceneTagEntities[i]] = subSceneComponent.gameObject.scene;
+                        }
+
+                        if (subSceneComponent.SceneAsset)
+                        {
+                            var handle = new HierarchyNodeHandle(NodeKind.SubScene, subSceneComponent.gameObject.GetInstanceID(), -1);
+
+                            if (m_Hierarchy.Exists(handle))
+                                m_Hierarchy.RemoveNode(handle);
+                        }
+
+                        m_Hierarchy.m_SubSceneNodeMapping.AddSubSceneInstanceId(m_Changes.AddedSceneReferenceWithoutSceneTagEntities[i], subSceneComponent.GetInstanceID());
                     }
                 }
 
                 for (var i = 0; i < m_Changes.RemovedSceneReferenceWithoutSceneTagEntities.Length; i++)
                 {
                     m_Hierarchy.m_SceneReferenceEntityToScene.Remove(m_Changes.RemovedSceneReferenceWithoutSceneTagEntities[i]);
+
+                    var instanceId = m_Hierarchy.m_SubSceneNodeMapping.GetSubSceneInstanceId(m_Changes.RemovedSceneReferenceWithoutSceneTagEntities[i]);
+                    var subSceneComponent = EditorUtility.InstanceIDToObject(instanceId) as Scenes.SubScene;
+
+                    if (subSceneComponent)
+                    {
+                        var handle = new HierarchyNodeHandle(NodeKind.SubScene, subSceneComponent.gameObject.GetInstanceID(), -1);
+                        m_Hierarchy.AddNode(handle);
+                    }
                 }
             }
         }
-        
+
         /// <summary>
         /// Integrates the given <see cref="HierarchyEntityChanges"/> set in to this hierarchy.
         /// </summary>

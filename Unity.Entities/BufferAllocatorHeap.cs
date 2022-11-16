@@ -26,7 +26,9 @@ namespace Unity.Entities
             Handle = handle;
             BufferSizeInBytes = bufferSizeInBytes;
             var bufferCount = (budgetInBytes + bufferSizeInBytes - 1) / bufferSizeInBytes;
-            Buffers = new UnsafeList<IntPtr>(bufferCount, handle);
+
+            // Use Legacy allocator such that when custom allocator rewinds, Buffers is still valid.
+            Buffers = new UnsafeList<IntPtr>(bufferCount, AllocatorManager.LegacyOf(handle));
 
             for (int i = 0; i < bufferCount; ++i)
             {

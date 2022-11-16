@@ -21,7 +21,7 @@ namespace Unity.Entities.Tests
         void UpdateSystems()
         {
             World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);
-            World.GetOrCreateSystem<TransformHierarchySystem>().Update(World.Unmanaged);
+            World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged);
             EmptySystem.Update();
             m_Manager.CompleteAllTrackedJobs();
         }
@@ -30,15 +30,16 @@ namespace Unity.Entities.Tests
         {
             base.Setup();
 
-            m_Parent = m_Manager.CreateEntity(new ComponentType[]{typeof(LocalToWorldTransform), typeof(LocalToWorld)});
-            m_Manager.AddComponentData(m_Parent, new LocalToWorldTransform { Value = UniformScaleTransform.Identity });
-            m_Manager.AddComponentData(m_Parent, new LocalToWorld { Value = float4x4.identity });
+            m_Parent = m_Manager.CreateEntity(new ComponentType[]{typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)});
+            m_Manager.SetComponentData(m_Parent, LocalTransform.Identity);
+            m_Manager.SetComponentData(m_Parent, WorldTransform.Identity);
+            m_Manager.SetComponentData(m_Parent, new LocalToWorld { Value = float4x4.identity });
 
-            m_Child = m_Manager.CreateEntity(new ComponentType[]{typeof(Parent), typeof(LocalToWorldTransform), typeof(LocalToParentTransform), typeof(LocalToWorld)});
-            m_Manager.AddComponentData(m_Child, new Parent { Value = m_Parent });
-            m_Manager.AddComponentData(m_Child, new LocalToWorldTransform { Value = UniformScaleTransform.Identity });
-            m_Manager.AddComponentData(m_Child, new LocalToParentTransform { Value = UniformScaleTransform.Identity });
-            m_Manager.AddComponentData(m_Child, new LocalToWorld { Value = float4x4.identity });
+            m_Child = m_Manager.CreateEntity(new ComponentType[]{typeof(Parent), typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)});
+            m_Manager.SetComponentData(m_Child, new Parent { Value = m_Parent });
+            m_Manager.SetComponentData(m_Child, LocalTransform.Identity);
+            m_Manager.SetComponentData(m_Child, WorldTransform.Identity);
+            m_Manager.SetComponentData(m_Child, new LocalToWorld { Value = float4x4.identity });
 
             UpdateSystems();
         }
@@ -89,12 +90,12 @@ namespace Unity.Entities.Tests
             parentAspect.TranslateWorld(math.forward());  // Step forward
             UpdateSystems();
             parentAspect = GetAspect<TransformAspect>(m_Parent); // UpdateSystems invalidates the Aspect
-            var parentPosition = parentAspect.Position;
+            var parentPosition = parentAspect.LocalPosition;
             Assert.AreEqual(0f, parentPosition.x, k_Tolerance);
             Assert.AreEqual(0f, parentPosition.y, k_Tolerance);
             Assert.AreEqual(1f, parentPosition.z, k_Tolerance);
             var childAspect = GetAspect<TransformAspect>(m_Child);
-            var childWorldPosition = childAspect.Position;
+            var childWorldPosition = childAspect.WorldPosition;
             Assert.AreEqual(0f, childWorldPosition.x, k_Tolerance);
             Assert.AreEqual(0f, childWorldPosition.y, k_Tolerance);
             Assert.AreEqual(1f, childWorldPosition.z, k_Tolerance);
@@ -113,12 +114,12 @@ namespace Unity.Entities.Tests
             childAspect.TranslateWorld(math.right());
             UpdateSystems();
             parentAspect = GetAspect<TransformAspect>(m_Parent); // UpdateSystems invalidates the Aspect
-            var parentPosition = parentAspect.Position;
+            var parentPosition = parentAspect.LocalPosition;
             Assert.AreEqual(0f, parentPosition.x, k_Tolerance);
             Assert.AreEqual(0f, parentPosition.y, k_Tolerance);
             Assert.AreEqual(1f, parentPosition.z, k_Tolerance);
             childAspect = GetAspect<TransformAspect>(m_Child);
-            var childWorldPosition = childAspect.Position;
+            var childWorldPosition = childAspect.WorldPosition;
             Assert.AreEqual(1f, childWorldPosition.x, k_Tolerance);
             Assert.AreEqual(0f, childWorldPosition.y, k_Tolerance);
             Assert.AreEqual(1f, childWorldPosition.z, k_Tolerance);
@@ -136,7 +137,11 @@ namespace Unity.Entities.Tests
             UpdateSystems();
 
             var childAspect = GetAspect<TransformAspect>(m_Child);
+#if !ENABLE_TRANSFORM_V1
+            var childLocalForward = childAspect.LocalMatrix.c2.xyz;
+#else
             var childLocalForward = childAspect.LocalToParentMatrix.c2.xyz;
+#endif
             // 0 degrees => aligned with Z-axis
             Assert.AreEqual(0f, childLocalForward.x, k_Tolerance);
             Assert.AreEqual(0f, childLocalForward.y, k_Tolerance);
@@ -157,12 +162,12 @@ namespace Unity.Entities.Tests
             parentAspect.TranslateWorld(parentAspect.Forward);  // Step forward in the new direction
             UpdateSystems();
             parentAspect = GetAspect<TransformAspect>(m_Parent); // UpdateSystems invalidates the Aspect
-            var parentPosition = parentAspect.Position;
+            var parentPosition = parentAspect.LocalPosition;
             Assert.AreEqual(1f, parentPosition.x, k_Tolerance);
             Assert.AreEqual(0f, parentPosition.y, k_Tolerance);
             Assert.AreEqual(1f, parentPosition.z, k_Tolerance);
             var childAspect = GetAspect<TransformAspect>(m_Child);
-            var childPosition = childAspect.Position;
+            var childPosition = childAspect.WorldPosition;
             Assert.AreEqual(1f, childPosition.x, k_Tolerance);
             Assert.AreEqual(0f, childPosition.y, k_Tolerance);
             Assert.AreEqual(1f, childPosition.z, k_Tolerance);
@@ -177,7 +182,7 @@ namespace Unity.Entities.Tests
             childAspect.TranslateLocal(math.forward());
             UpdateSystems();
             childAspect = GetAspect<TransformAspect>(m_Child); // UpdateSystems invalidates the Aspect
-            var childPosition = childAspect.Position;
+            var childPosition = childAspect.WorldPosition;
             Assert.AreEqual(1f, childPosition.x, k_Tolerance);
             Assert.AreEqual(0f, childPosition.y, k_Tolerance);
             Assert.AreEqual(0f, childPosition.z, k_Tolerance);
@@ -197,7 +202,7 @@ namespace Unity.Entities.Tests
             childAspect.TranslateWorld(math.forward());
             UpdateSystems();
             childAspect = GetAspect<TransformAspect>(m_Child); // UpdateSystems invalidates the Aspect
-            var childPosition = childAspect.Position;
+            var childPosition = childAspect.WorldPosition;
             Assert.AreEqual(0f, childPosition.x, k_Tolerance);
             Assert.AreEqual(0f, childPosition.y, k_Tolerance);
             Assert.AreEqual(1f, childPosition.z, k_Tolerance);
@@ -214,13 +219,21 @@ namespace Unity.Entities.Tests
             childAspect = GetAspect<TransformAspect>(m_Child);  // UpdateSystems invalidates the Aspect
 
             // Local forward is now local down
+#if !ENABLE_TRANSFORM_V1
+            var childLocalForward = childAspect.LocalMatrix.c2.xyz;
+#else
             var childLocalForward = childAspect.LocalToParentMatrix.c2.xyz;
+#endif
             Assert.AreEqual(0, childLocalForward.x, k_Tolerance);
             Assert.AreEqual(-1, childLocalForward.y, k_Tolerance);
             Assert.AreEqual(0, childLocalForward.z, k_Tolerance);
 
             // Local up is now local forward
+#if !ENABLE_TRANSFORM_V1
+            var childLocalUp = childAspect.LocalMatrix.c1.xyz;
+#else
             var childLocalUp = childAspect.LocalToParentMatrix.c1.xyz;
+#endif
             Assert.AreEqual(0, childLocalUp.x, k_Tolerance);
             Assert.AreEqual(0, childLocalUp.y, k_Tolerance);
             Assert.AreEqual(1, childLocalUp.z, k_Tolerance);
@@ -248,13 +261,21 @@ namespace Unity.Entities.Tests
             childAspect = GetAspect<TransformAspect>(m_Child);  // UpdateSystems invalidates the Aspect
 
             // Local forward is now local down
+#if !ENABLE_TRANSFORM_V1
+            var childLocalForward = childAspect.LocalMatrix.c2.xyz;
+#else
             var childLocalForward = childAspect.LocalToParentMatrix.c2.xyz;
+#endif
             Assert.AreEqual(0, childLocalForward.x, k_Tolerance);
             Assert.AreEqual(-1, childLocalForward.y, k_Tolerance);
             Assert.AreEqual(0, childLocalForward.z, k_Tolerance);
 
             // Local up is now local forward
+#if !ENABLE_TRANSFORM_V1
+            var childLocalUp = childAspect.LocalMatrix.c1.xyz;
+#else
             var childLocalUp = childAspect.LocalToParentMatrix.c1.xyz;
+#endif
             Assert.AreEqual(0, childLocalUp.x, k_Tolerance);
             Assert.AreEqual(0, childLocalUp.y, k_Tolerance);
             Assert.AreEqual(1, childLocalUp.z, k_Tolerance);

@@ -73,6 +73,7 @@ public class BurstSafetyTests
         }
     }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
     [Test]
     public void WriteToReadOnlyArray()
     {
@@ -85,6 +86,7 @@ public class BurstSafetyTests
 
         jobData.test.Dispose();
     }
+#endif
 
     [BurstCompile(CompileSynchronously = true)]
     struct ParallelForIndexChecksJob : IJobParallelFor
@@ -140,6 +142,7 @@ public class BurstSafetyTests
         }
     }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
     [Test]
     [Ignore("Crashes Unity - Important")]
     public void AccessNullNativeArray()
@@ -148,6 +151,7 @@ public class BurstSafetyTests
 
         new AccessNullNativeArrayJob().Schedule(100, 1).Complete();
     }
+#endif
 
     [BurstCompile(CompileSynchronously = true)]
     unsafe struct AccessNullUnsafePtrJob : IJob
@@ -162,6 +166,7 @@ public class BurstSafetyTests
         }
     }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
 #if !UNITY_DOTSRUNTIME
     [Test]
     [Ignore("Crashes Unity - No user is supposed to write code like this, so not very important")]
@@ -172,5 +177,6 @@ public class BurstSafetyTests
         new AccessNullUnsafePtrJob().Run();
     }
 
+#endif
 #endif
 }

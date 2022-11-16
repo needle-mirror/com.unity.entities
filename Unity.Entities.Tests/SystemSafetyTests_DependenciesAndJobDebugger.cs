@@ -122,6 +122,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void MissedDependencyMakesActionableErrorMessage([Values]bool iSystem)
         {
             var arch = World.EntityManager.CreateArchetype(typeof(EcsTestData));
@@ -154,6 +155,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void MissedDependencyFromNestedUpdateMakesActionableErrorMessage([Values]bool iSystem)
         {
             var arch = World.EntityManager.CreateArchetype(typeof(EcsTestData));

@@ -31,10 +31,11 @@ namespace Unity.Entities.CodeGen.Cloner
             return (original, rewritten);
         }
 
-        public static (List<PropertyDefinition> Original, List<(PropertyDefinition Definition, string Source)> Rewritten)
+        static string GetPropertyName(PropertyDefinition propertyDefinition) => $"{propertyDefinition.DeclaringType.ToString().Replace('/', '.')}.{propertyDefinition.Name}";
+        public static (Dictionary<string, PropertyDefinition> OriginalLookup, List<(PropertyDefinition Definition, string Source)> Rewritten)
             GetOriginalAndRewrittenProperties(this TypeDefinition typeDefinition)
         {
-            var original = new List<PropertyDefinition>();
+            var originalLookup = new Dictionary<string, PropertyDefinition>();
             var rewritten = new List<(PropertyDefinition, string)>();
 
             foreach (var property in typeDefinition.Properties)
@@ -48,58 +49,56 @@ namespace Unity.Entities.CodeGen.Cloner
                 }
                 else
                 {
-                    original.Add(property);
+                    originalLookup[GetPropertyName(property)] = property;
                 }
             }
 
-            return (original, rewritten);
-        }
-
-        public static void UpdateOriginalProperty(
-            this TypeDefinition typeDefinition,
-            Dictionary<string, PropertyDefinition> originalPropertyIdsToDefinitions,
-            (PropertyDefinition Definition, string ConstructorArgument) rewrittenProperty)
-        {
-            var originalProperty = originalPropertyIdsToDefinitions[rewrittenProperty.ConstructorArgument];
-            originalProperty.GetMethod = rewrittenProperty.Definition.GetMethod;
-            originalProperty.SetMethod = rewrittenProperty.Definition.SetMethod;
-
-            typeDefinition.Properties.Remove(rewrittenProperty.Definition);
+            return (originalLookup, rewritten);
         }
 
         public static void UpdateOriginalMethod(
             this TypeDefinition typeDef,
             Dictionary<string, MethodDefinition> originalMethodIdsToDefinitions,
-            (MethodDefinition Definition, string ConstructorArgument) rewrittenMethod)
+            (MethodDefinition Definition, string ConstructorArgument) rewrittenMethodIn)
         {
-            var originalMethod = originalMethodIdsToDefinitions[rewrittenMethod.ConstructorArgument];
+            var originalMethod = originalMethodIdsToDefinitions[rewrittenMethodIn.ConstructorArgument];
+            var rewrittenMethod = rewrittenMethodIn.Definition;
 
             // If we are using a display class in a method but not in the source, we need to remove the display class usage
             // (otherwise Mono will get confused when trying to debug multiple sequence points that point to the same source file location)
             var displayClassesUsedInOriginal = GetAllDisplayClassUsagesInMethod(originalMethod);
-            var displayClassesUsedInRewritten = GetAllDisplayClassUsagesInMethod(rewrittenMethod.Definition);
+            var displayClassesUsedInRewritten = GetAllDisplayClassUsagesInMethod(rewrittenMethod);
 
             foreach (var originalDisplayClass in displayClassesUsedInOriginal)
             {
                 if (!displayClassesUsedInRewritten.Contains(originalDisplayClass) && originalMethod.DeclaringType.NestedTypes.Contains(originalDisplayClass))
+                {
                     originalMethod.DeclaringType.NestedTypes.Remove(originalDisplayClass);
+
+                    var methodsToRemove = new List<MethodDefinition>(typeDef.Methods.Count);
+                    foreach (var displayMethodCandidate in typeDef.Methods)
+                        if (displayMethodCandidate.Parameters.FirstOrDefault()?.ParameterType.GetElementType() == originalDisplayClass)
+                            methodsToRemove.Add(displayMethodCandidate);
+                    foreach (var methodToRemove in methodsToRemove)
+                        typeDef.Methods.Remove(methodToRemove);
+                }
             }
 
-            originalMethod.Body = rewrittenMethod.Definition.Body;
-            typeDef.Methods.Remove(rewrittenMethod.Definition);
+            originalMethod.Body = rewrittenMethod.Body;
+            typeDef.Methods.Remove(rewrittenMethod);
 
             var sequencePoints = originalMethod.DebugInformation.SequencePoints;
             sequencePoints.Clear();
 
-            foreach (var sp in rewrittenMethod.Definition.DebugInformation.SequencePoints)
+            foreach (var sp in rewrittenMethod.DebugInformation.SequencePoints)
                 sequencePoints.Add(sp);
 
-            originalMethod.DebugInformation.Scope = rewrittenMethod.Definition.DebugInformation.Scope;
+            originalMethod.DebugInformation.Scope = rewrittenMethod.DebugInformation.Scope;
 
-            if (rewrittenMethod.Definition.HasGenericParameters && originalMethod.HasGenericParameters)
+            if (rewrittenMethod.HasGenericParameters && originalMethod.HasGenericParameters)
             {
                 originalMethod.GenericParameters.Clear();
-                foreach (var genericParam in rewrittenMethod.Definition.GenericParameters)
+                foreach (var genericParam in rewrittenMethod.GenericParameters)
                 {
                     originalMethod.GenericParameters.Add(genericParam);
                 }

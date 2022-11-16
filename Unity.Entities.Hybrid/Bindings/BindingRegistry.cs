@@ -123,7 +123,7 @@ namespace Unity.Entities
             Assert.IsTrue(typeof(IComponentData).IsAssignableFrom(runtimeComponent));
 
             var typeIndex = TypeManager.GetTypeIndex(runtimeComponent);
-            Assert.IsTrue(typeIndex.Value != 1);
+            Assert.IsTrue(typeIndex != 1);
 
             (Type, string) runtimeKey = (runtimeComponent, runtimeField);
             (Type, string) authoringValue = (authoringComponent, authoringField);
@@ -175,12 +175,17 @@ namespace Unity.Entities
                     s_AuthoringToRuntimeBinding[authoringComponent] = lookup = new List<ReverseBinding>();
             }
 
-            if (extractedProperties && lookup.Where(x => x.AuthoringFieldName == authoringField).ToArray().Length == 0)
+            if (!extractedProperties)
+                return;
+
+            if (authoringComponent == typeof(Transform) || !lookup.Any(x => x.AuthoringFieldName == authoringField))
+            {
                 lookup.Add(new ReverseBinding() {
                     AuthoringFieldName = authoringField,
                     ComponentTypeIndex = typeIndex,
                     FieldProperties = fieldProps
                 });
+            }
         }
 
         // Checks if a runtime type has any authoring bindings

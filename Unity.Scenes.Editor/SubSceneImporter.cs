@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Serialization;
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build;
 using Unity.Build.DotsRuntime;
+#endif
 using Unity.Core.Compression;
 using Unity.Entities.Build;
 using UnityEditor;
@@ -17,7 +19,7 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(115, "extDontMatter")]
+    [ScriptedImporter(119, "extDontMatter", AllowCaching = true)]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {
@@ -97,7 +99,11 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        void ImportBaking(AssetImportContext ctx, Scene scene, SceneWithBuildConfigurationGUIDs sceneWithBuildConfiguration, DotsPlayerSettings settingsAsset, BuildConfiguration buildConfig, GameObject prefab)
+        void ImportBaking(AssetImportContext ctx, Scene scene, SceneWithBuildConfigurationGUIDs sceneWithBuildConfiguration, IEntitiesPlayerSettings settingsAsset,
+#if USING_PLATFORMS_PACKAGE
+            BuildConfiguration buildConfig,
+#endif
+            GameObject prefab)
         {
             // Grab the used lighting and fog values from the scenes lighting & render settings.
             // If autobake is enabled, this function will iterate through objects to predict the outcome.
@@ -105,14 +111,16 @@ namespace Unity.Scenes.Editor
 
             var flags = BakingUtility.BakingFlags.AddEntityGUID |
                         BakingUtility.BakingFlags.AssignName | BakingUtility.BakingFlags.GameViewLiveConversion;
+
             var settings = new BakingSettings(flags, default)
             {
                 SceneGUID = sceneWithBuildConfiguration.SceneGUID,
                 DotsSettings = settingsAsset,
+#if USING_PLATFORMS_PACKAGE
                 BuildConfiguration = buildConfig,
-                IsBuiltInBuildsEnabled = sceneWithBuildConfiguration.IsBuiltInBuildsEnabled
+#endif
             };
-            settings.ExtraSystems.AddRange(DotsPlayerSettings.AdditionalBakingSystemsTemp);
+            settings.ExtraSystems.AddRange(TestPlayerSettings.AdditionalBakingSystemsTemp);
 
             if (!sceneWithBuildConfiguration.IsBuildingForEditor)
                 settings.BakingFlags |= BakingUtility.BakingFlags.IsBuildingForPlayer;
@@ -122,8 +130,8 @@ namespace Unity.Scenes.Editor
             settings.FilterFlags = WorldSystemFilterFlags.BakingSystem;
 
             WriteEntitySceneSettings writeEntitySettings = new WriteEntitySceneSettings();
-            writeEntitySettings.isBakingEnabled = true;
             //Dots runtime builds will still use build config
+#if USING_PLATFORMS_PACKAGE
             if (buildConfig != null)
             {
                 if (buildConfig.TryGetComponent<DotsRuntimeRootAssembly>(out var rootAssembly))
@@ -135,7 +143,6 @@ namespace Unity.Scenes.Editor
                         BaseAssemblies = rootAssembly.RootAssembly.asset,
                         PlatformName = EditorUserBuildSettings.activeBuildTarget.ToString()
                     };
-                    settings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
 
                     //Updating the root asmdef references or its references should re-trigger conversion
                     ctx.DependsOnArtifact(AssetDatabase.GetAssetPath(rootAssembly.RootAssembly.asset));
@@ -145,6 +152,7 @@ namespace Unity.Scenes.Editor
                     }
                 }
             }
+#endif
 
             var sectionRefObjs = new List<ReferencedUnityObjects>();
             var sectionData = EditorEntityScenes.BakeAndWriteEntityScene(scene, settings, sectionRefObjs, writeEntitySettings);
@@ -156,58 +164,11 @@ namespace Unity.Scenes.Editor
                 DestroyImmediate(objRefs);
         }
 
-        void ImportConversion(AssetImportContext ctx, Scene scene, SceneWithBuildConfigurationGUIDs sceneWithBuildConfiguration, BuildConfiguration config, GameObject prefab)
-        {
-            // Grab the used lighting and fog values from the scenes lighting & render settings.
-            // If autobake is enabled, this function will iterate through objects to predict the outcome.
-            var globalUsage = ContentBuildInterface.GetGlobalUsageFromActiveScene(ctx.selectedBuildTarget);
-            var settings = new GameObjectConversionSettings();
-
-            settings.SceneGUID = sceneWithBuildConfiguration.SceneGUID;
-            if (!sceneWithBuildConfiguration.IsBuildingForEditor)
-                settings.ConversionFlags |= GameObjectConversionUtility.ConversionFlags.IsBuildingForPlayer;
-
-            settings.PrefabRoot = prefab;
-            settings.BuildConfiguration = config;
-            settings.AssetImportContext = ctx;
-            settings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
-
-            WriteEntitySceneSettings writeEntitySettings = new WriteEntitySceneSettings();
-            writeEntitySettings.isBakingEnabled = false;
-            if (config != null && config.TryGetComponent<DotsRuntimeBuildProfile>(out var profile))
-            {
-                if (config.TryGetComponent<DotsRuntimeRootAssembly>(out var rootAssembly))
-                {
-                    writeEntitySettings.Codec = Codec.LZ4;
-                    writeEntitySettings.IsDotsRuntime = true;
-                    writeEntitySettings.BuildAssemblyCache = new BuildAssemblyCache()
-                    {
-                        BaseAssemblies = rootAssembly.RootAssembly.asset,
-                        PlatformName = profile.Target.UnityPlatformName
-                    };
-                    settings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
-
-                    //Updating the root asmdef references or its references should re-trigger conversion
-                    ctx.DependsOnArtifact(AssetDatabase.GetAssetPath(rootAssembly.RootAssembly.asset));
-                    foreach (var assemblyPath in writeEntitySettings.BuildAssemblyCache.AssembliesPath)
-                    {
-                        ctx.DependsOnArtifact(assemblyPath);
-                    }
-                }
-            }
-
-            var sectionRefObjs = new List<ReferencedUnityObjects>();
-            var sectionData = EditorEntityScenes.ConvertAndWriteEntityScene(scene, settings, sectionRefObjs, writeEntitySettings);
-
-            WriteAssetDependencyGUIDs(sectionRefObjs, sectionData, ctx);
-            WriteGlobalUsageArtifact(globalUsage, ctx);
-
-            foreach (var objRefs in sectionRefObjs)
-                DestroyImmediate(objRefs);
-        }
-
         public override void OnImportAsset(AssetImportContext ctx)
         {
+#if ENABLE_CLOUD_SERVICES_ANALYTICS
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+#endif
             try
             {
                 var sceneWithBuildConfiguration = SceneWithBuildConfigurationGUIDs.ReadFromFile(ctx.assetPath);
@@ -216,14 +177,45 @@ namespace Unity.Scenes.Editor
                 EditorEntityScenes.AddEntityBinaryFileDependencies(ctx, sceneWithBuildConfiguration.BuildConfiguration);
                 EditorEntityScenes.DependOnSceneGameObjects(sceneWithBuildConfiguration.SceneGUID, ctx);
 
+                IEntitiesPlayerSettings settingsAsset = null;
+#if USING_PLATFORMS_PACKAGE
                 BuildConfiguration buildConfig = BuildConfiguration.LoadAsset(sceneWithBuildConfiguration.BuildConfiguration);
-                DotsPlayerSettings settingsAsset = null;
-                // If we failed to load a BuildConfiguration asset, let's try to load a DotsPlayerSettings one
+                // If we failed to load a BuildConfiguration asset, let's try to load a IEntitiesPlayerSettings one
                 if (buildConfig == null)
                 {
-                    var path = AssetDatabase.GUIDToAssetPath(sceneWithBuildConfiguration.BuildConfiguration.ToString());
-                    settingsAsset =  AssetDatabase.LoadAssetAtPath<DotsPlayerSettings>(path);
+                    if (sceneWithBuildConfiguration.BuildConfiguration.IsValid)
+                    {
+                        settingsAsset = DotsGlobalSettings.Instance.GetSettingsAsset(sceneWithBuildConfiguration.BuildConfiguration);
+                        if (settingsAsset == null)
+                        {
+                            // the build configuration ID is not a default configuration stored in the ProjectSettings
+                            // attempt to load it using the AssetDatabase
+                            var path = AssetDatabase.GUIDToAssetPath(sceneWithBuildConfiguration.BuildConfiguration);
+                            settingsAsset = AssetDatabase.LoadMainAssetAtPath(path) as IEntitiesPlayerSettings;
+                        }
+                    }
+
+                    if (settingsAsset == null)
+                    {
+                        // ensure the settings objects are updated and contain the latest changes from the editor
+                        DotsGlobalSettings.Instance.ReloadSettingsObjects();
+                        // if the build config could not be resolved, default to the standard entities client settings asset
+                        switch (DotsGlobalSettings.Instance.GetPlayerType())
+                        {
+                            case DotsGlobalSettings.PlayerType.Server:
+                                settingsAsset = DotsGlobalSettings.Instance.GetServerSettingAsset();
+                                break;
+                            case DotsGlobalSettings.PlayerType.Client:
+                            default:
+                                settingsAsset = DotsGlobalSettings.Instance.GetClientSettingAsset();
+                                break;
+                        }
+
+                    }
+
+                    ctx.DependsOnCustomDependency(settingsAsset.CustomDependency);
                 }
+#endif
                 var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneWithBuildConfiguration.SceneGUID);
 
                 UnityEngine.SceneManagement.Scene scene;
@@ -245,14 +237,11 @@ namespace Unity.Scenes.Editor
                 {
                     EditorSceneManager.SetActiveScene(scene);
 
-                    if (sceneWithBuildConfiguration.IsBakingEnabled)
-                    {
-                        ImportBaking(ctx, scene, sceneWithBuildConfiguration, settingsAsset, buildConfig, prefab);
-                    }
-                    else
-                    {
-                        ImportConversion(ctx, scene, sceneWithBuildConfiguration, buildConfig, prefab);
-                    }
+                    ImportBaking(ctx, scene, sceneWithBuildConfiguration, settingsAsset,
+#if USING_PLATFORMS_PACKAGE
+                        buildConfig,
+#endif
+                        prefab);
                 }
                 finally
                 {
@@ -265,6 +254,11 @@ namespace Unity.Scenes.Editor
             {
                 Debug.Log($"Exception thrown during SubScene import: {e}");
             }
+
+#if ENABLE_CLOUD_SERVICES_ANALYTICS
+            watch.Stop();
+            BakingAnalytics.SendAnalyticsEvent(watch.ElapsedMilliseconds, BakingAnalytics.EventType.BackgroundImporter);
+#endif
         }
     }
 }

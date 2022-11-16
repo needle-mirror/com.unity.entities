@@ -188,6 +188,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity safety checks")]
         public void InstantiateResidueEntityThrows()
         {
             var entity0 = m_Manager.CreateEntity(

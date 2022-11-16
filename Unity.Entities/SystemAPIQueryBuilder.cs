@@ -103,6 +103,36 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAllRW<T1, T2>() => throw ThrowNotBuildException();
 
         /// <summary>
+        /// Add a required [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to find entities that have all the specified chunk components. Chunk
+        /// components are a distinct component type, which are different from adding the same type as a standard
+        /// component.
+        ///
+        /// To add additional required Chunk Components, call this method multiple times.
+        /// </remarks>
+        ///
+        /// <typeparam name="T">Component type to use as a required, read-only Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        public SystemAPIQueryBuilder WithAllChunkComponent<T>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Add a required [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to find entities that have all the specified chunk components. Chunk
+        /// components are a distinct component type, which are different from adding the same type as a standard
+        /// component.
+        ///
+        /// To add additional required Chunk Components, call this method multiple times.
+        /// </remarks>
+        ///
+        /// <typeparam name="T">Component type to use as a required, read-write Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        public SystemAPIQueryBuilder WithAllChunkComponentRW<T>() => throw ThrowNotBuildException();
+
+        /// <summary>
         /// Specify optional read-only component types that must be present.
         /// </summary>
         /// <typeparam name="T1">Optional component</typeparam>
@@ -197,6 +227,40 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAnyRW<T1, T2>() => throw ThrowNotBuildException();
 
         /// <summary>
+        /// Add an optional [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an Entity must have at least one of the query's optional component types,
+        /// specified using either <see cref="WithAny"/> or <see cref="WithAnyChunkComponent"/>. Chunk components are a distinct component
+        /// type, which are different from adding the same type as a standard component.
+        ///
+        /// Compare this to <see cref="M:Unity.Entities.SystemAPIEntityQueryBuilder.WithAllChunkComponent``1"/>
+        ///
+        /// To add additional optional Chunk Components, call this method multiple times.
+        ///
+        /// </remarks>
+        /// <typeparam name="T">Component type to use as an optional, read-only Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        public SystemAPIQueryBuilder WithAnyChunkComponent<T>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Add an optional [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an Entity must have at least one of the query's optional component types,
+        /// specified using either <see cref="WithAny"/> or <see cref="WithAnyChunkComponent"/>. Chunk components are a distinct component
+        /// type, which are different from adding the same type as a standard component.
+        ///
+        /// Compare this to <see cref="M:Unity.Entities.SystemAPIEntityQueryBuilder.WithAllChunkComponent``1"/>
+        ///
+        /// To add additional optional Chunk Components, call this method multiple times.
+        ///
+        /// </remarks>
+        /// <typeparam name="T">Component type to use as an optional, read-write Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        public SystemAPIQueryBuilder WithAnyChunkComponentRW<T>() => throw ThrowNotBuildException();
+
+        /// <summary>
         /// Specify component types that must NOT be present.
         /// </summary>
         /// <typeparam name="T1">Absent component</typeparam>
@@ -273,6 +337,21 @@ namespace Unity.Entities
         /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
         /// <exception cref="ThrowNotBuildException"></exception>
         public SystemAPIQueryBuilder WithNone<T1, T2, T3, T4, T5, T6, T7>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Add an excluded [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to exclude any entities that have the specified chunk component.
+        /// Chunk components are a distinct component type, which are different from excluding the same type as a
+        /// standard component.
+        ///
+        /// To add additional excluded Chunk Components, call this method multiple times.
+        ///
+        /// </remarks>
+        /// <typeparam name="T">Component type to use as an excluded Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        public SystemAPIQueryBuilder WithNoneChunkComponent<T>() => throw ThrowNotBuildException();
 
         /// <summary>
         /// Specify your own `EntityQueryOptions`.

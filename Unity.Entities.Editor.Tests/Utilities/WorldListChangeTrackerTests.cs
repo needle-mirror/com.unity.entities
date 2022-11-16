@@ -36,7 +36,7 @@ namespace Unity.Entities.Editor.Tests.Utilities
 
             var nextSequenceNumber = World.NextSequenceNumber;
 #if !ENABLE_TRANSFORM_V1
-            using var q = w.EntityManager.CreateEntityQuery(typeof(LocalToWorldTransform));
+            using var q = w.EntityManager.CreateEntityQuery(typeof(LocalTransform));
 #else
             using var q = w.EntityManager.CreateEntityQuery(typeof(Rotation));
 #endif

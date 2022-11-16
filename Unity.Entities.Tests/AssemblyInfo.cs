@@ -7,4 +7,5 @@ using Unity.Entities;
 [assembly: InternalsVisibleTo("Unity.Entities.CodeGen.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Editor.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests")]
+[assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Editmode.Content")]
 [assembly: InternalsVisibleTo("Unity.Transforms.Tests")]

@@ -16,14 +16,8 @@ namespace Unity.Scenes.Editor
     [CanEditMultipleObjects]
     class SubSceneInspector : UnityEditor.Editor
     {
-        Dictionary<Hash128, bool> m_ConversionLogLoaded = new Dictionary<Hash128, bool>();
-        string m_ConversionLog = "";
-
         SceneAsset[] m_PreviousSceneAssets;
         private SubScene[] _selectedSubscenes;
-
-        bool m_RunningConversionLogCheck = false;
-        bool m_ConversionLogCheckResult = false;
 
         private void OnEnable()
         {
@@ -31,10 +25,13 @@ namespace Unity.Scenes.Editor
             _selectedSubscenes = new SubScene[targets.Length];
             var targetsArray = targets;
             targetsArray.CopyTo(_selectedSubscenes, 0);
+
+            SubSceneInspectorUtility.WantsRepaint += this.Repaint;
         }
 
         private void OnDisable()
         {
+            SubSceneInspectorUtility.WantsRepaint -= this.Repaint;
             Undo.undoRedoPerformed -= OnUndoRedoPerformed;
         }
 
@@ -329,6 +326,7 @@ namespace Unity.Scenes.Editor
             }
 
             var prevColor = subScene.HierarchyColor;
+            var prevAutoLoad = subScene.AutoLoadScene;
             CachePreviousSceneAssetReferences();
 
             base.OnInspectorGUI();
@@ -337,6 +335,9 @@ namespace Unity.Scenes.Editor
 
             if (subScene.HierarchyColor != prevColor)
                 SceneHierarchyHooks.ReloadAllSceneHierarchies();
+
+            if (prevAutoLoad != subScene.AutoLoadScene)
+                subScene.RebuildSceneEntities();
 
             DrawOpenSubScenes(_selectedSubscenes);
             var loadableScenes = SubSceneInspectorUtility.GetLoadableScenes(_selectedSubscenes);
@@ -395,35 +396,6 @@ namespace Unity.Scenes.Editor
             {
                 EditorGUILayout.HelpBox($"SubScenes can not have child game objects. Close the scene and delete the child game objects.", MessageType.Warning, true);
             }
-
-
-            if (targets.Length == 1)
-            {
-                GUILayout.Space(EditorGUIUtility.singleLineHeight);
-                if (m_ConversionLogCheckResult)
-                {
-                    GUILayout.Label("Importing...");
-                    Repaint();
-                }
-
-                if (m_ConversionLog.Length != 0)
-                {
-                    GUILayout.Space(EditorGUIUtility.singleLineHeight);
-
-                    GUILayout.Label("Conversion Log", EditorStyles.boldLabel);
-                    GUILayout.TextArea(m_ConversionLog);
-                }
-            }
-
-            if (!m_RunningConversionLogCheck)
-            {
-                m_RunningConversionLogCheck = true;
-                EditorApplication.delayCall += () =>
-                {
-                    m_ConversionLogCheckResult = CheckConversionLog(subScene);
-                    m_RunningConversionLogCheck = false;
-                };
-            }
         }
 
         // Invoked by Unity magically for FrameSelect command.
@@ -446,65 +418,21 @@ namespace Unity.Scenes.Editor
             SubSceneInspectorUtility.DrawSubsceneBounds(scene);
         }
 
-        static unsafe bool IsSubsceneImported(SubScene subScene)
+        static bool IsSubsceneImported(SubScene subScene)
         {
             foreach (var world in World.All)
             {
                 var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                var statePtr = world.Unmanaged.ResolveSystemState(sceneSystem);
-                if (statePtr == null)
-                    continue;
 
-                var buildConfigGuid = world.EntityManager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID;
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildConfigGuid, true, LiveConversionSettings.IsBakingEnabled, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.NoImport);
-                if (!hash.IsValid)
-                    return false;
+                if (sceneSystem != SystemHandle.Null)
+                {
+                    var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, world.EntityManager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID, true, ImportMode.NoImport);
+                    if (!hash.IsValid)
+                        return false;
+                }
             }
 
             return true;
-        }
-
-        unsafe bool CheckConversionLog(SubScene subScene)
-        {
-            var pendingWork = false;
-
-            foreach (var world in World.All)
-            {
-                var sceneSystem = world.GetExistingSystem<SceneSystem>();
-                var statePtr = world.Unmanaged.ResolveSystemState(sceneSystem);
-                if (statePtr == null)
-                    continue;
-
-                var buildConfigGuid = world.EntityManager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID;
-                if (!m_ConversionLogLoaded.TryGetValue(buildConfigGuid, out var loaded))
-                    m_ConversionLogLoaded.Add(buildConfigGuid, false);
-                else if (loaded)
-                    continue;
-
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildConfigGuid, true, LiveConversionSettings.IsBakingEnabled, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Asynchronous);
-                if (!hash.IsValid)
-                {
-                    pendingWork = true;
-                    continue;
-                }
-
-                m_ConversionLogLoaded[buildConfigGuid] = true;
-
-                AssetDatabaseCompatibility.GetArtifactPaths(hash, out var paths);
-                var logPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesConversionLog);
-                if (logPath == null)
-                    continue;
-
-                var log = File.ReadAllText(logPath);
-                if (log.Trim().Length != 0)
-                {
-                    if (m_ConversionLog.Length != 0)
-                        m_ConversionLog += "\n\n";
-                    m_ConversionLog += log;
-                }
-            }
-
-            return pendingWork;
         }
 
         static class Content

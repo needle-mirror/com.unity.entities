@@ -12,8 +12,7 @@ namespace Unity.Transforms
     /// Add or remove this attribute to your code in order to add, change, or remove a parent/child
     /// relationship. The corresponding <see cref="Child"/> component is automatically added by the <see cref="ParentSystem"/>.
     ///
-    /// When adding or modifying this component, add and update the corresponding <see cref="LocalToParentTransform"/> component.
-    /// When this component is removed, remove <see cref="LocalToParentTransform"/> as well.
+    /// When adding or modifying this component, add and update the corresponding <see cref="LocalTransform"/> component.
     /// </remarks>
     /// <seealso cref="Child"/>
     [Serializable]
@@ -55,7 +54,7 @@ namespace Unity.Transforms
     /// list, but you shouldn't add or remove buffer elements.
     ///
     /// When an entity with this component is destroyed, the <see cref="ParentSystem"/> will automatically remove the
-    /// <see cref="Parent"/> and <see cref="LocalToParentTransform"/> components from each child entity.
+    /// <see cref="Parent"/> components from each child entity.
     /// </remarks>
     [Serializable]
     [InternalBufferCapacity(8)]

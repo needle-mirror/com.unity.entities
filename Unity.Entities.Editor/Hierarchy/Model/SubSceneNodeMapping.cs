@@ -15,13 +15,28 @@ namespace Unity.Entities.Editor
         }
 
         NativeList<SubSceneData> m_KnownHashes;
+        NativeHashMap<Entity, int> m_SubSceneInstanceIdToEntity;
 
         public SubSceneNodeMapping(Allocator allocator)
         {
             m_KnownHashes = new NativeList<SubSceneData>(32, allocator);
+            m_SubSceneInstanceIdToEntity = new NativeHashMap<Entity, int>(32, allocator);
         }
 
         public int SubSceneCount => m_KnownHashes.Length;
+
+        public void AddSubSceneInstanceId(Entity entity, int instanceId)
+        {
+            m_SubSceneInstanceIdToEntity[entity] = instanceId;
+        }
+
+        public int GetSubSceneInstanceId(Entity entity)
+        {
+            if (!m_SubSceneInstanceIdToEntity.TryGetValue(entity, out var instanceId))
+                return -1;
+
+            return instanceId;
+        }
 
         public Hash128 GetSceneHashFromNode(HierarchyNodeHandle nodeHandle)
         {

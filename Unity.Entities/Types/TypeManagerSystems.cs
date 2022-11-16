@@ -752,7 +752,8 @@ namespace Unity.Entities
                 // Until we formally deprecate ExecuteAlways, add in the Editor flag as this has the same meaning
                 // When we deprecate uncomment the log error below
                 Debug.LogWarning($"{type} is decorated with {typeof(ExecuteAlways)}. Support for this attribute on systems is deprecated as it is meant for MonoBehaviours only. " +
-                    $"Please use [WorldSystemFilter({nameof(WorldSystemFilterFlags.Editor)})] instead to ensure your system is added and runs in the Editor's default world.");
+                    $"Please use the [WorldSystemFilter] attribute to specify if you want to ensure your system is added and runs in the Editor ({nameof(WorldSystemFilterFlags.Editor)}) " +
+                    $"and/or Player ({nameof(WorldSystemFilterFlags.Default)}) default world. You can specify [WorldSystemFilter({nameof(WorldSystemFilterFlags.Editor)} | {nameof(WorldSystemFilterFlags.Default)}] for both.");
 
                 systemFlags |= WorldSystemFilterFlags.Editor;
             }

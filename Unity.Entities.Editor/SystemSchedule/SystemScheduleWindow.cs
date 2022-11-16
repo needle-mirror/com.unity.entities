@@ -1,7 +1,7 @@
 using System;
 using Unity.Profiling;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Serialization.Editor;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -23,8 +23,8 @@ namespace Unity.Entities.Editor
         static readonly string k_NamespaceOptionString = L10n.Tr("Namespace");
         static readonly string k_EntityCountOptionString = L10n.Tr("Entity Count");
         static readonly string k_TimeOptionString = L10n.Tr("Time (ms)");
-        static readonly string k_DotsEditorReferencesString = L10n.Tr("DOTS Editor Preferences");
-        static readonly string k_DotsEditorReferencesPath = "Preferences/DOTS/Editor";
+        static readonly string k_EntitiesPreferencesString = L10n.Tr("Entities Preferences");
+        static readonly string k_EntitiesPreferencesPath = "Preferences/Entities";
         static readonly string k_ViewOption = L10n.Tr("View Options");
         static readonly string k_ColumnOption = L10n.Tr("Column Options");
         static readonly string k_Setting = L10n.Tr("Setting");
@@ -204,9 +204,9 @@ namespace Unity.Entities.Editor
 
             // Setting
             menu.AppendAction(k_Setting, null, DropdownMenuAction.AlwaysDisabled);
-            menu.AppendAction(k_DotsEditorReferencesString, a =>
+            menu.AppendAction(k_EntitiesPreferencesString, a =>
             {
-                SettingsService.OpenUserPreferences(k_DotsEditorReferencesPath);
+                SettingsService.OpenUserPreferences(k_EntitiesPreferencesPath);
             });
         }
 
@@ -219,11 +219,11 @@ namespace Unity.Entities.Editor
                 m_SystemTreeView.SetFilter(query, parseResult);
             });
 
-            m_SearchElement.AddSearchFilterPopupItem(Constants.SystemSchedule.k_ComponentToken.Substring(0, 1), k_FilterComponentType, k_FilterComponentTypeTooltip);
+            m_SearchElement.AddSearchFilterPopupItem(Constants.ComponentSearch.Token, k_FilterComponentType, k_FilterComponentTypeTooltip, Constants.ComponentSearch.Op);
             m_SearchElement.AddSearchFilterPopupItem(Constants.SystemSchedule.k_SystemDependencyToken.Substring(0, 2), k_FilterSystemDependencies, k_FilterSystemDependenciesTooltip);
 
             m_SearchElement.AddSearchDataProperty(new PropertyPath(nameof(SystemForSearch.SystemName)));
-            m_SearchElement.AddSearchFilterProperty(Constants.SystemSchedule.k_ComponentToken.Substring(0, 1), new PropertyPath(nameof(SystemForSearch.ComponentNamesInQuery)));
+            m_SearchElement.AddSearchFilterProperty(Constants.ComponentSearch.Token, new PropertyPath(nameof(SystemForSearch.ComponentNamesInQuery)));
             m_SearchElement.AddSearchFilterProperty(Constants.SystemSchedule.k_SystemDependencyToken.Substring(0, 2), new PropertyPath(nameof(SystemForSearch.SystemDependency)));
             m_SearchElement.EnableAutoComplete(ComponentTypeAutoComplete.Instance);
         }

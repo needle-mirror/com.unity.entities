@@ -61,10 +61,6 @@ namespace Unity.Entities
         /// </summary>
         Disabled = 1 << 1,
         /// <summary>
-        /// A specialized World created for converting GameObjects to entities.
-        /// </summary>
-        GameObjectConversion            = HybridGameObjectConversion | DotsRuntimeGameObjectConversion,
-        /// <summary>
         /// A specialized World created for optimizing scene rendering.
         /// </summary>
         EntitySceneOptimizations        = 1 << 2,
@@ -72,16 +68,6 @@ namespace Unity.Entities
         /// A specialized World created for processing a scene after load.
         /// </summary>
         ProcessAfterLoad                = 1 << 3,
-        /// <summary>
-        /// Conversion systems that should run for Hybrid.
-        /// Example: Entities Graphics conversion systems
-        /// </summary>
-        HybridGameObjectConversion      = 1 << 4,
-        /// <summary>
-        /// Conversion systems that should run for Dots runtime.
-        /// Example: Tiny renderer conversion systems
-        /// </summary>
-        DotsRuntimeGameObjectConversion = 1 << 5,
         /// <summary>
         /// The main World created when running in the Editor.
         /// Example: Editor LiveConversion system

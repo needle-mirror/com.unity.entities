@@ -5,6 +5,7 @@ using Unity.Burst.Intrinsics;
 using Unity.Core;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
@@ -34,20 +35,37 @@ namespace Unity.Entities
         public EntityQuery Build(ref SystemState systemState) => default;
     }
 
+    unsafe public struct BlobBuilder : IDisposable
+    {
+        public BlobBuilder(Allocator allocator, int chunkSize = 65536) {}
+        public BlobBuilderArray<T> Construct<T>(ref BlobArray<T> blobArray, params T[] data) where T : struct => default;
+        public ref T ConstructRoot<T>() where T : struct => throw new NotImplementedException();
+        public ref T SetPointer<T>(ref BlobPtr<T> ptr, ref T obj) where T : struct => throw new NotImplementedException();
+        public BlobBuilderArray<T> Allocate<T>(ref BlobArray<T> ptr, int length) where T : struct => default;
+        public void Dispose() {}
+        public BlobAssetReference<T> CreateBlobAssetReference<T>(Allocator allocator) where T : unmanaged => default;
+    }
+
+    public unsafe struct BlobAssetReference<T> where T : unmanaged
+    {
+        public ref T Value => throw new NotImplementedException();
+    }
+
+    public class MayOnlyLiveInBlobStorageAttribute : Attribute {}
+
+    public unsafe ref struct BlobBuilderArray<T> where T : struct
+    {
+        public ref T this[int index] => throw new NotImplementedException();
+    }
+    [MayOnlyLiveInBlobStorage] public unsafe struct BlobArray<T> where T : struct {}
+    [MayOnlyLiveInBlobStorage] public unsafe struct BlobPtr<T> where T : struct {}
+
     public interface IJobChunk
     {
         void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask);
     }
 
     public interface IJobEntity{}
-    public interface IJobEntityBatch
-    {
-        void Execute(ArchetypeChunk batchInChunk, int batchIndex);
-    }
-    public interface IJobEntityBatchWithIndex
-    {
-        void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery);
-    }
 
     public readonly struct RefRW<T> : IQueryTypeParameter where T : struct, IComponentData
     {
@@ -128,7 +146,7 @@ namespace Unity.Entities
         public bool Equals(ArchetypeChunk other) => true;
         public override bool Equals(object obj) => true;
         public override int GetHashCode() => default;
-        public NativeArray<T> GetNativeArray<T>(ComponentTypeHandle<T> chunkComponentTypeHandle) where T : unmanaged, IComponentData => default;
+        public NativeArray<T> GetNativeArray<T>(ref ComponentTypeHandle<T> chunkComponentTypeHandle) where T : unmanaged, IComponentData => default;
 
         public EnabledMask GetEnabledMask<T>(ref ComponentTypeHandle<T> chunkComponentTypeHandle)
             where T : unmanaged, IComponentData, IEnableableComponent
@@ -335,6 +353,12 @@ namespace Unity.Entities
         // Aspects
         public static T GetAspectRW<T>(Entity entity) where T : struct, IAspect => default;
         public static T GetAspectRO<T>(Entity entity) where T : struct, IAspect => default;
+
+        public static class ManagedAPI
+        {
+            public static T GetComponent<T>(Entity entity) where T : class => default;
+            public static T GetSingleton<T>() where T : class => throw new Exception();
+        }
     }
 
     public struct QueryEnumerable<T> : IEnumerable<T> where T : struct
@@ -348,7 +372,7 @@ namespace Unity.Entities
         public QueryEnumerable<T> WithChangeFilter<T1>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithChangeFilter<T1, T2>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithFilter(NativeArray<Entity> entities) => throw ThrowCodeGenException();
-        public QueryEnumerable<T> WithEntityQueryOptions(EntityQueryOptions options) => throw ThrowCodeGenException();
+        public QueryEnumerable<T> WithOptions(EntityQueryOptions options) => throw ThrowCodeGenException();
 
         public T Current => throw ThrowCodeGenException();
         public bool MoveNext() => false;
@@ -380,7 +404,7 @@ namespace Unity.Entities
         public DOTSCompilerPatchedMethodAttribute(string targetMethodName) { }
     }
 
-    public sealed class EntityInQueryIndex : Attribute {}
+    public sealed class EntityIndexInQuery : Attribute {}
 
     [Flags]
     public enum EntityQueryOptions
@@ -468,6 +492,8 @@ namespace Unity.Entities
             public static unsafe void RunWithoutJobsInternal<T>(ref T jobData, ref EntityQuery query, IntPtr limitToEntityArrayPtr, int limitToEntityArrayLength) where T : struct, IJobChunk {}
             public static unsafe void RunWithoutJobsInternal<T>(ref T jobData, ref EntityQuery query, Entity* limitToEntityArray, int limitToEntityArrayLength) where T : struct, IJobChunk {}
         }
+
+        public interface IIsFullyUnmanaged {}
     }
 
     public struct EntityTypeHandle
@@ -503,6 +529,11 @@ namespace Unity.Entities
     public static class EnabledBitUtility
     {
         public static bool GetNextRange(ref v128 mask, ref int beginIndex, ref int endIndex) => default;
+    }
+
+    namespace Serialization
+    {
+        public struct UntypedWeakReferenceId {}
     }
 }
 
@@ -555,11 +586,19 @@ namespace Unity.Jobs
         public override int GetHashCode() => throw new NotImplementedException();
     }
 
+    namespace LowLevel.Unsafe
+    {
+        public sealed class JobProducerTypeAttribute : Attribute
+        {
+            public JobProducerTypeAttribute(Type producerType) { }
+        }
+    }
+
     public interface IJob{}
 
     public static class IJobExtensions
     {
-        public static JobHandle Schedule(this IJob job, JobHandle dependency) => default;
+        public static JobHandle Schedule<T>(this T job, JobHandle dependency) where T : struct, IJob => default;
     }
 }
 

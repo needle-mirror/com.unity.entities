@@ -149,7 +149,6 @@ namespace Unity.Entities.Tests
         {
             Assert.Throws<ArgumentException>(() => { World.CreateSystemManaged(typeof(Entity)); });
         }
-
 #endif
 
         [Test]
@@ -166,14 +165,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DestroySystemWhileJobUsingArrayIsRunningWorks()
-        {
-            var system = World.CreateSystemManaged<ScheduleJobAndDestroyArray>();
-            system.Update();
-            World.DestroySystemManaged(system);
-        }
-
-        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void DisposeSystemEntityQueryThrows()
         {
             var system = World.CreateSystemManaged<EmptySystem>();
@@ -187,6 +179,14 @@ namespace Unity.Entities.Tests
             var system = World.CreateSystemManaged<TestSystem>();
             World.DestroySystemManaged(system);
             Assert.Throws<ArgumentException>(() => World.DestroySystemManaged(system));
+        }
+
+        [Test]
+        public void DestroySystemWhileJobUsingArrayIsRunningWorks()
+        {
+            var system = World.CreateSystemManaged<ScheduleJobAndDestroyArray>();
+            system.Update();
+            World.DestroySystemManaged(system);
         }
 
         [Test]
@@ -307,8 +307,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, EmptySystem.EntityQueries.Length);
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetEntityQuery_WithEntity_Throws()
         {
             // Entity is always included as an implicit type. Including it in the components list
@@ -329,16 +329,6 @@ namespace Unity.Entities.Tests
                 EmptySystem.GetEntityQuery(builder);
             }, "Entity type should not be allowed in EntityQueryBuilder");
         }
-
-        [Test]
-        public void GetSingletonEntityQuery_WithEntity_Throws()
-        {
-            // No!
-            Assert.Throws<ArgumentException>(() => EmptySystem.HasSingleton<Entity>());
-            Assert.Throws<ArgumentException>(() => EmptySystem.GetSingletonEntity<Entity>());
-            Assert.Throws<ArgumentException>(() => EmptySystem.TryGetSingletonEntity<Entity>(out _));
-        }
-#endif
 
         [Test]
         public void GetEntityQuery_WithDuplicates()
@@ -377,11 +367,15 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 var sharedComponentTypeHandle2 = GetSharedComponentTypeHandle<EcsTestSharedComp>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
                 Assert.AreNotEqual(sharedComponentTypeHandle2.m_Safety, sharedComponentTypeHandle1.m_Safety);
+#endif
                 // After updating the cached handle, these values (and the handles as a whole) should match
                 sharedComponentTypeHandle1.Update(this);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.AreEqual(sharedComponentTypeHandle2.m_Safety, sharedComponentTypeHandle1.m_Safety);
+#endif
             }
         }
 
@@ -398,11 +392,18 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 var sharedComponentTypeHandle2 = GetDynamicSharedComponentTypeHandle(typeof(EcsTestSharedComp));
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
                 Assert.AreNotEqual(sharedComponentTypeHandle2.m_Safety, sharedComponentTypeHandle1.m_Safety);
+#endif
+
                 // After updating the cached handle, these values (and the handles as a whole) should match
                 sharedComponentTypeHandle1.Update(this);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.AreEqual(sharedComponentTypeHandle2.m_Safety, sharedComponentTypeHandle1.m_Safety);
+#endif
             }
         }
 
@@ -418,16 +419,23 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 //accessing a potentially stale ComponentLookup before Update() will throw an exception
                 Assert.Throws<ArgumentException>(() => _lookup1.HasComponent(_entity));
+#endif
+
                 var lookup2 = GetComponentLookup<EcsTestData>();
                 // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
                 Assert.AreNotEqual(lookup2.GlobalSystemVersion, _lookup1.GlobalSystemVersion);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.AreNotEqual(lookup2.m_Safety, _lookup1.m_Safety);
+#endif
                 // After updating the cached handle, these values (and the handles as a whole) should match
                 _lookup1.Update(this);
                 Assert.AreEqual(lookup2.GlobalSystemVersion, _lookup1.GlobalSystemVersion);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.AreEqual(lookup2.m_Safety, _lookup1.m_Safety);
+#endif
                 Assert.IsTrue(_lookup1.HasComponent(_entity));
             }
         }
@@ -446,14 +454,18 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 var dynamicComponentTypeHandle2 = GetDynamicComponentTypeHandle(typeof(EcsIntElement));
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
                 Assert.AreNotEqual(dynamicComponentTypeHandle2.m_Safety0, dynamicComponentTypeHandle1.m_Safety0);
                 Assert.AreNotEqual(dynamicComponentTypeHandle2.m_Safety1, dynamicComponentTypeHandle1.m_Safety1);
+#endif
                 Assert.AreNotEqual(dynamicComponentTypeHandle2.m_GlobalSystemVersion, dynamicComponentTypeHandle1.m_GlobalSystemVersion);
                 // After updating the cached handle, these values (and the handles as a whole) should match
                 dynamicComponentTypeHandle1.Update(this);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.AreEqual(dynamicComponentTypeHandle2.m_Safety0, dynamicComponentTypeHandle1.m_Safety0);
                 Assert.AreEqual(dynamicComponentTypeHandle2.m_Safety1, dynamicComponentTypeHandle1.m_Safety1);
+#endif
                 Assert.AreEqual(dynamicComponentTypeHandle2.m_GlobalSystemVersion, dynamicComponentTypeHandle1.m_GlobalSystemVersion);
             }
         }
@@ -476,22 +488,29 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 //accessing a potentially stale BFE before Update() will throw an exception
                 //a direct access (as opposed to HasComponent) also ensures that the arrayInvalidationSafety is stale
                 Assert.Throws<ArgumentException>(() =>
                 {
                     var value = bufferLookup[_entity];
                 });
+#endif
+
                 var bufferLookup2 = GetBufferLookup<EcsIntElement>();
                 // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
                 Assert.AreNotEqual(bufferLookup2.GlobalSystemVersion, bufferLookup.GlobalSystemVersion);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.AreNotEqual(bufferLookup2.m_Safety0, bufferLookup.m_Safety0);
                 Assert.AreNotEqual(bufferLookup2.m_ArrayInvalidationSafety, bufferLookup.m_ArrayInvalidationSafety);
+#endif
                 // After updating the cached handle, these values (and the handles as a whole) should match
                 bufferLookup.Update(this);
                 Assert.AreEqual(bufferLookup2.GlobalSystemVersion, bufferLookup.GlobalSystemVersion);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.AreEqual(bufferLookup2.m_Safety0, bufferLookup.m_Safety0);
                 Assert.AreEqual(bufferLookup2.m_ArrayInvalidationSafety, bufferLookup.m_ArrayInvalidationSafety);
+#endif
                 var value = bufferLookup[_entity];
                 Assert.AreEqual(42,value);
             }
@@ -511,11 +530,16 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 var entityTypeHandle2 = GetEntityTypeHandle();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
                 Assert.AreNotEqual(entityTypeHandle2.m_Safety, entityTypeHandle1.m_Safety);
+#endif
                 // After updating the cached handle, these values (and the handles as a whole) should match
                 entityTypeHandle1.Update(this);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.AreEqual(entityTypeHandle2.m_Safety, entityTypeHandle1.m_Safety);
+#endif
             }
         }
 

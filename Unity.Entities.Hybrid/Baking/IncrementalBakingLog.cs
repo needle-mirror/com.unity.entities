@@ -437,18 +437,26 @@ namespace Unity.Entities.Baking
             // -------------------------
             sb.AppendLine($"Bake Reasons");
             sb.AppendLine($"------------------------------");
-            using var componentIds = bakerRecords.ComponentBakeTriggers.GetKeyArray(Allocator.Temp);
-            foreach (var componentId in componentIds)
+            using var authoringIds = bakerRecords.ComponentBakeTriggers.GetKeyArray(Allocator.Temp);
+            foreach (var authoringId in authoringIds)
             {
-                var component = (Component)Resources.InstanceIDToObject(componentId);
-                if (component != null)
+                var obj = Resources.InstanceIDToObject(authoringId);
+                if (obj != null)
                 {
-                    sb.AppendLine($"Type: {component.GetType().Name}");
-                    sb.AppendLine($"GameObject: {component.gameObject.name} ({component.gameObject.GetInstanceID()})");
+                    if (obj is GameObject go)
+                    {
+                        sb.AppendLine($"GameObject: {go.name} ({go.GetInstanceID()})");
+                    }
+                    if (obj is Component component)
+                    {
+                        sb.AppendLine($"Type: {component.GetType().Name}");
+                        sb.AppendLine($"GameObject: {component.gameObject.name} ({component.gameObject.GetInstanceID()})");
+                    }
                 }
-                sb.AppendLine($"InstanceID: {componentId}");
+
+                sb.AppendLine($"InstanceID: {authoringId}");
                 sb.AppendLine("Why did I bake?:");
-                foreach (var trigger in bakerRecords.ComponentBakeTriggers.GetValuesForKey(componentId))
+                foreach (var trigger in bakerRecords.ComponentBakeTriggers.GetValuesForKey(authoringId))
                 {
                     var typeInfo = TypeManager.GetTypeInfo(trigger.BakingUnityTypeIndex);
                     switch (trigger.BakeReason)

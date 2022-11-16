@@ -241,7 +241,7 @@ namespace Unity.Entities
 
         public JobHandle GetDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (readerTypesCount * kMaxReadJobHandles + writerTypesCount > m_JobDependencyCombineBufferCount)
                 throw new ArgumentException("Too many readers & writers in GetDependency");
 #endif
@@ -369,6 +369,8 @@ namespace Unity.Entities
         {
             CompleteReadAndWriteDependencyNoChecks(type);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (TypeManager.GetTypeInfo(type).Category == TypeManager.TypeCategory.EntityData)
+                throw new InvalidOperationException($"Can't complete a write-dependency for type Unity.Entities.Entity");
             Safety.CompleteReadAndWriteDependency(type);
 #endif
         }
@@ -557,11 +559,13 @@ namespace Unity.Entities
             get { return m_ExclusiveTransactionDependency; }
             set
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (_IsInTransaction == 0)
                     throw new InvalidOperationException(
                         "EntityManager.ExclusiveEntityTransactionDependency can only be used after EntityManager.BeginExclusiveEntityTransaction has been called.");
+#endif
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (!JobHandle.CheckFenceIsDependencyOrDidSyncFence(m_ExclusiveTransactionDependency, value))
                     throw new InvalidOperationException(
                         "EntityManager.ExclusiveEntityTransactionDependency must depend on the Entity Transaction job.");

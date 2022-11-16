@@ -10,7 +10,7 @@ namespace Unity.Entities.Conversion
     static class UnityEngineExtensions
     {
         /// <summary>
-        /// Returns a hash that can be used as a guid within a (non-persistent) session to refer to this UnityEngine.Object.
+        /// Obsolete. Returns a hash that can be used as a guid within a (non-persistent) session to refer to this UnityEngine.Object.
         /// </summary>
         [Obsolete("This function is no longer supported. (RemovedAfter 2021-03-01)")]
         public static Hash128 ComputeInstanceHash(this UnityObject @this)

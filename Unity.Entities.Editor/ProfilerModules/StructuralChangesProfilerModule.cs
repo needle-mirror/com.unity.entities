@@ -9,15 +9,10 @@ using Unity.Editor.Bridge;
 using static Unity.Entities.EntitiesProfiler;
 using static Unity.Entities.StructuralChangesProfiler;
 
-#if UNITY_2021_2_OR_NEWER
 using Unity.Profiling.Editor;
-#else
-using UnityEngine;
-#endif
 
 namespace Unity.Entities.Editor
 {
-#if UNITY_2021_2_OR_NEWER
     [ProfilerModuleMetadata("Entities Structural Changes", IconPath = "Profiler.CPU")]
     partial class StructuralChangesProfilerModule : ProfilerModule
     {
@@ -86,60 +81,6 @@ namespace Unity.Entities.Editor
 
         public override ProfilerModuleViewController CreateDetailsViewController() => new StructuralChangesProfilerViewController(ProfilerWindow);
     }
-#else
-    partial class StructuralChangesProfilerModule : StructuralChangesProfilerModuleBase
-    {
-        StructuralChangesProfilerModuleView m_View;
-        long m_FrameIndex = -1;
-
-        public override string ProfilerCategoryName => Category.Name;
-
-        public override string[] ProfilerCounterNames => new[]
-        {
-            k_CreateEntityCounterName,
-            k_DestroyEntityCounterName,
-            k_AddComponentCounterName,
-            k_RemoveComponentCounterName,
-            k_SetSharedComponentCounterName,
-        };
-
-        public StructuralChangesProfilerModule()
-        {
-            EntitiesProfiler.Initialize();
-            m_View = new StructuralChangesProfilerModuleView();
-            m_View.SearchFinished = () => Update();
-        }
-
-        public override VisualElement CreateView(Rect area)
-        {
-            return m_View.Create();
-        }
-
-        public override void SelectedFrameIndexChanged(long index)
-        {
-            m_FrameIndex = index;
-            if (IsRecording)
-                return;
-
-            m_View.StructuralChangesDataSource = GetFrames(index).SelectMany(GetTreeViewData).ToArray();
-            m_View.Search();
-        }
-
-        public override void Update()
-        {
-            if (m_FrameIndex == -1 || IsRecording || !m_View.HasStructuralChangesDataSource)
-                m_View.Clear(IsRecording ? s_DisplayingFrameDataDisabled : s_NoFrameDataAvailable);
-            else
-                m_View.Update();
-        }
-
-        public override void Clear()
-        {
-            m_FrameIndex = -1;
-            m_View.Clear(s_NoFrameDataAvailable);
-        }
-    }
-#endif
 
     partial class StructuralChangesProfilerModule
     {

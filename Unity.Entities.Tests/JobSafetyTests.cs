@@ -27,6 +27,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void ComponentAccessAfterScheduledJobThrows()
         {
@@ -52,6 +53,7 @@ namespace Unity.Entities.Tests
             fence.Complete();
             Assert.AreEqual(43, job.data[job.entities[0]].value);
         }
+#endif
 
         // These tests require:
         // - JobsDebugger support for static safety IDs (added in 2020.1)
@@ -66,6 +68,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test,DotsRuntimeFixme]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void ComponentLookup_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -80,6 +83,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test,DotsRuntimeFixme]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void ComponentLookup_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -105,6 +109,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test,DotsRuntimeFixme]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void BufferLookup_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -119,6 +124,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test,DotsRuntimeFixme]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void BufferLookup_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -152,6 +158,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestData>(entity).value);
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void ChunkEntityArrayIsImmutable()
         {
@@ -167,6 +174,7 @@ namespace Unity.Entities.Tests
             array = chunk.GetNativeArray(m_Manager.GetEntityTypeHandle());
             Assert.AreEqual(entity ,array[0]);
         }
+#endif
 
         [Test]
         public void DestroyEntityCompletesScheduledJobs()
@@ -214,6 +222,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void EntityManagerDestructionDetectsUnregisteredJob()
         {
 #if !NET_DOTS
@@ -240,6 +249,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void DestroyEntityDetectsUnregisteredJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -256,6 +266,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void GetComponentDetectsUnregisteredJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -325,6 +336,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void StructuralChangeCompletesEntityOnlyDependencyJob()
         {
             var system = World.GetOrCreateSystemManaged<EntityOnlyDependencySystem>();
@@ -334,6 +346,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void StructuralChangeCompletesNoComponentDependenciesJob()
         {
             var system = World.GetOrCreateSystemManaged<NoComponentDependenciesSystem>();
@@ -343,6 +356,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void StructuralChangeAfterSchedulingNoDependenciesJobThrows()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -354,6 +368,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void StructuralChangeAfterSchedulingEntityOnlyDependencyJobThrows()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -608,6 +623,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void SingleJobUsingSameReadOnlyAndReadWriteDynamicBufferThrows()
         {
             SetupDynamicBufferJobTestEnvironment();

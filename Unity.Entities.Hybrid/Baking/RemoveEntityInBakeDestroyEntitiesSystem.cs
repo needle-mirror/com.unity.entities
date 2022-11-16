@@ -1,6 +1,5 @@
 ﻿namespace Unity.Entities
 {
-    [ConverterVersion("joe", 5)]
     [RequireMatchingQueriesForUpdate]
     [WorldSystemFilter(WorldSystemFilterFlags.EntitySceneOptimizations)]
     internal partial class RemoveEntityInBakeDestroyEntitiesSystem : SystemBase

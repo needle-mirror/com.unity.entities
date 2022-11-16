@@ -1,4 +1,5 @@
 using System;
+using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
@@ -8,6 +9,7 @@ namespace Unity.Entities
     /// <remarks>
     /// For more information, see the documentation on [components](xref:ecs-components).
     /// </remarks>
+    [RequireImplementors]
     public interface IComponentData : IQueryTypeParameter
     {
     }
@@ -18,6 +20,7 @@ namespace Unity.Entities
     /// <remarks>
     /// See [Dynamic Buffers](xref:components-buffer-introducing) for additional information.
     /// </remarks>
+    [RequireImplementors]
     public interface IBufferElementData
     {
     }
@@ -111,6 +114,7 @@ namespace Unity.Entities
     /// <remarks>
     /// For more information, see the documentation on [Shared components](xref:components-shared).
     /// </remarks>
+    [RequireImplementors]
     public interface ISharedComponentData : IQueryTypeParameter
     {
     }
@@ -121,15 +125,18 @@ namespace Unity.Entities
     /// <remarks>
     /// See [Cleanup Components](xref:components-cleanup) for additional information.
     /// </remarks>
+    [RequireImplementors]
     public interface ICleanupComponentData : IComponentData
     {
     }
 
     /// <summary>
-    /// An interface for a component that must be removed individually after its entity is destroyed.
+    /// Obsolete. Use <see cref="ICleanupComponentData"/> instead.
     /// </summary>
     /// <remarks>
-    /// See [Cleanup Components](xref:components-cleanup) for additional information.
+    /// **Obsolete.** Use <see cref="ICleanupComponentData"/> instead. See [Cleanup Components](xref:components-cleanup) for additional information.
+    ///
+    /// An interface for a component that must be removed individually after its entity is destroyed.
     /// </remarks>
     [Obsolete("ISystemStateComponentData has been renamed to ICleanupComponentData. This old type has been kept for transition purposes, but it will not function correctly, so you should replace it with ICleanupComponentData immediately. (UnityUpgradable) -> ICleanupComponentData", true)]
     public interface ISystemStateComponentData : IComponentData
@@ -141,13 +148,17 @@ namespace Unity.Entities
     /// </summary>
     /// <seealso cref="ICleanupComponentData"/>
     /// <seealso cref="IBufferElementData"/>
+    [RequireImplementors]
     public interface ICleanupBufferElementData : IBufferElementData
     {
     }
 
     /// <summary>
-    /// An interface for a buffer component that must be removed individually after its entity is destroyed.
+    /// Obsolete. Use <see cref="ICleanupBufferElementData"/> instead.
     /// </summary>
+    /// <remarks>**Obsolete.** Use <see cref="ICleanupBufferElementData"/> instead.
+    ///
+    /// An interface for a buffer component that must be removed individually after its entity is destroyed.</remarks>
     /// <seealso cref="ICleanupComponentData"/>
     /// <seealso cref="IBufferElementData"/>
     [Obsolete("ISystemStateBufferElementData has been renamed to ICleanupBufferElementData. This old type has been kept for transition purposes, but it will not function correctly, so you should replace it with ICleanupBufferElementData immediately. (UnityUpgradable) -> ICleanupBufferElementData", true)]
@@ -160,13 +171,17 @@ namespace Unity.Entities
     /// </summary>
     /// <seealso cref="ICleanupComponentData"/>
     /// <seealso cref="ISharedComponentData"/>
+    [RequireImplementors]
     public interface ICleanupSharedComponentData : ISharedComponentData
     {
     }
 
     /// <summary>
-    /// An interface for a shared component that must be removed individually after its entity is destroyed.
+    /// Obsolete. Use <see cref="ICleanupSharedComponentData"/> instead.
     /// </summary>
+    /// <remarks>**Obsolete.** Use <see cref="ICleanupSharedComponentData"/> instead.
+    ///
+    /// An interface for a shared component that must be removed individually after its entity is destroyed.</remarks>
     /// <seealso cref="ICleanupComponentData"/>
     /// <seealso cref="IBufferElementData"/>
     [Obsolete("ISystemStateSharedComponentData has been renamed to ICleanupSharedComponentData. This old type has been kept for transition purposes, but it will not function correctly, so you should replace it with ICleanupSharedComponentData immediately. (UnityUpgradable) -> ICleanupSharedComponentData", true)]
@@ -187,10 +202,11 @@ namespace Unity.Entities
     /// <seealso cref="EntityManager.IsComponentEnabled{T}"/>
     /// <seealso cref="ComponentLookup{T}.SetComponentEnabled"/>
     /// <seealso cref="ComponentLookup{T}.IsComponentEnabled"/>
-    /// <seealso cref="BufferLookup{T}.SetComponentEnabled"/>
-    /// <seealso cref="BufferLookup{T}.IsComponentEnabled"/>
-    /// <seealso cref="ArchetypeChunk.SetComponentEnabled{T}(ComponentTypeHandle{T},int,bool)"/>
-    /// <seealso cref="ArchetypeChunk.IsComponentEnabled{T}(ComponentTypeHandle{T},int)"/>
+    /// <seealso cref="BufferLookup{T}.SetBufferEnabled"/>
+    /// <seealso cref="BufferLookup{T}.IsBufferEnabled"/>
+    /// <seealso cref="ArchetypeChunk.SetComponentEnabled{T}(ref ComponentTypeHandle{T},int,bool)"/>
+    /// <seealso cref="ArchetypeChunk.IsComponentEnabled{T}(ref ComponentTypeHandle{T},int)"/>
+    [RequireImplementors]
     public interface IEnableableComponent
     {
     }

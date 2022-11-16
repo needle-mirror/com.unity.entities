@@ -301,7 +301,6 @@ namespace Unity.Entities.Tests
             Assert.That(ex.Message, Is.EqualTo($"To avoid boxing, do not cast {nameof(World.NoAllocReadOnlyCollection<int>)} to IEnumerable<T>."));
             Assert.That(ex2.Message, Is.EqualTo($"To avoid boxing, do not cast {nameof(World.NoAllocReadOnlyCollection<int>)} to IEnumerable."));
         }
-
 #endif
 
 #if !DOTS_DISABLE_DEBUG_NAMES

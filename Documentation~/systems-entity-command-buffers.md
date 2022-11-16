@@ -101,7 +101,7 @@ Every structural change operation triggers a [sync point](concepts-structural-ch
 
 You can use [`EntityCommandBufferSystem`](xref:Unity.Entities.EntityCommandBufferSystem) to play back and dispose of a command buffer rather than manually doing it yourself. To do this:
 
-1. Get the instance of the `EntityCommandBuffer` system which you want to do the playback.
+1. Get the instance of the `EntityCommandBufferSystem` which you want to do the playback.
 1. Create an `EntityCommandBuffer` instance via the system.
 1. Schedule a job that writes commands to the `EntityCommandBuffer`.
 1. Register the scheduled job for the system to complete.

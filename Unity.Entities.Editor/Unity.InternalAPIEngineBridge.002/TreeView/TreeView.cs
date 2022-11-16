@@ -121,9 +121,7 @@ namespace Unity.Editor.Bridge
 
         public IEnumerable<ITreeViewItem> items => GetAllItems(m_RootItems);
 
-#if UNITY_2020_1_OR_NEWER
         public float resolvedItemHeight => m_ListView.resolvedItemHeight;
-#endif
 
         public int itemHeight
         {
@@ -141,13 +139,11 @@ namespace Unity.Editor.Bridge
             }
         }
 
-#if UNITY_2020_1_OR_NEWER
         public bool showBorder
         {
             get { return m_ListView.showBorder; }
             set { m_ListView.showBorder = value; }
         }
-#endif
 
         public SelectionType selectionType
         {
@@ -211,7 +207,6 @@ namespace Unity.Editor.Bridge
             m_ListView.bindItem = BindTreeItem;
             m_ListView.getItemId = GetItemId;
 
-#if UNITY_2020_1_OR_NEWER
             m_ListView.unbindItem = UnbindTreeItem;
             m_ListView.onItemsChosen += OnItemsChosen;
 
@@ -220,9 +215,6 @@ namespace Unity.Editor.Bridge
             m_ListView.onSelectionChange += OnSelectionChange;
 
             RegisterCallback<MouseUpEvent>(OnTreeViewMouseUp, TrickleDown.TrickleDown);
-#elif UNITY_2019_3_OR_NEWER
-            m_ListView.onSelectionChanged += OnSelectionChange;
-#endif
             RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
         }
 
@@ -324,7 +316,6 @@ namespace Unity.Editor.Bridge
                 evt.StopPropagation();
         }
 
-#if UNITY_2020_1_OR_NEWER
         public void SetSelection(int id)
         {
             SetSelection(new[] { id });
@@ -363,8 +354,6 @@ namespace Unity.Editor.Bridge
             m_ListView.RemoveFromSelection(index);
         }
 
-#endif
-
         int GetItemIndex(int id, bool expand = false)
         {
             var item = FindItem(id);
@@ -400,11 +389,7 @@ namespace Unity.Editor.Bridge
 
         public void ClearSelection()
         {
-#if UNITY_2020_1_OR_NEWER
             m_ListView.ClearSelection();
-#else
-            m_ListView.selectedIndex = -1;
-#endif
         }
 
         public void Select(int id, bool sendNotification)
@@ -525,13 +510,10 @@ namespace Unity.Editor.Bridge
             onSelectionChange?.Invoke(m_SelectedItems);
         }
 
-#if UNITY_2020_1_OR_NEWER
         void OnTreeViewMouseUp(MouseUpEvent evt)
         {
             m_ScrollView.contentContainer.Focus();
         }
-
-#endif
 
         void OnItemMouseUp(MouseUpEvent evt)
         {
@@ -730,10 +712,8 @@ namespace Unity.Editor.Bridge
             else
                 ExpandItemByIndex(index);
 
-#if UNITY_2020_1_OR_NEWER
             // To make sure our TreeView gets focus, we need to force this. :(
             m_ScrollView.contentContainer.Focus();
-#endif
         }
 
         public Action<ITreeViewItem, bool> ItemExpandedStateChanging = delegate { };

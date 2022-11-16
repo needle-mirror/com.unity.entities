@@ -17,9 +17,13 @@ namespace Unity.Entities
     {
         #region QueryBuilder
         /// <summary>
+        /// Gives a fluent API for constructing <see cref="EntityQuery"/>s similar to the <see cref="Unity.Entities.EntityQueryBuilder"/>. This API statically constructs the query as part of the system, and creates the query in the system's OnCreate.
+        /// Calling this method should allow the construction of EntityQueries with almost no run-time performance overhead."
+        /// </summary>
+        /// <remarks>
         /// Gives a fluent API for constructing EntityQueries similar to the EntityQueryBuilder. This API statically constructs the query as part of the system, and creates the query in the system's OnCreate.
         /// Calling this method should allow for construction of EntityQueries with almost no run-time performance overhead."
-        /// </summary>
+        /// </remarks>
         /// <returns>An instance of `SystemAPIQueryBuilder`, which can be used to fluently construct queries.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method has been called outside of a valid context.</exception>
         public static SystemAPIQueryBuilder QueryBuilder() => throw InternalCompilerInterface.ThrowCodeGenException();
@@ -186,17 +190,14 @@ namespace Unity.Entities
         /// have a component that contains an Entity field, you can look up the component data for the referenced
         /// entity using this method.
         ///
-        /// When iterating over a set of entities via [Entities.ForEach], do not use this method to access data of the
+        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, do not use this method to access data of the
         /// current entity in the set. This function is much slower than accessing the data directly (by passing the
         /// component containing the data to your lambda iteration function as a parameter).
         ///
-        /// When you call this method inside a job scheduled using [Entities.ForEach], this method gets replaced with component access methods
-        /// through <see cref="ComponentLookup{T}"/>.
+        /// When you call this method it gets replaced with component access methods through <see cref="ComponentLookup{T}"/>.
         ///
         /// This lookup method results in a slower, indirect memory access. When possible, organize your
         /// data to minimize the need for indirect lookups.
-        ///
-        /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
         /// </remarks>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects </remarks>
@@ -213,19 +214,14 @@ namespace Unity.Entities
         /// have a component that contains an Entity field, you can update the component data for the referenced
         /// entity using this method.
         ///
-        /// When iterating over a set of entities via [Entities.ForEach], do not use this method to update data of the
+        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, do not use this method to update data of the
         /// current entity in the set. This function is much slower than accessing the data directly (by passing the
         /// component containing the data to your lambda iteration function as a parameter).
         ///
-        /// When you call this method on the main thread, it invokes <see cref="EntityManager.SetComponentData{T}"/>.
-        /// (An [Entities.ForEach] function invoked with `Run()` executes on the main thread.) When you call this method
-        /// inside a job scheduled using [Entities.ForEach], this method gets replaced with component access methods
-        /// through <see cref="ComponentLookup{T}"/>.
+        /// When you call this method gets replaced with component access methods through <see cref="ComponentLookup{T}"/>.
         ///
         /// In both cases, this lookup method results in a slower, indirect memory access. When possible, organize your
         /// data to minimize the need for indirect lookups.
-        ///
-        /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
         /// </remarks>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects </remarks>
@@ -244,7 +240,7 @@ namespace Unity.Entities
         /// referenced entity has a specific type of component using this method. (Entities in the set always have
         /// required components, so you don’t need to check for them.)
         ///
-        /// When iterating over a set of entities via `SystemState.Entities`, or <see cref="SystemAPI.Query{T}"/>, avoid using this method with the
+        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, avoid using this method with the
         /// current entity in the set. It is generally faster to change your entity query methods to avoid
         /// optional components; this may require a different construction to handle each combination of optional and non-optional components.
         ///
@@ -257,6 +253,33 @@ namespace Unity.Entities
         public static bool HasComponent<T>(Entity entity) where T : unmanaged, IComponentData => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
+        /// Checks whether the <see cref="IComponentData"/> of type T is enabled on the specified <see cref="Entity"/>.
+        /// For the purposes of EntityQuery matching, an entity with a disabled component will behave as if it does not
+        /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+        /// <param name="entity">The entity whose component should be checked.</param>
+        /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+        /// <returns>True if the specified component is enabled, or false if it is disabled.</returns>
+        /// <seealso cref="SetComponentEnabled{T}(Entity, bool)"/>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+        public static bool IsComponentEnabled<T>(Entity entity) where T : unmanaged, IComponentData, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Enable or disable the <see cref="IComponentData"/> of type T on the specified <see cref="Entity"/>. This operation
+        /// does not cause a structural change (even if it occurs on a worker thread), or affect the value of the component.
+        /// For the purposes of EntityQuery matching, an entity with a disabled component will behave as if it does not
+        /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+        /// <param name="entity">The entity whose component should be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        /// /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+        /// <seealso cref="IsComponentEnabled{T}(Entity)"/>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+        public static void SetComponentEnabled<T>(Entity entity, bool value) where T : unmanaged, IComponentData, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
         /// Gets the value of a component for an entity associated with a system.
         /// </summary>
         /// <param name="systemHandle">The system handle.</param>
@@ -265,10 +288,7 @@ namespace Unity.Entities
         /// <remarks>
         /// Use this method to look up data in another system owned entity using its <see cref="SystemHandle"/> object.
         ///
-        /// When you call this method inside a job scheduled using [Entities.ForEach], this method gets replaced with component access methods
-        /// through <see cref="ComponentDataFromEntity{T}"/>.
-        ///
-        /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
+        /// When you call this method it gets replaced with component access methods through <see cref="ComponentLookup{T}"/>.
         /// </remarks>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects </remarks>
@@ -283,10 +303,8 @@ namespace Unity.Entities
         /// <remarks>
         /// Use this method to look up data in another system owned entity using its <see cref="SystemHandle"/> object.
         ///
-        /// When you call this method inside a job scheduled using [Entities.ForEach], this method gets replaced with component access methods
-        /// through <see cref="ComponentDataFromEntity{T}"/>.
+        /// When you call this method it gets replaced with component access methods through <see cref="ComponentLookup{T}"/>.
         ///
-        /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
         /// </remarks>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects </remarks>
@@ -301,12 +319,8 @@ namespace Unity.Entities
         /// <remarks>
         /// Use this method to look up and set data in another system owned entity using its <see cref="SystemHandle"/> object.
         ///
-        /// When you call this method on the main thread, it invokes <see cref="EntityManager.SetComponentData{T}"/>.
-        /// (An [Entities.ForEach] function invoked with `Run()` executes on the main thread.) When you call this method
-        /// inside a job scheduled using [Entities.ForEach], this method gets replaced with component access methods
-        /// through <see cref="ComponentDataFromEntity{T}"/>.
+        /// When you call this method gets replaced with component access methods  through <see cref="ComponentLookup{T}"/>.
         ///
-        /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
         /// </remarks>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects </remarks>
@@ -323,11 +337,38 @@ namespace Unity.Entities
         /// Use this method to check if another system owned entity has a given type of component using its <see cref="SystemHandle"/>
         /// object.
         ///
-        /// When you call this method this method gets replaced with component access methods through a cached <see cref="ComponentDataFromEntity{T}"/>.
+        /// When you call this method this method gets replaced with component access methods through a cached <see cref="ComponentLookup{T}"/>.
         /// </remarks>
         /// <returns>True, if the specified system owned entity has the component.</returns>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects </remarks>
         public static bool HasComponent<T>(SystemHandle systemHandle) where T : unmanaged, IComponentData => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Checks whether the <see cref="IComponentData"/> of type T is enabled on the specified system using a <see cref="SystemHandle"/>.
+        /// For the purposes of EntityQuery matching, a system with a disabled component will behave as if it does not
+        /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="SystemHandle"/> does not exist.</exception>
+        /// <param name="systemHandle">The system whose component should be checked.</param>
+        /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+        /// <returns>True if the specified component is enabled, or false if it is disabled.</returns>
+        /// <seealso cref="SetComponentEnabled{T}(SystemHandle, bool)"/>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+        public static bool IsComponentEnabled<T>(SystemHandle systemHandle) where T : unmanaged, IComponentData, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Enable or disable the <see cref="IComponentData"/> of type T on the specified system using a <see cref="SystemHandle"/>. This operation
+        /// does not cause a structural change (even if it occurs on a worker thread), or affect the value of the component.
+        /// For the purposes of EntityQuery matching, a system with a disabled component will behave as if it does not
+        /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="SystemHandle"/> does not exist.</exception>
+        /// <param name="systemHandle">The system whose component should be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        /// /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+        /// <seealso cref="IsComponentEnabled{T}(Entity)"/>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+        public static void SetComponentEnabled<T>(SystemHandle systemHandle, bool value) where T : unmanaged, IComponentData, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
 
         #endregion
 
@@ -373,24 +414,47 @@ namespace Unity.Entities
         /// Use this method to check if another entity has a dynamic buffer of a given IBufferElementData type using its <see cref="Entity"/>
         /// object.
         ///
-        /// When iterating over a set of entities via [Entities.ForEach], avoid using this method with the
+        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, avoid using this method with the
         /// current entity in the set. It is generally faster to change your entity query methods to avoid
-        /// optional components; this may require a different [Entities.ForEach] construction to handle
+        /// optional components; this may require a different iteration construction to handle
         /// each combination of optional and non-optional components.
         ///
-        /// When you call this method on the main thread, it invokes <see cref="EntityManager.HasBuffer{T}"/>.
-        /// (An [Entities.ForEach] function invoked with `Run()` executes on the main thread.) When you call this method
-        /// inside a job scheduled using [Entities.ForEach], this method gets replaced with component access methods
-        /// through <see cref="BufferLookup{T}"/>.
+        /// this method gets replaced with component access methods through <see cref="BufferLookup{T}"/>.
         ///
         /// In both cases, this lookup method results in a slower, indirect memory access. When possible, organize your
         /// data to minimize the need for indirect lookups.
         ///
-        /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
         /// </remarks>
         /// <returns>True, if the specified entity has the component.</returns>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects</remarks>
         public static bool HasBuffer<T>(Entity entity) where T : unmanaged, IBufferElementData => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Checks whether the <see cref="IBufferElementData"/> of type T is enabled on the specified <see cref="Entity"/>.
+        /// For the purposes of EntityQuery matching, an entity with a disabled component will behave as if it does not
+        /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+        /// <param name="entity">The entity whose component should be checked.</param>
+        /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+        /// <returns>True if the specified component is enabled, or false if it is disabled.</returns>
+        /// <seealso cref="SetBufferEnabled{T}(Entity, bool)"/>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+        public static bool IsBufferEnabled<T>(Entity entity) where T : unmanaged, IBufferElementData, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Enable or disable the <see cref="IBufferElementData"/> of type T on the specified <see cref="Entity"/>. This operation
+        /// does not cause a structural change (even if it occurs on a worker thread), or affect the value of the component.
+        /// For the purposes of EntityQuery matching, an entity with a disabled component will behave as if it does not
+        /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+        /// <param name="entity">The entity whose component should be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        /// /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+        /// <seealso cref="IsBufferEnabled{T}(Entity)"/>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+        public static void SetBufferEnabled<T>(Entity entity, bool value) where T : unmanaged, IBufferElementData, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
         #endregion
 
         #region StorageInfo
@@ -465,6 +529,17 @@ namespace Unity.Entities
         public static RefRW<T> GetSingletonRW<T>() where T : unmanaged, IComponentData =>  throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
+        /// Gets the value of a singleton component, and returns whether or not a singleton component of the specified type exists in the <see cref="World"/>.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+        /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+        /// <param name="value">The reference to the component. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</param>
+        /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+        public static bool TryGetSingletonRW<T>(out RefRW<T> value)
+            where T : unmanaged, IComponentData => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
         /// Sets the value of a singleton component.
         /// </summary>
         /// <param name="value">A component containing the value to assign to the singleton.</param>
@@ -483,7 +558,7 @@ namespace Unity.Entities
         /// <returns>The entity associated with the specified singleton component.</returns>
         /// <seealso cref="EntityQuery.GetSingletonEntity"/>
         /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
-        public static Entity GetSingletonEntity<T>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        public static Entity GetSingletonEntity<T>() where T : unmanaged => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Gets the singleton Entity, and returns whether or not a singleton <see cref="Entity"/> of the specified type exists in the <see cref="World"/>.
@@ -494,7 +569,7 @@ namespace Unity.Entities
         ///  If a singleton of the specified types does not exist in the current <see cref="World"/>, this is set to Entity.Null</param>
         /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
         /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
-        public static bool TryGetSingletonEntity<T>(out Entity value) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public static bool TryGetSingletonEntity<T>(out Entity value) where T : unmanaged => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Gets the value of a singleton buffer component.
@@ -515,9 +590,10 @@ namespace Unity.Entities
         /// <typeparam name="T">The <see cref="IBufferElementData"/> subtype of the singleton buffer component.
         /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
         /// <param name="value">The buffer. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</param>
+        /// <param name="isReadOnly">If the caller does not need to modify the buffer contents, pass true here.</param>
         /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
         /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
-        public static bool TryGetSingletonBuffer<T>(out DynamicBuffer<T> value)
+        public static bool TryGetSingletonBuffer<T>(out DynamicBuffer<T> value, bool isReadOnly = false)
             where T : unmanaged, IBufferElementData => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -527,7 +603,7 @@ namespace Unity.Entities
         /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
         /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>
         /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
-        public static bool HasSingleton<T>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        public static bool HasSingleton<T>() where T : unmanaged => throw InternalCompilerInterface.ThrowCodeGenException();
         #endregion
 
         #region Aspect
@@ -544,7 +620,7 @@ namespace Unity.Entities
         /// The given entity is assumed to have all the components required by the aspect type.
         /// </remarks>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects</remarks>
-        public static T GetAspectRW<T>(Entity entity) where T : struct, IAspect => throw InternalCompilerInterface.ThrowCodeGenException();
+        public static T GetAspectRW<T>(Entity entity) where T : unmanaged, IAspect => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Look up an aspect for an entity with readonly access.
@@ -557,7 +633,299 @@ namespace Unity.Entities
         /// The given entity is assumed to have all the components required by the aspect type.
         /// </remarks>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects</remarks>
-        public static T GetAspectRO<T>(Entity entity) where T : struct, IAspect => throw InternalCompilerInterface.ThrowCodeGenException();
+        public static T GetAspectRO<T>(Entity entity) where T : unmanaged, IAspect => throw InternalCompilerInterface.ThrowCodeGenException();
         #endregion
+
+        #region Handles
+        /////////////////////////////////// TypeHandle Caching ///////////////////////////////////
+
+        /// <summary>
+        /// Gets the run-time type information required to access the array of <see cref="Entity"/> objects in a chunk.
+        /// </summary>
+        /// <returns>An object representing the type information required to safely access Entity instances stored in a
+        /// chunk.</returns>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+        public static EntityTypeHandle GetEntityTypeHandle() => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Gets the run-time type information required to access an array of component data in a chunk.
+        /// </summary>
+        /// <param name="isReadOnly">Whether the component data is only read, not written. Access components as
+        /// read-only whenever possible.</param>
+        /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
+        /// <returns>An object representing the type information required to safely access component data stored in a
+        /// chunk.</returns>
+        /// <remarks>Pass an <see cref="ComponentTypeHandle{T}"/> instance to a job that has access to chunk data,
+        /// such as an <see cref="IJobChunk"/> job, to access that type of component inside the job.</remarks>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+        public static ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : unmanaged, IComponentData => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Gets the run-time type information required to access an array of buffer components in a chunk.
+        /// </summary>
+        /// <param name="isReadOnly">Whether the data is only read, not written. Access data as
+        /// read-only whenever possible.</param>
+        /// <typeparam name="T">A struct that implements <see cref="IBufferElementData"/>.</typeparam>
+        /// <returns>An object representing the type information required to safely access buffer components stored in a
+        /// chunk.</returns>
+        /// <remarks>Pass a BufferTypeHandle instance to a job that has access to chunk data, such as an
+        /// <see cref="IJobChunk"/> job, to access that type of buffer component inside the job.</remarks>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+        public static BufferTypeHandle<T> GetBufferTypeHandle<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Gets the run-time type information required to access a shared component data in a chunk.
+        /// </summary>
+        /// <typeparam name="T">A struct that implements <see cref="ISharedComponentData"/>.</typeparam>
+        /// <returns>An object representing the type information required to safely access shared component data stored in a
+        /// chunk.</returns>
+        /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+        public static SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>() where T : unmanaged, ISharedComponentData => throw InternalCompilerInterface.ThrowCodeGenException();
+        #endregion
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        /// <summary>
+        /// The managed half of <see cref="SystemAPI"/>. It's exactly what you'd expect.
+        /// Managed versions of API found in SystemAPI, that only runs on main thread.
+        /// You can use this in <see cref="ISystem"/> and <see cref="SystemBase"/>.
+        /// </summary>
+        public static class ManagedAPI
+        {
+            #region Query
+#if !UNITY_DOTSRUNTIME
+            /// <summary>
+            /// Can be used inside <see cref="SystemAPI.Query{T}"/> iteration to retrieve UnityEngine components like
+            /// ScriptableObjects, MonoBehaviour and UnityEngine.Transform
+            /// </summary>
+            /// <typeparam name="T">Any ScriptableObject, MonoBehaviour or UnityEngine.Object like UnityEngine.Transform.</typeparam>
+            public struct UnityEngineComponent<T> : IQueryTypeParameter where T : UnityEngine.Object
+            {
+                /// <summary>
+                /// Gets you back the contained value
+                /// </summary>
+                public T Value { get; }
+
+                /// <summary>
+                /// Constructs a UnityEngineComponent wrapper.
+                /// </summary>
+                /// <param name="value"></param>
+                public UnityEngineComponent(T value) => Value = value;
+            }
+#endif
+            #endregion
+
+            #region ComponentData
+            /////////////////////////////////// Accessing Components ///////////////////////////////////
+
+            /// <summary>
+            /// Look up the value of a component for an entity.
+            /// </summary>
+            /// <param name="entity">The entity.</param>
+            /// <typeparam name="T">The type of component to retrieve.</typeparam>
+            /// <returns>A struct of type T containing the component value.</returns>
+            /// <remarks>
+            /// Use this method to look up data in another entity using its <see cref="Entity"/> object. For example, if you
+            /// have a component that contains an Entity field, you can look up the component data for the referenced
+            /// entity using this method.
+            ///
+            /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, do not use this method to access data of the
+            /// current entity in the set. This function is much slower than accessing the data directly (by passing the
+            /// component containing the data to your lambda iteration function as a parameter).
+            ///
+            /// When you call this method gets replaced with component access methods through <see cref="EntityManager.GetComponentObject{T}(Entity)"/>.
+            ///
+            /// This lookup method results in a slower, indirect memory access. When possible, organize your
+            /// data to minimize the need for indirect lookups.
+            ///
+            /// </remarks>
+            /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+            public static T GetComponent<T>(Entity entity) where T : class => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Checks whether an entity has a specific type of component.
+            /// </summary>
+            /// <param name="entity">The Entity object.</param>
+            /// <typeparam name="T">The data type of the component.</typeparam>
+            /// <remarks>
+            /// Always returns false for an entity that has been destroyed.
+            ///
+            /// Use this method to check if another entity has a given type of component using its <see cref="Entity"/>
+            /// object. For example, if you have a component that contains an Entity field, you can check whether the
+            /// referenced entity has a specific type of component using this method. (Entities in the set always have
+            /// required components, so you don’t need to check for them.)
+            ///
+            /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, avoid using this method with the
+            /// current entity in the set. It is generally faster to change your entity query methods to avoid
+            /// optional components; this may require a different construction to handle each combination of optional and non-optional components.
+            ///
+            /// When you call this method this method gets replaced with component access methods through a cached <see cref="EntityManager.HasComponent{T}(Entity)"/>.
+            ///
+            /// This lookup method results in a slower, indirect memory access. When possible, organize your data to minimize the need for indirect lookups.
+            /// </remarks>
+            /// <returns>True, if the specified entity has the component.</returns>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+            public static bool HasComponent<T>(Entity entity) where T : class => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Checks whether the <see cref="IComponentData"/> of type T is enabled on the specified <see cref="Entity"/>.
+            /// For the purposes of EntityQuery matching, an entity with a disabled component will behave as if it does not
+            /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+            /// </summary>
+            /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+            /// <param name="entity">The entity whose component should be checked.</param>
+            /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+            /// <returns>True if the specified component is enabled, or false if it is disabled.</returns>
+            /// <seealso cref="SetComponentEnabled{T}(Entity, bool)"/>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+            public static bool IsComponentEnabled<T>(Entity entity) where T : class, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Enable or disable the <see cref="IComponentData"/> of type T on the specified <see cref="Entity"/>. This operation
+            /// does not cause a structural change (even if it occurs on a worker thread), or affect the value of the component.
+            /// For the purposes of EntityQuery matching, an entity with a disabled component will behave as if it does not
+            /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+            /// </summary>
+            /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+            /// <param name="entity">The entity whose component should be enabled or disabled.</param>
+            /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+            /// /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+            /// <seealso cref="IsComponentEnabled{T}(Entity)"/>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+            public static void SetComponentEnabled<T>(Entity entity, bool value) where T : class, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Gets the value of a component for an entity associated with a system.
+            /// </summary>
+            /// <param name="systemHandle">The system handle.</param>
+            /// <typeparam name="T">The type of component to retrieve.</typeparam>
+            /// <returns>A struct of type T containing the component value.</returns>
+            /// <remarks>
+            /// Use this method to look up data in another system owned entity using its <see cref="SystemHandle"/> object.
+            ///
+            /// When you call this method gets replaced with component access methods through <see cref="EntityManager.GetComponentObject{T}(Entity)"/>.
+            /// </remarks>
+            /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+            public static T GetComponent<T>(SystemHandle systemHandle) where T : class => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Checks whether an entity associated with a system has a specific type of component.
+            /// </summary>
+            /// <param name="systemHandle">The system handle.</param>
+            /// <typeparam name="T">The data type of the component.</typeparam>
+            /// <remarks>
+            /// Always returns false for an system that has been destroyed.
+            ///
+            /// Use this method to check if another system owned entity has a given type of component using its <see cref="SystemHandle"/>
+            /// object.
+            ///
+            /// When you call this method this method gets replaced with component access methods through a cached <see cref="EntityManager.HasComponent{T}(Entity)"/>.
+            /// </remarks>
+            /// <returns>True, if the specified system owned entity has the component.</returns>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+            public static bool HasComponent<T>(SystemHandle systemHandle) where T : class => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Checks whether the <see cref="IComponentData"/> of type T is enabled on the specified system using a <see cref="SystemHandle"/>.
+            /// For the purposes of EntityQuery matching, a system with a disabled component will behave as if it does not
+            /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+            /// </summary>
+            /// <exception cref="ArgumentException">The <see cref="SystemHandle"/> does not exist.</exception>
+            /// <param name="systemHandle">The system whose component should be checked.</param>
+            /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+            /// <returns>True if the specified component is enabled, or false if it is disabled.</returns>
+            /// <seealso cref="SetComponentEnabled{T}(SystemHandle, bool)"/>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+            public static bool IsComponentEnabled<T>(SystemHandle systemHandle) where T : class, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Enable or disable the <see cref="IComponentData"/> of type T on the specified system using a <see cref="SystemHandle"/>. This operation
+            /// does not cause a structural change (even if it occurs on a worker thread), or affect the value of the component.
+            /// For the purposes of EntityQuery matching, a system with a disabled component will behave as if it does not
+            /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+            /// </summary>
+            /// <exception cref="ArgumentException">The <see cref="SystemHandle"/> does not exist.</exception>
+            /// <param name="systemHandle">The system whose component should be enabled or disabled.</param>
+            /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+            /// /// <typeparam name="T">An unmanaged IComponentData type</typeparam>
+            /// <seealso cref="IsComponentEnabled{T}(Entity)"/>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects </remarks>
+            public static void SetComponentEnabled<T>(SystemHandle systemHandle, bool value) where T : class, IEnableableComponent => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            #endregion
+
+            #region Singleton
+            /////////////////////////////////// Singleton Caching ///////////////////////////////////
+
+            /// <summary>
+            /// Gets the value of a singleton component.
+            /// </summary>
+            /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+            /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+            /// <returns>The component.</returns>
+            /// <seealso cref="ComponentSystemBase.GetSingletonRW{T}"/>
+            /// <seealso cref="EntityQuery.GetSingleton{T}"/>
+            /// <seealso cref="EntityQuery.GetSingletonRW{T}"/>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+            public static T GetSingleton<T>()
+                where T : class => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Gets the value of a singleton component, and returns whether or not a singleton component of the specified type exists in the <see cref="World"/>.
+            /// </summary>
+            /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+            /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+            /// <param name="value">The component. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</param>
+            /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+            public static bool TryGetSingleton<T>(out T value)
+                where T : class => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Gets the Entity instance for a singleton.
+            /// </summary>
+            /// <typeparam name="T">The Type of the singleton component.
+            /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+            /// <returns>The entity associated with the specified singleton component.</returns>
+            /// <seealso cref="EntityQuery.GetSingletonEntity"/>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+            public static Entity GetSingletonEntity<T>() where T : class => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Gets the singleton Entity, and returns whether or not a singleton <see cref="Entity"/> of the specified type exists in the <see cref="World"/>.
+            /// </summary>
+            /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+            /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+            /// <param name="value">The <see cref="Entity"/> associated with the specified singleton component.
+            ///  If a singleton of the specified types does not exist in the current <see cref="World"/>, this is set to Entity.Null</param>
+            /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+            public static bool TryGetSingletonEntity<T>(out Entity value) where T : class => throw InternalCompilerInterface.ThrowCodeGenException();
+
+            /// <summary>
+            /// Checks whether a singleton component of the specified type exists.
+            /// </summary>
+            /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
+            /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
+            /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+            public static bool HasSingleton<T>() where T : class => throw InternalCompilerInterface.ThrowCodeGenException();
+            #endregion
+
+            #region Handles
+            /////////////////////////////////// TypeHandle Caching ///////////////////////////////////
+
+            /// <summary>
+            /// Gets the run-time type information required to access a shared component data in a chunk.
+            /// </summary>
+            /// <typeparam name="T">A struct that implements <see cref="ISharedComponentData"/>.</typeparam>
+            /// <returns>An object representing the type information required to safely access shared component data stored in a
+            /// chunk.</returns>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+            public static SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>() where T : struct, ISharedComponentData => throw InternalCompilerInterface.ThrowCodeGenException();
+            #endregion
+        }
+#endif
     }
 }

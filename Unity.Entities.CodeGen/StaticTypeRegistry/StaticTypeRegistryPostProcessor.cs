@@ -154,7 +154,7 @@ namespace Unity.Entities.CodeGen
                 typeof(int), typeof(TypeCategory), typeof(int), typeof(int),
                 typeof(ulong), typeof(ulong), typeof(int), typeof(int), typeof(int),
                 typeof(int), typeof(int), typeof(int), typeof(int), typeof(bool),
-                typeof(int), typeof(int), typeof(int), typeof(int), typeof(int), typeof(int)
+                typeof(int), typeof(int), typeof(int), typeof(int), typeof(int)
             }));
 
             m_FieldInfoRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager.FieldInfo));

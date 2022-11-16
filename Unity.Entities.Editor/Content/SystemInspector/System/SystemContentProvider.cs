@@ -1,5 +1,5 @@
 using JetBrains.Annotations;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Properties;
 using UnityEngine;
 using UnityEngine.UIElements;

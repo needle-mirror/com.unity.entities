@@ -117,13 +117,13 @@ namespace Unity.Scenes.Editor.Tests
             RemoveBakingAttribute();
             yield return new WaitForDomainReload();
 
-            m_OriginalHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous).ToString();
+            m_OriginalHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, ImportMode.Synchronous).ToString();
 
             // Updating an assembly containing a baker should re-trigger an import
             yield return UpdatingScriptFile();
             yield return new WaitForDomainReload();
 
-            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous).ToString();
+            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, ImportMode.Synchronous).ToString();
             Assert.AreNotEqual(m_OriginalHash, newHash);
         }
 
@@ -137,13 +137,13 @@ namespace Unity.Scenes.Editor.Tests
             yield return AddingBakingAttribute();
             yield return new WaitForDomainReload();
 
-            m_OriginalHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous).ToString();
+            m_OriginalHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, ImportMode.Synchronous).ToString();
 
             // Updating an assembly that has a baker with a baking version attribute shouldn't trigger an import
             yield return UpdatingScriptFile();
             yield return new WaitForDomainReload();
 
-            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous).ToString();
+            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, ImportMode.Synchronous).ToString();
 
             Assert.AreEqual(m_OriginalHash, newHash);
         }
@@ -158,13 +158,13 @@ namespace Unity.Scenes.Editor.Tests
             yield return AddingBakingAttribute();
             yield return new WaitForDomainReload();
 
-            m_OriginalHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous).ToString();
+            m_OriginalHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, ImportMode.Synchronous).ToString();
 
             // Bumping a baking version attribute on a baker should re-trigger an import
             yield return UpdateBakingAttribute();
             yield return new WaitForDomainReload();
 
-            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, true, LiveConversionSettings.IsBuiltinBuildsEnabled, ImportMode.Synchronous).ToString();
+            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, ImportMode.Synchronous).ToString();
 
             Assert.AreNotEqual(m_OriginalHash, newHash);
         }

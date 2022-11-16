@@ -102,6 +102,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void ReturningWrongJobReportsCorrectSystemUpdate()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -119,6 +120,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void IgnoredInputDepsThrowsInCorrectSystemUpdate()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -376,6 +378,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void SystemBaseEntitiesForEachComponentLookup_Scheduled_ThrowsAppropriateException([Values(false, true)] bool runScheduleParallel)
         {
             var system = World.CreateSystemManaged<SystemBaseEntitiesForEachComponentLookup>();
@@ -517,7 +520,7 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = EntityManager.GetBuffer<EcsIntElement>(GetSingletonEntity<EcsTestTag>());
+                var buffer = EntityManager.GetBuffer<EcsIntElement>(SystemAPI.GetSingletonEntity<EcsTestTag>());
                 Job.WithCode(() => { buffer.Add(new EcsIntElement {Value = 123}); }).Schedule();
             }
         }
@@ -526,7 +529,7 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = EntityManager.GetBuffer<EcsIntElement>(GetSingletonEntity<EcsTestTag>());
+                var buffer = EntityManager.GetBuffer<EcsIntElement>(SystemAPI.GetSingletonEntity<EcsTestTag>());
                 buffer.Add(new EcsIntElement {Value = 123});
             }
         }
@@ -535,7 +538,7 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = EntityManager.GetBuffer<EcsIntElement>(GetSingletonEntity<EcsTestTag>());
+                var buffer = EntityManager.GetBuffer<EcsIntElement>(SystemAPI.GetSingletonEntity<EcsTestTag>());
                 Job.WithCode(() => { buffer.Add(new EcsIntElement {Value = 123}); }).Run();
             }
         }
@@ -544,7 +547,7 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = GetBuffer<EcsIntElement>(GetSingletonEntity<EcsTestTag>());
+                var buffer = SystemAPI.GetBuffer<EcsIntElement>(SystemAPI.GetSingletonEntity<EcsTestTag>());
                 Job.WithCode(() => { buffer.Add(new EcsIntElement {Value = 123}); }).Schedule();
             }
         }
@@ -553,7 +556,7 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = GetBuffer<EcsIntElement2>(GetSingletonEntity<EcsTestTag>());
+                var buffer = SystemAPI.GetBuffer<EcsIntElement2>(SystemAPI.GetSingletonEntity<EcsTestTag>());
                 Job.WithCode(() => { buffer.Add(new EcsIntElement2 {Value0 = 0, Value1 = 1}); }).Schedule();
             }
         }
@@ -562,7 +565,7 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = GetBufferLookup<EcsIntElement>()[GetSingletonEntity<EcsTestTag>()];
+                var buffer = GetBufferLookup<EcsIntElement>()[SystemAPI.GetSingletonEntity<EcsTestTag>()];
                 Job.WithCode(() => { buffer.Add(new EcsIntElement {Value = 123}); }).Schedule();
             }
         }
@@ -583,7 +586,7 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = GetBuffer<EcsIntElement>(GetSingletonEntity<EcsTestTag>());
+                var buffer = SystemAPI.GetBuffer<EcsIntElement>(SystemAPI.GetSingletonEntity<EcsTestTag>());
                 Assert.AreEqual(123, buffer[0].Value);
             }
         }
@@ -592,7 +595,7 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = GetBuffer<EcsIntElement>(GetSingletonEntity<EcsTestTag>(), true);
+                var buffer = SystemAPI.GetBufferLookup<EcsIntElement>(true)[SystemAPI.GetSingletonEntity<EcsTestTag>()];
                 Assert.AreEqual(123, buffer[0].Value);
             }
         }
@@ -601,7 +604,7 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = GetBuffer<EcsIntElement>(GetSingletonEntity<EcsTestTag>());
+                var buffer = SystemAPI.GetBuffer<EcsIntElement>(SystemAPI.GetSingletonEntity<EcsTestTag>());
                 Job.WithCode(() =>
                 {
                     Assert.AreEqual(123, buffer[0].Value);
@@ -613,7 +616,8 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                var buffer = GetBuffer<EcsIntElement>(GetSingletonEntity<EcsTestTag>(), true);
+                EntityManager.CompleteDependencyBeforeRO<EcsIntElement>();
+                var buffer = SystemAPI.GetBufferLookup<EcsIntElement>(true)[SystemAPI.GetSingletonEntity<EcsTestTag>()];
                 Job.WithCode(() =>
                 {
                     Assert.AreEqual(123, buffer[0].Value);
@@ -633,7 +637,7 @@ namespace Unity.Entities.Tests
                 Entities.WithAll<EcsTestTag>().ForEach((in Entity tagEntity) =>
                 {
                     // Codegen should replace this with GetBufferLookup created in OnUpdate
-                    var buffer = GetBuffer<EcsIntElement>(tagEntity);
+                    var buffer = SystemAPI.GetBuffer<EcsIntElement>(tagEntity);
                     Assert.AreEqual(123, buffer[0].Value);
                 }).Schedule();
             }
@@ -648,11 +652,11 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                var tagEntity = GetSingletonEntity<EcsTestTag>();
+                var tagEntity = SystemAPI.GetSingletonEntity<EcsTestTag>();
                 Entities.ForEach((in EcsTestData testData) =>
                 {
                     // Codegen should replace this with GetBufferLookup created in OnUpdate
-                    var buffer = GetBuffer<EcsIntElement>(tagEntity);
+                    var buffer = SystemAPI.GetBuffer<EcsIntElement>(tagEntity);
                     Assert.AreEqual(123, buffer[0].Value);
                 }).Schedule();
             }
@@ -667,7 +671,7 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                var buffer = GetBuffer<EcsIntElement>(GetSingletonEntity<EcsTestTag>());
+                var buffer = SystemAPI.GetBuffer<EcsIntElement>(SystemAPI.GetSingletonEntity<EcsTestTag>());
                 var array = buffer.AsNativeArray();
                 Entities.ForEach((in EcsTestData testData) =>
                 {
@@ -691,11 +695,14 @@ namespace Unity.Entities.Tests
             {
                 var writeIntHandle = sysWriteInt.CheckedState()->Dependency;
                 var writeInt2Handle = sysWriteInt2.CheckedState()->Dependency;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.IsFalse(JobHandle.CheckFenceIsDependencyOrDidSyncFence(writeInt2Handle, writeIntHandle));
+#endif
             }
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void BufferDependencies_GetBufferReadAfterEntityManagerGetBufferWriteThrowsSafetyError()
         {
             m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsIntElement));
@@ -722,7 +729,9 @@ namespace Unity.Entities.Tests
             {
                 var writeHandle = sysWrite.CheckedState()->Dependency;
                 var readHandle = sysRead.CheckedState()->Dependency;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
+#endif
             }
         }
 
@@ -740,7 +749,9 @@ namespace Unity.Entities.Tests
             {
                 var writeHandle = sysWrite.CheckedState()->Dependency;
                 var readHandle = sysRead.CheckedState()->Dependency;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
+#endif
             }
         }
 
@@ -759,9 +770,11 @@ namespace Unity.Entities.Tests
                 var writeHandle = sysWrite.CheckedState()->Dependency;
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
-                // Investigate why this fails in DOTS Runtime DOTS-5964
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+// Investigate why this fails in DOTS Runtime DOTS-5964
 #if !UNITY_DOTSRUNTIME
                 Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
+#endif
 #endif
             }
         }
@@ -781,8 +794,10 @@ namespace Unity.Entities.Tests
                 var writeHandle = sysWrite.CheckedState()->Dependency;
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
 #if !UNITY_DOTSRUNTIME
                 Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
+#endif
 #endif
             }
         }
@@ -802,8 +817,10 @@ namespace Unity.Entities.Tests
                 var writeHandle = sysWrite.CheckedState()->Dependency;
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
 #if !UNITY_DOTSRUNTIME
                 Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
+#endif
 #endif
             }
         }
@@ -863,7 +880,9 @@ namespace Unity.Entities.Tests
                 var writeHandle = sysWrite.CheckedState()->Dependency;
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.IsFalse(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
+#endif
             }
         }
 
@@ -889,7 +908,9 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(writeHandle.Equals(readHandle1));
                 Assert.IsFalse(writeHandle.Equals(readHandle2));
                 Assert.IsFalse(readHandle1.Equals(readHandle2));
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.IsFalse(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle2, readHandle1));
+#endif
             }
         }
 
@@ -915,7 +936,9 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(writeHandle.Equals(readOnlyHandle));
                 Assert.IsFalse(writeHandle.Equals(readHandle));
                 Assert.IsFalse(readOnlyHandle.Equals(readHandle));
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 Assert.IsFalse(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, readOnlyHandle));
+#endif
             }
         }
 
@@ -1029,6 +1052,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void ParallelWrite_Exception_Not_Suppressed()
         {
             // Regression test. Run a system that unsafely writes to a NativeArray from two parallel jobs.

@@ -177,9 +177,6 @@ namespace Unity.Entities.SourceGen.Common
 
         public static bool IsAspect(this ITypeSymbol typeSymbol) => typeSymbol.InheritsFromInterface("Unity.Entities.IAspect");
 
-        public static string GetFirstOrDefaultParameterNameOfType(this IMethodSymbol methodSymbol, string fullTypeName) =>
-            methodSymbol.Parameters.FirstOrDefault(param => param.Type.Is(fullTypeName))?.Name;
-
         public static TypedConstantKind GetTypedConstantKind(this ITypeSymbol type)
         {
             switch (type.SpecialType)

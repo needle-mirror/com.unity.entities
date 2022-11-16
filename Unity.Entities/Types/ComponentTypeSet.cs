@@ -5,7 +5,7 @@ using Unity.Mathematics;
 
 namespace Unity.Entities
 {
-    /// <inheritdoc cref="ComponentTypeSet"/>
+    /// <summary> Obsolete. Use <see cref="ComponentTypeSet"/> instead.</summary>
     [Obsolete("ComponentTypes has been renamed to ComponentTypeSet. (UnityUpgradable) -> ComponentTypeSet", true)]
     public struct ComponentTypes
     {
@@ -24,6 +24,7 @@ namespace Unity.Entities
     /// Cannot contain multiple ComponentType values with the same type index (safety checks in the constructors will throw an exception).
     /// </remarks>
     [GenerateTestsForBurstCompatibility]
+    [DebuggerTypeProxy(typeof(ComponentTypeSetDebugView))]
     public unsafe struct ComponentTypeSet
     {
         FixedList64Bytes<TypeIndex> m_sorted;

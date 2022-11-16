@@ -4,10 +4,6 @@ using System.Reflection;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Serialization;
-using Unity.Mathematics;
-#if !NET_DOTS
-using Unity.Properties;
-#endif
 using EntityOffsetInfo = Unity.Entities.TypeManager.EntityOffsetInfo;
 
 namespace Unity.Entities
@@ -235,11 +231,11 @@ namespace Unity.Entities
             /// <summary>
             /// Specifies if there are any <see cref="Entity"/> references.
             /// </summary>
-            public HasRefResult hasEntityRef;
+            public HasRefResult HasEntityRef;
             /// <summary>
             /// Specifies if there are any <see cref="BlobAssetReferenceData"/> references.
             /// </summary>
-            public HasRefResult hasBlobRef;
+            public HasRefResult HasBlobRef;
 
             /// <summary>
             /// Initializes and returns an instance of EntityBlobRefResult.
@@ -248,8 +244,8 @@ namespace Unity.Entities
             /// <param name="hasBlobRef">Specifies if there are any <see cref="BlobAssetReferenceData"/> references.</param>
             public EntityBlobRefResult(HasRefResult hasEntityRef, HasRefResult hasBlobRef)
             {
-                this.hasEntityRef = hasEntityRef;
-                this.hasBlobRef = hasBlobRef;
+                this.HasEntityRef = hasEntityRef;
+                this.HasBlobRef = hasBlobRef;
             }
         }
 
@@ -288,8 +284,8 @@ namespace Unity.Entities
             if (cache.ContainsKey(type))
             {
                 var result = cache[type];
-                hasEntityReferences = result.hasEntityRef;
-                hasBlobReferences = result.hasBlobRef;
+                hasEntityReferences = result.HasEntityRef;
+                hasBlobReferences = result.HasBlobRef;
 
                 return;
             }

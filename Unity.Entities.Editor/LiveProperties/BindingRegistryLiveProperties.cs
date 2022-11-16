@@ -12,10 +12,18 @@ namespace Unity.Entities.Editor
     [InitializeOnLoad]
     static class BindingRegistryLiveProperties
     {
+#if !ENABLE_TRANSFORM_V1
+        static readonly TypeIndex s_LocalTransformTypeIndex = TypeManager.GetTypeIndex<LocalTransform>();
+#endif
+
         static BindingRegistryLiveProperties()
         {
-#if UNITY_2022_2_OR_NEWER
+#if USE_IMPROVED_DATAMODE
+            LivePropertyBridge.EnableLivePropertyFeatureGlobally(true);
+#else
             LivePropertyBridge.EnableLivePropertyFeatureGlobally(false);
+#endif
+            RegisterBindingsFromBuiltinTypes();
 
             foreach (var b in BindingRegistry.s_AuthoringToRuntimeBinding)
             {
@@ -23,7 +31,6 @@ namespace Unity.Entities.Editor
                 LivePropertyBridge.AddLivePropertyChanged(b.Key, binding.ShouldUpdateLiveProperties);
                 LivePropertyBridge.AddLivePropertyOverride(b.Key, binding.UpdateLiveProperties);
             }
-#endif
         }
 
         struct DiffingContext
@@ -107,13 +114,26 @@ namespace Unity.Entities.Editor
                         var runtimeDataBinding = BindingRegistry.s_AuthoringToRuntimeBinding[authoringComponent.GetType()];
                         if (runtimeDataBinding.Count > 0)
                         {
-                            var runtimeType = ComponentType.FromTypeIndex(runtimeDataBinding[0].ComponentTypeIndex);
+                            var runtimeTypeTypeIndex = runtimeDataBinding[0].ComponentTypeIndex;
+                            var runtimeType = ComponentType.FromTypeIndex(runtimeTypeTypeIndex);
+
                             if (!diffingContext.LiveEntityManager.HasComponent(diffingContext.LiveEntity, runtimeType))
                             {
+#if ENABLE_TRANSFORM_V1
                                 // Detect missing/failed conversion between the authoring and runtime type
                                 Debug.LogError($"Can't update live properties on the authoring component {m_authoringType}." +
                                                $"Because the runtime component {runtimeType} is missing on the primary entity. It looks like conversion didn't run on {m_authoringType}.");
                                 return false;
+
+#else
+                                if (runtimeType != typeof(LocalTransform) && runtimeType != typeof(WorldTransform))
+                                {
+                                    // Detect missing/failed conversion between the authoring and runtime type
+                                    Debug.LogError($"Can't update live properties on the authoring component {m_authoringType}." +
+                                                   $"Because the runtime component {runtimeType} is missing on the primary entity. It looks like conversion didn't run on {m_authoringType}.");
+                                    return false;
+                                }
+#endif
                             }
 
                             foreach (var data in runtimeDataBinding)
@@ -150,10 +170,22 @@ namespace Unity.Entities.Editor
                 if (runtimeDataBinding.Count <= 0)
                     return;
 
-                for (int i = 0; i != runtimeDataBinding.Count; i++)
+                for (var i = 0; i != runtimeDataBinding.Count; i++)
                 {
                     var binding = runtimeDataBinding[i];
                     var runtimeTypeIndex = runtimeDataBinding[i].ComponentTypeIndex;
+
+#if ENABLE_TRANSFORM_V1
+                    if ((  binding.AuthoringFieldName.Equals("m_LocalScale.x")
+                        || binding.AuthoringFieldName.Equals("m_LocalScale.y")
+                        || binding.AuthoringFieldName.Equals("m_LocalScale.z"))
+                        && !world.EntityManager.HasComponent<NonUniformScale>(liveEntity))
+                        continue;
+#else
+                    // For entities that do not have LocalTransform components, just skip them.
+                    if (runtimeTypeIndex == s_LocalTransformTypeIndex && !world.EntityManager.HasComponent<LocalTransform>(liveEntity))
+                        continue;
+#endif
 
                     var prop = serializedObject.FindProperty(binding.AuthoringFieldName);
                     if (prop == null)
@@ -163,15 +195,6 @@ namespace Unity.Entities.Editor
                                          $"The {BindingRegistry.s_AuthoringToRuntimeBinding} binding cache might be out of sync.");
                         continue;
                     }
-
-#if !ENABLE_TRANSFORM_V1 // TODO: Look at this on Monday with Xian
-#else
-                    if ((binding.AuthoringFieldName.Equals("m_LocalScale.x")
-                        || binding.AuthoringFieldName.Equals("m_LocalScale.y")
-                        || binding.AuthoringFieldName.Equals("m_LocalScale.z"))
-                        && !world.EntityManager.HasComponent<NonUniformScale>(liveEntity))
-                        continue;
-#endif
 
                     var ptr = (byte*) world.EntityManager.GetComponentDataRawRO(liveEntity, runtimeTypeIndex);
                     ptr += binding.FieldProperties.FieldOffset;
@@ -205,30 +228,41 @@ namespace Unity.Entities.Editor
                             {
                                 if (isLiveUpdate)
                                 {
-                                    var qm = UnsafeUtility.AsRef<quaternion>(ptr);
-                                    prop.quaternionValue = new Quaternion(
-                                        qm.value.x, qm.value.y, qm.value.z, qm.value.w);
+                                    var qm = UnsafeUtility.AsRef<quaternion>(ptr).value;
+                                    prop.quaternionValue = new Quaternion(qm.x, qm.y, qm.z, qm.w);
                                 }
                                 else
                                 {
                                     UnsafeUtility.AsRef<quaternion>(ptr) = prop.quaternionValue;
                                 }
                             }
+
+                            if (binding.FieldProperties.FieldType == typeof(float4))
+                            {
+                                var f = UnsafeUtility.AsRef<float4>(ptr);
+                                if (isLiveUpdate)
+                                {
+                                    prop.quaternionValue = new Quaternion(f.x, f.y, f.z, f.w);
+                                }
+                                else
+                                {
+                                    var quaternionValue = prop.quaternionValue;
+                                    f = new float4(quaternionValue.x, quaternionValue.y, quaternionValue.z, quaternionValue.w);
+                                }
+                            }
                             break;
                         case SerializedPropertyType.Vector3:
                             if (binding.FieldProperties.FieldType == typeof(float3))
                             {
+                                var f = UnsafeUtility.AsRef<float3>(ptr);
                                 if (isLiveUpdate)
                                 {
-                                    var f = UnsafeUtility.AsRef<float3>(ptr);
                                     prop.vector3Value = new Vector3(f.x, f.y, f.z);
                                 }
                                 else
                                 {
                                     Vector3 v = prop.vector3Value;
-                                    UnsafeUtility.AsRef<float3>(ptr).x = v.x;
-                                    UnsafeUtility.AsRef<float3>(ptr).y = v.y;
-                                    UnsafeUtility.AsRef<float3>(ptr).z = v.z;
+                                    f = new float3(v.x, v.y, v.z);
                                 }
                             }
                             else if (binding.FieldProperties.FieldType == typeof(float))
@@ -240,26 +274,21 @@ namespace Unity.Entities.Editor
                                 }
                                 else
                                 {
-                                    Vector3 v = prop.vector3Value;
-                                    UnsafeUtility.AsRef<float>(ptr) = v.x;
+                                    UnsafeUtility.AsRef<float>(ptr) = prop.vector3Value.x;
                                 }
                             }
                             else if (binding.FieldProperties.FieldType == typeof(quaternion))
                             {
+                                var q = UnsafeUtility.AsRef<quaternion>(ptr).value;
                                 if (isLiveUpdate)
                                 {
-                                    var q = UnsafeUtility.AsRef<quaternion>(ptr);
-                                    var qm = new Quaternion(q.value.x, q.value.y, q.value.z, q.value.w);
+                                    var qm = new Quaternion(q.x, q.y, q.z, q.w);
                                     prop.vector3Value = qm.eulerAngles;
                                 }
                                 else
                                 {
-                                    Vector3 v = prop.vector3Value;
-                                    var qm = Quaternion.Euler(v);
-                                    UnsafeUtility.AsRef<quaternion>(ptr).value.x = qm.x;
-                                    UnsafeUtility.AsRef<quaternion>(ptr).value.y = qm.y;
-                                    UnsafeUtility.AsRef<quaternion>(ptr).value.z = qm.z;
-                                    UnsafeUtility.AsRef<quaternion>(ptr).value.w = qm.w;
+                                    var qm = Quaternion.Euler(prop.vector3Value);
+                                    q = new float4(qm.x, qm.y, qm.z, qm.w);
                                 }
                             }
                             break;
@@ -269,6 +298,29 @@ namespace Unity.Entities.Editor
                     }
                 }
             }
+        }
+
+        static void RegisterBindingsFromBuiltinTypes()
+        {
+#if ENABLE_TRANSFORM_V1
+            BindingRegistry.Register(typeof(Translation), "Value.x", typeof(Transform), "m_LocalPosition.x");
+            BindingRegistry.Register(typeof(Translation), "Value.y", typeof(Transform), "m_LocalPosition.y");
+            BindingRegistry.Register(typeof(Translation), "Value.z", typeof(Transform), "m_LocalPosition.z");
+
+            BindingRegistry.Register(typeof(NonUniformScale), "Value.x", typeof(Transform), "m_LocalScale.x");
+            BindingRegistry.Register(typeof(NonUniformScale), "Value.y", typeof(Transform), "m_LocalScale.y");
+            BindingRegistry.Register(typeof(NonUniformScale), "Value.z", typeof(Transform), "m_LocalScale.z");
+
+            BindingRegistry.Register(typeof(Rotation), nameof(Rotation.Value), typeof(Transform), "m_LocalRotation");
+#else
+            BindingRegistry.Register(typeof(LocalTransform), "Position.x", typeof(Transform), "m_LocalPosition.x");
+            BindingRegistry.Register(typeof(LocalTransform), "Position.y", typeof(Transform), "m_LocalPosition.y");
+            BindingRegistry.Register(typeof(LocalTransform), "Position.z", typeof(Transform), "m_LocalPosition.z");
+
+            BindingRegistry.Register(typeof(LocalTransform), "Scale", typeof(Transform), "m_LocalScale");
+
+            BindingRegistry.Register(typeof(LocalTransform), "Rotation", typeof(Transform), "m_LocalRotation");
+#endif
         }
     }
 }

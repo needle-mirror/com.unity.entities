@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 0b2d9c44dd8b32b4eb2e35fd8be32772
+guid: 8b494c2d8d93e3442a70d47085a164f3
 labels:
 - RunOnlyOnAssembliesWithReference
 - RoslynAnalyzer
@@ -20,18 +20,11 @@ PluginImporter:
     second:
       enabled: 0
       settings:
-        Exclude Android: 1
         Exclude Editor: 1
         Exclude Linux64: 1
         Exclude OSXUniversal: 1
         Exclude Win: 1
         Exclude Win64: 1
-  - first:
-      Android: Android
-    second:
-      enabled: 0
-      settings:
-        CPU: ARMv7
   - first:
       Any: 
     second:

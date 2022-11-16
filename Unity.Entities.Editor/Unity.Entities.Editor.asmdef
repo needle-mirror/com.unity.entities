@@ -1,5 +1,6 @@
 {
     "name": "Unity.Entities.Editor",
+    "rootNamespace": "",
     "references": [
         "Unity.Build",
         "Unity.Build.Classic",
@@ -10,14 +11,13 @@
         "Unity.Entities",
         "Unity.Entities.Editor.Properties",
         "Unity.Entities.Hybrid",
-        "Unity.Jobs",
         "Unity.InternalAPIEditorBridge.002",
         "Unity.InternalAPIEngineBridge.002",
         "Unity.Mathematics",
         "Unity.Profiling.Core",
         "Unity.Properties",
-        "Unity.Platforms.UI",
-        "Unity.Platforms.UI.Editor",
+        "Unity.Entities.UI",
+        "Unity.Entities.UI.Editor",
         "Unity.Scenes",
         "Unity.Scenes.Editor",
         "Unity.Serialization",
@@ -54,8 +54,8 @@
             "define": "ENABLE_TRANSFORM_V1"
         },
         {
-            "name": "com.unity.physics",
-            "expression": "0.60.0-preview.88",
+            "name": "com.unity.environment",
+            "expression": "0.2.0-preview.17",
             "define": "ENABLE_TRANSFORM_V1"
         },
         {
@@ -64,9 +64,9 @@
             "define": "ENABLE_TRANSFORM_V1"
         },
         {
-            "name": "com.unity.netcode",
-            "expression": "0.62.0-preview.1",
-            "define": "ENABLE_TRANSFORM_V1"
+            "name": "Unity",
+            "expression": "2022.2.0f1",
+            "define": "USE_IMPROVED_DATAMODE"
         }
     ],
     "noEngineReferences": false

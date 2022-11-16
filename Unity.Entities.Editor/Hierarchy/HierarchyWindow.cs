@@ -2,7 +2,7 @@ using System;
 using Unity.Collections;
 using Unity.Editor.Bridge;
 using Unity.Profiling;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Scenes;
 using Unity.Serialization.Editor;
 using UnityEditor;
@@ -18,6 +18,9 @@ namespace Unity.Entities.Editor
         static readonly string k_FilterComponentType = L10n.Tr("Component type");
         static readonly string k_FilterComponentTypeTooltip = L10n.Tr("Filter entities that have the specified component type");
 
+        static readonly string k_FilterIndexToken = L10n.Tr("Entity Index");
+        static readonly string k_FilterIndexTokenTooltip = L10n.Tr("Filter entities that have the specified index");
+
         static readonly string k_WindowName = L10n.Tr("Entities Hierarchy");
         static readonly Vector2 k_MinWindowSize = Constants.MinWindowSize;
 
@@ -26,13 +29,11 @@ namespace Unity.Entities.Editor
         internal static void AddDecorator(IHierarchyItemDecorator decorator) => s_Decorators.Add(decorator);
         internal static void RemoveDecorator(IHierarchyItemDecorator decorator) => s_Decorators.Remove(decorator);
 
+        readonly Cooldown m_BackgroundUpdateCooldown = new Cooldown(TimeSpan.FromMilliseconds(250));
+
+        bool m_IsVisible;
         Hierarchy m_Hierarchy;
         HierarchyElement m_HierarchyElement;
-
-        /// <summary>
-        /// Indicates if the window is visible or not. The window can be 'open' but docked as a tab.
-        /// </summary>
-        bool m_IsVisible;
 
         /// <summary>
         /// Flag indicating we should try to apply the global selection on the next update cycle.
@@ -59,10 +60,16 @@ namespace Unity.Entities.Editor
             Resources.Templates.DotsEditorCommon.AddStyles(rootVisualElement);
             Resources.AddCommonVariables(rootVisualElement);
 
+#if !USE_IMPROVED_DATAMODE
             m_DataModeHandler.dataModeChanged += OnCurrentDataModeChanged;
+#endif
 
-            // Initialize the data models
+            // Initialize the data models.
+#if USE_IMPROVED_DATAMODE
+            m_Hierarchy = new Hierarchy(Allocator.Persistent, dataModeController.dataMode)
+#else
             m_Hierarchy = new Hierarchy(Allocator.Persistent, m_DataModeHandler.dataMode)
+#endif
             {
                 Configuration = UserSettings<HierarchySettings>.GetOrCreate(Constants.Settings.Hierarchy).Configuration,
                 State = SessionState<HierarchyState>.GetOrCreate($"{GetType().Name}.{nameof(HierarchyState)}")
@@ -74,17 +81,35 @@ namespace Unity.Entities.Editor
             m_HierarchyElement.SetDecorators(s_Decorators);
 
             Selection.selectionChanged += OnGlobalSelectionChanged;
+            EditorApplication.update += OnBackgroundUpdate;
+
+#if USE_IMPROVED_DATAMODE
+            // Data mode.
+            dataModeController.UpdateSupportedDataModes(GetSupportedDataModes(), GetPreferredDataMode());
+            dataModeController.dataModeChanged += OnDataModeChanged;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+#endif
         }
 
         void OnDisable()
         {
+            EditorApplication.update -= OnBackgroundUpdate;
             Selection.selectionChanged -= OnGlobalSelectionChanged;
+#if USE_IMPROVED_DATAMODE
+            dataModeController.dataModeChanged -= OnDataModeChanged;
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+#endif
             m_Hierarchy.Dispose();
         }
 
         void OnBecameVisible()
         {
             m_IsVisible = true;
+
+            // Can happen when a domain reload occurs with the window open
+            if (m_Hierarchy == null)
+                return;
+
             RequestGlobalSelectionRestoration();
         }
 
@@ -98,14 +123,30 @@ namespace Unity.Entities.Editor
         void OnBecameInvisible()
         {
             m_IsVisible = false;
+            m_BackgroundUpdateCooldown.Update(DateTime.Now);
         }
 
+        void OnBackgroundUpdate()
+        {
+            if (m_IsVisible || !m_BackgroundUpdateCooldown.Update(DateTime.Now))
+                return;
+
+            Update();
+        }
+
+        void OnLostFocus()
+        {
+            m_HierarchyElement?.OnLostFocus();
+        }
+
+#if !USE_IMPROVED_DATAMODE
         void OnCurrentDataModeChanged(DataMode mode)
         {
             RequestGlobalSelectionRestoration();
             m_Hierarchy.SetDataMode(mode);
             Analytics.SendEditorEvent(Analytics.Window.Hierarchy, Analytics.EventType.DataModeSwitch, mode.ToString());
         }
+#endif
 
         HierarchyElement CreateHierarchyElement(VisualElement root, Hierarchy hierarchy)
         {
@@ -129,7 +170,8 @@ namespace Unity.Entities.Editor
                 hierarchy.SetSearchQuery(query.SearchString, query.Tokens);
             });
 
-            m_SearchElement.AddSearchFilterPopupItem(Constants.Hierarchy.ComponentToken, k_FilterComponentType, k_FilterComponentTypeTooltip);
+            m_SearchElement.AddSearchFilterPopupItem(Constants.ComponentSearch.Token, k_FilterComponentType, k_FilterComponentTypeTooltip, Constants.ComponentSearch.Op);
+            m_SearchElement.AddSearchFilterPopupItem(Constants.Hierarchy.EntityIndexToken, k_FilterIndexToken, k_FilterIndexTokenTooltip, "=");
             m_SearchElement.EnableAutoComplete(ComponentTypeAutoComplete.Instance);
 
             root.Add(toolbar);
@@ -148,7 +190,11 @@ namespace Unity.Entities.Editor
             if (Selection.activeContext is HierarchySelectionContext && !allowReentry)
                 return;
 
+#if USE_IMPROVED_DATAMODE
+            switch (dataModeController.dataMode)
+#else
             switch (m_DataModeHandler.dataMode)
+#endif
             {
                 case DataMode.Authoring:
                 case DataMode.Mixed:
@@ -273,9 +319,12 @@ namespace Unity.Entities.Editor
                                     : null;
                     }
 
-                    // Selected GameObjects should use whatever the current DataMode for the hierarchy is
+                    // Selected GameObjects should use whatever the current DataMode for the hierarchy is.
+#if USE_IMPROVED_DATAMODE
+                    SelectionBridge.SetSelection(gameObject, context, dataModeController.dataMode);
+#else
                     SelectionBridge.SetSelection(gameObject, context, m_DataModeHandler.dataMode);
-
+#endif
                     Undo.CollapseUndoOperations(undoGroup);
                     break;
                 }
@@ -293,9 +342,16 @@ namespace Unity.Entities.Editor
 
         protected override void OnUpdate()
         {
+            if (m_Hierarchy == null)
+                return;
+
             using (k_OnUpdateMarker.Auto())
             {
-                m_Hierarchy.Update();
+                m_Hierarchy.Update(m_IsVisible);
+
+                if (!m_IsVisible)
+                    return;
+
                 m_HierarchyElement.Refresh();
 
                 // We have a deferred selection request. Wait until we have completed a full update cycle before attempting to select.

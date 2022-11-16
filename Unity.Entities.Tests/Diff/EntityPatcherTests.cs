@@ -1,5 +1,7 @@
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 namespace Unity.Entities.Tests
 {
@@ -323,8 +325,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-// TODO: remove UNITY_EDITOR conditional once DOTS-3862 is fixed
-#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+#if !DOTS_DISABLE_DEBUG_NAMES
         [Test]
         [TestCase("Manny")]
         [TestCase("Moe")]
@@ -584,6 +585,7 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_WithChunkData_ManagedComponents()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -637,6 +639,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_CreateEntityWithTestData_ManagedComponents()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -679,6 +682,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme] // Requires Unity.Properties
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponents()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -710,6 +714,7 @@ namespace Unity.Entities.Tests
         // https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         [DotsRuntimeFixme] // No support for PinGCObject
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponentCollection()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -745,6 +750,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_AddComponent_ManagedComponents()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -778,6 +784,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_RemoveComponent_ManagedComponents()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -829,6 +836,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_BlobAssets_CreateEntityWithBlobAssetReferenceClassComponent()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -869,6 +877,106 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(11, GetComponentData<EcsTestDataBlobAssetRef2>(DstEntityManager, entityGuid).value.Value);
                 Assert.AreEqual(12, GetComponentData<EcsTestDataBlobAssetRef2>(DstEntityManager, entityGuid).value2.Value);
             }
+        }
+
+        [Test]
+        public void EntityPatcher_ApplyChanges_BlobAssets_RegressionTestDOTS7019()
+        {
+            // See Jira DOTS-7019 for a description of the issue this test is designed to trigger.
+
+            // This tests replicates a specific sequence of events that could happen when doing live baking:
+            // 1. Baker B runs and produces a blob asset at address A with hash X
+            // 2. A change happens, causing the blob asset to be disposed and the baker to run again
+            // 3. Baker B runs and produces a blob asset at address B with hash X
+            //    (Notice that the address is different, but the hash is the same)
+            // 4. A change happens, causing the blob asset to be disposed and the baker to run again
+            // 5. Baker B runs and produces a blob asset at address B with hash Y
+            //    (Notice that the address is the same but the hash is different, and
+            //    getting the same address can happen because there's a high chance that allocating
+            //    a blob of the same size as a blob that has been freed immediately before reuses the memory)
+
+            // ----
+
+            // Setting up the differ and a test entity with a GUID
+
+            using var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator);
+            var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+            var entityGuid = CreateEntityGuid();
+            SrcEntityManager.SetComponentData(entity, entityGuid);
+
+            // ###########################
+            // Step 1 - Blob A with hash X
+            // ###########################
+
+            // Creating a blob asset at address A, with a hash corresponding to the data "123".
+            // We set the blob reference in a component on the entity, and push the changes through the differ.
+
+            using var blobAssetReferenceA = BlobAssetReference<int>.Create(123);
+            SrcEntityManager.AddComponentData(entity, new EcsTestDataBlobAssetRef { value = blobAssetReferenceA });
+            PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
+
+            // Let's cache the entity in the destination world to avoid having to look it up every time.
+            var dstEntity = GetEntity(DstEntityManager, entityGuid);
+
+            // Check that the blob asset contains the right value in the destination world.
+            Assert.AreEqual(123, DstEntityManager.GetComponentData<EcsTestDataBlobAssetRef>(dstEntity).value.Value);
+
+            // ###########################
+            // Step 2 - Blob A is disposed
+            // ###########################
+
+            // Disposing a blob releases the memory, and from that point on, accessing the hash *may* return garbage.
+            // In order to make this test deterministic, instead of calling Dispose(), we explicitly trash the hash.
+            unsafe
+            {
+                var headerA = blobAssetReferenceA.m_data.Header;
+                headerA->Hash = 0xDEADBEEF;
+            }
+
+            // ###########################
+            // Step 3 - Blob B with hash X
+            // ###########################
+
+            // Creating a blob asset at address B, with a hash corresponding to the data "123" (same as before).
+            // We set the blob reference in a component on the entity, and push the changes through the differ.
+            // Note that SetComponentData doesn't actually change anything, but it bumps the version of the component
+            // type for the chunk, and this is required for the differ to notice that something has been updated.
+
+            using var blobAssetReferenceB = BlobAssetReference<int>.Create(123);
+            SrcEntityManager.SetComponentData(entity, new EcsTestDataBlobAssetRef { value = blobAssetReferenceB });
+            PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
+
+            // Check that the blob asset contains the right value in the destination world.
+            Assert.AreEqual(123, DstEntityManager.GetComponentData<EcsTestDataBlobAssetRef>(dstEntity).value.Value);
+
+            // ###########################
+            // Step 4 - Blob B is disposed
+            // ###########################
+
+            // Sometimes we might get the same address back when we allocate memory immediately after freeing it.
+            // We emulate this here by not actually deallocating anything, but by recycling the blob asset.
+
+            // Setting a new value (blobs are conceptually read only, never do this outside of a test)
+            blobAssetReferenceB.Value = 234;
+
+            // Since the data payload of the blob has been changed, we have to also recompute the hash.
+            unsafe
+            {
+                var headerB = blobAssetReferenceB.m_data.Header;
+                headerB->Hash = math.hash(blobAssetReferenceB.m_data.m_Ptr, headerB->Length);
+            }
+
+            // ###########################
+            // Step 5 - Blob B with hash Y
+            // ###########################
+
+            SrcEntityManager.SetComponentData(entity, new EcsTestDataBlobAssetRef { value = blobAssetReferenceB });
+            PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
+
+            // Check that the blob asset contains the right value in the destination world.
+            Assert.AreEqual(234, DstEntityManager.GetComponentData<EcsTestDataBlobAssetRef>(dstEntity).value.Value);
+
+            // This last check was failing because of the issue DOTS-7019
         }
 
         [Test]

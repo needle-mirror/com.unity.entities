@@ -96,11 +96,11 @@ namespace Unity.Entities.Tests
             Type = componentType.GetManagedType();
             Data = null;
 
-            if (Type.IsClass)
+            if (componentType.IsManagedComponent)
             {
                 Data = entityManager.GetComponentObject<object>(entity, componentType);
             }
-            else if (typeof(IComponentData).IsAssignableFrom(Type))
+            else if (componentType.IsComponent)
             {
                 if (componentType.IsZeroSized)
                     Data = Activator.CreateInstance(Type);
@@ -111,7 +111,7 @@ namespace Unity.Entities.Tests
                     Data = Marshal.PtrToStructure((IntPtr)dataPtr, Type);
                 }
             }
-            else if (typeof(ISharedComponentData).IsAssignableFrom(Type))
+            else if (componentType.IsSharedComponent)
             {
                 try
                 {
@@ -122,7 +122,7 @@ namespace Unity.Entities.Tests
                     Data = x;
                 }
             }
-            else if (typeof(IBufferElementData).IsAssignableFrom(Type))
+            else if (componentType.IsBuffer)
             {
                 var bufferPtr = (byte*)entityManager.GetBufferRawRO(entity, componentType.TypeIndex);
                 var length = entityManager.GetBufferLength(entity, componentType.TypeIndex);

@@ -1,4 +1,6 @@
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build.Common;
+#endif
 using Unity.Collections;
 using Unity.Entities;
 
@@ -6,8 +8,11 @@ namespace Unity.Scenes.Editor
 {
     static class ResourceCatalogBuildCode
     {
+#if USING_PLATFORMS_PACKAGE
         public static void WriteCatalogFile(SceneList sceneList, string sceneInfoPath)
         {
+            var dir = System.IO.Path.GetDirectoryName(sceneInfoPath);
+            System.IO.Directory.CreateDirectory(dir);
             var sceneInfos = sceneList.GetSceneInfosForBuild();
             var builder = new BlobBuilder(Allocator.Temp);
             ref var root = ref builder.ConstructRoot<ResourceCatalogData>();
@@ -17,7 +22,6 @@ namespace Unity.Scenes.Editor
                 metas[i] = new ResourceMetaData()
                 {
                     ResourceId = sceneInfos[i].Scene.assetGUID,
-                    ResourceFlags = sceneInfos[i].AutoLoad ? ResourceMetaData.Flags.AutoLoad : ResourceMetaData.Flags.None,
                     ResourceType = ResourceMetaData.Type.Scene,
                 };
             }
@@ -29,16 +33,12 @@ namespace Unity.Scenes.Editor
             BlobAssetReference<ResourceCatalogData>.Write(builder, sceneInfoPath, ResourceCatalogData.CurrentFileFormatVersion);
             builder.Dispose();
         }
-
-        public struct RootSceneInfo
-        {
-            public bool AutoLoad;
-            public string Path;
-            public Hash128 Guid;
-        }
+#endif
 
         public static void WriteCatalogFile(RootSceneInfo[] sceneArray, string sceneInfoPath)
         {
+            var dir = System.IO.Path.GetDirectoryName(sceneInfoPath);
+            System.IO.Directory.CreateDirectory(dir);
             var builder = new BlobBuilder(Allocator.Temp);
             ref var root = ref builder.ConstructRoot<ResourceCatalogData>();
             var metas = builder.Allocate(ref root.resources, sceneArray.Length);
@@ -47,7 +47,6 @@ namespace Unity.Scenes.Editor
                 metas[i] = new ResourceMetaData()
                 {
                     ResourceId = sceneArray[i].Guid,
-                    ResourceFlags = sceneArray[i].AutoLoad ? ResourceMetaData.Flags.AutoLoad : ResourceMetaData.Flags.None,
                     ResourceType = ResourceMetaData.Type.Scene,
                 };
             }

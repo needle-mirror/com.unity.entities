@@ -1,6 +1,6 @@
 using System;
 using Unity.Editor.Bridge;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEngine;
 

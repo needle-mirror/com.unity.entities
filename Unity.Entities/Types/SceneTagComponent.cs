@@ -98,7 +98,7 @@ namespace Unity.Entities
         /// <param name="sceneReference">The <see cref="EntitySceneReference"/> to reference.</param>
         public SceneReference(EntitySceneReference sceneReference)
         {
-            SceneGUID = sceneReference.SceneId.AssetId;
+            SceneGUID = sceneReference.SceneId.GlobalId.AssetGUID;
         }
 
         /// <summary>
@@ -238,10 +238,6 @@ namespace Unity.Entities
         /// Loads a new instance of the subscene
         /// </summary>
         NewInstance = 16,
-        /// <summary>
-        /// Temporary flag to indicate that the scene is a GameObject based scene.  Once addressables are in place, this information will be stored there.
-        /// </summary>
-        LoadAsGOScene = 512,
     }
 
     /// <summary>

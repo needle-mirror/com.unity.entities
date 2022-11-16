@@ -22,51 +22,57 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateSingleton<EcsTestData>();
 
-            EmptySystem.SetSingleton(new EcsTestData(10));
-            Assert.AreEqual(10, EmptySystem.GetSingleton<EcsTestData>().value);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            query.SetSingleton(new EcsTestData(10));
+            Assert.AreEqual(10, query.GetSingleton<EcsTestData>().value);
         }
 
         [Test]
         public void GetCreateSingleton_Works()
         {
             m_Manager.CreateSingleton(new EcsTestData(10));
-            Assert.AreEqual(10, EmptySystem.GetSingleton<EcsTestData>().value);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAll<EcsTestData>().Build(EmptySystem);
+            Assert.AreEqual(10, query.GetSingleton<EcsTestData>().value);
         }
 
         [Test]
         public void GetSetSingletonRW_ByRef_Modifies_Singleton()
         {
             m_Manager.CreateSingleton<EcsTestData>();
-            EmptySystem.SetSingleton(new EcsTestData(10));
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            query.SetSingleton(new EcsTestData(10));
 
             {
                 const int expected = 42;
-                ref var singleton = ref EmptySystem.GetSingletonRW<EcsTestData>().ValueRW;
+                ref var singleton = ref query.GetSingletonRW<EcsTestData>().ValueRW;
                 singleton.value = expected;
 
-                Assert.AreEqual(expected, EmptySystem.GetSingleton<EcsTestData>().value);
-                Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+                Assert.AreEqual(expected, query.GetSingleton<EcsTestData>().value);
+                Assert.AreEqual(expected, query.GetSingletonRW<EcsTestData>().ValueRO.value);
             }
 
             {
                 const int expected = 33;
-                EmptySystem.GetSingletonRW<EcsTestData>().ValueRW.value = expected;
+                query.GetSingletonRW<EcsTestData>().ValueRW.value = expected;
 
-                Assert.AreEqual(expected, EmptySystem.GetSingleton<EcsTestData>().value);
-                Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+                Assert.AreEqual(expected, query.GetSingleton<EcsTestData>().value);
+                Assert.AreEqual(expected, query.GetSingletonRW<EcsTestData>().ValueRO.value);
             }
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void GetSingletonRW_Use_After_Free_Throws()
         {
             const int expected = 33;
             m_Manager.CreateSingleton<EcsTestData>();
-            EmptySystem.SetSingleton(new EcsTestData(expected));
-            var singletonRef = EmptySystem.GetSingletonRW<EcsTestData>();
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+
+            query.SetSingleton(new EcsTestData(expected));
+            var singletonRef = query.GetSingletonRW<EcsTestData>();
             Assert.AreEqual(expected, singletonRef.ValueRO.value);
 
-            var singletonEntity = EmptySystem.GetSingletonEntity<EcsTestData>();
+            var singletonEntity = query.GetSingletonEntity();
             ref var singletonRefRef = ref singletonRef.ValueRW;
             Assert.AreNotEqual(Entity.Null, singletonEntity);
             m_Manager.DestroyEntity(singletonEntity);
@@ -81,12 +87,14 @@ namespace Unity.Entities.Tests
         {
             const int expected = 42;
             m_Manager.CreateSingleton<EcsTestData>();
-            EmptySystem.SetSingleton(new EcsTestData(expected));
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
 
-            var singleton = EmptySystem.GetSingletonRW<EcsTestData>().ValueRW;
+            query.SetSingleton(new EcsTestData(expected));
+
+            var singleton = query.GetSingletonRW<EcsTestData>().ValueRW;
             singleton.value = 10;
-            Assert.AreEqual(expected, EmptySystem.GetSingleton<EcsTestData>().value);
-            Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+            Assert.AreEqual(expected, query.GetSingleton<EcsTestData>().value);
+            Assert.AreEqual(expected, query.GetSingletonRW<EcsTestData>().ValueRO.value);
         }
 
         [Test]
@@ -94,9 +102,10 @@ namespace Unity.Entities.Tests
         {
             const int expected = 42;
             m_Manager.CreateSingleton<EcsTestData>();
-            EmptySystem.SetSingleton(new EcsTestData(expected));
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            query.SetSingleton(new EcsTestData(expected));
 
-            Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+            Assert.AreEqual(expected, query.GetSingletonRW<EcsTestData>().ValueRO.value);
         }
 
         [Test]
@@ -104,76 +113,94 @@ namespace Unity.Entities.Tests
         {
             const int expected = 42;
             m_Manager.CreateSingleton(new EcsTestData(expected));
-
-            Assert.AreEqual(expected, EmptySystem.GetSingletonRW<EcsTestData>().ValueRO.value);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            Assert.AreEqual(expected, query.GetSingletonRW<EcsTestData>().ValueRO.value);
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void CreateSingleton_EnableableComponent_Throws()
         {
             Assert.Throws<InvalidOperationException>(() => m_Manager.CreateSingleton<EcsTestDataEnableable>());
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetSingleton_EnableableComponent_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingleton<EcsTestDataEnableable>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.GetSingleton<EcsTestDataEnableable>());
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetSingletonEntity_EnableableComponent_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingletonEntity<EcsTestDataEnableable>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElementEnableable>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.GetSingletonEntity());
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void CreateSingletonBuffer_EnableableComponent_Throws()
         {
             Assert.Throws<InvalidOperationException>(() => m_Manager.CreateSingletonBuffer<EcsIntElementEnableable>());
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetSingletonBuffer_EnableableComponent_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsIntElementEnableable));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingletonBuffer<EcsIntElementEnableable>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElementEnableable>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.GetSingletonBuffer<EcsIntElementEnableable>());
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void TryGetSingleton_EnableableComponent_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.TryGetSingleton<EcsTestDataEnableable>(out var value));
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.TryGetSingleton<EcsTestDataEnableable>(out var value));
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void TryGetSingletonEntity_EnableableComponent_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.TryGetSingletonEntity<EcsTestDataEnableable>(out var ent));
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.TryGetSingletonEntity<EcsTestDataEnableable>(out var ent));
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void TryGetSingletonBuffer_EnableableComponent_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsIntElementEnableable));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.TryGetSingletonBuffer<EcsIntElementEnableable>(out var buffer));
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElementEnableable>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.TryGetSingletonBuffer<EcsIntElementEnableable>(out var buffer));
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void SetSingleton_EnableableComponent_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton<EcsTestDataEnableable>(new EcsTestDataEnableable()));
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.SetSingleton<EcsTestDataEnableable>(new EcsTestDataEnableable()));
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void HasSingleton_EnableableComponent_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsIntElementEnableable));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.HasSingleton<EcsIntElementEnableable>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.HasSingleton<EcsIntElementEnableable>());
         }
 
         [Test]
@@ -184,14 +211,16 @@ namespace Unity.Entities.Tests
             var buffer = m_Manager.GetBuffer<EcsIntElement>(ent);
             buffer.Add(new EcsIntElement { Value = 17 });
             buffer.Add(new EcsIntElement { Value = 23 });
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElement>().Build(EmptySystem);;
 
-            var singletonBuffer = EmptySystem.GetSingletonBuffer<EcsIntElement>();
+            var singletonBuffer = query.GetSingletonBuffer<EcsIntElement>();
             Assert.AreEqual(buffer.Length, singletonBuffer.Length);
             Assert.AreEqual(buffer[0], singletonBuffer[0]);
             Assert.AreEqual(buffer[1], singletonBuffer[1]);
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void GetSingletonBuffer_WriteToReadOnly_Throws()
         {
             var ent = m_Manager.CreateSingletonBuffer<EcsIntElement>();
@@ -199,8 +228,8 @@ namespace Unity.Entities.Tests
             var buffer = m_Manager.GetBuffer<EcsIntElement>(ent);
             buffer.Add(new EcsIntElement { Value = 17 });
             buffer.Add(new EcsIntElement { Value = 23 });
-
-            var singletonBuffer = EmptySystem.GetSingletonBuffer<EcsIntElement>(true);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElement>().Build(EmptySystem);
+            var singletonBuffer = query.GetSingletonBuffer<EcsIntElement>(true);
             Assert.Throws<InvalidOperationException>(() => singletonBuffer.Add(new EcsIntElement { Value = 10 }));
             Assert.Throws<InvalidOperationException>(() => singletonBuffer[0] = new EcsIntElement { Value = 1024 });
         }
@@ -213,8 +242,8 @@ namespace Unity.Entities.Tests
             var buffer = m_Manager.GetBuffer<EcsIntElement>(ent);
             buffer.Add(new EcsIntElement { Value = 17 });
             buffer.Add(new EcsIntElement { Value = 23 });
-
-            var singletonBuffer = EmptySystem.GetSingletonBuffer<EcsIntElement>(false);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElement>().Build(EmptySystem);
+            var singletonBuffer = query.GetSingletonBuffer<EcsIntElement>(false);
             Assert.DoesNotThrow(() => singletonBuffer.Add(new EcsIntElement { Value = 10 }));
             Assert.DoesNotThrow(() => singletonBuffer[0] = new EcsIntElement { Value = 1024 });
         }
@@ -252,6 +281,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void SingletonMethodsWithInvalidFilter_Throws()
         {
             var queryWithFilterMissingEntity = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
@@ -285,40 +315,32 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestData), typeof(EcsTestData2));
 
             m_Manager.SetComponentData(entity, new EcsTestData(10));
-            Assert.AreEqual(10, EmptySystem.GetSingleton<EcsTestData>().value);
-
-            EmptySystem.SetSingleton(new EcsTestData2(100));
+            var query1 = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            Assert.AreEqual(10, query1.GetSingleton<EcsTestData>().value);
+            var query2 = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData2>().Build(EmptySystem);
+            query2.SetSingleton(new EcsTestData2(100));
             Assert.AreEqual(100, m_Manager.GetComponentData<EcsTestData2>(entity).value0);
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetSetSingleton_DoesntExist_Throws()
         {
-            Assert.IsFalse(EmptySystem.HasSingleton<EcsTestTag>());
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton(new EcsTestData()));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingleton<EcsTestData>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            var queryTag = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestTag>().Build(EmptySystem);
+            Assert.IsFalse(queryTag.HasSingleton<EcsTestTag>());
+            Assert.Throws<InvalidOperationException>(() => query.SetSingleton(new EcsTestData()));
+            Assert.Throws<InvalidOperationException>(() => query.GetSingleton<EcsTestData>());
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetSingletonBuffer_DoesntExist_Throws()
         {
-            Assert.IsFalse(EmptySystem.HasSingleton<EcsIntElement>());
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingletonBuffer<EcsIntElement>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElement>().Build(EmptySystem);
+            Assert.IsFalse(query.HasSingleton<EcsIntElement>());
+            Assert.Throws<InvalidOperationException>(() => query.GetSingletonBuffer<EcsIntElement>());
         }
-
-        // Zero size buffer components do in fact fail type system ILPPs in DOTS Runtime
-#if !UNITY_DOTSRUNTIME
-        public struct EcsTestTagElement : IBufferElementData
-        {
-        }
-
-        [Ignore("DOTS-6553 TypeManager doesn't mark buffer components as zero size due to buffer header in the chunk, so we can't easily detect them")]
-        [Test]
-        public void CreateSingletonBuffer_ZeroSizeComponent_Throws()
-        {
-            Assert.Throws<InvalidOperationException>(() => m_Manager.CreateSingletonBuffer<EcsTestTagElement>());
-        }
-#endif
 
         [Test]
         public void CreateSingleton_ZeroSizeComponent_Works()
@@ -327,25 +349,29 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetSetSingleton_ZeroSizeComponent_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsTestTag));
-            Assert.IsTrue(EmptySystem.HasSingleton<EcsTestTag>());
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton(new EcsTestTag()));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingleton<EcsTestTag>());
+            var queryTag = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestTag>().Build(EmptySystem);
+            Assert.IsTrue(queryTag.HasSingleton<EcsTestTag>());
+            Assert.Throws<InvalidOperationException>(() => queryTag.SetSingleton(new EcsTestTag()));
+            Assert.Throws<InvalidOperationException>(() => queryTag.GetSingleton<EcsTestTag>());
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetSetSingleton_MultipleEntities_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.CreateEntity(typeof(EcsTestData));
-
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton(new EcsTestData()));
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingleton<EcsTestData>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.SetSingleton(new EcsTestData()));
+            Assert.Throws<InvalidOperationException>(() => query.GetSingleton<EcsTestData>());
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void CreateSingleton_MultipleEntities_Throws()
         {
             m_Manager.CreateSingleton<EcsTestData>();
@@ -353,15 +379,17 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetSingletonBuffer_MultipleEntities_Throws()
         {
             m_Manager.CreateEntity(typeof(EcsIntElement));
             m_Manager.CreateEntity(typeof(EcsIntElement));
-
-            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingletonBuffer<EcsIntElement>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElement>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.GetSingletonBuffer<EcsIntElement>());
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void CreateSingletonBuffer_MultipleEntities_Throws()
         {
             m_Manager.CreateSingletonBuffer<EcsIntElement>();
@@ -398,25 +426,28 @@ namespace Unity.Entities.Tests
         [Test]
         public void HasSingletonWorks()
         {
-            Assert.IsFalse(EmptySystem.HasSingleton<EcsTestData>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            Assert.IsFalse(query.HasSingleton<EcsTestData>());
             m_Manager.CreateSingleton<EcsTestData>();
-            Assert.IsTrue(EmptySystem.HasSingleton<EcsTestData>());
+            Assert.IsTrue(query.HasSingleton<EcsTestData>());
 
-            Assert.IsFalse(EmptySystem.HasSingleton<EcsIntElement>());
+            var queryElement = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElement>().Build(EmptySystem);
+            Assert.IsFalse(queryElement.HasSingleton<EcsIntElement>());
             m_Manager.CreateSingletonBuffer<EcsIntElement>();
-            Assert.IsTrue(EmptySystem.HasSingleton<EcsIntElement>());
+            Assert.IsTrue(queryElement.HasSingleton<EcsIntElement>());
         }
 
         [Test]
         public void HasSingleton_ReturnsTrueWithEntityWithOnlyComponent()
         {
-            Assert.IsFalse(EmptySystem.HasSingleton<EcsTestData>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            Assert.IsFalse(query.HasSingleton<EcsTestData>());
 
             m_Manager.CreateEntity(typeof(EcsTestData));
-            Assert.IsTrue(EmptySystem.HasSingleton<EcsTestData>());
+            Assert.IsTrue(query.HasSingleton<EcsTestData>());
 
             m_Manager.CreateEntity(typeof(EcsTestData));
-            Assert.IsFalse(EmptySystem.HasSingleton<EcsTestData>());
+            Assert.IsFalse(query.HasSingleton<EcsTestData>());
         }
 
         [Test]
@@ -424,7 +455,8 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateSingleton<EcsTestData>();
 
-            var singletonEntity = EmptySystem.GetSingletonEntity<EcsTestData>();
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            var singletonEntity = query.GetSingletonEntity();
             Assert.AreEqual(entity, singletonEntity);
         }
 
@@ -432,8 +464,8 @@ namespace Unity.Entities.Tests
         public void TryGetSingletonEntity_Works()
         {
             var entity = m_Manager.CreateSingleton<EcsTestData>();
-
-            var hasEntity = EmptySystem.TryGetSingletonEntity<EcsTestData>(out var singletonEntity);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            var hasEntity = query.TryGetSingletonEntity<EcsTestData>(out var singletonEntity);
 
             Assert.True(hasEntity);
             Assert.AreEqual(entity, singletonEntity);
@@ -442,7 +474,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void TryGetSingletonEntity_NoSingleton_ReturnsFalse()
         {
-            var hasEntity = EmptySystem.TryGetSingletonEntity<EcsTestData>(out var singletonEntity);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            var hasEntity = query.TryGetSingletonEntity<EcsTestData>(out var singletonEntity);
 
             Assert.IsFalse(hasEntity);
             Assert.AreEqual(default(Entity), singletonEntity);
@@ -452,9 +485,9 @@ namespace Unity.Entities.Tests
         public void TryGetSingleton_Works()
         {
             m_Manager.CreateSingleton<EcsTestData>();
-
-            EmptySystem.SetSingleton(new EcsTestData(10));
-            var hasSingleton = EmptySystem.TryGetSingleton<EcsTestData>(out var ecsTestData);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            query.SetSingleton(new EcsTestData(10));
+            var hasSingleton = query.TryGetSingleton<EcsTestData>(out var ecsTestData);
             Assert.IsTrue(hasSingleton);
             Assert.AreEqual(10, ecsTestData.value);
 
@@ -463,7 +496,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void TryGetSingleton_NoSingleton_ReturnsFalse()
         {
-            var hasSingleton = EmptySystem.TryGetSingleton<EcsTestData>(out var ecsTestData);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().Build(EmptySystem);
+            var hasSingleton = query.TryGetSingleton<EcsTestData>(out var ecsTestData);
             Assert.IsFalse(hasSingleton);
             Assert.AreEqual(default(EcsTestData).value, ecsTestData.value);
         }
@@ -474,7 +508,8 @@ namespace Unity.Entities.Tests
             var ent = m_Manager.CreateSingletonBuffer<EcsIntElement>();
             var buffer = m_Manager.GetBuffer<EcsIntElement>(ent);
             buffer.Add(new EcsIntElement{Value = 10});
-            var hasSingleton = EmptySystem.TryGetSingletonBuffer<EcsIntElement>(out var singletonBuffer);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElement>().Build(EmptySystem);
+            var hasSingleton = query.TryGetSingletonBuffer<EcsIntElement>(out var singletonBuffer);
             Assert.IsTrue(hasSingleton);
             Assert.AreEqual(1, singletonBuffer.Length);
             Assert.AreEqual(10, singletonBuffer[0].Value);
@@ -483,12 +518,14 @@ namespace Unity.Entities.Tests
         [Test]
         public void TryGetSingletonBuffer_NoSingleton_ReturnsFalse()
         {
-            var hasSingleton = EmptySystem.TryGetSingletonBuffer<EcsIntElement>(out var singletonBuffer);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElement>().Build(EmptySystem);
+            var hasSingleton = query.TryGetSingletonBuffer<EcsIntElement>(out var singletonBuffer);
             Assert.IsFalse(hasSingleton);
             Assert.IsFalse(singletonBuffer.IsCreated);
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void SetSingleton_ReadOnlyType_Throws()
         {
             m_Manager.CreateSingleton<EcsTestData>();
@@ -497,6 +534,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetSingletonWithMultipleComponentsAndMissingRequestedThrows()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -517,7 +555,9 @@ namespace Unity.Entities.Tests
                 world.EntityManager.DestroyEntity(e);
 
                 world.EntityManager.AddComponent<EcsTestData>(system);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 Assert.Throws<InvalidOperationException>(() => world.EntityManager.CreateSingleton<EcsTestData>());
+#endif
             }
         }
 
@@ -526,18 +566,19 @@ namespace Unity.Entities.Tests
         public void GetSetSingleton_ManagedComponents()
         {
             m_Manager.CreateSingleton<EcsTestManagedComponent>();
-
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestManagedComponent>().Build(EmptySystem);
             const string kTestVal = "SomeString";
-            EmptySystem.SetSingleton(new EcsTestManagedComponent() { value = kTestVal });
-            Assert.AreEqual(kTestVal, EmptySystem.GetSingleton<EcsTestManagedComponent>().value);
+            query.SetSingleton(new EcsTestManagedComponent() { value = kTestVal });
+            Assert.AreEqual(kTestVal, query.GetSingleton<EcsTestManagedComponent>().value);
         }
 
         [Test]
         public void HasSingletonWorks_ManagedComponents()
         {
-            Assert.IsFalse(EmptySystem.HasSingleton<EcsTestManagedComponent>());
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestManagedComponent>().Build(EmptySystem);
+            Assert.IsFalse(query.HasSingleton<EcsTestManagedComponent>());
             m_Manager.CreateSingleton<EcsTestManagedComponent>();
-            Assert.IsTrue(EmptySystem.HasSingleton<EcsTestManagedComponent>());
+            Assert.IsTrue(query.HasSingleton<EcsTestManagedComponent>());
         }
 
 #endif

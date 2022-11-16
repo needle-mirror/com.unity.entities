@@ -36,7 +36,7 @@ namespace Unity.Entities
     ///    - **R3:** You should version the hash in case the semantics of a type change, but the data layout is unchanged
     ///    - **R4:** DOTS Runtime relies on hashes generated from the Editor (used in serialized data) and hashes generated
     ///      during compilation. These hashes must match. This rule exists because of the following:
-    ///      - Tiny swaps out assemblies for 'tiny' versions, which means you should avoid any hashing using the AssemblyName
+    ///      - Tiny swapa out assemblies for 'tiny' versions, which means you should avoid any hashing using the AssemblyName
     ///        or handle it specially for the known swapped assemblies.
     ///        - This means you should avoid Type.AssemblyQualifiedName in hashes, but as well, closed-form
     ///          generic types include the assembly qualified name for GenericArguments in Type.FullName which

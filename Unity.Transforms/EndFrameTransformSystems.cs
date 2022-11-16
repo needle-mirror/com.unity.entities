@@ -4,11 +4,11 @@ using Unity.Entities;
 namespace Unity.Transforms
 {
     /// <summary>
-    /// A system group containing systems that process entity transformation data. 
+    /// A system group containing systems that process entity transformation data.
     /// </summary>
     /// <remarks>
-    /// This group includes systems that update any entity transformation hierarchies, compute up-to-date <see cref="LocalToWorldTransform"/> values
-    /// for all entities not in world-space, or compute <see cref="LocalToWorld"/> matrices.
+    /// This group includes systems that update any entity transformation hierarchies, compute up-to-date <see cref="WorldTransform"/> values
+    /// for all entities and compute <see cref="LocalToWorld"/> matrices.
     /// </remarks>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     public class TransformSystemGroup : ComponentSystemGroup
@@ -17,7 +17,7 @@ namespace Unity.Transforms
 
 #if !ENABLE_TRANSFORM_V1
 #else
-    /// <inheritdoc cref="ParentSystem"/>
+    /// <summary> Obsolete. Use <see cref="ParentSystem"/> instead.</summary>
     [Obsolete("Use ParentSystem. (UnityUpgradable) -> ParentSystem", true)]
     public struct EndFrameParentSystem
     {
@@ -31,12 +31,8 @@ namespace Unity.Transforms
     }
 
 #if !ENABLE_TRANSFORM_V1
-    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
-    public partial struct TransformToMatrixSystem : ISystem
-    {
-    }
 #else
-    /// <inheritdoc cref="CompositeScaleSystem"/>
+    /// <summary> Obsolete. Use <see cref="CompositeScaleSystem"/> instead.</summary>
     [Obsolete("Use CompositeScaleSystem. (UnityUpgradable) -> CompositeScaleSystem", true)]
     public struct EndFrameCompositeScaleSystem
     {
@@ -48,7 +44,7 @@ namespace Unity.Transforms
     {
     }
 
-    /// <inheritdoc cref="RotationEulerSystem"/>
+    /// <summary> Obsolete. Use <see cref="RotationEulerSystem"/> instead.</summary>
     [Obsolete("Use RotationEulerSystem. (UnityUpgradable) -> RotationEulerSystem", true)]
     public struct EndFrameRotationEulerSystem
     {
@@ -60,7 +56,7 @@ namespace Unity.Transforms
     {
     }
 
-    /// <inheritdoc cref="PostRotationEulerSystem"/>
+    /// <summary> Obsolete. Use <see cref="PostRotationEulerSystem"/> instead.</summary>
     [Obsolete("Use PostRotationEulerSystem. (UnityUpgradable) -> PostRotationEulerSystem", true)]
     public struct EndFramePostRotationEulerSystem
     {
@@ -72,7 +68,7 @@ namespace Unity.Transforms
     {
     }
 
-    /// <inheritdoc cref="CompositeRotationSystem"/>
+    /// <summary> Obsolete. Use <see cref="CompositeRotationSystem"/> instead.</summary>
     [Obsolete("Use CompositeRotationSystem. (UnityUpgradable) -> CompositeRotationSystem", true)]
     public struct EndFrameCompositeRotationSystem
     {
@@ -85,7 +81,7 @@ namespace Unity.Transforms
     {
     }
 
-    /// <inheritdoc cref="TRSToLocalToWorldSystem"/>
+    /// <summary> Obsolete. Use <see cref="TRSToLocalToWorldSystem"/> instead.</summary>
     [Obsolete("Use TRSToLocalToWorldSystem. (UnityUpgradable) -> TRSToLocalToWorldSystem", true)]
     public struct EndFrameTRSToLocalToWorldSystem
     {
@@ -100,7 +96,7 @@ namespace Unity.Transforms
     {
     }
 
-    /// <inheritdoc cref="ParentScaleInverseSystem"/>
+    /// <summary> Obsolete. Use <see cref="ParentScaleInverseSystem"/> instead.</summary>
     [Obsolete("Use ParentScaleInverseSystem. (UnityUpgradable) -> ParentScaleInverseSystem", true)]
     public struct EndFrameParentScaleInverseSystem
     {
@@ -114,7 +110,7 @@ namespace Unity.Transforms
     {
     }
 
-    /// <inheritdoc cref="TRSToLocalToParentSystem"/>
+    /// <summary> Obsolete. Use <see cref="TRSToLocalToParentSystem"/> instead.</summary>
     [Obsolete("Use TRSToLocalToParentSystem. (UnityUpgradable) -> TRSToLocalToParentSystem", true)]
     public struct EndFrameTRSToLocalToParentSystem
     {
@@ -129,7 +125,7 @@ namespace Unity.Transforms
     {
     }
 
-    /// <inheritdoc cref="LocalToParentSystem"/>
+    /// <summary> Obsolete. Use <see cref="LocalToParentSystem"/> instead.</summary>
     [Obsolete("Use LocalToParentSystem. (UnityUpgradable) -> LocalToParentSystem", true)]
     public struct EndFrameLocalToParentSystem
     {
@@ -142,7 +138,7 @@ namespace Unity.Transforms
     {
     }
 
-    /// <inheritdoc cref="WorldToLocalSystem"/>
+    /// <summary> Obsolete. Use <see cref="WorldToLocalSystem"/> instead.</summary>
     [Obsolete("Use WorldToLocalSystem. (UnityUpgradable) -> WorldToLocalSystem", true)]
     public struct EndFrameWorldToLocalSystem
     {

@@ -1,3 +1,4 @@
+using System;
 using Unity.Entities;
 
 namespace Doc.CodeSamples.Tests
@@ -20,7 +21,7 @@ namespace Doc.CodeSamples.Tests
     #region system-state-shared
     public struct ExampleSharedCleanupComponent : ICleanupSharedComponentData
     {
-
+        public int Value;
     }
     #endregion
 
@@ -62,9 +63,19 @@ namespace Doc.CodeSamples.Tests
     #endregion
 
     #region shared-managed
-    public class ExampleManagedSharedComponent : ISharedComponentData
+    public struct ExampleManagedSharedComponent : ISharedComponentData, IEquatable<ExampleManagedSharedComponent>
     {
-        public int Value;
+        public string Value; // A managed field type
+
+        public bool Equals(ExampleManagedSharedComponent other)
+        {
+            return Value.Equals(other.Value);
+        }
+
+        public override int GetHashCode()
+        {
+            return Value.GetHashCode();
+        }
     }
     #endregion
 }

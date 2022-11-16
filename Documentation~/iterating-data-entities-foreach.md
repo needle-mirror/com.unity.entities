@@ -115,7 +115,7 @@ The following example illustrates how to access the `EntityQuery` object implici
 
 The `Entities.ForEach` lambda expression doesn't support querying and accessing optional components with `WithAny<T,U>`. 
 
-If you want to read or write to an optional component, split the `Entities.ForEach` construction into multiple jobs for each combination of the optional components. For example, if you have two optional components, you would need three `ForEach` constructions: one including the first optional component, one including the second, and one including both components. Another alternative is to use `IJobChunk `iterate by chunk. For more information, see [Iterating over data by batch](iterating-data-ijobentitybatch.md).
+If you want to read or write to an optional component, split the `Entities.ForEach` construction into multiple jobs for each combination of the optional components. For example, if you have two optional components, you would need three `ForEach` constructions: one including the first optional component, one including the second, and one including both components. Another alternative is to use `IJobChunk `iterate by chunk. For more information, see [Iterating over data by chunk](iterating-data-ijobchunk.md).
 
 ## Change filtering
 

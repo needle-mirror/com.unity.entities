@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 
-namespace Unity.Platforms.UI
+namespace Unity.Entities.UI
 {
     /// <summary>
     /// Provides entry points into displaying arbitrary content in editor windows or in the inspector.

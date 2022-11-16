@@ -2,7 +2,9 @@ using System;
 using Unity.Collections;
 using System.Collections.Generic;
 #if UNITY_EDITOR
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build;
+#endif
 using Unity.Entities.Build;
 #endif
 using Unity.Collections.LowLevel.Unsafe;
@@ -35,6 +37,8 @@ namespace Unity.Entities
         internal struct BakerExecutionState
         {
             internal Component                                AuthoringSource;
+            internal GameObject                               AuthoringObject;
+            internal int                                      AuthoringId;
             internal BakerState*                              BakerState;
             internal BakerEntityUsage*                        Usage;
             internal BakeDependencies.RecordedDependencies*   Dependencies;
@@ -46,9 +50,10 @@ namespace Unity.Entities
             internal BlobAssetStore                           BlobAssetStore;
             internal World                                    World;
 #if UNITY_EDITOR
+#if USING_PLATFORMS_PACKAGE
             internal BuildConfiguration                       BuildConfiguration;
-            internal DotsPlayerSettings                       DotsSettings;
-            internal bool                                     IsBuiltInBuildsEnabled;
+#endif
+            internal IEntitiesPlayerSettings                  DotsSettings;
 #endif
         }
 
@@ -73,7 +78,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the component</remarks>
         public T GetComponent<T>() where T : Component
         {
-            var gameObject = _State.AuthoringSource.gameObject;
+            var gameObject = _State.AuthoringObject;
             return GetComponentInternal<T>(gameObject);
         }
 
@@ -131,7 +136,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the components</remarks>
         public void GetComponents<T>(List<T> components) where T : Component
         {
-            var gameObject = _State.AuthoringSource.gameObject;
+            var gameObject = _State.AuthoringObject;
             GetComponents<T>(gameObject, components);
         }
 
@@ -178,7 +183,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the components</remarks>
         public T[] GetComponents<T>() where T : Component
         {
-            var gameObject = _State.AuthoringSource.gameObject;
+            var gameObject = _State.AuthoringObject;
             return GetComponents<T>(gameObject);
         }
 
@@ -226,7 +231,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the component</remarks>
         public T GetComponentInParent<T>() where T : Component
         {
-            return GetComponentInParent<T>(_State.AuthoringSource.gameObject);
+            return GetComponentInParent<T>(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -271,7 +276,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the components</remarks>
         public void GetComponentsInParent<T>(List<T> components) where T : Component
         {
-            GetComponentsInParent<T>(_State.AuthoringSource.gameObject, components);
+            GetComponentsInParent<T>(_State.AuthoringObject, components);
         }
 
         /// <summary>
@@ -317,7 +322,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the components</remarks>
         public T[] GetComponentsInParent<T>() where T : Component
         {
-            return GetComponentsInParent<T>(_State.AuthoringSource.gameObject);
+            return GetComponentsInParent<T>(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -363,7 +368,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the component</remarks>
         public T GetComponentInChildren<T>() where T : Component
         {
-            var gameObject = _State.AuthoringSource.gameObject;
+            var gameObject = _State.AuthoringObject;
             return GetComponentInChildren<T>(gameObject);
         }
 
@@ -408,7 +413,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to retrieve</typeparam>
         public void GetComponentsInChildren<T>(List<T> components) where T : Component
         {
-            GetComponentsInChildren<T>(_State.AuthoringSource.gameObject, components);
+            GetComponentsInChildren<T>(_State.AuthoringObject, components);
         }
 
         /// <summary>
@@ -454,7 +459,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the components</remarks>
         public T[] GetComponentsInChildren<T>() where T : Component
         {
-            return GetComponentsInChildren<T>(_State.AuthoringSource.gameObject);
+            return GetComponentsInChildren<T>(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -504,7 +509,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the parent</remarks>
         public GameObject GetParent()
         {
-            return GetParent(_State.AuthoringSource.gameObject);
+            return GetParent(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -545,7 +550,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the parents</remarks>
         public GameObject[] GetParents()
         {
-            return GetParents(_State.AuthoringSource.gameObject);
+            return GetParents(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -579,7 +584,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the parents</remarks>
         public void GetParents(List<GameObject> parents)
         {
-            GetParents(_State.AuthoringSource.gameObject, parents);
+            GetParents(_State.AuthoringObject, parents);
         }
 
         /// <summary>
@@ -620,7 +625,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the child</remarks>
         public GameObject GetChild(int childIndex)
         {
-            return GetChild(_State.AuthoringSource.gameObject, childIndex);
+            return GetChild(_State.AuthoringObject, childIndex);
         }
 
         /// <summary>
@@ -664,7 +669,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the children</remarks>
         public GameObject[] GetChildren(bool includeChildrenRecursively = false)
         {
-            return GetChildren(_State.AuthoringSource.gameObject, includeChildrenRecursively);
+            return GetChildren(_State.AuthoringObject, includeChildrenRecursively);
         }
 
         /// <summary>
@@ -701,7 +706,7 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the children</remarks>
         public void GetChildren(List<GameObject> gameObjects, bool includeChildrenRecursively = false)
         {
-            GetChildren(_State.AuthoringSource.gameObject, gameObjects, includeChildrenRecursively);
+            GetChildren(_State.AuthoringObject, gameObjects, includeChildrenRecursively);
         }
 
         /// <summary>
@@ -755,7 +760,7 @@ namespace Unity.Entities
         /// <remarks>This takes a dependency on the child count.</remarks>
         public int GetChildCount()
         {
-            return GetChildCount(_State.AuthoringSource.gameObject);
+            return GetChildCount(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -789,7 +794,7 @@ namespace Unity.Entities
         /// <remarks>This takes a dependency on the name.</remarks>
         public string GetName()
         {
-            return GetName(_State.AuthoringSource.gameObject);
+            return GetName(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -813,7 +818,7 @@ namespace Unity.Entities
         {
             string name = gameObject.name;
 
-            _State.Dependencies->DependOnObjectName(gameObject.GetInstanceID(), _State.AuthoringSource.GetInstanceID(), name);
+            _State.Dependencies->DependOnObjectName(gameObject.GetInstanceID(), _State.AuthoringId, name);
 
             return name;
         }
@@ -825,7 +830,7 @@ namespace Unity.Entities
         /// <remarks>This takes a dependency on the layer.</remarks>
         public int GetLayer()
         {
-            return GetLayer(_State.AuthoringSource.gameObject);
+            return GetLayer(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -849,7 +854,7 @@ namespace Unity.Entities
         {
             int layer = gameObject.layer;
 
-            _State.Dependencies->DependOnObjectLayer(gameObject.GetInstanceID(), _State.AuthoringSource.GetInstanceID(), layer);
+            _State.Dependencies->DependOnObjectLayer(gameObject.GetInstanceID(), _State.AuthoringId, layer);
 
             return layer;
         }
@@ -861,7 +866,7 @@ namespace Unity.Entities
         /// <remarks>This takes a dependency on the tag.</remarks>
         public string GetTag()
         {
-            return GetTag(_State.AuthoringSource.gameObject);
+            return GetTag(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -885,7 +890,7 @@ namespace Unity.Entities
         {
             string tag = gameObject.tag;
 
-            _State.Dependencies->DependOnObjectTag(gameObject.GetInstanceID(), _State.AuthoringSource.GetInstanceID(), tag);
+            _State.Dependencies->DependOnObjectTag(gameObject.GetInstanceID(), _State.AuthoringId, tag);
 
             return tag;
         }
@@ -912,7 +917,7 @@ namespace Unity.Entities
             if (authoring == null)
                 return Entity.Null;
 
-            if (_State.AuthoringSource.gameObject == authoring)
+            if (_State.AuthoringObject == authoring)
             {
                 _State.Usage->PrimaryEntityFlags.Add(flags);
                 return _State.PrimaryEntity;
@@ -925,10 +930,13 @@ namespace Unity.Entities
 #if UNITY_EDITOR
                 if (authoring.IsPrefab())
                 {
-                    //@TODO: DOTS-6558
                     var prefabInstanceId = authoring.GetInstanceID();
-                    _State.BakerState->ReferencedPrefabs.Add(prefabInstanceId);
-                    _State.BakedEntityData->AddPrefabRef(prefabInstanceId);
+                    if (!_State.BakerState->ReferencedPrefabs.Contains(prefabInstanceId))
+                    {
+                        _State.BakerState->ReferencedPrefabs.Add(prefabInstanceId);
+                        _State.BakedEntityData->AddPrefabRef(prefabInstanceId);
+                    }
+
                     DependsOn(authoring);
                 }
 #endif
@@ -972,7 +980,7 @@ namespace Unity.Entities
         /// <remarks>This takes a dependency on the active state.</remarks>
         public bool IsActive()
         {
-            return IsActive(_State.AuthoringSource.gameObject);
+            return IsActive(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -996,7 +1004,7 @@ namespace Unity.Entities
         {
             var isActive = UnityEngineExtensions.IsActiveIgnorePrefab(gameObject);
 
-            _State.Dependencies->DependOnActive(gameObject.GetInstanceID(), _State.AuthoringSource.GetInstanceID(), isActive);
+            _State.Dependencies->DependOnActive(gameObject.GetInstanceID(), _State.AuthoringId, isActive);
 
             return isActive;
         }
@@ -1008,6 +1016,10 @@ namespace Unity.Entities
         /// <remarks>This takes a dependency on the active and enable state</remarks>
         public bool IsActiveAndEnabled()
         {
+            if (this is GameObjectBaker)
+                throw new InvalidOperationException("The IsActiveAndEnabled() method cannot be called from a GameObjectBaker." +
+                    "If you need to depend on the GameObject active state, use IsActive() instead.");
+
             return IsActiveAndEnabled(_State.AuthoringSource);
         }
 
@@ -1037,7 +1049,7 @@ namespace Unity.Entities
         /// <remarks>This takes a dependency on the static state.</remarks>
         public bool IsStatic()
         {
-            return IsStatic(_State.AuthoringSource);
+            return IsStatic(_State.AuthoringObject);
         }
 
         /// <summary>
@@ -1064,7 +1076,7 @@ namespace Unity.Entities
             var staticOptimizeEntity = gameObject.GetComponentInParent<StaticOptimizeEntity>(gameObject) != null;
             bool isStatic = (staticOptimizeEntity || InternalIsStaticRecursive(gameObject));
 
-            _State.Dependencies->DependOnStatic(gameObject.GetInstanceID(), _State.AuthoringSource.GetInstanceID(), isStatic);
+            _State.Dependencies->DependOnStatic(gameObject.GetInstanceID(), _State.AuthoringId, isStatic);
 
             return isStatic;
         }
@@ -1072,10 +1084,9 @@ namespace Unity.Entities
         /// <summary>
         /// Returns if the GameObject or one of its parents is static
         /// </summary>
-        /// <param name="gameObject">The GameObject to check</param>
-        /// <returns></returns>
-        /// <remarks>This will take a dependency on the static state</remarks>
-        private bool InternalIsStaticRecursive(GameObject gameObject)
+        /// <param name="gameObject">The GameObject to check.</param>
+        /// <returns>Returns true if the object or one of its ancestors is static, otherwise returns false.</returns>
+        private static bool InternalIsStaticRecursive(GameObject gameObject)
         {
             var current = gameObject.transform;
             while (current)
@@ -1105,23 +1116,16 @@ namespace Unity.Entities
             return (_State.World.Flags&WorldFlags.GameServer) == WorldFlags.GameServer;
         }
 
-#if UNITY_EDITOR
-        internal bool IsBuiltInBuildsEnabled()
-        {
-            return _State.IsBuiltInBuildsEnabled;
-        }
-#endif
-
 #endregion
 
 #region Declare Dependencies
 
         /// <summary>
-        /// This will take a dependency on Object of type T
+        /// This will take a dependency on Object of type T.
         /// </summary>
-        /// <param name="dependency">The Object to take a dependencyon</param>
-        /// <typeparam name="T"></typeparam>
-        /// <returns>The Object of type T if a dependency was taken, null otherwise</returns>
+        /// <param name="dependency">The Object to take a dependency on.</param>
+        /// <typeparam name="T">The type of the object. Must be derived from UnityEngine.Object.</typeparam>
+        /// <returns>The Object of type T if a dependency was taken, null otherwise.</returns>
         public T DependsOn<T>(T dependency) where T : UnityEngine.Object
         {
             _State.Dependencies->DependResolveReference(_State.AuthoringSource.GetInstanceID(), dependency);
@@ -1388,24 +1392,6 @@ namespace Unity.Entities
 #region Blob Assets
 
         /// <summary>
-        /// Creates a BlobAsset and return its BlobAssetReference
-        /// </summary>
-        /// <param name="blobData">The data to put in the BlobAsset</param>
-        /// <typeparam name="T">The type of BlobAsset to create</typeparam>
-        /// <returns>The create BlobAssetReference</returns>
-        /// <remarks>This will take a dependency on the component</remarks>
-        private BlobAssetReference<T> CreateBlobAssetReference<T>(T blobData) where T : unmanaged
-        {
-            BlobBuilder builder = new BlobBuilder(Allocator.TempJob);
-            ref var data = ref builder.ConstructRoot<T>();
-            data = blobData;
-            var blobAssetReference = builder.CreateBlobAssetReference<T>(Allocator.Persistent);
-            builder.Dispose();
-
-            return blobAssetReference;
-        }
-
-        /// <summary>
         /// Adds a BlobAsset to the primary Entity
         /// </summary>
         /// <param name="blobAssetReference">The BlobAssetReference of the BlobAsset to add</param>
@@ -1418,22 +1404,6 @@ namespace Unity.Entities
             _State.BlobAssetStore.TryAdd(ref blobAssetReference, out Hash128 tempObjectHash);
             objectHash = tempObjectHash;
             _State.BakerState->ReferencedBlobAssets.Add(((uint)typeof(T).GetHashCode(), objectHash));
-        }
-
-        /// <summary>
-        /// Adds a BlobAsset to the primary Entity
-        /// </summary>
-        /// <param name="blobData">The data to put in the BlobAsset</param>
-        /// <param name="objectHash">The hash of the added BlobAsset</param>
-        /// <typeparam name="T">The type of BlobAsset to add</typeparam>
-        /// <returns>The BlobAssetReference of the added BlobAsset</returns>
-        /// <remarks>This will take a dependency on the component</remarks>
-        internal BlobAssetReference<T> AddBlobAsset<T>(T blobData, out Hash128 objectHash) where T : unmanaged
-        {
-            var blobAssetReference = CreateBlobAssetReference(blobData);
-            AddBlobAsset<T>(ref blobAssetReference, out objectHash);
-
-            return blobAssetReference;
         }
 
         /// <summary>
@@ -1455,30 +1425,6 @@ namespace Unity.Entities
             }
 
             _State.BakerState->ReferencedBlobAssets.Add(((uint)typeof(T).GetHashCode(), customHash));
-        }
-
-
-        /// <summary>
-        /// Adds a BlobAsset to the primary Entity with a custom hash
-        /// </summary>
-        /// <param name="blobData">The data to put in the BlobAsset</param>
-        /// <param name="customHash">The hash that is used to add the BlobAsset to the Entity</param>
-        /// <typeparam name="T">The type of BlobAsset to add</typeparam>
-        /// <returns>The BlobAssetReference of the added BlobAsset</returns>
-        /// <remarks>This will take a dependency on the component</remarks>
-        internal BlobAssetReference<T> AddBlobAssetWithCustomHash<T>(T blobData, Hash128 customHash) where T : unmanaged
-        {
-            BlobAssetReference<T> blobAssetReference;
-
-            if (!_State.BlobAssetStore.TryGet(customHash, out blobAssetReference))
-            {
-                blobAssetReference = CreateBlobAssetReference(blobData);
-                _State.BlobAssetStore.TryAdd(customHash, ref blobAssetReference);
-            }
-
-            _State.BakerState->ReferencedBlobAssets.Add(((uint)typeof(T).GetHashCode(), customHash));
-
-            return blobAssetReference;
         }
 
         /// <summary>
@@ -1780,6 +1726,24 @@ namespace Unity.Entities
             _State.Ecb.SetComponent(entity, component);
         }
 
+        /// <summary>
+        /// Sets the enabled value of the component on the Entity.
+        /// </summary>
+        /// <remarks>
+        /// This method can only be invoked if the same baker instance previously added this specific component.
+        /// </remarks>
+        /// <param name="entity">The Entity to set the component to</param>
+        /// <param name="enabled">True if the specified component should be enabled, or false if it should be disabled</param>
+        /// <typeparam name="T">The type of component to set</typeparam>
+        public void SetComponentEnabled<T>(Entity entity, bool enabled) where T : struct, IEnableableComponent
+        {
+            if (_State.PrimaryEntity != entity)
+                CheckValidAdditionalEntity(entity);
+            CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
+
+            _State.Ecb.SetComponentEnabled<T>(entity, enabled);
+        }
+
          /// <summary>
          /// Replaces the value of the component on the Entity.
          /// </summary>
@@ -1928,15 +1892,22 @@ namespace Unity.Entities
 #endregion
 
         /// <summary>
-        /// Creates an Entity in addition to the primary Entity
+        /// Creates an additional Entity tied to the primary entity.
         /// </summary>
-        /// <param name="transformUsageFlags">The TransformUsageFlags to the Flags of the additional Entity</param>
-        /// <param name="bakingOnlyEntity">Whether to mark the additional Entity as BakingOnly</param>
-        /// <param name="entityName">The name to give to the additional Entity</param>
+        /// <param name="transformUsageFlags">The <see cref="TransformUsageFlags"/> of the additional Entity.</param>
+        /// <param name="bakingOnlyEntity">Whether to mark the additional Entity as BakingOnly.</param>
+        /// <param name="entityName">The name of the additional Entity.</param>
         /// <returns>Returns the newly created entity.</returns>
+        /// <remarks>
+        /// Additional entities are automatically reverted by the baking system if the source primary entity is removed in a new baking pass.
+        /// Additional entities are created with the same active or static state as the Primary Entity. For example, if the authoring object is disabled,
+        /// the new additional entity will also have the <see cref="Disabled"/> tag component.
+        ///
+        /// Baking only additional entities are not exported in the runtime data.
+        /// </remarks>
         public Entity CreateAdditionalEntity(TransformUsageFlags transformUsageFlags = TransformUsageFlags.Default, bool bakingOnlyEntity = false, string entityName = "")
         {
-            var entity = _State.BakedEntityData->CreateAdditionalEntity(_State.AuthoringSource.gameObject, _State.AuthoringSource.GetInstanceID(), bakingOnlyEntity, entityName);
+            var entity = _State.BakedEntityData->CreateAdditionalEntity(_State.AuthoringObject, _State.AuthoringId, bakingOnlyEntity, entityName);
             _State.BakerState->Entities.Add(entity);
             _State.Usage->ReferencedEntityUsages.Add(new BakerEntityUsage.ReferencedEntityUsage(entity, transformUsageFlags));
             return entity;
@@ -1948,13 +1919,16 @@ namespace Unity.Entities
         /// <param name="authoring">The Prefab to bake</param>
         public void RegisterPrefabForBaking(GameObject authoring)
         {
-            if (authoring == null || _State.AuthoringSource.gameObject == authoring || !authoring.IsPrefab())
+            if (authoring == null || _State.AuthoringObject == authoring || !authoring.IsPrefab())
                 return;
 
 #if UNITY_EDITOR
             var prefabInstanceId = authoring.GetInstanceID();
-            _State.BakerState->ReferencedPrefabs.Add(prefabInstanceId);
-            _State.BakedEntityData->AddPrefabRef(prefabInstanceId);
+            if (!_State.BakerState->ReferencedPrefabs.Contains(prefabInstanceId))
+            {
+                _State.BakerState->ReferencedPrefabs.Add(prefabInstanceId);
+                _State.BakedEntityData->AddPrefabRef(prefabInstanceId);
+            }
 #endif
         }
 
@@ -1977,7 +1951,7 @@ namespace Unity.Entities
             if (authoring == null)
                 return;
 
-            if (_State.AuthoringSource.gameObject == authoring)
+            if (_State.AuthoringObject == authoring)
             {
                 _State.Usage->PrimaryEntityFlags.Add(flags);
             }
@@ -2013,6 +1987,7 @@ namespace Unity.Entities
         }
 
 #if UNITY_EDITOR
+#if USING_PLATFORMS_PACKAGE
         /// <summary>
         /// Get the Build Configuration Component of the GameObject
         /// </summary>
@@ -2028,12 +2003,13 @@ namespace Unity.Entities
             }
             return _State.BuildConfiguration.TryGetComponent(out component);
         }
+#endif
 
         /// <summary>
         /// Gets the Settings of the DOTS player
         /// </summary>
         /// <returns>The Settings of the DOTS player</returns>
-        public DotsPlayerSettings GetDotsSettings()
+        public IEntitiesPlayerSettings GetDotsSettings()
         {
             return _State.DotsSettings;
         }
@@ -2120,7 +2096,7 @@ namespace Unity.Entities
     ///     }
     /// }
     /// </code></example>
-    /// <typeparam name="TAuthoringType"></typeparam>
+    /// <typeparam name="TAuthoringType">The type of the authoring component.</typeparam>
     public abstract unsafe class Baker<TAuthoringType> : IBaker
         where TAuthoringType : Component
     {
@@ -2144,6 +2120,30 @@ namespace Unity.Entities
         internal override Type GetAuthoringType()
         {
             return typeof(TAuthoringType);
+        }
+    }
+
+    /// <summary>
+    /// Inherit this class to bake an authoring GameObject.
+    /// </summary>
+    internal abstract class GameObjectBaker : IBaker
+    {
+        /// <summary>
+        /// Called in the baking process to bake the authoring GameObject.
+        /// </summary>
+        /// <param name="authoring">The authoring GameObject to bake.</param>
+        public abstract void Bake(GameObject authoring);
+
+        internal override void InvokeBake(in BakerExecutionState state)
+        {
+            _State = state;
+            Bake(state.AuthoringObject);
+            _State = default;
+        }
+
+        internal override Type GetAuthoringType()
+        {
+            return typeof(GameObject);
         }
     }
 }

@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor
     [GeneratePropertyBag]
     class HierarchyNodesState
     {
-        [CreateProperty] internal HashSet<HierarchyNodeHandle> Expanded = new HashSet<HierarchyNodeHandle>();
+        [Unity.Properties.CreateProperty] internal HashSet<HierarchyNodeHandle> Expanded = new HashSet<HierarchyNodeHandle>();
     }
 
     /// <summary>
@@ -178,9 +178,7 @@ namespace Unity.Entities.Editor
             switch (handle.Kind)
             {
                 case NodeKind.Scene:
-                case NodeKind.RootScene:
                 case NodeKind.SubScene:
-                case NodeKind.DynamicSubScene:
                     return !m_ExpandedHashSet.Contains(handle);
                 default:
                     return m_ExpandedHashSet.Contains(handle);
@@ -192,9 +190,7 @@ namespace Unity.Entities.Editor
             switch (handle.Kind)
             {
                 case NodeKind.Scene:
-                case NodeKind.RootScene:
                 case NodeKind.SubScene:
-                case NodeKind.DynamicSubScene:
                 {
                     if (!expanded)
                     {
@@ -382,7 +378,7 @@ namespace Unity.Entities.Editor
             [ReadOnly] public HierarchyNodeStore.Immutable Hierarchy;
             [ReadOnly] public NativeParallelHashSet<HierarchyNodeHandle> Expanded;
             [ReadOnly] public NativeParallelHashMap<HierarchyNodeHandle,bool> SubSceneStateMap;
-            
+
             public DataMode DataMode;
             public bool IsPlayMode;
             public bool IsPrefabStage;
@@ -421,7 +417,7 @@ namespace Unity.Entities.Editor
                             inSubScene = false;
                     }
 
-                    if (node.Handle.Kind is NodeKind.SubScene or NodeKind.DynamicSubScene)
+                    if (node.Handle.Kind is NodeKind.SubScene)
                     {
                         inSubScene = true;
 
@@ -482,6 +478,10 @@ namespace Unity.Entities.Editor
                 if (IsPrefabStage && (node.Flags & HierarchyNodeFlags.IsPrefabStage) == 0)
                     return false;
 
+                // Hide dynamically loaded subscenes in authoring mode
+                if (DataMode is DataMode.Authoring && node.Handle.Kind is NodeKind.SubScene && subSceneInfo.SubSceneNodeDepth == 0)
+                    return false;
+
                 // Include any node that's under a visible node in a subScene
                 // Include any node outside of a subScene that's under a visible node
                 if (!inSubScene && node.Depth > 1
@@ -528,9 +528,7 @@ namespace Unity.Entities.Editor
                 switch (handle.Kind)
                 {
                     case NodeKind.Scene:
-                    case NodeKind.RootScene:
                     case NodeKind.SubScene:
-                    case NodeKind.DynamicSubScene:
                         return !Expanded.Contains(handle);
                     default:
                         return Expanded.Contains(handle);
@@ -576,7 +574,7 @@ namespace Unity.Entities.Editor
 
         NativeParallelHashMap<HierarchyNodeHandle, bool> BuildSubSceneStateMap(HierarchyNodeStore.Immutable immutable, SubSceneNodeMapping subSceneNodeMapping, World world, AllocatorManager.AllocatorHandle allocator)
         {
-            if (null == world)
+            if (null == world || !world.IsCreated)
                 return new NativeParallelHashMap<HierarchyNodeHandle, bool>(1, allocator);
             using var subSceneNodesIndices = new NativeArray<int>(subSceneNodeMapping.SubSceneCount, allocator.ToAllocator);
             new FilterSubSceneNodes()
@@ -596,7 +594,9 @@ namespace Unity.Entities.Editor
                     continue;
                 var subSceneNode = immutable[subSceneNodeIndex].Handle;
                 var sceneEntity = SceneSystem.GetSceneEntity(world.Unmanaged, subSceneNodeMapping.GetSceneHashFromNode(subSceneNode));
-                map.Add(subSceneNode, sceneEntity != Entity.Null && world.EntityManager.GetComponentObject<SubScene>(sceneEntity).IsLoaded);
+                map.Add(subSceneNode, sceneEntity != Entity.Null &&
+                                      world.EntityManager.HasComponent<SubScene>(sceneEntity) &&
+                                      world.EntityManager.GetComponentObject<SubScene>(sceneEntity).IsLoaded);
             }
 
             return map;

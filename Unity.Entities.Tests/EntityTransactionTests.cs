@@ -72,6 +72,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CommitAfterNotRegisteredTransactionJobLogsError()
         {
             var job = new CreateEntityJob();
@@ -87,6 +88,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity transaction safety checks")]
         public void EntityManagerAccessDuringTransactionThrows()
         {
             var job = new CreateEntityAddToListJob();
@@ -107,6 +109,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void MissingJobCreationDependency()
         {
             var job = new CreateEntityJob();
@@ -119,6 +122,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CreationJobAndMainThreadNotAllowedInParallel()
         {
             var job = new CreateEntityJob();
@@ -236,6 +240,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void TransactionSync1()
         {
             var top = new SyncIJobChunk {}.Schedule(m_Manager.UniversalQuery, default);
@@ -249,6 +254,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void TransactionSync2()
         {
             var exclusive = m_Manager.BeginExclusiveEntityTransaction();
@@ -263,6 +269,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity transaction safety checks")]
         public void TransactionSync3()
         {
             var exclusive = m_Manager.BeginExclusiveEntityTransaction();
@@ -302,6 +309,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void BufferLookup_AcquiredBeforeTransaction_Throws()
         {
             var c = m_Manager.CreateEntity();
@@ -312,6 +320,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity transaction safety checks")]
         public void BufferLookup_AcquiredDuringTransaction_Throws()
         {
             var c = m_Manager.CreateEntity();
@@ -331,6 +340,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity transaction safety checks")]
         public void CanAccessEntitiesAfterTransaction()
         {
             m_Manager.BeginExclusiveEntityTransaction();
@@ -351,6 +361,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity transaction safety checks")]
         public void CanChainTransactions()
         {
             m_Manager.BeginExclusiveEntityTransaction();
@@ -367,6 +378,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity transaction safety checks")]
         public void NestedTransactionThrows()
         {
             m_Manager.BeginExclusiveEntityTransaction();
@@ -374,6 +386,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity transaction safety checks")]
         public void Transaction_IsInvalid_AfterItHasEnded()
         {
             var transaction = m_Manager.BeginExclusiveEntityTransaction();

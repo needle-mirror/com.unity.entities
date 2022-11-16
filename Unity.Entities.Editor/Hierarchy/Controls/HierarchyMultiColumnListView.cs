@@ -51,6 +51,11 @@ namespace Unity.Entities.Editor
             }
         }
 
+        public HierarchyListViewItem GetItem(HierarchyNodeHandle handle)
+        {
+            return m_NameColumn.GetItem(handle);
+        }
+
         protected override CollectionViewController CreateViewController() => new HierarchyMultiColumnListViewController(m_Model, columns, sortColumnDescriptions, m_SortedColumns);
     }
 
@@ -95,6 +100,15 @@ namespace Unity.Entities.Editor
             destroyCell += DestroyCell;
             bindCell += BindCell;
             unbindCell += UnbindCell;
+        }
+
+        public HierarchyListViewItem GetItem(HierarchyNodeHandle handle)
+        {
+            foreach (var item in m_Items)
+                if (item.Handle == handle)
+                    return item;
+
+            return null;
         }
 
         public void SetDecorators(HierarchyDecoratorCollection decorators)

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Unity.Profiling;
 using UnityEditor;
 using System.Reflection;
-using System.Text;
 #if UNITY_EDITOR
 using Unity.Entities.Build;
 #endif
@@ -11,9 +10,10 @@ using Unity.Entities.Conversion;
 
 namespace Unity.Entities
 {
-    class AssemblyEnabled
+    class AssemblyData
     {
         public bool Enabled;
+        public bool IsUnityAssembly;
     }
 
     /// <summary>
@@ -22,16 +22,35 @@ namespace Unity.Entities
     internal struct BakerDataUtility
     {
         static Dictionary<TypeIndex, BakerData[]>             _IndexToBakerInstances;
-        static Dictionary<Assembly, AssemblyEnabled>          _BakersByAssembly;
+        internal static Dictionary<Assembly, AssemblyData>    _BakersByAssembly;
+
+        static string unityAssembly = "Unity.";
+        static string unityEngineAssembly = "UnityEngine.";
+
+        static ProfilerMarker s_RegisterBakers = new ProfilerMarker("Baking.RegisterBakers");
+        static ProfilerMarker s_SortBakers = new ProfilerMarker("Baking.SortBakers");
 
         public struct BakerData
         {
             public ProfilerMarker   Profiler;
             public IBaker           Baker;
-            public AssemblyEnabled  AssemblyEnabled;
+            public AssemblyData     AssemblyData;
+            /// <summary>
+            /// The number of authoring components compatible with this baker.
+            /// </summary>
+            /// <remarks>
+            /// Bakers usually handle one authoring component type. If the bakers are decorated with the
+            /// <see cref="BakeDerivedTypesAttribute"/> attribute, they are also applied on the authoring components
+            /// derived from the base type. In this case, the base baker should be evaluated before any bakers defined
+            /// for derived types.
+            /// Unity guarantees this order by sorting the bakers based on the number of components handled by each baker,
+            /// with bakers handling more components (hence handling base types) being evaluated first.
+            /// </remarks>
+            public int              CompatibleComponentCount;
         }
 
 #if UNITY_EDITOR
+#if USING_PLATFORMS_PACKAGE
         public static void ApplyAssemblyFilter(ConversionSystemFilterSettings filter)
         {
             foreach (var assemblyEntry in _BakersByAssembly)
@@ -39,6 +58,7 @@ namespace Unity.Entities
                 assemblyEntry.Value.Enabled = (filter == null || !filter.IsAssemblyExcluded(assemblyEntry.Key));
             }
         }
+#endif
 
         public static void ApplyAssemblyFilter(BakingSystemFilterSettings filter)
         {
@@ -63,39 +83,53 @@ namespace Unity.Entities
                 return;
 
             _IndexToBakerInstances = new Dictionary<TypeIndex, BakerData[]>();
-            _BakersByAssembly = new Dictionary<Assembly, AssemblyEnabled>();
+            _BakersByAssembly = new Dictionary<Assembly, AssemblyData>();
 
 #if UNITY_EDITOR
-            using (var marker = new ProfilerMarker("Baking.RegisterBakers").Auto())
+            using (s_RegisterBakers.Auto())
             {
-                foreach (var type in TypeCache.GetTypesDerivedFrom(typeof(Baker<>)))
+                AddBakers(typeof(GameObjectBaker));
+                AddBakers(typeof(Baker<>));
+            }
+
+            using (s_SortBakers.Auto())
+            {
+                // Sort the bakers so that the bakers for base authoring components are evaluated before bakers for derived types.
+                // This guarantees that the type hierarchy chain authoring components is respected, regardless of the order in which
+                // the bakers are defined in code.
+                foreach (var bakers in _IndexToBakerInstances.Values)
                 {
-                    if (!type.IsAbstract && !type.IsDefined(typeof(DisableAutoCreationAttribute)))
-                    {
-                        try
-                        {
-                            AddBaker(type);
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogException(e);
-                        }
-                    }
+                    Array.Sort(bakers, (a, b) => b.CompatibleComponentCount.CompareTo(a.CompatibleComponentCount));
                 }
             }
 #endif
+        }
+
+        static void AddBakers(Type baseBakerType)
+        {
+#if UNITY_EDITOR
+            foreach (var goBakerType in TypeCache.GetTypesDerivedFrom(baseBakerType))
+            {
+                if (!goBakerType.IsAbstract && !goBakerType.IsDefined(typeof(DisableAutoCreationAttribute)))
+                {
+                    try
+                    {
+                        AddBaker(goBakerType);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e);
+                    }
+                }
+            }
+#endif // UNITY_EDITOR
         }
 
         static void AddBaker(Type type)
         {
             var baker = (IBaker) Activator.CreateInstance(type);
             var authoringType = baker.GetAuthoringType();
-
-            // Try find with the authoring type in the TypeManager
-            if (TypeManager.TryGetTypeIndex(authoringType, out var typeIndex))
-            {
-                AddBaker(type, baker, typeIndex);
-            }
+            int compatibleComponentCount = 1;
 
             // If BakeDerivedTypesAttribute is used in the baker,
             // try find derived types that are present in TypeManager
@@ -104,29 +138,42 @@ namespace Unity.Entities
 #if UNITY_EDITOR
                 // In the editor we can use TypeCache as an accelerator
                 var types = TypeCache.GetTypesDerivedFrom(authoringType);
+                compatibleComponentCount += types.Count;
                 foreach (var compatibleType in types)
                 {
-                    if (TypeManager.TryGetTypeIndex(compatibleType, out typeIndex))
+                    if (TypeManager.TryGetTypeIndex(compatibleType, out var typeIndex))
                     {
-                        AddBaker(type, baker, typeIndex);
+                        AddBaker(type, baker, typeIndex, compatibleComponentCount);
                     }
                 }
 #else
-                // At runtime we need to make a linear search for derived clases
-                for (var i = 0; i < TypeManager.GetTypeCount(); ++i)
+                // At runtime we need to make a linear search for derived classes
+                var list = new List<(System.Type type, IBaker baker, TypeIndex typeIndex)>();
+                var typeCount = TypeManager.GetTypeCount();
+                for (var i = 0; i < typeCount; ++i)
                 {
                     var compatibleType = TypeManager.GetType(new TypeIndex { Value = i });
                     if (authoringType.IsAssignableFrom(compatibleType))
                     {
-                        typeIndex = TypeManager.GetTypeIndex(compatibleType);
-                        AddBaker(type, (IBaker) Activator.CreateInstance(type), typeIndex);
+                        compatibleComponentCount++;
+                        var typeIndex = TypeManager.GetTypeIndex(compatibleType);
+                        list.Add((type, (IBaker) Activator.CreateInstance(type), typeIndex));
                     }
+                }
+                foreach (var t in list)
+                {
+                    AddBaker(t.type, t.baker, t.typeIndex, compatibleComponentCount);
                 }
 #endif
             }
+            // Try find with the authoring type in the TypeManager
+            if (TypeManager.TryGetTypeIndex(authoringType, out var authoringTypeIndex))
+            {
+                AddBaker(type, baker, authoringTypeIndex, compatibleComponentCount);
+            }
         }
 
-        static void AddBaker(Type type, IBaker baker, TypeIndex typeIndex)
+        static void AddBaker(Type type, IBaker baker, TypeIndex typeIndex, int compatibleComponentCount)
         {
             var bakerIndex = 0;
             if (!_IndexToBakerInstances.TryGetValue(typeIndex, out var bakers))
@@ -139,18 +186,21 @@ namespace Unity.Entities
                 Array.Resize(ref bakers, bakerIndex + 1);
             }
 
-            if (!_BakersByAssembly.TryGetValue(type.Assembly, out var assemblyEnabled))
+            if (!_BakersByAssembly.TryGetValue(type.Assembly, out var assemblyData))
             {
-                assemblyEnabled = new AssemblyEnabled();
-                assemblyEnabled.Enabled = true;
-                _BakersByAssembly.Add(type.Assembly, assemblyEnabled);
+                assemblyData = new AssemblyData();
+                assemblyData.Enabled = true;
+                assemblyData.IsUnityAssembly = type.Assembly.GetName().Name.StartsWith(unityAssembly)
+                    || type.Assembly.GetName().Name.StartsWith(unityEngineAssembly);
+                _BakersByAssembly.Add(type.Assembly, assemblyData);
             }
 
             bakers[bakerIndex] = new BakerData
             {
                 Baker = baker,
                 Profiler = new ProfilerMarker(baker.GetType().Name),
-                AssemblyEnabled = assemblyEnabled
+                AssemblyData = assemblyData,
+                CompatibleComponentCount = compatibleComponentCount
             };
 
             _IndexToBakerInstances[typeIndex] = bakers;

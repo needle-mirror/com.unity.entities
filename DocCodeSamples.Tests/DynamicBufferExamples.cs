@@ -306,7 +306,7 @@ namespace Doc.CodeSamples.Tests
             // Get a BufferTypeHandle representing dynamic buffer type ExampleBufferComponent from SystemBase.
             BufferTypeHandle<ExampleBufferComponent> myElementHandle = GetBufferTypeHandle<ExampleBufferComponent>();
             // Get a BufferAccessor from the chunk.
-            BufferAccessor<ExampleBufferComponent> buffers = chunk.GetBufferAccessor(myElementHandle);
+            BufferAccessor<ExampleBufferComponent> buffers = chunk.GetBufferAccessor(ref myElementHandle);
             // Iterate through all ExampleBufferComponent buffers of each entity in the chunk.
             for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
             {
@@ -349,10 +349,10 @@ namespace Doc.CodeSamples.Tests
             {
                 //A buffer accessor is a list of all the buffers in the chunk
                 BufferAccessor<MyBufferElement> buffers
-                    = chunk.GetBufferAccessor(BufferTypeHandle);
+                    = chunk.GetBufferAccessor(ref BufferTypeHandle);
 
                 ChunkEntityEnumerator enumerator =
-                    new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.ChunkEntityCount);
+                    new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
 
                 while(enumerator.NextEntityIndex(out var e))
                 {

@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -7,9 +7,9 @@ namespace Unity.Entities.Editor
     static class HierarchyQueryBuilder
     {
         static readonly Regex k_Regex = new Regex(
-            @$"\b(?<token>[{Constants.Hierarchy.ComponentTokenCaseInsensitive}]:)\s*(?<componentType>(\S)*)",
+            @$"\b(?<token>[{Constants.ComponentSearch.TokenCaseInsensitive}]{Constants.ComponentSearch.Op})\s*(?<componentType>(\S)*)",
             RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.ExplicitCapture);
-        
+
         static readonly StringBuilder k_UnmatchedInputBuilder = new StringBuilder();
 
         public static Result BuildQuery(string input)
@@ -22,9 +22,9 @@ namespace Unity.Entities.Editor
                 return Result.Valid(null, input);
 
             using var componentTypes = PooledHashSet<ComponentType>.Make();
-            
+
             k_UnmatchedInputBuilder.Clear();
-                
+
             var pos = 0;
             for (var i = 0; i < matches.Count; i++)
             {
@@ -62,7 +62,13 @@ namespace Unity.Entities.Editor
             var entityTypeIndex = TypeManager.GetTypeIndex<Entity>();
             componentTypes.Set.RemoveWhere(t => t.TypeIndex == entityTypeIndex);
 
-            return Result.Valid(new EntityQueryDesc { Any = componentTypes.Set.ToArray(), Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities }, k_UnmatchedInputBuilder.ToString());
+            return Result.Valid(new EntityQueryDesc
+            {
+                // Temp patch: Using `All` since most users seem to prefer that behaviour.
+                // The real solution is to properly support entity queries in search.
+                All = componentTypes.Set.ToArray(),
+                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
+            }, k_UnmatchedInputBuilder.ToString());
         }
 
         public struct Result

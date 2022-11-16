@@ -197,6 +197,16 @@ namespace Unity.Entities.Editor
                     break;
                 }
 
+                case NodeKind.SubScene:
+                {
+                    if (!m_Names.TryGetValue(handle, out name))
+                    {
+                        name = k_UnknownSubSceneName;
+                    }
+
+                    break;
+                }
+
                 default:
                 {
                     if (!m_Names.TryGetValue(handle, out name))
@@ -209,15 +219,17 @@ namespace Unity.Entities.Editor
             }
         }
 
-        public void SetName(in HierarchyNodeHandle handle, in FixedString64Bytes name)
+        public void SetName(in HierarchyNodeHandle handle, string name)
         {
             switch (handle.Kind)
             {
                 case NodeKind.Entity:
                     throw new InvalidOperationException($"Unable to assign a name to an entity in the hierarchy. This must be done through {nameof(EntityManager)}.{nameof(EntityManager.SetName)}.");
                 default:
-                    m_Names[handle] = name;
-                    m_NamesLowerInvariant[handle] = FixedStringUtility.ToLower(name);
+                    FixedString64Bytes fs = default;
+                    fs.CopyFromTruncated(name);
+                    m_Names[handle] = fs;
+                    m_NamesLowerInvariant[handle] = FixedStringUtility.ToLower(fs);
                     break;
             }
         }
@@ -248,10 +260,7 @@ namespace Unity.Entities.Editor
             var rootGameObjects = new List<GameObject>();
             foreach (var scene in changes.LoadedScenes)
             {
-                var sceneName = string.IsNullOrEmpty(scene.name) ? k_UntitledScene : scene.name;
-                var sceneNameFs = new FixedString64Bytes();
-                FixedStringMethods.CopyFromTruncated(ref sceneNameFs, sceneName);
-                SetName(scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene), sceneNameFs);
+                SetName(scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene), string.IsNullOrEmpty(scene.name) ? k_UntitledScene : scene.name);
                 if (!scene.isLoaded)
                     continue;
 
@@ -333,7 +342,16 @@ namespace Unity.Entities.Editor
                 return k_UnknownSubSceneName;
 
             if (!m_World.EntityManager.HasComponent<SubScene>(entity))
+            {
+                if (m_World.EntityManager.HasComponent<SceneReference>(entity))
+                {
+                    var subSceneGuid = m_World.EntityManager.GetComponentData<SceneReference>(entity).SceneGUID;
+                    var path = AssetDatabase.GUIDToAssetPath(subSceneGuid);
+                    return AssetDatabase.LoadMainAssetAtPath(path).name;
+                }
+
                 return k_UnknownSubSceneName;
+            }
 
             var subScene = m_World.EntityManager.GetComponentObject<SubScene>(entity);
 
@@ -354,7 +372,8 @@ namespace Unity.Entities.Editor
         {
             if (gameObject.TryGetComponent<SubScene>(out var subScene))
             {
-                SetName(HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, subScene), subScene.SceneAsset.name);
+                SetName(HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, subScene), subScene.SceneAsset ? subScene.SceneAsset.name : k_UnknownSubSceneName);
+
                 var rootGameObjects = new List<GameObject>();
                 if (!subScene.IsLoaded)
                     return;

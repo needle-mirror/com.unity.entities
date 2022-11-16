@@ -1,16 +1,20 @@
 {
     "name": "Unity.Transforms",
+    "rootNamespace": "",
     "references": [
         "Unity.Entities",
         "Unity.Collections",
         "Unity.Burst",
-        "Unity.Jobs",
         "Unity.Mathematics",
         "Unity.Properties"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [],
     "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
     "versionDefines": [
         {
             "name": "com.unity.cinemachine.dots",
@@ -23,19 +27,20 @@
             "define": "ENABLE_TRANSFORM_V1"
         },
         {
-            "name": "com.unity.physics",
-            "expression": "0.60.0-preview.88",
-            "define": "ENABLE_TRANSFORM_V1"
-        },
-        {
             "name": "com.unity.2d.entities.physics",
             "expression": "0.5.0-preview.1",
             "define": "ENABLE_TRANSFORM_V1"
         },
         {
-            "name": "com.unity.netcode",
-            "expression": "0.60.0-preview.90",
+            "name": "com.unity.environment",
+            "expression": "0.2.0-preview.17",
+            "define": "ENABLE_TRANSFORM_V1"
+        },
+        {
+            "name": "com.unity.animation",
+            "expression": "0.16.0-preview.19",
             "define": "ENABLE_TRANSFORM_V1"
         }
-    ]
+    ],
+    "noEngineReferences": false
 }

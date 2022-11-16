@@ -1,6 +1,6 @@
 # Create an unmanaged component
 
-To create an unmanaged component, create a struct that inherits from `IcomponentData`.
+To create an unmanaged component, create a struct that inherits from `IComponentData`.
 
 The following code sample shows an unmanaged component:
 

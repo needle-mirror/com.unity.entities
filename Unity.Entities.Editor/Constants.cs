@@ -62,16 +62,22 @@ namespace Unity.Entities.Editor
 
         public static class SystemSchedule
         {
-            public const string k_ComponentToken = "c:";
             public const string k_SystemDependencyToken = "sd:";
             public const string k_Dash = "-";
         }
 
+        public static class ComponentSearch
+        {
+            public const string Token = "c";
+            public const string Op = "=";
+            public const string TokenCaseInsensitive = "cC";
+            public const string TokenOp = "c=";
+        }
+
         public static class Hierarchy
         {
-            public const string ComponentToken = "c";
-            public const string ComponentTokenCaseInsensitive = "cC";
-            public const string IndexToken = "i";
+            public const string EntityIndexToken = "ei";
+            public const string EntityIndexTokenOpEqual = "ei=";
         }
 
         public static class Inspector
@@ -79,6 +85,7 @@ namespace Unity.Entities.Editor
             public const int MaxVisibleSystemCount = 50;
             public const double CoolDownTime = 300;
             public static readonly string EmptyRelationshipMessage = L10n.Tr("No relationships.");
+            public static readonly string EmptyAspectsMessage = L10n.Tr("No aspects.");
             public const string k_ComponentToken = "c:";
             public const string k_AspectToken = "aspect:";
         }

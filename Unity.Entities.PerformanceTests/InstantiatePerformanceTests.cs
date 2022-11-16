@@ -50,7 +50,9 @@ namespace Unity.Entities.PerformanceTests
         {
             var ptr = (byte*)NativeArrayUnsafeUtility.GetUnsafeBufferPointerWithoutChecks(array);
             var sliced = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(ptr + startIndex * UnsafeUtility.SizeOf<T>(), count, Allocator.Invalid);
+#if UNITY_EDITOR
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref sliced, NativeArrayUnsafeUtility.GetAtomicSafetyHandle(array));
+#endif
             return sliced;
         }
 

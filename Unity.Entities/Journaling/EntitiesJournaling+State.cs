@@ -385,7 +385,7 @@ namespace Unity.Entities
                     var archetype = chunk->Archetype;
                     var buffer = chunk->Buffer;
                     var length = archetypeChunk.Count;
-                    var startOffset = archetype->Offsets[0] + archetypeChunk.m_BatchStartEntityIndex * archetype->SizeOfs[0];
+                    var startOffset = archetype->Offsets[0];
                     if (!m_Buffer.PushBack(buffer + startOffset, sizeof(Entity) * length))
                         UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to push back archetype chunk entities in buffer.");
                 }

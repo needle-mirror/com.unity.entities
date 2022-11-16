@@ -63,8 +63,8 @@ namespace Unity.Entities.Tests
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var data = chunk.GetNativeArray(TypeRW);
-                var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.ChunkEntityCount);
+                var data = chunk.GetNativeArray(ref TypeRW);
+                var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
                 while(enumerator.NextEntityIndex(out var i))
                 {
                     data[i] = new EcsTestDataEnableable(SetValue);
@@ -78,20 +78,20 @@ namespace Unity.Entities.Tests
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.ChunkEntityCount);
+                var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
                 while(enumerator.NextEntityIndex(out var i))
                 {
                     var enabledValue = i % 2 == 0;
-                    chunk.SetComponentEnabled(TypeRW, i, enabledValue);
+                    chunk.SetComponentEnabled(ref TypeRW, i, enabledValue);
                 }
             }
         }
 
         partial struct SetValueToIndexJob : IJobEntity
         {
-            public void Execute(ref EcsTestDataEnableable data, [EntityInQueryIndex] int entityInQueryIndex)
+            public void Execute(ref EcsTestDataEnableable data, [Unity.Entities.EntityIndexInQuery] int entityIndexInQuery)
             {
-                data = new EcsTestDataEnableable(entityInQueryIndex);
+                data = new EcsTestDataEnableable(entityIndexInQuery);
             }
         }
 
@@ -841,6 +841,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public unsafe void SetEnabledBitsOnAllChunks_TypeNotInQuery_Throws()
         {
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestDataEnableable));

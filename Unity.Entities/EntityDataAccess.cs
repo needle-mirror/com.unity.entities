@@ -191,15 +191,9 @@ namespace Unity.Entities
         internal bool IsInExclusiveTransaction => m_DependencyManager.IsInTransaction;
 
         [BurstCompile]
-        internal struct DestroyChunks : IJob
+        internal static void DestroyChunks(EntityComponentStore* ecs, in NativeArray<ArchetypeChunk> chunks)
         {
-            [NativeDisableUnsafePtrRestriction] public EntityComponentStore* EntityComponentStore;
-            public NativeArray<ArchetypeChunk> Chunks;
-
-            public void Execute()
-            {
-                EntityComponentStore->DestroyEntities(Chunks);
-            }
+            ecs->DestroyEntities(chunks);
         }
 
         [ExcludeFromBurstCompatTesting("Takes managed World")]
@@ -256,7 +250,7 @@ namespace Unity.Entities
 
             builder.Dispose();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             self->m_UniversalQuery._GetImpl()->_DisallowDisposing = 1;
             self->m_UniversalQueryWithChunksAndSystems._GetImpl()->_DisallowDisposing = 1;
             self->m_UniversalQueryWithSystems._GetImpl()->_DisallowDisposing = 1;
@@ -293,7 +287,7 @@ namespace Unity.Entities
         {
             m_ManagedReferenceIndexList.Dispose();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             m_UniversalQueryWithSystems._GetImpl()->_DisallowDisposing = 0;
             m_UniversalQueryWithChunks._GetImpl()->_DisallowDisposing = 0;
             m_UniversalQuery._GetImpl()->_DisallowDisposing = 0;
@@ -315,6 +309,16 @@ namespace Unity.Entities
             m_EntityGuidQuery = default;
 #endif
 
+            // Disposing EntityQueryImpl accesses EntityComponentStore, so they must be disposed first
+            var keys = AliveEntityQueries.GetKeyArray(Allocator.Temp);
+            for (var i = 0; i < keys.Length; i++)
+            {
+                var queryPtr = (EntityQueryImpl*)keys[i];
+                queryPtr->Dispose();
+            }
+            AliveEntityQueries.Dispose();
+            AliveEntityQueries = default;
+
             m_DependencyManager.Dispose();
             Entities.EntityComponentStore.Destroy(EntityComponentStore);
             Entities.EntityQueryManager.Destroy(EntityQueryManager);
@@ -323,8 +327,6 @@ namespace Unity.Entities
             ManagedEntityDataAccess.FreeHandle(m_ManagedAccessHandle);
             m_ManagedAccessHandle = -1;
 
-            AliveEntityQueries.Dispose();
-            AliveEntityQueries = default;
 #if UNITY_EDITOR
             CachedEntityGUIDToEntityIndex.Dispose();
             CachedEntityGUIDToEntityIndex = default;
@@ -364,7 +366,7 @@ namespace Unity.Entities
 #endif
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal void AssertMainThread()
         {
             if (IsInExclusiveTransaction)
@@ -395,14 +397,14 @@ namespace Unity.Entities
         }
 
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void CheckMoreThan1024Components(int count)
         {
             if (count + 1 > 1024)
                 throw new ArgumentException($"Archetypes can't hold more than 1024 components");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void AssertCountsMatch(int count, int outputCount)
         {
             if (count != outputCount)
@@ -510,24 +512,6 @@ namespace Unity.Entities
             m_ManagedReferenceIndexList.Clear();
         }
 
-        [BurstDiscard]
-        private void RunDestroyChunksMono(NativeArray<ArchetypeChunk> chunks, ref bool didTheThing)
-        {
-            new DestroyChunks {EntityComponentStore = EntityComponentStore, Chunks = chunks}.Run();
-            didTheThing = true;
-        }
-
-        private void RunDestroyChunks(NativeArray<ArchetypeChunk> chunks)
-        {
-            bool didTheThing = false;
-            RunDestroyChunksMono(chunks, ref didTheThing);
-            if (didTheThing)
-                return;
-
-            EntityComponentStore->DestroyEntities(chunks);
-        }
-
-
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
@@ -589,7 +573,7 @@ namespace Unity.Entities
                         if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
                             JournalAddRecord_DestroyEntity(in originSystem, in chunks);
 #endif
-                        RunDestroyChunks(chunks);
+                        DestroyChunks(EntityComponentStore, chunks);
                     }
                     else
                     {
@@ -2043,11 +2027,10 @@ namespace Unity.Entities
             return remap;
         }
 
-        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
-        public NativeParallelHashMap<int, int> MoveSharedComponents(EntityComponentStore* srcEntityComponentStore, ManagedComponentStore srcManagedComponents, NativeArray<ArchetypeChunk> chunks, Allocator allocator)
+        [BurstCompile]
+        static void BuildSharedComponentMapForMoving(ref NativeHashMap<int, int> hashmap, ref NativeArray<ArchetypeChunk> chunks)
         {
-            var map = new NativeParallelHashMap<int, int>(64, allocator);
-
+            var map = hashmap;
             // Build a map of all shared component values that will be moved with the appropriate refcount
             for (int i = 0; i < chunks.Length; ++i)
             {
@@ -2068,6 +2051,13 @@ namespace Unity.Entities
                     }
                 }
             }
+        }
+
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public NativeHashMap<int, int> MoveSharedComponents(EntityComponentStore* srcEntityComponentStore, ManagedComponentStore srcManagedComponents, NativeArray<ArchetypeChunk> chunks, Allocator allocator)
+        {
+            var map = new NativeHashMap<int, int>(64, allocator);
+            BuildSharedComponentMapForMoving(ref map, ref chunks);
 
             // Move all shared components that are being referenced
             var kvps = map.GetKeyValueArrays(Allocator.Temp);
@@ -2837,7 +2827,7 @@ namespace Unity.Entities
             return (int*)dataAccess.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex, dataAccess.EntityComponentStore->GlobalSystemVersion);
         }
 
-        public static T GetComponentData<T>(ref this EntityDataAccess dataAccess, Entity entity, ManagedComponentStore managedComponentStore) where T : class, IComponentData
+        public static T GetComponentData<T>(ref this EntityDataAccess dataAccess, Entity entity, ManagedComponentStore managedComponentStore) where T : class, IComponentData, new()
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var index = *dataAccess.GetManagedComponentIndex(entity, typeIndex);

@@ -68,35 +68,35 @@ namespace Unity.Transforms
 
                 bool changed =
                     chunk.DidOrderChange(LastSystemVersion) ||
-                    chunk.DidChange(TranslationTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(RotationTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(CompositeRotationTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(ScaleTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(CompositeScaleTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(ParentScaleInverseTypeHandle, LastSystemVersion);
+                    chunk.DidChange(ref TranslationTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref RotationTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref CompositeRotationTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref ScaleTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref NonUniformScaleTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref CompositeScaleTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref ParentScaleInverseTypeHandle, LastSystemVersion);
                 if (!changed)
                 {
                     return;
                 }
 
-                var chunkTranslations = chunk.GetNativeArray(TranslationTypeHandle);
-                var chunkNonUniformScales = chunk.GetNativeArray(NonUniformScaleTypeHandle);
-                var chunkScales = chunk.GetNativeArray(ScaleTypeHandle);
-                var chunkCompositeScales = chunk.GetNativeArray(CompositeScaleTypeHandle);
-                var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
-                var chunkCompositeRotations = chunk.GetNativeArray(CompositeRotationTypeHandle);
-                var chunkLocalToParent = chunk.GetNativeArray(LocalToParentTypeHandle);
-                var chunkParentScaleInverses = chunk.GetNativeArray(ParentScaleInverseTypeHandle);
-                var hasTranslation = chunk.Has(TranslationTypeHandle);
-                var hasCompositeRotation = chunk.Has(CompositeRotationTypeHandle);
-                var hasRotation = chunk.Has(RotationTypeHandle);
+                var chunkTranslations = chunk.GetNativeArray(ref TranslationTypeHandle);
+                var chunkNonUniformScales = chunk.GetNativeArray(ref NonUniformScaleTypeHandle);
+                var chunkScales = chunk.GetNativeArray(ref ScaleTypeHandle);
+                var chunkCompositeScales = chunk.GetNativeArray(ref CompositeScaleTypeHandle);
+                var chunkRotations = chunk.GetNativeArray(ref RotationTypeHandle);
+                var chunkCompositeRotations = chunk.GetNativeArray(ref CompositeRotationTypeHandle);
+                var chunkLocalToParent = chunk.GetNativeArray(ref LocalToParentTypeHandle);
+                var chunkParentScaleInverses = chunk.GetNativeArray(ref ParentScaleInverseTypeHandle);
+                var hasTranslation = chunkTranslations.IsCreated;
+                var hasCompositeRotation = chunkCompositeRotations.IsCreated;
+                var hasRotation = chunkRotations.IsCreated;
                 var hasAnyRotation = hasCompositeRotation || hasRotation;
-                var hasNonUniformScale = chunk.Has(NonUniformScaleTypeHandle);
-                var hasScale = chunk.Has(ScaleTypeHandle);
-                var hasCompositeScale = chunk.Has(CompositeScaleTypeHandle);
+                var hasNonUniformScale = chunkNonUniformScales.IsCreated;
+                var hasScale = chunkScales.IsCreated;
+                var hasCompositeScale = chunkCompositeScales.IsCreated;
                 var hasAnyScale = hasScale || hasNonUniformScale || hasCompositeScale;
-                var hasParentScaleInverse = chunk.Has(ParentScaleInverseTypeHandle);
+                var hasParentScaleInverse = chunkParentScaleInverses.IsCreated;
                 var count = chunk.Count;
 
                 // #todo jump table when burst supports function pointers

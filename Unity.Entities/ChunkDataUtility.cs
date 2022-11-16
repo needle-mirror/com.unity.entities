@@ -292,9 +292,10 @@ namespace Unity.Entities
                 // basically, that the archetype's type arrays are sorted by typeIndex. Otherwise, it will fail to find
                 // dstType earlier in the archetype, and the type's bits will quietly not be cloned.
                 var srcType = srcArch->Types[srcTypeIndexInArchetype];
-                dstTypeIndexInArchetype = GetNextIndexInTypeArray(dstArch, srcType.TypeIndex, dstTypeIndexInArchetype);
-                if (dstTypeIndexInArchetype < 0)
-                    break;
+                int result = GetNextIndexInTypeArray(dstArch, srcType.TypeIndex, dstTypeIndexInArchetype);
+                if (result < 0)
+                    continue;
+                dstTypeIndexInArchetype = result;
 
                 var srcBits = srcArch->Chunks.GetEnabledArrayForTypeInChunk(srcTypeIndexInArchetype, srcChunkIndexInArchetype);
                 var dstBits = dstArch->Chunks.GetEnabledArrayForTypeInChunk(dstTypeIndexInArchetype, dstChunkIndexInArchetype);

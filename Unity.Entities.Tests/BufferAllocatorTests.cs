@@ -179,7 +179,7 @@ namespace Unity.Entities.Tests
 
             RunTest(kBufferBytes, kBufferCount, (allocator) =>
             {
-                var indices = CollectionHelper.CreateNativeArray<int>(kBufferCount, RwdAllocator.ToAllocator, NativeArrayOptions.UninitializedMemory);
+                var indices = CollectionHelper.CreateNativeArray<int>(kBufferCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
                 for (int iteration = 0; iteration < iterations; ++iteration)
                 {
@@ -202,6 +202,8 @@ namespace Unity.Entities.Tests
                     }
 
                     Assert.IsFalse(allocator.IsEmpty);
+
+                    RwdAllocator.Rewind();
                 }
 
                 indices.Dispose();

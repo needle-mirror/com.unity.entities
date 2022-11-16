@@ -1,5 +1,6 @@
 {
     "name": "Unity.Transforms.PerformanceTests",
+    "rootNamespace": "",
     "references": [
         "Unity.PerformanceTesting",
         "Unity.Transforms",
@@ -7,15 +8,23 @@
         "Unity.Entities.Tests",
         "Unity.Collections",
         "Unity.Burst",
-        "Unity.Jobs",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
     ],
-    "optionalUnityReferences": [
-        "TestAssemblies"
+    "includePlatforms": [],
+    "excludePlatforms": [
+        "iOS"
     ],
-    "includePlatforms": [
-        "Editor"
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
     ],
-    "excludePlatforms": [],
-    "allowUnsafeCode": true
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

@@ -83,7 +83,7 @@ namespace Unity.Entities.Hybrid.PerformanceTests
             {
                 m_DefaultWorld.World.EntityManager.SetComponentData(entities[i],
 #if !ENABLE_TRANSFORM_V1
-                    new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(0.0f, 42f, 0.0f)});
+                    LocalTransform.FromPosition(0.0f, 42f, 0.0f));
 #else
                     new Translation {Value = new float3(0.0f, 42f, 0.0f)});
 #endif

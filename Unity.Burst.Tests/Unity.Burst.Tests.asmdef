@@ -1,18 +1,27 @@
 {
     "name": "Unity.Burst.Tests",
+    "rootNamespace": "",
     "references": [
-        "Unity.Jobs",
         "Unity.Mathematics",
         "Unity.Collections",
         "Unity.Burst",
-        "Unity.Entities"
-    ],
-    "optionalUnityReferences": [
-        "TestAssemblies"
+        "Unity.Entities",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
     ],
     "includePlatforms": [
         "Editor"
     ],
     "excludePlatforms": [],
-    "allowUnsafeCode": true
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

@@ -19,10 +19,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
     sealed class LambdaBodySyntaxReplacer : CSharpSyntaxWalker
     {
         private readonly LambdaJobDescription _lambdaJobDescription;
-        private bool MustReplaceEcbNodesWithJobEntityBatchParallelWriterNodes =>
+        private bool MustReplaceEcbNodesWithJobChunkParallelWriterNodes =>
             _lambdaJobDescription.EntityCommandBufferParameter is {Playback: {ScheduleMode: ScheduleMode.ScheduleParallel}};
 
-        private bool MustReplaceEcbNodesWithJobEntityBatchEcbNodes =>
+        private bool MustReplaceEcbNodesWithJobChunkEcbNodes =>
             _lambdaJobDescription.EntityCommandBufferParameter != null &&
             _lambdaJobDescription.EntityCommandBufferParameter.Playback.ScheduleMode != ScheduleMode.ScheduleParallel;
 
@@ -31,13 +31,13 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         readonly List<SyntaxNode> _lineStatementNodesNeedingReplacement = new List<SyntaxNode>();
         readonly List<SyntaxNode> _thisNodesNeedingReplacement = new List<SyntaxNode>();
         readonly List<SyntaxNode> _constantNodesNeedingReplacement = new List<SyntaxNode>();
-        readonly List<SyntaxNode> _ecbNodesToReplaceWithJobEntityBatchEcbNodes = new List<SyntaxNode>();
+        readonly List<SyntaxNode> _ecbNodesToReplaceWithJobChunkEcbNodes = new List<SyntaxNode>();
         readonly List<SyntaxNode> _SimpleMemberAccessExpressionsNeedingReplacement = new List<SyntaxNode>();
 
         // These two lists are populated iff MustReplaceEntityCommandsMemberAccessNodesWithParallelWriterNodes is true.
         // A node with index i in _entityCommandInvocationExpressionNodesToReplace is to be replaced by the node with the same index in _parallelWriterInvocationNodes.
         // We use two lists instead of a dictionary because we need to access items in _parallelWriterInvocationNodes by index.
-        readonly List<SyntaxNode> _ecbNodesToReplaceWithJobEntityBatchParallelWriterNodes = new List<SyntaxNode>();
+        readonly List<SyntaxNode> _ecbNodesToReplaceWithJobChunkParallelWriterNodes = new List<SyntaxNode>();
         readonly List<SyntaxNode> _parallelWriterInvocationNodes = new List<SyntaxNode>();
 
         public (SyntaxNode rewrittenLambdaExpression, List<SyntaxNode> thisAccessNodesNeedingReplacement) Rewrite()
@@ -48,8 +48,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 _lineStatementNodesNeedingReplacement
                     .Concat(_thisNodesNeedingReplacement)
                     .Concat(_constantNodesNeedingReplacement)
-                    .Concat(_ecbNodesToReplaceWithJobEntityBatchEcbNodes)
-                    .Concat(_ecbNodesToReplaceWithJobEntityBatchParallelWriterNodes)
+                    .Concat(_ecbNodesToReplaceWithJobChunkEcbNodes)
+                    .Concat(_ecbNodesToReplaceWithJobChunkParallelWriterNodes)
                     .Concat(_SimpleMemberAccessExpressionsNeedingReplacement);
 
             if (!allTrackedNodes.Any())
@@ -60,18 +60,18 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             // Track nodes for later rewriting
             var rewrittenBody = _lambdaJobDescription.OriginalLambdaExpression.TrackNodes(allTrackedNodes);
 
-            if (MustReplaceEcbNodesWithJobEntityBatchEcbNodes)
+            if (MustReplaceEcbNodesWithJobChunkEcbNodes)
             {
-                var ecbParameterNodesToReplace = rewrittenBody.GetCurrentNodes(_ecbNodesToReplaceWithJobEntityBatchEcbNodes);
+                var ecbParameterNodesToReplace = rewrittenBody.GetCurrentNodes(_ecbNodesToReplaceWithJobChunkEcbNodes);
 
                 rewrittenBody = rewrittenBody.ReplaceNodes(
                     ecbParameterNodesToReplace,
                     (current, replacement) => SyntaxFactory.IdentifierName(GeneratedEcbFieldNameInJobChunkType));
             }
-            else if (MustReplaceEcbNodesWithJobEntityBatchParallelWriterNodes)
+            else if (MustReplaceEcbNodesWithJobChunkParallelWriterNodes)
             {
                 var currentEntityCommandInvocationNodes =
-                    rewrittenBody.GetCurrentNodes(_ecbNodesToReplaceWithJobEntityBatchParallelWriterNodes).ToArray();
+                    rewrittenBody.GetCurrentNodes(_ecbNodesToReplaceWithJobChunkParallelWriterNodes).ToArray();
 
                 rewrittenBody =
                     rewrittenBody.ReplaceNodes(
@@ -241,9 +241,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         throw new InvalidDescriptionException();
                     }
 
-                    if (MustReplaceEcbNodesWithJobEntityBatchParallelWriterNodes)
+                    if (MustReplaceEcbNodesWithJobChunkParallelWriterNodes)
                     {
-                        _ecbNodesToReplaceWithJobEntityBatchParallelWriterNodes.Add(originalNode);
+                        _ecbNodesToReplaceWithJobChunkParallelWriterNodes.Add(originalNode);
 
                         var replacementNode = ParallelEcbInvocationsReplacer.CreateReplacement(originalNode, invocationOperation);
                         _parallelWriterInvocationNodes.Add(replacementNode);
@@ -363,9 +363,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
             if (symbolInfo.Symbol is IParameterSymbol parameterSymbol
                 && parameterSymbol.Type.Is("Unity.Entities.EntityCommandBuffer")
-                && MustReplaceEcbNodesWithJobEntityBatchEcbNodes)
+                && MustReplaceEcbNodesWithJobChunkEcbNodes)
             {
-                _ecbNodesToReplaceWithJobEntityBatchEcbNodes.Add(nameSyntax);
+                _ecbNodesToReplaceWithJobChunkEcbNodes.Add(nameSyntax);
                 return;
             }
 

@@ -73,7 +73,10 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         [Test]
         public void HasComponentForSystem([Values] SystemAPIAccess access, [Values] MemberUnderneath memberUnderneath, [Values] ReadAccess readAccess) => GetTestSystemUnsafe().TestHasComponentForSystem(ref GetSystemStateRef(), access, memberUnderneath);
-
+        [Test]
+        public void IsComponentEnabledForSystem() => GetTestSystemUnsafe().TestIsComponentEnabledForSystem(ref GetSystemStateRef());
+        [Test]
+        public void SetComponentEnabledForSystem() => GetTestSystemUnsafe().TestSetComponentEnabledForSystem(ref GetSystemStateRef());
         #endregion
 
         #region Buffer Access
@@ -86,6 +89,12 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         [Test]
         public void HasBuffer([Values] SystemAPIAccess access, [Values] MemberUnderneath memberUnderneath, [Values] ReadAccess readAccess) => GetTestSystemUnsafe().TestHasBuffer(ref GetSystemStateRef(), access, memberUnderneath);
+
+        [Test]
+        public void IsBufferEnabled() => GetTestSystemUnsafe().TestIsBufferEnabled(ref GetSystemStateRef());
+        [Test]
+        public void SetBufferEnabled() => GetTestSystemUnsafe().TestSetBufferEnabled(ref GetSystemStateRef());
+
 
         #endregion
 
@@ -109,6 +118,8 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void TryGetSingleton([Values] SystemAPIAccess access, [Values] TypeArgumentExplicit typeArgumentExplicit) => GetTestSystemUnsafe().TestTryGetSingleton(ref GetSystemStateRef(), access, typeArgumentExplicit);
         [Test]
         public void GetSingletonRW([Values] SystemAPIAccess access) => GetTestSystemUnsafe().TestGetSingletonRW(ref GetSystemStateRef(), access);
+        [Test]
+        public void TryGetSingletonRW([Values] SystemAPIAccess access) => GetTestSystemUnsafe().TestTryGetSingletonRW(ref GetSystemStateRef(), access);
         [Test]
         public void SetSingleton([Values] SystemAPIAccess access, [Values] TypeArgumentExplicit typeArgumentExplicit) => GetTestSystemUnsafe().TestSetSingleton(ref GetSystemStateRef(), access, typeArgumentExplicit);
         [Test]
@@ -135,6 +146,18 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         #endregion
 
+        #region Handles
+
+        [Test]
+        public void GetEntityTypeHandle() => GetTestSystemUnsafe().TestGetEntityTypeHandle(ref GetSystemStateRef());
+        [Test]
+        public void GetComponentTypeHandle() => GetTestSystemUnsafe().TestGetComponentTypeHandle(ref GetSystemStateRef());
+        [Test]
+        public void GetBufferTypeHandle() => GetTestSystemUnsafe().TestGetBufferTypeHandle(ref GetSystemStateRef());
+        [Test]
+        public void GetSharedComponentTypeHandle() => GetTestSystemUnsafe().TestGetSharedComponentTypeHandle(ref GetSystemStateRef());
+
+        #endregion
 
         #region NoError
         [Test]
@@ -145,6 +168,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         [Test]
         public void VariableInOnCreate() => World.CreateSystem<TestISystemSystem.VariableInOnCreateSystem>();
+
+        [Test]
+        public void PropertyWithOnlyGetter() => World.CreateSystem<TestISystemSystem.PropertyWithOnlyGetterSystem>().Update(World.Unmanaged);
 
         #endregion
     }
@@ -164,7 +190,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
             {
                 var e = state.EntityManager.CreateEntity();
 #if !ENABLE_TRANSFORM_V1
-                state.EntityManager.AddComponentData(e, new LocalToWorldTransform {Value= UniformScaleTransform.FromPosition(i, i, i)});
+                state.EntityManager.AddComponentData(e, LocalTransform.FromPosition(i, i, i));
 #else
                 state.EntityManager.AddComponentData(e, new Translation{Value=i});
                 state.EntityManager.AddComponentData(e, new Rotation());
@@ -416,7 +442,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         [BurstCompile]
         public void TestGetComponentLookup(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath, ReadAccess readAccess) {
             var e = state.EntityManager.CreateEntity();
-            var t = new LocalToWorldTransform { Value = UniformScaleTransform.FromPosition(0, 2, 0) };
+            var t = LocalTransform.FromPosition(0, 2, 0);
             state.EntityManager.AddComponentData(e, t);
 
             switch (readAccess) {
@@ -426,11 +452,11 @@ namespace Unity.Entities.Tests.TestSystemAPI
                         case MemberUnderneath.WithMemberUnderneath:
                             switch (access) {
                                 case SystemAPIAccess.SystemAPI: {
-                                    var tGet = SystemAPI.GetComponentLookup<LocalToWorldTransform>(true)[e];
+                                    var tGet = SystemAPI.GetComponentLookup<LocalTransform>(true)[e];
                                     Assert.That(tGet, Is.EqualTo(t));
                                 } break;
                                 case SystemAPIAccess.Using: {
-                                    var tGet = GetComponentLookup<LocalToWorldTransform>(true)[e];
+                                    var tGet = GetComponentLookup<LocalTransform>(true)[e];
                                     Assert.That(tGet, Is.EqualTo(t));
                                 } break;
                             }
@@ -438,12 +464,12 @@ namespace Unity.Entities.Tests.TestSystemAPI
                         case MemberUnderneath.WithoutMemberUnderneath:
                             switch (access) {
                                 case SystemAPIAccess.SystemAPI: {
-                                    var cdfe = SystemAPI.GetComponentLookup<LocalToWorldTransform>(true);
+                                    var cdfe = SystemAPI.GetComponentLookup<LocalTransform>(true);
                                     var tGet = cdfe[e];
                                     Assert.That(tGet, Is.EqualTo(t));
                                 } break;
                                 case SystemAPIAccess.Using: {
-                                    var cdfe = GetComponentLookup<LocalToWorldTransform>(true);
+                                    var cdfe = GetComponentLookup<LocalTransform>(true);
                                     var tGet = cdfe[e];
                                     Assert.That(tGet, Is.EqualTo(t));
                                 } break;
@@ -457,17 +483,17 @@ namespace Unity.Entities.Tests.TestSystemAPI
                         case MemberUnderneath.WithMemberUnderneath:
                             switch (access) {
                                 case SystemAPIAccess.SystemAPI: {
-                                    t.Value.Position += 1;
-                                    var cdfe = SystemAPI.GetComponentLookup<LocalToWorldTransform>();
+                                    t.Position += 1;
+                                    var cdfe = SystemAPI.GetComponentLookup<LocalTransform>();
                                     cdfe[e] = t;
-                                    var tSet = SystemAPI.GetComponentLookup<LocalToWorldTransform>(true)[e];
+                                    var tSet = SystemAPI.GetComponentLookup<LocalTransform>(true)[e];
                                     Assert.That(tSet, Is.EqualTo(t));
                                 } break;
                                 case SystemAPIAccess.Using: {
-                                    t.Value.Position += 1;
-                                    var cdfe = GetComponentLookup<LocalToWorldTransform>();
+                                    t.Position += 1;
+                                    var cdfe = GetComponentLookup<LocalTransform>();
                                     cdfe[e] = t;
-                                    var tSet = GetComponentLookup<LocalToWorldTransform>(true)[e];
+                                    var tSet = GetComponentLookup<LocalTransform>(true)[e];
                                     Assert.That(tSet, Is.EqualTo(t));
                                 } break;
                             }
@@ -475,14 +501,14 @@ namespace Unity.Entities.Tests.TestSystemAPI
                         case MemberUnderneath.WithoutMemberUnderneath:
                             switch (access) {
                                 case SystemAPIAccess.SystemAPI: {
-                                    t.Value.Position += 1;
-                                    var cdfe = SystemAPI.GetComponentLookup<LocalToWorldTransform>();
+                                    t.Position += 1;
+                                    var cdfe = SystemAPI.GetComponentLookup<LocalTransform>();
                                     cdfe[e] = t;
                                     Assert.That(cdfe[e], Is.EqualTo(t));
                                 } break;
                                 case SystemAPIAccess.Using: {
-                                    t.Value.Position += 1;
-                                    var cdfe = GetComponentLookup<LocalToWorldTransform>();
+                                    t.Position += 1;
+                                    var cdfe = GetComponentLookup<LocalTransform>();
                                     cdfe[e] = t;
                                     Assert.That(cdfe[e], Is.EqualTo(t));
                                 } break;
@@ -496,27 +522,27 @@ namespace Unity.Entities.Tests.TestSystemAPI
         [BurstCompile]
         public void TestGetComponent(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath) {
             var e = state.EntityManager.CreateEntity();
-            var t = new LocalToWorldTransform { Value = UniformScaleTransform.FromPosition(0, 2, 0) };
+            var t = LocalTransform.FromPosition(0, 2, 0);
             state.EntityManager.AddComponentData(e, t);
 
             switch (memberUnderneath) {
                 case MemberUnderneath.WithMemberUnderneath:
                     switch (access) {
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponent<LocalToWorldTransform>(e).Value, Is.EqualTo(t.Value));
+                            Assert.That(SystemAPI.GetComponent<LocalTransform>(e), Is.EqualTo(t));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(GetComponent<LocalToWorldTransform>(e).Value, Is.EqualTo(t.Value));
+                            Assert.That(GetComponent<LocalTransform>(e), Is.EqualTo(t));
                             break;
                     }
                     break;
                 case MemberUnderneath.WithoutMemberUnderneath:
                     switch (access) {
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponent<LocalToWorldTransform>(e), Is.EqualTo(t));
+                            Assert.That(SystemAPI.GetComponent<LocalTransform>(e), Is.EqualTo(t));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(GetComponent<LocalToWorldTransform>(e), Is.EqualTo(t));
+                            Assert.That(GetComponent<LocalTransform>(e), Is.EqualTo(t));
                             break;
                     }
                     break;
@@ -526,37 +552,37 @@ namespace Unity.Entities.Tests.TestSystemAPI
         [BurstCompile]
         public void TestSetComponent(ref SystemState state, SystemAPIAccess access) {
             var e = state.EntityManager.CreateEntity();
-            var t = new LocalToWorldTransform { Value = UniformScaleTransform.FromPosition(0, 2, 0) };
+            var t = LocalTransform.FromPosition(0, 2, 0);
             state.EntityManager.AddComponentData(e, t);
 
 
             switch (access) {
                 case SystemAPIAccess.SystemAPI:
-                    t.Value.Position += 1;
+                    t.Position += 1;
                     SystemAPI.SetComponent(e, t);
-                    Assert.That(SystemAPI.GetComponent<LocalToWorldTransform>(e), Is.EqualTo(t));
+                    Assert.That(SystemAPI.GetComponent<LocalTransform>(e), Is.EqualTo(t));
                     break;
                 case SystemAPIAccess.Using:
-                    t.Value.Position += 1;
+                    t.Position += 1;
                     SetComponent(e, t);
-                    Assert.That(GetComponent<LocalToWorldTransform>(e), Is.EqualTo(t));
+                    Assert.That(GetComponent<LocalTransform>(e), Is.EqualTo(t));
                     break;
             }
         }
 
         [BurstCompile]
         public void TestHasComponent(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath) {
-            var e = state.EntityManager.CreateEntity(typeof(LocalToWorldTransform));
+            var e = state.EntityManager.CreateEntity(typeof(LocalTransform));
 
             switch (memberUnderneath) {
                 case MemberUnderneath.WithMemberUnderneath:
                     switch (access) {
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.HasComponent<LocalToWorldTransform>(e).GetHashCode(), Is.EqualTo(1));
+                            Assert.That(SystemAPI.HasComponent<LocalTransform>(e).GetHashCode(), Is.EqualTo(1));
                             Assert.That(SystemAPI.HasComponent<EcsTestData>(e).GetHashCode(), Is.EqualTo(0));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(HasComponent<LocalToWorldTransform>(e).GetHashCode(), Is.EqualTo(1));
+                            Assert.That(HasComponent<LocalTransform>(e).GetHashCode(), Is.EqualTo(1));
                             Assert.That(HasComponent<EcsTestData>(e).GetHashCode(), Is.EqualTo(0));
                             break;
                     }
@@ -564,11 +590,11 @@ namespace Unity.Entities.Tests.TestSystemAPI
                 case MemberUnderneath.WithoutMemberUnderneath:
                     switch (access) {
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.HasComponent<LocalToWorldTransform>(e), Is.EqualTo(true));
+                            Assert.That(SystemAPI.HasComponent<LocalTransform>(e), Is.EqualTo(true));
                             Assert.That(SystemAPI.HasComponent<EcsTestData>(e), Is.EqualTo(false));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(HasComponent<LocalToWorldTransform>(e), Is.EqualTo(true));
+                            Assert.That(HasComponent<LocalTransform>(e), Is.EqualTo(true));
                             Assert.That(HasComponent<EcsTestData>(e), Is.EqualTo(false));
                             break;
                     }
@@ -744,7 +770,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void TestGetComponentForSystem(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath)
         {
 #if !ENABLE_TRANSFORM_V1
-            var t = new LocalToParentTransform { Value = UniformScaleTransform.FromPosition(0, 2, 0) };
+            var t = LocalTransform.FromPosition(0, 2, 0);
 #else
             var t = new Translation { Value = new float3(0, 2, 0) };
             state.EntityManager.AddComponentData(state.SystemHandle, t);
@@ -758,10 +784,10 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     switch (access)
                     {
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponent<LocalToParentTransform>(state.SystemHandle).Value, Is.EqualTo(t.Value));
+                            Assert.That(SystemAPI.GetComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(t));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(GetComponent<LocalToParentTransform>(state.SystemHandle).Value, Is.EqualTo(t.Value));
+                            Assert.That(GetComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(t));
                             break;
                     }
                     break;
@@ -769,10 +795,10 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     switch (access)
                     {
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponent<LocalToParentTransform>(state.SystemHandle), Is.EqualTo(t));
+                            Assert.That(SystemAPI.GetComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(t));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(GetComponent<LocalToParentTransform>(state.SystemHandle), Is.EqualTo(t));
+                            Assert.That(GetComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(t));
                             break;
                     }
                     break;
@@ -807,15 +833,15 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void TestGetComponentRWForSystem(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath)
         {
 #if !ENABLE_TRANSFORM_V1
-            var t = new LocalToWorldTransform { Value = UniformScaleTransform.FromPosition(0, 2, 0) };
-            state.EntityManager.AddComponent<LocalToWorldTransform>(state.SystemHandle);
+            var t = LocalTransform.FromPosition(0, 2, 0);
+            state.EntityManager.AddComponent<LocalTransform>(state.SystemHandle);
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI:
-                    SystemAPI.GetComponentRW<LocalToWorldTransform>(state.SystemHandle).ValueRW = t;
+                    SystemAPI.GetComponentRW<LocalTransform>(state.SystemHandle).ValueRW = t;
                     break;
                 case SystemAPIAccess.Using:
-                    GetComponentRW<LocalToWorldTransform>(state.SystemHandle).ValueRW = t;
+                    GetComponentRW<LocalTransform>(state.SystemHandle).ValueRW = t;
                     break;
             }
 
@@ -825,10 +851,10 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     switch (access)
                     {
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponentRW<LocalToWorldTransform>(state.SystemHandle).ValueRW.Value, Is.EqualTo(t.Value));
+                            Assert.That(SystemAPI.GetComponentRW<LocalTransform>(state.SystemHandle).ValueRW, Is.EqualTo(t));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(GetComponentRW<LocalToWorldTransform>(state.SystemHandle).ValueRW.Value, Is.EqualTo(t.Value));
+                            Assert.That(GetComponentRW<LocalTransform>(state.SystemHandle).ValueRW, Is.EqualTo(t));
                             break;
                     }
                     break;
@@ -836,10 +862,10 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     switch (access)
                     {
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponentRW<LocalToWorldTransform>(state.SystemHandle).ValueRW, Is.EqualTo(t));
+                            Assert.That(SystemAPI.GetComponentRW<LocalTransform>(state.SystemHandle).ValueRW, Is.EqualTo(t));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(GetComponentRW<LocalToWorldTransform>(state.SystemHandle).ValueRW, Is.EqualTo(t));
+                            Assert.That(GetComponentRW<LocalTransform>(state.SystemHandle).ValueRW, Is.EqualTo(t));
                             break;
                     }
                     break;
@@ -889,7 +915,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void TestSetComponentForSystem(ref SystemState state, SystemAPIAccess access)
         {
 #if !ENABLE_TRANSFORM_V1
-            var t = new LocalToWorldTransform { Value = UniformScaleTransform.FromPosition(0, 2, 0) };
+            var t = LocalTransform.FromPosition(0, 2, 0);
             state.EntityManager.AddComponentData(state.SystemHandle, t);
 #else
             var t = new Translation { Value = new float3(0, 2, 0) };
@@ -901,14 +927,14 @@ namespace Unity.Entities.Tests.TestSystemAPI
             {
 #if !ENABLE_TRANSFORM_V1
                 case SystemAPIAccess.SystemAPI:
-                    t.Value.Position += 1;
+                    t.Position += 1;
                     SystemAPI.SetComponent(state.SystemHandle, t);
-                    Assert.That(SystemAPI.GetComponent<LocalToWorldTransform>(state.SystemHandle), Is.EqualTo(t));
+                    Assert.That(SystemAPI.GetComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(t));
                     break;
                 case SystemAPIAccess.Using:
-                    t.Value.Position += 1;
+                    t.Position += 1;
                     SetComponent(state.SystemHandle, t);
-                    Assert.That(GetComponent<LocalToWorldTransform>(state.SystemHandle), Is.EqualTo(t));
+                    Assert.That(GetComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(t));
                     break;
 #else
                 case SystemAPIAccess.SystemAPI:
@@ -929,7 +955,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void TestHasComponentForSystem(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath)
         {
 #if !ENABLE_TRANSFORM_V1
-            state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<LocalToWorldTransform>());
+            state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<LocalTransform>());
 #else
             state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<Translation>());
 #endif
@@ -941,11 +967,11 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     {
 #if !ENABLE_TRANSFORM_V1
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.HasComponent<LocalToWorldTransform>(state.SystemHandle).GetHashCode(), Is.EqualTo(1));
+                            Assert.That(SystemAPI.HasComponent<LocalTransform>(state.SystemHandle).GetHashCode(), Is.EqualTo(1));
                             Assert.That(SystemAPI.HasComponent<EcsTestData>(state.SystemHandle).GetHashCode(), Is.EqualTo(0));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(HasComponent<LocalToWorldTransform>(state.SystemHandle).GetHashCode(), Is.EqualTo(1));
+                            Assert.That(HasComponent<LocalTransform>(state.SystemHandle).GetHashCode(), Is.EqualTo(1));
                             Assert.That(HasComponent<EcsTestData>(state.SystemHandle).GetHashCode(), Is.EqualTo(0));
                             break;
 #else
@@ -965,11 +991,11 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     {
 #if !ENABLE_TRANSFORM_V1
                         case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.HasComponent<LocalToWorldTransform>(state.SystemHandle), Is.EqualTo(true));
+                            Assert.That(SystemAPI.HasComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(true));
                             Assert.That(SystemAPI.HasComponent<EcsTestData>(state.SystemHandle), Is.EqualTo(false));
                             break;
                         case SystemAPIAccess.Using:
-                            Assert.That(HasComponent<LocalToWorldTransform>(state.SystemHandle), Is.EqualTo(true));
+                            Assert.That(HasComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(true));
                             Assert.That(HasComponent<EcsTestData>(state.SystemHandle), Is.EqualTo(false));
                             break;
 #else
@@ -985,6 +1011,23 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     }
                     break;
             }
+        }
+
+        [BurstCompile]
+        public void TestIsComponentEnabledForSystem(ref SystemState state)
+        {
+            state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<EcsTestDataEnableable>());
+            Assert.That(IsComponentEnabled<EcsTestDataEnableable>(state.SystemHandle), Is.EqualTo(true));
+        }
+
+        [BurstCompile]
+        public void TestSetComponentEnabledForSystem(ref SystemState state)
+        {
+            state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<EcsTestDataEnableable>());
+            SetComponentEnabled<EcsTestDataEnableable>(state.SystemHandle, false);
+            Assert.That(state.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(state.SystemHandle.m_Entity), Is.EqualTo(false));
+            SetComponentEnabled<EcsTestDataEnableable>(state.SystemHandle, true);
+            Assert.That(state.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(state.SystemHandle.m_Entity), Is.EqualTo(true));
         }
 
         #endregion
@@ -1135,6 +1178,25 @@ namespace Unity.Entities.Tests.TestSystemAPI
             }
         }
 
+        [BurstCompile]
+        public void TestIsBufferEnabled(ref SystemState state)
+        {
+            var e = state.EntityManager.CreateEntity();
+            state.EntityManager.AddBuffer<EcsIntElementEnableable>(e);
+            Assert.That(IsBufferEnabled<EcsIntElementEnableable>(e), Is.EqualTo(true));
+        }
+
+        [BurstCompile]
+        public void TestSetBufferEnabled(ref SystemState state)
+        {
+            var e = state.EntityManager.CreateEntity();
+            state.EntityManager.AddBuffer<EcsIntElementEnableable>(e);
+            SetBufferEnabled<EcsIntElementEnableable>(e, false);
+            Assert.That(state.EntityManager.IsComponentEnabled<EcsIntElementEnableable>(e), Is.EqualTo(false));
+            SetBufferEnabled<EcsIntElementEnableable>(e, true);
+            Assert.That(state.EntityManager.IsComponentEnabled<EcsIntElementEnableable>(e), Is.EqualTo(true));
+        }
+
         #endregion
 
         #region StorageInfo Access
@@ -1250,6 +1312,27 @@ namespace Unity.Entities.Tests.TestSystemAPI
         }
 
         [BurstCompile]
+        public void TestTryGetSingletonRW(ref SystemState state, SystemAPIAccess access)
+        {
+            state.EntityManager.CreateEntity(typeof(EcsTestData));
+            switch (access)
+            {
+                case SystemAPIAccess.SystemAPI:
+                {
+                    if (SystemAPI.TryGetSingletonRW<EcsTestData>(out var @ref))
+                        @ref.ValueRW.value = 5;
+                } break;
+                case SystemAPIAccess.Using:
+                {
+                    if (TryGetSingletonRW<EcsTestData>(out var @ref))
+                        @ref.ValueRW.value = 5;
+                } break;
+            }
+
+            Assert.AreEqual(5, GetSingleton<EcsTestData>().value);
+        }
+
+        [BurstCompile]
         public void TestSetSingleton(ref SystemState state, SystemAPIAccess access, TypeArgumentExplicit typeArgumentExplicit)
         {
             state.EntityManager.CreateEntity(typeof(EcsTestData));
@@ -1347,26 +1430,27 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void TestTryGetSingletonBuffer(ref SystemState state, SystemAPIAccess access, TypeArgumentExplicit typeArgumentExplicit)
         {
             var e = state.EntityManager.CreateEntity();
-            var buffer1 = state.EntityManager.AddBuffer<EcsIntElement>(e);
-            buffer1.Add(5);
+            state.EntityManager.AddBuffer<EcsIntElement>(e);
+            if (SystemAPI.TryGetSingletonBuffer<EcsIntElement>(out var buffer, false))
+                buffer.Add(5);
 
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI when typeArgumentExplicit == TypeArgumentExplicit.TypeArgumentShown:
-                    Assert.True(SystemAPI.TryGetSingletonBuffer<EcsIntElement>(out var buffer2SystemAPITypeArgumentShown));
-                    Assert.AreEqual(buffer1[0], buffer2SystemAPITypeArgumentShown[0]);
+                    Assert.True(SystemAPI.TryGetSingletonBuffer<EcsIntElement>(out var buffer2SystemAPITypeArgumentShown, true));
+                    Assert.AreEqual(buffer[0], buffer2SystemAPITypeArgumentShown[0]);
                     break;
                 case SystemAPIAccess.SystemAPI:
                     Assert.True(SystemAPI.TryGetSingletonBuffer(out DynamicBuffer<EcsIntElement> buffer2SystemAPITypeArgumentHidden));
-                    Assert.AreEqual(buffer1[0], buffer2SystemAPITypeArgumentHidden[0]);
+                    Assert.AreEqual(buffer[0], buffer2SystemAPITypeArgumentHidden[0]);
                     break;
                 case SystemAPIAccess.Using when typeArgumentExplicit == TypeArgumentExplicit.TypeArgumentShown:
-                    Assert.True(TryGetSingletonBuffer<EcsIntElement>(out var buffer2UsingTypeArgumentShown));
-                    Assert.AreEqual(buffer1[0], buffer2UsingTypeArgumentShown[0]);
+                    Assert.True(TryGetSingletonBuffer<EcsIntElement>(out var buffer2UsingTypeArgumentShown, true));
+                    Assert.AreEqual(buffer[0], buffer2UsingTypeArgumentShown[0]);
                     break;
                 case SystemAPIAccess.Using:
-                    Assert.True(TryGetSingletonBuffer(out DynamicBuffer<EcsIntElement> buffer2UsingTypeArgumentHidden));
-                    Assert.AreEqual(buffer1[0], buffer2UsingTypeArgumentHidden[0]);
+                    Assert.True(TryGetSingletonBuffer(out DynamicBuffer<EcsIntElement> buffer2UsingTypeArgumentHidden, true));
+                    Assert.AreEqual(buffer[0], buffer2UsingTypeArgumentHidden[0]);
                     break;
             }
         }
@@ -1435,6 +1519,42 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         #endregion
 
+        #region Handles
+
+        [BurstCompile]
+        public void TestGetEntityTypeHandle(ref SystemState state){
+            var e = state.EntityManager.CreateEntity();
+            var handle = SystemAPI.GetEntityTypeHandle();
+            Assert.That(state.EntityManager.GetChunk(e).GetNativeArray(handle)[0]==e);
+        }
+
+        [BurstCompile]
+        public void TestGetComponentTypeHandle(ref SystemState state){
+            var e = state.EntityManager.CreateEntity();
+            state.EntityManager.AddComponentData(e, new EcsTestData(5));
+            var handle = SystemAPI.GetComponentTypeHandle<EcsTestData>();
+            Assert.That(state.EntityManager.GetChunk(e).GetNativeArray(ref handle)[0].GetValue()==5);
+        }
+
+        [BurstCompile]
+        public void TestGetBufferTypeHandle(ref SystemState state){
+            var e = state.EntityManager.CreateEntity();
+            var buffer =state.EntityManager.AddBuffer<EcsIntElement>(e);
+            buffer.Add(new EcsIntElement{Value=5});
+            var handle = SystemAPI.GetBufferTypeHandle<EcsIntElement>();
+            Assert.That(state.EntityManager.GetChunk(e).GetBufferAccessor(ref handle)[0][0].Value==5);
+        }
+
+        [BurstCompile]
+        public void TestGetSharedComponentTypeHandle(ref SystemState state){
+            var e = state.EntityManager.CreateEntity();
+            state.EntityManager.AddSharedComponent(e, new SharedData1(5));
+            var handle = SystemAPI.GetSharedComponentTypeHandle<SharedData1>();
+            Assert.That(state.EntityManager.GetChunk(e).GetSharedComponent(handle).value==5);
+        }
+
+        #endregion
+
         #region NoError
 
 #if !ENABLE_TRANSFORM_V1
@@ -1443,10 +1563,10 @@ namespace Unity.Entities.Tests.TestSystemAPI
         {
             // Setup Archetypes
             var playerArchetype = state.EntityManager.CreateArchetype(new FixedList128Bytes<ComponentType> {
-                ComponentType.ReadWrite<EcsTestFloatData>(), ComponentType.ReadWrite<LocalToWorldTransform>(), ComponentType.ReadWrite<EcsTestTag>()
+                ComponentType.ReadWrite<EcsTestFloatData>(), ComponentType.ReadWrite<LocalTransform>(), ComponentType.ReadWrite<EcsTestTag>()
             }.ToNativeArray(state.World.UpdateAllocator.ToAllocator));
             var coinArchetype = state.EntityManager.CreateArchetype(new FixedList128Bytes<ComponentType> {
-                ComponentType.ReadWrite<EcsTestFloatData>(), ComponentType.ReadWrite<LocalToWorldTransform>(),
+                ComponentType.ReadWrite<EcsTestFloatData>(), ComponentType.ReadWrite<LocalTransform>(),
             }.ToNativeArray(state.World.UpdateAllocator.ToAllocator));
             var coinCounterArchetype = state.EntityManager.CreateArchetype(new FixedList128Bytes<ComponentType> {
                 ComponentType.ReadWrite<EcsTestData>()
@@ -1456,21 +1576,21 @@ namespace Unity.Entities.Tests.TestSystemAPI
             var players = state.EntityManager.CreateEntity(playerArchetype, 5, state.World.UpdateAllocator.ToAllocator);
             foreach (var player in players)
                 SetComponent(player, new EcsTestFloatData {Value = 0.1f});
-            SetComponent(players[0], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(0,1,0)});
-            SetComponent(players[1], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(1,1,0)});
-            SetComponent(players[2], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(0,1,1)});
-            SetComponent(players[3], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(1,1,1)});
-            SetComponent(players[4], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(1,0,1)});
+            SetComponent(players[0], LocalTransform.FromPosition(0,1,0));
+            SetComponent(players[1], LocalTransform.FromPosition(1,1,0));
+            SetComponent(players[2], LocalTransform.FromPosition(0,1,1));
+            SetComponent(players[3], LocalTransform.FromPosition(1,1,1));
+            SetComponent(players[4], LocalTransform.FromPosition(1,0,1));
 
             // Setup Enemies
             var coins = state.EntityManager.CreateEntity(coinArchetype, 5, state.World.UpdateAllocator.ToAllocator);
             foreach (var coin in coins)
                 SetComponent(coin, new EcsTestFloatData {Value = 1f});
-            SetComponent(coins[0], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(0,1,0)});
-            SetComponent(coins[1], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(1,1,0)});
-            SetComponent(coins[2], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(0,1,1)});
-            SetComponent(coins[3], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(1,1,1)});
-            SetComponent(coins[4], new LocalToWorldTransform {Value = UniformScaleTransform.FromPosition(1,0,1)});
+            SetComponent(coins[0], LocalTransform.FromPosition(0,1,0));
+            SetComponent(coins[1], LocalTransform.FromPosition(1,1,0));
+            SetComponent(coins[2], LocalTransform.FromPosition(0,1,1));
+            SetComponent(coins[3], LocalTransform.FromPosition(1,1,1));
+            SetComponent(coins[4], LocalTransform.FromPosition(1,0,1));
 
             // Setup Coin Counter
             state.EntityManager.CreateEntity(coinCounterArchetype);
@@ -1481,9 +1601,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
         {
             NestingSetup(ref state);
 
-            foreach (var (playerTransform, playerRadius) in Query<RefRO<LocalToWorldTransform>, RefRO<EcsTestFloatData>>().WithAll<EcsTestTag>())
-            foreach (var (coinTransform, coinRadius, coinEntity) in Query<RefRO<LocalToWorldTransform>, RefRO<EcsTestFloatData>>().WithEntityAccess().WithNone<EcsTestTag>())
-                if (math.distancesq(playerTransform.ValueRO.Value.Position, coinTransform.ValueRO.Value.Position) < coinRadius.ValueRO.Value + playerRadius.ValueRO.Value)
+            foreach (var (playerTransform, playerRadius) in Query<RefRO<LocalTransform>, RefRO<EcsTestFloatData>>().WithAll<EcsTestTag>())
+            foreach (var (coinTransform, coinRadius, coinEntity) in Query<RefRO<LocalTransform>, RefRO<EcsTestFloatData>>().WithEntityAccess().WithNone<EcsTestTag>())
+                if (math.distancesq(playerTransform.ValueRO.Position, coinTransform.ValueRO.Position) < coinRadius.ValueRO.Value + playerRadius.ValueRO.Value)
                     GetSingletonRW<EcsTestData>().ValueRW.value++; // Three-layer SystemAPI nesting
 
             var coinsCollected = GetSingleton<EcsTestData>().value;
@@ -1554,8 +1674,8 @@ namespace Unity.Entities.Tests.TestSystemAPI
                 if (Exists(target.ValueRO.value1))
                 {
                     var targetTransform = GetAspectRO<TransformAspect>(target.ValueRO.value1);
-                    var src = transform.Position;
-                    var dst = targetTransform.Position;
+                    var src = transform.LocalPosition;
+                    var dst = targetTransform.LocalPosition;
                     Assert.That(src, Is.Not.EqualTo(dst));
                 }
             }
@@ -1571,6 +1691,21 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
             public void OnDestroy(ref SystemState state) {}
             public void OnUpdate(ref SystemState state) {}
+        }
+
+        [BurstCompile]
+        public partial struct PropertyWithOnlyGetterSystem : ISystem {
+            public void OnCreate(ref SystemState state) {}
+            public void OnDestroy(ref SystemState state) {}
+
+            int DataValue => GetSingleton<EcsTestData>().value;
+
+            [BurstCompile]
+            public void OnUpdate(ref SystemState state)
+            {
+                state.EntityManager.AddComponentData(state.SystemHandle, new EcsTestData(5));
+                Assert.AreEqual(DataValue, 5);
+            }
         }
 
         #endregion

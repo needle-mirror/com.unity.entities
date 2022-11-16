@@ -98,7 +98,7 @@ namespace Unity.Entities.Editor
 
         static readonly string k_ComponentTypeNotFoundTitle = L10n.Tr("Type not found");
         static readonly string k_ComponentTypeNotFoundContent = L10n.Tr("\"{0}\" is not a component type");
-        static readonly string k_NoEntitiesFoundTitle = L10n.Tr("No entity matches your search");
+        static readonly string k_NoItemFoundTitle = L10n.Tr("No item matches your search");
 
         ViewType m_ViewType;
 
@@ -111,6 +111,11 @@ namespace Unity.Entities.Editor
         readonly PrefabStageElement m_PrefabStageElement;
         readonly HierarchyLoadingElement m_LoadingElement;
         readonly CenteredMessageElement m_MessageElement;
+
+        bool m_IsRenamingItem;
+
+        long m_LastMouseUpSelectionTime;
+        int m_LastMouseUpSelectionIndex;
 
         /// <summary>
         /// The last version the list view refreshed at.
@@ -148,6 +153,7 @@ namespace Unity.Entities.Editor
 
             var listViewInnerScrollView = HierarchyMultiColumnListView.Q<ScrollView>();
             listViewInnerScrollView.contentContainer.RegisterCallback<PointerDownEvent>(OnMouseDown);
+            listViewInnerScrollView.contentContainer.RegisterCallback<PointerUpEvent>(OnMouseUp);
             listViewInnerScrollView.mode = ScrollViewMode.Vertical;
             listViewInnerScrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
 
@@ -190,6 +196,31 @@ namespace Unity.Entities.Editor
             {
                 var itemIndex = ListViewBridge.VirtualizationControllerGetItemIndexFromMousePosition(HierarchyMultiColumnListView, evt.localPosition);
                 HierarchyMultiColumnListView.SetSelection(itemIndex);
+            }
+        }
+
+        void OnMouseUp(PointerUpEvent evt)
+        {
+            // Using 300ms which is the standard default for Unity.
+            const long kRenameClickDelay = 300;
+
+            if (evt.button == (int)MouseButton.LeftMouse)
+            {
+                var itemIndex = ListViewBridge.VirtualizationControllerGetItemIndexFromMousePosition(HierarchyMultiColumnListView, evt.localPosition);
+
+                var delay = evt.timestamp - m_LastMouseUpSelectionTime;
+
+                if (itemIndex == m_LastMouseUpSelectionIndex && evt.clickCount == 1 && delay > kRenameClickDelay)
+                {
+                    var item = HierarchyMultiColumnListView.GetItem(m_Nodes[itemIndex].GetHandle());
+                    item.BeginRename();
+                }
+
+                if (itemIndex != m_LastMouseUpSelectionIndex)
+                {
+                    m_LastMouseUpSelectionTime = evt.timestamp;
+                    m_LastMouseUpSelectionIndex = itemIndex;
+                }
             }
         }
 
@@ -238,6 +269,8 @@ namespace Unity.Entities.Editor
         public void ClearSelection()
         {
             HierarchyMultiColumnListView.ClearSelection();
+            m_LastMouseUpSelectionIndex = -1;
+            m_LastMouseUpSelectionTime = 0;
         }
 
         public void Refresh()
@@ -263,7 +296,7 @@ namespace Unity.Entities.Editor
 
                 if (m_Nodes.Count == 0)
                 {
-                    m_MessageElement.Title = k_NoEntitiesFoundTitle;
+                    m_MessageElement.Title = k_NoItemFoundTitle;
                     m_MessageElement.Message = string.Empty;
                     SetView(ViewType.Message);
                     return;
@@ -288,10 +321,17 @@ namespace Unity.Entities.Editor
         {
             using var enumerator = indices.GetEnumerator();
 
-            var index = enumerator.MoveNext() ? enumerator.Current : default;
-            var handle = (uint)index < m_Nodes.Count ? m_Nodes[index].GetHandle() : default;
+            if (enumerator.MoveNext())
+            {
+                var index = enumerator.Current;
+                var handle = (uint)index < m_Nodes.Count ? m_Nodes[index].GetHandle() : default;
 
-            OnSelectionChanged?.Invoke(handle);
+                OnSelectionChanged?.Invoke(handle);
+            }
+            else
+            {
+                OnSelectionChanged?.Invoke(default);
+            }
         }
 
         /// <summary>
@@ -299,7 +339,13 @@ namespace Unity.Entities.Editor
         /// </summary>
         void OnMakeItem(HierarchyListViewItem element)
         {
+            element.Q<HierarchyNameElement>().OnRename += OnRename;
             element.Q<Toggle>().RegisterCallback<MouseUpEvent>(OnToggleExpandedState);
+        }
+
+        void OnRename(HierarchyNameElement element, bool canceled)
+        {
+            m_IsRenamingItem = false;
         }
 
         void OnToggleExpandedState(MouseUpEvent evt)
@@ -321,17 +367,41 @@ namespace Unity.Entities.Editor
             if (HierarchyMultiColumnListView.selectedIndex == -1) // nothing is currently selected
                 return;
 
+            if (m_IsRenamingItem)
+                return;
+
             var shouldStopPropagation = true;
             var currentNode = m_Nodes[HierarchyMultiColumnListView.selectedIndex].GetHandle();
+
+            var item = HierarchyMultiColumnListView.GetItem(currentNode);
 
             switch (evt.keyCode)
             {
                 case KeyCode.RightArrow:
                     SetExpandedState(currentNode, (evt.modifiers & EventModifiers.Alt) != 0, true);
                     break;
+
                 case KeyCode.LeftArrow:
                     SetExpandedState(currentNode, (evt.modifiers & EventModifiers.Alt) != 0, false);
                     break;
+
+                case KeyCode.Return:
+                case KeyCode.KeypadEnter:
+                    if (null != item && Application.platform == RuntimePlatform.OSXEditor)
+                    {
+                        item.BeginRename();
+                        m_IsRenamingItem = true;
+                    }
+                    break;
+
+                case KeyCode.F2:
+                    if (null != item && Application.platform != RuntimePlatform.OSXEditor)
+                    {
+                        item.BeginRename();
+                        m_IsRenamingItem = true;
+                    }
+                    break;
+
                 default:
                     shouldStopPropagation = false;
                     break;
@@ -372,6 +442,12 @@ namespace Unity.Entities.Editor
         {
             m_ViewChangeVersion = 0;
             Refresh();
+        }
+
+        public void OnLostFocus()
+        {
+            m_LastMouseUpSelectionIndex = -1;
+            m_LastMouseUpSelectionTime = 0;
         }
     }
 }

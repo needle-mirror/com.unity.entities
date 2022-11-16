@@ -3,6 +3,8 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
+    public struct AdditionalEntity : IComponentData {}
+
     [AddComponentMenu("")]
     public class TestAdditionalEntityComponentAuthoring : MonoBehaviour
     {
@@ -13,7 +15,10 @@ namespace Unity.Entities.Tests
             public override void Bake(TestAdditionalEntityComponentAuthoring authoring)
             {
                 for (int index = 0; index < authoring.value; ++index)
-                    CreateAdditionalEntity();
+                {
+                    var entity = CreateAdditionalEntity();
+                    AddComponent<AdditionalEntity>(entity);
+                }
             }
         }
     }

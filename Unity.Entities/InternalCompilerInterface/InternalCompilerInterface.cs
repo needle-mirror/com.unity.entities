@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -96,6 +97,42 @@ namespace Unity.Entities
                 jobData.RunByRefWithoutJobs(query);
             }
 
+            public static unsafe JobHandle Schedule<T>(
+                T jobData,
+                EntityQuery query,
+                JobHandle dependsOn)
+                where T : struct, IJobChunk
+            {
+                return JobChunkExtensions.ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Single, default(NativeArray<int>));
+            }
+
+            public static unsafe JobHandle ScheduleByRef<T>(
+                ref T jobData,
+                EntityQuery query,
+                JobHandle dependsOn)
+                where T : struct, IJobChunk
+            {
+                return JobChunkExtensions.ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Single, default(NativeArray<int>));
+            }
+
+            public static unsafe JobHandle ScheduleParallel<T>(
+                T jobData,
+                EntityQuery query,
+                JobHandle dependsOn)
+                where T : unmanaged, IJobChunk
+            {
+                return JobChunkExtensions.ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, default(NativeArray<int>));
+            }
+
+            public static unsafe JobHandle ScheduleParallelByRef<T>(
+                ref T jobData,
+                EntityQuery query,
+                JobHandle dependsOn)
+                where T : unmanaged, IJobChunk
+            {
+                return JobChunkExtensions.ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, default(NativeArray<int>));
+            }
+
             public static JobHandle ScheduleParallel<T>(T jobData, EntityQuery query, JobHandle dependsOn,
                 NativeArray<int> chunkBaseEntityIndices)
                 where T : struct, IJobChunk
@@ -112,6 +149,19 @@ namespace Unity.Entities
                     chunkBaseEntityIndices);
             }
         }
+
+        /// <summary>
+        /// Used internally to get a single query for when you are inside a SystemBase property or generic member method.
+        /// AS A USER, PLEASE DON'T USE THIS, ANYTHING BUT THIS!!
+        /// </summary>
+        /// <param name="system">System to attach query to.</param>
+        /// <typeparam name="T">single type to query after</typeparam>
+        /// <returns>An entity query for the SystemBase</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static EntityQuery OnlyAllowedInSourceGeneratedCodeGetSingleQuery<T>(SystemBase system)
+            => new EntityQueryBuilder(system.WorldUpdateAllocator).WithAllRW<T>().Build(system);
+
+        public interface IIsFullyUnmanaged {}
 
         /// <summary>
         /// Used internally by all Source Generation stubs. It throws an InvalidOperations from Source-gen not running.

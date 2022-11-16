@@ -50,7 +50,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     case SingletonAccessPerformanceTests.AccessType.ThroughSystem:
                         for (int i = 0; i < k_Count; i++)
-                            accumulate += GetSingleton<EcsTestFloatData>().Value;
+                            accumulate += SystemAPI.GetSingleton<EcsTestFloatData>().Value;
                         break;
                     case SingletonAccessPerformanceTests.AccessType.ThroughQuery:
                         for (int i = 0; i < k_Count; i++)
@@ -71,7 +71,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     case SingletonAccessPerformanceTests.AccessType.ThroughSystem:
                         for (int i = 0; i < k_Count; i++)
-                            accumulate += GetSingletonRW<EcsTestFloatData>().ValueRW.Value; 
+                            accumulate += SystemAPI.GetSingletonRW<EcsTestFloatData>().ValueRW.Value;
                         break;
                     case SingletonAccessPerformanceTests.AccessType.ThroughQuery:
                         for (int i = 0; i < k_Count; i++)
@@ -92,7 +92,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     case SingletonAccessPerformanceTests.AccessType.ThroughSystem:
                         for (int i = 0; i < k_Count; i++)
-                            accumulate += GetSingletonBuffer<EcsIntElement>().Length;
+                            accumulate += SystemAPI.GetSingletonBuffer<EcsIntElement>().Length;
                         break;
                     case SingletonAccessPerformanceTests.AccessType.ThroughQuery:
                         for (int i = 0; i < k_Count; i++)
@@ -115,7 +115,7 @@ namespace Unity.Entities.PerformanceTests
                     case SingletonAccessPerformanceTests.AccessType.ThroughSystem:
                         for (int i = 0; i < k_Count; i++)
                         {
-                            entity = GetSingletonEntity<EcsTestFloatData>();
+                            entity = SystemAPI.GetSingletonEntity<EcsTestFloatData>();
                             accumulate += entity.Version;
                         }
                         break;
@@ -141,7 +141,7 @@ namespace Unity.Entities.PerformanceTests
             {
                 int accumulate = 0;
                 for (int i = 0; i < k_Count; i++)
-                    accumulate += HasSingleton<EcsTestFloatData>() ? 1 : 0;
+                    accumulate += SystemAPI.HasSingleton<EcsTestFloatData>() ? 1 : 0;
                 Assert.AreEqual(k_Count, accumulate);
             }
 
@@ -151,7 +151,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     case SingletonAccessPerformanceTests.AccessType.ThroughSystem:
                         for (int i = 0; i < k_Count; i++)
-                            SetSingleton(new EcsTestFloatData());
+                            SystemAPI.SetSingleton(new EcsTestFloatData());
                         break;
                     case SingletonAccessPerformanceTests.AccessType.ThroughQuery:
                         for (int i = 0; i < k_Count; i++)

@@ -10,6 +10,9 @@ using Unity.Mathematics;
 
 namespace Unity.Entities
 {
+    /// <summary>
+    /// A system that resets the world update allocator by rewinding its memories.
+    /// </summary>
     // ReSharper disable once InconsistentNaming
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.Editor)]

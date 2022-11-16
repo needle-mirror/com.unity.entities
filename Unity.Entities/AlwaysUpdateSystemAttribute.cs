@@ -3,13 +3,13 @@ using System;
 namespace Unity.Entities
 {
     /// <summary>
-    /// This attribute is deprecated, and has any effect.
+    /// Obsolete. Systems now update by default. 
     /// </summary>
     /// <remarks>
-    /// Previously, this attribute would cause a system to update even if none of its registered queries matched any entities.
+    /// **Obsolete. Systems now update by default. Use <see cref="RequireMatchingQueriesForUpdateAttribute"/> if you want a
+    /// system to only update if one of its queries is non-empty.** 
     ///
-    /// Systems now always update by default. Use <see cref="RequireMatchingQueriesForUpdateAttribute"/> if you want a
-    /// System to only update if one of its queries is non-empty.
+    /// This attribute causes a system to update even if none of its registered queries matched any entities.
     /// </remarks>
     [Obsolete("AlwaysUpdateSystem is deprecated. Systems now always update by default. Use RequireMatchingQueriesForUpdate if you want a System to only update if one of its queries matches. (RemovedAfter Entities 1.0)")]
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]

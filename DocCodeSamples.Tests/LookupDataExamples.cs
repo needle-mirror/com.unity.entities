@@ -25,19 +25,22 @@ namespace Doc.CodeSamples.Tests
                 {
                     // Check to make sure the target Entity still exists and has
                     // the needed component
-                    if (!HasComponent<LocalToWorld>(target.entity))
+                    if (!SystemAPI.HasComponent<LocalToWorld>(target.entity))
                         return;
 
                     // Look up the entity data
-                    LocalToWorld targetTransform = GetComponent<LocalToWorld>(target.entity);
+                    LocalToWorld targetTransform
+                        = SystemAPI.GetComponent<LocalToWorld>(target.entity);
                     float3 targetPosition = targetTransform.Position;
 
                     // Calculate the rotation
                     float3 displacement = targetPosition - transform.Position;
                     float3 upReference = new float3(0, 1, 0);
-                    quaternion lookRotation = quaternion.LookRotationSafe(displacement, upReference);
+                    quaternion lookRotation =
+                        quaternion.LookRotationSafe(displacement, upReference);
 
-                    orientation.Value = math.slerp(orientation.Value, lookRotation, deltaTime);
+                    orientation.Value =
+                        math.slerp(orientation.Value, lookRotation, deltaTime);
                 })
                 .ScheduleParallel();
         }
@@ -67,7 +70,8 @@ namespace Doc.CodeSamples.Tests
                         return;
 
                     // Get a reference to the buffer
-                    DynamicBuffer<BufferData> bufferOfOneEntity = buffersOfAllEntities[target.entity];
+                    DynamicBuffer<BufferData> bufferOfOneEntity =
+                        buffersOfAllEntities[target.entity];
 
                     // Use the data in the buffer
                     float avg = 0;
@@ -103,7 +107,7 @@ namespace Doc.CodeSamples.Tests
             public float deltaTime;
 
 #if !ENABLE_TRANSFORM_V1
-            public void Execute(ref LocalToWorldTransform transform, in Target target, in LocalToWorld entityPosition)
+            public void Execute(ref LocalTransform transform, in Target target, in LocalToWorld entityPosition)
 #else
             public void Execute(Translation position, in Target target, in LocalToWorld entityPosition)
 #endif
@@ -115,13 +119,13 @@ namespace Doc.CodeSamples.Tests
                 if (!EntityPositions.HasComponent(targetEntity))
                     return;
 
-                // Update translation to move the chasing enitity toward the target
+                // Update translation to move the chasing entity toward the target
                 float3 targetPosition = entityPosition.Position;
 #if !ENABLE_TRANSFORM_V1
-                float3 chaserPosition = transform.Value.Position;
+                float3 chaserPosition = transform.Position;
 
                 float3 displacement = targetPosition - chaserPosition;
-                transform.Value.Position = chaserPosition + displacement * deltaTime;
+                transform.Position = chaserPosition + displacement * deltaTime;
 #else
                 float3 chaserPosition = position.Value;
 
@@ -140,7 +144,7 @@ namespace Doc.CodeSamples.Tests
             query = this.GetEntityQuery
                 (
 #if !ENABLE_TRANSFORM_V1
-                    typeof(LocalToWorldTransform),
+                    typeof(LocalTransform),
 #else
                     typeof(Translation),
 #endif
@@ -171,9 +175,9 @@ namespace Doc.CodeSamples.Tests
         private EntityQuery query;
         protected override void OnCreate()
         {
-            // Select all entities that have Translation and Target Component
+            // Select all entities that have LocalTransform and Target Component
 #if !ENABLE_TRANSFORM_V1
-            query = this.GetEntityQuery(typeof(LocalToWorldTransform), ComponentType.ReadOnly<Target>());
+            query = this.GetEntityQuery(typeof(LocalTransform), ComponentType.ReadOnly<Target>());
 #else
             query = this.GetEntityQuery(typeof(Translation), ComponentType.ReadOnly<Target>());
 #endif
@@ -189,7 +193,7 @@ namespace Doc.CodeSamples.Tests
             public ComponentLookup<LocalToWorld> EntityPositions;
 
 #if !ENABLE_TRANSFORM_V1
-            public void Execute(ref LocalToWorldTransform transform, in Target target, in LocalToWorld entityPosition)
+            public void Execute(ref LocalTransform transform, in Target target, in LocalToWorld entityPosition)
 #else
             public void Execute(ref Translation position, in Target target, in LocalToWorld entityPosition)
 #endif
@@ -204,18 +208,19 @@ namespace Doc.CodeSamples.Tests
                 #region lookup-ijobchunk-read
                 float3 targetPosition = entityPosition.Position;
 #if !ENABLE_TRANSFORM_V1
-                float3 chaserPosition = transform.Value.Position;
+                float3 chaserPosition = transform.Position;
 #else
                 float3 chaserPosition = position.Value;
 #endif
                 float3 displacement = targetPosition - chaserPosition;
                 float3 newPosition = chaserPosition + displacement * deltaTime;
 #if !ENABLE_TRANSFORM_V1
-                transform.Value.Position = newPosition;
+                transform.Position = newPosition;
 #else
                 position = new Translation { Value = newPosition };
 #endif
                 #endregion
+
             }
         }
 

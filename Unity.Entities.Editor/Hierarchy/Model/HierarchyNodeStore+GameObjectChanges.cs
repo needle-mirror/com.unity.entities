@@ -1,4 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using Unity.Collections;
+using Unity.Editor.Bridge;
+using Unity.Mathematics;
 using Unity.Scenes;
 using UnityEditor;
 using UnityEngine;
@@ -9,219 +14,347 @@ namespace Unity.Entities.Editor
 {
     partial struct HierarchyNodeStore
     {
-        static int GetSceneIndex(Scene scene)
+        public IntegrateGameObjectChangesEnumerator CreateIntegrateGameObjectChangesEnumerator(HierarchyGameObjectChanges changes, int batchSize)
         {
-            for (var i = 0; i < SceneManager.sceneCount; i++)
-            {
-                if (SceneManager.GetSceneAt(i) == scene)
-                    return i;
-            }
-
-            return 0;
+            return new IntegrateGameObjectChangesEnumerator(this, m_SubSceneNodeMapping, changes, batchSize);
         }
 
-        internal void IntegrateGameObjectChanges(HierarchyGameObjectChanges changes)
+        public struct IntegrateGameObjectChangesEnumerator : IEnumerator
         {
-            foreach (var scene in changes.UnloadedScenes)
+            internal enum Step
             {
-                if (!scene.isRemoved)
-                    continue;
-
-                var sceneNode = scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene);
-                if (Exists(sceneNode))
-                    RemoveNode(sceneNode);
+                HandleUnloadedScenes,
+                HandleLoadedScenes,
+                IntegrateChanges,
+                Complete
             }
 
-            var rootGameObjects = new List<GameObject>();
-            foreach (var scene in changes.LoadedScenes)
+            readonly HierarchyNodeStore m_Hierarchy;
+            readonly SubSceneNodeMapping m_SubSceneNodeMapping;
+            readonly HierarchyGameObjectChanges m_Changes;
+
+            NativeArray<GameObjectChangeTrackerEvent> m_Events;
+
+            Step m_Step;
+
+            int m_TotalCount;
+            int m_CurrentPosition;
+            int m_BatchSize;
+
+            public IntegrateGameObjectChangesEnumerator(HierarchyNodeStore hierarchy, SubSceneNodeMapping subSceneNodeMapping, HierarchyGameObjectChanges changes, int batchSize)
             {
-                var sceneNode = scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene);
+                m_Hierarchy = hierarchy;
+                m_SubSceneNodeMapping = subSceneNodeMapping;
+                m_Changes = changes;
+                m_TotalCount = changes.GameObjectChangeTrackerEvents.Length;
+                m_CurrentPosition = 0;
+                m_BatchSize = batchSize > 0 ? math.min(batchSize, m_TotalCount) : m_TotalCount;
+                m_Events = changes.GameObjectChangeTrackerEvents.Length > 0 ? m_Changes.GameObjectChangeTrackerEvents.AsArray() : default;
+                m_Step = default;
 
-                if (!Exists(sceneNode))
-                    AddNode(sceneNode);
-
-                if (!scene.isSubScene)
-                    SetSortIndex(sceneNode, GetSceneIndex(scene));
-
-                if (!scene.isLoaded)
-                    continue;
-
-                scene.GetRootGameObjects(rootGameObjects);
-                foreach (var gameObject in rootGameObjects)
-                    RecursivelyAddNodes(gameObject, sceneNode);
+                SetStep(Step.HandleUnloadedScenes);
             }
 
-            if (changes.GameObjectChangeTrackerEvents.Length == 0)
-                return;
+            public float Progress => m_TotalCount > 0 ? m_CurrentPosition / (float)m_TotalCount : 0;
 
-            var events = changes.GameObjectChangeTrackerEvents.AsArray();
-            for (var i = 0; i < events.Length; i++)
+            void SetStep(Step step)
             {
-                var changeTrackerEvent = events[i];
-                var gameObject = EditorUtility.InstanceIDToObject(changeTrackerEvent.InstanceId) as GameObject;
-
-                if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.SceneOrderChanged) != 0)
+                while (true)
                 {
-                    for (var sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
-                    {
-                        var scene = SceneManager.GetSceneAt(sceneIndex);
-                        if (scene.isSubScene)
-                            continue;
-                        var sceneNode = HierarchyNodeHandle.FromScene(scene);
-                        if (!Exists(sceneNode))
-                            continue;
+                    m_Step = step;
 
-                        SetSortIndex(sceneNode, sceneIndex);
+                    switch (step)
+                    {
+                        case Step.HandleUnloadedScenes:
+                            if (m_Changes.UnloadedScenes.Length == 0)
+                            {
+                                step = Step.HandleLoadedScenes;
+                                continue;
+                            }
+                            return;
+                        case Step.HandleLoadedScenes:
+                            if (m_Changes.LoadedScenes.Length == 0)
+                            {
+                                step = Step.IntegrateChanges;
+                                continue;
+                            }
+                            return;
+                        case Step.IntegrateChanges:
+                            if (m_Changes.GameObjectChangeTrackerEvents.Length == 0)
+                            {
+                                step = Step.Complete;
+                                continue;
+                            }
+                            return;
+                        case Step.Complete:
+                            return;
                     }
                 }
+            }
 
-                if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.Destroyed) != 0)
+            public bool MoveNext()
+            {
+                switch (m_Step)
                 {
-                    var deletedHandle = HierarchyNodeHandle.FromGameObject(changeTrackerEvent.InstanceId);
-                    if (Exists(deletedHandle))
-                        RemoveNode(deletedHandle);
+                    case Step.HandleUnloadedScenes:
+                        HandleUnloadedScenes();
+                        SetStep(Step.HandleLoadedScenes);
+                        return true;
+                    case Step.HandleLoadedScenes:
+                        HandleLoadedScenes();
+                        SetStep(Step.IntegrateChanges);
+                        return true;
+                    case Step.IntegrateChanges:
+                        IntegrateChanges();
+                        if (m_CurrentPosition < m_TotalCount)
+                            return true;
 
-                    continue;
+                        SetStep(Step.Complete);
+                        return true;
+
+                    case Step.Complete:
+                        return false;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
+            }
 
-                if (!gameObject
+            void HandleUnloadedScenes()
+            {
+                foreach (var scene in m_Changes.UnloadedScenes)
+                {
+                    if (!scene.isRemoved)
+                        continue;
+
+                    var sceneNode = scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene);
+                    if (m_Hierarchy.Exists(sceneNode))
+                        m_Hierarchy.RemoveNode(sceneNode);
+                }
+            }
+
+            void HandleLoadedScenes()
+            {
+                if (m_Changes.LoadedScenes.Length == 0)
+                    return;
+
+                var rootGameObjects = new List<GameObject>();
+                foreach (var scene in m_Changes.LoadedScenes)
+                {
+                    var sceneNode = scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene);
+
+                    if (!m_Hierarchy.Exists(sceneNode))
+                        m_Hierarchy.AddNode(sceneNode);
+
+                    if (!scene.isSubScene)
+                        m_Hierarchy.SetSortIndex(sceneNode, GetSceneIndex(scene));
+
+                    if (!scene.isLoaded)
+                        continue;
+
+                    scene.GetRootGameObjects(rootGameObjects);
+                    foreach (var gameObject in rootGameObjects)
+                        RecursivelyAddNodes(gameObject, sceneNode);
+                }
+            }
+
+            void IntegrateChanges()
+            {
+                var batchEnd = math.min(m_CurrentPosition + m_BatchSize, m_TotalCount);
+                for (; m_CurrentPosition < batchEnd; m_CurrentPosition++)
+                {
+                    var changeTrackerEvent = m_Events[m_CurrentPosition];
+                    var gameObject = EditorUtility.InstanceIDToObject(changeTrackerEvent.InstanceId) as GameObject;
+
+                    if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.SceneOrderChanged) != 0)
+                    {
+                        for (var sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
+                        {
+                            var scene = SceneManager.GetSceneAt(sceneIndex);
+                            if (scene.isSubScene)
+                                continue;
+                            var sceneNode = HierarchyNodeHandle.FromScene(scene);
+                            if (!m_Hierarchy.Exists(sceneNode))
+                                continue;
+
+                            m_Hierarchy.SetSortIndex(sceneNode, sceneIndex);
+                        }
+                    }
+
+                    if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.Destroyed) != 0)
+                    {
+                        var deletedHandle = HierarchyNodeHandle.FromGameObject(changeTrackerEvent.InstanceId);
+                        if (m_Hierarchy.Exists(deletedHandle))
+                            m_Hierarchy.RemoveNode(deletedHandle);
+
+                        continue;
+                    }
+
+                    if (!gameObject
+
 // Invalid scenes should be ignored by default, with the option to fail when encountered.
 #if !DOTS_HIERARCHY_FAIL_ON_INVALID_SCENES
-                    || !gameObject.scene.IsValid()
+                        || !gameObject.scene.IsValid()
 #endif
-                    )
-                    continue;
+                       )
+                        continue;
 
-                var parent = GetParentNodeHandle(gameObject);
-                if (!Exists(parent))
-                {
-                    // Check in the rest of the buffer if the parent is created
-                    for (var j = i; j < events.Length; j++)
+                    var parent = GetParentNodeHandle(gameObject);
+                    if (!m_Hierarchy.Exists(parent))
                     {
-                        var evt = events[j];
-                        if (evt.InstanceId == parent.Index && (evt.EventType & GameObjectChangeTrackerEventType.Destroyed) == 0)
+                        // Check in the rest of the buffer if the parent is created
+                        for (var j = m_CurrentPosition; j < m_TotalCount; j++)
                         {
-                            // replace the current event with the one found
-                            events[i] = evt;
-                            // put the current event later in the buffer
-                            events[j] = changeTrackerEvent;
-                            // rewind
-                            i--;
-                            break;
+                            var evt = m_Events[j];
+                            if (evt.InstanceId == parent.Index && (evt.EventType & GameObjectChangeTrackerEventType.Destroyed) == 0)
+                            {
+                                // replace the current event with the one found
+                                m_Events[m_CurrentPosition] = evt;
+
+                                // put the current event later in the buffer
+                                m_Events[j] = changeTrackerEvent;
+
+                                // rewind
+                                m_CurrentPosition--;
+                                break;
+                            }
+                        }
+
+                        continue;
+                    }
+
+                    var handle = m_Hierarchy.GetNodeHandle(gameObject);
+                    if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.CreatedOrChanged) != 0)
+                    {
+                        if (!m_Hierarchy.Exists(handle))
+                        {
+                            // the node doesn't exist
+                            // if the handle is a subscene, we try to create a go node to check if it exists
+                            // this would mean a go has been converted to a subscene
+                            if (handle.Kind == NodeKind.SubScene)
+                            {
+                                var goHandle = HierarchyNodeHandle.FromGameObject(gameObject);
+                                if (m_Hierarchy.Exists(goHandle))
+                                    m_Hierarchy.RemoveNode(goHandle);
+                            }
+
+                            m_Hierarchy.AddNode(handle, parent);
+                            m_Hierarchy.SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
                         }
                     }
 
-                    continue;
-                }
-
-                var handle = GetNodeHandle(gameObject);
-                if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.CreatedOrChanged) != 0)
-                {
-                    if (!Exists(handle))
+                    if (((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.ChangedScene) != 0 || ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.ChangedParent) != 0)))
                     {
-                        // the node doesn't exist
-                        // if the handle is a subscene, we try to create a go node to check if it exists
-                        // this would mean a go has been converted to a subscene
-                        if (handle.Kind == NodeKind.SubScene)
+                        if (!m_Hierarchy.Exists(parent))
                         {
-                            var goHandle = HierarchyNodeHandle.FromGameObject(gameObject);
-                            if (Exists(goHandle))
-                                RemoveNode(goHandle);
+                            Debug.Log($"[{changeTrackerEvent.EventType}]: Ignoring GameObject {gameObject.name} ({gameObject.GetInstanceID()}), expected parent {parent} does not exist in the hierarchy");
                         }
-
-                        AddNode(handle, parent);
-                        SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
-                    }
-                }
-
-                if (((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.ChangedScene) != 0 || ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.ChangedParent) != 0)))
-                {
-                    if (!Exists(parent))
-                    {
-                        Debug.Log($"[{changeTrackerEvent.EventType}]: Ignoring GameObject {gameObject.name} ({gameObject.GetInstanceID()}), expected parent {parent} does not exist in the hierarchy");
+                        else
+                        {
+                            m_Hierarchy.SetParent(handle, parent);
+                            m_Hierarchy.SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
+                        }
                     }
                     else
                     {
-                        SetParent(handle, parent);
-                        SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
+                        if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.OrderChanged) != 0)
+                        {
+                            m_Hierarchy.SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
+                        }
+                    }
+                }
+            }
+
+            public void Reset() => throw new InvalidOperationException($"{nameof(IntegrateGameObjectChangesEnumerator)} can not be reset. Instead a new instance should be used with a new change set.");
+
+            public object Current => null;
+
+            public Step CurrentStep => m_Step;
+
+            HierarchyNodeHandle GetParentNodeHandle(GameObject gameObject)
+            {
+                if (!gameObject.transform.parent)
+                {
+// Invalid scenes should be ignored by default, with the option to fail when encountered.
+#if DOTS_HIERARCHY_FAIL_ON_INVALID_SCENES
+                if (!gameObject.scene.IsValid())
+                    throw new System.InvalidOperationException($"GameObject {gameObject.name} ({gameObject.GetInstanceID()}) is at root of a scene marked as not valid");
+#endif
+
+                    // No GO parent, parent must be a scene
+                    // Note that we know we have a valid scene at this point
+                    return gameObject.scene.isSubScene
+                        ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, gameObject.scene)
+                        : HierarchyNodeHandle.FromScene(gameObject.scene);
+                }
+
+                return m_Hierarchy.GetNodeHandle(gameObject.transform.parent.gameObject);
+            }
+
+            void RecursivelyAddNodes(GameObject gameObject, HierarchyNodeHandle parentHandle)
+            {
+                var handle = m_Hierarchy.GetNodeHandle(gameObject);
+
+                if (handle.Kind == NodeKind.SubScene)
+                {
+                    // SubScene nodes are allowed to already exist
+                    // they can have been created by the Entity change integration
+                    if (!m_Hierarchy.Exists(handle))
+                    {
+                        m_Hierarchy.AddNode(handle, parentHandle);
+                    }
+
+                    m_Hierarchy.SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
+
+                    var subscene = gameObject.GetComponent<SubScene>();
+                    if (!subscene.IsLoaded)
+                        return;
+
+                    var rootGameObjects = new List<GameObject>();
+                    subscene.EditingScene.GetRootGameObjects(rootGameObjects);
+                    foreach (var rootGameObject in rootGameObjects)
+                    {
+                        RecursivelyAddNodes(rootGameObject, handle);
                     }
                 }
                 else
                 {
-                    if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.OrderChanged) != 0)
+                    // Other nodes cannot be detected twice
+                    if (m_Hierarchy.Exists(handle))
+                        return;
+
+                    m_Hierarchy.AddNode(handle, parentHandle);
+                    m_Hierarchy.SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
+
+                    foreach (Transform child in gameObject.transform)
                     {
-                        SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
+                        RecursivelyAddNodes(child.gameObject, handle);
                     }
                 }
+            }
+
+            static int GetSceneIndex(Scene scene)
+            {
+                for (var i = 0; i < SceneManager.sceneCount; i++)
+                {
+                    if (SceneManager.GetSceneAt(i) == scene)
+                        return i;
+                }
+
+                return 0;
             }
         }
 
         HierarchyNodeHandle GetNodeHandle(GameObject gameObject)
         {
             if (gameObject.TryGetComponent<SubScene>(out var subscene))
+            {
+                if (!subscene.SceneAsset)
+                    return new HierarchyNodeHandle(NodeKind.SubScene, gameObject.GetInstanceID(), -1);
+
                 return HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, subscene);
+            }
 
             return HierarchyNodeHandle.FromGameObject(gameObject);
-        }
-
-        HierarchyNodeHandle GetParentNodeHandle(GameObject gameObject)
-        {
-            if (!gameObject.transform.parent)
-            {
-// Invalid scenes should be ignored by default, with the option to fail when encountered.
-#if DOTS_HIERARCHY_FAIL_ON_INVALID_SCENES
-                if (!gameObject.scene.IsValid())
-                    throw new System.InvalidOperationException($"GameObject {gameObject.name} ({gameObject.GetInstanceID()}) is at root of a scene marked as not valid");
-#endif
-                // No GO parent, parent must be a scene
-                // Note that we know we have a valid scene at this point
-                return gameObject.scene.isSubScene
-                    ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, gameObject.scene)
-                    : HierarchyNodeHandle.FromScene(gameObject.scene);
-            }
-
-            return GetNodeHandle(gameObject.transform.parent.gameObject);
-        }
-
-        void RecursivelyAddNodes(GameObject gameObject, HierarchyNodeHandle parentHandle)
-        {
-            var handle = GetNodeHandle(gameObject);
-
-            if (handle.Kind == NodeKind.SubScene)
-            {
-                // SubScene nodes are allowed to already exist
-                // they can have been created by the Entity change integration
-                if (!Exists(handle))
-                {
-                    AddNode(handle, parentHandle);
-                }
-                SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
-
-                var subscene = gameObject.GetComponent<SubScene>();
-                if(!subscene.IsLoaded)
-                    return;
-
-                var rootGameObjects = new List<GameObject>();
-                subscene.EditingScene.GetRootGameObjects(rootGameObjects);
-                foreach (var rootGameObject in rootGameObjects)
-                {
-                    RecursivelyAddNodes(rootGameObject, handle);
-                }
-            }
-            else
-            {
-                // Other nodes cannot be detected twice
-                if (Exists(handle))
-                    return;
-
-                AddNode(handle, parentHandle);
-                SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
-
-                foreach (Transform child in gameObject.transform)
-                {
-                    RecursivelyAddNodes(child.gameObject, handle);
-                }
-            }
         }
     }
 }

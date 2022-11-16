@@ -1,3 +1,4 @@
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build;
 
 class RetainBlobAssetsSetting : IBuildComponent
@@ -14,3 +15,4 @@ class RetainBlobAssetsSetting : IBuildComponent
         return framesToRetainBlobAssets;
     }
 }
+#endif

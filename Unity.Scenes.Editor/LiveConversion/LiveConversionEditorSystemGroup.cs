@@ -8,5 +8,11 @@ namespace Unity.Scenes.Editor
     [UpdateBefore(typeof(SceneSystemGroup))]
     class LiveConversionEditorSystemGroup : ComponentSystemGroup
     {
+        protected override void OnUpdate()
+        {
+            if (!LiveConversionEditorSettings.LiveConversionEnabled)
+                return;
+            base.OnUpdate();
+        }
     }
 }

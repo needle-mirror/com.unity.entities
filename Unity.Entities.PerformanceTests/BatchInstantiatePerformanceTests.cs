@@ -46,7 +46,7 @@ namespace Unity.Entities.PerformanceTests
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 Assert.IsFalse(useEnabledMask);
-                var positions = chunk.GetNativeArray(PosHandle);
+                var positions = chunk.GetNativeArray(ref PosHandle);
                 for (int i = 0; i < positions.Length; ++i)
                 {
                     positions[i] = new EcsTestFloatData3 {Value0 = i, Value1 = 1, Value2 = i};

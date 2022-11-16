@@ -2,6 +2,7 @@ using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -24,7 +25,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 ComponentType.ReadWrite<EcsTestSharedComp>(),
                 ComponentType.ReadWrite<EcsTestSharedComp2>(),
                 ComponentType.ReadWrite<EcsIntElement>(),
-                ComponentType.ReadWrite<EcsTestTag>());
+                ComponentType.ReadWrite<EcsTestTag>(),
+                ComponentType.ReadWrite<EcsTestDataEnableable>());
 
             TestEntity = m_Manager.CreateEntity(myArch);
             m_Manager.SetComponentData(TestEntity, new EcsTestData { value = 3});
@@ -34,6 +36,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
             buffer.Add(new EcsIntElement {Value = 19});
             m_Manager.SetSharedComponentManaged(TestEntity, new EcsTestSharedComp { value = 5 });
             m_Manager.SetSharedComponentManaged(TestEntity, new EcsTestSharedComp2 { value0 = 11, value1 = 13 });
+
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(TestEntity, true);
 
             DisabledEntity = m_Manager.CreateEntity(typeof(Disabled), typeof(EcsTestData3));
         }
@@ -54,6 +58,15 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 throw new System.InvalidOperationException("No system state exists any more for this system");
             return ref *statePtr;
         }
+
+        [Test]
+        public void ToggleEnabled() => GetTestSystemUnsafe().ToggleEnabled(ref GetSystemStateRef());
+
+        [Test]
+        public void CheckEnabled() => GetTestSystemUnsafe().CheckEnabled(ref GetSystemStateRef());
+
+        [Test]
+        public void SimplestCaseWithRefWrappers() => GetTestSystemUnsafe().SimplestCaseWithRefWrappers(ref GetSystemStateRef());
 
         [Test]
         public void SimplestCase() => GetTestSystemUnsafe().SimplestCase(ref GetSystemStateRef());
@@ -93,7 +106,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void IJobEntity_EntityParameter_NoWarnings() => GetTestSystemUnsafe().IJobEntity_EntityParameter_NoWarnings(ref GetSystemStateRef());
 
-        // Todo: add back when IJE supports .DisposeOnCompletion like IJobEntityBatch
+        [Test]
+        public void Schedule_CombineDependencies_Works() => GetTestSystemUnsafe().Schedule_CombineDependencies_Works(ref GetSystemStateRef());
+
+        // Todo: add back when IJE supports .DisposeOnCompletion like IJobChunk
         // [Test]
         // public void DisposeNativeArray_DisposesAtEnd() => GetTestSystemUnsafe().DisposeNativeArray(ref GetSystemStateRef());
 
@@ -102,6 +118,27 @@ namespace Unity.Entities.Tests.ForEachCodegen
         // public void ForEach_SystemStateAccessor_Matches() => GetTestSystemUnsafe().ForEach_SystemStateAccessor_Matches_SystemAPI(ref GetSystemStateRef());
     }
 
+    partial struct ToggleEnabledJob : IJobEntity
+    {
+        void Execute(EnabledRefRW<EcsTestDataEnableable> enabledRef)
+        {
+            enabledRef.ValueRW = !enabledRef.ValueRO;
+        }
+    }
+
+    partial struct CheckEnabledJob : IJobEntity
+    {
+        void Execute(EnabledRefRO<EcsTestDataEnableable> enabledRef, ref EcsTestData data)
+        {
+            if (enabledRef.ValueRO)
+                data.value *= 2;
+        }
+    }
+
+    partial struct SimplestCaseJobWithRefWrappers : IJobEntity
+    {
+        void Execute(RefRW<EcsTestData> e1, RefRO<EcsTestData2> e2) => e1.ValueRW.value += e2.ValueRO.value0;
+    }
     partial struct SimplestCaseJob : IJobEntity
     {
         void Execute(ref EcsTestData e1, in EcsTestData2 e2) => e1.value += e2.value0;
@@ -132,7 +169,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         void Execute(ref EcsTestData e1) => e1.value += one;
     }
 
-    [WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities)]
+    [WithOptions(EntityQueryOptions.IncludeDisabledEntities)]
     partial struct WithEntityQueryOption_DisabledEntityJob : IJobEntity
     {
         public NativeReference<Entity> disabledEntityReference;
@@ -176,6 +213,27 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void OnCreate(ref SystemState state) {}
         public void OnDestroy(ref SystemState state) {}
         public void OnUpdate(ref SystemState state) {}
+
+        public void ToggleEnabled(ref SystemState state)
+        {
+            var job = new ToggleEnabledJob();
+            job.Run();
+            Assert.IsFalse(state.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity));
+        }
+
+        public void CheckEnabled(ref SystemState state)
+        {
+            var job = new CheckEnabledJob();
+            job.Run();
+            Assert.AreEqual(6, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
+        public void SimplestCaseWithRefWrappers(ref SystemState state)
+        {
+            new SimplestCaseJobWithRefWrappers().Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(7, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
 
         public void SimplestCase(ref SystemState state)
         {
@@ -286,7 +344,18 @@ namespace Unity.Entities.Tests.ForEachCodegen
 #endif
         }
 
-        // Todo: add back when IJE supports .DisposeOnCompletion like IJobEntityBatch
+        public void Schedule_CombineDependencies_Works(ref SystemState state)
+        {
+            var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().Build(ref state);
+            using var dataList =
+                query.ToComponentDataListAsync<EcsTestData>(state.WorldUpdateAllocator, out var gatherJob);
+            state.Dependency = new SimplestCaseJob
+            {
+            }.Schedule(JobHandle.CombineDependencies(state.Dependency, gatherJob));
+            state.Dependency.Complete();
+        }
+
+        // Todo: add back when IJE supports .DisposeOnCompletion like IJobChunk
         // public void DisposeNativeArray(ref SystemState state)
         // {
         //     var testArray = new NativeArray<int>(100, Allocator.TempJob);

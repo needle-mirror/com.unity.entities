@@ -16,24 +16,31 @@ namespace Unity.Entities.SourceGen.Common
 
     public static class NodeContainerExtensions
     {
-        public static (bool Success, string SystemStateName) TryGetSystemStateParameterName<T>(this SystemDescription desc, T candidate) where T : ISystemCandidate
+        public static bool TryGetSystemStateParameterName<T>(this SystemDescription desc, T candidate, out ExpressionSyntax systemStateExpression) where T : ISystemCandidate
         {
             if (desc.SystemType == SystemType.ISystem) {
                 var methodDeclarationSyntax = candidate.Node.AncestorOfKindOrDefault<MethodDeclarationSyntax>();
                 if (methodDeclarationSyntax == null) {
                     SystemGeneratorErrors.SGSG0001(desc, candidate);
-                    return (false, "");
+                    systemStateExpression = null;
+                    return false;
                 }
                 var containingMethodSymbol = desc.SemanticModel.GetDeclaredSymbol(methodDeclarationSyntax);
-                var systemStateParameterName = containingMethodSymbol.GetFirstOrDefaultParameterNameOfType("Unity.Entities.SystemState");
+                var systemStateParameterName = containingMethodSymbol?.Parameters.FirstOrDefault(p => p.Type.Is("Unity.Entities.SystemState"))?.Name;
                 if (systemStateParameterName != null)
-                    return (true, systemStateParameterName);
+                {
+                    systemStateExpression = SyntaxFactory.IdentifierName(systemStateParameterName);
+                    return true;
+                }
 
                 SystemGeneratorErrors.SGSG0002(desc, candidate);
-                return (false, "");
+                systemStateExpression = null;
+                return false;
             }
 
-            return (true, "this.CheckedStateRef");
+            // this.CheckedStateRef
+            systemStateExpression = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.ThisExpression(), SyntaxFactory.IdentifierName("CheckedStateRef"));
+            return true;
         }
     }
 }

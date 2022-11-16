@@ -212,7 +212,6 @@ namespace Unity.Entities
                 var result = new Entity_[length];
 
                 var entityPtr = (Entity*) ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, 0);
-                entityPtr += m_ArchetypeChunk.m_BatchStartEntityIndex;
                 for (int i = 0; i < length; i++)
                     result[i] = new Entity_(m_ArchetypeChunk.m_EntityComponentStore, entityPtr[i], false);
 
@@ -309,6 +308,30 @@ namespace Unity.Entities
             else
                 return $"{Type} {Version}";
         }
+    }
+
+    sealed class ComponentTypeSetDebugView
+    {
+#if !NET_DOTS
+        private ComponentTypeSet m_ComponentTypeSet;
+        public ComponentTypeSetDebugView(ComponentTypeSet componentTypeSet)
+        {
+            m_ComponentTypeSet = componentTypeSet;
+        }
+        public unsafe ComponentType[] ComponentTypes
+        {
+            get
+            {
+                var result = new ComponentType[m_ComponentTypeSet.Length];
+                for (var i = 0; i < m_ComponentTypeSet.Length; ++i)
+                {
+                    result[i] = m_ComponentTypeSet.GetComponentType(i);
+                }
+                return result;
+            }
+        }
+
+#endif //!NET_DOTS
     }
 
     sealed class EntityArchetypeDebugView

@@ -85,6 +85,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void CreateEntity_WithArchetypeMatchingQuery_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -135,26 +136,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateEntity_WhileUnregisteredJobIsScheduled_Throws()
-        {
-            SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
-
-            var notMatchingArchetype = m_Manager.CreateArchetype(typeof(Component01));
-
-            var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
-
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype));
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity());
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(typeof(EcsTestData)));
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype, TmpNA(2)));
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype, 2, World.UpdateAllocator.ToAllocator));
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype, 2));
-
-            Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
-        }
-
-        [Test]
         public void Instantiate_WithArchetypeNotMatchingQuery_Works()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -177,6 +158,28 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
+        public void CreateEntity_WhileUnregisteredJobIsScheduled_Throws()
+        {
+            SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
+
+            var notMatchingArchetype = m_Manager.CreateArchetype(typeof(Component01));
+
+            var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
+            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype));
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity());
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(typeof(EcsTestData)));
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype, TmpNA(2)));
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype, 2, World.UpdateAllocator.ToAllocator));
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype, 2));
+
+            Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void Instantiate_WithArchetypeMatchingQuery_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -200,6 +203,26 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
+        public void Instantiate_WhileUnregisteredJobIsScheduled_Throws()
+        {
+            SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
+
+            var toInstantiate = m_Manager.CreateEntity(typeof(Component01));
+
+            var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
+            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate));
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate, TmpNA(2)));
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate, 2, World.UpdateAllocator.ToAllocator));
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(TmpNA(toInstantiate, toInstantiate), TmpNA(2)));
+
+            Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void Instantiate_WithArchetypeNotMatchingQuery_CompletesAllScheduledJobs()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -216,24 +239,6 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
             Assert.AreEqual(OriginalEntitiesCount * 7 + 1, Component01EntitiesCount);
-        }
-
-        [Test]
-        public void Instantiate_WhileUnregisteredJobIsScheduled_Throws()
-        {
-            SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
-
-            var toInstantiate = m_Manager.CreateEntity(typeof(Component01));
-
-            var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
-
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate));
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate, TmpNA(2)));
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate, 2, World.UpdateAllocator.ToAllocator));
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(TmpNA(toInstantiate, toInstantiate), TmpNA(2)));
-
-            Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
         }
 
         [Test]
@@ -256,6 +261,23 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void CopyEntities_WithArchetypeNotMatchingQuery_CompletesAllScheduledJobs()
+        {
+            SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
+
+            var toCopy = m_Manager.CreateEntity(typeof(Component01));
+
+            var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
+            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+
+            CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(TmpNA(toCopy, toCopy), TmpNA(2)));
+
+            Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
+            Assert.AreEqual(OriginalEntitiesCount * 2 + 1, Component01EntitiesCount);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void CopyEntities_WithArchetypeMatchingQuery_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -276,22 +298,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CopyEntities_WithArchetypeNotMatchingQuery_CompletesAllScheduledJobs()
-        {
-            SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
-
-            var toCopy = m_Manager.CreateEntity(typeof(Component01));
-
-            var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
-
-            CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(TmpNA(toCopy, toCopy), TmpNA(2)));
-
-            Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
-            Assert.AreEqual(OriginalEntitiesCount * 2 + 1, Component01EntitiesCount);
-        }
-
-        [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CopyEntities_WhileUnregisteredJobIsScheduled_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -332,6 +339,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void CreateArchetype_WithArchetypeMatchingQuery_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -363,6 +371,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void CreateArchetype_WhileUnregisteredJobIsScheduled_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -377,6 +386,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void Instantiate_Prefab_WithArchetypeMatchingQuery_Throws()
         {
             var prefabEntity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(Prefab));
@@ -413,6 +423,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void AddComponent_InForeach_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -432,6 +443,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void RemoveComponent_InForeach_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -451,6 +463,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void DestroyEntity_InForeach_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -470,6 +483,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void CommandBuffer_Playback_Throws()
         {
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
@@ -528,11 +542,14 @@ namespace Unity.Entities.Tests
 
         private int EcsTestDataEntitiesCount => EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateEntityCount();
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         // Uses the job debugger to check that the job has been explicitly completed.
         private static bool IsJobExplicitlyCompleted(JobHandle handle)
         {
+            Assert.IsTrue(Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobDebuggerEnabled);
             return JobHandle.CheckFenceIsDependencyOrDidSyncFence(handle, default);
         }
+#endif
 
         private void CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(EntityQuery query, ref EcsTestDataAspect.TypeHandle typeHandle, Action code)
         {
@@ -540,11 +557,15 @@ namespace Unity.Entities.Tests
 
             system.Update();
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.IsFalse(IsJobExplicitlyCompleted(system.ScheduledJobHandle));
+#endif
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle)) code();
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.IsTrue(IsJobExplicitlyCompleted(system.ScheduledJobHandle));
+#endif
 
             World.DestroySystemManaged(system);
             typeHandle.Update(ref EmptySystem.CheckedStateRef);
@@ -555,14 +576,18 @@ namespace Unity.Entities.Tests
             var job = new EmptyJob();
             var handle = job.Schedule(query, default);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.IsFalse(IsJobExplicitlyCompleted(handle));
+#endif
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
                 Assert.Throws<InvalidOperationException>(() => code());
             }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.IsFalse(IsJobExplicitlyCompleted(handle));
+#endif
 
             handle.Complete();
         }

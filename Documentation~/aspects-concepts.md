@@ -1,4 +1,4 @@
-# Aspects concepts
+# Aspect overview
 
 An aspect is an object-like wrapper that you can use to group together a subset of an entity's components into a single C# struct. Aspects are useful for organizing component code and simplifying queries in your systems. 
 

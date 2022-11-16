@@ -59,6 +59,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
         // Invalid because chunk size is too small to hold a single entity
         public void CreateEntityWithInvalidInternalCapacity()
         {
@@ -292,7 +293,8 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(typeof(EcsIntCleanupElement));
 
             var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
-            var buffers = chunks[0].GetBufferAccessor(m_Manager.GetBufferTypeHandle<EcsIntCleanupElement>(false));
+            var bufferTypeHandle = m_Manager.GetBufferTypeHandle<EcsIntCleanupElement>(false);
+            var buffers = chunks[0].GetBufferAccessor(ref bufferTypeHandle);
 
             Assert.AreEqual(2, buffers.Length);
             Assert.AreEqual(0, buffers[0].Length);
@@ -324,6 +326,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void OutOfBoundsAccessThrows()
         {
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -338,6 +341,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void UseAfterStructuralChangeThrows()
         {
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -351,6 +355,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void UseAfterStructuralChangeThrows2()
         {
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -365,6 +370,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void UseAfterStructuralChangeThrows3()
         {
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -377,6 +383,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Read/write safety relies on Atomic Safety Handles")]
         public void WritingReadOnlyThrows()
         {
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -408,6 +415,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
         public void ReinterpretWrongSizeThrows()
         {
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -479,6 +487,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void ArrayInvalidationWorks()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -499,6 +508,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void ArrayInvalidationHappensForAllInstances()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -549,6 +559,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Relies on job safety system")]
         public void BufferInvalidationNotPossibleWhenArraysAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -569,7 +580,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var intValue = chunk.GetBufferAccessor(Int)[0];
+                var intValue = chunk.GetBufferAccessor(ref Int)[0];
 
                 Assert.AreEqual(intValue.Length, 1);
 
@@ -612,7 +623,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var intValue = chunk.GetBufferAccessor(Int)[0];
+                var intValue = chunk.GetBufferAccessor(ref Int)[0];
 
                 // Reading buffer
                 Assert.AreEqual(intValue.Length, 1);
@@ -623,9 +634,11 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(intValueArray.Length, 1);
                 Assert.AreEqual(5, intValueArray[0].Value);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // Can't write to buffer...
                 Assert.Throws<InvalidOperationException>(() => { intValue[0] = 5; });
                 Assert.Throws<InvalidOperationException>(() => { intValueArray[0] = 5; });
+#endif
             }
         }
 
@@ -666,6 +679,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Relies on job safety system")]
         public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));
@@ -690,13 +704,16 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(array.Length, 1);
                 Assert.AreEqual(5, array[0].Value);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // Can't write to buffer...
                 Assert.Throws<InvalidOperationException>(() => { array[0] = 5; });
                 Assert.Throws<InvalidOperationException>(() => { array[0] = 5; });
+#endif
             }
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Relies on job safety system")]
         public void NativeArrayInJobReadOnly()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntCleanupElement));

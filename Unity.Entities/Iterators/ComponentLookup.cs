@@ -7,7 +7,8 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    /// <inheritdoc cref="ComponentLookup{T}"/>
+    /// <summary> Obsolete. Use <see cref="ComponentLookup{T}"/> instead.</summary>
+    /// <typeparam name="T">The type of <see cref="IComponentData"/> to access.</typeparam>
     [Obsolete("This type has been renamed to ComponentLookup<T>. (RemovedAfter Entities 1.0) (UnityUpgradable) -> ComponentLookup<T>", true)]
     public struct ComponentDataFromEntity<T> where T : unmanaged, IComponentData
     {
@@ -290,13 +291,48 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity whose component should be checked.</param>
         /// <returns>True if the specified component is enabled, or false if it is disabled.</returns>
-        /// <seealso cref="SetComponentEnabled"/>
+        /// <seealso cref="SetComponentEnabled(Entity, bool)"/>
         public bool IsComponentEnabled(Entity entity)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             return m_Access->IsComponentEnabled(entity, m_TypeIndex);
+        }
+
+        /// <summary>
+        /// Checks whether the <see cref="IComponentData"/> of type T is enabled on the specified system using a <see cref="SystemHandle"/>.
+        /// For the purposes of EntityQuery matching, a system with a disabled component will behave as if it does not
+        /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="SystemHandle"/> does not exist.</exception>
+        /// <param name="systemHandle">The system whose component should be checked.</param>
+        /// <returns>True if the specified component is enabled, or false if it is disabled.</returns>
+        /// <seealso cref="SetComponentEnabled(SystemHandle, bool)"/>
+        public bool IsComponentEnabled(SystemHandle systemHandle)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
+            return m_Access->IsComponentEnabled(systemHandle.m_Entity, m_TypeIndex);
+        }
+
+        /// <summary>
+        /// Enable or disable the <see cref="IComponentData"/> of type T on the specified system using a <see cref="SystemHandle"/>. This operation
+        /// does not cause a structural change (even if it occurs on a worker thread), or affect the value of the component.
+        /// For the purposes of EntityQuery matching, a system with a disabled component will behave as if it does not
+        /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="SystemHandle"/> does not exist.</exception>
+        /// <param name="systemHandle">The system whose component should be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        /// <seealso cref="IsComponentEnabled(SystemHandle)"/>
+        public void SetComponentEnabled(SystemHandle systemHandle, bool value)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
+#endif
+            m_Access->SetComponentEnabled(systemHandle.m_Entity, m_TypeIndex, value);
         }
 
         /// <summary>
@@ -308,7 +344,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity whose component should be enabled or disabled.</param>
         /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
-        /// <seealso cref="IsComponentEnabled"/>
+        /// <seealso cref="IsComponentEnabled(Entity)"/>
         public void SetComponentEnabled(Entity entity, bool value)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -321,7 +357,7 @@ namespace Unity.Entities
         /// Gets a safe reference to the component data.
         /// </summary>
         /// <param name="system">The system handle with the referenced entity</param>
-        /// <returns>Returns a safe reference to the component data. Throws an 
+        /// <returns>Returns a safe reference to the component data. Throws an
         /// exception if the component doesn't exist.</returns>
         public RefRW<T> GetRefRW(SystemHandle system)
         {
@@ -348,7 +384,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="entity">The referenced entity</param>
         /// <param name="isReadOnly">True if you only want to read from the returned component; false if you also want to write to it</param>
-        /// <returns>Returns a safe reference to the component data. Throws an 
+        /// <returns>Returns a safe reference to the component data. Throws an
         /// exception if the component doesn't exist.</returns>
         public RefRW<T> GetRefRW(Entity entity, bool isReadOnly)
         {
@@ -377,7 +413,7 @@ namespace Unity.Entities
         /// Gets a safe reference to the component data.
         /// </summary>
         /// <param name="entity">The referenced entity</param>
-        /// <returns>Returns a safe reference to the component data. Throws an 
+        /// <returns>Returns a safe reference to the component data. Throws an
         /// exception if the component doesn't exist.</returns>
         public RefRO<T> GetRefRO(Entity entity)
         {
@@ -433,7 +469,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets a safe reference to the component data and 
+        /// Gets a safe reference to the component data and
         /// a default RefRO (RefRO.IsValid == false).
         /// </summary>
         /// <param name="entity">The referenced entity</param>

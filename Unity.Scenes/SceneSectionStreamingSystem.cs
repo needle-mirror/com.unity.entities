@@ -3,10 +3,15 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+#if !UNITY_DOTSRUNTIME
+using Unity.Entities.Content;
+#endif
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Assertions;
+using Unity.Entities.Serialization;
+using System.Runtime.InteropServices;
 
 namespace Unity.Scenes
 {
@@ -302,7 +307,7 @@ namespace Unity.Scenes
         bool MoveEntities(EntityManager srcManager, Entity sectionEntity, ref Entity prefabRoot)
         {
             using var marker = s_MoveEntities.Auto();
-            var sceneEntity = GetComponent<SceneEntityReference>(sectionEntity).SceneEntity;
+            var sceneEntity = SystemAPI.GetComponent<SceneEntityReference>(sectionEntity).SceneEntity;
             Assert.AreNotEqual(Entity.Null, sceneEntity);
 
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping;
@@ -538,9 +543,6 @@ namespace Unity.Scenes
 
                             if (MoveEntities(streamingManager, sectionEntity, ref prefabRoot))
                             {
-#if !UNITY_DOTSRUNTIME
-                                var bundles = operation.StealBundles();
-#endif
 
                                 if (EntityManager.HasComponent<StreamingState>(sectionEntity))
                                 {
@@ -551,11 +553,11 @@ namespace Unity.Scenes
                                 }
 
 #if !UNITY_DOTSRUNTIME
-                                if (bundles != null)
+                                var objRefs = operation.StealReferencedUnityObjects();
+                                if (objRefs.IsValid)
                                 {
-                                    EntityManager.AddSharedComponentManaged(sectionEntity, new SceneSectionBundle(bundles));
-                                    foreach (var b in bundles)
-                                        b.Release();
+                                    EntityManager.AddSharedComponentManaged(sectionEntity, new SceneSectionReferencedUnityObjects(objRefs));
+                                    RuntimeContentManager.ReleaseObjectAsync(objRefs);
                                 }
 #endif
                                 if (prefabRoot != Entity.Null)
@@ -663,7 +665,7 @@ namespace Unity.Scenes
                 {
                     var priorityList = new NativeList<Entity>(Allocator.Temp);
                     var priorities = new NativeArray<int>(entities.Length, Allocator.Temp);
-                    var sceneDataFromEntity = GetComponentLookup<SceneSectionData>();
+                    var sceneDataFromEntity = GetComponentLookup<SceneSectionData>(true);
 
                     for (int i = 0; i < entities.Length; ++i)
                     {
@@ -688,6 +690,7 @@ namespace Unity.Scenes
                                     new World("LoadingWorld (synchronous)", WorldFlags.Streaming);
                             }
                             Assert.AreNotEqual(UpdateLoadOperationResult.Aborted, result);
+                            sceneDataFromEntity.Update(this);
                         }
                         else if (sceneDataFromEntity[entity].SubSectionIndex == 0)
                             priorities[i] = 1;
@@ -737,11 +740,6 @@ namespace Unity.Scenes
 
             if (ProcessActiveStreams(ref *m_StatePtr))
                 EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
-
-#if !UNITY_DOTSRUNTIME
-            // Process unloading bundles
-            SceneBundleHandle.ProcessUnloadingBundles();
-#endif
         }
 
         internal static void UnloadSectionImmediate(WorldUnmanaged world, Entity scene)
@@ -782,8 +780,8 @@ namespace Unity.Scenes
                 world.EntityManager.RemoveComponent<StreamingState>(scene);
             }
 #if !UNITY_DOTSRUNTIME
-            if (world.EntityManager.HasComponent<SceneSectionBundle>(scene))
-                world.EntityManager.RemoveComponent<SceneSectionBundle>(scene);
+            if (world.EntityManager.HasComponent<SceneSectionReferencedUnityObjects>(scene))
+                world.EntityManager.RemoveComponent<SceneSectionReferencedUnityObjects>(scene);
 #endif
         }
 
@@ -810,15 +808,6 @@ namespace Unity.Scenes
             blobHeaderOwner.Retain();
             var sectionData = EntityManager.GetComponentData<ResolvedSectionPath>(entity);
 
-            var entitiesBinaryPath = sectionData.ScenePath.ToString();
-            var resourcesPath = sectionData.HybridPath.ToString();
-            NativeArray<Entities.Hash128> dependencies = default;
-            if (EntityManager.HasComponent<BundleElementData>(entity))
-            {
-                var depBuffer = EntityManager.GetBuffer<BundleElementData>(entity);
-                dependencies = new NativeArray<Entities.Hash128>(depBuffer.AsNativeArray().Reinterpret<Entities.Hash128>(), Allocator.Persistent);
-            }
-
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             PostLoadCommandBuffer postLoadCommandBuffer = null;
             if (EntityManager.HasComponent<PostLoadCommandBuffer>(entity))
@@ -837,20 +826,22 @@ namespace Unity.Scenes
             if (postLoadCommandBuffer != null)
                 postLoadCommandBuffer = (PostLoadCommandBuffer)postLoadCommandBuffer.Clone();
 #endif
+
+
             return new AsyncLoadSceneOperation(new AsyncLoadSceneData
             {
-                ScenePath = entitiesBinaryPath,
+                ScenePath = sectionData.ScenePath.ToString(),
                 SceneSize = sceneData.DecompressedFileSize,
                 CompressedSceneSize = sceneData.FileSize,
                 Codec = sceneData.Codec,
-                ExpectedObjectReferenceCount = sceneData.ObjectReferenceCount,
-                ResourcesPathObjRefs = resourcesPath,
                 EntityManager = dstManager,
                 BlockUntilFullyLoaded = blockUntilFullyLoaded,
-                Dependencies = dependencies,
                 BlobHeader = sceneData.BlobHeader,
                 BlobHeaderOwner = blobHeaderOwner,
                 SceneSectionEntity = entity,
+#if !UNITY_DOTSRUNTIME
+                UnityObjectRefId = sectionData.HybridReferenceId,
+#endif
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 PostLoadCommandBuffer = postLoadCommandBuffer
 #endif

@@ -256,10 +256,10 @@ namespace Unity.Entities.SourceGen.Aspect
             public string ResolveCode(ref Printer printer)
             {
                 foreach (var bufferAccessor in BufferAccessors)
-                    printer.PrintLine($"resolved.{bufferAccessor.InternalFieldName} = chunk.GetBufferAccessor(this.{bufferAccessor.InternalFieldName});");
+                    printer.PrintLine($"resolved.{bufferAccessor.InternalFieldName} = chunk.GetBufferAccessor(ref this.{bufferAccessor.InternalFieldName});");
 
                 foreach (var nativeArray in ComponentDataNativeArray)
-                    printer.PrintLine($"resolved.{nativeArray.InternalFieldName} = chunk.GetNativeArray(this.{nativeArray.ComponentTypeHandleFieldName});");
+                    printer.PrintLine($"resolved.{nativeArray.InternalFieldName} = chunk.GetNativeArray(ref this.{nativeArray.ComponentTypeHandleFieldName});");
 
                 foreach (var ComponentEnableBit in ComponentEnableBitBuffer)
                     printer.PrintLine($"resolved.{ComponentEnableBit.InternalFieldName} = chunk.GetEnabledMask(ref this.{ComponentEnableBit.ComponentTypeHandleFieldName});");

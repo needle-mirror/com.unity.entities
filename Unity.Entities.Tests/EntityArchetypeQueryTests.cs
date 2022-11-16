@@ -6,6 +6,7 @@ namespace Unity.Entities.Tests
     class EntityArchetypeQueryTests : ECSTestsFixture
     {
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void EntityQueryFilter_IdenticalIds_InDifferentFilters_Throws()
         {
             var query = new EntityQueryDesc
@@ -21,6 +22,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void EntityQueryFilter_IdenticalIds_InSameFilter_Throws()
         {
             var query = new EntityQueryDesc
@@ -35,6 +37,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void EntityQueryFilter_MultipleIdenticalIds_Throws()
         {
             var query = new EntityQueryDesc
@@ -67,6 +70,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void EntityQueryFilter_CannotContainExcludeComponentType_All_Throws()
         {
             var query = new EntityQueryDesc
@@ -81,6 +85,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void EntityQueryFilterCannotContainExcludeComponentType_Any_Throws()
         {
             var query = new EntityQueryDesc
@@ -95,6 +100,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void EntityQueryFilterCannotContainExcludeComponentType_None_Throws()
         {
             var query = new EntityQueryDesc

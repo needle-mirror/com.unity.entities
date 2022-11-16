@@ -92,7 +92,7 @@ namespace Unity.Entities
             return type;
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         public override string ToString()
         {
             return ToComponentType().ToString();

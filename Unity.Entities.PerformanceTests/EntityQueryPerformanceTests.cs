@@ -1815,57 +1815,6 @@ namespace Unity.Entities.PerformanceTests
             CopyFromComponentDataListAsync_Performance_LargeComponent(entityCount, enabledBitsMode, true);
         }
 
-        [Obsolete("The function this test exercises is obsolete.")]
-        private void ToEntityArray_WithEntitySoup_Performance(int entityCount, EnabledBitsMode enabledBitsMode, bool unique, bool enableQueryFilter)
-        {
-            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
-
-            using var query = (enabledBitsMode == EnabledBitsMode.NoEnableableComponents)
-                ? m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp))
-                : m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp),
-                    typeof(EcsTestDataEnableable));
-            if (enableQueryFilter)
-                query.SetSharedComponentFilterManaged<EcsTestSharedComp>(default);
-
-            using var allEntities = query.ToEntityArray(Allocator.Temp);
-
-            var result =  default(NativeArray<Entity>);
-            Measure.Method(
-                    () =>
-                    {
-                        result = query.ToEntityArray(allEntities, World.UpdateAllocator.ToAllocator);
-                    })
-
-                .CleanUp( () =>
-                {
-                    CollectionAssert.AreEqual(allEntities.ToArray(), result.ToArray());
-                    result.Dispose();
-                    World.UpdateAllocator.Rewind();
-                })
-                .SampleGroup("ToEntityArray")
-                .WarmupCount(1) // make sure we're not timing job compilation on the first run
-                .MeasurementCount(10)
-                .Run();
-        }
-
-        [Test, Performance]
-        [Obsolete("The function this test exercises is obsolete.")]
-        public void ToEntityArray_WithEntitySoup_Performance_Same([Values(1,1000,10000)] int entityCount,
-            [Values(EnabledBitsMode.NoEnableableComponents)] EnabledBitsMode enabledBitsMode)
-        {
-            ToEntityArray_WithEntitySoup_Performance(entityCount, enabledBitsMode, false, false);
-        }
-
-        [Test, Performance]
-        [Obsolete("The function this test exercises is obsolete.")]
-        public void ToEntityArray_WithEntitySoup_WithFilter_Performance_Unique([Values(1,1000,10000)] int entityCount,
-            [Values(EnabledBitsMode.NoEnableableComponents)] EnabledBitsMode enabledBitsMode)
-        {
-            ToEntityArray_WithEntitySoup_Performance(entityCount, enabledBitsMode, true, true);
-        }
-
-
-
         [BurstCompile]
         partial struct AsyncGatherScatterSystem : ISystem
         {

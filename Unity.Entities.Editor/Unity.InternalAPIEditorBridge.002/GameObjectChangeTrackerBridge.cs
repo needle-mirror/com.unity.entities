@@ -8,7 +8,6 @@ namespace Unity.Editor.Bridge
     {
         internal delegate void GameObjectChangeTrackerEventHandler(in NativeArray<GameObjectChangeTrackerEvent> events);
 
-#if UNITY_2022_1_OR_NEWER
         static event GameObjectChangeTrackerEventHandler GameObjectsChangedUnderlyingEvent;
 
         internal static event GameObjectChangeTrackerEventHandler GameObjectsChanged
@@ -37,12 +36,6 @@ namespace Unity.Editor.Bridge
             var reinterpretedEvents = events.Reinterpret<GameObjectChangeTrackerEvent>();
             GameObjectsChangedUnderlyingEvent?.Invoke(reinterpretedEvents);
         }
-#else
-#pragma warning disable 67
-        internal static event GameObjectChangeTrackerEventHandler GameObjectsChanged;
-#pragma warning restore 67
-#endif //UNITY_2022_1_OR_NEWER
-
     }
 
     readonly struct GameObjectChangeTrackerEvent

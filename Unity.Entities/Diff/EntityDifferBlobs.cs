@@ -71,6 +71,7 @@ namespace Unity.Entities
             [ReadOnly] public NativeList<BlobAssetPtr> BeforeBlobAssets;
             [WriteOnly] public NativeList<BlobAssetPtr> CreatedBlobAssets;
             [WriteOnly] public NativeList<BlobAssetPtr> DestroyedBlobAssets;
+            [WriteOnly] public NativeList<BlobAssetPtr> SameHashDifferentAddressBlobAssets;
 
             public void Execute()
             {
@@ -95,6 +96,11 @@ namespace Unity.Entities
                     {
                         afterIndex++;
                         beforeIndex++;
+
+                        if (beforeBlobAsset.Data != afterBlobAsset.Data)
+                        {
+                            SameHashDifferentAddressBlobAssets.Add(afterBlobAsset);
+                        }
                     }
                     else
                     {
@@ -344,13 +350,15 @@ namespace Unity.Entities
 
             var createdBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob);
             var destroyedBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob);
+            var sameHashDifferentAddressBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob);
 
             jobHandle = new GatherCreatedAndDestroyedBlobAssets
             {
                 AfterBlobAssets = afterBlobAssets,
                 BeforeBlobAssets = beforeBlobAssets,
                 CreatedBlobAssets = createdBlobAssets,
-                DestroyedBlobAssets = destroyedBlobAssets
+                DestroyedBlobAssets = destroyedBlobAssets,
+                SameHashDifferentAddressBlobAssets = sameHashDifferentAddressBlobAssets
             }.Schedule(dependsOn);
 
             jobHandle = new GatherBlobAssetChanges
@@ -365,7 +373,8 @@ namespace Unity.Entities
             jobHandle = JobHandle.CombineDependencies
                 (
                     createdBlobAssets.Dispose(jobHandle),
-                    destroyedBlobAssets.Dispose(jobHandle)
+                    destroyedBlobAssets.Dispose(jobHandle),
+                    sameHashDifferentAddressBlobAssets.Dispose(jobHandle)
                 );
 
             return changes;

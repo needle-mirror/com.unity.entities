@@ -16,7 +16,7 @@ namespace Unity.Entities.Tests
             public void Execute(int chunkIndex)
             {
                 var chunk = Chunks[chunkIndex];
-                var ecsTestData = chunk.GetNativeArray(EcsTestDataTypeHandle);
+                var ecsTestData = chunk.GetNativeArray(ref EcsTestDataTypeHandle);
                 for (int i = 0; i < chunk.Count; i++)
                 {
                     ecsTestData[i] = new EcsTestData {value = ecsTestData[i].value + 1};
@@ -50,7 +50,7 @@ namespace Unity.Entities.Tests
             m_LastAllChanged = true;
             for (int i = 0; i < chunks.Length; i++)
             {
-                m_LastAllChanged &= chunks[i].DidChange(ecsTestDataType, LastSystemVersion);
+                m_LastAllChanged &= chunks[i].DidChange(ref ecsTestDataType, LastSystemVersion);
             }
         }
 
@@ -176,7 +176,7 @@ namespace Unity.Entities.Tests
                 using (var chunks = m_Query.ToArchetypeChunkArray(Allocator.Temp))
                 {
                     Assert.That(chunks.Length, Is.EqualTo(1));
-                    DidChange = chunks[0].DidChange(m_ComponentTypeHandle, LastSystemVersion);
+                    DidChange = chunks[0].DidChange(ref m_ComponentTypeHandle, LastSystemVersion);
                 }
             }
         }
@@ -230,7 +230,7 @@ namespace Unity.Entities.Tests
                 using (var chunks = m_Query.ToArchetypeChunkArray(Allocator.Temp))
                 {
                     Assert.That(chunks.Length, Is.EqualTo(1));
-                    DidChange = chunks[0].DidChange(m_ComponentTypeHandle, state.LastSystemVersion);
+                    DidChange = chunks[0].DidChange(ref m_ComponentTypeHandle, state.LastSystemVersion);
                 }
             }
         }

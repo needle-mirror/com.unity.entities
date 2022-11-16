@@ -200,7 +200,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
      public class LambdaParamDescription_EntityCommandBuffer : LambdaParamDescription
     {
-        public const string GeneratedParallelWriterFieldNameInJobEntityBatchType = "__ecbParallelWriter";
+        public const string GeneratedParallelWriterFieldNameInJobChunkType = "__ecbParallelWriter";
         public const string GeneratedEcbFieldNameInJobChunkType = "__entityCommandBuffer";
         public const string TemporaryJobEntityCommandBufferVariableName = "__tempJobEcb";
 
@@ -217,7 +217,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             switch (Playback.ScheduleMode)
             {
                 case ScheduleMode.ScheduleParallel:
-                    return $@"{GeneratedParallelWriterFieldNameInJobEntityBatchType} = {GeneratedEcbFieldNameInSystemBaseType}.CreateCommandBuffer().AsParallelWriter()";
+                    return $@"{GeneratedParallelWriterFieldNameInJobChunkType} = {GeneratedEcbFieldNameInSystemBaseType}.CreateCommandBuffer().AsParallelWriter()";
                 case ScheduleMode.Schedule:
                     return $@"{GeneratedEcbFieldNameInJobChunkType} = {GeneratedEcbFieldNameInSystemBaseType}.CreateCommandBuffer()";
                 default:
@@ -230,7 +230,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
         internal override string FieldInGeneratedJobChunkType() =>
             Playback.ScheduleMode == ScheduleMode.ScheduleParallel
-                ? $"public Unity.Entities.EntityCommandBuffer.ParallelWriter {GeneratedParallelWriterFieldNameInJobEntityBatchType};"
+                ? $"public Unity.Entities.EntityCommandBuffer.ParallelWriter {GeneratedParallelWriterFieldNameInJobChunkType};"
                 : $"public Unity.Entities.EntityCommandBuffer {GeneratedEcbFieldNameInJobChunkType};";
 
         internal override bool IsQueryableType => false;
@@ -298,7 +298,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         internal override bool QueryTypeIsReadOnly() => Syntax.IsReadOnly();
         internal override string LambdaBodyMethodParameter(bool usesBurst) => $@"{TypeSymbol.ToFullName()} {Syntax.Identifier}";
         internal override string GetNativeArrayOrAccessor() =>
-            $@"var {Syntax.Identifier}Accessor = chunk.GetManagedComponentAccessor(__{Syntax.Identifier}TypeHandle, __this.EntityManager);";
+            $@"var {Syntax.Identifier}Accessor = chunk.GetManagedComponentAccessor(ref __{Syntax.Identifier}TypeHandle, __this.EntityManager);";
         internal override string LambdaBodyParameter() => $@"{Syntax.Identifier}Accessor[entityIndex]";
         internal override string FieldAssignmentInGeneratedJobChunkType(LambdaJobDescription lambdaJobDescription) =>
             $@"__{Syntax.Identifier}TypeHandle = this.EntityManager.GetComponentTypeHandle<{TypeSymbol.ToFullName()}>({(Syntax.IsReadOnly() ? "true" : "false")})";
@@ -340,7 +340,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         internal override string LambdaBodyMethodParameter(bool usesBurst) =>
             $@"DynamicBuffer<{_bufferGenericArgumentType}> {Syntax.Identifier}";
         internal override string GetNativeArrayOrAccessor() =>
-            $@"var {Syntax.Identifier}Accessor = chunk.GetBufferAccessor(__{Syntax.Identifier}TypeHandle);";
+            $@"var {Syntax.Identifier}Accessor = chunk.GetBufferAccessor(ref __{Syntax.Identifier}TypeHandle);";
         internal override string LambdaBodyParameter() => $@"{Syntax.Identifier}Accessor[entityIndex]";
 
         internal override string FieldAssignmentInGeneratedJobChunkType(LambdaJobDescription lambdaJobDescription) =>

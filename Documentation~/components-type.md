@@ -13,6 +13,7 @@ To serve a variety of use cases, there are multiple types of ECS components. Thi
 | [Buffer components](components-buffer.md)                 | Understand buffer components and how to use them.         |
 | [Chunk components](components-chunk.md)                   | Understand chunk components and how to use them.          |
 | [Enableable components](components-enableable.md)| Understand enableable components and how to use them.|
+| [Singleton components](components-singleton.md)| Understand singleton components, which are components that only have one instance.|
 
 ## Component types in the Editor
 

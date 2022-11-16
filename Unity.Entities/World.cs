@@ -182,6 +182,9 @@ namespace Unity.Entities
         /// <inheritdoc cref="WorldUnmanaged.Time"/>
         public ref TimeData Time => ref m_Unmanaged.Time;
 
+        /// <summary>
+        /// Property to get and set enable block free flag, a flag indicating whether the allocator should enable individual block to be freed.
+        /// </summary>
         public bool UpdateAllocatorEnableBlockFree
         {
             get => m_Unmanaged.UpdateAllocatorEnableBlockFree;
@@ -296,7 +299,7 @@ namespace Unity.Entities
             EntityManager.ExclusiveEntityTransactionDependency.Complete();
             EntityManager.EndExclusiveEntityTransaction();
             EntityManager.CompleteAllTrackedJobs();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             m_Unmanaged.AllowGetSystem = true;
 #endif
 
@@ -304,7 +307,7 @@ namespace Unity.Entities
             m_SystemLookup = null;
             m_Systems = null;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             m_Unmanaged.AllowGetSystem = false;
 #endif
 
@@ -404,7 +407,7 @@ namespace Unity.Entities
 
         ComponentSystemBase AllocateSystemInternal(Type type)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (!m_Unmanaged.AllowGetSystem)
                 throw new ArgumentException(
                     "During destruction of a system you are not allowed to create more systems.");
@@ -529,7 +532,7 @@ namespace Unity.Entities
             if (!IsCreated)
                 throw new ObjectDisposedException("The World has already been Disposed.");
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (!m_Unmanaged.AllowGetSystem)
                 throw new ArgumentException("You are not allowed to get or create more systems during destruction of a system.");
 #endif
@@ -760,7 +763,10 @@ namespace Unity.Entities
             return CreateSystemInternal(type);
         }
 
-        /// <inheritdoc cref="AddSystemManaged{T}(T)"/>
+        /// <summary> Obsolete. Use <see cref="AddSystemManaged{T}(T)"/> instead.</summary>
+        /// <typeparam name="T">The system type</typeparam>
+        /// <param name="system">The existing system instance to add</param>
+        /// <returns>The input <paramref name="system"/></returns>
         [Obsolete("(UnityUpgradable) -> AddSystemManaged<T>(*)", true)]
         public T AddSystem<T>(T system) where T : ComponentSystemBase
             => AddSystemManaged(system);
@@ -992,7 +998,7 @@ namespace Unity.Entities
                     var state = Unmanaged.ResolveSystemState(system);
 
                     if (state == null) continue;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                     var prevAllow = m_Unmanaged.AllowGetSystem;
                     m_Unmanaged.AllowGetSystem = false;
 #endif
@@ -1004,7 +1010,7 @@ namespace Unity.Entities
                     {
                         SystemBaseRegistry.CallOnDestroy(state);
                     }
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                     m_Unmanaged.AllowGetSystem = prevAllow;
 #endif
                 }
@@ -1407,31 +1413,44 @@ namespace Unity.Entities
             return self.Unmanaged.GetOrCreateUnmanagedSystem<T>();
         }
 
-        /// <inheritdoc cref="World.GetOrCreateSystem(Type)"/>
+        /// <summary> Obsolete. Use <see cref="World.GetOrCreateSystem(Type)"/> instead.</summary>
+        /// <param name="self">The World</param>
+        /// <param name="unmanagedType">The type.</param>
+        /// <returns></returns>
         [Obsolete("Use World.GetOrCreateSystem instead")]
         public static SystemHandle GetOrCreateSystem(World self, Type unmanagedType)
         {
             return self.GetOrCreateSystem(unmanagedType);
         }
-        /// <inheritdoc cref="World.DestroySystem(SystemHandle)"/>
+        /// <summary> Obsolete. Use <see cref="World.DestroySystem(SystemHandle)"/> instead.</summary>
+        /// <param name="self">The World</param>
+        /// <param name="sysHandle">The system handle.</param>
         [Obsolete("Use World.DestroySystem instead")]
         public static void DestroySystem(World self, SystemHandle sysHandle)
         {
             self.DestroySystem(sysHandle);
         }
-        /// <inheritdoc cref="World.CreateSystem{T}"/>
+        /// <summary> Obsolete. Use <see cref="World.CreateSystem{T}"/> instead.</summary>
+        /// <param name="self">The World</param>
+        /// <typeparam name="T">The system</typeparam>
+        /// <returns></returns>
         [Obsolete("Use World.CreateSystem instead")]
         public static SystemHandle AddSystem<T>(this World self) where T : unmanaged, ISystem
         {
             return CreateSystem<T>(self);
         }
-        /// <inheritdoc cref="World.GetOrCreateSystem"/>
+        /// <summary> Obsolete. Use <see cref="World.GetOrCreateSystem"/> instead.</summary>
+        /// <param name="self">The World</param>
+        /// <param name="unmanagedType">The type.</param>
+        /// <returns></returns>
         [Obsolete("Use World.GetOrCreateSystem instead")]
         public static SystemHandle GetOrCreateUnmanagedSystem(this World self, Type unmanagedType)
         {
             return GetOrCreateSystem(self, unmanagedType);
         }
-        /// <inheritdoc cref="World.DestroySystem"/>
+        /// <summary> Obsolete. Use <see cref="World.DestroySystem"/> instead.</summary>
+        /// <param name="self">The World</param>
+        /// <param name="sysHandle">The system handle.</param>
         [Obsolete("Use World.DestroySystem instead")]
         public static void DestroyUnmanagedSystem(this World self, SystemHandle sysHandle)
         {

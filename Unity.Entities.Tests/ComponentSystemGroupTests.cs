@@ -132,9 +132,10 @@ namespace Unity.Entities.Tests
         }
 
 #if !UNITY_PORTABLE_TEST_RUNNER
-// https://unity3d.atlassian.net/browse/DOTSR-1432
+        // https://unity3d.atlassian.net/browse/DOTSR-1432
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void DetectCircularDependency_Throws()
         {
             var parent = World.CreateSystemManaged<TestGroup>();
@@ -170,7 +171,6 @@ namespace Unity.Entities.Tests
             }
             Assert.IsTrue(foundCycleMatch);
         }
-
 #endif
 
         class Unconstrained1System : TestSystemBase
@@ -249,7 +249,6 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-#if !NET_DOTS
         [Test]
         public void SystemThrows_SystemNotRemovedFromUpdate()
         {
@@ -384,9 +383,6 @@ namespace Unity.Entities.Tests
             Assert.That(() => { parent.AddSystemToUpdateList(parent); },
                 Throws.ArgumentException.With.Message.Contains("to its own update list"));
         }
-
-#endif
-
         class StartAndStopSystemGroup : ComponentSystemGroup
         {
             public List<int> Operations;
@@ -1567,7 +1563,8 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
         public partial class CircularSystem4 : TestSystemBase { }
 
         [Test]
-        public void Circular_CreateBefore()
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
+        public void Circular_CreateBefore_Throws()
         {
             var systems = new List<Type>
             {
@@ -1578,11 +1575,11 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
             {
                 using (var world = CreateWorldWithSystems(systems)) { }
             });
-
         }
 
         [Test]
-        public void Circular_CreateAfter()
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
+        public void Circular_CreateAfter_Throws()
         {
             var systems = new List<Type>
             {

@@ -8,11 +8,7 @@ namespace Unity.Scenes.Tests
     {
         public override void OnImportAsset(AssetImportContext ctx)
         {
-#if UNITY_2022_1_OR_NEWER
             var path = ctx.GetOutputArtifactFilePath("output");
-#else
-            var path = ctx.GetResultPath("output");
-#endif
             File.WriteAllBytes(path, File.ReadAllBytes(ctx.assetPath));
 
         }

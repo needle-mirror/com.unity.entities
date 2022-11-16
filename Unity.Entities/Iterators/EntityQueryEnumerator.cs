@@ -33,13 +33,15 @@ namespace Unity.Entities
 
         // chunk level iteration cold state
         UnsafeChunkCache   _Cache;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         [NoAlias]
         ComponentDependencyManager* _DependencyManager;
 
-        AtomicSafetyHandle          _EntitySafetyHandle;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        AtomicSafetyHandle _EntitySafetyHandle;
         AtomicSafetyHandle          _QuerySafetyHandle;
 
+#endif
 #endif
 
         /// <summary>
@@ -65,11 +67,13 @@ namespace Unity.Entities
 
             _Cache = query.GetCache(out var access);
             _ChunkIndex = -1;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             _DependencyManager = access->_Access->DependencyManager;
             _DependencyManager->ForEachStructuralChange.BeginIsInForEach(access);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             _EntitySafetyHandle = _DependencyManager->Safety.GetEntityManagerSafetyHandle();
             _QuerySafetyHandle = query.__safety;
+#endif
 #endif
         }
 
@@ -81,6 +85,9 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(_QuerySafetyHandle);
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             _DependencyManager->ForEachStructuralChange.EndIsInForEach();
 #endif
         }
@@ -146,13 +153,15 @@ namespace Unity.Entities
         /// Debug method to ensure that the enumerator is in a valid state
         /// </summary>
         /// <exception cref="ObjectDisposedException">Thrown if the enumerator has been disposed, or has outlived its validity.</exception>
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void CheckDisposed()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(_EntitySafetyHandle);
             AtomicSafetyHandle.CheckWriteAndThrow(_QuerySafetyHandle);
+#endif
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (_DependencyManager->ForEachStructuralChange.Depth == 0)
                 throw new ObjectDisposedException("The EntityQueryEnumerator has been disposed or has been incorrectly kept alive across System.Update calls.");
 #endif

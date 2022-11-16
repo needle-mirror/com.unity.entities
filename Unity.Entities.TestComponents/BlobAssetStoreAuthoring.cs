@@ -27,7 +27,7 @@ namespace Unity.Entities.TestComponents
             if (!TryGetBlobAssetReference(hash, out BlobAssetReference<int> blobAssetReference))
             {
                 blobAssetReference = BlobAssetReference<int>.Create(3);
-                AddBlobAssetWithCustomHash(blobAssetReference, hash);
+                AddBlobAssetWithCustomHash(ref blobAssetReference, hash);
                 Debug.Log("Retrieve blobasset from store");
             }
 

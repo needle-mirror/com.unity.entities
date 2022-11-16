@@ -145,7 +145,7 @@ namespace Unity.Entities
             get => GetBit(index);
             set
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (m_PtrChunkDisabledCount == null)
                     throw new InvalidOperationException(
                     "ComponentEnabledMask requires a non-null ChunkDisabledCount pointer to be able to write to it");
@@ -173,7 +173,7 @@ namespace Unity.Entities
         public unsafe EnabledRefRW<T> GetEnabledRefRW<T>(int index)
             where T : unmanaged, IComponentData, IEnableableComponent
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (m_PtrChunkDisabledCount == null)
                 throw new InvalidOperationException(
                     "ComponentEnabledMask requires a non-null ChunkDisabledCount pointer to be able to write to it");
@@ -208,7 +208,7 @@ namespace Unity.Entities
         {
             if (m_EnableBitRef.IsValid)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (m_PtrChunkDisabledCount == null)
                     throw new InvalidOperationException(
                         "ComponentEnabledMask requires a non-null ChunkDisabledCount pointer to be able to write to it");

@@ -4,7 +4,7 @@ using JetBrains.Annotations;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Profiling;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
@@ -54,22 +54,37 @@ namespace Unity.Entities.Editor
         // internal for tests.
         internal static void GetMatchSystems(Entity entity, World world, List<QueryViewData> matchingQueries, List<SystemQueriesViewData> matchingSystems, WorldProxy worldProxy)
         {
+            var findDuplicatesDict = new Dictionary<string, int>();
             foreach (var system in worldProxy.AllSystemsInOrder)
             {
-                GatherMatchingSystem(entity, world, system, matchingQueries, matchingSystems);
+                GatherMatchingSystem(entity, world, system, matchingQueries, matchingSystems, findDuplicatesDict);
             }
         }
 
-        static unsafe void GatherMatchingSystem(Entity entity, World world, SystemProxy systemProxy, List<QueryViewData> matchingQueries, List<SystemQueriesViewData> matchingSystems)
+        static unsafe void GatherMatchingSystem(Entity entity, World world, SystemProxy systemProxy, List<QueryViewData> matchingQueries, List<SystemQueriesViewData> matchingSystems, Dictionary<string, int> findDuplicatesDict)
         {
             var ecs = world.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
 
             GatherMatchingQueries(ecs, entity, ref systemProxy.StatePointerForQueryResults->EntityQueries, matchingQueries, world, systemProxy);
-            if (matchingQueries.Count > 0)
+            if (matchingQueries.Count <= 0)
+                return;
+
+            var currentViewData = new SystemQueriesViewData(systemProxy, GetSystemKind(systemProxy), matchingQueries.ToArray());
+            if (findDuplicatesDict.TryGetValue(systemProxy.TypeName, out var existingViewDataIndex))
             {
-                matchingSystems.Add(new SystemQueriesViewData(systemProxy, GetSystemKind(systemProxy), matchingQueries.ToArray()));
-                matchingQueries.Clear();
+                currentViewData.MarkAsDuplicatedTypeName();
+
+                var existingViewData = matchingSystems[existingViewDataIndex];
+                if (existingViewData.MarkAsDuplicatedTypeName())
+                    matchingSystems[existingViewDataIndex] = existingViewData;
             }
+            else
+            {
+                findDuplicatesDict.Add(systemProxy.TypeName, matchingSystems.Count);
+            }
+
+            matchingSystems.Add(currentViewData);
+            matchingQueries.Clear();
         }
 
         // internal for tests

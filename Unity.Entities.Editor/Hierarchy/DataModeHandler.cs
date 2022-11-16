@@ -1,4 +1,5 @@
-﻿using System;
+#if !USE_IMPROVED_DATAMODE
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -78,3 +79,4 @@ namespace Unity.Entities.Editor
             => EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
     }
 }
+#endif

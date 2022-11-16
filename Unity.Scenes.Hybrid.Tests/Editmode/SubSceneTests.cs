@@ -114,21 +114,16 @@ namespace Unity.Scenes.Hybrid.Tests
                 var material = sharedA.material;
 
 #if !UNITY_EDITOR
-                Assert.AreEqual(1, SceneBundleHandle.GetLoadedCount());
-#else
-                Assert.AreEqual(0, SceneBundleHandle.GetLoadedCount());
+                Assert.AreEqual(1, Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.k_Namespace).Length);
 #endif
-                Assert.AreEqual(0, SceneBundleHandle.GetUnloadingCount());
 
                 SceneSystem.UnloadScene(worldA.Unmanaged, worldAScene);
                 worldA.Update();
 
                 SceneSystem.UnloadScene(worldB.Unmanaged, worldBScene);
                 worldB.Update();
-
-                Assert.AreEqual(0, SceneBundleHandle.GetLoadedCount());
-                Assert.AreEqual(0, SceneBundleHandle.GetUnloadingCount());
 #if !UNITY_EDITOR
+                Assert.AreEqual(0, Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.k_Namespace).Length);
                 Assert.IsTrue(material == null);
 #endif
             }
@@ -190,13 +185,9 @@ namespace Unity.Scenes.Hybrid.Tests
                 Assert.IsTrue(sharedA.material != null, "sharedA.material != null");
 
                 var material = sharedA.material;
-
 #if !UNITY_EDITOR
-                Assert.AreEqual(1, SceneBundleHandle.GetLoadedCount());
-#else
-                Assert.AreEqual(0, SceneBundleHandle.GetLoadedCount());
+                Assert.AreEqual(1, Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.k_Namespace).Length);
 #endif
-                Assert.AreEqual(0, SceneBundleHandle.GetUnloadingCount());
 
                 SceneSystem.UnloadScene(worldA.Unmanaged, worldAScene);
                 worldA.Update();
@@ -204,9 +195,8 @@ namespace Unity.Scenes.Hybrid.Tests
                 SceneSystem.UnloadScene(worldB.Unmanaged, worldBScene);
                 worldB.Update();
 
-                Assert.AreEqual(0, SceneBundleHandle.GetLoadedCount());
-                Assert.AreEqual(0, SceneBundleHandle.GetUnloadingCount());
 #if !UNITY_EDITOR
+                Assert.AreEqual(0, Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.k_Namespace).Length);
                 Assert.IsTrue(material == null);
 #endif
             }

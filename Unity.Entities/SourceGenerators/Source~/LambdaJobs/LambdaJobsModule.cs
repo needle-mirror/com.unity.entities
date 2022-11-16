@@ -146,9 +146,12 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                     foreach (var lambdaParameter in lambdaJobDescription.LambdaParameters.OfType<IParamRequireUpdate>())
                     {
-                        lambdaParameter.FieldName = lambdaParameter is LambdaParamDescription_Entity
-                            ? systemDescription.GetOrCreateEntityTypeHandleField(lambdaParameter.TypeSymbol)
-                            : systemDescription.GetOrCreateTypeHandleField(lambdaParameter.TypeSymbol, lambdaParameter.IsReadOnly);
+                        lambdaParameter.FieldName = lambdaParameter switch
+                        {
+                            LambdaParamDescription_Entity _ => systemDescription.GetOrCreateEntityTypeHandleField(),
+                            LambdaParamDescription_DynamicBuffer dynamicBuffer => systemDescription.GetOrCreateTypeHandleField(dynamicBuffer.EntityQueryTypeSymbol, lambdaParameter.IsReadOnly),
+                            _ => systemDescription.GetOrCreateTypeHandleField(lambdaParameter.TypeSymbol, lambdaParameter.IsReadOnly)
+                        };
                     }
 
                     foreach (var lambdaParameter in lambdaJobDescription.AdditionalFields)

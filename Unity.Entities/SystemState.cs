@@ -250,13 +250,14 @@ namespace Unity.Entities
         /// </summary>
         public SystemHandle SystemHandle => m_Handle;
 
-        /// <inheritdoc cref="SystemHandle"/>
+        /// <summary> Obsolete. Use <see cref="SystemHandle"/> instead.</summary>
         [Obsolete("SystemHandle has been renamed to SystemHandle. (UnityUpgradable) -> SystemHandle", true)]
         public SystemHandle SystemHandleUntyped => m_Handle;
 
         /// <summary>
-        /// The current Time data for this system's world.
+        /// Obsolete. The current Time data for this system's world.
         /// </summary>
+        /// <remarks> **Obsolete.** Use <see cref="SystemAPI.Time"/> or <see cref="WorldUnmanaged.Time"/> instead.</remarks>
         [Obsolete("Time has been deprecated as duplicate. Use SystemAPI.Time or WorldUnmanaged.Time instead (RemovedAfter 2023-08-08)", true)]
         public ref readonly TimeData Time => ref WorldUnmanaged.Time;
 
@@ -376,7 +377,7 @@ namespace Unity.Entities
 
                 if (m_EntityManager.IsQueryValid(query))
                 {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                     query._GetImpl()->_DisallowDisposing = 0;
 #endif
                     query.Dispose();
@@ -728,7 +729,7 @@ namespace Unity.Entities
         private void AfterQueryCreated(EntityQuery query)
         {
             query.SetChangedFilterRequiredVersion(m_LastSystemVersion);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             query._GetImpl()->_DisallowDisposing = 1;
 #endif
 
@@ -757,7 +758,7 @@ namespace Unity.Entities
             using (var builder = new EntityQueryBuilder(Allocator.Temp, &type, 1)
                 .WithOptions(EntityQueryOptions.IncludeSystems))
             {
-                var newQuery = EntityManager.CreateEntityQuery(builder);
+                var newQuery = EntityManager.CreateEntityQueryUnowned(builder);
                 AddReaderWriters(newQuery);
                 AfterQueryCreated(newQuery);
 
@@ -793,7 +794,7 @@ namespace Unity.Entities
                 }
             }
 
-            var newQuery = EntityManager.CreateEntityQuery(desc);
+            var newQuery = EntityManager.CreateEntityQueryUnowned(desc);
 
             AddReaderWriters(newQuery);
             AfterQueryCreated(newQuery);
@@ -877,8 +878,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets the run-time type information required to access an array of component data in a chunk.
+        /// Manually gets the run-time type information required to access an array of component data in a chunk.
         /// </summary>
+        /// <remarks>Remember to call <see cref="ComponentTypeHandle{T}.Update(ref SystemState)"/>. </remarks>
         /// <param name="isReadOnly">Whether the component data is only read, not written. Access components as
         /// read-only whenever possible.</param>
         /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
@@ -886,6 +888,8 @@ namespace Unity.Entities
         /// chunk.</returns>
         /// <remarks>Pass an <see cref="ComponentTypeHandle{T}"/> instance to a job that has access to chunk data,
         /// such as an <see cref="IJobChunk"/> job, to access that type of component inside the job.</remarks>
+        /// <remarks> Prefer using <see cref="SystemAPI.GetComponentTypeHandle{T}"/> in <see cref="SystemAPI"/> as it will cache in OnCreate for you
+        /// and call .Update(ref SystemState) at the call-site.</remarks>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : unmanaged, IComponentData
         {
@@ -895,8 +899,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets the run-time type information required to access an array of component data in a chunk.
+        /// Manually gets the run-time type information required to access an array of component data in a chunk.
         /// </summary>
+        /// <remarks>Remember to call <see cref="DynamicComponentTypeHandle.Update(ref SystemState)"/>.</remarks>
         /// <param name="componentType">Type of the component</param>
         /// <returns>An object representing the type information required to safely access component data stored in a
         /// chunk.</returns>
@@ -913,8 +918,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets the run-time type information required to access an array of buffer components in a chunk.
+        /// Manually gets the run-time type information required to access an array of buffer components in a chunk.
         /// </summary>
+        /// <remarks>Remember to call <see cref="BufferTypeHandle{T}.Update(ref SystemState)"/>.</remarks>
         /// <param name="isReadOnly">Whether the data is only read, not written. Access data as
         /// read-only whenever possible.</param>
         /// <typeparam name="T">A struct that implements <see cref="IBufferElementData"/>.</typeparam>
@@ -922,6 +928,8 @@ namespace Unity.Entities
         /// chunk.</returns>
         /// <remarks>Pass a BufferTypeHandle instance to a job that has access to chunk data, such as an
         /// <see cref="IJobChunk"/> job, to access that type of buffer component inside the job.</remarks>
+        /// <remarks> Prefer using <see cref="SystemAPI.GetBufferTypeHandle{T}"/> in <see cref="SystemAPI"/> as it will cache in OnCreate for you
+        /// and call .Update(ref SystemState) at the call-site.</remarks>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         public BufferTypeHandle<T> GetBufferTypeHandle<T>(bool isReadOnly = false)
             where T : unmanaged, IBufferElementData
@@ -932,11 +940,14 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets the run-time type information required to access a shared component data in a chunk.
+        /// Manually gets the run-time type information required to access a shared component data in a chunk.
         /// </summary>
+        /// <remarks>Remember to call <see cref="SharedComponentTypeHandle{T}.Update(ref SystemState)"/>.</remarks>
         /// <typeparam name="T">A struct that implements <see cref="ISharedComponentData"/>.</typeparam>
         /// <returns>An object representing the type information required to safely access shared component data stored in a
         /// chunk.</returns>
+        /// <remarks> Prefer using <see cref="SystemAPI.GetSharedComponentTypeHandle{T}"/> in <see cref="SystemAPI"/> as it will cache in OnCreate for you
+        /// and call .Update(ref SystemState) at the call-site.</remarks>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
         public SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>()
             where T : struct, ISharedComponentData
@@ -946,8 +957,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets the run-time type information required to access a shared component data in a chunk.
+        /// Manually gets the run-time type information required to access a shared component data in a chunk.
         /// </summary>
+        /// <remarks>Remember to call <see cref="DynamicSharedComponentTypeHandle.Update(ref SystemState)"/>.</remarks>
         /// <param name="componentType">The component type to get access to.</param>
         /// <returns>An object representing the type information required to safely access shared component data stored in a
         /// chunk.</returns>
@@ -961,9 +973,12 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets the run-time type information required to access the array of <see cref="Entity"/> objects in a chunk.
+        /// Manually gets the runtime type information required to access the array of <see cref="Entity"/> objects in a chunk.
         /// </summary>
-        /// <returns>An object representing the type information required to safely access Entity instances stored in a
+        /// <remarks>To make sure the entity type handle is up to date, call  <see cref="EntityTypeHandle.Update(ref SystemState)"/> before you use this method.
+        /// It's best practice to use <see cref="SystemAPI.GetEntityTypeHandle"/> instead of this method because `SystemAPI.GetEntityTypeHandle` caches in OnCreate for you
+        /// and calls Update(ref SystemState) at the call-site.</remarks>
+        /// <returns>An object that represents the type information required to safely access Entity instances stored in a
         /// chunk.</returns>
         public EntityTypeHandle GetEntityTypeHandle()
         {
@@ -972,12 +987,15 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets an dictionary-like container containing all components of type T, keyed by Entity.
+        /// Manually gets a dictionary-like container containing all components of type T, keyed by Entity.
         /// </summary>
+        /// <remarks>Remember to call <see cref="ComponentLookup{T}.Update(ref SystemState)"/>. </remarks>
         /// <param name="isReadOnly">Whether the data is only read, not written. Access data as
         /// read-only whenever possible.</param>
         /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
         /// <returns>All component data of type T.</returns>
+        /// <remarks> Prefer using <see cref="SystemAPI.GetComponentLookup{T}"/> as it will cache in OnCreate for you
+        /// and call .Update(ref state) at the call-site.</remarks>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public ComponentLookup<T> GetComponentLookup<T>(bool isReadOnly = false)
             where T : unmanaged, IComponentData
@@ -986,7 +1004,11 @@ namespace Unity.Entities
             AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             return EntityManager.GetComponentLookup<T>(isReadOnly);
         }
-        /// <inheritdoc cref="GetComponentLookup{T}"/>
+        /// <summary> Obsolete. Use <see cref="GetComponentLookup{T}"/> instead.</summary>
+        /// <param name="isReadOnly">Whether the data is only read, not written. Access data as
+        /// read-only whenever possible.</param>
+        /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
+        /// <returns>All component data of type T.</returns>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         [Obsolete("This method has been renamed to GetComponentLookup<T>(). (RemovedAFter Entities 1.0) (UnityUpgradable) -> GetComponentLookup<T>(*)", false)]
         public ComponentLookup<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
@@ -996,8 +1018,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets a BufferLookup&lt;T&gt; object that can access a <seealso cref="DynamicBuffer{T}"/>.
+        /// Manually gets a BufferLookup&lt;T&gt; object that can access a <seealso cref="DynamicBuffer{T}"/>.
         /// </summary>
+        /// <remarks>Remember to call <see cref="BufferLookup{T}.Update(ref SystemState)"/>. </remarks>
         /// <remarks>Assign the returned object to a field of your Job struct so that you can access the
         /// contents of the buffer in a Job.</remarks>
         /// <param name="isReadOnly">Whether the buffer data is only read or is also written. Access data in
@@ -1005,6 +1028,8 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of <see cref="IBufferElementData"/> stored in the buffer.</typeparam>
         /// <returns>An array-like object that provides access to buffers, indexed by <see cref="Entity"/>.</returns>
         /// <seealso cref="ComponentLookup{T}"/>
+        /// <remarks> Prefer using <see cref="SystemAPI.GetBufferLookup{T}"/> as it will cache in OnCreate for you
+        /// and call .Update(ref state) at the call-site.</remarks>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         public BufferLookup<T> GetBufferLookup<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData
         {
@@ -1012,7 +1037,12 @@ namespace Unity.Entities
             AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             return EntityManager.GetBufferLookup<T>(isReadOnly);
         }
-        /// <inheritdoc cref="GetBufferLookup{T}"/>
+        /// <summary> Obsolete. Use <see cref="GetBufferLookup{T}"/> instead.</summary>
+        /// <param name="isReadOnly">Whether the buffer data is only read or is also written. Access data in
+        /// a read-only fashion whenever possible.</param>
+        /// <typeparam name="T">The type of <see cref="IBufferElementData"/> stored in the buffer.</typeparam>
+        /// <returns>An array-like object that provides access to buffers, indexed by <see cref="Entity"/>.</returns>
+        /// <seealso cref="ComponentLookup{T}"/>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         [Obsolete("This method has been renamed to GetBufferLookup<T>(). (RemovedAFter Entities 1.0) (UnityUpgradable) -> GetBufferLookup<T>(*)", false)]
         public BufferLookup<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData
@@ -1021,16 +1051,20 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets an dictionary-like container containing information about how entities are stored.
+        /// Manually gets a dictionary-like container containing information about how entities are stored.
         /// </summary>
+        /// <remarks>Remember to call <see cref="EntityStorageInfoLookup.Update(ref SystemState)"/>. </remarks>
         /// <returns>A EntityStorageInfoLookup object.</returns>
         /// <seealso cref="EntityStorageInfoLookup"/>
+        /// <remarks> Prefer using <see cref="SystemAPI.GetEntityStorageInfoLookup"/> as it will cache in OnCreate for you
+        /// and call .Update(ref state) at the call-site.</remarks>
         [GenerateTestsForBurstCompatibility]
         public EntityStorageInfoLookup GetEntityStorageInfoLookup()
         {
             return EntityManager.GetEntityStorageInfoLookup();
         }
-        /// <inheritdoc cref="GetEntityStorageInfoLookup"/>
+        ///<summary> Obsolete. Use <see cref="GetEntityStorageInfoLookup"/> instead.</summary>
+        /// <returns>A EntityStorageInfoLookup object.</returns>
         [GenerateTestsForBurstCompatibility]
         [Obsolete("This method has been renamed to GetEntityStorageInfoLookup(). (RemovedAFter Entities 1.0) (UnityUpgradable) -> GetEntityStorageInfoLookup(*)", false)]
         public EntityStorageInfoLookup GetStorageInfoFromEntity()
@@ -1046,7 +1080,11 @@ namespace Unity.Entities
         /// <remarks>Any queries added through RequireForUpdate override all other queries cached by this system.
         /// In other words, if any required query does not find matching entities, the update is skipped even
         /// if another query created for the system (either explicitly or implicitly) does match entities and
-        /// vice versa.</remarks>
+        /// vice versa.
+        ///
+        /// Note that for components that implement <see cref="T:Unity.Entities.IEnableableComponent"/>
+        /// this method ignores whether the component is enabled or not, it only checks whether it exists.
+        /// It also ignores any other filters placed </remarks>
         /// <seealso cref="ShouldRunSystem"/>
         /// <seealso cref="RequireForUpdate{T}"/>
         /// <seealso cref="T:Unity.Entities.RequireMatchingQueriesForUpdateAttribute"/>
@@ -1060,9 +1098,16 @@ namespace Unity.Entities
 
         /// <summary>
         /// Require that a specific component exist for this system to run.
+        /// Also includes any components added to a system.
+        /// See <see cref="Unity.Entities.SystemHandle"/> for more info on that.
         /// </summary>
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the component.</typeparam>
-        /// <remarks>Note that for components that implement <see cref="T:Unity.Entities.IEnableableComponent"/>
+        /// <remarks>Any queries added through RequireForUpdate override all other queries cached by this system.
+        /// In other words, if any required query does not find matching entities, the update is skipped even
+        /// if another query created for the system (either explicitly or implicitly) does match entities and
+        /// vice versa.
+        ///
+        /// Note that for components that implement <see cref="T:Unity.Entities.IEnableableComponent"/>
         /// this method ignores whether the component is enabled or not, it only checks whether it exists.</remarks>
         /// <seealso cref="ShouldRunSystem"/>
         /// <seealso cref="RequireForUpdate(Unity.Entities.EntityQuery)"/>
@@ -1071,10 +1116,9 @@ namespace Unity.Entities
         [ExcludeFromBurstCompatTesting("Eventually accesses managed World")]
         public void RequireForUpdate<T>()
         {
-            CheckOnUpdate_Query();
             var type = ComponentType.ReadOnly<T>();
-            var query = GetEntityQueryInternal(&type, 1);
-            RequireForUpdate(query);
+            using var builder = new EntityQueryBuilder(Allocator.Temp, &type, 1).WithOptions(EntityQueryOptions.IncludeSystems);
+            RequireForUpdate(GetEntityQueryInternal(builder));
         }
 
         /// <summary>
@@ -1191,7 +1235,8 @@ namespace Unity.Entities
             RequireForUpdate(megaQuery);
         }
 
-        /// <inheritdoc cref="RequireForUpdate{T}"/>
+        /// <summary> Obsolete. Use <see cref="RequireForUpdate{T}"/> instead.</summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
         [Obsolete("RequireSingletonForUpdate has been renamed. Use RequireForUpdate<T>() instead. (RemovedAFter Entities 1.0) (UnityUpgradable) -> RequireForUpdate<T>()", true)]
         public void RequireSingletonForUpdate<T>()
         {

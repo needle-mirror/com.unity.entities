@@ -11,7 +11,7 @@
     flex-direction: row;
     flex-shrink: 0;
     padding-left: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     padding-top: 1px;
     margin-bottom: 5px;
     height:20px;

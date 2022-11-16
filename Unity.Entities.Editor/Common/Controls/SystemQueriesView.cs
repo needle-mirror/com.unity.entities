@@ -30,7 +30,7 @@ namespace Unity.Entities.Editor
 
         public void Update(in SystemQueriesViewData data)
         {
-            if (!m_QueriesViewData.Equals(data))
+            if (!m_QueriesViewData.SystemProxy.Valid || !m_QueriesViewData.Equals(data))
             {
                 UpdateIcon(m_QueriesViewData.Kind, data.Kind);
                 m_QueriesViewData = data;

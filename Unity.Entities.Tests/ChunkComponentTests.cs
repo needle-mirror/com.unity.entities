@@ -33,6 +33,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
         public unsafe void ArchetypeChunk_GetAndSetChunkComponent_ThrowWhenMetaChunkEntityMissing()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -40,11 +41,12 @@ namespace Unity.Entities.Tests
             var chunk = m_Manager.GetChunk(entity);
 
             Assert.AreEqual(chunk.m_Chunk->metaChunkEntity, Entity.Null);
-            Assert.Throws<ArgumentException>(() => chunk.SetChunkComponentData(chunkComponentType, new EcsTestData2(12)));
-            Assert.Throws<ArgumentException>(() => chunk.GetChunkComponentData(chunkComponentType));
+            Assert.Throws<ArgumentException>(() => chunk.SetChunkComponentData(ref chunkComponentType, new EcsTestData2(12)));
+            Assert.Throws<ArgumentException>(() => chunk.GetChunkComponentData(ref chunkComponentType));
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
         public unsafe void ArchetypeChunk_GetAndSetChunkComponent_ThrowWhenComponentMissing()
         {
             var entity = m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestData>());
@@ -52,8 +54,8 @@ namespace Unity.Entities.Tests
             var chunk = m_Manager.GetChunk(entity);
 
             Assert.AreNotEqual(chunk.m_Chunk->metaChunkEntity, Entity.Null);
-            Assert.Throws<ArgumentException>(() => chunk.GetChunkComponentData(chunkComponentType));
-            Assert.Throws<ArgumentException>(() => chunk.SetChunkComponentData(chunkComponentType, new EcsTestData2(12)));
+            Assert.Throws<ArgumentException>(() => chunk.GetChunkComponentData(ref chunkComponentType));
+            Assert.Throws<ArgumentException>(() => chunk.SetChunkComponentData(ref chunkComponentType, new EcsTestData2(12)));
         }
 
         [Test]
@@ -169,7 +171,8 @@ namespace Unity.Entities.Tests
             {
                 var curBounds = new ChunkBoundsComponent { boundsMin = new float3(1000, 1000, 1000), boundsMax = new float3(-1000, -1000, -1000)};
                 var boundsChunk = metaChunkHeaders[i].ArchetypeChunk;
-                var bounds = boundsChunk.GetNativeArray(m_Manager.GetComponentTypeHandle<BoundsComponent>(true));
+                var boundsType = m_Manager.GetComponentTypeHandle<BoundsComponent>(true);
+                var bounds = boundsChunk.GetNativeArray(ref boundsType);
                 for (int j = 0; j < bounds.Length; ++j)
                 {
                     curBounds.boundsMin = math.min(curBounds.boundsMin, bounds[j].boundsMin);
@@ -178,8 +181,8 @@ namespace Unity.Entities.Tests
 
                 var chunkBoundsType = m_Manager.GetComponentTypeHandle<ChunkBoundsComponent>(false);
 
-                boundsChunk.SetChunkComponentData(chunkBoundsType, curBounds);
-                Assert.AreEqual(curBounds, boundsChunk.GetChunkComponentData(chunkBoundsType));
+                boundsChunk.SetChunkComponentData(ref chunkBoundsType, curBounds);
+                Assert.AreEqual(curBounds, boundsChunk.GetChunkComponentData(ref chunkBoundsType));
             }
             var val = m_Manager.GetChunkComponentData<ChunkBoundsComponent>(entity0);
             Assert.AreEqual(new float3(-10, -10, -10), val.boundsMin);
@@ -195,7 +198,7 @@ namespace Unity.Entities.Tests
             {
                 var curBounds = new ChunkBoundsComponent { boundsMin = new float3(1000, 1000, 1000), boundsMax = new float3(-1000, -1000, -1000)};
                 var boundsChunk = chunkHeader.ArchetypeChunk;
-                var bounds = boundsChunk.GetNativeArray(ChunkComponentTypeHandle);
+                var bounds = boundsChunk.GetNativeArray(ref ChunkComponentTypeHandle);
                 for (int j = 0; j < bounds.Length; ++j)
                 {
                     curBounds.boundsMin = math.min(curBounds.boundsMin, bounds[j].boundsMin);

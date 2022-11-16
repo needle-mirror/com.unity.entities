@@ -4,7 +4,7 @@ using NUnit.Framework;
 using System.IO;
 using System.Linq;
 using Unity.Entities.Conversion;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Scenes;
 using Unity.Scenes.Editor;
 using UnityEditor;
@@ -138,7 +138,7 @@ namespace Unity.Entities.Editor.Tests
         public IEnumerator SystemScheduleWindow_SearchForSingleComponent()
         {
             yield return new SystemScheduleTestUtilities.UpdateSystemGraph(typeof(SystemScheduleTestGroup));
-            m_SystemScheduleWindow.rootVisualElement.Q<SearchElement>().Search("c:SystemScheduleTestData1");
+            m_SystemScheduleWindow.rootVisualElement.Q<SearchElement>().Search("c=SystemScheduleTestData1");
 
             var systemTreeView = m_SystemScheduleWindow.rootVisualElement.Q<SystemTreeView>();
             Assert.That(systemTreeView.m_ListViewFilteredItems.Count, Is.EqualTo(1));
@@ -204,16 +204,16 @@ namespace Unity.Entities.Editor.Tests
         public void SystemScheduleWindow_SearchBuilder_ParseSearchString()
         {
             var searchElement = m_SystemScheduleWindow.rootVisualElement.Q<SearchElement>();
-            searchElement.Search("c:Com1 C:Com2 randomName Sd:System1");
+            searchElement.Search("c=Com1 C=Com2 randomName Sd:System1");
             var systemTreeView = m_SystemScheduleWindow.rootVisualElement.Q<SystemTreeView>();
             var parseResult = systemTreeView.SearchFilter;
 
-            Assert.That(parseResult.Input, Is.EqualTo( "c:Com1 C:Com2 randomName Sd:System1" ));
+            Assert.That(parseResult.Input, Is.EqualTo( "c=Com1 C=Com2 randomName Sd:System1" ));
             Assert.That(parseResult.ComponentNames, Is.EquivalentTo(new[] { "Com1", "Com2" }));
             Assert.That(parseResult.DependencySystemNames, Is.EquivalentTo(new[] { "System1" }));
             Assert.That(parseResult.ErrorComponentType, Is.EqualTo( "Com1" ));
 
-            searchElement.Search("c:   com1 C:Com2");
+            searchElement.Search("c=   com1 C=Com2");
             Assert.That(systemTreeView.SearchFilter.ComponentNames, Is.EquivalentTo(new[] { string.Empty, "Com2"}));
         }
 

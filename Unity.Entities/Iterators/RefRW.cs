@@ -10,7 +10,7 @@ namespace Unity.Entities
     /// </summary>
     /// <typeparam name="T">The type of object referenced.</typeparam>
     [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
-    public readonly struct RefRW<T> : IQueryTypeParameter where T : struct
+    public readonly struct RefRW<T> : IQueryTypeParameter where T : struct, IComponentData
     {
         readonly private unsafe byte*      _Data;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

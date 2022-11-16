@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -558,7 +558,7 @@ namespace Unity.Entities.Editor
 
             string GetComponentTypeIndex(int index)
             {
-                return m_ComponentsList[index].TypeIndex.ToString();
+                return m_ComponentsList[index].TypeIndex.Value.ToString();
             }
 
             void SearchComponent(int index)

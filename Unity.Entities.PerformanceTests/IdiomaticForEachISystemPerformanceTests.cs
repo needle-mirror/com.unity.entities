@@ -16,12 +16,12 @@ namespace Unity.Entities.PerformanceTests
     public readonly partial struct RotateAspect : IAspect
     {
 #if !ENABLE_TRANSFORM_V1
-        readonly RefRW<LocalToWorldTransform> Transform;
+        readonly RefRW<LocalTransform> Transform;
 
         public void Rotate(float time, float speedModifier) =>
-            Transform.ValueRW.Value.Rotation =
+            Transform.ValueRW.Rotation =
                 math.mul(
-                    math.normalize(Transform.ValueRO.Value.Rotation),
+                    math.normalize(Transform.ValueRO.Rotation),
                     quaternion.AxisAngle(math.up(), time * speedModifier));
 #else
         readonly RefRW<Rotation> Rotation;
@@ -60,11 +60,11 @@ namespace Unity.Entities.PerformanceTests
         {
             var time = SystemAPI.Time.DeltaTime;
 #if !ENABLE_TRANSFORM_V1
-            foreach (var (transform, speedModifierRef) in SystemAPI.Query<RefRW<LocalToWorldTransform>, RefRO<SpeedModifier>>())
+            foreach (var (transform, speedModifierRef) in SystemAPI.Query<RefRW<LocalTransform>, RefRO<SpeedModifier>>())
             {
-                transform.ValueRW.Value.Rotation =
+                transform.ValueRW.Rotation =
                     math.mul(
-                        math.normalize(transform.ValueRO.Value.Rotation),
+                        math.normalize(transform.ValueRO.Rotation),
                         quaternion.AxisAngle(math.up(), time * speedModifierRef.ValueRO.Value));
             }
 #else

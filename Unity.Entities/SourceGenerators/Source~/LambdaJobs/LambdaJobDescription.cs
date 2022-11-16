@@ -140,7 +140,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         {
                             TypeSymbol = symbol,
                             Type = QueryType.ChangeFilter,
-                            IsReadOnly = false
+                            IsReadOnly = true
                         }
                     ).ToArray();
                 WithSharedComponentFilterTypes =
@@ -158,13 +158,12 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 WithStoreEntityQueryInFieldArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithStoreEntityQueryInField");
                 WithScheduleGranularityArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithScheduleGranularity");
 
-                var systemStateParamResult = SystemDescription.TryGetSystemStateParameterName(candidate);
-                if (!systemStateParamResult.Success)
+                if (!SystemDescription.TryGetSystemStateParameterName(candidate, out var systemStateExpression))
                 {
                     Success = false;
                     return;
                 }
-                SystemStateParameterName = systemStateParamResult.SystemStateName;
+                SystemStateParameterName = systemStateExpression.ToFullString();
 
                 if (SystemType == SystemType.ISystem)
                 {

@@ -30,6 +30,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void UpdateInvalidatesNativeList()
         {
             var container = m_world.UpdateAllocator.AllocateNativeList<byte>(m_world.UpdateAllocator.InitialSizeInBytes / 1000);
@@ -44,6 +45,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void UpdateInvalidatesNativeArray()
         {
             var container = m_world.UpdateAllocator.AllocateNativeArray<byte>(m_world.UpdateAllocator.InitialSizeInBytes / 1000);
@@ -56,7 +58,7 @@ namespace Unity.Entities.Tests
             });
         }
 
-        [Test]
+    [Test]
         public void NativeListCanBeCreatedViaMemberFunction()
         {
             var container = m_world.UpdateAllocator.AllocateNativeList<byte>(m_world.UpdateAllocator.InitialSizeInBytes / 1000);

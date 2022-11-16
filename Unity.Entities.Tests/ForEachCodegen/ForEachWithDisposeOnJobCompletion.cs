@@ -43,7 +43,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [NativeContainer]
         struct SupportsDisposeOnCompletion : IDisposable
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle m_Safety;
+#endif
             Allocator m_Allocator;
             [NativeDisableUnsafePtrRestriction]
             public unsafe int* m_Ptr;
@@ -54,30 +56,43 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 m_Ptr = (int*)Memory.Unmanaged.Allocate(sizeof(int), 16, allocator);
                 *m_Ptr = 54321;
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 m_Safety = AtomicSafetyHandle.Create();
+#endif
             }
 
             public unsafe void Dispose()
             {
                 *m_Ptr = 0;
                 Memory.Unmanaged.Free(m_Ptr, m_Allocator);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.CheckDeallocateAndThrow(m_Safety);
                 AtomicSafetyHandle.Release(m_Safety);
+#endif
             }
 
             public unsafe JobHandle Dispose(JobHandle inputDeps)
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.Release(m_Safety);
+#endif
                 return new SupportsDisposeOnCompletionJob { m_Ptr = m_Ptr, m_Allocator = m_Allocator }.Schedule(inputDeps);
             }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             public void CheckCanRead() => AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#else
+            public void CheckCanRead() {}
+#endif
 
             public unsafe bool HasBeenDisposed()
             {
                 try
                 {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     AtomicSafetyHandle.CheckDeallocateAndThrow(m_Safety);
+#endif
                     if (*m_Ptr == 54321)
                         return false;
                 }
@@ -90,8 +105,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             public void Release()
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (!HasBeenDisposed())
                     AtomicSafetyHandle.Release(m_Safety);
+#endif
             }
         }
 
@@ -104,6 +121,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         [Test]
         [ManagedExceptionInPortableTests]
+        [TestRequiresCollectionChecks("Requires Atomic Safety Handle for dispose checks")]
         public void DisposeOnCompletion_DisposesAtEnd([Values] ScheduleType scheduleType)
         {
             m_Manager.CreateEntity(typeof(EcsTestFloatData));
@@ -130,6 +148,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         [Test]
         [ManagedExceptionInPortableTests]
+        [TestRequiresCollectionChecks("Requires Atomic Safety Handle for dispose checks")]
         public void DisposeInsideStructOnJobCompletion_DisposesAtEnd([Values] ScheduleType scheduleType)
         {
             m_Manager.CreateEntity(typeof(EcsTestFloatData));
@@ -147,6 +166,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         [Test]
         [ManagedExceptionInPortableTests]
+        [TestRequiresCollectionChecks("Requires Atomic Safety Handle for dispose checks")]
         public void DisposeInsideClassOnJobCompletion_WithRun_DisposesAtEnd()
         {
             m_Manager.CreateEntity(typeof(EcsTestFloatData));
@@ -164,6 +184,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         [Test]
         [ManagedExceptionInPortableTests]
+        [TestRequiresCollectionChecks("Requires Atomic Safety Handle for dispose checks")]
         public void DisposeOnCompletion_WithStructuralChanges_Disposes()
         {
             m_Manager.CreateEntity(typeof(EcsTestFloatData));

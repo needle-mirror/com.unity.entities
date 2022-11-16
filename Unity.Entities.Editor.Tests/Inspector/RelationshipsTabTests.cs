@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
-using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.UIElements;
 
@@ -131,6 +130,29 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(ve.Query<SystemQueriesView>().ToList().Select(e => e.Data), Is.EquivalentTo(new[] { systems[1], systems[2] }));
         }
 
+        [Test]
+        public void RelationshipTab_DuplicatedSystemNameWithNamespace()
+        {
+            // Add duplicated name system into the world.
+            var duplicatedSystemA = m_TestWorld.GetOrCreateSystemManaged<DuplicateSystemNameTest.RelationshipsTabTests.SystemA>();
+            var group = m_TestWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
+            group.AddSystemToUpdateList(duplicatedSystemA);
+            group.SortSystems();
+            m_WorldProxyManager.RebuildWorldProxyForGivenWorld(m_TestWorld);
+            m_WorldProxy = m_WorldProxyManager.GetWorldProxyForGivenWorld(m_TestWorld);
+
+            var e = m_TestWorld.EntityManager.CreateEntity(typeof(EntityGuid));
+            var matchingQueries = new List<QueryViewData>();
+            var matchingSystems = new List<SystemQueriesViewData>();
+
+            RelationshipsTab.GetMatchSystems(e, m_TestWorld, matchingQueries, matchingSystems, m_WorldProxy);
+            Assert.That(matchingSystems.Select(s => s.SystemName).SequenceEqual(
+                    new [] {
+                        "Relationships Tab Tests | System B",
+                        "Relationships Tab Tests | System A (Unity.Entities.Editor.Tests)",
+                        "Relationships Tab Tests | System A (Unity.Entities.Editor.Tests.DuplicateSystemNameTest)"}), Is.True);
+        }
+
         partial class SystemA : SystemBase
         {
             protected override void OnUpdate()
@@ -152,6 +174,20 @@ namespace Unity.Entities.Editor.Tests
         {
             protected override void OnUpdate()
             {
+            }
+        }
+    }
+
+    namespace DuplicateSystemNameTest
+    {
+        public partial class RelationshipsTabTests
+        {
+            public partial class SystemA : SystemBase
+            {
+                protected override void OnUpdate()
+                {
+                    Entities.WithoutBurst().WithAll<EntityGuid>().ForEach((in EntityGuid g) => { }).Run();
+                }
             }
         }
     }

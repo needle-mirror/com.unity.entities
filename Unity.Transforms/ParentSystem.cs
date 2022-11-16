@@ -86,11 +86,11 @@ namespace Unity.Transforms
             {
                 Assert.IsFalse(useEnabledMask);
 
-                if (chunk.DidChange(ParentTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange(PreviousParentTypeHandle, LastSystemVersion))
+                if (chunk.DidChange(ref ParentTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange(ref PreviousParentTypeHandle, LastSystemVersion))
                 {
-                    var chunkPreviousParents = chunk.GetNativeArray(PreviousParentTypeHandle);
-                    var chunkParents = chunk.GetNativeArray(ParentTypeHandle);
+                    var chunkPreviousParents = chunk.GetNativeArray(ref PreviousParentTypeHandle);
+                    var chunkParents = chunk.GetNativeArray(ref ParentTypeHandle);
                     var chunkEntities = chunk.GetNativeArray(EntityTypeHandle);
 
                     for (int j = 0, chunkEntityCount = chunk.Count; j < chunkEntityCount; j++)
@@ -330,8 +330,8 @@ namespace Unity.Transforms
             var findMissingChildJobHandle = findMissingChildJob.Schedule();
             findMissingChildJobHandle.Complete();
 
-            state.EntityManager.AddComponent(parentsMissingChild.AsArray(), ComponentType.FromTypeIndex(
-                TypeManager.GetTypeIndex<Child>()));
+            var componentsToAdd = new ComponentTypeSet(ComponentType.ReadWrite<Child>());
+            state.EntityManager.AddComponent(parentsMissingChild.AsArray(), componentsToAdd);
 
             // 6. Get Child[] for each unique Parent
             // 7. Update Child[] for each unique Parent
@@ -346,6 +346,18 @@ namespace Unity.Transforms
 
             var fixupChangedChildrenJobHandle = fixupChangedChildrenJob.Schedule();
             fixupChangedChildrenJobHandle.Complete();
+
+            // 8. Remove empty Child[] buffer from now-childless parents
+            var parents = uniqueParents.GetKeyArray(Allocator.Temp);
+            foreach (var parentEntity in parents)
+            {
+                var children = state.EntityManager.GetBuffer<Child>(parentEntity);
+                if (children.Length == 0)
+                {
+                    var componentsToRemove = new ComponentTypeSet(ComponentType.ReadWrite<Child>());
+                    state.EntityManager.RemoveComponent(parentEntity, componentsToRemove);
+                }
+            }
         }
 
         [BurstCompile]
@@ -365,7 +377,7 @@ namespace Unity.Transforms
                     for (int j = 0; j < childEntitiesSource.Length; j++)
                     {
                         var childEntity = childEntitiesSource[j].Value;
-                        if (ParentFromEntity.HasComponent(childEntity) && ParentFromEntity[childEntity].Value == parentEntity)
+                        if (ParentFromEntity.TryGetComponent(childEntity, out var parent) && parent.Value == parentEntity)
                         {
                             Children.Add(childEntitiesSource[j].Value);
                         }
@@ -396,15 +408,14 @@ namespace Unity.Transforms
 
             state.EntityManager.RemoveComponent(
                 childEntities.AsArray(),
-                ComponentType.FromTypeIndex(
-                    TypeManager.GetTypeIndex<Parent>()));
-            state.EntityManager.RemoveComponent(childEntities.AsArray(), ComponentType.FromTypeIndex(
-                TypeManager.GetTypeIndex<PreviousParent>()));
+                new ComponentTypeSet(
+                    ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<Parent>()),
+                    ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<PreviousParent>())
 #if !ENABLE_TRANSFORM_V1
 #else
-            state.EntityManager.RemoveComponent(childEntities.AsArray(), ComponentType.FromTypeIndex(
-                TypeManager.GetTypeIndex<LocalToParent>()));
+                    , ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<LocalToParent>())
 #endif
+            ));
             state.EntityManager.RemoveComponent(m_DeletedParentsQuery, ComponentType.FromTypeIndex(
                 TypeManager.GetTypeIndex<Child>()));
         }

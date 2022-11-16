@@ -95,8 +95,10 @@ namespace Unity.Entities
                 var world = record.World.Name.ToCSV();
                 var executingSystem = record.ExecutingSystem.Name.ToCSV();
                 var originSystem = record.OriginSystem.Name.ToCSV();
-                var entities = string.Join(";", record.Entities.Select(e => e.Name)).ToCSV();
-                var componentTypes = string.Join(";", record.ComponentTypes.Select(t => t.Name)).ToCSV();
+                var sortedEntities = record.Entities.Select(e => e.Name).OrderBy(e => e);
+                var entities = string.Join(";", sortedEntities).ToCSV();
+                var sortedComponentTypes = record.ComponentTypes.Select(t => t.Name).OrderBy(c => c);
+                var componentTypes = string.Join(";", sortedComponentTypes).ToCSV();
                 var data = string.Empty;
                 switch (record.RecordType)
                 {

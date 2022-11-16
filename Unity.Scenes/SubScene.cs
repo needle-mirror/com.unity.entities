@@ -208,11 +208,16 @@ namespace Unity.Scenes
             {
                 if (_SceneGUID != _AddedSceneGUID)
                 {
-                    RemoveSceneEntities();
-                    if (_SceneGUID != default)
-                        AddSceneEntities();
+                    RebuildSceneEntities();
                 }
             }
+        }
+
+        internal void RebuildSceneEntities()
+        {
+            RemoveSceneEntities();
+            if (_SceneGUID != default)
+                AddSceneEntities();
         }
 
         internal bool CanBeLoaded()
@@ -250,8 +255,6 @@ namespace Unity.Scenes
             // if the Subscene gets assigned later, otherwise the change won't trigger an import/conversion.
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
 
-            GameObjectSceneUtility.RegisterSubScene(gameObject.scene, this);
-
 #if UNITY_EDITOR
             WarnIfNeeded();
 
@@ -276,8 +279,6 @@ namespace Unity.Scenes
 #endif
 
             RemoveSceneEntities();
-
-            GameObjectSceneUtility.UnregisterSubScene(gameObject.scene, this);
         }
 
         unsafe void AddSceneEntities()
@@ -339,11 +340,7 @@ namespace Unity.Scenes
             {
                 // If there is only one scene left in the editor, we create a new empty scene
                 // before unloading this sub scene
-#if UNITY_2022_2_OR_NEWER
                 if (SceneManager.loadedSceneCount == 1 && !EditorApplication.isPlaying)
-#else
-                if (EditorSceneManager.loadedSceneCount == 1 && !EditorApplication.isPlaying)
-#endif
                 {
                     Debug.Log("Unloading last scene, creating new scene");
                     EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Additive);

@@ -1,5 +1,7 @@
+#if USING_PLATFORMS_PACKAGE
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Build.Classic;
@@ -41,10 +43,10 @@ namespace Unity.Scenes.Editor
 
         public override void RegisterAdditionalFilesToDeploy(Action<string, string> registerAdditionalFileToDeploy)
         {
-            var sceneList = Context.GetComponentOrDefault<SceneList>();
-            var tempFile = System.IO.Path.Combine(WorkingDirectory, EntityScenesPaths.k_SceneInfoFileName);
-            ResourceCatalogBuildCode.WriteCatalogFile(sceneList, tempFile);
-            registerAdditionalFileToDeploy(tempFile, System.IO.Path.Combine(StreamingAssetsDirectory, EntityScenesPaths.k_SceneInfoFileName));
+            var tempFile = Path.GetFullPath(Path.Combine(WorkingDirectory, EntityScenesPaths.RelativePathForSceneInfoFile));
+            ResourceCatalogBuildCode.WriteCatalogFile(Context.GetComponentOrDefault<SceneList>(), tempFile);
+            registerAdditionalFileToDeploy(tempFile, EntityScenesPaths.FullPathForFile(StreamingAssetsDirectory, EntityScenesPaths.RelativePathForSceneInfoFile));
         }
     }
 }
+#endif

@@ -3,7 +3,7 @@
         <ui:VisualElement class="foldout-with-action-button__left-side">
             <ui:VisualElement class="foldout-with-action-button__icon-name-container">
                 <ui:VisualElement class="foldout-with-action-button__icon" />
-                <ui:Label class="foldout-with-action-button__name" />
+                <ui:Label class="foldout-with-action-button__name" display-tooltip-when-elided="true"/>
             </ui:VisualElement>
             <ui:Label class="foldout-with-action-button__count" />
         </ui:VisualElement>

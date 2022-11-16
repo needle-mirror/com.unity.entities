@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Unity.Platforms.UI
+namespace Unity.Entities.UI
 {
     class UnityObjectContentProvider : ContentProvider
     {

@@ -5,7 +5,9 @@ using UnityEditor;
 using UnityEngine;
 using UnityEditor.AssetImporters;
 using System.Reflection;
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build;
+#endif
 using Unity.Entities.Conversion;
 using Unity.Entities.Serialization;
 using Unity.Profiling;
@@ -16,29 +18,6 @@ namespace Unity.Scenes.Editor
     class TypeDependencyCache
     {
         const string SystemsVersion = "DOTSAllSystemsVersion";
-
-        struct NameAndVersion : IComparable<NameAndVersion>
-        {
-            public string FullName;
-            public string    UserName;
-            public int    Version;
-
-            public void Init(Type type, string fullName)
-            {
-                FullName = fullName;
-                var systemVersionAttribute = type.GetCustomAttribute<ConverterVersionAttribute>();
-                if (systemVersionAttribute != null)
-                {
-                    Version = systemVersionAttribute.Version;
-                    UserName = systemVersionAttribute.UserName;
-                }
-            }
-
-            public int CompareTo(NameAndVersion other)
-            {
-                return FullName.CompareTo(other.FullName);
-            }
-        }
 
         struct BakingNameAndVersion
         {
@@ -63,7 +42,6 @@ namespace Unity.Scenes.Editor
         }
 
         static ProfilerMarker kRegisterComponentTypes = new ProfilerMarker("TypeDependencyCache.RegisterComponentTypes");
-        static ProfilerMarker kRegisterConversionSystemVersions = new ProfilerMarker("TypeDependencyCache.RegisterConversionSystems");
         static ProfilerMarker kRegisterBakingAssemblies = new ProfilerMarker("TypeDependencyCache.RegisterBakingAssemblies");
 
         static string ComponentTypeString(Type type) => $"DOTSType/{type.FullName}";
@@ -83,16 +61,8 @@ namespace Unity.Scenes.Editor
             using (kRegisterComponentTypes.Auto())
                 RegisterComponentTypes();
 
-            if (LiveConversionSettings.IsBakingEnabled)
-            {
-                using(kRegisterBakingAssemblies.Auto())
-                    RegisterBakingAssemblies();
-            }
-            else
-            {
-                using (kRegisterConversionSystemVersions.Auto())
-                    RegisterConversionSystems();
-            }
+            using(kRegisterBakingAssemblies.Auto())
+                RegisterBakingAssemblies();
 
             int fileFormatVersion = SerializeUtility.CurrentFileFormatVersion;
             UnityEngine.Hash128 fileFormatHash = default;
@@ -121,60 +91,6 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        static unsafe void RegisterConversionSystems()
-        {
-            var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion | WorldSystemFilterFlags.EntitySceneOptimizations);
-            var behaviours = TypeCache.GetTypesDerivedFrom<IConvertGameObjectToEntity>();
-            var nameAndVersion = new NameAndVersion[systems.Count + behaviours.Count];
-
-            int count = 0;
-            // System versions
-            for (int i = 0; i != systems.Count; i++)
-            {
-                var fullName = systems[i].FullName;
-                if (fullName == null)
-                    continue;
-
-                nameAndVersion[count++].Init(systems[i], fullName);
-            }
-
-            // IConvertGameObjectToEntity versions
-            for (int i = 0; i != behaviours.Count; i++)
-            {
-                var fullName = behaviours[i].FullName;
-                if (fullName == null)
-                    continue;
-
-                nameAndVersion[count++].Init(behaviours[i], fullName);
-            }
-
-            Array.Sort(nameAndVersion, 0, count);
-
-            UnityEngine.Hash128 hash = default;
-            for (int i = 0; i != count; i++)
-            {
-                var fullName = nameAndVersion[i].FullName;
-                fixed(char* str = fullName)
-                {
-                    HashUnsafeUtilities.ComputeHash128(str, (ulong)(sizeof(char) * fullName.Length), &hash);
-                }
-
-                var userName = nameAndVersion[i].UserName;
-                if (userName != null)
-                {
-                    fixed(char* str = userName)
-                    {
-                        HashUnsafeUtilities.ComputeHash128(str, (ulong)(sizeof(char) * userName.Length), &hash);
-                    }
-                }
-
-                int version = nameAndVersion[i].Version;
-                HashUnsafeUtilities.ComputeHash128(&version, sizeof(int), &hash);
-            }
-
-            AssetDatabaseCompatibility.RegisterCustomDependency(SystemsVersion, hash);
-        }
-
         static unsafe void RegisterBakingAssemblies()
         {
             var bakers = TypeCache.GetTypesDerivedFrom<IBaker>();
@@ -189,7 +105,7 @@ namespace Unity.Scenes.Editor
                 if (fullName == null)
                     continue;
 
-                if (bakers[i].HasAttribute<BakingVersionAttribute>())
+                if (bakers[i].GetCustomAttribute<BakingVersionAttribute>() != null)
                 {
                     versionedAssemblies[count++].Init(bakers[i], fullName);
                 }
@@ -202,7 +118,7 @@ namespace Unity.Scenes.Editor
                 if (fullName == null)
                     continue;
 
-                if (systems[i].HasAttribute<BakingVersionAttribute>())
+                if (systems[i].GetCustomAttribute<BakingVersionAttribute>() != null)
                 {
                     versionedAssemblies[count++].Init(bakers[i], fullName);
                 }

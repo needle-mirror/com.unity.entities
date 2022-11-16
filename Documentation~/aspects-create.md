@@ -1,6 +1,6 @@
 # Create an aspect
 
-To create an aspect, use the [`IAspect`](xref:Unity.Entities.IAspect) interface. You must declare an aspect as a readonly partial struct, and the struct must specify itself to the `IAspect<T>` generic parameter:
+To create an aspect, use the [`IAspect`](xref:Unity.Entities.IAspect) interface. You must declare an aspect as a readonly partial struct, and the struct must implement the `IAspect` interface:
 
 ```c#
 using Unity.Entities;

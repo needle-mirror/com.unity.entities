@@ -10,5 +10,5 @@
         />
     </ui:VisualElement>
     <ui:VisualElement class="entity-inspector-aspects-tab__content"/>
-    <ui:Label text="View All Components" class="entity-inspector-aspects-tab__view-all-components"/>
+    <ui:Label class="empty-inspector-label"/>
 </UXML>

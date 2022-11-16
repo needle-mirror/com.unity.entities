@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEngine.UIElements;
 
@@ -30,7 +30,7 @@ namespace Unity.Entities.Editor
         class AspectsTabInspector : PropertyInspector<AspectsTab>
         {
             readonly List<AspectElementBase> m_FilteredElements = new List<AspectElementBase>();
-            private readonly EntityInspectorAspectStructureVisitor m_AspectStructureVisitor = new EntityInspectorAspectStructureVisitor();
+            readonly EntityInspectorAspectStructureVisitor m_AspectStructureVisitor = new EntityInspectorAspectStructureVisitor();
 
             EntityInspectorAspectStructure m_LastAspectStructure;
             EntityInspectorAspectsVisitor m_EntityInspectorAspectsVisitor;
@@ -38,8 +38,8 @@ namespace Unity.Entities.Editor
             EntityInspectorContext m_Context;
             VisualElement m_Root;
             VisualElement m_AspectsRoot;
-            Label m_ViewAllComponentsLabel;
             SearchElement m_SearchElement;
+            Label m_NoResultsLabel;
 
             public override VisualElement Build()
             {
@@ -64,9 +64,8 @@ namespace Unity.Entities.Editor
                 m_Context = Target.m_Context;
                 m_EntityInspectorAspectsVisitor = new EntityInspectorAspectsVisitor(m_Context);
 
-                m_ViewAllComponentsLabel = m_Root.Q<Label>(classes: UssClasses.Inspector.AspectsTab.ViewAllComponents);
-                m_ViewAllComponentsLabel.RegisterCallback<ClickEvent>(ShowComponentsTab);
-
+                m_NoResultsLabel = m_Root.Q<Label>(className:UssClasses.Inspector.EmptyMessage);
+                m_NoResultsLabel.text = Constants.Inspector.EmptyAspectsMessage;
                 return m_Root;
             }
 
@@ -76,6 +75,7 @@ namespace Unity.Entities.Editor
                     return;
 
                 BuildOrUpdateUI();
+                m_NoResultsLabel.SetVisibility(m_AspectStructureVisitor.InspectorAspectStructure.Aspects.Count == 0);
             }
 
             void BuildOrUpdateUI()
@@ -105,7 +105,7 @@ namespace Unity.Entities.Editor
                 m_LastAspectStructure.CopyFrom(m_AspectStructureVisitor.InspectorAspectStructure);
             }
 
-             void UpdateUI(bool updateAspects)
+            void UpdateUI(bool updateAspects)
             {
                 if (!updateAspects)
                     return;
@@ -123,12 +123,6 @@ namespace Unity.Entities.Editor
                     PropertyContainer.Accept(m_EntityInspectorAspectsVisitor, ref container, new PropertyPath(path));
                     return m_EntityInspectorAspectsVisitor.Result;
                 }
-            }
-
-            void ShowComponentsTab(ClickEvent evt)
-            {
-                var tabView = m_Root.GetFirstAncestorOfType<TabView>();
-                tabView?.SwitchTab(L10n.Tr("components"));
             }
 
             void SearchChanged(List<AspectElementBase> list)

@@ -36,6 +36,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public override void DoSomething() { UnityEngine.Debug.Log("Derived"); }
     }
 
+    public class Authoring_DerivedFromBaseClass_DefinedBeforeBase : Authoring_BaseClass_DefinedAfterDerived {}
+
+    public class Authoring_BaseClass_DefinedAfterDerived : MonoBehaviour
+    {
+        public List<string> BakerTypeOrder = new List<string>();
+    }
+
     struct ComponentTest1 : IComponentData
     {
         public int Field;
@@ -1854,6 +1861,23 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         }
     }
 
+    class DerivedBakerDefinedBeforeBaseBaker : Baker<Authoring_DerivedFromBaseClass_DefinedBeforeBase>
+    {
+        public override void Bake(Authoring_DerivedFromBaseClass_DefinedBeforeBase authoring)
+        {
+            authoring.BakerTypeOrder.Add(nameof(DerivedBakerDefinedBeforeBaseBaker));
+        }
+    }
+
+    [BakeDerivedTypes]
+    class BaseBakerDefinedAfterDerivedBaker : Baker<Authoring_BaseClass_DefinedAfterDerived>
+    {
+        public override void Bake(Authoring_BaseClass_DefinedAfterDerived authoring)
+        {
+            authoring.BakerTypeOrder.Add(nameof(BaseBakerDefinedAfterDerivedBaker));
+        }
+    }
+
     public class BakerTests : BakingSystemFixtureBase
     {
         private BakingSystem m_BakingSystem;
@@ -1901,8 +1925,8 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         T GetBakedSingleton<T>() where T : unmanaged, IComponentData
         {
             Assert.AreEqual(1, m_BakingSystem.EntityManager.UniversalQuery.CalculateEntityCount());
-
-            return m_BakingSystem.GetSingleton<T>();
+            var query = new EntityQueryBuilder(m_BakingSystem.WorldUpdateAllocator).WithAll<T>().Build(m_BakingSystem);
+            return query.GetSingleton<T>();
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -2623,6 +2647,82 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         }
 
         [DisableAutoCreation]
+        class SetEnableableComponentFromSameBakerWorksBaker : Baker<DefaultAuthoringComponent>
+        {
+            public override void Bake(DefaultAuthoringComponent component)
+            {
+                AddComponent(new EcsTestDataEnableable());
+                SetComponentEnabled<EcsTestDataEnableable>(GetEntity(), false);
+            }
+        }
+        [Test]
+        public void SetEnableableComponentFromSameBakerWorks()
+        {
+            m_Prefab.AddComponent<DefaultAuthoringComponent>();
+
+            using (new BakerDataUtility.OverrideBakers(true, typeof(SetEnableableComponentFromSameBakerWorksBaker)))
+            {
+                BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+
+                Assert.AreEqual(1, m_BakingSystem.EntityManager.UniversalQuery.CalculateEntityCount());
+                var entities = m_BakingSystem.EntityManager.UniversalQuery.ToEntityArray(m_BakingSystem.WorldUpdateAllocator);
+                Assert.AreEqual(false, m_BakingSystem.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(entities[0]));
+                Assert.AreEqual(true, m_BakingSystem.EntityManager.IsComponentEnabled<Simulate>(entities[0]));
+            }
+        }
+
+        [DisableAutoCreation]
+        class DefaultAuthoringAddEnableableComponentBaker : Baker<DefaultAuthoringComponent>
+        {
+            public override void Bake(DefaultAuthoringComponent component)
+            {
+                AddComponent(new EcsTestDataEnableable());
+            }
+        }
+
+        [Test]
+        public void NotSetEnableableComponentDefaultTrue()
+        {
+            m_Prefab.AddComponent<DefaultAuthoringComponent>();
+
+            using (new BakerDataUtility.OverrideBakers(true, typeof(DefaultAuthoringAddEnableableComponentBaker)))
+            {
+                BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+
+                Assert.AreEqual(1, m_BakingSystem.EntityManager.UniversalQuery.CalculateEntityCount());
+                var entities = m_BakingSystem.EntityManager.UniversalQuery.ToEntityArray(m_BakingSystem.WorldUpdateAllocator);
+                Assert.AreEqual(true, m_BakingSystem.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(entities[0]));
+            }
+        }
+
+        [DisableAutoCreation]
+        class DefaultAuthoringSetEnableableComponentBaker : Baker<DefaultAuthoringComponent>
+        {
+            public override void Bake(DefaultAuthoringComponent component)
+            {
+                SetComponentEnabled<EcsTestDataEnableable>(GetEntity(), false);
+            }
+        }
+
+        [Test]
+        public void SetEnableableComponentFromDifferentBakerThrows()
+        {
+            m_Prefab.AddComponent<DefaultAuthoringComponent>();
+
+            using (new BakerDataUtility.OverrideBakers(true, typeof(DefaultAuthoringAddEnableableComponentBaker),
+                       typeof(DefaultAuthoringSetEnableableComponentBaker)))
+            {
+                UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to set component Unity.Entities.Tests.EcsTestDataEnableable for Baker DefaultAuthoringSetEnableableComponentBaker with authoring component DefaultAuthoringComponent but the component was added by a different Baker DefaultAuthoringAddEnableableComponentBaker");
+                BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+
+                // SetComponentEnabled was rejected thus the value continues to be true
+                Assert.AreEqual(1, m_BakingSystem.EntityManager.UniversalQuery.CalculateEntityCount());
+                var entities = m_BakingSystem.EntityManager.UniversalQuery.ToEntityArray(m_BakingSystem.WorldUpdateAllocator);
+                Assert.AreEqual(true, m_BakingSystem.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(entities[0]));
+            }
+        }
+
+        [DisableAutoCreation]
         class SetBufferFromOtherBakerThrowsBaker : Baker<DefaultAuthoringComponent>
         {
             public override void Bake(DefaultAuthoringComponent component)
@@ -3293,6 +3393,90 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 });
                 var entities = query.ToEntityArray(Allocator.Temp);
                 Assert.AreEqual(1, entities.Length);
+            }
+        }
+
+        [Test]
+        public void DerivedAuthoringType_DefinedBeforeBase_IsEvaluatedAfterBase()
+        {
+            var authoring = m_Prefab.AddComponent<Authoring_DerivedFromBaseClass_DefinedBeforeBase>();
+
+            BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+
+            CollectionAssert.AreEqual(new string[]
+            {
+                nameof(BaseBakerDefinedAfterDerivedBaker),
+                nameof(DerivedBakerDefinedBeforeBaseBaker)
+            }, authoring.BakerTypeOrder);
+        }
+
+        [DisableAutoCreation]
+        class GameObjectBaker_CreateAdditionalEntities : GameObjectBaker
+        {
+            public const int AdditionalEntityCount = 3;
+            public override void Bake(GameObject authoring)
+            {
+                for (int i = 0; i < AdditionalEntityCount; ++i)
+                {
+                    var entity = CreateAdditionalEntity();
+                    AddComponent<AdditionalEntity>(entity);
+                }
+            }
+        }
+
+        [Test]
+        public void GameObjectBaker_CreateAdditionalEntities_DoesNotThrow()
+        {
+            using (new BakerDataUtility.OverrideBakers(true, typeof(GameObjectBaker_CreateAdditionalEntities)))
+            {
+                BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<AdditionalEntity>()
+                    .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)
+                    .Build(World.EntityManager);
+                var entities = query.ToEntityArray(Allocator.Temp);
+                Assert.AreEqual(GameObjectBaker_CreateAdditionalEntities.AdditionalEntityCount, entities.Length);
+            }
+        }
+
+        [DisableAutoCreation]
+        class GameObjectBaker_GetGameObjectProperties : GameObjectBaker
+        {
+            public override void Bake(GameObject authoring)
+            {
+                Assert.AreEqual(authoring.name, GetName());
+                Assert.AreEqual(authoring.tag, GetTag());
+                Assert.AreEqual(authoring.layer, GetLayer());
+                Assert.AreEqual(authoring.isStatic, IsStatic());
+                Assert.AreEqual(authoring.activeSelf, IsActive());
+            }
+        }
+
+        [Test]
+        public void GameObjectBaker_GetGameObjectProperties_DoesNotThrow()
+        {
+            using (new BakerDataUtility.OverrideBakers(true, typeof(GameObjectBaker_GetGameObjectProperties)))
+            {
+                Assert.DoesNotThrow(() => BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings));
+            }
+        }
+
+        [DisableAutoCreation]
+        class GameObjectBaker_IsActiveAndEnabled : GameObjectBaker
+        {
+            public override void Bake(GameObject authoring)
+            {
+                Assert.Throws<InvalidOperationException>(() => IsActiveAndEnabled());
+            }
+        }
+
+        [Test]
+        public void GameObjectBaker_IsActiveAndEnabled_Throws()
+        {
+            using (new BakerDataUtility.OverrideBakers(true, typeof(GameObjectBaker_IsActiveAndEnabled)))
+            {
+                BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
             }
         }
     }

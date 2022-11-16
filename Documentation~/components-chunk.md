@@ -1,3 +1,7 @@
+---
+uid: components-chunk
+---
+
 # Chunk components
 
 A chunk component is a type of component that stores values per chunk instead of per entity. They offer similar functionality to [shared components](components-shared.md), but differ in some fundamental ways.

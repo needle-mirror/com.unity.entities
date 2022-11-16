@@ -1,3 +1,4 @@
+#if !USE_IMPROVED_DATAMODE
 using System;
 using System.Collections.Generic;
 using UnityEditor;
@@ -30,3 +31,4 @@ namespace Unity.Entities.Editor
         }
     }
 }
+#endif

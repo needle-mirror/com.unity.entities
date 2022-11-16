@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UIElements;
@@ -326,6 +326,7 @@ namespace Unity.Entities.Editor
             public string Token;
             public string Text;
             public string Tooltip;
+            public string DefaultOperator;
         }
 
         /// <summary>
@@ -362,14 +363,15 @@ namespace Unity.Entities.Editor
             }
 
             // ReSharper disable once ParameterHidesMember
-            public void AddPopupItem(string token, string filterText, string filterTooltip = "")
+            public void AddPopupItem(string token, string filterText, string filterTooltip = "", string defaultOperator = ":")
             {
                 m_ElementCount++;
 
                 // Create a button with two labels.
                 var choiceButton = new Button { tooltip = filterTooltip };
                 var nameLabel = new Label(filterText);
-                var tokenLabel = new Label(token + ":");
+                var tokenStr = token + defaultOperator;
+                var tokenLabel = new Label(tokenStr);
 
                 // Setup uss classes.
                 choiceButton.ClearClassList();
@@ -386,7 +388,7 @@ namespace Unity.Entities.Editor
                 choiceButton.clickable.clicked += () =>
                 {
                     // Since this is an incomplete filter no need to trigger a search.
-                    m_SearchElement.SetValueWithoutNotify(token + ":");
+                    m_SearchElement.SetValueWithoutNotify(tokenStr);
 
                     // However we do need to manually update the controls and re-focus.
                     m_SearchElement.UpdateControls();
@@ -574,7 +576,7 @@ namespace Unity.Entities.Editor
                 var filterDropdown = new FilterPopupElement(this, FilterPopupWidth);
 
                 foreach (var item in m_FilterPopupElementItems)
-                    filterDropdown.AddPopupItem(item.Token, item.Text, item.Tooltip);
+                    filterDropdown.AddPopupItem(item.Token, item.Text, item.Tooltip, item.DefaultOperator);
 
                 filterDropdown.ShowAtPosition(m_AddFilterButton.worldBound);
             };
@@ -735,13 +737,14 @@ namespace Unity.Entities.Editor
         /// <param name="token">The token for the filter. This should NOT include the operator.</param>
         /// <param name="filterText">The text or name to display to the user.</param>
         /// <param name="filterTooltip">An optional tooltip.</param>
-        public void AddSearchFilterPopupItem(string token, string filterText, string filterTooltip = "")
+        public void AddSearchFilterPopupItem(string token, string filterText, string filterTooltip = "", string defaultOperator = ":")
         {
             m_FilterPopupElementItems.Add(new FilterPopupElementChoice
             {
                 Token = token,
                 Text =  filterText,
-                Tooltip = filterTooltip
+                Tooltip = filterTooltip,
+                DefaultOperator = defaultOperator
             });
 
             UpdateControls();

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -133,6 +134,14 @@ namespace Unity.Entities
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        private void CheckBuilderPtr()
+        {
+            if (_builderDataPtr == null)
+                throw new NullReferenceException("The EntityQueryBuilder has not been initialized! The EntityQueryBuilder needs to be passed an Allocator when created!");
+        }
+
         /// <summary>
         /// Set options for the current query.
         /// </summary>
@@ -147,6 +156,8 @@ namespace Unity.Entities
         /// <returns>The builder object that invoked this method.</returns>
         public EntityQueryBuilder WithOptions(EntityQueryOptions options)
         {
+            CheckBuilderPtr();
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if(_builderDataPtr->_pendingOptions != default(EntityQueryOptions))
             {
@@ -162,13 +173,18 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Add an "all" matching type to the current query.
+        /// Obsolete. Use <see cref="WithAll"/> instead.
         /// </summary>
+        /// <remarks>**Obsolete.** Use <see cref="WithAll"/> instead.
+        ///
+        /// Add an "all" matching type to the current query.</remarks>
         /// <param name="t">The component type</param>
         /// <returns>The builder object that invoked this method.</returns>
         [Obsolete("Use WithAll<T,...> instead, or WithAll(INativeList) if component types are not known at compile time. (RemovedAfter Entities 1.0)", false)]
         public EntityQueryBuilder AddAll(ComponentType t)
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_isFinalized = 0;
             return WithAll(&t, 1);
         }
@@ -192,6 +208,8 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAll<T1>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_isFinalized = 0;
             return this;
@@ -202,6 +220,8 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAll<T1,T2>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_isFinalized = 0;
@@ -214,6 +234,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAll<T1,T2,T3>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -227,6 +249,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAll<T1,T2,T3,T4>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -242,6 +266,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAll<T1,T2,T3,T4,T5>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -258,6 +284,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAll<T1,T2,T3,T4,T5,T6>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -275,6 +303,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAll<T1,T2,T3,T4,T5,T6,T7>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -310,6 +340,8 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAllRW<T1>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
             _builderDataPtr->_isFinalized = 0;
             return this;
@@ -319,8 +351,52 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAllRW<T1,T2>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
             _builderDataPtr->_all.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add a required [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to find entities that have all the specified chunk components. Chunk
+        /// components are a distinct component type, which are different from adding the same type as a standard
+        /// component.
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs"
+        ///  region="query-builder-chunk-component-all" title="Query Builder With Required Chunk Component"/>
+        /// </example>
+        ///
+        /// To add additional required Chunk Components, call this method multiple times.
+        ///
+        /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAll``1(``0@)"/>
+        /// </remarks>
+        ///
+        /// <typeparam name="T">Component type to use as a required, read-only Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithAllChunkComponent<T>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_all.Add(ComponentType.ChunkComponentReadOnly<T>());
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAllChunkComponent``1"/>
+        /// <typeparam name="T">Component type to use as a required, read-write Chunk Component</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithAllChunkComponentRW<T>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_all.Add(ComponentType.ChunkComponent<T>());
             _builderDataPtr->_isFinalized = 0;
             return this;
         }
@@ -342,6 +418,8 @@ namespace Unity.Entities
         public EntityQueryBuilder WithAll<T>(ref T componentTypes)
             where T : INativeList<ComponentType>
         {
+            CheckBuilderPtr();
+
             for (var i = 0; i < componentTypes.Length; i++)
             {
                 _builderDataPtr->_all.Add(componentTypes[i]);
@@ -353,6 +431,8 @@ namespace Unity.Entities
 
         internal EntityQueryBuilder WithAll(ComponentType* componentTypes, int count)
         {
+            CheckBuilderPtr();
+
             for (var i = 0; i < count; i++)
             {
                 _builderDataPtr->_all.Add(componentTypes[i]);
@@ -363,13 +443,18 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Add an "any" matching type to the current query.
+        /// Obsolete. Use <see cref="WithAny"/> instead.
         /// </summary>
+        /// <remarks> **Obsolete.** Use <see cref="WithAny"/> instead.
+        ///
+        /// Add an "any" matching type to the current query.</remarks>
         /// <param name="t">The component type</param>
         /// <returns>The builder object that invoked this method.</returns>
         [Obsolete("Use WithAny<T,...> instead, or WithAny(INativeList) if component types are not known at compile time. (RemovedAfter Entities 1.0)", false)]
         public EntityQueryBuilder AddAny(ComponentType t)
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_isFinalized = 0;
             return WithAny(&t, 1);
         }
@@ -397,6 +482,8 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAny<T1>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_isFinalized = 0;
             return this;
@@ -406,6 +493,8 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAny<T1,T2>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_isFinalized = 0;
@@ -418,6 +507,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAny<T1,T2,T3>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -431,6 +522,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAny<T1,T2,T3,T4>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -446,6 +539,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAny<T1,T2,T3,T4,T5>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -462,6 +557,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAny<T1,T2,T3,T4,T5,T6>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -479,6 +576,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithAny<T1,T2,T3,T4,T5,T6,T7>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -517,6 +616,8 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAnyRW<T1>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
             _builderDataPtr->_isFinalized = 0;
             return this;
@@ -526,8 +627,54 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAnyRW<T1,T2>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
             _builderDataPtr->_any.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add an optional [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an Entity must have at least one of the query's optional component types,
+        /// specified using either <see cref="WithAny"/> or <see cref="WithAnyChunkComponent"/>. Chunk components are a distinct component
+        /// type, which are different from adding the same type as a standard component.
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs"
+        ///  region="query-builder-chunk-component-any" title="Query Builder With Optional Chunk Component"/>
+        /// </example>
+        ///
+        /// Compare this to <see cref="M:Unity.Entities.EntityQueryBuilder.WithAllChunkComponent``1"/>
+        ///
+        /// To add additional optional Chunk Components, call this method multiple times.
+        ///
+        /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAny``1(``0@)"/>
+        ///
+        /// </remarks>
+        /// <typeparam name="T">Component type to use as an optional, read-only Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithAnyChunkComponent<T>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_any.Add(ComponentType.ChunkComponentReadOnly<T>());
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAnyChunkComponent``1"/>
+        /// <typeparam name="T">Component type to use as an optional, read-write Chunk Component</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithAnyChunkComponentRW<T>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_any.Add(ComponentType.ChunkComponent<T>());
             _builderDataPtr->_isFinalized = 0;
             return this;
         }
@@ -551,6 +698,8 @@ namespace Unity.Entities
         public EntityQueryBuilder WithAny<T>(ref T componentTypes)
             where T : INativeList<ComponentType>
         {
+            CheckBuilderPtr();
+
             for (var i = 0; i < componentTypes.Length; i++)
             {
                 _builderDataPtr->_any.Add(componentTypes[i]);
@@ -562,6 +711,8 @@ namespace Unity.Entities
 
         internal EntityQueryBuilder WithAny(ComponentType* componentTypes, int count)
         {
+            CheckBuilderPtr();
+
             for (var i = 0; i < count; i++)
             {
                 _builderDataPtr->_any.Add(componentTypes[i]);
@@ -572,16 +723,20 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Add a "none" matching type to the current query.
+        /// Obsolete. Use <see cref="WithNone"/> instead.
         /// </summary>
         /// <param name="t">The component type</param>
-        /// <remarks>Types in the None list are never written to. If the AccessModeType field of the
+        /// <remarks>**Obsolete.** Use <see cref="WithNone"/> instead.
+        ///
+        /// Add a "none" matching type to the current query. Types in the None list are never written to. If the AccessModeType field of the
         /// provided component type is <see cref="ComponentType.AccessMode.ReadWrite"/>, will be forced to
         /// <see cref="NativeArray{T}.ReadOnly"/> in the query.</remarks>
         /// <returns>The builder object that invoked this method.</returns>
         [Obsolete("Use WithNone<T,...> instead, or WithNone(INativeList) if component types are not known at compile time. (RemovedAfter Entities 1.0)", false)]
         public EntityQueryBuilder AddNone(ComponentType t)
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_isFinalized = 0;
             // The access mode of types in the None list is forced to ReadOnly; the query will not be accessing these
             // types at all, and should not be requesting read/write access to them.
@@ -608,6 +763,8 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithNone<T1>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_isFinalized = 0;
             return this;
@@ -617,6 +774,8 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)})]
         public EntityQueryBuilder WithNone<T1,T2>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_isFinalized = 0;
@@ -629,6 +788,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithNone<T1,T2,T3>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -642,6 +803,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithNone<T1,T2,T3,T4>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -657,6 +820,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithNone<T1,T2,T3,T4,T5>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -673,6 +838,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithNone<T1,T2,T3,T4,T5,T6>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -690,6 +857,8 @@ namespace Unity.Entities
         })]
         public EntityQueryBuilder WithNone<T1,T2,T3,T4,T5,T6,T7>()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
@@ -697,6 +866,36 @@ namespace Unity.Entities
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T6>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
             _builderDataPtr->_none.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T7>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add an excluded [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to exclude any entities that have the specified chunk component.
+        /// Chunk components are a distinct component type, which are different from excluding the same type as a
+        /// standard component.
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs"
+        ///  region="query-builder-chunk-component-none" title="Query Builder With Excluded Chunk Component"/>
+        /// </example>
+        ///
+        /// To add additional excluded Chunk Components, call this method multiple times.
+        ///
+        /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithNone``1(``0@)"/>
+        ///
+        /// </remarks>
+        /// <typeparam name="T">Component type to use as an excluded Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithNoneChunkComponent<T>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_none.Add(ComponentType.ChunkComponentReadOnly<T>());
             _builderDataPtr->_isFinalized = 0;
             return this;
         }
@@ -724,6 +923,8 @@ namespace Unity.Entities
         public EntityQueryBuilder WithNone<T>(ref T componentTypes)
             where T : INativeList<ComponentType>
         {
+            CheckBuilderPtr();
+
             for (var i = 0; i < componentTypes.Length; i++)
             {
                 _builderDataPtr->_none.Add(ComponentType.ReadOnly(componentTypes[i].TypeIndex));
@@ -734,6 +935,8 @@ namespace Unity.Entities
         }
         internal EntityQueryBuilder WithNone(ComponentType* componentTypes, int count)
         {
+            CheckBuilderPtr();
+
             for (var i = 0; i < count; i++)
             {
                 _builderDataPtr->_none.Add(ComponentType.ReadOnly(componentTypes[i].TypeIndex));
@@ -763,8 +966,10 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Calling this method has no effect; it is temporarily provided for backwards compatibility.
+        /// Obsolete. Calling this method has no effect; it is temporarily provided for backwards compatibility.
         /// </summary>
+        /// <remarks>**Obsolete.** You don't need to call this on EntityQueryBuilder.
+        /// If you want to build an EntityQuery with multiple query descriptions, call <see cref="AddAdditionalQuery"/>.</remarks>
         /// <returns></returns>
         [Obsolete("It is no longer necessary to call FinalizeQuery on every EntityQueryBuilder. " +
                   "If you want to build an EntityQuery with multiple query descriptions, call AddAdditionalQuery " +
@@ -784,6 +989,8 @@ namespace Unity.Entities
         /// <returns>The builder object that invoked this method.</returns>
         internal EntityQueryBuilder FinalizeQueryInternal()
         {
+            CheckBuilderPtr();
+
             if (_builderDataPtr->_isFinalized != 0)
                 return this;
 
@@ -807,6 +1014,8 @@ namespace Unity.Entities
 
         private void TransferArray(ref UnsafeList<ComponentType> source, ref ComponentIndexArray result)
         {
+            CheckBuilderPtr();
+
             result.Index = (ushort)_builderDataPtr->_typeData.Length;
             result.Count = (ushort)source.Length;
             _builderDataPtr->_typeData.AddRange(source);
@@ -818,6 +1027,8 @@ namespace Unity.Entities
         /// </summary>
         public void Dispose()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_typeData.Dispose();
             _builderDataPtr->_indexData.Dispose();
             _builderDataPtr->_all.Dispose();
@@ -842,6 +1053,8 @@ namespace Unity.Entities
         /// </remarks>
         public void Reset()
         {
+            CheckBuilderPtr();
+
             _builderDataPtr->_typeData.Clear();
             _builderDataPtr->_indexData.Clear();
             _builderDataPtr->_all.Clear();
@@ -889,7 +1102,6 @@ namespace Unity.Entities
         /// <returns>An EntityQuery based on the constraints set in the EntityQueryBuilder.</returns>
         public EntityQuery Build(EntityManager entityManager)
         {
-            // TODO: https://jira.unity3d.com/browse/DOTS-6788 EntityManager should own and dispose this EntityQuery
             return entityManager.CreateEntityQuery(this);
         }
 
@@ -967,11 +1179,13 @@ namespace Unity.Entities
         }
     }
 
-    /// <inheritdoc cref="EntityQueryBuilder"/>
+    /// <summary> Obsolete. Use <see cref="EntityQueryBuilder"/> instead.</summary>
     [Obsolete("Use EntityQueryBuilder (UnityUpgradable) -> EntityQueryBuilder")]
     public struct EntityQueryDescBuilder
     {
-        /// <inheritdoc cref="EntityQueryBuilder.WithOptions"/>
+        /// <summary> Obsolete. Use <see  cref="EntityQueryBuilder.WithOptions"/> instead.</summary>
+        /// <param name="options"><see cref="EntityQueryOptions"/> flags to set for the current query</param>
+        /// <returns>The builder object that invoked this method.</returns>
         [Obsolete("Use WithOptions(EntityQueryOptions) (UnityUpgradable) -> EntityQueryBuilder.WithOptions(*)", false)]
         public EntityQueryDescBuilder Options(EntityQueryOptions options)
         {

@@ -28,6 +28,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Scenes.Editor.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Playmode")]
+[assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Editmode.Content")]
 [assembly: InternalsVisibleTo("Unity.Tiny.Animation")]
 [assembly: InternalsVisibleTo("Unity.Transforms.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.Transforms.Tests")]

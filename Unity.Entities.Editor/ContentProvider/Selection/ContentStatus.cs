@@ -1,4 +1,4 @@
-namespace Unity.Platforms.UI
+namespace Unity.Entities.UI
 {
     /// <summary>
     /// The different statuses describing the content of a content provider.

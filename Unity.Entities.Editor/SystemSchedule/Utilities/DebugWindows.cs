@@ -1,6 +1,6 @@
 using JetBrains.Annotations;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 using UnityEngine.LowLevel;
 using UnityEngine.UIElements;

@@ -182,7 +182,7 @@ namespace Unity.Entities
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         class ClassComponentProperty<TComponent> : ComponentProperty<TComponent>
-            where TComponent : class, IComponentData
+            where TComponent : class, IComponentData, new()
         {
             protected override bool IsZeroSize { get; } = TypeManager.IsZeroSized(TypeManager.GetTypeIndex<TComponent>());
             public override ComponentPropertyType Type => IsZeroSize ? ComponentPropertyType.Tag : ComponentPropertyType.Component;
@@ -253,7 +253,7 @@ namespace Unity.Entities
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         class ClassChunkComponentProperty<TComponent> : ComponentProperty<TComponent>
-            where TComponent : class, IComponentData
+            where TComponent : class, IComponentData, new()
         {
             protected override bool IsZeroSize { get; } = TypeManager.IsZeroSized(TypeManager.GetTypeIndex<TComponent>());
             public override ComponentPropertyType Type => IsZeroSize ? ComponentPropertyType.Tag : ComponentPropertyType.ChunkComponent;

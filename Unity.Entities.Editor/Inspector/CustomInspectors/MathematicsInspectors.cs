@@ -3,11 +3,7 @@ using Unity.Mathematics;
 using Unity.Properties;
 using UnityEngine;
 
-#if UNITY_2022_2_OR_NEWER
 using UnityEngine.UIElements;
-#else
-using UnityEditor.UIElements;
-#endif
 
 namespace Unity.Entities.Editor.Inspectors
 {

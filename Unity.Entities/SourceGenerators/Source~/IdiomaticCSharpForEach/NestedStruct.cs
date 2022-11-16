@@ -95,6 +95,11 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
                         fieldDeclaration = $"public Unity.Entities.BufferAccessor<{arg.TypeArgumentFullName}> {fieldName};";
                         elementInReturnedTuple = $"{fieldName}[index]";
                         break;
+                    case QueryType.UnityEngineComponent:
+                        fieldName = $"{arg.PreferredName}_ManagedComponentAccessor";
+                        fieldDeclaration = $"public Unity.Entities.ManagedComponentAccessor<{arg.TypeArgumentFullName}> {fieldName};";
+                        elementInReturnedTuple = $"new Unity.Entities.SystemAPI.ManagedAPI.UnityEngineComponent<{arg.TypeArgumentFullName}>({fieldName}[index])";
+                        break;
                     case QueryType.ManagedComponent:
                         fieldName = $"{arg.PreferredName}_ManagedComponentAccessor";
                         fieldDeclaration = $"public Unity.Entities.ManagedComponentAccessor<{arg.TypeSymbolFullName}> {fieldName};";
@@ -143,13 +148,13 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
                         fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeSymbolFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeSymbolFullName}>(isReadOnly: true);";
-                        resolvedChunkInitializerArgument = $"archetypeChunk.GetNativeArray({fieldName});";
+                        resolvedChunkInitializerArgument = $"archetypeChunk.GetNativeArray(ref {fieldName});";
                         break;
                     case QueryType.RefRW:
                         fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RW";
                         fieldDeclaration = $"Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly);";
-                        resolvedChunkInitializerArgument = $"archetypeChunk.GetNativeArray({fieldName});";
+                        resolvedChunkInitializerArgument = $"archetypeChunk.GetNativeArray(ref {fieldName});";
                         break;
                     case QueryType.EnabledRefRW:
                         fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RW";
@@ -161,7 +166,7 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
                         fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: true);";
-                        resolvedChunkInitializerArgument = $"archetypeChunk.GetNativeArray({fieldName});";
+                        resolvedChunkInitializerArgument = $"archetypeChunk.GetNativeArray(ref {fieldName});";
                         break;
                     case QueryType.EnabledRefRO:
                         fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RO";
@@ -183,17 +188,23 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
                         resolvedChunkInitializerArgument = $"{arg.PreferredName};";
                         initializerArgumentSetUp = $"var {arg.PreferredName} = archetypeChunk.GetSharedComponentManaged({fieldName}, _entityManager);";
                         break;
+                    case QueryType.UnityEngineComponent:
+                        fieldName = $"{arg.PreferredName}_ManagedComponentTypeHandle_RO";
+                        fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
+                        fieldAssignment = $"{fieldName} = systemState.EntityManager.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(true);";
+                        resolvedChunkInitializerArgument = $"archetypeChunk.GetManagedComponentAccessor(ref {fieldName}, _entityManager);";
+                        break;
                     case QueryType.ManagedComponent:
                         fieldName = $"{arg.PreferredName}_ManagedComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeSymbolFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.EntityManager.GetComponentTypeHandle<{arg.TypeSymbolFullName}>(true);";
-                        resolvedChunkInitializerArgument = $"archetypeChunk.GetManagedComponentAccessor({fieldName}, _entityManager);";
+                        resolvedChunkInitializerArgument = $"archetypeChunk.GetManagedComponentAccessor(ref {fieldName}, _entityManager);";
                         break;
                     case QueryType.DynamicBuffer:
                         fieldName = $"{arg.PreferredName}_BufferTypeHandle_RW";
                         fieldDeclaration = $"Unity.Entities.BufferTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetBufferTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly);";
-                        resolvedChunkInitializerArgument = $"archetypeChunk.GetBufferAccessor({fieldName});";
+                        resolvedChunkInitializerArgument = $"archetypeChunk.GetBufferAccessor(ref {fieldName});";
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
@@ -206,7 +217,8 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
                         fieldAssignment,
                         dependsOnEntityManagerField: arg.Type == QueryType.ManagedSharedComponent
                                                      || arg.Type == QueryType.UnmanagedSharedComponent
-                                                     || arg.Type == QueryType.ManagedComponent);
+                                                     || arg.Type == QueryType.ManagedComponent
+                                                     || arg.Type == QueryType.UnityEngineComponent);
 
                 yield return
                 (

@@ -1,4 +1,4 @@
-namespace Unity.Platforms.UI
+namespace Unity.Entities.UI
 {
     public abstract partial class ContentProvider
     {

@@ -137,7 +137,10 @@ namespace Unity.Entities
             m_Manager.SetComponentData(entity, componentData);
         }
 
-        /// <inheritdoc cref="GetSharedComponentManaged{T}"/>
+        /// <summary> Obsolete. Use <see cref="GetSharedComponentManaged{T}"/> instead.</summary>
+        /// <param name="entity">The entity.</param>
+        /// <typeparam name="T">The type of entity</typeparam>
+        /// <returns></returns>
         [Obsolete("Use GetSharedComponentManaged<T> (UnityUpgradable) -> GetSharedComponentManaged<T>(*)", true)]
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
         {
@@ -156,7 +159,10 @@ namespace Unity.Entities
             return m_Manager.GetSharedComponent<T>(entity);
         }
 
-        /// <inheritdoc cref="SetSharedComponentManaged{T}"/>
+        /// <summary> Obsolete. Use <see cref="SetSharedComponentManaged{T}"/> instead.</summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="componentData">The data to set.</param>
+        /// <typeparam name="T">The component type.</typeparam>
         [Obsolete("Use SetSharedComponentManaged<T> (UnityUpgradable) -> SetSharedComponentManaged<T>(*)", true)]
         public void SetSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
@@ -200,7 +206,11 @@ namespace Unity.Entities
             m_Manager.AddSharedComponent(chunks, componentData);
         }
 
-        /// <inheritdoc cref="AddSharedComponentManaged{T}(Entity,T)"/>
+        /// <summary> Obsolete. Use <see cref="AddSharedComponentManaged{T}(Entity,T)"/> instead.</summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="componentData">The shared component value to set.</param>
+        /// <typeparam name="T">The shared component type.</typeparam>
+        /// <returns>Returns false</returns>
         [Obsolete("Use AddSharedComponentManaged<T> (UnityUpgradable) -> AddSharedComponentManaged<T>(*)", true)]
         public bool AddSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
@@ -253,7 +263,7 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
         public void SetComponentEnabled<T>(Entity entity, bool value)  where T:
 #if UNITY_DISABLE_MANAGED_COMPONENTS
-            struct,
+            unmanaged,
 #endif
             IEnableableComponent
         {
@@ -270,7 +280,7 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
         public bool IsComponentEnabled<T>(Entity entity)where T:
 #if UNITY_DISABLE_MANAGED_COMPONENTS
-            struct,
+            unmanaged,
 #endif
             IEnableableComponent
         {

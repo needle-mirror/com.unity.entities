@@ -10,6 +10,7 @@
         DynamicBuffer,
         ValueTypeComponent,
         ManagedComponent,
+        UnityEngineComponent,
         EnabledRefRW,
         EnabledRefRO,
         TagComponent

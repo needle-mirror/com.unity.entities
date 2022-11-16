@@ -6,7 +6,6 @@ using Unity.Transforms;
 using Unity.Burst.Intrinsics;
 using Unity.Assertions;
 
-// Only used in obsolete IJobChunk docs -- do not update to use IJobEntityBatch
 // The files in this namespace are used to compile/test the code samples in the documentation.
 namespace Doc.CodeSamples.Tests
 {
@@ -48,8 +47,8 @@ namespace Doc.CodeSamples.Tests
                 #region chunkiteration
                 Assert.IsFalse(useEnabledMask); // this job is not written with enabled-bit support
 
-                var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
-                var chunkRotationSpeeds = chunk.GetNativeArray(RotationSpeedTypeHandle);
+                var chunkRotations = chunk.GetNativeArray(ref RotationTypeHandle);
+                var chunkRotationSpeeds = chunk.GetNativeArray(ref RotationSpeedTypeHandle);
                 for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
                 {
                     var rotation = chunkRotations[i];
@@ -177,8 +176,8 @@ namespace Doc.CodeSamples.Tests
             {
                 #region getcomponents
 
-                var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
-                var chunkRotationSpeeds = chunk.GetNativeArray(RotationSpeedTypeHandle);
+                var chunkRotations = chunk.GetNativeArray(ref RotationTypeHandle);
+                var chunkRotationSpeeds = chunk.GetNativeArray(ref RotationSpeedTypeHandle);
 
                 #endregion
             }
@@ -247,16 +246,16 @@ namespace Doc.CodeSamples.Tests
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 Assert.IsFalse(useEnabledMask); // this job is not written with enabled-bit support
-                var inputAChanged = chunk.DidChange(InputATypeHandle, LastSystemVersion);
-                var inputBChanged = chunk.DidChange(InputBTypeHandle, LastSystemVersion);
+                var inputAChanged = chunk.DidChange(ref InputATypeHandle, LastSystemVersion);
+                var inputBChanged = chunk.DidChange(ref InputBTypeHandle, LastSystemVersion);
 
                 // If neither component changed, skip the current chunk
                 if (!(inputAChanged || inputBChanged))
                     return;
 
-                var inputAs = chunk.GetNativeArray(InputATypeHandle);
-                var inputBs = chunk.GetNativeArray(InputBTypeHandle);
-                var outputs = chunk.GetNativeArray(OutputTypeHandle);
+                var inputAs = chunk.GetNativeArray(ref InputATypeHandle);
+                var inputBs = chunk.GetNativeArray(ref InputBTypeHandle);
+                var outputs = chunk.GetNativeArray(ref OutputTypeHandle);
 
                 for (var i = 0; i < outputs.Length; i++)
                 {
@@ -322,13 +321,14 @@ namespace Doc.CodeSamples.Tests
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 Assert.IsFalse(useEnabledMask); // this job is not written with enabled-bit support
-                NativeArray<Target> targets = chunk.GetNativeArray<Target>(TargetTypeHandle);
-                NativeArray<ChaserPosition> positions = chunk.GetNativeArray<ChaserPosition>(PositionTypeHandle);
+                NativeArray<Target> targets = chunk.GetNativeArray<Target>(ref TargetTypeHandle);
+                NativeArray<ChaserPosition> positions = chunk.GetNativeArray<ChaserPosition>(ref PositionTypeHandle);
                 for (int i = 0; i < targets.Length; i++)
                 {
                     Entity targetEntity = targets[i].entity;
                     float3 targetPosition = EntityPositions[targetEntity].Position;
-                    float3 chaserPosition = positions[i].Value;
+                    float3 chaserPosition =
+                        positions[i].Value;
 
                     float3 displacement = (targetPosition - chaserPosition);
                     positions[i] = new ChaserPosition { Value = chaserPosition + displacement * deltaTime };

@@ -4,7 +4,7 @@ using Unity.Properties;
 using UnityEditor;
 using UnityEngine.UIElements;
 
-namespace Unity.Platforms.UI
+namespace Unity.Entities.UI
 {
     struct ContentNotReady
     {

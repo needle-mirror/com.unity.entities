@@ -21,7 +21,6 @@ namespace Unity.Entities.Editor
 
             using var cachedEntities = new NativeList<Entity>(Allocator.Temp);
             var lookup = world.EntityManager.Debug.GetCachedEntityGUIDToEntityIndexLookup();
-            var mappingSystem = world.GetExistingSystemManaged<GameObjectConversionMappingSystem>();
 
             foreach (var gameObject in gameObjects)
             {
@@ -40,7 +39,6 @@ namespace Unity.Entities.Editor
                     PrimaryEntity = cachedEntities[0],
                     AdditionalEntities = cachedEntities.ToArrayNBC(),
                     EntityManager = world.EntityManager,
-                    LogEvents = mappingSystem?.JournalData.SelectLogEventsOrdered(gameObject)
                 });
             }
         }
@@ -50,7 +48,6 @@ namespace Unity.Entities.Editor
             if (world == null || !IsGameObjectBaked(gameObject))
                 return EntityBakingData.Null;
 
-            var mappingSystem = world.GetExistingSystemManaged<GameObjectConversionMappingSystem>();
             using var cachedEntities = new NativeList<Entity>(Allocator.Temp);
             world.EntityManager.Debug.GetEntitiesForAuthoringObject(gameObject, cachedEntities);
 
@@ -62,7 +59,6 @@ namespace Unity.Entities.Editor
                 PrimaryEntity = cachedEntities[0],
                 AdditionalEntities = cachedEntities.ToArrayNBC(),
                 EntityManager = world.EntityManager,
-                LogEvents = mappingSystem?.JournalData.SelectLogEventsOrdered(gameObject)
             };
         }
 

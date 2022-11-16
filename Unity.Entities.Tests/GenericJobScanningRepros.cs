@@ -39,7 +39,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
         void Execute(Entity entity, ref T t0, ref Baz baz, NativeArray<Foo> foos);
     }
 
-    public static class TestUtility<TJob, T0> where TJob : struct, IJobCustom<T0> where T0 : unmanaged, IBufferElementData
+    public static class TestUtility<TJob, T0> where TJob : unmanaged, IJobCustom<T0> where T0 : unmanaged, IBufferElementData
     {
         [BurstCompile]
         public struct WrapperJob : IJobChunk
@@ -63,8 +63,8 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
                 Assert.IsFalse(useEnabledMask);
 
                 var entities = chunk.GetNativeArray(entityType);
-                var bazArray = chunk.GetNativeArray(bazType);
-                var t0Buffers = chunk.GetBufferAccessor(t0Type);
+                var bazArray = chunk.GetNativeArray(ref bazType);
+                var t0Buffers = chunk.GetBufferAccessor(ref t0Type);
 
                 for (int i = 0; i < chunk.Count; i++)
                 {
@@ -274,6 +274,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
         }
 
         [Test]
+        [TestRequiresCollectionChecks]
         public void NoReflectionDataForHiddenGenericsInBurst()
         {
             // This should throw, as we can't pre-make the reflection data for this type of generic job
@@ -288,9 +289,9 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
         }
     }
 #endif
-}
+    }
 
-namespace Unity.Entities.Tests.CustomerProvided.Forum2
+    namespace Unity.Entities.Tests.CustomerProvided.Forum2
 {
     public struct Foo : IComponentData
     {
@@ -311,7 +312,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum2
 
                 for (int i = 0; i < 10000; i++)
                 {
-                    var testDataArray = chunk.GetNativeArray(typeHandle);
+                    var testDataArray = chunk.GetNativeArray(ref typeHandle);
                     testDataArray[0] = new T();
                 }
             }
@@ -400,8 +401,8 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
                 public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
                 {
                     var entities = chunk.GetNativeArray(entityType);
-                    var bazArray = chunk.GetNativeArray(bazType);
-                    var t0Buffers = chunk.GetBufferAccessor(t0Type);
+                    var bazArray = chunk.GetNativeArray(ref bazType);
+                    var t0Buffers = chunk.GetBufferAccessor(ref t0Type);
 
                     for (int i = 0; i < chunk.Count; i++)
                     {
@@ -587,7 +588,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum3
     }
 
 #if !ENABLE_TRANSFORM_V1
-    public class TestSystem : CustomSystem<LocalToWorldTransform>
+    public class TestSystem : CustomSystem<LocalTransform>
 #else
     public class TestSystem : CustomSystem<Translation>
 #endif
@@ -602,7 +603,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum3
         struct TestProcessor : IProcessor
         {
 #if !ENABLE_TRANSFORM_V1
-            public void Execute(ref LocalToWorldTransform transform)
+            public void Execute(ref LocalTransform transform)
 #else
             public void Execute(ref Translation translation)
 #endif

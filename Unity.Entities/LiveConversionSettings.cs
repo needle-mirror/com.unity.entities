@@ -56,33 +56,10 @@ namespace Unity.Entities.Conversion
             set => SessionState.SetInt(EditorPrefsConversionMode, (int) value);
         }
 
-        public static bool IsBakingEnabled
-        {
-        #if ENABLE_LEGACY_ENTITY_CONVERSION_BY_DEFAULT
-            get => SessionState.GetBool(EditorPrefsBakingEnabled, false);
-        #else
-            get => SessionState.GetBool(EditorPrefsBakingEnabled, true);
-        #endif
-            set => SessionState.SetBool(EditorPrefsBakingEnabled, value);
-        }
-
         public static bool IsLiveBakingLoggingEnabled
         {
             get => SessionState.GetBool(EditorPrefsLiveBakingLoggingEnabled, false);
             set => SessionState.SetBool(EditorPrefsLiveBakingLoggingEnabled, value);
-        }
-
-        public static bool IsBuiltinBuildsEnabled
-        {
-            get
-            {
-                #if UNITY_DOTS_BUILTIN_BUILDS_DEFAULT
-                return true;
-                #else
-                return EditorPrefs.GetBool(EditorPrefsBuiltinBuildsEnabled, false);
-                #endif
-            }
-            set => EditorPrefs.SetBool(EditorPrefsBuiltinBuildsEnabled, value);
         }
     }
 }

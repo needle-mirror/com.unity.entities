@@ -1,7 +1,9 @@
-﻿namespace Unity.Editor.Bridge
+﻿using UnityEditor;
+
+namespace Unity.Editor.Bridge
 {
     static class PropertyEditorBridge
     {
-        public static void OpenPropertyEditorOnSelection() => OpenPropertyEditorOnSelection();
+        public static void OpenPropertyEditorOnSelection() => PropertyEditor.OpenPropertyEditorOnSelection();
     }
 }

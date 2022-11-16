@@ -59,18 +59,31 @@ namespace Unity.Entities
     }
 
     /// <summary>
-    /// Strips the component at the end of baking process. As it is removed after a single baking run, it will not be present
-    /// in subsequent baking runs unless it is (re-)added by a Baker.
-    /// This also means that the component doesn't show up at runtime.
+    /// Attribute that indicates that the component should be removed at the end of each baking iteration.
     /// </summary>
+    /// <remarks>
+    /// Components decorated with the [TemporaryBakingType] attribute are stripped
+    /// after each baking iteration, so you can use them in baking systems
+    /// to identify entities that a baker has modified during the current baking iteration.
+    ///
+    /// Components with the [TemporaryBakingType] attribute are not exported in the runtime data.
+    /// </remarks>
+    /// <seealso cref="BakingTypeAttribute"/>
     public class TemporaryBakingTypeAttribute : Attribute
     {
     }
 
     /// <summary>
-    /// Automatically adds the component to each entity that the baking process creates.
-    /// The component is stripped out automatically at runtime.
+    /// Attribute that indicates that a component should persist in the baking world, but shouldn't be exported with the runtime data.
     /// </summary>
+    /// <remarks>
+    /// During incremental baking, components with the [BakingType] attribute persist in the baking world.
+    /// This allows baking systems to process entities which haven't been modified during the current baking iteration,
+    /// but which are dependencies to the final result of the baking.
+    ///
+    /// Components with the [BakingType] attribute are not exported in the runtime data.
+    /// </remarks>
+    /// <seealso cref="TemporaryBakingTypeAttribute"/>
     public class BakingTypeAttribute : Attribute
     {
     }
@@ -112,6 +125,16 @@ namespace Unity.Entities
         /// The component type inherits from <seealso cref="ICleanupSharedComponentData"/>
         /// </summary>
         public bool IsCleanupSharedComponent { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return  (Value & TypeManager.CleanupSharedComponentTypeFlag) == TypeManager.CleanupSharedComponentTypeFlag; } }
+
+        /// <summary>
+        /// The component type inherits from <seealso cref="ICleanupBufferElementData"/>
+        /// </summary>
+        public bool IsCleanupBufferComponent { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return (Value & TypeManager.CleanupBufferComponentTypeFlag) == TypeManager.CleanupBufferComponentTypeFlag; } }
+
+        /// <summary>
+        /// The component type inherits from <seealso cref="IComponentData"/>
+        /// </summary>
+        public bool IsComponentType { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return (Value & (TypeManager.SharedComponentTypeFlag | TypeManager.BufferComponentTypeFlag)) == 0; } }
 
         /// <summary>
         /// The component type inherits from <seealso cref="ISharedComponentData"/>
@@ -490,7 +513,7 @@ namespace Unity.Entities
         public const int HasNoEntityReferencesFlag = 1 << 24; // this flag is inverted to ensure the type id of Entity can still be 1
 
         /// <summary>
-        /// <seealso cref="CleanupComponentTypeFlag"/>.
+        /// Obsolete. Use <see cref="CleanupComponentTypeFlag"/> instead.
         /// </summary>
         [Obsolete("SystemStateTypeFlag has been renamed to CleanupComponentTypeFlag. SystemStateTypeFlag will be removed in a future package release. (UnityUpgradable) -> CleanupComponentTypeFlag", false)]
         public const int SystemStateTypeFlag = 1 << 25;
@@ -527,15 +550,20 @@ namespace Unity.Entities
         public const int ZeroSizeInChunkTypeFlag = 1 << 30;
 
         /// <summary>
-        /// <seealso cref="CleanupSharedComponentTypeFlag"/>.
+        /// Obsolete. Use <see cref="CleanupSharedComponentTypeFlag"/>instead.
         /// </summary>
         [Obsolete("SystemStateSharedComponentTypeFlag has been renamed to CleanupSharedComponentTypeFlag. SystemStateSharedComponentTypeFlag will be removed in a future package release. (UnityUpgradable) -> CleanupSharedComponentTypeFlag", false)]
         public const int SystemStateSharedComponentTypeFlag = CleanupComponentTypeFlag | SharedComponentTypeFlag;
 
         /// <summary>
-        /// Bitflag set for component types inheriting from <seealso cref="ISystemStateSharedComponentData"/>.
+        /// Bitflag set for component types inheriting from <seealso cref="ICleanupSharedComponentData"/>.
         /// </summary>
         public const int CleanupSharedComponentTypeFlag = CleanupComponentTypeFlag | SharedComponentTypeFlag;
+
+        /// <summary>
+        /// Bitflag set for component types inheriting from <seealso cref="ICleanupBufferElementData"/>.
+        /// </summary>
+        public const int CleanupBufferComponentTypeFlag = CleanupComponentTypeFlag | BufferComponentTypeFlag;
 
         /// <summary>
         /// Bitflag set for component types inheriting from <seealso cref="ISharedComponentData"/> and requiring managed
@@ -543,7 +571,7 @@ namespace Unity.Entities
         /// </summary>
         public const int ManagedSharedComponentTypeFlag = ManagedComponentTypeFlag | SharedComponentTypeFlag;
 
-        // Update this clear mask if a flag is added or removed. It's a clear mask, for adding a new type you will need to flip a bit from 1 to 0
+        // Update this clear mask if a flag is added or removed.
         /// <summary>
         /// Bit mask to clear all flag bits from a <seealso cref="TypeIndex"/> />
         /// </summary>
@@ -581,7 +609,7 @@ namespace Unity.Entities
         static NativeList<EntityOffsetInfo>             s_BlobAssetRefOffsetList;
         static NativeList<EntityOffsetInfo>             s_WeakAssetRefOffsetList;
         static NativeList<TypeIndex>                    s_WriteGroupList;
-        static List<FastEquality.TypeInfo>              s_FastEqualityTypeInfoList;
+        static NativeList<FastEquality.TypeInfo>        s_FastEqualityTypeInfoList;
         static List<Type>                               s_Types;
         static UnsafeList<UnsafeText>                   s_TypeNames;
         static UnsafeList<ulong>                        s_TypeFullNameHashes;
@@ -744,14 +772,12 @@ namespace Unity.Entities
             /// <param name="blobAssetRefOffsetStartIndex">Index into the blob asset reference array where this component's blob asset reference data begins</param>
             /// <param name="weakAssetRefOffsetCount">Number of weak asset references this component contains</param>
             /// <param name="weakAssetRefOffsetStartIndex">Index into the weak asset reference array where this component's weak asset reference data begins</param>
-            /// <param name="fastEqualityIndex">Index into the fast equality array where this component's fast equality reference data begins</param>
             /// <param name="typeSize">Size of the component type</param>
             public TypeInfo(int typeIndex, TypeCategory category, int entityOffsetCount, int entityOffsetStartIndex,
                             ulong memoryOrdering, ulong stableTypeHash, int bufferCapacity, int sizeInChunk, int elementSize,
                             int alignmentInBytes, int maximumChunkCapacity, int writeGroupCount, int writeGroupStartIndex,
                             bool hasBlobRefs, int blobAssetRefOffsetCount, int blobAssetRefOffsetStartIndex,
-                            int weakAssetRefOffsetCount, int weakAssetRefOffsetStartIndex,
-                            int fastEqualityIndex, int typeSize)
+                            int weakAssetRefOffsetCount, int weakAssetRefOffsetStartIndex, int typeSize)
             {
                 TypeIndex = new TypeIndex() { Value = typeIndex };
                 Category = category;
@@ -771,7 +797,6 @@ namespace Unity.Entities
                 BlobAssetRefOffsetStartIndex = blobAssetRefOffsetStartIndex;
                 WeakAssetRefOffsetCount = weakAssetRefOffsetCount;
                 WeakAssetRefOffsetStartIndex = weakAssetRefOffsetStartIndex;
-                FastEqualityIndex = fastEqualityIndex; // Only used for Hybrid types (should be removed once we code gen all equality cases)
                 TypeSize = typeSize;
             }
 
@@ -805,12 +830,12 @@ namespace Unity.Entities
             public   readonly ulong        MemoryOrdering;
 
             /// <summary>
-            /// Hash used to uniquely identify a component based on its runtime memory footprint. 
+            /// Hash used to uniquely identify a component based on its runtime memory footprint.
             /// </summary>
             /// <remarks>
-            /// This value is deterministic across builds provided that the underlying type layout 
-            /// of the component hasn't changed. For example, renaming a member doesn't affect things, 
-            /// however changing a member's type causes the parent StableTypeHash to change). 
+            /// This value is deterministic across builds provided that the underlying type layout
+            /// of the component hasn't changed. For example, renaming a member doesn't affect things,
+            /// however changing a member's type causes the parent StableTypeHash to change).
             /// </remarks>
             /// <seealso cref="TypeHash"/>
             public   readonly ulong        StableTypeHash;
@@ -855,7 +880,6 @@ namespace Unity.Entities
             /// Maximum number of instances of this component allowed to be stored in a <seealso cref="Chunk"/>.
             /// </summary>
             public   readonly int          MaximumChunkCapacity;
-            internal readonly int          FastEqualityIndex;
 
             /// <summary>
             /// Blittable size of the component type.
@@ -885,6 +909,11 @@ namespace Unity.Entities
             /// <seealso cref="TypeIndex.IsBakingOnlyType"/>
             /// </summary>
             public bool BakingOnlyType => IsBakingOnlyType(TypeIndex);
+
+            /// <summary>
+            /// <seealso cref="TypeIndex.IsEnableable"/>
+            /// </summary>
+            public bool EnableableType => IsEnableableType(TypeIndex);
 
             /// <summary>
             /// Returns true if the component does not require space in <seealso cref="Chunk"/> memory
@@ -955,6 +984,7 @@ namespace Unity.Entities
         /// <param name="typeIndex">The TypeIndex to review.</param>
         /// <param name="count"></param>
         /// <returns>Returns a pointer to the entity offsets.</returns>
+        [GenerateTestsForBurstCompatibility]
         public static EntityOffsetInfo* GetEntityOffsets(TypeIndex typeIndex, out int count)
         {
             var typeInfo = GetTypeInfoPointer() + typeIndex.Index;
@@ -1000,6 +1030,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="typeInfo">TypeInfo for the component with a WriteGroup attribute</param>
         /// <returns>Returns a pointer to an array of WriteGroups for the provided TypeInfo.</returns>
+        [GenerateTestsForBurstCompatibility]
         public  static TypeIndex* GetWriteGroups(in TypeInfo typeInfo)
         {
             if (typeInfo.WriteGroupCount == 0)
@@ -1032,6 +1063,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="typeIndex">TypeIndex to review the TypeInfo for</param>
         /// <returns>Returns the TypeInfo for the component corresponding to the TypeInfo.</returns>
+        [GenerateTestsForBurstCompatibility]
         public static ref readonly TypeInfo GetTypeInfo(TypeIndex typeIndex)
         {
             return ref GetTypeInfoPointer()[typeIndex.Index];
@@ -1042,6 +1074,7 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="T">Component type to get TypeInfo fo</typeparam>
         /// <returns>The TypeInfo for the component corresponding to type T.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new Type[] { typeof(Entity) })]
         public static ref readonly TypeInfo GetTypeInfo<T>()
         {
             return ref GetTypeInfoPointer()[GetTypeIndex<T>().Index];
@@ -1049,12 +1082,17 @@ namespace Unity.Entities
 
         internal static TypeInfo * GetTypeInfoPointer()
         {
-            return (TypeInfo*)SharedTypeInfos.Ref.Data;
+            return (TypeInfo*) SharedTypeInfos.Ref.Data;
+        }
+
+        internal static FastEquality.TypeInfo* GetFastEqualityTypeInfoPointer()
+        {
+            return (FastEquality.TypeInfo*) SharedFastEqualityTypeInfo.Ref.Data;
         }
 
         internal static int* GetDescendantCountPointer()
         {
-            return (int*)SharedDescendantCounts.Ref.Data;
+            return (int*) SharedDescendantCounts.Ref.Data;
         }
 
         internal static int GetDescendantIndex(TypeIndex typeIndex)
@@ -1069,9 +1107,14 @@ namespace Unity.Entities
 #if UNITY_DOTSRUNTIME
         internal static int* GetDescendantIndexPointer()
         {
-            return (int*)SharedDescendantIndices.Ref.Data;
+            return (int*) SharedDescendantIndices.Ref.Data;
         }
 #endif
+
+        internal static ulong* GetFullTypeNameHashesPointer()
+        {
+            return (ulong*) SharedTypeFullNameHashes.Ref.Data;
+        }
 
         /// <summary>
         /// Gets the System.Type for the component represented by <see cref="TypeIndex"/>.
@@ -1080,9 +1123,7 @@ namespace Unity.Entities
         /// <returns>The System.Type for the component.</returns>
         public static Type GetType(TypeIndex typeIndex)
         {
-            var typeIndexNoFlags = typeIndex.Index;
-            Assert.IsTrue(typeIndexNoFlags >= 0 && typeIndexNoFlags < s_Types.Count);
-            return s_Types[typeIndexNoFlags];
+            return s_Types[typeIndex.Index];
         }
 
         /// <summary>
@@ -1095,16 +1136,6 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Retrieves the <see cref="FastEquality.TypeInfo"/> for a given <see cref="TypeInfo"/>
-        /// </summary>
-        /// <param name="typeInfo">TypeInfo to get the FastEquality.TypeInfo for</param>
-        /// <returns>Returns the FastEquality.TypeInfo for the corresponding TypeInfo, if any</returns>
-        public static FastEquality.TypeInfo GetFastEqualityTypeInfo(TypeInfo typeInfo)
-        {
-            return s_FastEqualityTypeInfoList[typeInfo.FastEqualityIndex];
-        }
-
-        /// <summary>
         /// <seealso cref="TypeIndex.IsBuffer"/>
         /// </summary>
         /// <param name="typeIndex">TypeIndex for a component</param>
@@ -1112,7 +1143,7 @@ namespace Unity.Entities
         public static bool IsBuffer(TypeIndex typeIndex) => (typeIndex.Value & BufferComponentTypeFlag) != 0;
 
         /// <summary>
-        /// <seealso cref="TypeIndex.IsCleanupComponent"/>
+        /// Obsolete. Use <see cref="TypeIndex.IsCleanupComponent"/> instead.
         /// </summary>
         /// <param name="typeIndex">TypeIndex for a component</param>
         /// <returns>Returns if the component is a cleanup component</returns>
@@ -1127,7 +1158,7 @@ namespace Unity.Entities
         public static bool IsCleanupComponent(TypeIndex typeIndex) => typeIndex.IsCleanupComponent;
 
         /// <summary>
-        /// <seealso cref="TypeIndex.IsCleanupSharedComponent"/>
+        /// Obsolete. Use <see cref="TypeIndex.IsCleanupSharedComponent"/> instead.
         /// </summary>
         /// <param name="typeIndex">TypeIndex for a component</param>
         /// <returns>Returns if the component is a cleanup shared component</returns>
@@ -1212,6 +1243,13 @@ namespace Unity.Entities
         public static bool IsTemporaryBakingType(TypeIndex typeIndex) => typeIndex.IsTemporaryBakingType;
 
         /// <summary>
+        /// <seealso cref="TypeIndex.IsEnableable"/>
+        /// </summary>
+        /// <param name="typeIndex">TypeIndex for a component</param>
+        /// <returns>Returns if the component type is decorated with the <seealso cref="EnableableComponentFlag"/> attribute.</returns>
+        public static bool IsEnableableType(TypeIndex typeIndex) => typeIndex.IsEnableable;
+
+        /// <summary>
         /// <seealso cref="TypeIndex.IsBakingOnlyType"/>
         /// </summary>
         /// <param name="typeIndex">TypeIndex for a component</param>
@@ -1231,6 +1269,7 @@ namespace Unity.Entities
         /// <param name="typeIndex">Child type to test if it inherits from baseTypeIndex</param>
         /// <param name="baseTypeIndex">Parent type typeIndex may have inherited from</param>
         /// <returns>Returns if child is a subclass of the parent component type</returns>
+        [GenerateTestsForBurstCompatibility]
         public static bool IsDescendantOf(TypeIndex typeIndex, TypeIndex baseTypeIndex)
         {
             var descendantIndex = GetDescendantIndex(typeIndex);
@@ -1244,6 +1283,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="typeIndex">Parent type</param>
         /// <returns>Returns count of component types inheriting from typeIndex's component type</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new Type[] { typeof(Entity) })]
         public static int GetDescendantCount(TypeIndex typeIndex)
         {
             var descendantIndex = GetDescendantIndex(typeIndex);
@@ -1255,6 +1295,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="baseTypeIndex">Parent type</param>
         /// <returns>Returns if any component inherits from baseTypeIndex</returns>
+        [GenerateTestsForBurstCompatibility]
         public static bool HasDescendants(TypeIndex baseTypeIndex)
         {
             var descendantIndex = GetDescendantIndex(baseTypeIndex);
@@ -1276,11 +1317,10 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="typeIndex">TypeIndex for the component to lookup</param>
         /// <returns>Hash of component type name</returns>
+        [GenerateTestsForBurstCompatibility]
         public static ulong GetFullNameHash(TypeIndex typeIndex)
         {
-            var typeIndexNoFlags = typeIndex.Index;
-            Assert.IsTrue(typeIndexNoFlags >= 0 && typeIndexNoFlags < s_Types.Count);
-            return s_TypeFullNameHashes[typeIndexNoFlags];
+            return GetFullTypeNameHashesPointer()[typeIndex.Index];
         }
 
         [ExcludeFromBurstCompatTesting("Takes a managed Type")]
@@ -1299,7 +1339,7 @@ namespace Unity.Entities
             var unsafeName = new UnsafeText(Encoding.UTF8.GetByteCount(typeName), Allocator.Persistent);
             unsafeName.CopyFrom(typeName);
             s_TypeNames.Add(unsafeName);
-            s_TypeFullNameHashes.Add(CalculateFullNameHash(type != null ? type.FullName : "null"));
+            s_TypeFullNameHashes.Add(TypeHash.FNV1A64(typeName));
 
             Assert.AreEqual(s_TypeCount, typeInfo.TypeIndex.Index);
             s_TypeCount++;
@@ -1385,16 +1425,15 @@ namespace Unity.Entities
             s_BlobAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
             s_WeakAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
             s_WriteGroupList = new NativeList<TypeIndex>(Allocator.Persistent);
-            s_FastEqualityTypeInfoList = new List<FastEquality.TypeInfo>();
+            s_FastEqualityTypeInfoList = new NativeList<FastEquality.TypeInfo>(Allocator.Persistent);
             s_Types = new List<Type>();
             s_TypeNames = new UnsafeList<UnsafeText>(MaximumTypesCount, Allocator.Persistent);
             s_TypeFullNameHashes = new UnsafeList<ulong>(MaximumTypesCount, Allocator.Persistent);
-            s_SharedComponent_FunctionPointers =
-                new UnsafeList<SharedComponentFnPtrs>(MaximumTypesCount, Allocator.Persistent);
+            s_SharedComponent_FunctionPointers = new UnsafeList<SharedComponentFnPtrs>(MaximumTypesCount, Allocator.Persistent);
             s_SharedComponentFns_gcDefeat = new ManagedSharedComponentFnPtrs[MaximumTypesCount];
 
+            FastEquality.Initialize();
             InitializeSystemsState();
-
             InitializeFieldInfoState();
 
             // There are some types that must be registered first such as a null component and Entity
@@ -1436,6 +1475,7 @@ namespace Unity.Entities
             SharedWeakAssetRefOffsets.Ref.Data = new IntPtr(s_WeakAssetRefOffsetList.GetUnsafePtr());
             SharedStableTypeHashes.Ref.Data = new IntPtr(s_StableTypeHashToTypeIndex.m_Buffer);
             SharedWriteGroups.Ref.Data = new IntPtr(s_WriteGroupList.GetUnsafePtr());
+            SharedFastEqualityTypeInfo.Ref.Data = new IntPtr(s_FastEqualityTypeInfoList.GetUnsafePtr());
             SharedTypeNames.Ref.Data = new IntPtr(s_TypeNames.Ptr);
             SharedTypeFullNameHashes.Ref.Data = new IntPtr(s_TypeFullNameHashes.Ptr);
             SharedSystemTypeNames.Ref.Data = new IntPtr(s_SystemTypeNames.Ptr);
@@ -1453,35 +1493,40 @@ namespace Unity.Entities
             SharedWeakAssetRefOffsets.Ref.Data = default;
             SharedStableTypeHashes.Ref.Data = default;
             SharedWriteGroups.Ref.Data = default;
+            SharedFastEqualityTypeInfo.Ref.Data = default;
             SharedTypeNames.Ref.Data = default;
             SharedTypeFullNameHashes.Ref.Data = default;
             SharedSystemTypeNames.Ref.Data = default;
 
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.Release(SharedSafetyHandle.Ref.Data);
-    #endif
-            Shared_SharedComponentData_FnPtrs.Ref.Data = default;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            // If the TypeManager failed to initialize, this may not have been set
+#if UNITY_DOTSRUNTIME
+            if(SharedSafetyHandle.Ref.Data.nodePtr != default)
+#else
+            if(SharedSafetyHandle.Ref.Data.versionNode != default)
+#endif
+                AtomicSafetyHandle.Release(SharedSafetyHandle.Ref.Data);
+#endif
+                Shared_SharedComponentData_FnPtrs.Ref.Data = default;
         }
 
         static void RegisterSpecialComponents()
         {
             // Push Null TypeInfo -- index 0 is reserved for null/invalid in all arrays index by TypeIndex.Index
-            s_FastEqualityTypeInfoList.Add(FastEquality.TypeInfo.Null);
+            AddFastEqualityInfo(null);
             AddTypeInfoToTables(null,
                 new TypeInfo(0, TypeCategory.ComponentData, 0, -1,
                     0, 0, -1, 0, 0, 0,
                     TypeManager.MaximumChunkCapacity, 0, -1, false, 0,
-                    -1, 0, -1, 0, 0),
+                    -1, 0, -1, 0),
                 "null", 0);
 
             // Push Entity TypeInfo
             var entityTypeIndex = new TypeIndex { Value = 1 };
             ulong entityStableTypeHash;
-            int entityFastEqIndex = -1;
 #if !UNITY_DOTSRUNTIME
             entityStableTypeHash = TypeHash.CalculateStableTypeHash(typeof(Entity));
-            entityFastEqIndex = s_FastEqualityTypeInfoList.Count;
-            s_FastEqualityTypeInfoList.Add(FastEquality.CreateTypeInfo(typeof(Entity)));
+            AddFastEqualityInfo(typeof(Entity));
 #else
             entityStableTypeHash = GetEntityStableTypeHash();
 #endif
@@ -1493,7 +1538,7 @@ namespace Unity.Entities
                     0, entityStableTypeHash, -1, UnsafeUtility.SizeOf<Entity>(),
                     UnsafeUtility.SizeOf<Entity>(), CalculateAlignmentInChunk(sizeof(Entity)),
                     TypeManager.MaximumChunkCapacity, 0, -1, false, 0,
-                    -1, 0, -1, entityFastEqIndex, UnsafeUtility.SizeOf<Entity>()),
+                    -1, 0, -1, UnsafeUtility.SizeOf<Entity>()),
                 "Unity.Entities.Entity", 0);
 
             SharedTypeIndex<Entity>.Ref.Data = entityTypeIndex;
@@ -1536,6 +1581,8 @@ namespace Unity.Entities
 #if !UNITY_DOTSRUNTIME
             ShutdownAspects();
 #endif
+
+            FastEquality.Shutdown();
         }
 
         static void DisposeNative()
@@ -1551,6 +1598,10 @@ namespace Unity.Entities
             s_WeakAssetRefOffsetList.Dispose();
             s_WriteGroupList.Dispose();
             s_SharedComponent_FunctionPointers.Dispose();
+
+            foreach (var info in s_FastEqualityTypeInfoList)
+                info.Dispose();
+            s_FastEqualityTypeInfoList.Dispose();
 
             foreach (var name in s_TypeNames)
                 name.Dispose();
@@ -1639,6 +1690,7 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="T">A component type</typeparam>
         /// <returns>Returns the TypeIndex for the corresponding T component type. Otherwise <seealso cref="TypeIndex.Null"/> is returned.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new Type[] { typeof(Entity) })]
         public static TypeIndex GetTypeIndex<T>()
         {
             var index = SharedTypeIndex<T>.Ref.Data;
@@ -1674,28 +1726,27 @@ namespace Unity.Entities
         /// <param name="left">Left-hand side of the comparison</param>
         /// <param name="right">Right-hand side of the comparison</param>
         /// <returns>Returns true if the types are equal.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new Type[] { typeof(Entity) })]
         public static bool Equals<T>(ref T left, ref T right) where T : struct
         {
-#if !UNITY_DOTSRUNTIME
             var typeIndex = GetTypeIndex<T>();
-            if (IsSharedComponentType(typeIndex))
+            if (typeIndex.IsSharedComponentType)
             {
-                if (IsManagedSharedComponent(typeIndex))
-                    return FastEquality.Equals(ref left,
-                        ref right,
-                        s_FastEqualityTypeInfoList[GetTypeInfo(typeIndex).FastEqualityIndex]);
+#if !UNITY_DOTSRUNTIME
+                if (typeIndex.IsManagedType)
+                    return FastEquality.Equals(UnsafeUtility.AddressOf(ref left), UnsafeUtility.AddressOf(ref right), in GetFastEqualityTypeInfoPointer()[typeIndex.Index]);
                 else
+#endif
                 {
                     if (IsIEquatable(typeIndex))
                     {
-                        return EqualsWithBurst((void*) UnsafeUtility.AddressOf(ref left),
-                            (void*) UnsafeUtility.AddressOf(ref right),
-                            typeIndex);
+                        return SharedComponentEquals(UnsafeUtility.AddressOf(ref left), UnsafeUtility.AddressOf(ref right), typeIndex);
                     }
                 }
             }
 
-            return FastEquality.Equals(left, right);
+#if ENABLE_IL2CPP
+            return FastEquality.Equals(UnsafeUtility.AddressOf(ref left), UnsafeUtility.AddressOf(ref right), in GetFastEqualityTypeInfoPointer()[typeIndex.Index]);
 #else
             return UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref left), UnsafeUtility.AddressOf(ref right), UnsafeUtility.SizeOf<T>()) == 0;
 #endif
@@ -1708,23 +1759,14 @@ namespace Unity.Entities
         /// <param name="right">Right-hand side of the comparison</param>
         /// <param name="typeIndex">TypeIndex for the two instances being compared</param>
         /// <returns>Returns true if the types are equal.</returns>
+        [GenerateTestsForBurstCompatibility]
         public static bool Equals(void* left, void* right, TypeIndex typeIndex)
         {
-#if !UNITY_DOTSRUNTIME
-            var typeInfo = GetTypeInfo(typeIndex);
+            if (typeIndex.IsSharedComponentType)
+                return SharedComponentEquals(left, right, typeIndex);
 
-            if (IsSharedComponentType(typeIndex))
-            {
-                if (IsManagedSharedComponent(typeIndex))
-                {
-                    return FastEquality.Equals(left, right, s_FastEqualityTypeInfoList[typeInfo.FastEqualityIndex]);
-                }
-
-                if (IsIEquatable(typeIndex))
-                    return EqualsWithBurst(left, right, typeIndex);
-            }
-
-            return FastEquality.Equals(left, right, typeInfo.TypeSize);
+#if !UNITY_DOTSRUNTIME && ENABLE_IL2CPP
+            return FastEquality.Equals(left, right, GetFastEqualityTypeInfoPointer()[typeIndex.Index]);
 #else
             var typeInfo = GetTypeInfo(typeIndex);
             return UnsafeUtility.MemCmp(left, right, typeInfo.TypeSize) == 0;
@@ -1732,7 +1774,7 @@ namespace Unity.Entities
         }
 
         [BurstDiscard]
-        private static void SetIfNotBurst(ref bool answer)
+        static void SetIfNotBurst(ref bool answer)
         {
             answer = true;
         }
@@ -1741,7 +1783,7 @@ namespace Unity.Entities
         /// Used internally to determine if Burst is compiling the code path calling this function
         /// </summary>
         /// <returns>Returns true if Burst compiled this method</returns>
-        public static bool IsBursted()
+        static bool IsBursted()
         {
             var ret = false;
             SetIfNotBurst(ref ret);
@@ -1749,17 +1791,16 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Compares two component instances to one another
+        /// Compares two shared component instances to one another
         /// </summary>
         /// <param name="left">Left-hand side of the comparison</param>
         /// <param name="right">Right-hand side of the comparison</param>
         /// <param name="typeIndex">TypeIndex for the two instances being compared</param>
         /// <returns>Returns true if the types are equal.</returns>
-        public static bool EqualsWithBurst(void* left, void* right, TypeIndex typeIndex)
+        [GenerateTestsForBurstCompatibility]
+        internal static bool SharedComponentEquals(void* left, void* right, TypeIndex typeIndex)
         {
-            var typeInfo = GetTypeInfo(typeIndex);
-            var typeIndexWithFlags = typeInfo.TypeIndex;
-            if (IsIEquatable(typeIndexWithFlags))
+            if (typeIndex.IsIEquatable)
             {
                 CallManagedEquals(left, right, typeIndex, out bool wasequal, out var didwrite);
                 if (didwrite)
@@ -1767,7 +1808,14 @@ namespace Unity.Entities
 
                 return GetIEquatable_EqualsFn(typeIndex).Invoke(left, right);
             }
+
+#if !UNITY_DOTSRUNTIME && ENABLE_IL2CPP
+            var typeInfo = GetFastEqualityTypeInfoPointer()[typeIndex.Index];
+            return FastEquality.Equals(left, right, typeInfo);
+#else
+            var typeInfo = GetTypeInfoPointer()[typeIndex.Index];
             return UnsafeUtility.MemCmp(left, right, typeInfo.TypeSize) == 0;
+#endif
         }
 
         [BurstDiscard]
@@ -1778,20 +1826,19 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Generates a hash for a given component instance
+        /// Generates a hash for a given shared component instance
         /// </summary>
         /// <param name="data">Pointer to component instance to hash</param>
         /// <param name="typeIndex">TypeIndex for the component</param>
         /// <returns>Returns true if the types are equal.</returns>
-        public static int GetHashCodeWithBurst(void* data, TypeIndex typeIndex)
+        [GenerateTestsForBurstCompatibility]
+        internal static int SharedComponentGetHashCode(void* data, TypeIndex typeIndex)
         {
-            var typeInfo = GetTypeInfo(typeIndex);
-            var typeIndexWithFlags = typeInfo.TypeIndex;
-
-            if (IsIEquatable(typeIndexWithFlags))
+            if (typeIndex.IsIEquatable)
             {
                 CallManagedGetHashCode(data, typeIndex, out var hashCode, out var didwrite);
-                if (didwrite) return hashCode;
+                if (didwrite)
+                    return hashCode;
 
                 var ghc = GetIEquatable_GetHashCodeFn(typeIndex);
 
@@ -1799,7 +1846,12 @@ namespace Unity.Entities
                     return ghc.Invoke(data);
             }
 
-            return FastEquality.Hash32((byte*)data, (uint)typeInfo.TypeSize);
+#if !UNITY_DOTSRUNTIME && ENABLE_IL2CPP
+            return FastEquality.GetHashCode((byte*)data, GetFastEqualityTypeInfoPointer()[typeIndex.Index]);
+#else
+            var typeInfo = GetTypeInfoPointer()[typeIndex.Index];
+            return (int)XXHash.Hash32((byte*)data, typeInfo.TypeSize);
+#endif
         }
 
         [BurstDiscard]
@@ -1839,7 +1891,7 @@ namespace Unity.Entities
 
             if (IsManagedComponent(typeIndex))
             {
-                var typeInfo = s_FastEqualityTypeInfoList[GetTypeInfo(typeIndex).FastEqualityIndex];
+                var typeInfo = GetFastEqualityTypeInfoPointer()[typeIndex.Index];
                 return FastEquality.ManagedEquals(left, right, typeInfo);
             }
             else
@@ -1885,14 +1937,12 @@ namespace Unity.Entities
         /// <typeparam name="T">Component type</typeparam>
         /// <param name="val">Component instance to hash</param>
         /// <returns>Returns true if the types are equal.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new Type[] { typeof(Entity) })]
         public static int GetHashCode<T>(ref T val) where T : struct
         {
 #if !UNITY_DOTSRUNTIME
             var typeIndex = GetTypeIndex<T>();
-            if(IsSharedComponentType(typeIndex))
-                return FastEquality.GetHashCode(val, s_FastEqualityTypeInfoList[GetTypeInfo(typeIndex).FastEqualityIndex]);
-
-            return FastEquality.GetHashCode(val);
+            return GetHashCode(UnsafeUtility.AddressOf(ref val), typeIndex);
 #else
             return (int)XXHash.Hash32((byte*)UnsafeUtility.AddressOf(ref val), UnsafeUtility.SizeOf<T>());
 #endif
@@ -1904,11 +1954,14 @@ namespace Unity.Entities
         /// <param name="val">Pointer to component instance to hash</param>
         /// <param name="typeIndex">TypeIndex for the component</param>
         /// <returns>Returns true if the types are equal.</returns>
+        [GenerateTestsForBurstCompatibility]
         public static int GetHashCode(void* val, TypeIndex typeIndex)
         {
-#if !UNITY_DOTSRUNTIME
-            var typeInfo = s_FastEqualityTypeInfoList[GetTypeInfo(typeIndex).FastEqualityIndex];
-            return FastEquality.GetHashCode(val, typeInfo);
+            if (typeIndex.IsSharedComponentType)
+                return SharedComponentGetHashCode(val, typeIndex);
+
+#if ENABLE_IL2CPP
+            return FastEquality.GetHashCode(val, GetFastEqualityTypeInfoPointer()[typeIndex.Index]);
 #else
             var typeInfo = GetTypeInfo(typeIndex);
             return (int)XXHash.Hash32((byte*)val, typeInfo.TypeSize);
@@ -1926,7 +1979,7 @@ namespace Unity.Entities
 #if !UNITY_DOTSRUNTIME
             if (IsManagedComponent(typeIndex))
             {
-                var typeInfo = s_FastEqualityTypeInfoList[GetTypeInfo(typeIndex).FastEqualityIndex];
+                var typeInfo = GetFastEqualityTypeInfoPointer()[typeIndex.Index];
                 return FastEquality.ManagedGetHashCode(val, typeInfo);
             }
             else
@@ -2094,6 +2147,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="stableTypeHash">Component <seealso cref="TypeInfo.StableTypeHash"/></param>
         /// <returns>Component TypeIndex, otherwise <seealso cref="TypeIndex.Null"/></returns>
+        [GenerateTestsForBurstCompatibility]
         public static TypeIndex GetTypeIndexFromStableTypeHash(ulong stableTypeHash)
         {
             UnsafeParallelHashMap<ulong, TypeIndex> map = default;
@@ -2157,6 +2211,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="typeIndex">Component type index</param>
         /// <returns>List of type indices</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new Type[] { typeof(Entity) })]
         public static NativeArray<TypeIndex> GetWriteGroupTypes(TypeIndex typeIndex)
         {
             var type = GetTypeInfo(typeIndex);
@@ -2325,7 +2380,7 @@ namespace Unity.Entities
             if (type.ContainsGenericParameters)
                 return false;
 
-            if (type.GetCustomAttribute(typeof(DisableAutoTypeRegistrationAttribute)) != null)
+            if (Attribute.IsDefined(type, typeof(DisableAutoTypeRegistrationAttribute)))
                 return false;
 
             return true;
@@ -2334,19 +2389,6 @@ namespace Unity.Entities
         {
             if (!IsInstantiableComponentType(type))
                 return;
-
-            // XXX There's a bug in the Unity Mono scripting backend where if the
-            // Mono type hasn't been initialized, the IsUnmanaged result is wrong.
-            // We force it to be fully initialized by creating an instance until
-            // that bug is fixed.
-            try
-            {
-                var inst = Activator.CreateInstance(type);
-            }
-            catch (Exception)
-            {
-                // ignored
-            }
 
             typeSet.Add(type);
         }
@@ -2452,6 +2494,13 @@ namespace Unity.Entities
             }
             finally
             {
+                // If any components have errors, ensure we log the errors and tell the user as continuing to use invalid components
+                // could lead to crashes due to the unsafe nature of how invoke burst instance methods from generic code paths
+                if (s_FailedTypeBuildException.Count > 0)
+                {
+                    throw new ArgumentException("TypeManager initialization failed. Please fix all exceptions logged above before continuing."); 
+                }
+
                 Profiler.EndSample();
             }
 #if UNITY_EDITOR
@@ -2685,7 +2734,6 @@ namespace Unity.Entities
             if (type.GetConstructor(Type.EmptyTypes) == null)
                 throw new ArgumentException($"{type} is a class based IComponentData. Class based IComponentData must implement a default constructor.");
         }
-
 #endif
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -2733,7 +2781,7 @@ namespace Unity.Entities
             }
 
             const int kScriptTypeNestedNativeContainerFlag = 0x2;
-            if (type.GetCustomAttribute(typeof(NativeContainerAttribute)) != null)
+            if (Attribute.IsDefined(type, typeof(NativeContainerAttribute)))
             {
                 foreach (var genericArg in type.GenericTypeArguments)
                 {
@@ -2763,9 +2811,12 @@ namespace Unity.Entities
 
         internal static TypeInfo BuildComponentType(Type type, TypeIndex[] writeGroups, Dictionary<Type, ulong> hashCache, HashSet<Type> nestedContainerCache)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            CheckComponentType(type);
+#endif
+
             var sizeInChunk = 0;
             TypeCategory category;
-            var typeInfo = FastEquality.TypeInfo.Null;
             int bufferCapacity = -1;
             var memoryOrdering = TypeHash.CalculateMemoryOrdering(type, out var hasCustomMemoryOrder, hashCache);
             // The stable type hash is the same as the memory order if the user hasn't provided a custom memory ordering
@@ -2807,7 +2858,6 @@ namespace Unity.Entities
                 else
                     sizeInChunk = valueTypeSize;
 
-                typeInfo = FastEquality.CreateTypeInfo(type);
                 EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList);
             }
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -2817,7 +2867,6 @@ namespace Unity.Entities
 
                 category = TypeCategory.ComponentData;
                 sizeInChunk = sizeof(int);
-                typeInfo = FastEquality.CreateTypeInfo(type);
                 EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult);
 
                 hasEntityReferences = entityRefResult > 0;
@@ -2836,6 +2885,11 @@ namespace Unity.Entities
 
                 elementSize = valueTypeSize;
 
+                // Empty types will always be 1 bytes in size as per language requirements
+                // Check for size 1 first so we don't lookup type fields for all buffer types as it's uncommon
+                if (elementSize == 1 && type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Length == 0)
+                    throw new ArgumentException($"Type {type} is an IBufferElementData type, however it has no fields and is thus invalid; this will waste chunk space for no benefit. If you want an empty component, consider using IComponentData instead.");
+
                 var capacityAttribute = (InternalBufferCapacityAttribute)type.GetCustomAttribute(typeof(InternalBufferCapacityAttribute));
                 if (capacityAttribute != null)
                     bufferCapacity = capacityAttribute.Capacity;
@@ -2843,7 +2897,6 @@ namespace Unity.Entities
                     bufferCapacity = DefaultBufferCapacityNumerator / elementSize; // Rather than 2*cachelinesize, to make it cross platform deterministic
 
                 sizeInChunk = sizeof(BufferHeader) + bufferCapacity * elementSize;
-                typeInfo = FastEquality.CreateTypeInfo(type);
                 EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList);
             }
             else if (typeof(ISharedComponentData).IsAssignableFrom(type))
@@ -2854,6 +2907,11 @@ namespace Unity.Entities
 #endif
                 valueTypeSize = UnsafeUtility.SizeOf(type);
 
+                // Empty types will always be 1 bytes in size as per language requirements
+                // Check for size 1 first so we don't lookup type fields for all buffer types as it's uncommon 
+                if (valueTypeSize == 1 && type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Length == 0)
+                    throw new ArgumentException($"Type {type} is an ISharedComponentData type, however it has no fields and is thus invalid; this will waste chunk space for no benefit. If you want an empty component, consider using IComponentData instead.");
+
                 EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult);
 
                 // Shared components explicitly do not allow patching of entity references
@@ -2862,7 +2920,6 @@ namespace Unity.Entities
 
                 // XXX this will break when we have class Myclass : ISharedComponentData and its parent implements iequatable
                 category = TypeCategory.ISharedComponentData;
-                typeInfo = FastEquality.CreateTypeInfo(type);
                 isManaged = !UnsafeUtility.IsUnmanaged(type);
             }
             else if (type.IsClass)
@@ -2886,10 +2943,6 @@ namespace Unity.Entities
                 throw new ArgumentException($"{type} is not a valid component.");
             }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            CheckComponentType(type);
-#endif
-
             // If the type explicitly overrides entity/blob reference attributes account for that now
             var typeOverridesAttributes = type.GetCustomAttribute<TypeOverridesAttribute>(true);
             if (typeOverridesAttributes != null && typeOverridesAttributes.HasNoEntityReferences)
@@ -2897,12 +2950,7 @@ namespace Unity.Entities
             if (typeOverridesAttributes != null && typeOverridesAttributes.HasNoBlobReferences)
                 hasBlobReferences = false;
 
-            int fastEqIndex = 0;
-            if (!FastEquality.TypeInfo.Null.Equals(typeInfo))
-            {
-                fastEqIndex = s_FastEqualityTypeInfoList.Count;
-                s_FastEqualityTypeInfoList.Add(typeInfo);
-            }
+            AddFastEqualityInfo(type, category == TypeCategory.UnityEngineObject);
 
             int entityOffsetCount = s_EntityOffsetList.Length - entityOffsetIndex;
             int blobAssetRefOffsetCount = s_BlobAssetRefOffsetList.Length - blobAssetRefOffsetIndex;
@@ -2929,8 +2977,8 @@ namespace Unity.Entities
                     throw new ArgumentException($"IEnableableComponent is not supported for type {type}. Only IComponentData and IBufferElementData can be disabled. Cleanup components are not supported.");
             }
 
-            bool isTemporaryBakingType = type.GetCustomAttribute(typeof(TemporaryBakingTypeAttribute)) != null;
-            bool isBakingOnlyType = type.GetCustomAttribute(typeof(BakingTypeAttribute)) != null;
+            bool isTemporaryBakingType = Attribute.IsDefined(type, typeof(TemporaryBakingTypeAttribute));
+            bool isBakingOnlyType = Attribute.IsDefined(type, typeof(BakingTypeAttribute));
             var isIEquatable = type.GetInterfaces().Any(i => i.Name.Contains("IEquatable"));
 
 
@@ -2978,8 +3026,7 @@ namespace Unity.Entities
                 elementSize > 0 ? elementSize : sizeInChunk, alignmentInBytes,
                 maxChunkCapacity, writeGroupCount, writeGroupIndex,
                 hasBlobReferences, blobAssetRefOffsetCount, blobAssetRefOffsetIndex,
-                weakAssetRefOffsetCount, weakAssetRefOffsetIndex,
-                fastEqIndex, valueTypeSize);
+                weakAssetRefOffsetCount, weakAssetRefOffsetIndex, valueTypeSize);
         }
 
         private struct SharedTypeIndex
@@ -2990,6 +3037,16 @@ namespace Unity.Entities
             }
         }
 #endif // #if !UNITY_DOTSRUNTIME
+
+        private static void AddFastEqualityInfo(Type type, bool isUnityEngineObject = false)
+        {
+#if !UNITY_DOTSRUNTIME
+            if (type == null || isUnityEngineObject)
+                s_FastEqualityTypeInfoList.Add(FastEquality.TypeInfo.Null);
+            else
+                s_FastEqualityTypeInfoList.Add(FastEquality.CreateTypeInfo(type));
+#endif
+        }
 
         private struct SharedSystemTypeIndex
         {
@@ -3034,21 +3091,22 @@ namespace Unity.Entities
         {
             public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedWriteGroups>();
         }
+        private struct SharedFastEqualityTypeInfo
+        {
+            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedFastEqualityTypeInfo>();
+        }
         private struct SharedTypeNames
         {
             public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedTypeNames>();
         }
-
         private struct SharedTypeFullNameHashes
         {
             public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedTypeFullNameHashes>();
         }
-
         private struct SharedSystemTypeNames
         {
             public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedSystemTypeNames>();
         }
-
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private struct SharedSafetyHandle
         {

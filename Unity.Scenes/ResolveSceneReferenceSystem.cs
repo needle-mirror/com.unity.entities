@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Entities.Serialization;
 #if UNITY_EDITOR
 using Unity.Assertions;
 using Unity.Entities.Conversion;
@@ -24,10 +25,6 @@ namespace Unity.Scenes
         public Entity SectionEntity;
     }
 
-    struct BundleElementData : IBufferElementData
-    {
-        public Hash128 BundleId;
-    }
 
     /// <summary>
     /// This component references the scene entity that contains this scene section entity.
@@ -48,7 +45,7 @@ namespace Unity.Scenes
     struct ResolvedSectionPath : IComponentData
     {
         public FixedString512Bytes ScenePath;
-        public FixedString512Bytes HybridPath;
+        public UntypedWeakReferenceId HybridReferenceId;
     }
 
     struct SceneSectionCustomMetadata
@@ -63,7 +60,6 @@ namespace Unity.Scenes
     {
         public BlobArray<SceneSectionData> Sections;
         public BlobString                  SceneName;
-        public BlobArray<BlobArray<Hash128>> Dependencies;
         public BlobArray<BlobArray<SceneSectionCustomMetadata>> SceneSectionCustomMetadata;
         public int HeaderBlobAssetBatchSize;
     }
@@ -143,7 +139,7 @@ namespace Unity.Scenes
                         var requestSceneLoaded = EntityManager.GetComponentData<RequestSceneLoaded>(sceneEntity);
 
                         var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(scene.SceneGUID,
-                            buildConfigurationGUID, true, LiveConversionSettings.IsBakingEnabled, LiveConversionSettings.IsBuiltinBuildsEnabled, out var requireRefresh);
+                            buildConfigurationGUID, true, out var requireRefresh);
                         var async = (requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) == 0;
 
                         LogResolving(async ? "Adding Async" : "Adding Sync", guid);
@@ -187,9 +183,15 @@ namespace Unity.Scenes
                 // This happens when instantiating an already fully resolved scene entity,
                 // AssetDependencyTrackerState will be added and results in a completed change request,
                 // but since this scene is already fully resolved with the same hash we can simply skip it.
-                if (HasComponent<ResolvedSceneHash>(sceneEntity) &&
-                    GetComponent<ResolvedSceneHash>(sceneEntity).ArtifactHash == (Hash128)change.ArtifactID)
+                if (SystemAPI.HasComponent<ResolvedSceneHash>(sceneEntity) &&
+                    SystemAPI.GetComponent<ResolvedSceneHash>(sceneEntity).ArtifactHash == (Hash128)change.ArtifactID)
+                {
+                    if (!SystemAPI.HasBuffer<ResolvedSectionEntity>(sceneEntity))
+                        throw new InvalidOperationException($"Entity {sceneEntity} used for a scene load has a {nameof(ResolvedSceneHash)} component but no {nameof(ResolvedSectionEntity)} buffer. " +
+                                                            "This suggests that you copied a scene entity after loading it, but before its scene data had been fully resolved. "+
+                                                            $"Please only copy it after resolving has finished, which will add {nameof(ResolvedSectionEntity)} to the entity.");
                     continue;
+                }
 
                 if (!m_ValidSceneMask.MatchesIgnoreFilter(sceneEntity))
                     throw new InvalidOperationException("entity should have been removed from tracker already");
@@ -206,7 +208,7 @@ namespace Unity.Scenes
                 // TODO: Remove updating the AssetDependencyTrackerState.SceneAndBuildConfigGUID on the changed scene entity when getting rid of the bakingEnabled toggle
                 // Deal with Baking possibly changing by removing and adding new actual asset to tracker
                 var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(scene.SceneGUID,
-                    buildConfigurationGUID, true, LiveConversionSettings.IsBakingEnabled, LiveConversionSettings.IsBuiltinBuildsEnabled, out var requireRefresh);
+                    buildConfigurationGUID, true, out var requireRefresh);
                 var async = (request.LoadFlags & SceneLoadFlags.BlockOnImport) == 0;
 
                 if (change.Asset != (GUID)guid)

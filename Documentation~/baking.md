@@ -8,6 +8,8 @@ Incremental Baking also happens when you have a Sub Scene open and you're editin
 
 ## Baker class
 
+You can optionally create your own bakers to attach ECS components to converted entities. When you create a baker, you define which MonoBehaviour component it's for and then write code that uses the MonoBehaviour component data to create and attach ECS components to the converted entity. You can also create additional entities from the baker and attach ECS components to them too. 
+
 Use the [Baker](xref:Unity.Entities.Baker`1) class to directly interface with Unity objects, such as authoring components. Bakers are also where dependencies are implicitly or explicitly captured, and all components added are capable of automatically being reverted if a Baker re-runs. A Baker can only add components to the primary entity that it's baking and the additional entities created by itself. For example:
 
 ```c#

@@ -16,10 +16,8 @@ namespace Unity.Entities.Editor
         Entity           = 1 << 1,
         GameObject       = 1 << 2,
         Scene            = 1 << 3,
-        RootScene        = 1 << 4 | Scene,
-        SubScene         = 1 << 5 | Scene,
-        DynamicSubScene  = 1 << 6 | Scene,
-        Custom           = 1 << 7
+        SubScene         = 1 << 4,
+        Custom           = 1 << 5
     }
 
     /// <summary>

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+#if USING_PLATFORMS_PACKAGE
 using Unity.Build;
+#endif
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -15,6 +17,10 @@ namespace Unity.Scenes.Editor
     [InitializeOnLoad]
     internal static class SubSceneInspectorUtility
     {
+        internal delegate void RepaintAction();
+
+        internal static event RepaintAction WantsRepaint;
+
         static SubSceneInspectorUtility()
         {
             Unsupported.SetUsingAuthoringScenes(true);
@@ -264,5 +270,12 @@ namespace Unity.Scenes.Editor
             }
         }
 
+        /// <summary>
+        /// Forces a Repaint event on the <see cref="SubSceneInspector"/> editor which are currently active.
+        /// </summary>
+        internal static void RepaintSubSceneInspector()
+        {
+            WantsRepaint?.Invoke();
+        }
     }
 }

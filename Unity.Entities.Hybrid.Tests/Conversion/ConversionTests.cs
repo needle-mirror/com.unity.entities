@@ -180,6 +180,47 @@ namespace Unity.Entities.Tests.Conversion
 #endif
         }
 
+        [TestCase(true, true)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(false, false)]
+        public void CreateAdditionalEntities_NewEntities_MatchActiveAndStaticStateOfPrimaryEntity(bool isActive, bool isStatic)
+        {
+            var go = CreateGameObject();
+            go.SetActive(isActive);
+            go.isStatic = isStatic;
+            var comp = go.AddComponent<CreateAdditionalEntitiesAuthoring>();
+            int noOfAdditionalEntities = 3;
+            comp.number = noOfAdditionalEntities;
+
+            BakingUtility.BakeGameObjects(World, new[] {go}, m_BakingSystem.BakingSettings);
+            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
+            var entity = m_BakingSystem.GetEntity(go);
+            var manager = World.EntityManager;
+
+            Assert.IsTrue(manager.HasComponent<AdditionalEntitiesBakingData>(entity), "Buffer not found");
+
+            var entities = manager.GetBuffer<AdditionalEntitiesBakingData>(entity);
+            Assert.AreEqual(noOfAdditionalEntities, entities.Length);
+
+            var staticQuery = new EntityQueryBuilder(Allocator.Temp).WithAll<Static>().WithOptions(EntityQueryOptions.IncludeDisabledEntities).Build(manager);
+            var disabledQuery = new EntityQueryBuilder(Allocator.Temp).WithAll<Disabled>().Build(manager);
+
+            for (int i = 0; i < noOfAdditionalEntities; i++)
+            {
+                var additionalEntity = entities[i].Value;
+                if (isStatic)
+                    Assert.True(staticQuery.Matches(additionalEntity), "The additional entity is not static while the authoring object is static");
+                else
+                    Assert.False(staticQuery.Matches(additionalEntity), "The additional entity is static while the authoring object is not");
+
+                if (isActive)
+                    Assert.False(disabledQuery.Matches(additionalEntity), "The additional entity is disabled while the authoring object is active");
+                else
+                    Assert.True(disabledQuery.Matches(additionalEntity), "The additional entity is active while the authoring object is disabled");
+            }
+        }
+
         [Test]
         public void SetNameOnAdditionalEntitiesSetsName()
         {

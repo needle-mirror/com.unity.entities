@@ -8,6 +8,7 @@ namespace Unity.Entities.Tests
     partial class EntityManagerSafetyTests : ECSTestsFixture
     {
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void RemoveEntityComponentThrows()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -16,6 +17,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void GetSetComponentThrowsIfNotExist()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -30,6 +32,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void ComponentDataArrayFromEntityThrowsIfNotExist()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -110,6 +113,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void AddComponentOnDestroyedEntityThrows()
         {
             var destroyedEntity = m_Manager.CreateEntity();
@@ -149,6 +153,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void NotYetCreatedEntityWithSameVersionThrows()
         {
             var notYetCreatedEntitySameVersion = new Entity() {Index = 0, Version = 1};
@@ -179,6 +184,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void CreateTooBigArchetypeThrows()
         {
             Assert.Throws<System.ArgumentException>(() =>
@@ -186,6 +192,5 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateArchetype(typeof(BigComponentData1), typeof(BigComponentData2));
             });
         }
-
     }
 }

@@ -208,7 +208,9 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(m_Manager.GetComponentData<EcsTestData>(entities[i]).value, dataToCopyA[i].value);
             }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.Throws<ArgumentException>(() => { query.CopyFromComponentDataArray(dataToCopyB); });
+#endif
 
             query.Dispose();
             entities.Dispose();

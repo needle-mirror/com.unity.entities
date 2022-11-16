@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Unity.Properties;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEditor;
 
 namespace Unity.Entities.Editor

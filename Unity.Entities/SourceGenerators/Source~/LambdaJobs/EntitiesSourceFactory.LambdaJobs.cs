@@ -43,7 +43,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                 static string ChunkBaseEntityIndicesField() =>
                     @"[Unity.Collections.ReadOnly]
-                    [Unity.Collections.DeallocateOnJobCompletion]
                     public Unity.Collections.NativeArray<int> __ChunkBaseEntityIndices;";
 
                 var jobStructDeclaration = (StructDeclarationSyntax) SyntaxFactory.ParseMemberDeclaration(template);
@@ -163,7 +162,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         public void Execute(in ArchetypeChunk chunk, int batchIndex, bool useEnabledMask, in Unity.Burst.Intrinsics.v128 chunkEnabledMask)
                         {{
                             {GetChunkNativeArrays(description)}
-                            int chunkEntityCount = chunk.ChunkEntityCount;
+                            int chunkEntityCount = chunk.Count;
                             {"int matchingEntityCount = 0;".EmitIfTrue(description.NeedsEntityInQueryIndex)}
                             if (!useEnabledMask)
                             {{
@@ -597,17 +596,19 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     if (!description.NeedsEntityInQueryIndex)
                         return string.Empty;
 
+                    var systemStateAccess = description.SystemStateParameterName == null ? string.Empty : $"{description.SystemStateParameterName}.";
+
                     if (description.Schedule.Mode == ScheduleMode.Run)
-                        return $"__job.__ChunkBaseEntityIndices = {description.EntityQueryFieldName}.CalculateBaseEntityIndexArray(Unity.Collections.Allocator.TempJob);";
+                        return $"__job.__ChunkBaseEntityIndices = {description.EntityQueryFieldName}.CalculateBaseEntityIndexArray({systemStateAccess}WorldUpdateAllocator);";
 
                     if (description.Schedule.DependencyArgument != null)
                         return @$"
-                            Unity.Collections.NativeArray<int> {description.ChunkBaseEntityIndexFieldName} = {description.EntityQueryFieldName}.CalculateBaseEntityIndexArrayAsync(Unity.Collections.Allocator.TempJob, __inputDependency, out __inputDependency);
+                            Unity.Collections.NativeArray<int> {description.ChunkBaseEntityIndexFieldName} = {description.EntityQueryFieldName}.CalculateBaseEntityIndexArrayAsync({systemStateAccess}WorldUpdateAllocator, __inputDependency, out __inputDependency);
                             __job.__ChunkBaseEntityIndices = {description.ChunkBaseEntityIndexFieldName};";
                     else
                         return @$"
                             Unity.Jobs.JobHandle outHandle;
-                            Unity.Collections.NativeArray<int> {description.ChunkBaseEntityIndexFieldName} = {description.EntityQueryFieldName}.CalculateBaseEntityIndexArrayAsync(Unity.Collections.Allocator.TempJob, Dependency, out outHandle);
+                            Unity.Collections.NativeArray<int> {description.ChunkBaseEntityIndexFieldName} = {description.EntityQueryFieldName}.CalculateBaseEntityIndexArrayAsync({systemStateAccess}WorldUpdateAllocator, Dependency, out outHandle);
                             __job.__ChunkBaseEntityIndices = {description.ChunkBaseEntityIndexFieldName};
                             Dependency = outHandle;";
                 }
@@ -750,10 +751,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                     // Certain schedule paths require .Schedule/.Run calls that aren't in the IJobChunk public API,
                     // and only appear in InternalCompilerInterface
-                    string JobChunkExtensionType() =>
-                        (description.Schedule.Mode == ScheduleMode.Run || (description.Schedule.Mode == ScheduleMode.ScheduleParallel && description.NeedsEntityInQueryIndex))
-                            ? "Unity.Entities.InternalCompilerInterface.JobChunkInterface"
-                            : "Unity.Entities.JobChunkExtensions";
+                    string JobChunkExtensionType() => "Unity.Entities.InternalCompilerInterface.JobChunkInterface";
 
                     switch (description.Schedule.Mode)
                     {

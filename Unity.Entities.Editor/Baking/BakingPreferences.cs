@@ -1,5 +1,5 @@
 using Unity.Entities.Conversion;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using Unity.Properties;
 using Unity.Scenes.Editor;
 using Unity.Serialization;
@@ -53,13 +53,6 @@ namespace Unity.Entities.Editor
             set => LiveConversionSettings.IsLiveBakingLoggingEnabled = value;
         }
 
-        [CreateProperty, DontSerialize]
-        public bool BuiltinBuildsEnabled
-        {
-            get => LiveConversionSettings.IsBuiltinBuildsEnabled;
-            set => LiveConversionSettings.IsBuiltinBuildsEnabled = value;
-        }
-
         public void OnSettingChanged(PropertyPath path)
         {
 
@@ -80,15 +73,12 @@ namespace Unity.Entities.Editor
 
                 var sceneViewMode = new VisualElement();
                 var liveBakingLogging = new VisualElement();
-                var builtInBuilds = new VisualElement();
 
                 DoDefaultGui(sceneViewMode, nameof(SceneViewMode));
                 DoDefaultGui(liveBakingLogging, nameof(LiveBakingLogging));
-                DoDefaultGui(builtInBuilds, nameof(BuiltinBuildsEnabled));
 
                 root.Add(sceneViewMode);
                 root.Add(liveBakingLogging);
-                root.Add(builtInBuilds);
 
                 var clearEntitiesCache = new Button(ClearEntitiesCacheWindow.OpenWindow)
                 {

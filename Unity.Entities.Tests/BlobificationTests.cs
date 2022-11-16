@@ -11,6 +11,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Assert = NUnit.Framework.Assert;
 using Unity.Mathematics;
 using System.IO;
+using System.Runtime.InteropServices;
 using Unity.Entities.Serialization;
 using Unity.Entities.LowLevel.Unsafe;
 using Unity.IO.LowLevel.Unsafe;
@@ -55,7 +56,9 @@ public partial class BlobTests : ECSTestsFixture
                 if (ExpectException)
                 {
                     var blobAsset = componentWithBlobData.blobAsset;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                     Assert.Throws<InvalidOperationException>(() => { blobAsset.GetUnsafePtr(); });
+#endif
                 }
                 else
                 {
@@ -67,11 +70,11 @@ public partial class BlobTests : ECSTestsFixture
         protected override void OnUpdate() {}
     }
 #endif
-    //@TODO: Test Prevent NativeArray and other containers inside of Blob data
-    //@TODO: Test Prevent BlobPtr, BlobArray onto job struct
-    //@TODO: Various tests trying to break the Allocator. eg. mix multiple BlobAllocator in the same BlobRoot...
+                    //@TODO: Test Prevent NativeArray and other containers inside of Blob data
+                    //@TODO: Test Prevent BlobPtr, BlobArray onto job struct
+                    //@TODO: Various tests trying to break the Allocator. eg. mix multiple BlobAllocator in the same BlobRoot...
 
-    struct MyData
+            struct MyData
     {
         public BlobArray<float> floatArray;
         public BlobPtr<float> nullPtr;
@@ -199,6 +202,7 @@ public partial class BlobTests : ECSTestsFixture
     }
 
     [Test]
+    [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
     public unsafe void BlobAccessAfterReleaseThrows()
     {
         var blob = ConstructBlobData();
@@ -297,6 +301,7 @@ public partial class BlobTests : ECSTestsFixture
     }
 
     [Test]
+    [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
     public void SourceBlobArrayThrowsOnIndex()
     {
         var builder = new BlobBuilder(Allocator.Temp);
@@ -327,6 +332,7 @@ public partial class BlobTests : ECSTestsFixture
     }
 
     [Test]
+    [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
     public void SourceBlobPtrThrowsOnDereference()
     {
         var builder = new BlobBuilder(Allocator.Temp);
@@ -461,6 +467,7 @@ public partial class BlobTests : ECSTestsFixture
     }
 
     [Test]
+    [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
     public void BlobBuilderArrayThrowsOnOutOfBoundsIndex()
     {
         using (var builder = new BlobBuilder(Allocator.Temp, 128))
@@ -539,13 +546,12 @@ public partial class BlobTests : ECSTestsFixture
         blob.Dispose();
     }
 
-    public unsafe struct TestStruct256bytes
+    [StructLayout(LayoutKind.Explicit, Size = 256)]
+    public struct TestStruct256bytes
     {
-        public BlobArray<int> intArray;
-        public fixed int array[61];
-        public BlobPtr<int> intPointer;
+        [FieldOffset(0)] public BlobArray<int> intArray;
+        [FieldOffset(252)] public BlobPtr<int> intPointer;
     }
-
 
     [Test]
     public void BlobAssetWithRootLargerThanChunkSizeWorks()
@@ -601,30 +607,30 @@ public partial class BlobTests : ECSTestsFixture
     const int kVersion = 51;
     const int kIncorrectVersion = 13;
 
-#if !UNITY_DOTSRUNTIME
-
+#if !UNITY_DOTSRUNTIME && !UNITY_GAMECORE // (disabled as gamecore has permission issues DOTS-7038)
     [Test]
     public void BlobAssetReferenceTryRead()
     {
-        string path = "BlobAssetReferenceIOTestData.blob";
-        if (File.Exists(path))
-            File.Delete(path);
+        string fileName = "BlobAssetReferenceIOTestData.blob";
+        string writePath = Path.Combine(Application.persistentDataPath, fileName);
+
+        if (File.Exists(writePath))
+            File.Delete(writePath);
         try
         {
             var blobBuilder = ConstructBlobBuilder();
-            BlobAssetReference<MyData>.Write(blobBuilder, path, kVersion);
-            using(var reader = new StreamBinaryReader(path))
+            BlobAssetReference<MyData>.Write(blobBuilder, writePath, kVersion);
+            using(var reader = new StreamBinaryReader(writePath))
                 Assert.IsFalse(BlobAssetReferenceTryReadVersion(reader, kIncorrectVersion));
-            using(var reader = new StreamBinaryReader(path))
+            using(var reader = new StreamBinaryReader(writePath))
                 Assert.IsTrue(BlobAssetReferenceTryReadVersion(reader, kVersion));
         }
         finally
         {
-            if (File.Exists(path))
-                File.Delete(path);
+            if (File.Exists(writePath))
+                File.Delete(writePath);
         }
     }
-
 #endif
 
     bool BlobAssetReferenceTryReadVersion<T>(T reader, int version) where T : Unity.Entities.Serialization.BinaryReader
@@ -725,17 +731,6 @@ public partial class BlobTests : ECSTestsFixture
     }
 
     [Test]
-    public void BlobSetPointerException()
-    {
-        Assert.Throws<ArgumentException>(() => {
-            BlobBuilder builder = new BlobBuilder(Allocator.Temp);
-            ref var rootNode = ref builder.ConstructRoot<Node>();
-            var child = new Node();
-            builder.SetPointer(ref rootNode.parent, ref child);
-            });
-    }
-
-    [Test]
     unsafe public void UnsafeUntypedBlobCasting()
     {
         var blobData = ConstructBlobData();
@@ -751,5 +746,36 @@ public partial class BlobTests : ECSTestsFixture
         Assert.AreEqual(UnsafeUtility.SizeOf<UnsafeUntypedBlobAssetReference>(), UnsafeUtility.SizeOf<BlobAssetReference<MyData>>());
 
         blobData.Dispose();
+    }
+
+    [Test]
+    [TestRequiresDotsDebugOrCollectionChecks("Requires blob safety checks")]
+    public void BlobArray_WithNestedArrays_ToArray_ThrowsInvalidOperationException()
+    {
+        var blobBuilder = new BlobBuilder(Allocator.Temp);
+        ref var root = ref blobBuilder.ConstructRoot<BlobArray<BlobString>>();
+        var arrayBuilder = blobBuilder.Allocate(ref root, 2);
+        blobBuilder.AllocateString(ref arrayBuilder[0], "hello");
+        blobBuilder.AllocateString(ref arrayBuilder[1], "world");
+        using var blobRef = blobBuilder.CreateBlobAssetReference<BlobArray<BlobString>>(Allocator.Persistent);
+
+        Assert.Throws<InvalidOperationException>(() => blobRef.Value.ToArray(), "No exception was thrown when creating array copy from BlobArray<BlobString>.");
+    }
+
+    [Test]
+    [TestRequiresDotsDebugOrCollectionChecks("Requires blob safety checks")]
+    public void BlobArray_WithNestedBlobPointers_ToArray_ThrowsInvalidOperationException()
+    {
+        var blobBuilder = new BlobBuilder(Allocator.Temp);
+        ref var root = ref blobBuilder.ConstructRoot<BlobArray<BlobPtr<float3>>>();
+        var arrayBuilder = blobBuilder.Allocate(ref root, 2);
+
+        ref float3 elem1 = ref blobBuilder.Allocate(ref arrayBuilder[0]);
+        elem1 = new float3(1, 2, 3);
+        ref float3 elem2 = ref blobBuilder.Allocate(ref arrayBuilder[1]);
+        elem2 = new float3(9, 7, 8);
+        using var blobRef = blobBuilder.CreateBlobAssetReference<BlobArray<BlobPtr<float3>>>(Allocator.Persistent);
+
+        Assert.Throws<InvalidOperationException>(() => blobRef.Value.ToArray(), "No exception was thrown when creating array copy from BlobArray<BlobPtr<>>.");
     }
 }

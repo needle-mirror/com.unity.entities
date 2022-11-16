@@ -25,7 +25,7 @@ In the Editor, the following icon represents an Entity: ![](images/editor-entity
 
 ## Additional resources
 
-* [Accessing data](systems-intro.md)
+* [Accessing data](systems-overview.md)
 * [World concepts](concepts-worlds.md)
 * [Archetypes concepts](concepts-archetypes.md)
 * [Component concepts](concepts-components.md)

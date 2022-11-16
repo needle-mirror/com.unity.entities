@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Unity.Platforms.UI;
+using Unity.Entities.UI;
 using UnityEngine;
 
 namespace Unity.Entities.Editor

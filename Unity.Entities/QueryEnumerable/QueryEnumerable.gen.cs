@@ -119,7 +119,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO and EnabledRefRW that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<T1> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerable<T1> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -337,7 +337,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<T1> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerableWithEntity<T1> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.
@@ -464,7 +464,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO and EnabledRefRW that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<T1, T2> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerable<T1, T2> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -689,7 +689,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<T1, T2> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerableWithEntity<T1, T2> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.
@@ -817,7 +817,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO and EnabledRefRW that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<T1, T2, T3> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerable<T1, T2, T3> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -1049,7 +1049,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<T1, T2, T3> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerableWithEntity<T1, T2, T3> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.
@@ -1178,7 +1178,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO and EnabledRefRW that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<T1, T2, T3, T4> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerable<T1, T2, T3, T4> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -1417,7 +1417,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<T1, T2, T3, T4> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerableWithEntity<T1, T2, T3, T4> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.
@@ -1547,7 +1547,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO and EnabledRefRW that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<T1, T2, T3, T4, T5> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerable<T1, T2, T3, T4, T5> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -1793,7 +1793,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<T1, T2, T3, T4, T5> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerableWithEntity<T1, T2, T3, T4, T5> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.
@@ -1924,7 +1924,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO and EnabledRefRW that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<T1, T2, T3, T4, T5, T6> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerable<T1, T2, T3, T4, T5, T6> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -2177,7 +2177,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<T1, T2, T3, T4, T5, T6> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerableWithEntity<T1, T2, T3, T4, T5, T6> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.
@@ -2309,7 +2309,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO and EnabledRefRW that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<T1, T2, T3, T4, T5, T6, T7> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerable<T1, T2, T3, T4, T5, T6, T7> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -2569,7 +2569,7 @@ namespace Unity.Entities
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
         /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<T1, T2, T3, T4, T5, T6, T7> WithEntityQueryOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        public QueryEnumerableWithEntity<T1, T2, T3, T4, T5, T6, T7> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
 namespace Unity.Entities.Editor
@@ -6,7 +6,8 @@ namespace Unity.Entities.Editor
     class ComponentTypeAutoComplete : AutoComplete.IAutoCompleteBehavior
     {
         static ComponentTypeAutoComplete s_Instance;
-        static readonly Regex k_Regex = new Regex(@"\b([cC]:)(?<componentType>(\S)*)$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.ExplicitCapture);
+        static string k_FilterToken = $"\\b([{Constants.ComponentSearch.TokenCaseInsensitive}]{Constants.ComponentSearch.Op})(?<componentType>(\\S)*)$";
+        static readonly Regex k_Regex = new Regex(k_FilterToken, RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.ExplicitCapture);
 
         public static ComponentTypeAutoComplete Instance => s_Instance ?? (s_Instance = new ComponentTypeAutoComplete());
 
@@ -25,7 +26,6 @@ namespace Unity.Entities.Editor
             var match = k_Regex.Match(input, 0, caretPosition);
             if (!match.Success)
                 return string.Empty;
-
             var type = match.Groups["componentType"];
             return type.Value;
         }

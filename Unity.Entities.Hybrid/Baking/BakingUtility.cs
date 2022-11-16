@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Unity.Collections;
 using Unity.Entities.Hybrid.Baking;
@@ -58,6 +59,12 @@ namespace Unity.Entities
 
         internal static bool BakeScene(World conversionWorld, Scene scene, BakingSettings settings, bool incremental, IncrementalBakingChangeTracker changeTracker)
         {
+#if UNITY_EDITOR
+#if ENABLE_CLOUD_SERVICES_ANALYTICS
+            var watch = Stopwatch.StartNew();
+#endif
+#endif
+
             using (s_BakeScene.Auto())
             {
                 var bakingSystem = conversionWorld.GetOrCreateSystemManaged<BakingSystem>();
@@ -77,8 +84,19 @@ namespace Unity.Entities
 
                 PostprocessBake(conversionWorld, settings, bakingSystem);
 
-                return true;
             }
+#if UNITY_EDITOR
+#if ENABLE_CLOUD_SERVICES_ANALYTICS
+            watch.Stop();
+
+            if(incremental)
+                BakingAnalytics.SendAnalyticsEvent(watch.ElapsedMilliseconds, BakingAnalytics.EventType.IncrementalBaking);
+            else
+                BakingAnalytics.SendAnalyticsEvent(watch.ElapsedMilliseconds, BakingAnalytics.EventType.OpeningSubScene);
+#endif
+#endif
+
+            return true;
         }
 
         static void PreprocessBake(World conversionWorld, BakingSettings settings, BakingSystem bakingSystem)
@@ -86,6 +104,11 @@ namespace Unity.Entities
             //TODO: DOTS-5452
             var systemTypes = settings.Systems ?? DefaultWorldInitialization.GetAllSystems(settings.FilterFlags);
             AddBakingSystems(conversionWorld, systemTypes.Concat(settings.ExtraSystems));
+#if UNITY_EDITOR
+#if ENABLE_CLOUD_SERVICES_ANALYTICS
+            BakingAnalytics.BakingSystemTypes = systemTypes;
+#endif
+#endif
 
             using (s_PreBakingSystemGroup.Auto())
             {

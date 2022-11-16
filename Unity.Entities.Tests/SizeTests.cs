@@ -47,6 +47,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         unsafe public void SIZ_TagThrowsOnGetComponentData()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
@@ -62,6 +63,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         unsafe public void SIZ_TagThrowsOnSetComponentData()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
@@ -96,6 +98,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component safety checks")]
         public void SIZ_TagCannotGetNativeArrayFromArchetypeChunk()
         {
             m_Manager.CreateEntity(typeof(EcsTestTag));
@@ -110,10 +113,10 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < chunks.Length; i++)
             {
                 var chunk = chunks[i];
-                Assert.IsTrue(chunk.Has(tagType));
+                Assert.IsTrue(chunk.Has(ref tagType));
                 Assert.Throws<ArgumentException>(() =>
                 {
-                    chunk.GetNativeArray(tagType);
+                    chunk.GetNativeArray(ref tagType);
                 });
             }
         }
@@ -122,10 +125,11 @@ namespace Unity.Entities.Tests
 
         unsafe struct TestTooBig : IComponentData
         {
-            fixed byte Value[32768];
+            fixed byte Value[32*1024];
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         public void ThrowsWhenTooLargeCreate()
         {
             Assert.Throws<ArgumentException>(() =>
@@ -135,6 +139,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         public void ThrowsWhenTooLargeAddComponent()
         {
             var entity = m_Manager.CreateEntity();

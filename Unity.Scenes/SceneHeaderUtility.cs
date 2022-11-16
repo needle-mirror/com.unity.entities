@@ -227,7 +227,7 @@ namespace Unity.Scenes
 
             headerLoadResult.HeaderBlobOwner = headerBlobOwner;
             headerLoadResult.SectionPaths = new UnsafeList<ResolvedSectionPath>(sectionCount, Allocator.TempJob);
-            BuildSectionPathsForAssetBundles(ref headerLoadResult.SectionPaths, ref sceneMetaData, sceneGUID, sceneLoadDir);
+            BuildSectionPathsForContentArchives(ref headerLoadResult.SectionPaths, ref sceneMetaData, sceneGUID, sceneLoadDir);
             return headerLoadResult;
         }
 #endif
@@ -258,6 +258,7 @@ namespace Unity.Scenes
             [NativeDisableUnsafePtrRestriction]
             public HeaderData* HeaderData;
             public Hash128 SceneGUID;
+            public Hash128 ArtifactHash;
             public void Execute()
             {
                 ref var headerLoadResult = ref HeaderData->HeaderLoadResult;
@@ -302,9 +303,9 @@ namespace Unity.Scenes
                 headerLoadResult.SectionPaths = new UnsafeList<ResolvedSectionPath>(sectionCount, Allocator.TempJob);
 #if UNITY_EDITOR
                 var managedHeaderData = (ManagedHeaderData)HeaderData->ManagedHeaderData.Target;
-                BuildSectionPaths(ref headerLoadResult.SectionPaths, ref sceneMetaData, managedHeaderData.Paths);
+                BuildSectionPaths(ref headerLoadResult.SectionPaths, ref sceneMetaData, SceneGUID, managedHeaderData.Paths, ArtifactHash);
 #else
-                BuildSectionPathsForAssetBundles(ref headerLoadResult.SectionPaths, ref sceneMetaData, SceneGUID, HeaderData->SceneLoadDir.ToString());
+                BuildSectionPathsForContentArchives(ref headerLoadResult.SectionPaths, ref sceneMetaData, SceneGUID, HeaderData->SceneLoadDir.ToString());
 #endif
             }
         }
@@ -313,7 +314,7 @@ namespace Unity.Scenes
         internal static unsafe RequestSceneHeader CreateRequestSceneHeader(Hash128 sceneGUID, RequestSceneLoaded requestSceneLoaded, Hash128 artifactHash, string sceneLoadDir)
         {
 #if UNITY_DOTSRUNTIME
-            var sceneHeaderPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1, sceneLoadDir);
+            var sceneHeaderPath = EntityScenesPaths.FullPathForFile(sceneLoadDir, EntityScenesPaths.RelativePathForSceneFile(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1));
             var iohandle = IOService.RequestAsyncRead(sceneHeaderPath).m_Handle;
             return new RequestSceneHeader {IOHandle = iohandle};
 #else
@@ -331,7 +332,7 @@ namespace Unity.Scenes
 #if UNITY_EDITOR
             string sceneHeaderPath = EntityScenesPaths.GetHeaderPathFromArtifactPaths(managedHeaderData.Paths);
 #else
-            string sceneHeaderPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1, sceneLoadDir);
+            string sceneHeaderPath = EntityScenesPaths.FullPathForFile(sceneLoadDir, EntityScenesPaths.RelativePathForSceneFile(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1));
 #endif
             var data = (byte*) Memory.Unmanaged.Allocate(SerializeUtility.MaxSubsceneHeaderSize, 64, Allocator.Persistent);
             headerData->ReadCommand = new ReadCommand
@@ -347,7 +348,8 @@ namespace Unity.Scenes
             headerData->JobHandle = new DeserializeHeaderJob
             {
                 HeaderData = headerData,
-                SceneGUID = sceneGUID
+                SceneGUID = sceneGUID,
+                ArtifactHash = artifactHash
             }.Schedule(handle.JobHandle);
 
             return new RequestSceneHeader {HeaderData = headerData};
@@ -360,46 +362,56 @@ namespace Unity.Scenes
             EntityManager.AddComponentData(sceneEntity, CreateRequestSceneHeader(sceneGUID, requestSceneLoaded, artifactHash, sceneLoadDir));
         }
 
-        internal static unsafe void BuildSectionPaths(ref UnsafeList<ResolvedSectionPath> sectionPaths, ref SceneMetaData sceneMetaData, Hash128 sceneGUID, RequestSceneHeader requestHeader, string sceneLoadDir)
+        internal static unsafe void BuildSectionPaths(ref UnsafeList<ResolvedSectionPath> sectionPaths, ref SceneMetaData sceneMetaData, Hash128 sceneGUID, RequestSceneHeader requestHeader, string sceneLoadDir, Hash128 artifactHash)
         {
 #if UNITY_EDITOR
             var managedHeaderData = (SceneHeaderUtility.ManagedHeaderData)requestHeader.HeaderData->ManagedHeaderData.Target;
-            BuildSectionPaths(ref sectionPaths, ref sceneMetaData, managedHeaderData.Paths);
+            BuildSectionPaths(ref sectionPaths, ref sceneMetaData, sceneGUID, managedHeaderData.Paths, artifactHash);
 #else
-            BuildSectionPathsForAssetBundles(ref sectionPaths, ref sceneMetaData, sceneGUID, sceneLoadDir);
+            BuildSectionPathsForContentArchives(ref sectionPaths, ref sceneMetaData, sceneGUID, sceneLoadDir);
 #endif
         }
 
-        internal static void BuildSectionPathsForAssetBundles(ref UnsafeList<ResolvedSectionPath> sectionPaths, ref SceneMetaData sceneMetaData, Hash128 sceneGUID, string sceneLoadDir)
+        internal static void BuildSectionPathsForContentArchives(ref UnsafeList<ResolvedSectionPath> sectionPaths, ref SceneMetaData sceneMetaData, Hash128 sceneGUID, string sceneLoadDir)
         {
             sectionPaths.Resize(sceneMetaData.Sections.Length, NativeArrayOptions.UninitializedMemory);
             for (int i = 0; i < sceneMetaData.Sections.Length; ++i)
             {
                 var sectionIndex = sceneMetaData.Sections[i].SubSectionIndex;
-                var hybridPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesUnityObjectReferencesBundle, sectionIndex, sceneLoadDir);
-                var scenePath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex, sceneLoadDir);
-
+                var fullScenePath = EntityScenesPaths.FullPathForFile(sceneLoadDir, EntityScenesPaths.RelativePathForSceneFile(sceneGUID, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex));
                 var sectionPath = new ResolvedSectionPath();
-                sectionPath.ScenePath = scenePath;
-                sectionPath.HybridPath = hybridPath;
+                sectionPath.ScenePath = fullScenePath;
+                if (sceneMetaData.Sections[i].ObjectReferenceCount > 0)
+                    sectionPath.HybridReferenceId = CreateSceneSectionHash(sceneGUID, sectionIndex, default);
                 sectionPaths[i] = sectionPath;
             }
         }
 
+        internal static UntypedWeakReferenceId CreateSceneSectionHash(Hash128 sceneGUID, int sectionIndex, Hash128 artifactHash)
+        {
+            if (artifactHash.IsValid)
+                sceneGUID = artifactHash;
+            return new UntypedWeakReferenceId
+            {
+                GenerationType = WeakReferenceGenerationType.SubSceneObjectReferences,
+                GlobalId = new RuntimeGlobalObjectId { AssetGUID = sceneGUID, SceneObjectIdentifier0 = sectionIndex }
+            };
+        }
+
 #if UNITY_EDITOR
-        internal static void BuildSectionPaths(ref UnsafeList<ResolvedSectionPath> sectionPaths, ref SceneMetaData sceneMetaData, string[] Paths)
+        internal static void BuildSectionPaths(ref UnsafeList<ResolvedSectionPath> sectionPaths, ref SceneMetaData sceneMetaData, Hash128 sceneGUID, string[] Paths, Hash128 artifactHash)
         {
             sectionPaths.Resize(sceneMetaData.Sections.Length, NativeArrayOptions.UninitializedMemory);
             for (int i = 0; i < sceneMetaData.Sections.Length; ++i)
             {
                 var sectionIndex = sceneMetaData.Sections[i].SubSectionIndex;
+                
                 var scenePath = EntityScenesPaths.GetLoadPathFromArtifactPaths(Paths, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
-                var hybridPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(Paths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
-
+                var hybridPath = sceneMetaData.Sections[i].ObjectReferenceCount > 0 ? EntityScenesPaths.GetLoadPathFromArtifactPaths(Paths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex) : null;
                 var sectionPath = new ResolvedSectionPath();
                 sectionPath.ScenePath = scenePath;
-                if(hybridPath != null)
-                    sectionPath.HybridPath = hybridPath;
+                if (hybridPath != null)
+                    sectionPath.HybridReferenceId = CreateSceneSectionHash(sceneGUID, sectionIndex, artifactHash);
                 sectionPaths[i] = sectionPath;
             }
         }
