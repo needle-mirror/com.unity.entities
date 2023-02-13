@@ -26,12 +26,12 @@ namespace Unity.Entities
         public TransformAuthoringBaking(EntityManager entityManager)
         {
             _EntityManager = entityManager;
-            _AdditionalEntityParentQuery = entityManager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[] {typeof(AdditionalEntityParent), typeof(TransformAuthoring)},
-                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-            });
-            _StaticQuery = entityManager.CreateEntityQuery(typeof(Static));
+            _AdditionalEntityParentQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AdditionalEntityParent>()
+                .WithAllRW<TransformAuthoring>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                .Build(entityManager);
+            _StaticQuery = new EntityQueryBuilder(Allocator.Temp).WithAll<Static>().Build(entityManager);
             Assert.IsFalse(_StaticQuery.HasFilter(), "The use of EntityQueryMask in this job will not respect the query's active filter settings.");
             _StaticQueryMask = _StaticQuery.GetEntityQueryMask();
             _LocalToWorldIndices = new NativeParallelHashMap<int, bool>(1024, Allocator.Persistent);
@@ -93,7 +93,7 @@ namespace Unity.Entities
                 TransformAuthoringLookup = _EntityManager.GetComponentLookup<TransformAuthoring>(true),
                 TransformAuthoringHandle = _EntityManager.GetComponentTypeHandle<TransformAuthoring>(false),
                 HasStatic = _StaticQueryMask,
-                AdditionalEntityParent = _EntityManager.GetComponentTypeHandle<AdditionalEntityParent>(false),
+                AdditionalEntityParent = _EntityManager.GetComponentTypeHandle<AdditionalEntityParent>(true),
                 Entities = _EntityManager.GetEntityTypeHandle(),
                 Commands = cmd.AsParallelWriter(),
                 Hierarchy = _SceneHierarchy.AsReadOnly(),
@@ -200,6 +200,7 @@ namespace Unity.Entities
 
             public EntityTypeHandle                              Entities;
             public ComponentTypeHandle<TransformAuthoring>       TransformAuthoringHandle;
+            [ReadOnly]
             public ComponentTypeHandle<AdditionalEntityParent>   AdditionalEntityParent;
 
             public EntityCommandBuffer.ParallelWriter            Commands;

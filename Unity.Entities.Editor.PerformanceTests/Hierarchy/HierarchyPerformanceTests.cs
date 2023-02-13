@@ -13,6 +13,7 @@ namespace Unity.Entities.Editor.PerformanceTests
             [Values(ScenarioId.ScenarioA, ScenarioId.ScenarioB, ScenarioId.ScenarioC, ScenarioId.ScenarioD)]
             ScenarioId scenarioId)
         {
+            var fakeSceneTagToSubSceneNodeHandleMap = new NativeParallelHashMap<SceneTag, HierarchyNodeHandle>(0, Allocator.TempJob);
             var scenario = EntityHierarchyScenario.GetScenario(scenarioId, ItemsVisibility.AllExpanded);
             var generator = new WorldGenerator(scenario);
             var world = generator.Get();
@@ -20,12 +21,11 @@ namespace Unity.Entities.Editor.PerformanceTests
             var tracker = new HierarchyEntityChangeTracker(world, Allocator.Persistent);
             var changes = tracker.GetChanges(world.UpdateAllocator.ToAllocator);
 
-            var mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            var hierarchy = new HierarchyNodeStore(mapping, Allocator.Persistent);
+            var hierarchy = new HierarchyNodeStore(Allocator.Persistent);
 
             Measure.Method(() =>
                 {
-                    hierarchy.IntegrateEntityChanges(world, changes);
+                    hierarchy.IntegrateEntityChanges(world, changes, fakeSceneTagToSubSceneNodeHandleMap);
                 }).WarmupCount(1)
                 .SetUp(() =>
                 {
@@ -39,14 +39,15 @@ namespace Unity.Entities.Editor.PerformanceTests
             hierarchy.Dispose();
             tracker.Dispose();
             generator.Dispose();
-            mapping.Dispose();
+            fakeSceneTagToSubSceneNodeHandleMap.Dispose();
         }
-        
+
         [Test, Performance]
         public void ScheduleEntityChanges_WithInitialChanges_LinearOperationMode(
             [Values(ScenarioId.ScenarioA, ScenarioId.ScenarioB, ScenarioId.ScenarioC, ScenarioId.ScenarioD)]
             ScenarioId scenarioId)
         {
+            var fakeSceneTagToSubSceneNodeHandleMap = new NativeParallelHashMap<SceneTag, HierarchyNodeHandle>(0, Allocator.TempJob);
             var scenario = EntityHierarchyScenario.GetScenario(scenarioId, ItemsVisibility.AllExpanded);
             var generator = new WorldGenerator(scenario);
             var world = generator.Get();
@@ -55,15 +56,14 @@ namespace Unity.Entities.Editor.PerformanceTests
             {
                 OperationMode = HierarchyEntityChangeTracker.OperationModeType.Linear
             };
-            
+
             var changes = tracker.GetChanges(Allocator.TempJob);
 
-            var mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            var hierarchy = new HierarchyNodeStore(mapping, Allocator.Persistent);
+            var hierarchy = new HierarchyNodeStore(Allocator.Persistent);
 
             Measure.Method(() =>
                 {
-                    hierarchy.IntegrateEntityChanges(world, changes);
+                    hierarchy.IntegrateEntityChanges(world, changes, fakeSceneTagToSubSceneNodeHandleMap);
                 }).WarmupCount(1)
                 .SetUp(() =>
                 {
@@ -77,7 +77,7 @@ namespace Unity.Entities.Editor.PerformanceTests
             hierarchy.Dispose();
             tracker.Dispose();
             generator.Dispose();
-            mapping.Dispose();
+            fakeSceneTagToSubSceneNodeHandleMap.Dispose();
         }
 
         [Test, Performance]
@@ -85,19 +85,19 @@ namespace Unity.Entities.Editor.PerformanceTests
             [Values(ScenarioId.ScenarioA, ScenarioId.ScenarioB, ScenarioId.ScenarioC, ScenarioId.ScenarioD)]
             ScenarioId scenarioId)
         {
+            var fakeSceneTagToSubSceneNodeHandleMap = new NativeParallelHashMap<SceneTag, HierarchyNodeHandle>(0, Allocator.TempJob);
             var scenario = EntityHierarchyScenario.GetScenario(scenarioId, ItemsVisibility.AllExpanded);
             var generator = new WorldGenerator(scenario);
             var world = generator.Get();
 
-            var mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            var hierarchy = new HierarchyNodeStore(mapping, Allocator.Persistent);
+            var hierarchy = new HierarchyNodeStore(Allocator.Persistent);
             var immutable = new HierarchyNodeStore.Immutable(Allocator.Persistent);
 
             using (var tracker = new HierarchyEntityChangeTracker(world, world.UpdateAllocator.ToAllocator))
             using (var changes = tracker.GetChanges(world.UpdateAllocator.ToAllocator))
             {
                 // Integrate the initial change set.
-                hierarchy.IntegrateEntityChanges(world, changes);
+                hierarchy.IntegrateEntityChanges(world, changes, fakeSceneTagToSubSceneNodeHandleMap);
             }
 
             Measure.Method(() =>
@@ -111,20 +111,20 @@ namespace Unity.Entities.Editor.PerformanceTests
             hierarchy.Dispose();
             immutable.Dispose();
             generator.Dispose();
-            mapping.Dispose();
+            fakeSceneTagToSubSceneNodeHandleMap.Dispose();
         }
-        
+
         [Test, Performance]
         public void SchedulePacking_WithInitialChanges_LinearOperationMode(
             [Values(ScenarioId.ScenarioA, ScenarioId.ScenarioB, ScenarioId.ScenarioC, ScenarioId.ScenarioD)]
             ScenarioId scenarioId)
         {
+            var fakeSceneTagToSubSceneNodeHandleMap = new NativeParallelHashMap<SceneTag, HierarchyNodeHandle>(0, Allocator.TempJob);
             var scenario = EntityHierarchyScenario.GetScenario(scenarioId, ItemsVisibility.AllExpanded);
             var generator = new WorldGenerator(scenario);
             var world = generator.Get();
 
-            var mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            var hierarchy = new HierarchyNodeStore(mapping, Allocator.Persistent);
+            var hierarchy = new HierarchyNodeStore(Allocator.Persistent);
             var immutable = new HierarchyNodeStore.Immutable(Allocator.Persistent);
 
             using (var tracker = new HierarchyEntityChangeTracker(world, Allocator.TempJob)
@@ -134,7 +134,7 @@ namespace Unity.Entities.Editor.PerformanceTests
             using (var changes = tracker.GetChanges(Allocator.TempJob))
             {
                 // Integrate the initial change set.
-                hierarchy.IntegrateEntityChanges(world, changes);
+                hierarchy.IntegrateEntityChanges(world, changes, fakeSceneTagToSubSceneNodeHandleMap);
             }
 
             Measure.Method(() =>
@@ -147,7 +147,7 @@ namespace Unity.Entities.Editor.PerformanceTests
 
             hierarchy.Dispose();
             immutable.Dispose();
-            mapping.Dispose();
+            fakeSceneTagToSubSceneNodeHandleMap.Dispose();
         }
 
         /// <summary>
@@ -158,19 +158,19 @@ namespace Unity.Entities.Editor.PerformanceTests
             [Values(ScenarioId.ScenarioA, ScenarioId.ScenarioB, ScenarioId.ScenarioC, ScenarioId.ScenarioD)]
             ScenarioId scenarioId)
         {
+            var fakeSceneTagToSubSceneNodeHandleMap = new NativeParallelHashMap<SceneTag, HierarchyNodeHandle>(0, Allocator.TempJob);
             var scenario = EntityHierarchyScenario.GetScenario(scenarioId, ItemsVisibility.AllExpanded);
             var generator = new WorldGenerator(scenario);
             var world = generator.Get();
 
-            var mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            var hierarchy = new HierarchyNodeStore(mapping, Allocator.Persistent);
+            var hierarchy = new HierarchyNodeStore(Allocator.Persistent);
             var immutable0 = new HierarchyNodeStore.Immutable(Allocator.Persistent);
             var immutable1 = new HierarchyNodeStore.Immutable(Allocator.Persistent);
 
             using (var tracker = new HierarchyEntityChangeTracker(world, world.UpdateAllocator.ToAllocator))
             using (var changes = tracker.GetChanges(world.UpdateAllocator.ToAllocator))
             {
-                hierarchy.IntegrateEntityChanges(world, changes);
+                hierarchy.IntegrateEntityChanges(world, changes, fakeSceneTagToSubSceneNodeHandleMap);
                 hierarchy.ExportImmutable(world, immutable0);
             }
 
@@ -186,7 +186,7 @@ namespace Unity.Entities.Editor.PerformanceTests
             immutable0.Dispose();
             immutable1.Dispose();
             generator.Dispose();
-            mapping.Dispose();
+            fakeSceneTagToSubSceneNodeHandleMap.Dispose();
         }
 
         /// <summary>
@@ -197,18 +197,19 @@ namespace Unity.Entities.Editor.PerformanceTests
             [Values(ScenarioId.ScenarioA, ScenarioId.ScenarioB, ScenarioId.ScenarioC, ScenarioId.ScenarioD)]
             ScenarioId scenarioId)
         {
+            var fakeSceneTagToSubSceneNodeHandleMap = new NativeParallelHashMap<SceneTag, HierarchyNodeHandle>(0, Allocator.TempJob);
+            var fakeSubSceneStateMap = new NativeParallelHashMap<HierarchyNodeHandle, bool>(0, Allocator.TempJob);
             var scenario = EntityHierarchyScenario.GetScenario(scenarioId, ItemsVisibility.AllExpanded);
             var generator = new WorldGenerator(scenario);
             var world = generator.Get();
 
-            var mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            var hierarchy = new HierarchyNodeStore(mapping, Allocator.Persistent);
+            var hierarchy = new HierarchyNodeStore(Allocator.Persistent);
             var immutable = new HierarchyNodeStore.Immutable(Allocator.TempJob);
 
             using (var tracker = new HierarchyEntityChangeTracker(world, world.UpdateAllocator.ToAllocator))
             using (var changes = tracker.GetChanges(world.UpdateAllocator.ToAllocator))
             {
-                hierarchy.IntegrateEntityChanges(world, changes);
+                hierarchy.IntegrateEntityChanges(world, changes, fakeSceneTagToSubSceneNodeHandleMap);
                 hierarchy.ExportImmutable(world, immutable);
             }
 
@@ -216,7 +217,7 @@ namespace Unity.Entities.Editor.PerformanceTests
 
             Measure.Method(() =>
                 {
-                    items.Refresh(immutable, world, mapping);
+                    items.Refresh(immutable, world, fakeSubSceneStateMap);
                 }).WarmupCount(1)
                 .MeasurementCount(1)
                 .IterationsPerMeasurement(10)
@@ -226,7 +227,8 @@ namespace Unity.Entities.Editor.PerformanceTests
             immutable.Dispose();
             items.Dispose();
             generator.Dispose();
-            mapping.Dispose();
+            fakeSceneTagToSubSceneNodeHandleMap.Dispose();
+            fakeSubSceneStateMap.Dispose();
         }
     }
 }

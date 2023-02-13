@@ -1,5 +1,6 @@
 using System;
 using Unity.Assertions;
+using Unity.Burst.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
@@ -21,7 +22,7 @@ namespace Unity.Entities
             return true;
         }
 
-        public void AddComponent(Entity entity, ComponentTypeSet componentTypeSet)
+        public void AddComponent(Entity entity, in ComponentTypeSet componentTypeSet)
         {
             var chunk = GetChunk(entity);
             var newArchetype = GetArchetypeWithAddedComponents(chunk->Archetype, componentTypeSet);
@@ -41,8 +42,10 @@ namespace Unity.Entities
             return true;
         }
 
-        public void RemoveComponent(Entity entity, ComponentTypeSet componentTypeSet)
+        public void RemoveComponent(Entity entity, in ComponentTypeSet componentTypeSet)
         {
+            if (Hint.Unlikely(!Exists(entity)))
+                return;
             var chunk = GetChunk(entity);
             var newArchetype = GetArchetypeWithRemovedComponents(chunk->Archetype, componentTypeSet);
             if (newArchetype == chunk->Archetype)  // none were removed
@@ -62,7 +65,7 @@ namespace Unity.Entities
             return true;
         }
 
-        bool AddComponents(EntityBatchInChunk entityBatchInChunk, ComponentTypeSet componentTypeSet)
+        bool AddComponents(EntityBatchInChunk entityBatchInChunk, in ComponentTypeSet componentTypeSet)
         {
             var srcChunk = entityBatchInChunk.Chunk;
 
@@ -89,7 +92,7 @@ namespace Unity.Entities
             return true;
         }
 
-        bool RemoveComponents(EntityBatchInChunk entityBatchInChunk, ComponentTypeSet componentTypeSet)
+        bool RemoveComponents(EntityBatchInChunk entityBatchInChunk, in ComponentTypeSet componentTypeSet)
         {
             var srcChunk = entityBatchInChunk.Chunk;
 
@@ -130,7 +133,7 @@ namespace Unity.Entities
             }
         }
 
-        public void AddComponents(ArchetypeChunk* chunks, int chunkCount, ComponentTypeSet componentTypeSet)
+        public void AddComponents(ArchetypeChunk* chunks, int chunkCount, in ComponentTypeSet componentTypeSet)
         {
             Archetype* prevArchetype = null;
             Archetype* dstArchetype = null;
@@ -181,7 +184,7 @@ namespace Unity.Entities
             }
         }
 
-        public void RemoveComponents(ArchetypeChunk* chunks, int chunkCount, ComponentTypeSet componentTypeSet)
+        public void RemoveComponents(ArchetypeChunk* chunks, int chunkCount, in ComponentTypeSet componentTypeSet)
         {
             Archetype* prevArchetype = null;
             Archetype* dstArchetype = null;
@@ -215,7 +218,7 @@ namespace Unity.Entities
                 AddComponent(sortedEntityBatchList->Ptr[i], type, existingSharedComponentIndex);
         }
 
-        public void AddComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ref ComponentTypeSet typeSet)
+        public void AddComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, in ComponentTypeSet typeSet)
         {
             Assert.IsFalse(typeSet.ChunkComponentCount > 0);
 
@@ -224,7 +227,7 @@ namespace Unity.Entities
                 AddComponents(sortedEntityBatchList->Ptr[i], typeSet);
         }
 
-        public void RemoveComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ref ComponentTypeSet typeSet)
+        public void RemoveComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, in ComponentTypeSet typeSet)
         {
             Assert.IsFalse(typeSet.ChunkComponentCount > 0);
 
@@ -242,16 +245,15 @@ namespace Unity.Entities
                 RemoveComponent(sortedEntityBatchList->Ptr[i], type);
         }
 
-        public void AddMultipleComponentsWithValidation(Entity entity, ComponentTypeSet componentTypeSet)
+        public void AddMultipleComponentsWithValidation(Entity entity, in ComponentTypeSet componentTypeSet)
         {
             AssertCanAddComponents(entity, componentTypeSet);
             AddComponent(entity, componentTypeSet);
         }
 
 
-        public void RemoveMultipleComponentsWithValidation(Entity entity, ComponentTypeSet componentTypeSet)
+        public void RemoveMultipleComponentsWithValidation(Entity entity, in ComponentTypeSet componentTypeSet)
         {
-            ValidateEntity(entity);
             AssertCanRemoveComponents(componentTypeSet);
             RemoveComponent(entity, componentTypeSet);
         }

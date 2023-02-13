@@ -11,11 +11,7 @@ namespace Unity.Entities.Editor
 {
     static class InspectorDataModeSupport
     {
-#if USE_IMPROVED_DATAMODE
         static readonly DataMode[] k_EditorDataModes =  { DataMode.Authoring, DataMode.Mixed, DataMode.Runtime };
-#else
-        static readonly DataMode[] k_EditorDataModes = { DataMode.Authoring, DataMode.Runtime };
-#endif
         static readonly DataMode[] k_RuntimeDataModes = { DataMode.Authoring, DataMode.Mixed, DataMode.Runtime };
 
         static readonly ProfilerMarker k_GetEditorMarker = new("GetEditor");
@@ -34,13 +30,10 @@ namespace Unity.Entities.Editor
         {
             SelectionBridge.PostProcessSelectionMetaData += OnPostProcessSelectionMetaData;
             SelectionBridge.DeclareDataModeSupport += OnDeclareDataModeSupport;
-#if USE_IMPROVED_DATAMODE
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
             UnityEditor.Editor.finishedDefaultHeaderGUI += OnDisplayMixedDataModeWarning;
-#endif
         }
 
-#if USE_IMPROVED_DATAMODE
         static void OnDisplayMixedDataModeWarning(UnityEditor.Editor editor)
         {
             var selectedGameObject = editor.target as GameObject;
@@ -60,7 +53,6 @@ namespace Unity.Entities.Editor
 
             OnPostProcessSelectionMetaData();
         }
-#endif
 
         static void OnPostProcessSelectionMetaData()
         {
@@ -88,7 +80,6 @@ namespace Unity.Entities.Editor
 
             // Try to always respect DataModeHint when no context was provided.
             // The only exception is in PlayMode when the GameObject is not part of a SubScene: we can't save changes to those.
-#if USE_IMPROVED_DATAMODE
             var dataModeHint = SelectionBridge.DataModeHint;
             if (dataModeHint is DataMode.Disabled)
             {
@@ -96,11 +87,6 @@ namespace Unity.Entities.Editor
                     ? DataMode.Runtime
                     : DataMode.Authoring;
             }
-#else
-            var dataModeHint = Application.isPlaying && !activeGameObject.scene.isSubScene
-                ? DataMode.Runtime
-                : DataMode.Authoring;
-#endif
 
             if (!defaultWorld.EntityManager.SafeExists(primaryEntity))
             {
@@ -138,18 +124,9 @@ namespace Unity.Entities.Editor
         {
             using var getEditorScope = k_GetEditorMarker.Auto();
 
-#if !USE_IMPROVED_DATAMODE
-            // Ensures this runs every time the selection changes, before the inspector is created
-            LivePropertyBridge.EnableLivePropertyFeatureGlobally(inspectorDataMode is DataMode.Runtime or DataMode.Mixed);
-#endif
-
             if (targets == null || targets.Length == 0)
             {
-#if USE_IMPROVED_DATAMODE
                 return typeof(InvalidSelectionEditor);
-#else
-                return null;
-#endif
             }
 
             using var filteredTargetsPool = PooledList<UnityObject>.Make();
@@ -248,7 +225,6 @@ namespace Unity.Entities.Editor
                     when context is EntitySelectionProxy { Exists: true }
                     => typeof(EntityEditor),
 
-#if USE_IMPROVED_DATAMODE
                 DataMode.Runtime
                     when context is EntitySelectionProxy { Exists: false }
                     => typeof(InvalidEntityEditor),
@@ -256,7 +232,6 @@ namespace Unity.Entities.Editor
                 DataMode.Runtime
                     when context is null && (Selection.activeGameObject == null || Selection.activeGameObject.scene.isSubScene)
                     => typeof(InvalidEntityEditor),
-#endif
 
                 // Anything else: show the default inspector.
                 _ => null

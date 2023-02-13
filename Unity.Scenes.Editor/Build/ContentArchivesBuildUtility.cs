@@ -81,12 +81,7 @@ namespace Unity.Entities.Content
             var arParams = new BundleBuildParameters(buildTarget, group, outputPath) { UseCache = true, BundleCompression = UnityEngine.BuildCompression.LZ4Runtime };
             if (CachedTypeDB != null)
                 arParams.ScriptInfo = CachedTypeDB;
-            var prevVTSetting = PlayerSettings.GetVirtualTexturingSupportEnabled();
-            if (prevVTSetting)
-                PlayerSettings.SetVirtualTexturingSupportEnabled(false);
             var returnCode = ContentPipeline.BuildAssetBundles(arParams, content, out results, taskList, contextObjects);
-            if (prevVTSetting)
-                PlayerSettings.SetVirtualTexturingSupportEnabled(true);
 
             if (CachedTypeDB == null && returnCode >= ReturnCode.Success)
                 CachedTypeDB = results.ScriptResults.typeDB;

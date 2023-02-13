@@ -47,7 +47,7 @@ namespace Unity.Entities.SourceGen.JobEntity
             static (bool IsKnownCandidate, bool IsExtensionMethodUsed) DoesTypeInheritJobEntityAndUseExtensionMethod(TypeInfo typeInfo) =>
                 typeInfo.Type.InheritsFromInterface("Unity.Entities.IJobEntity")
                     ? (IsKnownCandidate: true, IsExtensionMethodUsed: false) // IsExtensionMethodUsed is ignored if IsCandidate is false, so we don't need to test the same thing twice
-                    : (IsKnownCandidate: typeInfo.Type.ToFullName() == "Unity.Entities.IJobEntityExtensions", IsExtensionMethodUsed: true);
+                    : (IsKnownCandidate: typeInfo.Type.ToFullName() == "global::Unity.Entities.IJobEntityExtensions", IsExtensionMethodUsed: true);
 
             static bool ErrorOnNoPartial(ref SystemDescription systemDescription, TypeInfo typeInfo)
             {
@@ -68,7 +68,13 @@ namespace Unity.Entities.SourceGen.JobEntity
             {
                 // Create JobEntityDescription
                 var (jobEntityType, jobArgumentUsedInSchedulingMethod) = GetIJobEntityTypeDeclarationAndArgument(currentSchedulingNode, systemDescription.SemanticModel, m_TypeInfo, m_IsExtensionMethodUsed);
-                var jobEntityDesc = new JobEntityDescription(jobEntityType, systemDescription);
+                var jobEntityDesc =
+                    new JobEntityDescription(
+                        null,
+                        jobEntityType,
+                        systemDescription.IsUnityCollectionChecksEnabled,
+                        systemDescription);
+
                 if (jobEntityDesc.Invalid) return null;
 
                 var scheduleMode = ScheduleModeHelpers.GetScheduleModeFromNameOfMemberAccess(m_Candidate.MemberAccessExpressionSyntax);
@@ -154,7 +160,7 @@ namespace Unity.Entities.SourceGen.JobEntity
                                 if (semanticOriginalArgument.Expression.IsKind(SyntaxKind.DefaultLiteralExpression))
                                     return methodOverloadAcceptsDependencyAsOnlyArgument ? ArgumentType.Dependency : ArgumentType.EntityQuery;
 
-                                return context.SemanticModel.GetTypeInfo(semanticOriginalArgument.Expression).Type.ToFullName() == "Unity.Entities.EntityQuery"
+                                return context.SemanticModel.GetTypeInfo(semanticOriginalArgument.Expression).Type.ToFullName() == "global::Unity.Entities.EntityQuery"
                                     ? ArgumentType.EntityQuery : ArgumentType.Dependency;
                             }
                             case 2: // dependsOn
@@ -216,6 +222,7 @@ namespace Unity.Entities.SourceGen.JobEntity
                     $@"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                     {returnType} {methodName}({"ref ".EmitIfTrue(scheduleMode.IsByRef())}{jobEntityDescription.FullTypeName} job, Unity.Entities.EntityQuery entityQuery, Unity.Jobs.JobHandle dependency, ref Unity.Entities.SystemState state)
                     {{
+                        {jobEntityDescription.FullTypeName}.InternalCompiler.CheckForErrors({scheduleMode.GetScheduleTypeAsNumber()});
                         {GenerateUpdateCalls(assignments).SeparateBySemicolonAndNewLine()};{Environment.NewLine}
                         {GenerateAssignments(assignments, jobEntityDescription.RequiresEntityManagerAccess).SeparateBySemicolonAndNewLine()};{Environment.NewLine}
                         {GeneratePreHelperJob(hasEntityIndexInQuery, scheduleMode)}
@@ -252,17 +259,19 @@ namespace Unity.Entities.SourceGen.JobEntity
                     }
 
                     var typeField = param is JobEntityParam_Entity
-                        ? systemDescription.GetOrCreateEntityTypeHandleField()
-                        : systemDescription.GetOrCreateTypeHandleField(param.TypeSymbol, param.IsReadOnly);
+                        ? systemDescription.HandlesDescription.GetOrCreateEntityTypeHandleField()
+                        : systemDescription.HandlesDescription.GetOrCreateTypeHandleField(param.TypeSymbol, param.IsReadOnly);
                     jobEntityAssignments.Add((param, typeField));
                 }
 
-                var generatedQueryField = systemDescription.GetOrCreateQueryField(
+                var generatedQueryField = systemDescription.HandlesDescription.GetOrCreateQueryField(
                     new SingleArchetypeQueryFieldDescription(
                         new Archetype(
                             queryTypes.Concat(jobEntityDesc.QueryAllTypes).ToArray(),
                             jobEntityDesc.QueryAnyTypes,
                             jobEntityDesc.QueryNoneTypes,
+                            jobEntityDesc.QueryDisabledTypes,
+                            jobEntityDesc.QueryAbsentTypes,
                             options: jobEntityDesc.EntityQueryOptions),
                         changeFilterTypes: jobEntityDesc.QueryChangeFilterTypes));
                 return (jobEntityAssignments, generatedQueryField);
@@ -277,7 +286,7 @@ namespace Unity.Entities.SourceGen.JobEntity
             {
                 var valueTuples = assignments as (JobEntityParam JobEntityFieldToAssignTo, string AssignmentValue)[] ?? assignments.ToArray();
                 if (needsEntityManager)
-                    yield return $"job.__EntityManager = state.EntityManager";
+                    yield return "job.__EntityManager = state.EntityManager";
 
                 foreach (var (jobEntityFieldToAssignTo, assignmentValue) in valueTuples)
                 {

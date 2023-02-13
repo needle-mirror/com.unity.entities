@@ -55,6 +55,8 @@ namespace Unity.Entities
             m_InternalCapacity = internalCapacity;
             m_useMemoryInitPattern = (byte)(useMemoryInitPattern ? 1 : 0);
             m_memoryInitPattern = memoryInitPattern;
+            CollectionHelper.InitNativeContainer<T>(m_Safety0);
+            CollectionHelper.InitNativeContainer<T>(m_Safety1);
         }
 
 #else

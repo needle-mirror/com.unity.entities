@@ -31,17 +31,6 @@ namespace Unity.Entities.Editor.Tests
 
     struct SystemScheduleTestUnmanagedSystem : ISystem
     {
-        public void OnCreate(ref SystemState state)
-        {
-        }
-
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
-        public void OnUpdate(ref SystemState state)
-        {
-        }
     }
 
     partial class SystemScheduleTestGroup : ComponentSystemGroup

@@ -26,14 +26,9 @@ namespace Doc.CodeSamples.Tests
         private EntityQuery ChunksWithChunkComponentA;
         protected override void OnCreate()
         {
-            EntityQueryDesc ChunksWithComponentADesc = new EntityQueryDesc()
-            {
-                All = new ComponentType[] {
-                    ComponentType.ChunkComponent<ChunkComponentA>()
-                }
-            };
-            ChunksWithChunkComponentA
-                = GetEntityQuery(ChunksWithComponentADesc);
+            ChunksWithChunkComponentA = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllChunkComponentRW<ChunkComponentA>()
+                    .Build(this);
         }
 
         [BurstCompile]
@@ -78,16 +73,10 @@ namespace Doc.CodeSamples.Tests
         EntityQuery queryWithoutChunkComponent;
         protected override void OnCreate()
         {
-            queryWithoutChunkComponent
-                = GetEntityQuery(new EntityQueryDesc()
-            {
-                All = new ComponentType[] {
-                    ComponentType.ReadOnly<LocalToWorld>()
-                },
-                None = new ComponentType[]{
-                    ComponentType.ChunkComponent<ChunkAABB>()
-                }
-            });
+            queryWithoutChunkComponent = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<LocalToWorld>()
+                    .WithNoneChunkComponent<ChunkAABB>()
+                    .Build(this);
         }
 
         protected override void OnUpdate()
@@ -107,15 +96,10 @@ namespace Doc.CodeSamples.Tests
         EntityQuery queryWithChunkComponent;
         protected override void OnCreate()
         {
-            queryWithChunkComponent
-                = GetEntityQuery(new EntityQueryDesc()
-            {
-                All = new ComponentType[]
-                      {
-                          ComponentType.ReadOnly<LocalToWorld>(),
-                          ComponentType.ChunkComponent<ChunkAABB>()
-                      }
-            });
+            queryWithChunkComponent = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<LocalToWorld>()
+                    .WithAllChunkComponentRW<ChunkAABB>()
+                    .Build(this);
         }
 
         [BurstCompile]
@@ -193,15 +177,9 @@ namespace Doc.CodeSamples.Tests
 
             #region desc-chunk-component
 
-            EntityQueryDesc ChunksWithoutComponentADesc
-                = new EntityQueryDesc()
-            {
-                None = new ComponentType[]{
-                    ComponentType.ChunkComponent<ChunkComponentA>()
-                }
-            };
-            EntityQuery ChunksWithoutChunkComponentA
-                = GetEntityQuery(ChunksWithoutComponentADesc);
+            EntityQuery ChunksWithoutChunkComponentA = new EntityQueryBuilder(Allocator.Temp)
+                    .WithNoneChunkComponent<ChunkComponentA>()
+                    .Build(this);
 
             EntityManager.AddChunkComponentData<ChunkComponentA>(
                 ChunksWithoutChunkComponentA,
@@ -210,13 +188,9 @@ namespace Doc.CodeSamples.Tests
 
             #region use-chunk-component
 
-            EntityQueryDesc ChunksWithChunkComponentADesc
-                = new EntityQueryDesc()
-            {
-                All = new ComponentType[] {
-                    ComponentType.ChunkComponent<ChunkComponentA>()
-                }
-            };
+            EntityQuery ChunksWithChunkComponentA = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllChunkComponentRW<ChunkComponentA>()
+                    .Build(this);
             #endregion
 
             #region archetype-chunk-component
@@ -229,7 +203,6 @@ namespace Doc.CodeSamples.Tests
                 = EntityManager.CreateEntity(ArchetypeWithChunkComponent);
             #endregion
             {
-                EntityQuery ChunksWithChunkComponentA = default;
                 #region read-chunk-component
 
                 NativeArray<ArchetypeChunk> chunks

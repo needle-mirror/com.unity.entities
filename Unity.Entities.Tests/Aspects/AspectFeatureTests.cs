@@ -9,37 +9,33 @@ using static Unity.Entities.SystemAPI;
 namespace Unity.Entities.Tests.Aspects.FunctionalTests
 {
     #region DynamicBufferField
-    readonly partial struct AspectWithDynamicBuffer : IAspect
-    {
-        public readonly DynamicBuffer<MyBufferElement> MyBuffer;
-
-        public TestData Read(TestData data)
-        {
-            data.Data = MyBuffer[0].Value;
-            ++data.OperationCount;
-            return data;
-        }
-
-        public TestData Write(TestData data)
-        {
-            if (MyBuffer.Length > 0)
-                MyBuffer.RemoveAt(0);
-            MyBuffer.Add(new MyBufferElement { Value = data.Data });
-            ++data.OperationCount;
-            return data;
-        }
-    }
 
     partial class BufferInAspect : AspectFunctionalTest
     {
+        readonly partial struct AspectWithDynamicBuffer : IAspect
+        {
+            public readonly DynamicBuffer<MyBufferElement> MyBuffer;
+
+            public TestData Read(TestData data)
+            {
+                data.Data = MyBuffer[0].Value;
+                ++data.OperationCount;
+                return data;
+            }
+
+            public TestData Write(TestData data)
+            {
+                if (MyBuffer.Length > 0)
+                    MyBuffer.RemoveAt(0);
+                MyBuffer.Add(new MyBufferElement { Value = data.Data });
+                ++data.OperationCount;
+                return data;
+            }
+        }
         partial struct BufferInAspectTestISystem : ISystem, IUseCaseTestSystem
         {
             public UseCase UseCase;
             UseCase IUseCaseTestSystem.UseCase { get => UseCase; set => UseCase = value; }
-
-            public void OnCreate(ref SystemState state) { }
-
-            public void OnDestroy(ref SystemState state) { }
 
             public void OnUpdate(ref SystemState state)
             {
@@ -109,31 +105,26 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
 
 
     #region EntityField
-    readonly partial struct AspectWithEntity : IAspect
-    {
-        public readonly RefRW<EcsTestData> Translation;
-        public readonly Entity Entity;
-
-        public TestData Read(TestData data)
-        {
-            data.Data = Entity.Index;
-            ++data.OperationCount;
-            return data;
-        }
-
-        // Do not need a write method as it is not possible to write to the Entity.
-    }
-
     partial class EntityInAspect : AspectFunctionalTest
     {
+        readonly partial struct AspectWithEntity : IAspect
+        {
+            public readonly RefRW<EcsTestData> Translation;
+            public readonly Entity Entity;
+
+            public TestData Read(TestData data)
+            {
+                data.Data = Entity.Index;
+                ++data.OperationCount;
+                return data;
+            }
+
+            // Do not need a write method as it is not possible to write to the Entity.
+        }
         partial struct EntityInAspectTestISystem : ISystem, IUseCaseTestSystem
         {
             public UseCase UseCase;
             UseCase IUseCaseTestSystem.UseCase { get => UseCase; set => UseCase = value; }
-
-            public void OnCreate(ref SystemState state) { }
-
-            public void OnDestroy(ref SystemState state) { }
 
             public void OnUpdate(ref SystemState state)
             {
@@ -388,10 +379,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             public UseCase UseCase;
             UseCase IUseCaseTestSystem.UseCase { get => UseCase; set => UseCase = value; }
 
-            public void OnCreate(ref SystemState state) { }
-
-            public void OnDestroy(ref SystemState state) { }
-
             public void OnUpdate(ref SystemState state)
             {
                 var testData = UseCase.TestData;
@@ -474,8 +461,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             UseCase IUseCaseTestSystem.UseCase { get => UseCase; set => UseCase = value; }
 
             public NonZeroReason NonZeroReason;
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state)
             {
                 var testData = UseCase.TestData;

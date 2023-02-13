@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Burst.Intrinsics;
 
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<int>))]
@@ -456,6 +457,28 @@ namespace Unity.Entities.Tests
         public override int GetHashCode() => value0.GetHashCode() ^ value1.GetHashCode() ^ value2.GetHashCode();
     }
 
+    internal struct EcsTestSharedCompManagedEntity : ISharedComponentData, IEquatable<EcsTestSharedCompManagedEntity>
+    {
+        public Entity Value;
+        public string ManagedValue;
+
+        public EcsTestSharedCompManagedEntity(Entity entity, string stringValue)
+        {
+            Value = entity;
+            ManagedValue = stringValue;
+        }
+
+        public bool Equals(EcsTestSharedCompManagedEntity other)
+        {
+            return Value == other.Value && ManagedValue == other.ManagedValue;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Value, ManagedValue);
+        }
+    }
+
     [MaximumChunkCapacity(127)]
     struct EcsTestSharedCompWithMaxChunkCapacity : ISharedComponentData
     {
@@ -692,6 +715,10 @@ namespace Unity.Entities.Tests
     {
     }
 
+    internal struct AnotherEcsTestTag : IComponentData
+    {
+    }
+
     internal struct EcsTestTagEnableable : IComponentData, IEnableableComponent
     {
     }
@@ -873,6 +900,42 @@ namespace Unity.Entities.Tests
     }
 
 #endif
+
+    internal struct EcsTestContainerData : IComponentData
+    {
+        public NativeArray<int> data;
+        public void Create()
+        {
+            data = new NativeArray<int>(8, Allocator.Persistent);
+            data[0] = 73;
+            data[1] = 443322;
+        }
+        public void Destroy() => data.Dispose();
+    }
+
+    internal struct EcsTestContainerElement : IBufferElementData
+    {
+        public NativeArray<int> data;
+        public void Create()
+        {
+            data = new NativeArray<int>(8, Allocator.Persistent);
+            data[0] = 73;
+            data[1] = 443322;
+        }
+        public void Destroy() => data.Dispose();
+    }
+
+    internal struct EcsTestContainerSharedComp : ISharedComponentData
+    {
+        public NativeArray<int> data;
+        public void Create()
+        {
+            data = new NativeArray<int>(8, Allocator.Persistent);
+            data[0] = 73;
+            data[1] = 443322;
+        }
+        public void Destroy() => data.Dispose();
+    }
 
     internal partial struct EcsTestUpdateOneComponentJob : IJobEntity
     {

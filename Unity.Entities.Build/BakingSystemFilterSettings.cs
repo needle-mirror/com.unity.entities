@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using Assembly = System.Reflection.Assembly;
 
@@ -79,11 +80,13 @@ namespace Unity.Entities.Build
             return UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditorInternal.AssemblyDefinitionAsset>(assetPath);
         }
 
-        // TODO: DOTS-7396 - Apply filter to baking systems
-        internal bool ShouldRunConversionSystem(Type type)
+        internal bool ShouldRunBakingSystem(Type type)
         {
             UpdateIfDirty();
             if (m_ExcludedDomainAssemblies == null)
+                return true;
+
+            if (type.GetCustomAttribute<AlwaysIncludeBakingSystemAttribute>() != null)
                 return true;
 
             return !m_ExcludedDomainAssemblies.Contains(type.Assembly);
@@ -123,13 +126,15 @@ namespace Unity.Entities.Build
             m_ExcludedDomainAssemblies = new HashSet<Assembly>();
 
             var domainAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-            foreach (var excl in ExcludedBakingSystemAssemblies.Select(lazy => lazy.asset))
+            foreach (var excludedAssembly in ExcludedBakingSystemAssemblies.Select(lazy => lazy.asset))
             {
-                var asm = domainAssemblies.FirstOrDefault(s => s.GetName().Name == excl.name);
-                if (asm != null)
-                    m_ExcludedDomainAssemblies.Add(asm);
+                if (excludedAssembly != null)
+                {
+                    var asm = domainAssemblies.FirstOrDefault(s => s.GetName().Name == excludedAssembly.name);
+                    if (asm != null)
+                        m_ExcludedDomainAssemblies.Add(asm);
+                }
             }
-
             m_IsDirty = false;
         }
     }

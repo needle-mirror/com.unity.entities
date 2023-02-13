@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>disable</Nullable>
         <RootNamespace>Unity.Burst</RootNamespace>
         <AssemblyName>Unity.Burst</AssemblyName>
     </PropertyGroup>
-
 </Project>

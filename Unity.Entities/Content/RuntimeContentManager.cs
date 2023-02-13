@@ -33,7 +33,7 @@ namespace Unity.Entities.Content
         internal static ContentNamespace Namespace;
 
         /// <summary>
-        /// The relative path of the catalog.  
+        /// The relative path of the catalog.
         /// </summary>
         [ExcludeFromBurstCompatTesting("References managed objects")]
         public static string RelativeCatalogPath => $"{k_ContentArchiveDirectory}/{k_ContentCatalogFilename}";
@@ -120,6 +120,9 @@ namespace Unity.Entities.Content
         static UnsafeHashMap<UntypedWeakReferenceId, ActiveScene> ActiveScenes;
         static int currentGeneration = -1;
 
+        [ExcludeFromBurstCompatTesting("References managed objects")]
+        internal static bool IsReady => Catalog.IsCreated && !Catalog.IsEmpty;
+
         /// <summary>
         /// Initialize the internal data structures for handling content archives.
         /// </summary>
@@ -135,7 +138,7 @@ namespace Unity.Entities.Content
                 Debug.LogWarning("Initialize called before Cleanup!");
                 Cleanup(out var _);
             }
-             
+
 #if ENABLE_CONTENT_DIAGNOSTICS
             LogFunc = s => Debug.Log(s);
 #endif
@@ -331,9 +334,6 @@ namespace Unity.Entities.Content
         {
             Cleanup(out var _);
             Initialize();
-#if USE_ARCHIVES_IN_EDITOR_PLAY_MODE
-            RegisterForContentDeliverySystemCallback();
-#endif
         }
 #else
         [ExcludeFromBurstCompatTesting("References managed engine API")]
@@ -341,45 +341,12 @@ namespace Unity.Entities.Content
         static void RuntimeInitialization()
         {
             Initialize();
-#if ENABLE_CONTENT_DELIVERY
-            RegisterForContentDeliverySystemCallback();
-#endif
-        }
-#endif
-
-#if ENABLE_CONTENT_DELIVERY
-        static void RegisterForContentDeliverySystemCallback()
-        {
-            World.SystemCreated += (w, s) =>
-            {
-                if (s is ContentDeliverySystem cds)
-                {
-                    Debug.Log($"Registering RCM");
-                    cds.RegisterForContentUpdateCompletion(i =>
-                    {
-                        Debug.Log($"RCM callback status: {i}");
-                        if (i == ContentDeliverySystem.ContentUpdateState.UsingContentFromStreamingAssets)
-                        {
-                            LoadLocalCatalogData(
-                                $"{Application.streamingAssetsPath}/{RelativeCatalogPath}",
-                                DefaultContentFileNameFunc,
-                                p => $"{Application.streamingAssetsPath}/{DefaultArchivePathFunc(p)}");
-                        }
-                        else
-                        {
-                            LoadLocalCatalogData(
-                                cds.PathRemapFunc(RelativeCatalogPath),
-                                DefaultContentFileNameFunc,
-                                p => cds.PathRemapFunc(DefaultArchivePathFunc(p)));
-                        }
-                    });
-                }
-            };
+            DefaultWorldInitialization.DefaultWorldDestroyed += () => Cleanup(out var _);
         }
 #endif
 
         /// <summary>
-        /// Loads catalog data from a local path.  
+        /// Loads catalog data from a local path.
         /// </summary>
         /// <param name="catalogPath">The full path to the catalog file.</param>
         /// <param name="fileNameFunc">Functor to transform internal content file names.  The string passed in is the file id and the expected returned string is the internal archive file path.  (e.g. $"ns:/{k_NameSpaceString}/{ArchivePrefix}/{fileId}")</param>

@@ -61,7 +61,7 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged, $"{nameof(BeginInitializationEntityCommandBufferSystem)} {nameof(Singleton)}");
+            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged);
         }
     }
 
@@ -121,7 +121,7 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged, $"{nameof(EndInitializationEntityCommandBufferSystem)} {nameof(Singleton)}");
+            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged);
         }
     }
 
@@ -204,7 +204,7 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged, $"{nameof(BeginFixedStepSimulationEntityCommandBufferSystem)} {nameof(Singleton)}");
+            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged);
         }
     }
 
@@ -264,7 +264,7 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged, $"{nameof(EndFixedStepSimulationEntityCommandBufferSystem)} {nameof(Singleton)}");
+            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged);
         }
     }
 
@@ -365,7 +365,7 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged, $"BeginVariableRateSimulationECB {nameof(Singleton)}");
+            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged);
         }
     }
 
@@ -425,7 +425,7 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged, $"{nameof(EndVariableRateSimulationEntityCommandBufferSystem)} {nameof(Singleton)}");
+            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged);
         }
     }
 
@@ -516,7 +516,7 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged, $"{nameof(EndVariableRateSimulationEntityCommandBufferSystem)} {nameof(Singleton)}");
+            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged);
         }
     }
 
@@ -576,7 +576,7 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged, $"{nameof(EndSimulationEntityCommandBufferSystem)} {nameof(Singleton)}");
+            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged);
         }
     }
 
@@ -659,7 +659,7 @@ namespace Unity.Entities
         {
             base.OnCreate();
 
-            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged, $"{nameof(BeginPresentationEntityCommandBufferSystem)} {nameof(Singleton)}");
+            this.RegisterSingleton<Singleton>(ref PendingBuffers, World.Unmanaged);
         }
     }
 

@@ -75,7 +75,7 @@ apiRules:
       uidRegex: ^Unity\.Entities\.DOTSCompilerPatchedPropertyAttribute
       type: Type
   - exclude:
-      uidRegex: ^Unity\.Platforms\.UI
+      uidRegex: ^Unity\.Entities\.UI
       type: Namespace
   - exclude:
       uidRegex: ^Unity\.Entities\.SystemBaseRegistry

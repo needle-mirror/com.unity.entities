@@ -8,7 +8,6 @@ using Unity.Properties;
 
 namespace Unity.Entities
 {
-#if !UNITY_DOTSRUNTIME
     unsafe class ManagedObjectBlobs :
         IPropertyBagVisitor,
         IPropertyVisitor,
@@ -212,13 +211,4 @@ namespace Unity.Entities
             PropertyContainer.TryAccept(this, ref value, out _);
         }
     }
-#else
-    class ManagedObjectBlobs
-    {
-        public void GatherBlobAssetReferences(object obj, NativeList<BlobAssetPtr> blobAssets, NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap)
-        {
-            // Not supported in DOTS Runtime.
-        }
-    }
-#endif
 }

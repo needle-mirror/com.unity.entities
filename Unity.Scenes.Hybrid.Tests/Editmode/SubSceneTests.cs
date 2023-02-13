@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Linq;
 using NUnit.Framework;
+using Unity.Burst;
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -74,7 +75,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 Assert.IsFalse(SceneSystem.IsSceneLoaded(worldA.Unmanaged, worldAScene));
                 Assert.IsFalse(SceneSystem.IsSceneLoaded(worldB.Unmanaged, worldBScene));
 
-                while (!SceneSystem.IsSceneLoaded(worldA.Unmanaged, worldAScene) || 
+                while (!SceneSystem.IsSceneLoaded(worldA.Unmanaged, worldAScene) ||
                        !SceneSystem.IsSceneLoaded(worldB.Unmanaged, worldBScene))
                 {
                     worldA.Update();
@@ -468,15 +469,17 @@ namespace Unity.Scenes.Hybrid.Tests
         public int Value;
     }
 
+    [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
-    public partial class IncrementEcsTestDataProcessAfterLoadSystem : SystemBase
+    public partial struct IncrementEcsTestDataProcessAfterLoadSystem : ISystem
     {
-        protected override void OnUpdate()
+        [BurstCompile]
+        public void OnUpdate(ref SystemState state)
         {
-            Entities.ForEach((ref TestProcessAfterLoadData data) =>
+            foreach (var data in SystemAPI.Query<RefRW<TestProcessAfterLoadData>>())
             {
-                data.Value++;
-            }).Run();
+                data.ValueRW.Value++;
+            }
         }
     }
 }

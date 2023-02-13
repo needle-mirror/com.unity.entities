@@ -363,7 +363,7 @@ namespace Unity.Entities
                 else
                 {
                     // If this branch ever becomes a bottleneck for the many-small-batches case, we could add a third path
-                    // that iterates over the chukEnabledMask directly, similar to what IJobEntity generates.
+                    // that iterates over the chunkEnabledMask directly, similar to what IJobEntity generates.
                     int batchStartIndex = 0;
                     int batchEndIndex = 0;
                     while (EnabledBitUtility.GetNextRange(ref chunkEnabledMask, ref batchStartIndex, ref batchEndIndex))
@@ -1144,6 +1144,7 @@ namespace Unity.Entities
             [NoAlias] public int*               MatchingArchetypeAllComponentTypeIndices;
             [NoAlias] public int*               MatchingArchetypeAnyComponentTypeIndices;
             [NoAlias] public int*               MatchingArchetypeNoneComponentTypeIndices;
+            [NoAlias] public int*               MatchingArchetypeDisabledComponentTypeIndices;
             [NoAlias] public v128*              ArchetypeEnabledBits;
             public int                          ArchetypeEnabledBitsPerChunkOffset;
 
@@ -1155,6 +1156,7 @@ namespace Unity.Entities
                 MatchingArchetypeAllComponentTypeIndices = matchingArchetype->EnableableIndexInArchetype_All;
                 MatchingArchetypeNoneComponentTypeIndices = matchingArchetype->EnableableIndexInArchetype_None;
                 MatchingArchetypeAnyComponentTypeIndices = matchingArchetype->EnableableIndexInArchetype_Any;
+                MatchingArchetypeDisabledComponentTypeIndices = matchingArchetype->EnableableIndexInArchetype_Disabled;
                 ArchetypeEnabledBits = chunkData.GetComponentEnabledMaskArrayForChunk(0);
                 ArchetypeEnabledBitsPerChunkOffset = chunkData.GetComponentEnabledBitsSizePerChunk() / sizeof(v128);
             }
@@ -1164,14 +1166,18 @@ namespace Unity.Entities
         internal static void GetEnabledMask(int chunkIndexInArchetype, int chunkEntityCount, in EnabledMaskMatchingArchetypeState archetypeState, out v128 enabledMask)
         {
             var matchingArchetype = archetypeState.MatchingArchetype;
+
             var allComponentCount = matchingArchetype->EnableableComponentsCount_All;
             var noneComponentCount = matchingArchetype->EnableableComponentsCount_None;
             var anyComponentCount = matchingArchetype->EnableableComponentsCount_Any;
+            var disabledComponentCount =  matchingArchetype->EnableableComponentsCount_Disabled;
+
             int* allTypeIndices = archetypeState.MatchingArchetypeAllComponentTypeIndices;
             int* noneTypeIndices = archetypeState.MatchingArchetypeNoneComponentTypeIndices;
             int* anyTypeIndices = archetypeState.MatchingArchetypeAnyComponentTypeIndices;
-            var bitsForTypes = archetypeState.ArchetypeEnabledBits +
-                               (archetypeState.ArchetypeEnabledBitsPerChunkOffset * chunkIndexInArchetype);
+            int* disabledTypeIndices = archetypeState.MatchingArchetypeDisabledComponentTypeIndices;
+
+            var bitsForTypes = archetypeState.ArchetypeEnabledBits + archetypeState.ArchetypeEnabledBitsPerChunkOffset * chunkIndexInArchetype;
 
             enabledMask = new v128(ulong.MaxValue);
             // At the very least we want to narrow the mask to include only valid entities.
@@ -1203,6 +1209,11 @@ namespace Unity.Entities
                     var typeIndexInArchetype = noneTypeIndices[i];
                     enabledMask = X86.Sse2.andnot_si128(bitsForTypes[typeIndexInArchetype], enabledMask);
                 }
+                for (int i = 0; i < disabledComponentCount; ++i) // masks for "Disabled" types are negated and AND'd together
+                {
+                    var typeIndexInArchetype = disabledTypeIndices[i];
+                    enabledMask = X86.Sse2.andnot_si128(bitsForTypes[typeIndexInArchetype], enabledMask);
+                }
             }
             else
             {
@@ -1227,6 +1238,13 @@ namespace Unity.Entities
                 for (int i = 0; i < noneComponentCount; ++i) // masks for "None" types are negated and AND'd together
                 {
                     var typeIndexInArchetype = noneTypeIndices[i];
+                    enabledMask.ULong0 = (~bitsForTypes[typeIndexInArchetype].ULong0 & enabledMask.ULong0);
+                    enabledMask.ULong1 = (~bitsForTypes[typeIndexInArchetype].ULong1 & enabledMask.ULong1);
+                }
+
+                for (int i = 0; i < disabledComponentCount; ++i) // masks for "Disabled" types are negated and AND'd together
+                {
+                    var typeIndexInArchetype = disabledTypeIndices[i];
                     enabledMask.ULong0 = (~bitsForTypes[typeIndexInArchetype].ULong0 & enabledMask.ULong0);
                     enabledMask.ULong1 = (~bitsForTypes[typeIndexInArchetype].ULong1 & enabledMask.ULong1);
                 }

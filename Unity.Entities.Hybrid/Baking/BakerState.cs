@@ -13,7 +13,15 @@ namespace Unity.Entities
     internal struct BakerState : IDisposable
     {
         internal UnsafeList<TypeIndex>                 AddedComponents;
-        internal UnsafeList<Entity>                    Entities;
+        /// <summary>
+        /// Unordered set of valid entities created by a baker. Includes the primary entity.
+        /// </summary>
+        /// <remarks>
+        /// This set is always in sync with the ordered list of entities.
+        /// Its main purpose is to speed up the checks of entity validity.
+        /// </remarks>
+        internal UnsafeHashSet<Entity>                 Entities;
+        internal Entity                                PrimaryEntity;
 
 #if UNITY_EDITOR
         internal UnsafeParallelHashSet<int>                    ReferencedPrefabs;
@@ -26,8 +34,9 @@ namespace Unity.Entities
         public BakerState(Entity entity, Allocator allocator)
         {
             AddedComponents = new UnsafeList<TypeIndex>(0, allocator);
-            Entities = new UnsafeList<Entity>(1, allocator);
+            Entities = new UnsafeHashSet<Entity>(1, allocator);
             Entities.Add(entity);
+            PrimaryEntity = entity;
 #if UNITY_EDITOR
             ReferencedPrefabs = new UnsafeParallelHashSet<int>(1, allocator);
 #endif
@@ -37,19 +46,28 @@ namespace Unity.Entities
             Usage = new BakerEntityUsage(entity, 0, allocator);
         }
 
-        public void Revert(EntityCommandBuffer ecb, Entity newPrimaryEntity, ref UnsafeParallelHashMap<Entity, TransformUsageFlagCounters> transformUsage, BlobAssetStore blobAssetStore, ref bool dirtyEntityUsage, ref BakedEntityData bakedEntityData)
+        public void Revert(EntityCommandBuffer ecb, Entity newPrimaryEntity, ref UnsafeParallelHashMap<Entity, TransformUsageFlagCounters> transformUsage, BlobAssetStore blobAssetStore, ref BakerDebugState bakerDebugState, ref bool dirtyEntityUsage, ref BakedEntityData bakedEntityData)
         {
-            var oldPrimaryEntity = Entities[0];
+            var oldPrimaryEntity = PrimaryEntity;
 
             // Revert components on primary entity
             foreach (var typeIndex in AddedComponents)
+            {
                 ecb.RemoveComponent(oldPrimaryEntity, ComponentType.FromTypeIndex(typeIndex));
 
-            // Destroy entities except the first one, since thats always the primary entity
-            for (int i = 1; i < Entities.Length; i++)
+                // Remove the entity-component pair from the debug state, so the component can be readded
+                var entityComponentPair = new BakerDebugState.EntityComponentPair(oldPrimaryEntity, typeIndex);
+                bakerDebugState.addedComponentsByEntity.Remove(entityComponentPair);
+            }
+
+            // Destroy additional entities
+            foreach (var entity in Entities)
             {
-                transformUsage.Remove(Entities[i]);
-                ecb.DestroyEntity(Entities[i]);
+                if (PrimaryEntity == entity)
+                    continue;
+
+                transformUsage.Remove(entity);
+                ecb.DestroyEntity(entity);
                 dirtyEntityUsage = true;
             }
 
@@ -74,8 +92,9 @@ namespace Unity.Entities
             ReferencedBlobAssets.Clear();
 
             AddedComponents.Clear();
-            Entities.Resize(1, NativeArrayOptions.UninitializedMemory);
-            Entities[0] = newPrimaryEntity;
+            PrimaryEntity = newPrimaryEntity;
+            Entities.Clear();
+            Entities.Add(newPrimaryEntity);
         }
 
         public void Dispose()
@@ -90,14 +109,14 @@ namespace Unity.Entities
 #endif
         }
 
-        public UnsafeList<Entity> GetEntities()
+        public UnsafeHashSet<Entity> GetEntities()
         {
             return Entities;
         }
 
         public Entity GetPrimaryEntity()
         {
-            return Entities[0];
+            return PrimaryEntity;
         }
     }
 }

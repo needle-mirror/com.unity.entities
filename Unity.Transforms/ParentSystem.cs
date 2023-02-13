@@ -72,8 +72,8 @@ namespace Unity.Transforms
         [BurstCompile]
         struct GatherChangedParents : IJobChunk
         {
-            public NativeMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToAdd;
-            public NativeMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToRemove;
+            public NativeParallelMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToAdd;
+            public NativeParallelMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToRemove;
             public NativeParallelHashMap<Entity, int>.ParallelWriter UniqueParents;
             public ComponentTypeHandle<PreviousParent> PreviousParentTypeHandle;
             [ReadOnly] public BufferLookup<Child> ChildLookup;
@@ -144,8 +144,8 @@ namespace Unity.Transforms
         [BurstCompile]
         struct FixupChangedChildren : IJob
         {
-            [ReadOnly] public NativeMultiHashMap<Entity, Entity> ParentChildrenToAdd;
-            [ReadOnly] public NativeMultiHashMap<Entity, Entity> ParentChildrenToRemove;
+            [ReadOnly] public NativeParallelMultiHashMap<Entity, Entity> ParentChildrenToAdd;
+            [ReadOnly] public NativeParallelMultiHashMap<Entity, Entity> ParentChildrenToRemove;
             [ReadOnly] public NativeParallelHashMap<Entity, int> UniqueParents;
 
             public BufferLookup<Child> ChildLookup;
@@ -249,11 +249,6 @@ namespace Unity.Transforms
         }
 
         /// <inheritdoc cref="ISystem.OnDestroy"/>
-        [BurstCompile]
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
         void UpdateNewParents(ref SystemState state)
         {
             if (m_NewParentsQuery.IsEmptyIgnoreFilter)
@@ -296,8 +291,8 @@ namespace Unity.Transforms
             // 2. Get (Parent,Child) to add
             // 3. Get unique Parent change list
             // 4. Set PreviousParent to new Parent
-            var parentChildrenToAdd = new NativeMultiHashMap<Entity, Entity>(count, state.WorldUnmanaged.UpdateAllocator.ToAllocator);
-            var parentChildrenToRemove = new NativeMultiHashMap<Entity, Entity>(count, state.WorldUnmanaged.UpdateAllocator.ToAllocator);
+            var parentChildrenToAdd = new NativeParallelMultiHashMap<Entity, Entity>(count, state.WorldUnmanaged.UpdateAllocator.ToAllocator);
+            var parentChildrenToRemove = new NativeParallelMultiHashMap<Entity, Entity>(count, state.WorldUnmanaged.UpdateAllocator.ToAllocator);
             var uniqueParents = new NativeParallelHashMap<Entity, int>(count, state.WorldUnmanaged.UpdateAllocator.ToAllocator);
 
             ParentTypeHandleRO.Update(ref state);

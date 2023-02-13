@@ -98,18 +98,14 @@ namespace Unity.Entities.Editor
         /// </summary>
         const long k_UpdateRate = 150;
 
-        static readonly string k_PingSubSceneInHierarchy = L10n.Tr("Ping sub scene in hierarchy");
-        static readonly string k_PingSubSceneInProjectWindow = L10n.Tr("Ping sub scene in project window");
         static readonly string k_SubSceneButtonTooltip = L10n.Tr("Toggle whether the Sub Scene is open for editing.");
 
         const string k_UnityListViewItemName = "unity-list-view__item";
         const string k_UnityTreeViewItemName = "unity-tree-view__item";
         const string k_UnityTreeViewItemToggleName = "unity-tree-view__item-toggle";
         const string k_UnityTreeViewItemIndentsName = "unity-tree-view__item-indents";
-        const string k_UnityTreeViewItemIndentName = "unity-tree-view__item-indent";
         const string k_UnityTreeViewItemModeIndentName = "unity-tree-view__item-mode-indent";
         const string k_UnityTreeViewItemContentName = "unity-tree-view__item-content";
-        const string k_UnityListViewItemSelectedClassName = "unity-list-view__item--selected";
 
         readonly HierarchyModel m_Model;
 
@@ -129,7 +125,6 @@ namespace Unity.Entities.Editor
         readonly Toggle m_SubSceneButton;
 
         readonly IVisualElementScheduledItem m_UpdateEventHandler;
-        IManipulator m_ContextMenuManipulator;
 
         bool m_IsSelected;
 
@@ -153,7 +148,12 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// Gets the <see cref="Entity"/> this element is bound to, if any; Entity.Null otherwise.
         /// </summary>
-        public Entity Entity => Handle.Kind == NodeKind.Entity ? Handle.ToEntity() : Entity.Null;
+        public Entity Entity => Handle.Kind switch
+        {
+            NodeKind.Entity => Handle.ToEntity(),
+            NodeKind.SubScene => m_Model.SubSceneMap.GetEntityFromHandle(Handle),
+            _ => Entity.Null
+        };
 
         /// <summary>
         /// Returns the currently active world for the hierarchy.
@@ -334,7 +334,7 @@ namespace Unity.Entities.Editor
             m_Toggle.visible = showExpandCollapseToggle;
             m_Toggle.SetValueWithoutNotify(showExpandCollapseToggle && m_Expanded);
             m_PrefabStageButton.SetVisibility(false);
-            m_SubSceneButton.SetVisibility(node.GetHandle().Kind == NodeKind.SubScene);
+            m_SubSceneButton.SetVisibility(false);
 
             var depth = node.GetDepth();
 
@@ -398,12 +398,6 @@ namespace Unity.Entities.Editor
             m_PingGameObject.UnregisterCallback<MouseUpEvent>(OnPingGameObject);
             m_PrefabStageButton.SetVisibility(false);
             RemoveFromClassList(UssClasses.Hierarchy.Item.SubSceneNode);
-
-            if (null != m_ContextMenuManipulator)
-            {
-                this.RemoveManipulator(m_ContextMenuManipulator);
-                m_ContextMenuManipulator = null;
-            }
 
             switch (m_CurrentStyle)
             {
@@ -533,9 +527,6 @@ namespace Unity.Entities.Editor
             m_Icon.AddToClassList(UssClasses.Hierarchy.Item.IconScene);
             m_ContentContainer.AddToClassList(UssClasses.Hierarchy.Item.SceneNode);
             m_SubSceneState.text = string.Empty;
-            m_ContextMenuManipulator = new ContextualMenuManipulator(null);
-            this.AddManipulator(m_ContextMenuManipulator);
-            RegisterCallback<ContextualMenuPopulateEvent>(OnSubSceneContextMenu);
         }
 
         void RemoveSubSceneStyle()
@@ -546,14 +537,6 @@ namespace Unity.Entities.Editor
             m_Icon.RemoveFromClassList(UssClasses.Hierarchy.Item.IconScene);
             m_ContentContainer.RemoveFromClassList(UssClasses.Hierarchy.Item.SceneNode);
             m_SubSceneState.text = string.Empty;
-
-            if (null != m_ContextMenuManipulator)
-            {
-                this.RemoveManipulator(m_ContextMenuManipulator);
-                m_ContextMenuManipulator = null;
-            }
-
-            UnregisterCallback<ContextualMenuPopulateEvent>(OnSubSceneContextMenu);
         }
 
         void OnUpdate()
@@ -570,21 +553,25 @@ namespace Unity.Entities.Editor
                 if (m_Model.World == null || !m_Model.World.IsCreated)
                     return;
 
-                var state = m_Model.GetSubSceneState(Handle);
+                var subSceneMonobehaviour = m_Model.SubSceneMap.GetSubSceneMonobehaviourFromHandle(Handle);
+                m_SubSceneButton.SetEnabled(subSceneMonobehaviour != null);
+                m_SubSceneButton.SetVisibility(subSceneMonobehaviour != null);
+                m_SubSceneButton.SetValueWithoutNotify(subSceneMonobehaviour && subSceneMonobehaviour.IsLoaded);
+
+                if (subSceneMonobehaviour == null)
+                    return;
+
+                var state = m_Model.SubSceneMap.GetSubSceneStateImmediate(subSceneMonobehaviour, World);
                 m_SubSceneState.text = state switch
                 {
-                    HierarchyModel.SubSceneLoadedState.Closed => L10n.Tr("(closed)"),
-                    HierarchyModel.SubSceneLoadedState.NotLoaded => L10n.Tr("(not loaded)"),
-                    HierarchyModel.SubSceneLoadedState.LiveConverted => L10n.Tr("(Live converted)"),
-                    HierarchyModel.SubSceneLoadedState.Opened => L10n.Tr("(opened)"),
+                    SubSceneLoadedState.Closed => L10n.Tr("(closed)"),
+                    SubSceneLoadedState.NotLoaded => L10n.Tr("(not loaded)"),
+                    SubSceneLoadedState.LiveConverted => L10n.Tr("(Live converted)"),
+                    SubSceneLoadedState.Opened => L10n.Tr("(opened)"),
                     _ => string.Empty
                 };
 
-                style.opacity = state == HierarchyModel.SubSceneLoadedState.NotLoaded ? 0.5f : 1f;
-
-                var subScene = m_Model.GetSubSceneFromNodeHandle(Handle);
-                m_SubSceneButton.SetEnabled(subScene != null);
-                m_SubSceneButton.SetValueWithoutNotify(subScene && subScene.IsLoaded);
+                style.opacity = state == SubSceneLoadedState.NotLoaded ? 0.5f : 1f;
             }
             else if (Handle.Kind == NodeKind.Scene)
             {
@@ -630,28 +617,9 @@ namespace Unity.Entities.Editor
                 m_Name.Text = str.ToString();
         }
 
-        void OnSubSceneContextMenu(ContextualMenuPopulateEvent evt)
-        {
-            evt.menu.AppendAction(k_PingSubSceneInHierarchy, OnPingSubSceneInHierarchy);
-            evt.menu.AppendAction(k_PingSubSceneInProjectWindow, OnPingSubSceneAsset);
-        }
-
         void OnPingGameObject(MouseUpEvent _)
         {
             EditorGUIUtility.PingObject(m_Model.GetInstanceId(Handle));
-        }
-
-        void OnPingSubSceneInHierarchy(DropdownMenuAction obj)
-        {
-            EditorGUIUtility.PingObject(m_Model.GetInstanceId(Handle));
-        }
-
-        void OnPingSubSceneAsset(DropdownMenuAction obj)
-        {
-            if (m_Model.GetUnityObject(Handle) is SubScene subScene)
-            {
-                EditorGUIUtility.PingObject(subScene.SceneAsset);
-            }
         }
 
         void OnOpenPrefab(EventBase evt)
@@ -666,7 +634,7 @@ namespace Unity.Entities.Editor
 
         void OnSubSceneToggle(ChangeEvent<bool> evt)
         {
-            var subScene = m_Model.GetSubSceneFromNodeHandle(Handle);
+            var subScene = m_Model.SubSceneMap.GetSubSceneMonobehaviourFromHandle(Handle);
 
             if (evt.newValue)
             {

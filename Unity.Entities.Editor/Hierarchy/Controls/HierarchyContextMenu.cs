@@ -9,16 +9,16 @@ namespace Unity.Entities.Editor
 {
     partial class HierarchyContextMenu
     {
-        readonly Hierarchy m_Model;
+        readonly Hierarchy m_Hierarchy;
         readonly HierarchyElement m_HierarchyElement;
         bool m_WeStartedTheDrag;
 
         readonly List<ManipulatorActivationFilter> m_Activators;
         ManipulatorActivationFilter m_CurrentActivator;
 
-        public HierarchyContextMenu(Hierarchy model, HierarchyElement hierarchyElement)
+        public HierarchyContextMenu(Hierarchy hierarchy, HierarchyElement hierarchyElement)
         {
-            m_Model = model;
+            m_Hierarchy = hierarchy;
             m_HierarchyElement = hierarchyElement;
             m_WeStartedTheDrag = false;
 
@@ -130,28 +130,33 @@ namespace Unity.Entities.Editor
             }
             else if (currentNode.Kind is NodeKind.SubScene)
             {
-                var subScene = m_Model.GetSubSceneFromNodeHandle(currentNode);
-
-                BuildSubSceneContextMenu(evt.menu);
-                evt.menu.AppendSeparator();
-
-                if (subScene.EditingScene.IsValid())
+                var subScene = m_Hierarchy.SubSceneMap.GetSubSceneMonobehaviourFromHandle(currentNode);
+                if (subScene != null)
                 {
-                    // Sub scenes where the scene object exists can reuse menu for regular scenes.
-                    BuildSceneContextMenu(evt.menu, subScene.EditingScene);
+                    BuildSubSceneContextMenu(evt.menu);
+                    evt.menu.AppendSeparator();
+                    if (subScene.EditingScene.IsValid())
+                    {
+                        // Sub scenes where the scene object exists can reuse menu for regular scenes.
+                        BuildSceneContextMenu(evt.menu, subScene.EditingScene);
+                    }
+                    else
+                    {
+                        // Sub scenes where only the info exists, but not the scene object, need special handling.
+                        SubSceneGUIBridge.CreateClosedSubSceneContextClick(evt.menu, subScene.SceneAsset);
+                    }
+
+                    // Let users add extra items.
+                    SceneHierarchyHooksBridge.AddCustomSubSceneHeaderContextMenuItems(evt.menu, subScene);
                 }
                 else
                 {
-                    // Sub scenes where only the info exists, but not the scene object, need special handling.
-                    SubSceneGUIBridge.CreateClosedSubSceneContextClick(evt.menu, subScene.SceneAsset);
+                    evt.menu.AppendAction(L10n.Tr("Copy name"), _ => ClipboardUtilityBridge.SetString(m_Hierarchy.GetName(currentNode)));
                 }
-
-                // Let users add extra items.
-                SceneHierarchyHooksBridge.AddCustomSubSceneHeaderContextMenuItems(evt.menu, subScene);
             }
             else if (currentNode.Kind is NodeKind.Entity)
             {
-                evt.menu.AppendAction(L10n.Tr("Copy name"), _ => ClipboardUtilityBridge.SetString(m_Model.GetName(currentNode)));
+                evt.menu.AppendAction(L10n.Tr("Copy name"), _ => ClipboardUtilityBridge.SetString(m_Hierarchy.GetName(currentNode)));
             }
             else
             {
@@ -182,7 +187,7 @@ namespace Unity.Entities.Editor
 
             if (selectedHandle.Kind is NodeKind.SubScene)
             {
-                var subScene = m_Model.GetSubSceneFromNodeHandle(selectedHandle);
+                var subScene = m_Hierarchy.SubSceneMap.GetSubSceneMonobehaviourFromHandle(selectedHandle);
                 if (subScene)
                     selectedGameObject = subScene.gameObject;
             }

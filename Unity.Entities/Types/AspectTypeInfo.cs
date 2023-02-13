@@ -7,8 +7,8 @@ namespace Unity.Entities
     struct AspectTypeInfo : IDisposable
     {
         public UnsafeList<AspectType> AspectTypes;
-        public UnsafeMultiHashMap<AspectType, ComponentType> AspectRequiredComponents;
-        public UnsafeMultiHashMap<AspectType, ComponentType> AspectExcludedComponents;
+        public UnsafeParallelMultiHashMap<AspectType, ComponentType> AspectRequiredComponents;
+        public UnsafeParallelMultiHashMap<AspectType, ComponentType> AspectExcludedComponents;
 
         public void Dispose()
         {

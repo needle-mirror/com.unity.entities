@@ -139,8 +139,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
             {
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, m_EntityDataAccess->m_WorldUnmanaged);
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, m_EntityDataAccess->m_WorldUnmanaged);
+                m_EntityDataAccess->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_EntityDataAccess->m_WorldUnmanaged);
+                m_EntityDataAccess->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_EntityDataAccess->m_WorldUnmanaged);
             }
 #endif
 
@@ -153,8 +153,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
             {
-                StructuralChangesProfiler.End(); // SetSharedComponent
-                StructuralChangesProfiler.End(); // AddComponent
+                m_EntityDataAccess->StructuralChangesRecorder.End(); // SetSharedComponent
+                m_EntityDataAccess->StructuralChangesRecorder.End(); // AddComponent
             }
 #endif
 
@@ -175,8 +175,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
             {
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, m_EntityDataAccess->m_WorldUnmanaged);
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, m_EntityDataAccess->m_WorldUnmanaged);
+                m_EntityDataAccess->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_EntityDataAccess->m_WorldUnmanaged);
+                m_EntityDataAccess->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_EntityDataAccess->m_WorldUnmanaged);
             }
 #endif
 
@@ -189,8 +189,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
             {
-                StructuralChangesProfiler.End(); // SetSharedComponent
-                StructuralChangesProfiler.End(); // AddComponent
+                m_EntityDataAccess->StructuralChangesRecorder.End(); // SetSharedComponent
+                m_EntityDataAccess->StructuralChangesRecorder.End(); // AddComponent
             }
 #endif
 

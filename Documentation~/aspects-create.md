@@ -15,6 +15,10 @@ readonly partial struct MyAspect : IAspect
 
 You can use `RefRW<T>` or `RefRO<T>` to declare a component as part of an aspect. To declare a buffer, use `DynamicBuffer<T>`. For more information on the fields available, see the [`IAspect`](xref:Unity.Entities.IAspect) documentation.
 
+Fields declared inside an aspect define what data must be queried in order for an aspect instance to be valid on a specific entity.
+
+To make a field optional, use the `[Optional]` attribute. To declare `DynamicBuffer` and nested aspects as read-only, use the `[ReadOnly]` attribute. 
+
 ## Read-only and read-write access
 
 Use the `RefRO` and `RefRW` fields to provide read-only, or read-write access to components in the aspect. When you want to reference an aspect in code, use `in` to override all references to become read-only, or `ref` to respect the read-only or read-write access declared in the aspect. 
@@ -35,44 +39,18 @@ If you use any method or property that attempts to modify the underlying compone
 
 To create aspect instances outside of a system, use [`EntityManager.GetAspect`](xref:Unity.Entities.EntityManager.GetAspect*) or [`EntityManager.GetAspectRO`](xref:Unity.Entities.EntityManager.GetAspectRO*).
 
+### Iterate over an aspect
+
+If you want to iterate over an aspect, you can use [`SystemAPI.Query`](systems-systemapi-query.md):
+
+[!code-cs[aspects](../DocCodeSamples.Tests/AspectExamples.cs#aspect-iterate)]
+
 ## Example
 
 In this example, the `CannonBallAspect` sets the transform, position, and speed of the cannon ball Component in a tank themed game. 
 
-```c#
-using Unity.Entities;
-using Unity.Mathematics;
-using Unity.Transforms;
+[!code-cs[aspects](../DocCodeSamples.Tests/AspectExamples.cs#aspect-example)]
 
-// Aspects must be declared as a readonly partial struct
-readonly partial struct CannonBallAspect : IAspect<CannonBallAspect>
-{
-    // An Entity field in an Aspect gives access to the Entity itself.
-    // This is required for registering commands in an EntityCommandBuffer for example.
-    public readonly Entity Self;
-
-    // Aspects can contain other aspects.
-    readonly TransformAspect Transform;
-
-    // A RefRW field provides read write access to a component. If the aspect is taken as an "in"
-    // parameter, the field behaves as if it was a RefRO and throws exceptions on write attempts.
-    readonly RefRW<CannonBall> CannonBall;
-
-    // Properties like this aren't mandatory. The Transform field can be public instead.
-    // But they improve readability by avoiding chains of "aspect.aspect.aspect.component.value.value".
-    public float3 Position
-    {
-        get => Transform.Position;
-        set => Transform.Position = value;
-    }
-
-    public float3 Speed
-    {
-        get => CannonBall.ValueRO.Speed;
-        set => CannonBall.ValueRW.Speed = value;
-    }
-}
-```
 
 To use this aspect in other code, you can request `CannonBallAspect` in the same way as a component:
 

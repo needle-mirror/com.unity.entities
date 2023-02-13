@@ -11,6 +11,7 @@ using MethodAttributes = Mono.Cecil.MethodAttributes;
 using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.TypeGenInfo>;
 using SystemList = System.Collections.Generic.List<Mono.Cecil.TypeDefinition>;
 using Unity.Cecil.Awesome;
+using static Unity.Entities.CodeGen.TypeReferenceExtensions;
 
 namespace Unity.Entities.CodeGen
 {
@@ -421,8 +422,7 @@ namespace Unity.Entities.CodeGen
                 var typeGenInfo = typeGenInfoList[i];
                 var thisTypeRef = AssemblyDefinition.MainModule.ImportReference(typeGenInfo.TypeReference);
                 var typeRef = AssemblyDefinition.MainModule.ImportReference(typeGenInfo.TypeReference);
-                // Store new equals fn to Equals member
-                MethodReference equalsFn;
+
                 {
                     // Equals function for operating on (object lhs, object rhs, int typeIndex) where the type isn't known by the user
                     {
@@ -431,7 +431,7 @@ namespace Unity.Entities.CodeGen
                         boxedEqJumpTable[i] = new List<Instruction>();
                         var instructionList = boxedEqJumpTable[i];
 
-                        if (thisTypeRef.IsValueType())
+                        if (!typeGenInfo.IsManaged)
                         {
                             instructionList.Add(eqIL.Create(OpCodes.Ldarg_0));
                             instructionList.Add(eqIL.Create(OpCodes.Unbox, thisTypeRef));
@@ -444,12 +444,32 @@ namespace Unity.Entities.CodeGen
                         }
                         else
                         {
-                            equalsFn = GenerateEqualsFunction(GeneratedRegistryDef, typeGenInfo);
-                            instructionList.Add(eqIL.Create(OpCodes.Ldarg_0));
-                            instructionList.Add(eqIL.Create(OpCodes.Castclass, thisTypeRef));
-                            instructionList.Add(eqIL.Create(OpCodes.Ldarg_1));
-                            instructionList.Add(eqIL.Create(OpCodes.Castclass, thisTypeRef));
-                            instructionList.Add(eqIL.Create(OpCodes.Call, equalsFn));
+                            if (!typeRef.IsValueType())
+                            {
+                                var equalsFn = GenerateEqualsFunction(GeneratedRegistryDef, typeGenInfo);
+                                instructionList.Add(eqIL.Create(OpCodes.Ldarg_0));
+                                instructionList.Add(eqIL.Create(OpCodes.Castclass, thisTypeRef));
+                                instructionList.Add(eqIL.Create(OpCodes.Ldarg_1));
+                                instructionList.Add(eqIL.Create(OpCodes.Castclass, thisTypeRef));
+                                instructionList.Add(eqIL.Create(OpCodes.Call, equalsFn));
+                            }
+                            else
+                            {
+                                var userImpl = GetTypesEqualsMethodReference(typeGenInfo.TypeReference)?.Resolve();
+                                if (userImpl == null)
+                                    throw new ArgumentException($"Component type '{typeRef.FullName}' contains managed references. It must implement IEquatable<>");
+
+                                var loc0 = new VariableDefinition(thisTypeRef);
+                                boxedEqualsFn.Body.Variables.Add(loc0);
+
+                                instructionList.Add(eqIL.Create(OpCodes.Ldarg_0));
+                                instructionList.Add(eqIL.Create(OpCodes.Unbox_Any, thisTypeRef));
+                                instructionList.Add(eqIL.Create(OpCodes.Stloc, loc0));
+                                instructionList.Add(eqIL.Create(OpCodes.Ldloca, loc0));
+                                instructionList.Add(eqIL.Create(OpCodes.Ldarg_1));
+                                instructionList.Add(eqIL.Create(OpCodes.Unbox_Any, thisTypeRef));
+                                instructionList.Add(eqIL.Create(OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(userImpl)));
+                            }
                         }
 
                         instructionList.Add(eqIL.Create(OpCodes.Ret));
@@ -463,7 +483,7 @@ namespace Unity.Entities.CodeGen
                         var instructionList = boxedPtrEqJumpTable[i];
 
 
-                        if (thisTypeRef.IsValueType())
+                        if (!typeGenInfo.IsManaged)
                         {
                             instructionList.Add(eqIL.Create(OpCodes.Ldarg_0));
                             instructionList.Add(eqIL.Create(OpCodes.Unbox, thisTypeRef));
@@ -493,7 +513,7 @@ namespace Unity.Entities.CodeGen
                         boxedHashJumpTable[i] = new List<Instruction>();
                         var instructionList = boxedHashJumpTable[i];
 
-                        if (thisTypeRef.IsValueType())
+                        if (!typeGenInfo.IsManaged)
                         {
                             instructionList.Add(hashIL.Create(OpCodes.Ldarg_0));
                             instructionList.Add(hashIL.Create(OpCodes.Unbox, thisTypeRef));
@@ -503,10 +523,29 @@ namespace Unity.Entities.CodeGen
                         }
                         else
                         {
-                            var hashFn = GenerateHashFunction(GeneratedRegistryDef, typeGenInfo.TypeReference);
-                            instructionList.Add(hashIL.Create(OpCodes.Ldarg_0));
-                            instructionList.Add(hashIL.Create(OpCodes.Castclass, thisTypeRef));
-                            instructionList.Add(hashIL.Create(OpCodes.Call, hashFn));
+                            if (!typeRef.IsValueType())
+                            {
+                                var hashFn = GenerateHashFunction(GeneratedRegistryDef, typeGenInfo.TypeReference);
+                                instructionList.Add(hashIL.Create(OpCodes.Ldarg_0));
+                                instructionList.Add(hashIL.Create(OpCodes.Castclass, thisTypeRef));
+                                instructionList.Add(hashIL.Create(OpCodes.Call, hashFn));
+                            }
+                            else
+                            {
+                                var userImpl = GetTypesGetHashCodeMethodReference(typeRef)?.Resolve();
+                                if (userImpl == null)
+                                    throw new ArgumentException($"Component type '{typeRef.FullName}' contains managed references. It must implement IEquatable<>");
+
+                                var loc0 = new VariableDefinition(thisTypeRef);
+                                boxedGetHashCodeFn.Body.Variables.Add(loc0);
+
+                                instructionList.Add(hashIL.Create(OpCodes.Ldarg_0));
+                                instructionList.Add(hashIL.Create(OpCodes.Unbox_Any, thisTypeRef));
+                                instructionList.Add(hashIL.Create(OpCodes.Stloc, loc0));
+                                instructionList.Add(hashIL.Create(OpCodes.Ldloca, loc0));
+                                instructionList.Add(hashIL.Create(OpCodes.Constrained, thisTypeRef));
+                                instructionList.Add(hashIL.Create(OpCodes.Callvirt, AssemblyDefinition.MainModule.ImportReference(userImpl)));
+                            }
                         }
                         instructionList.Add(hashIL.Create(OpCodes.Ret));
                     }
@@ -912,6 +951,48 @@ namespace Unity.Entities.CodeGen
             }
         }
 
+        bool HasNativeContainer(TypeReference type)
+        {
+            if (type.IsPrimitive)
+                return false;
+            if (type.IsArray)
+            {
+                var elementType = type.GetElementType();
+                if (elementType != null)
+                    return HasNativeContainer(elementType);
+                return false;
+            }
+
+            if (type.Resolve().HasAttribute("Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute"))
+                return true;
+
+            // The incoming `type` should be a full generic instance.  This genericResolver
+            // will help us resolve the generic parameters of any of its fields
+            var genericResolver = TypeResolver.For(type);
+
+            foreach (var typeField in type.Resolve().Fields)
+            {
+                // 1) enums which infinitely recurse because the values in the enum are of the same enum type
+                // 2) statics which infinitely recurse themselves (Such as vector3.zero.zero.zero.zero)
+                if (typeField.IsStatic)
+                    continue;
+
+                var genericResolvedFieldType = genericResolver.ResolveFieldType(typeField);
+                if (genericResolvedFieldType.IsGenericParameter)
+                    continue;
+
+                // only recurse into things that are straight values; no pointers or byref values
+                if (genericResolvedFieldType.IsValueType() && !genericResolvedFieldType.IsPrimitive)
+                {
+                    // make sure we iterate the FieldType with all generic params resolved
+                    if (HasNativeContainer(genericResolvedFieldType))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
         internal unsafe TypeGenInfo CreateTypeGenInfo(TypeReference typeRef, TypeCategory typeCategory)
         {
             // We will be referencing this type in generated functions to make it's type internal if it's private
@@ -924,6 +1005,7 @@ namespace Unity.Entities.CodeGen
             List<int> weakAssetRefOffsets = new List<int>();
             bool mightHaveEntityRefs = false;
             bool mightHaveBlobRefs = false;
+            bool hasNativeContainer = HasNativeContainer(typeRef);
             var isIRefCounted = typeDef.Interfaces.Any(i => i.InterfaceType.Name.Contains("IRefCounted"));
             var isIEquatable = typeDef.Interfaces.Any(i => i.InterfaceType.Name.Contains("IEquatable"));
             bool isManaged = typeDef != null &&
@@ -1008,6 +1090,9 @@ namespace Unity.Entities.CodeGen
             if (!mightHaveEntityRefs)
                 typeIndex |= HasNoEntityReferencesFlag;
 
+            if (hasNativeContainer)
+                typeIndex |= HasNativeContainerFlag;
+
             if (isManaged)
                 typeIndex |= ManagedComponentTypeFlag;
 
@@ -1019,6 +1104,9 @@ namespace Unity.Entities.CodeGen
 
             if (isIEquatable)
                 typeIndex |= IEquatableTypeFlag;
+
+            if(typeCategory == TypeCategory.ISharedComponentData && isManaged && !isIEquatable)
+                throw new ArgumentException($"Type '{typeRef.FullName}' is a ISharedComponentData and has managed references, you must implement IEquatable<T>");
 
             CalculateMemoryOrderingAndStableHash(typeRef, out ulong memoryOrdering, out ulong stableHash);
 

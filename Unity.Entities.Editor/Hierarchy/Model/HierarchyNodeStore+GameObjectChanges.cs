@@ -14,9 +14,9 @@ namespace Unity.Entities.Editor
 {
     partial struct HierarchyNodeStore
     {
-        public IntegrateGameObjectChangesEnumerator CreateIntegrateGameObjectChangesEnumerator(HierarchyGameObjectChanges changes, int batchSize)
+        public IntegrateGameObjectChangesEnumerator CreateIntegrateGameObjectChangesEnumerator(HierarchyGameObjectChanges changes, SubSceneMap subSceneMap, int batchSize)
         {
-            return new IntegrateGameObjectChangesEnumerator(this, m_SubSceneNodeMapping, changes, batchSize);
+            return new IntegrateGameObjectChangesEnumerator(this, subSceneMap, changes, batchSize);
         }
 
         public struct IntegrateGameObjectChangesEnumerator : IEnumerator
@@ -30,7 +30,7 @@ namespace Unity.Entities.Editor
             }
 
             readonly HierarchyNodeStore m_Hierarchy;
-            readonly SubSceneNodeMapping m_SubSceneNodeMapping;
+            readonly SubSceneMap m_SubSceneMap;
             readonly HierarchyGameObjectChanges m_Changes;
 
             NativeArray<GameObjectChangeTrackerEvent> m_Events;
@@ -41,10 +41,10 @@ namespace Unity.Entities.Editor
             int m_CurrentPosition;
             int m_BatchSize;
 
-            public IntegrateGameObjectChangesEnumerator(HierarchyNodeStore hierarchy, SubSceneNodeMapping subSceneNodeMapping, HierarchyGameObjectChanges changes, int batchSize)
+            public IntegrateGameObjectChangesEnumerator(HierarchyNodeStore hierarchy, SubSceneMap subSceneMap, HierarchyGameObjectChanges changes, int batchSize)
             {
                 m_Hierarchy = hierarchy;
-                m_SubSceneNodeMapping = subSceneNodeMapping;
+                m_SubSceneMap = subSceneMap;
                 m_Changes = changes;
                 m_TotalCount = changes.GameObjectChangeTrackerEvents.Length;
                 m_CurrentPosition = 0;
@@ -123,10 +123,10 @@ namespace Unity.Entities.Editor
             {
                 foreach (var scene in m_Changes.UnloadedScenes)
                 {
-                    if (!scene.isRemoved)
+                    if (!scene.isRemoved || scene.isSubScene)
                         continue;
 
-                    var sceneNode = scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene);
+                    var sceneNode = HierarchyNodeHandle.FromScene(scene);
                     if (m_Hierarchy.Exists(sceneNode))
                         m_Hierarchy.RemoveNode(sceneNode);
                 }
@@ -140,20 +140,23 @@ namespace Unity.Entities.Editor
                 var rootGameObjects = new List<GameObject>();
                 foreach (var scene in m_Changes.LoadedScenes)
                 {
-                    var sceneNode = scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene);
-
-                    if (!m_Hierarchy.Exists(sceneNode))
-                        m_Hierarchy.AddNode(sceneNode);
-
-                    if (!scene.isSubScene)
-                        m_Hierarchy.SetSortIndex(sceneNode, GetSceneIndex(scene));
-
+                    // can happen when running test data
                     if (!scene.isLoaded)
                         continue;
 
+                    var node = scene.isSubScene ? m_SubSceneMap.GetSubSceneNodeHandleFromScene(scene) : HierarchyNodeHandle.FromScene(scene);
+
+                    if (!scene.isSubScene)
+                    {
+                        if (!m_Hierarchy.Exists(node))
+                            m_Hierarchy.AddNode(node);
+
+                        m_Hierarchy.SetSortIndex(node, GetSceneIndex(scene));
+                    }
+
                     scene.GetRootGameObjects(rootGameObjects);
                     foreach (var gameObject in rootGameObjects)
-                        RecursivelyAddNodes(gameObject, sceneNode);
+                        RecursivelyAddNodes(gameObject, node);
                 }
             }
 
@@ -222,21 +225,24 @@ namespace Unity.Entities.Editor
                         continue;
                     }
 
-                    var handle = m_Hierarchy.GetNodeHandle(gameObject);
+                    var handle = m_Hierarchy.GetNodeHandle(gameObject, m_SubSceneMap);
                     if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.CreatedOrChanged) != 0)
                     {
+                        // the node doesn't exist
+                        // if the handle is a subscene, we try to create a go node to check if it exists
+                        // this would mean a go has been converted to a subscene
+                        if (handle.Kind == NodeKind.SubScene)
+                        {
+                            var goHandle = HierarchyNodeHandle.FromGameObject(gameObject);
+                            if (m_Hierarchy.Exists(goHandle))
+                                m_Hierarchy.RemoveNode(goHandle);
+
+                            m_Hierarchy.SetParent(handle, parent);
+                            m_Hierarchy.SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
+                        }
+
                         if (!m_Hierarchy.Exists(handle))
                         {
-                            // the node doesn't exist
-                            // if the handle is a subscene, we try to create a go node to check if it exists
-                            // this would mean a go has been converted to a subscene
-                            if (handle.Kind == NodeKind.SubScene)
-                            {
-                                var goHandle = HierarchyNodeHandle.FromGameObject(gameObject);
-                                if (m_Hierarchy.Exists(goHandle))
-                                    m_Hierarchy.RemoveNode(goHandle);
-                            }
-
                             m_Hierarchy.AddNode(handle, parent);
                             m_Hierarchy.SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
                         }
@@ -258,6 +264,8 @@ namespace Unity.Entities.Editor
                     {
                         if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.OrderChanged) != 0)
                         {
+                            if (!m_Hierarchy.Exists(handle))
+                                continue;
                             m_Hierarchy.SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
                         }
                     }
@@ -283,26 +291,20 @@ namespace Unity.Entities.Editor
                     // No GO parent, parent must be a scene
                     // Note that we know we have a valid scene at this point
                     return gameObject.scene.isSubScene
-                        ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, gameObject.scene)
+                        ? m_SubSceneMap.GetSubSceneNodeHandleFromScene(gameObject.scene)
                         : HierarchyNodeHandle.FromScene(gameObject.scene);
                 }
 
-                return m_Hierarchy.GetNodeHandle(gameObject.transform.parent.gameObject);
+                return m_Hierarchy.GetNodeHandle(gameObject.transform.parent.gameObject, m_SubSceneMap);
             }
 
             void RecursivelyAddNodes(GameObject gameObject, HierarchyNodeHandle parentHandle)
             {
-                var handle = m_Hierarchy.GetNodeHandle(gameObject);
+                var handle = m_Hierarchy.GetNodeHandle(gameObject, m_SubSceneMap);
 
                 if (handle.Kind == NodeKind.SubScene)
                 {
-                    // SubScene nodes are allowed to already exist
-                    // they can have been created by the Entity change integration
-                    if (!m_Hierarchy.Exists(handle))
-                    {
-                        m_Hierarchy.AddNode(handle, parentHandle);
-                    }
-
+                    m_Hierarchy.SetParent(handle, parentHandle);
                     m_Hierarchy.SetSortIndex(handle, gameObject.transform.GetSiblingIndex());
 
                     var subscene = gameObject.GetComponent<SubScene>();
@@ -344,15 +346,10 @@ namespace Unity.Entities.Editor
             }
         }
 
-        HierarchyNodeHandle GetNodeHandle(GameObject gameObject)
+        HierarchyNodeHandle GetNodeHandle(GameObject gameObject, SubSceneMap subSceneMap)
         {
-            if (gameObject.TryGetComponent<SubScene>(out var subscene))
-            {
-                if (!subscene.SceneAsset)
-                    return new HierarchyNodeHandle(NodeKind.SubScene, gameObject.GetInstanceID(), -1);
-
-                return HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, subscene);
-            }
+            if (gameObject.TryGetComponent<SubScene>(out var subScene) && subScene.SceneGUID != default && subSceneMap.TryGetSubSceneNodeHandle(subScene, out var handle))
+                return handle;
 
             return HierarchyNodeHandle.FromGameObject(gameObject);
         }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -11,16 +12,14 @@ namespace Unity.Entities.Editor.Tests
         World m_World;
         HierarchyNameStore m_NameStore;
         HierarchySearch m_HierarchySearch;
-        SubSceneNodeMapping m_Mapping;
         HierarchyNodeStore m_HierarchyNodeStore;
 
         [SetUp]
         public void SetUp()
         {
             m_World = new World(nameof(HierarchyNodeStoreTests));
-            m_Mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            m_HierarchyNodeStore = new HierarchyNodeStore(m_Mapping, Allocator.Persistent);
-            m_NameStore = new HierarchyNameStore(m_Mapping, Allocator.Persistent);
+            m_HierarchyNodeStore = new HierarchyNodeStore(Allocator.Persistent);
+            m_NameStore = new HierarchyNameStore(Allocator.Persistent);
             m_HierarchySearch = new HierarchySearch(m_NameStore, Allocator.Persistent);
             m_HierarchySearch.ExcludeUnnamedNodes = true;
             m_NameStore.SetWorld(m_World);
@@ -33,7 +32,6 @@ namespace Unity.Entities.Editor.Tests
             m_World.Dispose();
             m_NameStore.Dispose();
             m_HierarchySearch.Dispose();
-            m_Mapping.Dispose();
             m_HierarchyNodeStore.Dispose();
         }
 
@@ -185,7 +183,8 @@ namespace Unity.Entities.Editor.Tests
             // Integrate entity changes in to the dynamic hierarchy model.
             using var tracker = new HierarchyEntityChangeTracker(m_World, Allocator.Persistent);
             using var changes = tracker.GetChanges(m_World.UpdateAllocator.ToAllocator);
-            m_HierarchyNodeStore.IntegrateEntityChanges(m_World, changes);
+            using var sceneTagToSubSceneNodeHandle = new NativeParallelHashMap<SceneTag, HierarchyNodeHandle>(0, Allocator.TempJob);
+            m_HierarchyNodeStore.IntegrateEntityChanges(m_World, changes, sceneTagToSubSceneNodeHandle);
 
             // Export the dynamic model to a baked linear set.
             using var immutable = new HierarchyNodeStore.Immutable(Allocator.Persistent);
@@ -202,14 +201,16 @@ namespace Unity.Entities.Editor.Tests
 
             // Initial virtual set.
             {
-                nodes.Refresh(immutable, m_World, m_Mapping);
+                using var map = new NativeParallelHashMap<HierarchyNodeHandle, bool>(0, Allocator.TempJob);
+                nodes.Refresh(immutable, m_World, map);
                 Assert.That(nodes.Count, Is.EqualTo(0));
             }
 
             using (var filter = m_HierarchySearch.CreateHierarchyFilter("c=TestComponentA", null, Allocator.TempJob))
             {
+                using var map = new NativeParallelHashMap<HierarchyNodeHandle, bool>(0, Allocator.TempJob);
                 nodes.SetFilter(filter);
-                nodes.Refresh(immutable, m_World, m_Mapping);
+                nodes.Refresh(immutable, m_World, map);
                 var actualWithA = new List<Entity>();
                 for (int i = 0; i < nodes.Count; ++i)
                 {
@@ -221,8 +222,9 @@ namespace Unity.Entities.Editor.Tests
 
             using (var filter = m_HierarchySearch.CreateHierarchyFilter("c=TestComponentB", null, Allocator.TempJob))
             {
+                using var map = new NativeParallelHashMap<HierarchyNodeHandle, bool>(0, Allocator.TempJob);
                 nodes.SetFilter(filter);
-                nodes.Refresh(immutable, m_World, m_Mapping);
+                nodes.Refresh(immutable, m_World, map);
                 var actualWithB = new List<Entity>();
                 for (int i = 0; i < nodes.Count; ++i)
                 {

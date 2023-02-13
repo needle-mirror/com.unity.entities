@@ -58,14 +58,23 @@ The fields in your job struct declare the data available to your `Execute` metho
 To access data stored in a component of one of the entities in the query perform the following steps:
 
 1. Define a [ComponentTypeHandle](xref:Unity.Entities.ComponentTypeHandle`1) field on the job struct, and set `T` to the data type of the component. For example:
+
     [!code-cs[component-handle](../DocCodeSamples.Tests/JobChunkExamples.cs#component-handle)]
-2. Use this handle field inside the job’s `Execute` method to access the array that contains the data for that type component as a `NativeArray`. This array contains an element for every entity in the chunk:
+
+1. Use this handle field inside the job’s `Execute` method to access the array that contains the data for that type component as a `NativeArray`. This array contains an element for every entity in the chunk:
+
     [!code-cs[component-array](../DocCodeSamples.Tests/JobChunkExamples.cs#component-array)]
-3. Declare a `ComponentTypeHandle` field on the system that you want to schedule the job. It's more efficient to create type handles once and update them each frame, rather than creating them just-in-time.
+
+1. Declare a `ComponentTypeHandle` field on the system that you want to schedule the job. It's more efficient to create type handles once and update them each frame, rather than creating them just-in-time.
+
     [!code-cs[component-handle-system-declaration](../DocCodeSamples.Tests/JobChunkExamples.cs#component-handle-system-declaration)]
-4. Use [ComponentSystemBase.GetComponentTypeHandle](xref:Unity.Entities.ComponentSystemBase.GetComponentTypeHandle*) to initialize the system's type handle fields in the system's `OnCreate` method.
+
+1. Use [ComponentSystemBase.GetComponentTypeHandle](xref:Unity.Entities.ComponentSystemBase.GetComponentTypeHandle*) to initialize the system's type handle fields in the system's `OnCreate` method.
+
     [!code-cs[component-handle-system-initialization](../DocCodeSamples.Tests/JobChunkExamples.cs#component-handle-system-initialization)]
-5. Schedule the job in the system’s `OnUpdate` method, update the system's type handle field, and assign a value to the type handle field:
+
+1. Schedule the job in the system’s `OnUpdate` method, update the system's type handle field, and assign a value to the type handle field:
+
     [!code-cs[component-set-handle](../DocCodeSamples.Tests/JobChunkExamples.cs#component-set-handle)]
 
 Always update and set the component handle fields of a job every time you schedule the job. A type handle that isn't updated has a stale [version number](systems-version-numbers.md), and is flagged as an error.

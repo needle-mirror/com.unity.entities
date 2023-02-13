@@ -39,26 +39,17 @@ namespace Unity.Entities
             m_TransformAccessArray = new TransformAccessArray(0);
             m_Entities = new NativeList<Entity>(64, Allocator.Persistent);
             m_EntitiesMap = new NativeHashMap<Entity, IndexAndInstance>(64, Allocator.Persistent);
-            m_CreatedQuery = GetEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new[] {ComponentType.ReadOnly<CompanionLink>()},
-                    None = new[] {ComponentType.ReadOnly<CompanionGameObjectUpdateTransformCleanup>()}
-                }
-            );
-            m_DestroyedQuery = GetEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new[] {ComponentType.ReadOnly<CompanionGameObjectUpdateTransformCleanup>()},
-                    None = new[] {ComponentType.ReadOnly<CompanionLink>()}
-                }
-            );
-            m_ModifiedQuery = GetEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new[] {ComponentType.ReadOnly<CompanionLink>()},
-                }
-            );
+            m_CreatedQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CompanionLink>()
+                .WithNone<CompanionGameObjectUpdateTransformCleanup>()
+                .Build(this);
+            m_DestroyedQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CompanionGameObjectUpdateTransformCleanup>()
+                .WithNone<CompanionLink>()
+                .Build(this);
+            m_ModifiedQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CompanionLink>()
+                .Build(this);
             m_ModifiedQuery.SetChangedVersionFilter(typeof(CompanionLink));
         }
 

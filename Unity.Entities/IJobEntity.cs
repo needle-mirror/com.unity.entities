@@ -114,42 +114,68 @@ namespace Unity.Entities
     public sealed class ChunkIndexInQuery : Attribute {}
 
     /// <summary>
-    /// Specifies that this IJobEntity should include ALL ComponentTypes found as attributes of the IJobEntity
+    /// Specify that an IJobEntity should not include any of the component types specified as part of the attribute.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
+    public sealed class WithAbsentAttribute : Attribute
+    {
+        /// <summary>
+        /// Specifies that this IJobEntity should not include any of the component types specified as part of the attribute.
+        /// </summary>
+        /// <param name="types">Absent component types</param>
+        public WithAbsentAttribute(params Type[] types){}
+    }
+
+    /// <summary>
+    /// Specify that an IJobEntity should include all of the component types specified as part of the attribute, but they must all be disabled.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
+    public sealed class WithDisabledAttribute : Attribute
+    {
+        /// <summary>
+        /// Specifies that this IJobEntity should include all of the component types specified as part of the attribute, but they must all be disabled.
+        /// </summary>
+        /// <param name="types">The required disabled component types</param>
+        public WithDisabledAttribute(params Type[] types){}
+    }
+
+    /// <summary>
+    /// Specifies that this IJobEntity should include all ComponentTypes found as attributes of the IJobEntity
     /// </summary>
     /// <seealso cref="IJobEntity"/>
     [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
     public sealed class WithAllAttribute : Attribute
     {
         /// <summary>
-        /// Specifies that this IJobEntity should include ALL ComponentTypes found as attributes of the IJobEntity
+        /// Specifies that this IJobEntity should include all ComponentTypes found as attributes of the IJobEntity
         /// </summary>
         /// <param name="types">The required component types</param>
         public WithAllAttribute(params Type[] types){}
     }
 
     /// <summary>
-    /// Specifies that this IJobEntity should include NO ComponentTypes found as attributes of the IJobEntity
+    /// Specifies that this IJobEntity should include no ComponentTypes found as attributes of the IJobEntity
     /// </summary>
     /// <seealso cref="IJobEntity"/>
     [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
     public sealed class WithNoneAttribute : Attribute
     {
         /// <summary>
-        /// Specifies that this IJobEntity should include NO ComponentTypes found as attributes of the IJobEntity
+        /// Specifies that this IJobEntity should include no ComponentTypes found as attributes of the IJobEntity
         /// </summary>
         /// <param name="types">The excluded component types</param>
         public WithNoneAttribute(params Type[] types){}
     }
 
     /// <summary>
-    /// Specifies that this IJobEntity should include ANY ComponentTypes found as attributes of the IJobEntity
+    /// Specifies that this IJobEntity should include any ComponentTypes found as attributes of the IJobEntity
     /// </summary>
     /// <seealso cref="IJobEntity"/>
     [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
     public sealed class WithAnyAttribute : Attribute
     {
         /// <summary>
-        /// Specifies that this IJobEntity should include ANY ComponentTypes found as attributes of the IJobEntity
+        /// Specifies that this IJobEntity should include any ComponentTypes found as attributes of the IJobEntity
         /// </summary>
         /// <param name="types">The optional component types</param>
         public WithAnyAttribute(params Type[] types){}
@@ -237,7 +263,7 @@ namespace Unity.Entities
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static JobHandle Schedule<T>(this T jobData, JobHandle dependsOn)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
@@ -252,7 +278,7 @@ namespace Unity.Entities
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static JobHandle ScheduleByRef<T>(this ref T jobData, JobHandle dependsOn)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
@@ -267,7 +293,7 @@ namespace Unity.Entities
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
@@ -283,7 +309,7 @@ namespace Unity.Entities
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static JobHandle ScheduleByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
@@ -293,7 +319,7 @@ namespace Unity.Entities
         /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static void Schedule<T>(this T jobData)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
@@ -304,7 +330,7 @@ namespace Unity.Entities
         /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static void ScheduleByRef<T>(this ref T jobData)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
@@ -315,7 +341,7 @@ namespace Unity.Entities
         /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static void Schedule<T>(this T jobData, EntityQuery query)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for sequential (non-parallel) execution.
@@ -326,7 +352,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The specific <see cref="IJobEntity"/> implementation type.</typeparam>
         /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
         public static void ScheduleByRef<T>(this ref T jobData, EntityQuery query)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         #endregion
 
@@ -344,7 +370,7 @@ namespace Unity.Entities
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static JobHandle ScheduleParallel<T>(this T jobData, JobHandle dependsOn)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
@@ -359,7 +385,7 @@ namespace Unity.Entities
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static JobHandle ScheduleParallelByRef<T>(this ref T jobData, JobHandle dependsOn)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
@@ -374,7 +400,7 @@ namespace Unity.Entities
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static JobHandle ScheduleParallel<T>(this T jobData, EntityQuery query, JobHandle dependsOn)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
@@ -390,7 +416,7 @@ namespace Unity.Entities
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static JobHandle ScheduleParallelByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
@@ -400,7 +426,7 @@ namespace Unity.Entities
         /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static void ScheduleParallel<T>(this T jobData)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
@@ -411,7 +437,7 @@ namespace Unity.Entities
         /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static void ScheduleParallelByRef<T>(this ref T jobData)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
@@ -422,7 +448,7 @@ namespace Unity.Entities
         /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static void ScheduleParallel<T>(this T jobData, EntityQuery query)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Adds an <see cref="IJobEntity"/> instance to the job scheduler queue for parallel execution.
@@ -434,7 +460,7 @@ namespace Unity.Entities
         /// <remarks>This job automatically uses the system's Dependency property as the input and output dependency.</remarks>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
         public static void ScheduleParallelByRef<T>(this ref T jobData, EntityQuery query)
-            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => throw InternalCompilerInterface.ThrowCodeGenException();
+            where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
         #endregion
 

@@ -16,6 +16,7 @@ using UnityEngine;
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<short>))]
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<Entity>))]
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<BlobAssetReference<float>>))]
+[assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<NativeArray<int>>))]
 
 namespace Unity.Entities.Tests
 {
@@ -32,6 +33,10 @@ namespace Unity.Entities.Tests
         struct TestTypeWithBlobRef : IComponentData
         {
             BlobAssetReference<float> Blobb;
+        }
+        struct TestTypeWithNativeContainer : IComponentData
+        {
+            NativeArray<int> array;
         }
 
         struct TestType2 : IComponentData
@@ -277,6 +282,16 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<GenericComponent<Entity>>()));
             Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<GenericComponent<short>>()));
             Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestType1>()));
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
+        public void TestNativeContainer()
+        {
+            Assert.IsTrue(TypeManager.GetTypeIndex<TestTypeWithNativeContainer>().HasNativeContainer);
+            Assert.IsTrue(TypeManager.GetTypeIndex<GenericComponent<NativeArray<int>>>().HasNativeContainer);
+            Assert.IsFalse(TypeManager.GetTypeIndex<GenericComponent<short>>().HasNativeContainer);
+            Assert.IsFalse(TypeManager.GetTypeIndex<TestType1>().HasNativeContainer);
         }
 
         [Test]
@@ -773,7 +788,7 @@ namespace Unity.Entities.Tests
         public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures(Type type, string keywordPattern)
         {
             Assert.That(
-                () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new HashSet<Type>()),
+                () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new Dictionary<Type, bool>()),
                 Throws.ArgumentException.With.Message.Matches(keywordPattern)
             );
         }
@@ -837,7 +852,7 @@ namespace Unity.Entities.Tests
             try
             {
                 Assert.That(
-                    () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new HashSet<Type>()),
+                    () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new Dictionary<Type, bool>()),
                     Throws.ArgumentException.With.Message.Matches($"\\bregister\\b.*\\b{nameof(TypeManager.UnityEngineObjectType)}\\b")
                 );
             }
@@ -857,7 +872,7 @@ namespace Unity.Entities.Tests
             {
                 var type = typeof(TypeManagerTests);
                 Assert.That(
-                    () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new HashSet<Type>()),
+                    () => TypeManager.BuildComponentType(type, new Dictionary<Type, ulong>(), new Dictionary<Type, bool>()),
                     Throws.ArgumentException.With.Message.Matches($"\\bmust inherit {typeof(UnityEngine.Component)}\\b")
                 );
             }
@@ -874,7 +889,7 @@ namespace Unity.Entities.Tests
             TypeManager.UnityEngineObjectType = typeof(UnityEngine.Component);
             try
             {
-                TypeManager.BuildComponentType(typeof(UnityEngine.Transform), new Dictionary<Type, ulong>(), new HashSet<Type>());
+                TypeManager.BuildComponentType(typeof(UnityEngine.Transform), new Dictionary<Type, ulong>(), new Dictionary<Type, bool>());
             }
             finally
             {
@@ -1059,7 +1074,7 @@ namespace Unity.Entities.Tests
         public void TestNativeContainersWorks()
         {
             Assert.DoesNotThrow(
-                () => TypeManager.BuildComponentType(typeof(NativeContainerComponent), new Dictionary<Type, ulong>(), new HashSet<Type>()));
+                () => TypeManager.BuildComponentType(typeof(NativeContainerComponent), new Dictionary<Type, ulong>(), new Dictionary<Type, bool>()));
         }
 
         [Test]
@@ -1067,7 +1082,7 @@ namespace Unity.Entities.Tests
         public void TestNestedNativeContainersFails()
         {
             Assert.Throws<ArgumentException>(
-                () => TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new Dictionary<Type, ulong>(), new HashSet<Type>()));
+                () => TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new Dictionary<Type, ulong>(), new Dictionary<Type, bool>()));
         }
 #endif
 
@@ -1123,6 +1138,29 @@ namespace Unity.Entities.Tests
         class TestEntityInClass : IComponentData
         {
             Entity entityRef;
+        }
+        public class TestEntityInClassWithManagedFields : IComponentData
+        {
+            public Entity EntityRef;
+            public string Str1;
+            public string Str2;
+        }
+        class TestNativeContainerInClass : IComponentData
+        {
+            NativeArray<int> array;
+        }
+        public class TestNativeContainerInClassWithManagedFields : IComponentData
+        {
+            public NativeArray<int> array;
+            public string Str1;
+            public string Str2;
+        }
+
+        public class TestBlobRefInClassWithManagedFields : IComponentData
+        {
+            public BlobAssetReference<float> BlobRef;
+            public string Str1;
+            public string Str2;
         }
 
         [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:true)]
@@ -1195,12 +1233,30 @@ namespace Unity.Entities.Tests
         {
             Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestNoRefManaged>()));
             Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestBlobArray>()));
+            Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestBlobRefInClassWithManagedFields>()));
 
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEmbedInterface>()));
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestTestEmbedBaseClass>()));
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestHasBlobRefAndEntityRef>()));
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEntityInClass>()));
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEntityInClassWithManagedFields>()));
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEntityArray>()));
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
+        public void TestHasNativeContainer_Managed()
+        {
+            Assert.IsFalse(TypeManager.GetTypeIndex<TestNoRefManaged>().HasNativeContainer);
+            Assert.IsFalse(TypeManager.GetTypeIndex<TestEntityInClass>().HasNativeContainer);
+            Assert.IsFalse(TypeManager.GetTypeIndex<TestEntityInClassWithManagedFields>().HasNativeContainer);
+            Assert.IsFalse(TypeManager.GetTypeIndex<TestEntityArray>().HasNativeContainer);
+            Assert.IsFalse(TypeManager.GetTypeIndex<TestHasBlobRefAndEntityRef>().HasNativeContainer);
+            Assert.IsFalse(TypeManager.GetTypeIndex<TestHasBlobRefAndEntityRef>().HasNativeContainer);
+            Assert.IsFalse(TypeManager.GetTypeIndex<TestBlobRefInClassWithManagedFields>().HasNativeContainer);
+
+            Assert.IsTrue(TypeManager.GetTypeIndex<TestNativeContainerInClass>().HasNativeContainer);
+            Assert.IsTrue(TypeManager.GetTypeIndex<TestNativeContainerInClassWithManagedFields>().HasNativeContainer);
         }
 
         [Test]
@@ -1208,12 +1264,14 @@ namespace Unity.Entities.Tests
         {
             Assert.IsFalse(TypeManager.GetTypeInfo<TestNoRefManaged>().HasBlobAssetRefs);
             Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityInClass>().HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityInClassWithManagedFields>().HasBlobAssetRefs);
             Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityArray>().HasBlobAssetRefs);
 
             Assert.IsTrue(TypeManager.GetTypeInfo<TestEmbedInterface>().HasBlobAssetRefs);
             Assert.IsTrue(TypeManager.GetTypeInfo<TestTestEmbedBaseClass>().HasBlobAssetRefs);
             Assert.IsTrue(TypeManager.GetTypeInfo<TestHasBlobRefAndEntityRef>().HasBlobAssetRefs);
             Assert.IsTrue(TypeManager.GetTypeInfo<TestHasBlobRefAndEntityRef>().HasBlobAssetRefs);
+            Assert.IsTrue(TypeManager.GetTypeInfo<TestBlobRefInClassWithManagedFields>().HasBlobAssetRefs);
         }
 #endif
 
@@ -1257,7 +1315,7 @@ namespace Unity.Entities.Tests
         public void TestArrayNativeContainersWorks()
         {
             Assert.DoesNotThrow(
-                () => TypeManager.BuildComponentType(typeof(ArrayNativeContainerComponent), new Dictionary<Type, ulong>(), new HashSet<Type>()));
+                () => TypeManager.BuildComponentType(typeof(ArrayNativeContainerComponent), new Dictionary<Type, ulong>(), new Dictionary<Type, bool>()));
         }
 
         [Test]
@@ -1265,7 +1323,7 @@ namespace Unity.Entities.Tests
         public void TestNestedArrayNativeContainersFails()
         {
             Assert.Throws<ArgumentException>(
-                () => TypeManager.BuildComponentType(typeof(NestedArrayNativeContainerComponent), new Dictionary<Type, ulong>(), new HashSet<Type>()));
+                () => TypeManager.BuildComponentType(typeof(NestedArrayNativeContainerComponent), new Dictionary<Type, ulong>(), new Dictionary<Type, bool>()));
         }
 #endif
     }

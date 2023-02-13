@@ -22,7 +22,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator
 
         public void Execute(GeneratorExecutionContext context)
         {
-            if (!SourceGenHelpers.IsBuildTime || !SourceGenHelpers.ShouldRun(context))
+            if (!SourceGenHelpers.IsBuildTime || !SourceGenHelpers.ShouldRun(context.Compilation, context.CancellationToken))
                 return;
 
             SourceGenHelpers.Setup(context);
@@ -174,7 +174,8 @@ namespace Unity.Entities.SourceGen.SystemGenerator
                         if (syntaxTreeInfo.IsSourceGenerationSuccessful)
                             context.AddSource(syntaxTreeInfo.Tree.GetGeneratedSourceFileName(GeneratorName), outputSource);
 
-                        SourceGenHelpers.OutputSourceToFile(context, syntaxTreeInfo.Tree.GetGeneratedSourceFilePath(context.Compilation.Assembly, GeneratorName), outputSource);
+                        SourceGenHelpers.OutputSourceToFile(context,
+                            syntaxTreeInfo.Tree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, GeneratorName), outputSource);
                     });
 
                 foreach (var iSystemDefinedAsClass in systemReceiver.ISystemDefinedAsClass)
@@ -191,9 +192,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator
                     SystemGeneratorErrors.DC0058(context, systemBaseDerivedTypeWithoutPartialKeyword.GetLocation(),
                         systemBaseDerivedTypeWithoutPartialKeyword.Identifier.ValueText, systemType);
                 }
-
-                if (systemBaseDerivedTypesWithoutPartialKeyword.Any() && context.ParseOptions.PreprocessorSymbolNames.Contains("DOTS_ADD_PARTIAL_KEYWORD"))
-                    AddMissingPartialKeywords(systemBaseDerivedTypesWithoutPartialKeyword);
 
                 if (requiresMissingReferenceToBurst)
                     SystemGeneratorErrors.DC0060(context, context.Compilation.SyntaxTrees.First().GetRoot().GetLocation(), context.Compilation.AssemblyName);

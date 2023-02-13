@@ -198,6 +198,46 @@ namespace Unity.Entities.Tests
             Assert.AreEqual((UIntPtr)buf.GetUnsafePtr(), (UIntPtr)buf.GetUnsafeReadOnlyPtr());
         }
 
+        struct DynamicBufferContainerJob : IJob
+        {
+            public DynamicBuffer<EcsTestContainerElement> buffer;
+
+            public void Execute() { }
+        }
+
+        [Test]
+        public void DynamicBuffer_ElementWithContainer_Works()
+        {
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsTestContainerElement();
+            element.Create();
+            var bufferA = m_Manager.AddBuffer<EcsTestContainerElement>(entity);
+            bufferA.Add(element);
+
+            var bufferB = m_Manager.GetBuffer<EcsTestContainerElement>(entity);
+
+            Assert.AreEqual(bufferB[0], element);
+            Assert.AreEqual(bufferB[0].data[1], element.data[1]);
+
+            element.Destroy();
+        }
+
+        [Test, DotsRuntimeFixme("Job system update required to support nested container safety")]
+        [TestRequiresCollectionChecks("Relies on jobs debugger")]
+        public void DynamicBuffer_ElementWithContainerInJob_Throws()
+        {
+            var job = new DynamicBufferContainerJob();
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsTestContainerElement();
+            var buffer = m_Manager.AddBuffer<EcsTestContainerElement>(entity);
+            buffer.Add(element);
+
+            job.buffer = buffer;
+
+            var e = Assert.Throws<InvalidOperationException>(() => job.Schedule());
+            Assert.IsTrue(e.Message.Contains("Nested native containers are illegal in jobs"));
+        }
+
         struct BufferJob_ReadOnly : IJobChunk
         {
             [ReadOnly]

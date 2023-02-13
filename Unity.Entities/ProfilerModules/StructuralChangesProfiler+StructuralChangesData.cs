@@ -3,20 +3,20 @@ using Unity.Collections;
 
 namespace Unity.Entities
 {
-    static partial class StructuralChangesProfiler
+    partial class StructuralChangesProfiler
     {
         [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         public readonly struct StructuralChangeData
         {
-            public readonly StructuralChangeType Type;
+            public readonly SystemHandle ExecutingSystem;
             public readonly long ElapsedNanoseconds;
             public readonly ulong WorldSequenceNumber;
-            public readonly SystemHandle ExecutingSystem;
+            public readonly StructuralChangeType Type;
 
-            public StructuralChangeData(StructuralChangeType type, long elapsed, ulong worldSeqNumber, in SystemHandle executingSystem)
+            public StructuralChangeData(long elapsed, StructuralChangeType type, ulong worldSeqNumber, in SystemHandle executingSystem)
             {
-                Type = type;
                 ElapsedNanoseconds = elapsed;
+                Type = type;
                 WorldSequenceNumber = worldSeqNumber;
                 ExecutingSystem = executingSystem;
             }

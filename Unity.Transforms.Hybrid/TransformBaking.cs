@@ -347,60 +347,52 @@ internal partial class TransformBakingSystem : SystemBase
     protected override void OnCreate()
     {
         base.OnCreate();
-        _Query = GetEntityQuery(new EntityQueryDesc
-        {
-            All = new[] { ComponentType.ReadOnly<TransformAuthoring>() },
-            Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-        });
+        _Query = new EntityQueryBuilder(Allocator.Temp)
+            .WithAll<TransformAuthoring>()
+            .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+            .Build(this);
 
         // The BakedRuntimeTransformsJob only processes chunks with Transform authoring changes as well as structural changes that may have added / removed the Static tag component
         _Query.AddChangedVersionFilter(ComponentType.ReadOnly<TransformAuthoring>());
         _Query.AddOrderVersionFilter();
 
-        _Job.Static = GetEntityQuery(new EntityQueryDesc
-        {
-            All = new []{ComponentType.ReadOnly<Static>()},
+        _Job.Static = new EntityQueryBuilder(Allocator.Temp)
+            .WithAll<Static>()
             // Intentionally leaving static prefabs out of this query, so we don't strip the hierarchy or transform components based on this
-            Options = EntityQueryOptions.IncludeDisabledEntities
-        }).GetEntityQueryMask();
+            .WithOptions(EntityQueryOptions.IncludeDisabledEntities)
+            .Build(this).GetEntityQueryMask();
 
 #if !ENABLE_TRANSFORM_V1
-        _Job.HasTransform = GetEntityQuery(new EntityQueryDesc
-        {
-            All = new []{ComponentType.ReadOnly<WorldTransform>()},
-            Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-        }).GetEntityQueryMask();
+        _Job.HasTransform = new EntityQueryBuilder(Allocator.Temp)
+            .WithAll<WorldTransform>()
+            .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+            .Build(this).GetEntityQueryMask();
 
-        _Job.HasPostTransformScale = GetEntityQuery(new EntityQueryDesc
-        {
-            All = new []{ComponentType.ReadOnly<PostTransformScale>()},
-            Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-        }).GetEntityQueryMask();
+        _Job.HasPostTransformScale = new EntityQueryBuilder(Allocator.Temp)
+            .WithAll<PostTransformScale>()
+            .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+            .Build(this).GetEntityQueryMask();
 #else
-        _Job.HasTR = GetEntityQuery(new EntityQueryDesc
-        {
-            All = new []{ComponentType.ReadOnly<Translation>(), ComponentType.ReadOnly<Rotation>()},
-            Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-        }).GetEntityQueryMask();
+        _Job.HasTR = new EntityQueryBuilder(Allocator.Temp)
+            .WithAll<Translation,Rotation>()
+            .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+            .Build(this).GetEntityQueryMask();
 
-        _Job.HasScale = GetEntityQuery(new EntityQueryDesc
-        {
-            All = new []{ComponentType.ReadOnly<NonUniformScale>()},
-            Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-        }).GetEntityQueryMask();
+        _Job.HasScale = new EntityQueryBuilder(Allocator.Temp)
+            .WithAll<Scale>()
+            .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+            .Build(this).GetEntityQueryMask();
 #endif
 
-        _Job.HasParent = GetEntityQuery(new EntityQueryDesc
-        {
-            All = new []{ComponentType.ReadOnly<Parent>()},
-            Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-        }).GetEntityQueryMask();
+        _Job.HasParent = new EntityQueryBuilder(Allocator.Temp)
+            .WithAll<Parent>()
+            .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+            .Build(this).GetEntityQueryMask();
 
-        _Job.HasLocalToWorld = GetEntityQuery(new EntityQueryDesc
-        {
-            All = new []{ComponentType.ReadOnly<LocalToWorld>()},
-            Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-        }).GetEntityQueryMask();
+        _Job.HasLocalToWorld = new EntityQueryBuilder(Allocator.Temp)
+            .WithAll<LocalToWorld>()
+            .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+            .Build(this).GetEntityQueryMask();
     }
 
     protected override void OnUpdate()

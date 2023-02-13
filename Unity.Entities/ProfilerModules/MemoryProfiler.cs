@@ -89,9 +89,10 @@ namespace Unity.Entities
             if (!s_Initialized || !Enabled)
                 return;
 
-            for (var i = 0; i < World.All.Count; ++i)
+            var worlds = World.All;
+            for (int i = 0, count = worlds.Count; i < count; ++i)
             {
-                var world = World.All[i];
+                var world = worlds[i];
                 if (!world.IsCreated)
                     continue;
 

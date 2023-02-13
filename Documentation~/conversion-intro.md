@@ -6,4 +6,4 @@ Data in your Unity project gets converted to entities and components through the
 |---|---|
 |[Convert data with Baking](baking.md)|Understand how GameObject data is converted to ECS data.|
 |[Subscenes](conversion-subscenes.md)|Use subscenes to contain data to bake.|
-|[Streaming scenes](scripting-loading-scenes.md)|Understand how ECS loads large scenes.|
+|[Streaming scenes](streaming-scenes.md)|Understand how ECS loads large scenes.|

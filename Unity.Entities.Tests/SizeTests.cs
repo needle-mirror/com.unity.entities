@@ -99,7 +99,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component safety checks")]
-        public void SIZ_TagCannotGetNativeArrayFromArchetypeChunk()
+        public void SIZ_TagCanGetNativeArrayFromArchetypeChunk()
         {
             m_Manager.CreateEntity(typeof(EcsTestTag));
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestTag>());
@@ -114,7 +114,7 @@ namespace Unity.Entities.Tests
             {
                 var chunk = chunks[i];
                 Assert.IsTrue(chunk.Has(ref tagType));
-                Assert.Throws<ArgumentException>(() =>
+                Assert.DoesNotThrow(() =>
                 {
                     chunk.GetNativeArray(ref tagType);
                 });

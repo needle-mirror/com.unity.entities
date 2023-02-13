@@ -156,6 +156,18 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
             Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
+
+            // entity ref in class with managed strings
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TestEntityInClassWithManagedFields),out entRef, out blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
+
+            // blob asset ref in class with managed strings
+            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TestBlobRefInClassWithManagedFields),out entRef, out blobRef);
+
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, entRef);
+            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
         }
 
         public sealed class RecursionA3: IComponentData

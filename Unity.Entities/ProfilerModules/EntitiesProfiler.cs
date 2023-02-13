@@ -19,7 +19,9 @@ namespace Unity.Entities
 
         sealed class SharedStaticData { internal static readonly SharedStatic<StaticData> Ref = SharedStatic<StaticData>.GetOrCreate<SharedStaticData>(); }
 
-        public static Guid Guid => SharedStaticData.Ref.Data.Guid;
+        public static Guid Guid => s_Data.Guid;
+
+        static ref StaticData s_Data => ref SharedStaticData.Ref.Data;
 
         public static void Initialize()
         {
@@ -27,7 +29,7 @@ namespace Unity.Entities
                 return;
 
             // Initialize static data
-            SharedStaticData.Ref.Data = new StaticData(16, 1024, 1024);
+            s_Data = new StaticData(16, 1024, 1024);
 
             // Initialize profiler modules
             StructuralChangesProfiler.Initialize();
@@ -66,20 +68,20 @@ namespace Unity.Entities
             StructuralChangesProfiler.Shutdown();
 
             // Dispose static data
-            SharedStaticData.Ref.Data.Dispose();
+            s_Data.Dispose();
 
             s_Initialized = false;
             s_LastWorldSequenceNumber = 0;
         }
 
         [ExcludeFromBurstCompatTesting("Takes managed World")]
-        public static void OnWorldCreated(World world) => SharedStaticData.Ref.Data.AddWorld(world);
+        public static void OnWorldCreated(World world) => s_Data.AddWorld(world);
 
         [ExcludeFromBurstCompatTesting("Takes managed Type")]
-        public static void OnSystemCreated(Type systemType, in SystemHandle systemHandle) => SharedStaticData.Ref.Data.AddSystem(systemType, in systemHandle);
+        public static void OnSystemCreated(Type systemType, in SystemHandle systemHandle) => s_Data.AddSystem(systemType, in systemHandle);
 
         [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
-        public static unsafe void ArchetypeAdded(Archetype* archetype) => SharedStaticData.Ref.Data.AddArchetype(archetype);
+        public static unsafe void ArchetypeAdded(Archetype* archetype) => s_Data.AddArchetype(archetype);
 
         internal static void Update()
         {
@@ -96,7 +98,7 @@ namespace Unity.Entities
 
             MemoryProfiler.Update();
             StructuralChangesProfiler.Flush();
-            SharedStaticData.Ref.Data.Flush();
+            s_Data.Flush();
         }
 
         internal static unsafe void FlushSessionMetaData<T>(in Guid guid, int tag, ref UnsafeList<T> list) where T : unmanaged

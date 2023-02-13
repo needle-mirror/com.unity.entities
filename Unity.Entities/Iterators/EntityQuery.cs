@@ -42,7 +42,9 @@ namespace Unity.Entities
     ///
     /// * All - Includes archetypes that have every component in this set
     /// * Any - Includes archetypes that have at least one component in this set
-    /// * None - Excludes archetypes that have any component in this set
+    /// * None - Excludes archetypes that have any component in this set, but includes entities which have the component disabled.
+    /// * Disabled - Includes archetypes that have every component in this set, but only matches entities where the component is disabled.
+    /// * Absent - Excludes archetypes that have any component in this set.
     ///
     /// For example, given entities with the following components:
     ///
@@ -67,15 +69,24 @@ namespace Unity.Entities
         /// </summary>
         public ComponentType[] Any = Array.Empty<ComponentType>();
         /// <summary>
-        /// Exclude archetypes that contain any of the
-        /// component types in the None list.
+        /// Include archetypes that do not contain these component types. For enableable component types, archetypes
+        /// with these components will still be matched by the query, but only for entities with these components disabled.
         /// </summary>
+        /// <remarks>Effectively, this list means "absent, or present (but disabled)".</remarks>
         public ComponentType[] None = Array.Empty<ComponentType>();
         /// <summary>
         /// Include archetypes that contain all of the
         /// component types in the All list.
         /// </summary>
         public ComponentType[] All = Array.Empty<ComponentType>();
+        /// <summary>
+        /// Include archetypes that contain these components, but only match entities where the component is disabled.
+        /// </summary>
+        public ComponentType[] Disabled = Array.Empty<ComponentType>();
+        /// <summary>
+        /// Exclude archetypes that contain these component types.
+        /// </summary>
+        public ComponentType[] Absent = Array.Empty<ComponentType>();
         /// <summary>
         /// Specialized query options.
         /// </summary>
@@ -107,7 +118,7 @@ namespace Unity.Entities
         public void Validate()
         {
             // Determine the number of ComponentTypes contained in the filters
-            var itemCount = None.Length + All.Length + Any.Length;
+            var itemCount = None.Length + All.Length + Any.Length + Disabled.Length + Absent.Length;
 
             // Project all the ComponentType Ids of None, All, Any queryDesc filters into the same array to identify duplicated later on
 
@@ -116,6 +127,8 @@ namespace Unity.Entities
             ValidateComponentTypes(None, ref allComponentTypeIds, ref curComponentTypeIndex);
             ValidateComponentTypes(All, ref allComponentTypeIds, ref curComponentTypeIndex);
             ValidateComponentTypes(Any, ref allComponentTypeIds, ref curComponentTypeIndex);
+            ValidateComponentTypes(Disabled, ref allComponentTypeIds, ref curComponentTypeIndex);
+            ValidateComponentTypes(Absent, ref allComponentTypeIds, ref curComponentTypeIndex);
 
             // Check for duplicate, only if necessary
             if (itemCount > 1)
@@ -166,22 +179,20 @@ namespace Unity.Entities
         {
             if (ReferenceEquals(this, other))
                 return true;
-
             if (ReferenceEquals(null, other))
                 return false;
-
             if (!Options.Equals(other.Options))
                 return false;
-
             if (!ArraysEquivalent(All, other.All))
                 return false;
-
             if (!ArraysEquivalent(Any, other.Any))
                 return false;
-
             if (!ArraysEquivalent(None, other.None))
                 return false;
-
+            if (!ArraysEquivalent(Disabled, other.Disabled))
+                return false;
+            if (!ArraysEquivalent(Absent, other.Absent))
+                return false;
             return true;
         }
 
@@ -221,6 +232,8 @@ namespace Unity.Entities
             result = (result * 397) ^ (All ?? Array.Empty<ComponentType>()).GetHashCode();
             result = (result * 397) ^ (Any ?? Array.Empty<ComponentType>()).GetHashCode();
             result = (result * 397) ^ (None ?? Array.Empty<ComponentType>()).GetHashCode();
+            result = (result * 397) ^ (Disabled ?? Array.Empty<ComponentType>()).GetHashCode();
+            result = (result * 397) ^ (Absent ?? Array.Empty<ComponentType>()).GetHashCode();
             return result;
         }
 
@@ -471,7 +484,6 @@ namespace Unity.Entities
         {
             using (var types = new NativeParallelHashSet<ComponentType>(128, Allocator.Temp))
             {
-
                 for (var i = 0; i < _QueryData->ArchetypeQueryCount; ++i)
                 {
                     for (var j = 0; j < _QueryData->ArchetypeQueries[i].AnyCount; ++j)
@@ -485,6 +497,14 @@ namespace Unity.Entities
                     for (var j = 0; j < _QueryData->ArchetypeQueries[i].NoneCount; ++j)
                     {
                         types.Add(ComponentType.Exclude(TypeManager.GetType(_QueryData->ArchetypeQueries[i].None[j])));
+                    }
+                    for (var j = 0; j < _QueryData->ArchetypeQueries[i].DisabledCount; ++j)
+                    {
+                        types.Add(ComponentType.Exclude(TypeManager.GetType(_QueryData->ArchetypeQueries[i].Disabled[j])));
+                    }
+                    for (var j = 0; j < _QueryData->ArchetypeQueries[i].AbsentCount; ++j)
+                    {
+                        types.Add(ComponentType.Exclude(TypeManager.GetType(_QueryData->ArchetypeQueries[i].Absent[j])));
                     }
                 }
 
@@ -1387,10 +1407,17 @@ namespace Unity.Entities
             var typeIndex = TypeManager.GetTypeIndex<T>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (TypeManager.IsZeroSized(typeIndex))
-                throw new InvalidOperationException($"Can't call GetSingleton<{typeof(T)}>() with zero-size type {typeof(T)}.");
+            {
+                var typeName = typeIndex.ToFixedString();
+                throw new InvalidOperationException($"Can't call GetSingleton<{typeName}>() with zero-size type {typeName}.");
+            }
+
             if (TypeManager.IsEnableable(typeIndex))
+            {
+                var typeName = typeIndex.ToFixedString();
                 throw new InvalidOperationException(
-                    $"Can't call GetSingleton<{typeof(T)}>() with enableable component type {typeof(T)}.");
+                    $"Can't call GetSingleton<{typeName}>() with enableable component type {typeName}.");
+            }
 #endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             _Access->DependencyManager->Safety.CompleteWriteDependency(typeIndex);
@@ -1404,7 +1431,10 @@ namespace Unity.Entities
                 var matchingChunkCache = _QueryData->GetMatchingChunkCache();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
-                    throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {CalculateEntityCountWithoutFiltering()}.");
+                {
+                    var typeName = typeIndex.ToFixedString();
+                    throw new InvalidOperationException($"GetSingleton<{typeName}>() requires that exactly one {typeName} exist that match this query, but there are {CalculateEntityCountWithoutFiltering()}.");
+                }
 #endif
                 var chunk = matchingChunkCache.Ptr[0]; // only one matching chunk
                 var matchIndex = matchingChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
@@ -1424,8 +1454,11 @@ namespace Unity.Entities
             var typeIndex = TypeManager.GetTypeIndex<T>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (TypeManager.IsEnableable(typeIndex))
+            {
+                var typeName = typeIndex.ToFixedString();
                 throw new InvalidOperationException(
-                    $"Can't call GetSingletonBuffer<{typeof(T)}>() with enableable component type {typeof(T)}.");
+                    $"Can't call GetSingletonBuffer<{typeName}>() with enableable component type {typeName}.");
+            }
 #endif
             if (isReadOnly)
                 _Access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
@@ -1476,8 +1509,11 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             var typeIndex = TypeManager.GetTypeIndex<T>();
             if (TypeManager.IsEnableable(typeIndex))
+            {
+                var typeName = typeIndex.ToFixedString();
                 throw new InvalidOperationException(
-                    $"Can't call HasSingleton<{typeof(T)}>() with enableable component type {typeof(T)}.");
+                    $"Can't call HasSingleton<{typeName}>() with enableable component type {typeName}.");
+            }
 #endif
 
             return CalculateEntityCount() == 1;
@@ -1892,11 +1928,33 @@ namespace Unity.Entities
                 };
             }
 
+            var disabledComponentTypes = new ComponentType[archetypeQuery->DisabledCount];
+            for (var i = 0; i < archetypeQuery->DisabledCount; ++i)
+            {
+                disabledComponentTypes[i] = new ComponentType
+                {
+                    TypeIndex = archetypeQuery->Disabled[i],
+                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->DisabledAccessMode[i]
+                };
+            }
+
+            var absentComponentTypes = new ComponentType[archetypeQuery->AbsentCount];
+            for (var i = 0; i < archetypeQuery->AbsentCount; ++i)
+            {
+                absentComponentTypes[i] = new ComponentType
+                {
+                    TypeIndex = archetypeQuery->Absent[i],
+                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->AbsentAccessMode[i]
+                };
+            }
+
             return new EntityQueryDesc
             {
                 All = allComponentTypes,
                 Any = anyComponentTypes,
                 None = noneComponentTypes,
+                Disabled = disabledComponentTypes,
+                Absent = absentComponentTypes,
                 Options = archetypeQuery->Options
             };
         }
@@ -2583,7 +2641,8 @@ namespace Unity.Entities
         public Entity GetSingletonEntity() => _GetImpl()->GetSingletonEntity();
 
         /// <summary>
-        /// Gets the value of a singleton component.
+        /// Gets the value of a singleton component. Note that if querying a singleton component from a system-associated entity,
+        /// the query must include either EntityQueryOptions.IncludeSystems or the SystemInstance component.
         /// </summary>
         /// <remarks>A singleton component is a component of which only one instance exists that satisfies this query.</remarks>
         /// <typeparam name="T">The component type.</typeparam>
@@ -2598,7 +2657,8 @@ namespace Unity.Entities
             => _GetImpl()->GetSingleton<T>();
 
         /// <summary>
-        /// Gets the value of a singleton component.
+        /// Gets the value of a singleton component. Note that if querying a singleton component from a system-associated entity,
+        /// the query must include either EntityQueryOptions.IncludeSystems or the SystemInstance component.
         /// </summary>
         /// <remarks>A singleton component is a component of which only one instance exists that satisfies this query.</remarks>
         /// <typeparam name="T">The component type.</typeparam>
@@ -2614,6 +2674,7 @@ namespace Unity.Entities
 
         /// <summary>
         /// Gets the value of a singleton component, and returns whether or not a singleton component of the specified type matches inside the <see cref="EntityQuery"/>.
+        /// Note that if querying a singleton component from a system-associated entity, the query must include either EntityQueryOptions.IncludeSystems or the SystemInstance component.
         /// </summary>
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
         /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
@@ -2626,10 +2687,11 @@ namespace Unity.Entities
 
         /// <summary>
         /// Gets a reference to the value of a singleton component, and returns whether or not a singleton component of the specified type matches inside the <see cref="EntityQuery"/>.
+        /// Note that if querying a singleton component from a system-associated entity, the query must include either EntityQueryOptions.IncludeSystems or the SystemInstance component.
         /// </summary>
         /// <remarks>A singleton component is a component of which only one instance exists that satisfies this query.</remarks>
         /// <typeparam name="T">The component type.</typeparam>
-        /// <param name="value">The reference in memory.</param> 
+        /// <param name="value">The reference of the component</param>
         /// <returns>A reference to the singleton component.</returns>
         /// <exception cref="InvalidOperationException"></exception>
         /// <seealso cref="GetSingletonRW{T}"/>
@@ -2642,7 +2704,8 @@ namespace Unity.Entities
             => _GetImpl()->TryGetSingletonRW<T>(out value);
 
         /// <summary>
-        /// Checks whether a singelton component of the specified type exists.
+        /// Checks whether a singelton component of the specified type exists. Note that if querying a singleton component from a system-associated entity,
+        /// the query must include either EntityQueryOptions.IncludeSystems or the SystemInstance component.
         /// </summary>
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
         /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
@@ -2653,11 +2716,12 @@ namespace Unity.Entities
 
         /// <summary>
         /// Gets the value of a singleton buffer component, and returns whether or not a singleton buffer component of the specified type exists in the <see cref="World"/>.
+        /// Note that if querying a singleton buffer component from a system-associated entity, the query must include either EntityQueryOptions.IncludeSystems or the SystemInstance component.
         /// </summary>
         /// <typeparam name="T">The <see cref="IBufferElementData"/> subtype of the singleton buffer component.
         /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
         /// <param name="value">The buffer. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</param>
-        /// <param name="isReadOnly">If the caller does not need to modify the buffer contents, pass true here.</param>
+        /// <param name="isReadOnly">Whether the buffer data is read-only or not. Set to false by default.</param>
         /// <returns>True, if exactly one <see cref="Entity"/> matches the <see cref="EntityQuery"/> with the provided component type.</returns>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         public bool TryGetSingletonBuffer<T>(out DynamicBuffer<T> value, bool isReadOnly = false)
@@ -2677,7 +2741,8 @@ namespace Unity.Entities
             => _GetImpl()->TryGetSingletonEntity<T>(out value);
 
         /// <summary>
-        /// Gets the value of a singleton buffer component.
+        /// Gets the value of a singleton buffer component. Note that if querying a singleton buffer component from a system-associated entity,
+        /// the query must include either EntityQueryOptions.IncludeSystems or the SystemInstance component.
         /// </summary>
         /// <remarks>A singleton buffer component is a component of which only one instance exists that satisfies this query.
         /// There is no SetSingletonBuffer(); to change the contents of a singleton buffer, pass isReadOnly=false to GetSingletonBuffer()
@@ -2693,7 +2758,8 @@ namespace Unity.Entities
             => _GetImpl()->GetSingletonBuffer<T>(isReadOnly);
 
         /// <summary>
-        /// Sets the value of a singleton component.
+        /// Sets the value of a singleton component. Note that if querying a singleton component from a system-associated entity,
+        /// the query must include either EntityQueryOptions.IncludeSystems or the SystemInstance component.
         /// </summary>
         /// <remarks>
         /// For a component to be a singleton, there can be only one instance of that component
@@ -3128,10 +3194,10 @@ namespace Unity.Entities
             var typeIndex = TypeManager.GetTypeIndex<T>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (typeIndex.IsZeroSized)
-                throw new InvalidOperationException($"Can't call GetSingleton<{typeof(T)}>() with zero-size type {typeof(T)}.");
+                throw new InvalidOperationException($"Can't call GetSingleton<{typeIndex.ToFixedString()}>() with zero-size type {typeIndex.ToFixedString()}.");
             if (typeIndex.IsEnableable)
                 throw new InvalidOperationException(
-                    $"Can't call GetSingleton<{typeof(T)}>() with enableable component type {typeof(T)}.");
+                    $"Can't call GetSingleton<{typeIndex.ToFixedString()}>() with enableable component type {typeIndex.ToFixedString()}.");
 #endif
             var impl = query._GetImpl();
             var access = impl->_Access;
@@ -3148,7 +3214,7 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>A singleton component is a component of which only one instance exists that satisfies this query.</remarks>
         /// <param name="query">The query</param>
-        /// <param name="value">An instance of type T containing the values to set.</param>
+        /// <param name="value">The component.</param>
         /// <typeparam name="T">The component type. This type must not implement <see cref="IEnableableComponent"/>.</typeparam>
         /// <returns>A copy of the singleton component.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the singleton is zero-size, or if it implements an enableable component.</exception>

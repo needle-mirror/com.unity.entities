@@ -420,7 +420,7 @@ namespace Unity.Entities
 
         private UnsafeList<TypeIndex> m_UnmanagedSharedComponentTypes;
         private UnsafeList<UnsafeList<SharedComponentInfo>> m_UnmanagedSharedComponentInfo;
-        private UnsafeMultiHashMap<int, int> m_HashLookup;
+        private UnsafeParallelMultiHashMap<int, int> m_HashLookup;
 
         internal ChunkListChanges m_ChunkListChangesTracker;
 
@@ -457,8 +457,14 @@ namespace Unity.Entities
 
         internal byte memoryInitPattern;
         internal byte useMemoryInitPattern;        // should be bool, but it doesn't get along nice with burst so far, so we use a byte instead
+
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
         internal byte m_RecordToJournal;
+#endif
+
+#if ENABLE_PROFILER
+        StructuralChangesProfiler.Recorder* m_StructuralChangesRecorder;
+        internal ref StructuralChangesProfiler.Recorder StructuralChangesRecorder => ref (*m_StructuralChangesRecorder);
 #endif
 
         const int kMaximumEmptyChunksInPool = 16; // can't alloc forever
@@ -686,7 +692,7 @@ namespace Unity.Entities
             entities->m_UnmanagedSharedComponentTypes = new UnsafeList<TypeIndex>(64, Allocator.Persistent);
             entities->m_UnmanagedSharedComponentsByType = new UnsafeList<ComponentTypeList>(TypeManager.GetTypeCount() + 1, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             entities->m_UnmanagedSharedComponentInfo = new UnsafeList<UnsafeList<SharedComponentInfo>>(TypeManager.GetTypeCount(), Allocator.Persistent, NativeArrayOptions.ClearMemory);
-            entities->m_HashLookup = new UnsafeMultiHashMap<int, int>(128, Allocator.Persistent);
+            entities->m_HashLookup = new UnsafeParallelMultiHashMap<int, int>(128, Allocator.Persistent);
             entities->m_LinkedGroupType = TypeManager.GetTypeIndex<LinkedEntityGroup>();
             entities->m_ChunkHeaderType = TypeManager.GetTypeIndex<ChunkHeader>();
             entities->m_PrefabType = TypeManager.GetTypeIndex<Prefab>();
@@ -705,6 +711,11 @@ namespace Unity.Entities
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             entities->m_RecordToJournal = (byte)(EntitiesJournaling.Enabled ? 1 : 0);
+#endif
+
+#if ENABLE_PROFILER
+            entities->m_StructuralChangesRecorder = Memory.Unmanaged.Allocate<StructuralChangesProfiler.Recorder>(Allocator.Persistent);
+            entities->m_StructuralChangesRecorder->Initialize(Allocator.Persistent);
 #endif
 
             // Sanity check a few alignments
@@ -841,6 +852,13 @@ namespace Unity.Entities
             m_HashLookup.Dispose();
 #if !DOTS_DISABLE_DEBUG_NAMES
             m_NameChangeBitsByEntity.Dispose();
+#endif
+
+#if ENABLE_PROFILER
+            m_StructuralChangesRecorder->Flush();
+            m_StructuralChangesRecorder->Dispose();
+            Memory.Unmanaged.Free(m_StructuralChangesRecorder, Allocator.Persistent);
+            m_StructuralChangesRecorder = null;
 #endif
         }
 
@@ -1085,7 +1103,7 @@ namespace Unity.Entities
 
         public bool HasComponent(Entity entity, TypeIndex type)
         {
-            if (!Exists(entity))
+            if (Hint.Unlikely(!Exists(entity)))
                 return false;
 
             var archetype = m_ArchetypeByEntity[entity.Index];
@@ -1094,7 +1112,7 @@ namespace Unity.Entities
 
         internal bool HasComponent(Entity entity, TypeIndex type, ref LookupCache cache)
         {
-            if (!Exists(entity))
+            if (Hint.Unlikely(!Exists(entity)))
                 return false;
 
             var archetype = m_ArchetypeByEntity[entity.Index];
@@ -1105,7 +1123,7 @@ namespace Unity.Entities
 
         public bool HasComponent(Entity entity, ComponentType type)
         {
-            if (!Exists(entity))
+            if (Hint.Unlikely(!Exists(entity)))
                 return false;
 
             var archetype = m_ArchetypeByEntity[entity.Index];
@@ -1496,7 +1514,7 @@ namespace Unity.Entities
             }
 
             int itemIndex;
-            NativeMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<int> iter;
 
             if (!m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
             {
@@ -1700,7 +1718,7 @@ namespace Unity.Entities
             infos->Ptr[0].ComponentType = elementIndex;
 
             int itemIndex;
-            NativeMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<int> iter;
             if (m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
             {
                 do
@@ -1749,7 +1767,7 @@ namespace Unity.Entities
         }
 
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] {typeof(BurstCompatibleSharedComponentData)})]
-        internal void GetAllUniqueSharedComponents_Unmanaged<T>(out UnsafeList<T> sharedComponentValues, Allocator allocator) where T : unmanaged, ISharedComponentData
+        internal void GetAllUniqueSharedComponents_Unmanaged<T>(out UnsafeList<T> sharedComponentValues, AllocatorManager.AllocatorHandle allocator) where T : unmanaged, ISharedComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var defaultValue = default(T);
@@ -2191,19 +2209,46 @@ namespace Unity.Entities
                 int firstMegachunk = gigachunkIndex << 6;
                 actualCount = math.min(chunksPerMegachunk, requestedCount); // literally can't service requests for more
                 value = null;
-                while (actualCount > 0)
+                while(actualCount > 0)
                 {
-                    var error = ConcurrentMask.TryAllocate(ref m_chunkInUse, out int bitOffset, firstMegachunk, actualCount);
-                    if(ConcurrentMask.Succeeded(error))
+                    for(int offset = 0; offset < megachunksInUniverse; ++offset)
                     {
-                        if(error + actualCount == chunksPerMegachunk)
+                        int megachunkIndex = (firstMegachunk + offset) & (megachunksInUniverse-1); // index of current megachunk
+                        long maskAfterAllocation, oldMask, newMask, readMask = m_chunkInUse.ElementAt(megachunkIndex); // read the mask of which chunks are allocated
+                        int chunkInMegachunk; // index of first chunk allocated in current megachunk
+                        do {
+                            oldMask = readMask;
+                            if(oldMask == ~0L)
+                                goto NEXT_MEGACHUNK; // can't find any bits, try the next megachunk
+                            if(!ConcurrentMask.foundAtLeastThisManyConsecutiveZeroes(oldMask, actualCount, out chunkInMegachunk, out int _)) // find consecutive 0 bits to allocate into
+                                goto NEXT_MEGACHUNK; // can't find enough bits, try the next megachunk
+                            newMask = maskAfterAllocation = oldMask | ConcurrentMask.MakeMask(chunkInMegachunk, actualCount); // mask in the freshly allocated bits
+                            if(oldMask == 0L) // if we're the first to allocate from this megachunk,
+                                newMask = ~0L; // mark the whole megachunk as full (busy) until we're done allocating memory
+                            readMask = Interlocked.CompareExchange(ref m_chunkInUse.ElementAt(megachunkIndex), newMask, oldMask);
+                        } while(readMask != oldMask);
+                        int chunkIndex = (megachunkIndex << log2ChunksPerMegachunk) + chunkInMegachunk;
+                        if(oldMask == 0L) // if we are the first allocation in this chunk...
                         {
-                            int megachunkIndex = bitOffset >> log2ChunksPerMegachunk;
-                            ConcurrentMask.AtomicOr(ref m_megachunkIsFull.ElementAt(megachunkIndex>>6), 1L << (megachunkIndex & 63));
+                            long allocated = (long)Memory.Unmanaged.Allocate(MegachunkSizeInBytes, CollectionHelper.CacheLineSize, Allocator.Persistent); // allocate memory
+                            if (allocated == 0L) // if the allocation failed...
+                                return AllocationFailed(chunkIndex, actualCount);
+                            Interlocked.Exchange(ref m_megachunk.ElementAt(megachunkIndex), allocated); // store the pointer to the freshly allocated memory
+                            Interlocked.Exchange(ref m_chunkInUse.ElementAt(megachunkIndex), maskAfterAllocation); // change the mask from ~0L to the true mask after our allocation (which may be ~0L)
                         }
-                        return Allocate(out value, bitOffset, actualCount);
+                        if(maskAfterAllocation == ~0L)
+                            ConcurrentMask.AtomicOr(ref m_megachunkIsFull.ElementAt(megachunkIndex>>6), 1L << (megachunkIndex & 63));
+                        value = GetChunkPointer(chunkIndex);
+                        for(var chunkInAllocation = 0; chunkInAllocation < actualCount; ++chunkInAllocation)
+                        {
+                            var bitOffsetOfChunkInAllocation = chunkIndex + chunkInAllocation;
+                            Chunk* chunk = GetChunkPointer(bitOffsetOfChunkInAllocation);
+                            chunk->ChunkstoreIndex = megachunkIndex;
+                        }
+                        return kErrorNone;
+                        NEXT_MEGACHUNK:;
                     }
-                    actualCount >>= 1; // we tried to get what was asked for, but couldn't find space. halve request and try again.
+                    actualCount >>= 1;
                 }
                 return kErrorNoChunksAvailable;
             }
@@ -2246,20 +2291,29 @@ namespace Unity.Entities
                         return kErrorChunkNotFound;
                     }
                 }
-                int megachunkInChunk = (int)((byte*)value - begin) >> Log2ChunkSizeInBytesRoundedUpToPow2;
-                int error = ConcurrentMask.TryFree(ref m_chunkInUse.ElementAt(megachunkIndex), megachunkInChunk, count);
-                if(error == ConcurrentMask.ErrorFailedToFree)
+                int chunkInMegachunk = (int)((byte*)value - begin) >> Log2ChunkSizeInBytesRoundedUpToPow2;
+                long chunksToFree = ConcurrentMask.MakeMask(chunkInMegachunk, count);
+                long oldMask, newMask, readMask = m_chunkInUse.ElementAt(megachunkIndex); // read the mask of which chunks are allocated
+                do
                 {
-                    ThrowChunkAlreadyMarkedAsFree(value);
-                    return kErrorChunkAlreadyMarkedFree; // yeah, it's zero. somebody already freed it. shouldn'tve happened
+                    oldMask = readMask;
+                    if((oldMask & chunksToFree) != chunksToFree) // if any of our chunks were already freed,
+                    {
+                        ThrowChunkAlreadyMarkedAsFree(value); // pretty serious error! throw,
+                        return kErrorChunkAlreadyMarkedFree; // and return an error code.
+                    }
+                    newMask = oldMask & ~chunksToFree; // zero out the chunks to free in the mask
+                    if(newMask == 0L) // if this would zero out the whole mask,
+                        newMask = ~0L; // *set* the whole mask.. to block new allocations from other threads until we can free the memory
+                    readMask = Interlocked.CompareExchange(ref m_chunkInUse.ElementAt(megachunkIndex), newMask, oldMask);
+                } while (readMask != oldMask);
+                if(newMask == ~0L) // we set the whole mask, we aren't done until we free the memory and then zero the whole mask.
+                {
+                    Interlocked.Exchange(ref m_megachunk.ElementAt(megachunkIndex), 0L); // set the pointer to 0.
+                    Interlocked.Exchange(ref m_chunkInUse.ElementAt(megachunkIndex), 0L); // set the word to 0. "come allocate from me!"
+                    Memory.Unmanaged.Free(begin, Allocator.Persistent); // free the megachunk, since nobody can see it anymore.
                 }
                 ConcurrentMask.AtomicAnd(ref m_megachunkIsFull.ElementAt(megachunkIndex>>6), ~(1L << (megachunkIndex & 63)));
-                if(error == ConcurrentMask.EmptyAfterFree) // if the mask is all 0 after we mask ourselves out,
-                {
-                    var oldValue = (long)begin;
-                    if(oldValue == Interlocked.CompareExchange(ref m_megachunk.ElementAt(megachunkIndex), 0L, oldValue)) // store a 0
-                        Memory.Unmanaged.Free((void*)oldValue, Allocator.Persistent); // free it too.
-                }
                 return kErrorNone;
             }
 

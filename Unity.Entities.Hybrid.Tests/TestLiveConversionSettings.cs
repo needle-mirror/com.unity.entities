@@ -10,6 +10,7 @@ namespace Unity.Scenes.Editor.Tests
     {
         [SerializeField] bool _wasLiveConversionEnabled;
         [SerializeField] LiveConversionSettings.ConversionMode _previousConversionMode;
+        [SerializeField] private bool _previousLiveConversionSceneViewShowRuntime;
 
         public void Setup(bool isBakingEnabled = false)
         {
@@ -19,6 +20,9 @@ namespace Unity.Scenes.Editor.Tests
             LiveConversionSettings.TreatIncrementalConversionFailureAsError = true;
             LiveConversionSettings.EnableInternalDebugValidation = true;
             LiveConversionSettings.Mode = LiveConversionSettings.ConversionMode.IncrementalConversionWithDebug;
+
+            _previousLiveConversionSceneViewShowRuntime = LiveConversionEditorSettings.LiveConversionSceneViewShowRuntime;
+            LiveConversionEditorSettings.LiveConversionSceneViewShowRuntime = true;
         }
 
         public void TearDown()
@@ -27,6 +31,8 @@ namespace Unity.Scenes.Editor.Tests
             LiveConversionSettings.TreatIncrementalConversionFailureAsError = false;
             LiveConversionSettings.EnableInternalDebugValidation = false;
             LiveConversionSettings.Mode = _previousConversionMode;
+
+            LiveConversionEditorSettings.LiveConversionSceneViewShowRuntime = _previousLiveConversionSceneViewShowRuntime;
         }
     }
 }

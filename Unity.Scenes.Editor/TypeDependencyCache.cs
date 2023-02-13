@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Entities;
 using UnityEditor;
 using UnityEngine;
@@ -24,20 +25,18 @@ namespace Unity.Scenes.Editor
             public string FullName;
             public string UserName;
             public int    Version;
+            public bool   Excluded;
             public Type   Type;
             public string AssemblyName;
 
-            public void Init(Type type, string fullName)
+            public void Init(BakingVersionAttribute bakingVersionAttribute, Type type, string fullName)
             {
                 FullName = fullName;
                 Type = type;
                 AssemblyName = type.Assembly.GetName().Name;
-                var systemVersionAttribute = type.GetCustomAttribute<BakingVersionAttribute>();
-                if (systemVersionAttribute != null)
-                {
-                    Version = systemVersionAttribute.Version;
-                    UserName = systemVersionAttribute.UserName;
-                }
+                Version = bakingVersionAttribute.Version;
+                UserName = bakingVersionAttribute.UserName;
+                Excluded = bakingVersionAttribute.Excluded;
             }
         }
 
@@ -105,9 +104,10 @@ namespace Unity.Scenes.Editor
                 if (fullName == null)
                     continue;
 
-                if (bakers[i].GetCustomAttribute<BakingVersionAttribute>() != null)
+                var bakingVersionAttribute = bakers[i].GetCustomAttribute<BakingVersionAttribute>();
+                if ( bakingVersionAttribute != null)
                 {
-                    versionedAssemblies[count++].Init(bakers[i], fullName);
+                    versionedAssemblies[count++].Init(bakingVersionAttribute, bakers[i], fullName);
                 }
             }
 
@@ -118,9 +118,10 @@ namespace Unity.Scenes.Editor
                 if (fullName == null)
                     continue;
 
-                if (systems[i].GetCustomAttribute<BakingVersionAttribute>() != null)
+                var bakingVersionAttribute = systems[i].GetCustomAttribute<BakingVersionAttribute>();
+                if ( bakingVersionAttribute != null)
                 {
-                    versionedAssemblies[count++].Init(bakers[i], fullName);
+                    versionedAssemblies[count++].Init(bakingVersionAttribute, systems[i], fullName);
                 }
             }
 
@@ -133,11 +134,11 @@ namespace Unity.Scenes.Editor
                 var assembly = bakerType.Assembly;
                 var assemblyName = assembly.GetName().Name;
                 //If there is at least one baker marked with BakingVersion attribute, we don't register the dependency with the assembly but the value of the attribute
-                var bakingVersionAttributes = Array.FindAll(versionedAssemblies, x => x.AssemblyName == assemblyName);
+                var bakingVersionAttributes = Array.FindAll(versionedAssemblies, x => !x.Excluded && x.AssemblyName == assemblyName);
                 if (bakingVersionAttributes.Length > 0)
                 {
                     //If the bakerType doesn't have a baking version attribute, but is part of an assembly that have some. We need to warn the user to add the attribute on it
-                    var missingBakingVersion = Array.FindAll(versionedAssemblies, x => x.Type == bakerType);
+                    var missingBakingVersion = Array.FindAll(versionedAssemblies, x => !x.Excluded && x.Type == bakerType);
                     if (missingBakingVersion.Length == 0)
                     {
                         if (!missingBakingVersionAttributePerAssembly.TryGetValue(assemblyName, out var missingAttrib))
@@ -166,7 +167,7 @@ namespace Unity.Scenes.Editor
                         HashUnsafeUtilities.ComputeHash128(&version, sizeof(int), &hash);
                     }
                 }
-                else if (!assemblies.Contains(assemblyName))
+                else if (!assemblies.Contains(assemblyName) && !Array.Exists(versionedAssemblies, x => x.Excluded && x.Type == bakerType))
                 {
                     assemblies.Add(assemblyName);
                     var moduleVersionId = assembly.ManifestModule.ModuleVersionId;
@@ -182,11 +183,11 @@ namespace Unity.Scenes.Editor
                 var assembly = systemType.Assembly;
                 var assemblyName = assembly.GetName().Name;
                 //If there is at least one baking system or entity scene optimization system marked with BakingVersion attribute, we don't register the dependency with the assembly but the value of the attribute
-                var bakingVersionAttributes = Array.FindAll(versionedAssemblies, x => x.AssemblyName == assemblyName);
+                var bakingVersionAttributes = Array.FindAll(versionedAssemblies, x => !x.Excluded && x.AssemblyName == assemblyName);
                 if (bakingVersionAttributes.Length > 0)
                 {
                     //If the bakerType doesn't have a baking version attribute, but is part of an assembly that have some. We need to warn the user to add the attribute on it
-                    var missingBakingVersion = Array.FindAll(versionedAssemblies, x => x.Type == systemType);
+                    var missingBakingVersion = Array.FindAll(versionedAssemblies, x => !x.Excluded && x.Type == systemType);
                     if (missingBakingVersion.Length == 0)
                     {
                         if (!missingBakingVersionAttributePerAssembly.TryGetValue(assemblyName, out var missingAttrib))
@@ -215,7 +216,7 @@ namespace Unity.Scenes.Editor
                         HashUnsafeUtilities.ComputeHash128(&version, sizeof(int), &hash);
                     }
                 }
-                else if (!assemblies.Contains(assemblyName))
+                else if (!assemblies.Contains(assemblyName) && !Array.Exists(versionedAssemblies, x => x.Excluded && x.Type == systemType))
                 {
                     assemblies.Add(assemblyName);
                     var moduleVersionId = assembly.ManifestModule.ModuleVersionId;

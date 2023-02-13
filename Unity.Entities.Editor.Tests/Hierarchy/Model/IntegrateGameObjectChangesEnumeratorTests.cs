@@ -12,14 +12,14 @@ namespace Unity.Entities.Editor.Tests
     sealed class IntegrateGameObjectChangesEnumeratorTests
     {
         HierarchyNodeStore m_HierarchyNodeStore;
-        SubSceneNodeMapping m_Mapping;
+        SubSceneMap m_Mapping;
         HierarchyGameObjectChanges m_Changes;
 
         [SetUp]
         public void SetUp()
         {
-            m_Mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            m_HierarchyNodeStore = new HierarchyNodeStore(m_Mapping, Allocator.Persistent);
+            m_Mapping = new SubSceneMap();
+            m_HierarchyNodeStore = new HierarchyNodeStore(Allocator.Persistent);
             m_Changes = new HierarchyGameObjectChanges(Allocator.Persistent);
         }
 
@@ -40,7 +40,7 @@ namespace Unity.Entities.Editor.Tests
             m_Changes.UnloadedScenes.Add(testScene);
             m_Changes.GameObjectChangeTrackerEvents.Add(new GameObjectChangeTrackerEvent(testGO.GetInstanceID(), GameObjectChangeTrackerEventType.CreatedOrChanged));
 
-            var iterator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_Changes, 10);
+            var iterator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_Changes, m_Mapping, 10);
 
             Assert.That(iterator.CurrentStep, Is.EqualTo(Step.HandleUnloadedScenes));
             Assert.That(iterator.MoveNext(), Is.True);
@@ -79,7 +79,7 @@ namespace Unity.Entities.Editor.Tests
 
             expectedSteps.Add(Step.Complete);
 
-            var iterator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_Changes, 10);
+            var iterator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_Changes, m_Mapping, 10);
             var steps = new List<Step>();
             while (true)
             {
@@ -100,7 +100,7 @@ namespace Unity.Entities.Editor.Tests
                 m_Changes.GameObjectChangeTrackerEvents.Add(new GameObjectChangeTrackerEvent(gameObject.GetInstanceID(), GameObjectChangeTrackerEventType.CreatedOrChanged));
             }
 
-            var iterator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_Changes, 10);
+            var iterator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_Changes, m_Mapping,10);
             Assert.That(iterator.CurrentStep, Is.EqualTo(Step.IntegrateChanges));
             Assert.That(iterator.MoveNext(), Is.True);
             Assert.That(iterator.CurrentStep, Is.EqualTo(Step.IntegrateChanges));

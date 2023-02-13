@@ -76,7 +76,7 @@ namespace Unity.Scenes.Editor
                     for(int i=0;i<weakAssets.Value.Length;++i)
                     {
                         var weakAssetRef = weakAssets.Value[i];
-                        if (weakAssetRef.GenerationType == WeakReferenceGenerationType.GameObjectScene || weakAssetRef.GenerationType == WeakReferenceGenerationType.EntityPrefab)
+                        if (weakAssetRef.GenerationType == WeakReferenceGenerationType.EntityScene || weakAssetRef.GenerationType == WeakReferenceGenerationType.EntityPrefab)
                         {
                             if(!artifactKeys.ContainsKey(weakAssetRef.GlobalId.AssetGUID))
                                 sceneGuids.Add(weakAssetRef.GlobalId.AssetGUID);
@@ -137,7 +137,7 @@ namespace Unity.Scenes.Editor
             var weakAssetsExt = $".{EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesWeakAssetRefs)}";
             var weakAssetRefs = new HashSet<UntypedWeakReferenceId>();
             int subSceneAssetCount = 0;
-            string exportedTypes = EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesExportedTypes);
+            string exportedTypes = $".{EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesExportedTypes)}";
 
             var group = BuildPipeline.GetBuildTargetGroup(target);
             var artifactHashes = new UnityEngine.Hash128[entitySceneArtifacts.Length];
@@ -219,14 +219,14 @@ namespace Unity.Scenes.Editor
 #if ENABLE_CONTENT_BUILD_DIAGNOSTICS
                         Debug.Log($"Scene {sceneGuid}: ReferencedUnityObjects section {sectionIndex}, build id {id}, runtime section id {ssh}, path override: {artifactPath}");
 #endif
-
+                        var globalUsage = ReadGlobalUsageArtifact(globalUsgExt, artifactPaths);
                         customContent.Add(new CustomContent
                         {
                             Asset = GUID.Generate(),
                             Processor = (guid, processor) =>
                             {
                                 var objs = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(artifactPath);
-                                processor.GetObjectIdentifiersAndTypesForSerializedFile(artifactPath, out ObjectIdentifier[] objectIds, out Type[] types);
+                                processor.GetObjectIdentifiersAndTypesForSerializedFile(artifactPath, out ObjectIdentifier[] objectIds, out Type[] types, globalUsage);
                                 processor.CreateAssetEntryForObjectIdentifiers(objectIds, artifactPath, address, address, typeof(ReferencedUnityObjects));
                                 foreach (var obj in objs)
                                 {

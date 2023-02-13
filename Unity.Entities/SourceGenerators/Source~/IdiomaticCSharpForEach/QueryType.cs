@@ -4,6 +4,8 @@
     {
         RefRW,
         RefRO,
+        RefRW_TagComponent,
+        RefRO_TagComponent,
         UnmanagedSharedComponent,
         ManagedSharedComponent,
         Aspect,

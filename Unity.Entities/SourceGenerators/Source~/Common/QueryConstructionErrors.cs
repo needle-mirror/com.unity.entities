@@ -11,7 +11,7 @@ namespace Unity.Entities.SourceGen.Common
         {
             systemDescription.LogError(nameof(SGQC001),
                 ErrorTitle,
-                $"{invokedMethodName}<{argumentTypeName}>() is not supported. {invokedMethodName}<T>() may only be invoked on types that 1) implement IComponentData, ISharedComponentData, IAspect<{argumentTypeName}> or IBufferElementData," +
+                $"{invokedMethodName}<{argumentTypeName}>() is not supported. {invokedMethodName}<T>() may only be invoked on types that 1) implement IComponentData, ISharedComponentData, IAspect or IBufferElementData," +
                 " or 2) are UnityEngine.Object types.",
                 location);
         }
@@ -34,8 +34,8 @@ namespace Unity.Entities.SourceGen.Common
             systemDescription.LogError(
                 nameof(SGQC003),
                 ErrorTitle,
-                $"Using .WithAny<{queryTypeFullName}>()/.WithNone<{queryTypeFullName}>() and .WithSharedComponentFilter<{queryTypeFullName}>() in the same `Entities.ForEach` lambda function" +
-                "is not currently supported.",
+                $"Using .WithAny<{queryTypeFullName}>()/.WithNone<{queryTypeFullName}>()/.WithDisabled<{queryTypeFullName}>()/.WithAbsent<{queryTypeFullName}>() and .WithSharedComponentFilter<{queryTypeFullName}>() " +
+                "in the same `Entities.ForEach` lambda function is not currently supported.",
                 location);
         }
 

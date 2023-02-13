@@ -37,7 +37,7 @@ namespace Unity.Entities
         readonly ManagedObjectClone m_ManagedObjectClone = new ManagedObjectClone();
         readonly ManagedObjectRemap m_ManagedObjectRemap = new ManagedObjectRemap();
 
-        UnsafeMultiHashMap<int, int> m_HashLookup = new UnsafeMultiHashMap<int, int>(128, Allocator.Persistent);
+        UnsafeParallelMultiHashMap<int, int> m_HashLookup = new UnsafeParallelMultiHashMap<int, int>(128, Allocator.Persistent);
 
         List<object> m_SharedComponentData = new List<object>();
 
@@ -225,14 +225,13 @@ namespace Unity.Entities
             if (TypeManager.Equals(ref defaultVal, ref newData))
                 return 0;
 
-            return FindNonDefaultSharedComponentIndex(typeIndex, TypeManager.GetHashCode(ref newData),
-                UnsafeUtility.AddressOf(ref newData));
+            return FindNonDefaultSharedComponentIndex(typeIndex, TypeManager.GetHashCode(ref newData), ref newData);
         }
 
-        private int FindNonDefaultSharedComponentIndex(TypeIndex typeIndex, int hashCode, void* newData)
+        private int FindNonDefaultSharedComponentIndex<T>(TypeIndex typeIndex, int hashCode, ref T newData) where T : struct
         {
             int itemIndex;
-            NativeMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<int> iter;
 
             if (!m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
                 return -1;
@@ -243,7 +242,8 @@ namespace Unity.Entities
                 var data = m_SharedComponentData[itemIndex];
                 if (data != null && infos[itemIndex].ComponentType == typeIndex)
                 {
-                    if (TypeManager.Equals(data, newData, typeIndex))
+                    var inst = (T) data;
+                    if (TypeManager.Equals(ref inst, ref newData))
                         return itemIndex;
                 }
             }
@@ -255,7 +255,7 @@ namespace Unity.Entities
         private int FindNonDefaultSharedComponentIndex(TypeIndex typeIndex, int hashCode, object newData)
         {
             int itemIndex;
-            NativeMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<int> iter;
 
             if (!m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
                 return -1;
@@ -436,7 +436,7 @@ namespace Unity.Entities
             m_FreeListIndex = index;
 
             int itemIndex;
-            NativeMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<int> iter;
             if (m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
             {
                 do
@@ -470,7 +470,7 @@ namespace Unity.Entities
 
                     bool found = false;
                     int itemIndex;
-                    NativeMultiHashMapIterator<int> iter;
+                    NativeParallelMultiHashMapIterator<int> iter;
                     if (m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
                     {
                         do

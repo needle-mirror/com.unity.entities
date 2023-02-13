@@ -733,7 +733,7 @@ namespace Unity.Entities
             [ReadOnly] public ComponentTypeHandle<EntityGuid> ComponentTypeHandle;
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
 
-            [WriteOnly] public NativeMultiHashMap<EntityGuid, Entity>.ParallelWriter EntityGuidToEntity;
+            [WriteOnly] public NativeParallelMultiHashMap<EntityGuid, Entity>.ParallelWriter EntityGuidToEntity;
 
             [BurstCompile]
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
@@ -752,7 +752,7 @@ namespace Unity.Entities
         [BurstCompile]
         struct GatherNamesForComponentChanges : IJobParallelFor
         {
-            [ReadOnly] public NativeMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
+            [ReadOnly] public NativeParallelMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
             [ReadOnly] public NativeArray<EntityGuid> Entities;
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* EntityComponentStore;
             [WriteOnly] public NativeArray<FixedString64Bytes> Names;
@@ -769,7 +769,7 @@ namespace Unity.Entities
         [BurstCompile]
         struct GatherNamesChangedEntities : IJobParallelFor
         {
-            [ReadOnly] public NativeMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
+            [ReadOnly] public NativeParallelMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
             [ReadOnly] public NativeArray<EntityGuid> NameChangedEntityGuids;
             [WriteOnly] public NativeArray<Entity> NameChangedEntities;
             [BurstCompile]
@@ -790,7 +790,7 @@ namespace Unity.Entities
             var entityQuery = entityManager.CreateEntityQuery(EntityGuidQueryDesc);
             var entityCount = entityQuery.CalculateEntityCount();
 
-            var entityGuidToEntity = new NativeMultiHashMap<EntityGuid, Entity>(entityCount, allocator);
+            var entityGuidToEntity = new NativeParallelMultiHashMap<EntityGuid, Entity>(entityCount, allocator);
 
             var buildEntityGuidToEntity = new BuildEntityGuidToEntityHashMap
             {

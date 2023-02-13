@@ -331,6 +331,9 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [UnityTest]
+#if UNITY_EDITOR_LINUX
+        [Ignore("DOTS-7790 - Ubuntu editor often crashes when running this test")]
+#endif
         public IEnumerator WeakObjectReference_CanLoadAndRelease()
         {
             yield return new EnterPlayMode();

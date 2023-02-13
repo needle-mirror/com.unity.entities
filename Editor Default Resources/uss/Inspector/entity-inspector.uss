@@ -16,3 +16,8 @@
     overflow: visible;
     -unity-font-style: bold;
 }
+
+.unity-inspector-element--uie .entity-inspector
+{
+    margin-left: -15px;
+}

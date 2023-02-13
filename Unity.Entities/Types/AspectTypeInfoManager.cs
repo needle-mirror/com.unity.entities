@@ -12,7 +12,10 @@ namespace Unity.Entities
     {
         struct AspectTypeInfoTag { };
         static readonly SharedStatic<AspectTypeInfo> s_AspectTypeInfo = SharedStatic<AspectTypeInfo>.GetOrCreate<AspectTypeInfoTag>();
-        static UnsafeMultiHashMap<ulong, AspectType> m_ArchetypeAspectMap;
+        static UnsafeParallelMultiHashMap<ulong, AspectType> m_ArchetypeAspectMap;
+
+        private delegate void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, ref UnsafeList<ComponentType> any, ref UnsafeList<ComponentType> none,
+            ref UnsafeList<ComponentType> disabled, ref UnsafeList<ComponentType> absent, bool isReadOnly);
 
         static void InitializeAspectTypeInfo()
         {
@@ -23,8 +26,8 @@ namespace Unity.Entities
             s_AspectTypeInfo.Data = new AspectTypeInfo
             {
                 AspectTypes = new UnsafeList<AspectType>(aspectTypes.Length, Allocator.Persistent),
-                AspectRequiredComponents = new UnsafeMultiHashMap<AspectType, ComponentType>(aspectTypes.Length, Allocator.Persistent),
-                AspectExcludedComponents = new UnsafeMultiHashMap<AspectType, ComponentType>(aspectTypes.Length, Allocator.Persistent)
+                AspectRequiredComponents = new UnsafeParallelMultiHashMap<AspectType, ComponentType>(aspectTypes.Length, Allocator.Persistent),
+                AspectExcludedComponents = new UnsafeParallelMultiHashMap<AspectType, ComponentType>(aspectTypes.Length, Allocator.Persistent)
             };
 
             for (var i = 0; i < aspectTypes.Length; ++i)
@@ -32,24 +35,28 @@ namespace Unity.Entities
                 var aspectType = AspectType.FromTypeIndex(i);
                 var aspectManagedType = aspectType.GetManagedType();
 
-                var requiredComponentsProperty = aspectManagedType.GetProperty("RequiredComponents", BindingFlags.Public | BindingFlags.Static);
-                var requiredComponents = requiredComponentsProperty?.GetValue(null, null) as ComponentType[];
+                var addComponentRequirementsTo = (AddComponentRequirementsTo)Delegate.CreateDelegate(
+                    typeof(AddComponentRequirementsTo),
+                    Activator.CreateInstance(aspectManagedType),
+                    aspectManagedType.GetMethod("AddComponentRequirementsTo", BindingFlags.Public | BindingFlags.Instance));
 
-                var excludeComponentsProperty = aspectManagedType.GetProperty("ExcludeComponents", BindingFlags.Public | BindingFlags.Static);
-                var excludeComponents = excludeComponentsProperty?.GetValue(null, null) as ComponentType[];
+                var all = new UnsafeList<ComponentType>(8, Allocator.Temp);
+                var any = new UnsafeList<ComponentType>(8, Allocator.Temp);
+                var none = new UnsafeList<ComponentType>(8, Allocator.Temp);
+                var disabled = new UnsafeList<ComponentType>(8, Allocator.Temp);
+                var absent = new UnsafeList<ComponentType>(8, Allocator.Temp);
+                addComponentRequirementsTo.Invoke(ref all, ref any, ref none, ref disabled, ref absent, false);
+
+                for (var j = 0; j != all.Length; ++j)
+                    s_AspectTypeInfo.Data.AspectRequiredComponents.Add(aspectType, all[j]);
+                for (var j = 0; j != none.Length; ++j)
+                    s_AspectTypeInfo.Data.AspectExcludedComponents.Add(aspectType, none[j]);
+
+                all.Dispose();
+                any.Dispose();
+                none.Dispose();
 
                 s_AspectTypeInfo.Data.AspectTypes.AddNoResize(aspectType);
-                if (requiredComponents != null)
-                {
-                    foreach (var required in requiredComponents)
-                        s_AspectTypeInfo.Data.AspectRequiredComponents.Add(aspectType, required);
-                }
-
-                if (excludeComponents != null)
-                {
-                    foreach (var excluded in excludeComponents)
-                        s_AspectTypeInfo.Data.AspectExcludedComponents.Add(aspectType, excluded);
-                }
             }
         }
 
@@ -68,7 +75,7 @@ namespace Unity.Entities
             var archetype = world.EntityManager.GetChunk(entity).Archetype;
             var aspectTypes = new NativeList<AspectType>(16, Allocator.Temp);
             if (!m_ArchetypeAspectMap.IsCreated)
-                m_ArchetypeAspectMap = new UnsafeMultiHashMap<ulong, AspectType>(16, Allocator.Persistent);
+                m_ArchetypeAspectMap = new UnsafeParallelMultiHashMap<ulong, AspectType>(16, Allocator.Persistent);
 
             // If mapping already exists, return those values.
             if (m_ArchetypeAspectMap.ContainsKey(archetype.StableHash))
@@ -82,7 +89,7 @@ namespace Unity.Entities
                 var componentTypes = archetype.GetComponentTypes();
                 foreach (var at in s_AspectTypeInfo.Data.AspectTypes)
                 {
-                    if (ContainAllRequiredComponents(componentTypes, at) && !ContainAnyExcludeComponents(componentTypes, at))
+                    if (HasAnyQueryComponents(at) && ContainAllRequiredComponents(componentTypes, at) && !ContainAnyExcludeComponents(componentTypes, at))
                     {
                         m_ArchetypeAspectMap.Add(archetype.StableHash, at);
                         aspectTypes.Add(at);
@@ -95,6 +102,12 @@ namespace Unity.Entities
             var result = aspectTypes.ToArray(Allocator.Temp);
             aspectTypes.Dispose();
             return result;
+        }
+
+        static bool HasAnyQueryComponents(AspectType aspectType)
+        {
+            using var enumerator = s_AspectTypeInfo.Data.AspectRequiredComponents.GetValuesForKey(aspectType);
+            return enumerator.MoveNext();
         }
 
         static bool ContainAllRequiredComponents(NativeArray<ComponentType> componentTypes, AspectType aspectType)

@@ -11,7 +11,6 @@ namespace Unity.Entities.Editor.Tests
     {
         World m_World;
         HierarchyNodeStore m_HierarchyNodeStore;
-        SubSceneNodeMapping m_Mapping;
 
         World World => m_World;
 
@@ -19,8 +18,7 @@ namespace Unity.Entities.Editor.Tests
         public void SetUp()
         {
             m_World = new World(nameof(HierarchyNodeStoreTests));
-            m_Mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            m_HierarchyNodeStore = new HierarchyNodeStore(m_Mapping, Allocator.Persistent);
+            m_HierarchyNodeStore = new HierarchyNodeStore(Allocator.Persistent);
         }
 
         [TearDown]
@@ -28,14 +26,12 @@ namespace Unity.Entities.Editor.Tests
         {
             m_HierarchyNodeStore.Dispose();
             m_World.Dispose();
-            m_Mapping.Dispose();
         }
 
         [Test]
         public void RootAlwaysExists()
         {
-            using var mapping = new SubSceneNodeMapping(Allocator.Temp);
-            using var hierarchy = new HierarchyNodeStore(mapping, World.UpdateAllocator.ToAllocator);
+            using var hierarchy = new HierarchyNodeStore(World.UpdateAllocator.ToAllocator);
             Assert.That(hierarchy.Exists(HierarchyNodeHandle.Root));
             Assert.That(hierarchy.GetNode(HierarchyNodeHandle.Root).GetDepth(), Is.EqualTo(-1));
             Assert.That(hierarchy.GetNode(HierarchyNodeHandle.Root).GetChildCount(), Is.EqualTo(0));

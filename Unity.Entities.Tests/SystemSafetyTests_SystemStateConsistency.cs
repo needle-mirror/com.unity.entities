@@ -66,8 +66,6 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
             _Query = state.GetEntityQuery(typeof(EcsTestData));
         }
 
-        public void OnDestroy(ref SystemState state) { }
-
         [BurstCompile(CompileSynchronously = true)]
         public void OnUpdate(ref SystemState state)
         {
@@ -215,8 +213,6 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
             _Query = state.GetEntityQuery(typeof(EcsTestData));
         }
 
-        public void OnDestroy(ref SystemState state) { }
-
         [BurstCompile(CompileSynchronously = true)]
         public void OnUpdate(ref SystemState state)
         {
@@ -285,9 +281,6 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
 
     partial struct CatchInSystemIsRestoredAfterISystem : ISystem
     {
-        public void OnCreate(ref SystemState state) { }
-        public void OnDestroy(ref SystemState state){ }
-
         unsafe public void OnUpdate(ref SystemState systemState)
         {
             try

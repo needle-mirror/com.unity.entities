@@ -88,21 +88,6 @@ namespace Unity.Transforms.PerformanceTests
         [BurstCompile]
         partial struct AspectPerfTestSystem : ISystem
         {
-            [BurstCompile]
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            [BurstCompile]
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            [BurstCompile]
-            public void OnUpdate(ref SystemState state)
-            {
-            }
-
             // Set Position with direct WorldTransform access
             [BurstCompile]
             partial struct SetPositionLocalJob_Transform : IJobEntity

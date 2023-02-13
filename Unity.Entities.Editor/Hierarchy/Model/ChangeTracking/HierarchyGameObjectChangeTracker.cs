@@ -79,13 +79,13 @@ namespace Unity.Entities.Editor
         readonly HashSet<Scene> m_LoadedScenes = new HashSet<Scene>();
         readonly HashSet<UnloadedScene> m_UnloadedScenes = new HashSet<UnloadedScene>();
         readonly NativeList<GameObjectChangeTrackerEvent> m_ChangeEventsQueue;
-        readonly NativeHashMap<int,int> m_ChangeEventsIndex;
+        readonly NativeParallelHashMap<int,int> m_ChangeEventsIndex;
         NativeArray<GameObjectChangeTrackerEvent> m_SingleGameObjectChangeTrackerEvents;
 
         public HierarchyGameObjectChangeTracker(Allocator allocator)
         {
             m_ChangeEventsQueue = new NativeList<GameObjectChangeTrackerEvent>(2048, allocator);
-            m_ChangeEventsIndex = new NativeHashMap<int, int>(2048, allocator);
+            m_ChangeEventsIndex = new NativeParallelHashMap<int, int>(2048, allocator);
 
             m_SingleGameObjectChangeTrackerEvents = new NativeArray<GameObjectChangeTrackerEvent>(1, Allocator.Persistent);
 
@@ -94,10 +94,20 @@ namespace Unity.Entities.Editor
             EditorSceneManager.sceneClosing += OnSceneClosing;
             EditorSceneManager.newSceneCreated += OnNewSceneCreated;
             EditorSceneManager.sceneSaved += OnSceneSaved;
+            EditorSceneManager.sceneManagerSetupRestored += OnSceneManagerSetupRestored;
             SceneManager.sceneLoaded += OnSceneLoaded;
             SceneManager.sceneUnloaded += OnSceneUnloaded;
 
             Clear();
+        }
+
+        void OnSceneManagerSetupRestored(Scene[] scenes)
+        {
+            foreach (var scene in scenes)
+            {
+                if (scene.isLoaded)
+                    m_LoadedScenes.Add(scene);
+            }
         }
 
         public void Clear()
@@ -132,6 +142,7 @@ namespace Unity.Entities.Editor
             EditorSceneManager.sceneClosing -= OnSceneClosing;
             EditorSceneManager.newSceneCreated -= OnNewSceneCreated;
             EditorSceneManager.sceneSaved -= OnSceneSaved;
+            EditorSceneManager.sceneManagerSetupRestored -= OnSceneManagerSetupRestored;
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneUnloaded -= OnSceneUnloaded;
         }
@@ -210,27 +221,19 @@ namespace Unity.Entities.Editor
         internal struct MergeEventsJob : IJob
         {
             public NativeList<GameObjectChangeTrackerEvent> Events;
-            public NativeHashMap<int,int> EventsIndex;
+            public NativeParallelHashMap<int,int> EventsIndex;
 
             [ReadOnly] public NativeArray<GameObjectChangeTrackerEvent> EventsToAdd;
 
             public unsafe void Execute()
             {
                 var eventsToAddPtr = (GameObjectChangeTrackerEvent*)EventsToAdd.GetUnsafeReadOnlyPtr();
-                var eventsIndexWorstCaseCapacity = EventsIndex.Count + EventsToAdd.Length;
-                var indexNeedResize = EventsIndex.Capacity < eventsIndexWorstCaseCapacity;
 
                 for (var i = 0; i < EventsToAdd.Length; i++)
                 {
                     ref var evtToAdd = ref eventsToAddPtr[i];
                     if (!EventsIndex.TryGetValue(evtToAdd.InstanceId, out var existingIndex))
                     {
-                        if (indexNeedResize)
-                        {
-                            EventsIndex.Capacity = math.ceilpow2(eventsIndexWorstCaseCapacity);
-                            indexNeedResize = false;
-                        }
-
                         EventsIndex.Add(evtToAdd.InstanceId, Events.Length);
                         Events.Add(evtToAdd);
                     }

@@ -148,9 +148,9 @@ namespace Unity.Entities.Editor.Tests
             RelationshipsTab.GetMatchSystems(e, m_TestWorld, matchingQueries, matchingSystems, m_WorldProxy);
             Assert.That(matchingSystems.Select(s => s.SystemName).SequenceEqual(
                     new [] {
+                        "Relationships Tab Tests | System A (Unity.Entities.Editor.Tests.DuplicateSystemNameTest)",
                         "Relationships Tab Tests | System B",
-                        "Relationships Tab Tests | System A (Unity.Entities.Editor.Tests)",
-                        "Relationships Tab Tests | System A (Unity.Entities.Editor.Tests.DuplicateSystemNameTest)"}), Is.True);
+                        "Relationships Tab Tests | System A (Unity.Entities.Editor.Tests)"}), Is.True);
         }
 
         partial class SystemA : SystemBase

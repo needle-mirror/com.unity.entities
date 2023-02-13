@@ -303,11 +303,6 @@ namespace Unity.Transforms
         private ComponentTypeHandle<ScalePivot> ScalePivotType;
 
         [BurstCompile]
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             CompositeScaleType.Update(ref state);

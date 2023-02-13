@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Unity.Burst;
@@ -10,7 +11,6 @@ using Unity.Entities;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Profiling;
-using CreateOrderSystemSorter = Unity.Entities.ComponentSystemSorter<Unity.Entities.CreateBeforeAttribute, Unity.Entities.CreateAfterAttribute>;
 
 namespace Unity.Entities
 {
@@ -20,6 +20,69 @@ namespace Unity.Entities
         static List<Type> s_SystemTypes;
         static Dictionary<Type, int> s_ManagedSystemTypeToIndex;
 
+
+        internal enum SystemAttributeKind
+        {
+            UpdateBefore,
+            UpdateAfter, 
+            CreateBefore,
+            CreateAfter,
+            DisableAutoCreation,
+            UpdateInGroup,
+            RequireMatchingQueriesForUpdate
+        }
+
+        internal static SystemAttributeKind AttributeTypeToKind(Type attributeType)
+        {
+            if (attributeType == typeof(UpdateBeforeAttribute))
+                return SystemAttributeKind.UpdateBefore;
+            if (attributeType == typeof(UpdateAfterAttribute))
+                return SystemAttributeKind.UpdateAfter;
+            if (attributeType == typeof(CreateBeforeAttribute))
+                return SystemAttributeKind.CreateBefore;
+            if (attributeType == typeof(CreateAfterAttribute))
+                return SystemAttributeKind.CreateAfter;
+            if (attributeType == typeof(DisableAutoCreationAttribute))
+                return SystemAttributeKind.DisableAutoCreation;
+            if (attributeType == typeof(UpdateInGroupAttribute))
+                return SystemAttributeKind.UpdateInGroup;
+            if (attributeType == typeof(RequireMatchingQueriesForUpdateAttribute))
+                return SystemAttributeKind.RequireMatchingQueriesForUpdate;
+
+            throw new ArgumentException($"Unknown attribute type {attributeType}");
+        }
+
+        internal static Type SystemAttributeKindToType(SystemAttributeKind kind)
+        {
+            switch (kind)
+            {
+                case SystemAttributeKind.UpdateBefore:
+                    return typeof(UpdateBeforeAttribute);
+                case SystemAttributeKind.UpdateAfter:
+                    return typeof(UpdateAfterAttribute);
+                case SystemAttributeKind.CreateBefore:
+                    return typeof(CreateBeforeAttribute);
+                case SystemAttributeKind.CreateAfter:
+                    return typeof(CreateAfterAttribute);
+                case SystemAttributeKind.DisableAutoCreation:
+                    return typeof(DisableAutoCreationAttribute);
+                case SystemAttributeKind.UpdateInGroup:
+                    return typeof(UpdateInGroupAttribute);
+                case SystemAttributeKind.RequireMatchingQueriesForUpdate:
+                    return typeof(RequireMatchingQueriesForUpdateAttribute);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
+            }
+        }
+
+        internal struct SystemAttribute
+        {
+            public const int kOrderFirstFlag = 1;
+            public const int kOrderLastFlag = 1 << 1;
+            public SystemAttributeKind Kind;
+            public int TargetSystemTypeIndex;
+            public int Flags;
+        }
 
         internal readonly struct SystemTypeInfo
         {
@@ -59,7 +122,7 @@ namespace Unity.Entities
         }
 
         static List<int> s_SystemTypeSizes;
-        static List<long> s_SystemTypeHashes;
+        static UnsafeList<long> s_SystemTypeHashes;
         struct LookupFlags
         {
             public WorldSystemFilterFlags OptionalFlags;
@@ -70,7 +133,7 @@ namespace Unity.Entities
         static UnsafeList<int> s_SystemTypeFlagsList;
         static UnsafeList<WorldSystemFilterFlags> s_SystemFilterFlagsList;
         static UnsafeList<UnsafeText> s_SystemTypeNames;
-
+        static UnsafeList<UnsafeList<SystemAttribute>> s_SystemAttributes;
 
 #if UNITY_DOTSRUNTIME
         static List<int> s_SystemTypeDelegateIndexRanges;
@@ -87,13 +150,14 @@ namespace Unity.Entities
             s_SystemTypes = new List<Type>(kInitialSystemCount);
             s_ManagedSystemTypeToIndex = new Dictionary<Type, int>(kInitialSystemCount);
             s_SystemTypeSizes = new List<int>(kInitialSystemCount);
-            s_SystemTypeHashes = new List<long>(kInitialSystemCount);
+            s_SystemTypeHashes = new UnsafeList<long>(kInitialSystemCount, Allocator.Persistent);
             s_SystemFilterTypeMap = new Dictionary<LookupFlags, IReadOnlyList<Type>>(kInitialSystemCount);
 
             s_SystemTypeFlagsList = new UnsafeList<int>(kInitialSystemCount, Allocator.Persistent);
             s_SystemFilterFlagsList = new UnsafeList<WorldSystemFilterFlags>(kInitialSystemCount, Allocator.Persistent);
 
             s_SystemTypeNames = new UnsafeList<UnsafeText>(kInitialSystemCount, Allocator.Persistent);
+            s_SystemAttributes = new UnsafeList<UnsafeList<SystemAttribute>>(kInitialSystemCount, Allocator.Persistent);
 
 #if UNITY_DOTSRUNTIME
             s_SystemTypeDelegateIndexRanges = new List<int>(kInitialSystemCount);
@@ -108,7 +172,6 @@ namespace Unity.Entities
             s_SystemTypes.Clear();
             s_ManagedSystemTypeToIndex.Clear();
             s_SystemTypeSizes.Clear();
-            s_SystemTypeHashes.Clear();
             s_SystemFilterTypeMap.Clear();
 
             s_SystemTypeFlagsList.Dispose();
@@ -117,6 +180,18 @@ namespace Unity.Entities
             foreach (var name in s_SystemTypeNames)
                 name.Dispose();
             s_SystemTypeNames.Dispose();
+
+            for (int i=0; i<s_SystemAttributes.Length; i++)
+            {
+                var e = s_SystemAttributes[i];
+                if (e.IsCreated)
+                {
+                    e.Dispose();
+                }
+            }
+
+            s_SystemAttributes.Dispose();
+            s_SystemTypeHashes.Dispose();
 
 #if UNITY_DOTSRUNTIME
             s_SystemTypeDelegateIndexRanges.Clear();
@@ -169,12 +244,173 @@ namespace Unity.Entities
 
                     AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
                 }
+
+                /*
+                 * We need to do this after we've added all the systems to all the tables so that system type indices
+                 * will all already exist, even for systems later in the list, so that if we find e.g. an UpdateAfter
+                 * attr that refers to a system later in the list, we can find the typeindex for said later system
+                 * and put it in the table.
+                 */
+                s_SystemAttributes.Add(new UnsafeList<SystemAttribute>());
+
+                for (int i = 1; i < s_SystemCount; i++)
+                {
+                    AddSystemAttributesToTable(GetSystemType(i)); 
+                }
             }
             finally
             {
                 Profiler.EndSample();
             }
+#else
+            s_SystemAttributes.Add(new UnsafeList<SystemAttribute>());
+
+            for (int i = 1; i < s_SystemCount; i++)
+            {
+                AddSystemAttributesToTable(GetSystemType(i));
+            }
 #endif
+        }
+
+        private static void AddSystemAttributesToTable(Type systemType)
+        {
+            var kDisabledCreationAttribute = typeof(DisableAutoCreationAttribute);
+            int j = 0;
+            var list = new UnsafeList<SystemAttribute>(16, Allocator.Persistent);
+            foreach (var attributeType in new[]
+                     {
+                         typeof(UpdateBeforeAttribute),
+                         typeof(UpdateAfterAttribute),
+                         typeof(CreateBeforeAttribute),
+                         typeof(CreateAfterAttribute),
+                         typeof(DisableAutoCreationAttribute),
+                         typeof(UpdateInGroupAttribute),
+                         typeof(RequireMatchingQueriesForUpdateAttribute)
+                     }
+                    )
+            {
+                var attrKind = (SystemAttributeKind)j;
+                j++;
+                if (attributeType == kDisabledCreationAttribute)
+                {
+                    // We do not want to inherit DisableAutoCreation from some parent type (as that attribute explicitly states it should not be inherited)
+                    var objArr = systemType.GetCustomAttributes(attributeType, false);
+
+                    var alreadyDisabled = false;
+                    for (int i = 0; i < objArr.Length; i++)
+                    {
+                        var attr = objArr[i] as Attribute;
+
+                        if (attr.GetType() == kDisabledCreationAttribute)
+                        {
+                            alreadyDisabled = true;
+                            list.Add(new SystemAttribute { Kind = attrKind, TargetSystemTypeIndex = -1 });
+                            break;
+                        }
+                    }
+
+                    if (!alreadyDisabled && systemType.Assembly.GetCustomAttribute(attributeType) != null)
+                    {
+                        list.Add(new SystemAttribute { Kind = attrKind, TargetSystemTypeIndex = -1 });
+                    }
+                }
+                else
+                {
+                    var objArr = systemType.GetCustomAttributes(attributeType, true);
+                    
+                    if (objArr.Length == 0) continue;
+
+                    if (attrKind == SystemAttributeKind.CreateAfter)
+                    {
+                        for (int i = 0; i < objArr.Length; i++)
+                        {
+                            var myattr = objArr[i] as CreateAfterAttribute;
+
+                            list.Add(new SystemAttribute
+                            {
+                                Kind = attrKind,
+                                TargetSystemTypeIndex = IsSystemType(myattr.SystemType) ? GetSystemTypeIndex(myattr.SystemType) : -1
+                            });
+                        }
+                    }
+
+                    if (attrKind == SystemAttributeKind.CreateBefore)
+                    {
+                        for (int i = 0; i < objArr.Length; i++)
+                        {
+                            var myattr = objArr[i] as CreateBeforeAttribute;
+
+                            list.Add(new SystemAttribute
+                            {
+                                Kind = attrKind,
+                                TargetSystemTypeIndex = IsSystemType(myattr.SystemType) ? GetSystemTypeIndex(myattr.SystemType) : -1
+                            });
+                        }
+                    }
+
+                    if (attrKind == SystemAttributeKind.UpdateAfter)
+                    {
+                        for (int i = 0; i < objArr.Length; i++)
+                        {
+                            var myattr = objArr[i] as UpdateAfterAttribute;
+
+                            list.Add(new SystemAttribute
+                            {
+                                Kind = attrKind,
+                                TargetSystemTypeIndex = IsSystemType(myattr.SystemType) ? GetSystemTypeIndex(myattr.SystemType) : -1
+                            });
+                        }
+                    }
+
+                    if (attrKind == SystemAttributeKind.UpdateBefore)
+                    {
+                        for (int i = 0; i < objArr.Length; i++)
+                        {
+                            var myattr = objArr[i] as UpdateBeforeAttribute;
+
+                            list.Add(new SystemAttribute
+                            {
+                                Kind = attrKind,
+                                TargetSystemTypeIndex = IsSystemType(myattr.SystemType) ? GetSystemTypeIndex(myattr.SystemType) : -1
+                            });
+                        }
+                    }
+
+                    if (attrKind == SystemAttributeKind.UpdateInGroup)
+                    {
+                        for (int i = 0; i < objArr.Length; i++)
+                        {
+                            var myattr = objArr[i] as UpdateInGroupAttribute;
+
+                            int flags = 0;
+
+                            if (myattr.OrderFirst) flags |= SystemAttribute.kOrderFirstFlag;
+                            if (myattr.OrderLast) flags |= SystemAttribute.kOrderLastFlag;
+                            
+                            list.Add(new SystemAttribute
+                            {
+                                Kind = attrKind,
+                                TargetSystemTypeIndex =
+                                    (IsSystemType(myattr.GroupType) && IsSystemAGroup(myattr.GroupType))
+                                        ? GetSystemTypeIndex(myattr.GroupType)
+                                        : -1,
+                                Flags = flags
+                            });
+
+                        }
+                    }
+
+                    if (attrKind == SystemAttributeKind.RequireMatchingQueriesForUpdate)
+                    {
+                        list.Add(new SystemAttribute()
+                            { Kind = attrKind, TargetSystemTypeIndex = -1 });
+                    }
+                }
+            }
+
+            var systemTypeIndex = GetSystemTypeIndex(systemType);
+            s_SystemAttributes.Add(list);
+            Assertions.Assert.IsTrue(systemTypeIndex == s_SystemAttributes.Length - 1);
         }
 #if !UNITY_DOTSRUNTIME
         private static int GetSystemTypeFlags(Type systemType)
@@ -335,28 +571,49 @@ namespace Unity.Entities
 
         internal static void SortSystemTypes(List<Type> systemTypes)
         {
-            var systemElements = new CreateOrderSystemSorter.SystemElement[systemTypes.Count];
-
+            var systemElements = new UnsafeList<ComponentSystemSorter.SystemElement>(systemTypes.Count, Allocator.Temp);
+            systemElements.Length = systemTypes.Count;
             for (int i = 0; i < systemTypes.Count; ++i)
             {
-                systemElements[i] = new CreateOrderSystemSorter.SystemElement
+                systemElements[i] = new ComponentSystemSorter.SystemElement
                 {
-                    Type = systemTypes[i],
+                    TypeIndex = GetSystemTypeIndex(systemTypes[i]),
                     Index = new UpdateIndex(i, false),
                     OrderingBucket = 0,
-                    updateBefore = new List<Type>(),
+                    updateBefore = new FixedList512Bytes<int>(),
                     nAfter = 0,
                 };
             }
 
             // Find & validate constraints between systems in the group
-            CreateOrderSystemSorter.FindConstraints(null, systemElements);
-            CreateOrderSystemSorter.Sort(systemElements);
+            var lookupDictionary = new NativeHashMap<int, int>(systemElements.Length, Allocator.Temp);
+
+            var lookupDictionaryPtr = (NativeHashMap<int, int>*)UnsafeUtility.AddressOf(ref lookupDictionary);
+            
+            var sysElemsPtr = (UnsafeList<ComponentSystemSorter.SystemElement>*)UnsafeUtility.AddressOf(ref systemElements);
+
+            var badSystemTypeIndices = new UnsafeList<int>(16, Allocator.Temp);
+            ComponentSystemSorter.FindConstraints(
+                -1,
+                sysElemsPtr,
+                lookupDictionaryPtr,
+                SystemAttributeKind.CreateAfter,
+                SystemAttributeKind.CreateBefore,
+                (UnsafeList<int>*)UnsafeUtility.AddressOf(ref badSystemTypeIndices));
+            
+            for (int i = 0; i < badSystemTypeIndices.Length; i++)
+            {
+                ComponentSystemSorter.WarnAboutAnySystemAttributeBadness(badSystemTypeIndices[i], null);
+            }
+            
+            ComponentSystemSorter.Sort(
+                sysElemsPtr,
+                lookupDictionaryPtr);
 
             for (int i = 0; i < systemElements.Length; ++i)
-                systemTypes[i] = systemElements[i].Type;
+                systemTypes[i] = GetSystemType(systemElements[i].TypeIndex);
         }
-
+        
         internal static void AddSystemTypeToTables(Type type, string typeName, int typeSize, long typeHash, int systemTypeFlags, WorldSystemFilterFlags filterFlags)
         {
             if (type != null && s_ManagedSystemTypeToIndex.ContainsKey(type))
@@ -409,6 +666,12 @@ namespace Unity.Entities
         {
             return GetSystemTypeIndexNoThrow(type) != -1;
         }
+
+        public static bool IsSystemTypeIndex(int systemTypeIndex)
+        {
+            return systemTypeIndex >= 0 && systemTypeIndex < s_SystemCount;
+        }
+        
 
         internal static UnsafeText* GetSystemTypeNamesPointer()
         {
@@ -472,6 +735,11 @@ namespace Unity.Entities
             return s_SystemTypeHashes[systemIndex];
         }
 
+        internal static long GetSystemTypeHash(int systemTypeIndex)
+        {
+            return ((long*)SharedSystemTypeHashes.Ref.Data)![systemTypeIndex];
+        }
+
         internal static long GetSystemTypeHash<T>()
         {
             return GetHashCode64<T>();
@@ -505,7 +773,7 @@ namespace Unity.Entities
         {
             int index = GetSystemTypeIndexNoThrow(type);
             if (index == -1)
-                throw new ArgumentException($"The passed-in Type is not a type that derives from SystemBase or ISystem");
+                throw new ArgumentException($"The passed-in Type {type} is not a type that derives from SystemBase or ISystem");
             return index;
         }
 
@@ -552,6 +820,32 @@ namespace Unity.Entities
             return s_SystemTypeFlagsList[systemTypeIndex];
         }
 
+        internal static FixedList128Bytes<SystemAttribute> GetSystemAttributes(
+            int systemTypeIndex,
+            SystemAttributeKind kind)
+        {
+            Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
+            
+            var ret = new FixedList128Bytes<SystemAttribute>(); 
+            var attributesList = (UnsafeList<SystemAttribute>*)SharedSystemAttributes.Ref.Data;
+
+
+            //todo: check that it's in range
+            //if (IsSystemTypeIndex(systemTypeIndex))
+            {
+
+                var list = attributesList[systemTypeIndex];
+
+                for (int i = 0; i < list.Length; i++)
+                {
+                    if (list[i].Kind == kind)
+                        ret.Add(list[i]);
+                }
+            }
+
+            return ret;
+        }
+        
         /// <summary>
         /// Get all the attribute objects of Type attributeType for a System.
         /// </summary>
@@ -560,10 +854,8 @@ namespace Unity.Entities
         /// <returns>Returns all attributes of type attributeType decorating systemType</returns>
         public static Attribute[] GetSystemAttributes(Type systemType, Type attributeType)
         {
-            Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
+            Attribute[] attributes; 
 
-#if !NET_DOTS
-            Attribute[] attributes;
             var kDisabledCreationAttribute = typeof(DisableAutoCreationAttribute);
             if (attributeType == kDisabledCreationAttribute)
             {
@@ -596,29 +888,36 @@ namespace Unity.Entities
                     attributes[i] = objArr[i] as Attribute;
                 }
             }
-
             return attributes;
-#else
-            Attribute[] attr = GetSystemAttributes(systemType);
-            int count = 0;
-            for (int i = 0; i < attr.Length; ++i)
+        }
+        
+        private struct SharedSystemTypeIndex
+        {
+            public static ref int Get(Type systemType)
             {
-                if (attr[i].GetType() == attributeType)
-                {
-                    ++count;
-                }
+                return ref SharedStatic<int>.GetOrCreate(typeof(TypeManagerKeyContext), systemType).Data;
             }
-            Attribute[] result = new Attribute[count];
-            count = 0;
-            for (int i = 0; i < attr.Length; ++i)
-            {
-                if (attr[i].GetType() == attributeType)
-                {
-                    result[count++] = attr[i];
-                }
-            }
-            return result;
-#endif
+        }
+        
+        private struct SharedSystemTypeNames
+        {
+            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedSystemTypeNames>();
+        }
+        
+        private struct SharedSystemAttributes
+        {
+            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedSystemAttributes>();
+        }
+        
+        private struct SharedSystemTypeHashes
+        {
+            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedSystemTypeHashes>();
+        }
+        
+        // Marked as internal as this is used by StaticTypeRegistryILPostProcessor
+        internal struct SharedSystemTypeIndex<TSystem>
+        {
+            public static readonly SharedStatic<int> Ref = SharedStatic<int>.GetOrCreate<TypeManagerKeyContext, TSystem>();
         }
 
 #if !UNITY_DOTSRUNTIME

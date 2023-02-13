@@ -21,12 +21,12 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             FieldName = AccessorDataType switch
             {
                 LambdaJobsPatchableMethod.AccessorDataType.ComponentLookup =>
-                    $"__{Type.ToFullName().Replace(".", "_")}_ComponentLookup",
+                    $"__{Type.ToValidIdentifier()}_ComponentLookup",
                 LambdaJobsPatchableMethod.AccessorDataType.BufferLookup =>
-                    $"__{Type.ToFullName().Replace(".", "_")}_BufferLookup",
+                    $"__{Type.ToValidIdentifier()}_BufferLookup",
                 LambdaJobsPatchableMethod.AccessorDataType.AspectLookup =>
-                    $"__{Type.ToFullName().Replace(".", "_")}_AspectLookup",
-                _ => $"__{Type.ToValidVariableName()}_AspectLookup"
+                    $"__{Type.ToValidIdentifier()}_AspectLookup",
+                _ => $"__{Type.ToValidIdentifier()}_AspectLookup"
             };
 
         }
@@ -36,11 +36,11 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             return AccessorDataType switch
             {
                 LambdaJobsPatchableMethod.AccessorDataType.ComponentLookup =>
-                    $"{FieldName} = __{Type.ToFullName().Replace(".", "_")}_{(IsReadOnly ? "RO" : "RW")}_ComponentLookup",
+                    $"{FieldName} = __{Type.ToValidIdentifier()}_{(IsReadOnly ? "RO" : "RW")}_ComponentLookup",
                 LambdaJobsPatchableMethod.AccessorDataType.BufferLookup =>
-                    $"{FieldName} = __{Type.ToFullName().Replace(".", "_")}_{(IsReadOnly ? "RO" : "RW")}_BufferLookup",
+                    $"{FieldName} = __{Type.ToValidIdentifier()}_{(IsReadOnly ? "RO" : "RW")}_BufferLookup",
                 LambdaJobsPatchableMethod.AccessorDataType.AspectLookup =>
-                    $"{FieldName} = __{Type.ToFullName().Replace(".", "_")}_{(IsReadOnly ? "RO" : "RW")}_AspectLookup",
+                    $"{FieldName} = __{Type.ToValidIdentifier()}_{(IsReadOnly ? "RO" : "RW")}_AspectLookup",
                 LambdaJobsPatchableMethod.AccessorDataType.EntityStorageInfoLookup =>
                     $"{FieldName} = {systemStateParam}GetEntityStorageInfoLookup()",
                 _ => ""
@@ -51,12 +51,12 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             var fieldNameWithReadAccess = AccessorDataType switch
             {
                 LambdaJobsPatchableMethod.AccessorDataType.ComponentLookup =>
-                    $"__{Type.ToFullName().Replace(".", "_")}_{(IsReadOnly ? "RO" : "RW")}_ComponentLookup",
+                    $"__{Type.ToValidIdentifier()}_{(IsReadOnly ? "RO" : "RW")}_ComponentLookup",
                 LambdaJobsPatchableMethod.AccessorDataType.BufferLookup =>
-                    $"__{Type.ToFullName().Replace(".", "_")}_{(IsReadOnly ? "RO" : "RW")}_BufferLookup",
+                    $"__{Type.ToValidIdentifier()}_{(IsReadOnly ? "RO" : "RW")}_BufferLookup",
                 LambdaJobsPatchableMethod.AccessorDataType.AspectLookup =>
-                    $"__{Type.ToFullName().Replace(".", "_")}_{(IsReadOnly ? "RO" : "RW")}_AspectLookup",
-                _ => $"__{Type.ToValidVariableName()}_UnknownLookup"
+                    $"__{Type.ToValidIdentifier()}_{(IsReadOnly ? "RO" : "RW")}_AspectLookup",
+                _ => $"__{Type.ToValidIdentifier()}_UnknownLookup"
             };
             return $@"{fieldNameWithReadAccess}.Update(ref {description.SystemStateParameterName});";
         }

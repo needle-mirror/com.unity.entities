@@ -14,14 +14,6 @@ namespace Unity.Entities.Editor
         public NativeList<Entity> CreatedEntities;
         public NativeList<Entity> DestroyedEntities;
 
-        // Scene reference component changes
-        public NativeList<Entity> AddedSceneReferenceEntities;
-        public NativeList<Entity> RemovedSceneReferenceEntities;
-
-        // Scene reference without scene tag component changes
-        public NativeList<Entity> AddedSceneReferenceWithoutSceneTagEntities;
-        public NativeList<Entity> RemovedSceneReferenceWithoutSceneTagEntities;
-
         // Parent component changes
         public NativeList<Entity> AddedParentEntities;
         public NativeList<Entity> RemovedParentEntities;
@@ -36,29 +28,18 @@ namespace Unity.Entities.Editor
         public NativeList<Entity> RemovedSceneTagWithoutParentEntities;
         public NativeList<SceneTag> AddedSceneTagWithoutParentComponents;
 
-        // Scene tag with scene reference changes
-        public NativeList<Entity> AddedSceneTagWithSceneReferenceEntities;
-        public NativeList<Entity> RemovedSceneTagWithSceneReferenceEntities;
-        public NativeList<SceneTag> AddedSceneTagWithSceneReferenceComponents;
 
         public bool HasChanges()
         {
             return !(CreatedEntities.Length == 0
                      && DestroyedEntities.Length == 0
-                     && AddedSceneReferenceEntities.Length == 0
-                     && RemovedSceneReferenceEntities.Length == 0
-                     && AddedSceneReferenceWithoutSceneTagEntities.Length == 0
-                     && RemovedSceneReferenceWithoutSceneTagEntities.Length == 0
                      && AddedParentEntities.Length == 0
                      && RemovedParentEntities.Length == 0
                      && AddedParentComponents.Length == 0
                      && RemovedParentComponents.Length == 0
                      && AddedSceneTagWithoutParentEntities.Length == 0
                      && RemovedSceneTagWithoutParentEntities.Length == 0
-                     && AddedSceneTagWithoutParentComponents.Length == 0
-                     && AddedSceneTagWithSceneReferenceEntities.Length == 0
-                     && RemovedSceneTagWithSceneReferenceEntities.Length == 0
-                     && AddedSceneTagWithSceneReferenceComponents.Length == 0);
+                     && AddedSceneTagWithoutParentComponents.Length == 0);
         }
 
         public int GetChangeCount()
@@ -67,16 +48,10 @@ namespace Unity.Entities.Editor
 
             count += CreatedEntities.Length;
             count += DestroyedEntities.Length;
-            count += AddedSceneReferenceEntities.Length;
-            count += RemovedSceneReferenceEntities.Length;
-            count += AddedSceneReferenceWithoutSceneTagEntities.Length;
-            count += RemovedSceneReferenceWithoutSceneTagEntities.Length;
             count += AddedParentEntities.Length;
             count += RemovedParentEntities.Length;
             count += AddedSceneTagWithoutParentEntities.Length;
             count += RemovedSceneTagWithoutParentEntities.Length;
-            count += AddedSceneTagWithSceneReferenceEntities.Length;
-            count += RemovedSceneTagWithSceneReferenceEntities.Length;
 
             return count;
         }
@@ -85,10 +60,6 @@ namespace Unity.Entities.Editor
         {
             CreatedEntities.Clear();
             DestroyedEntities.Clear();
-            AddedSceneReferenceEntities.Clear();
-            RemovedSceneReferenceEntities.Clear();
-            AddedSceneReferenceWithoutSceneTagEntities.Clear();
-            RemovedSceneReferenceWithoutSceneTagEntities.Clear();
             AddedParentEntities.Clear();
             RemovedParentEntities.Clear();
             AddedParentComponents.Clear();
@@ -97,19 +68,12 @@ namespace Unity.Entities.Editor
             AddedSceneTagWithoutParentEntities.Clear();
             RemovedSceneTagWithoutParentEntities.Clear();
             AddedSceneTagWithoutParentComponents.Clear();
-            AddedSceneTagWithSceneReferenceEntities.Clear();
-            RemovedSceneTagWithSceneReferenceEntities.Clear();
-            AddedSceneTagWithSceneReferenceComponents.Clear();
         }
 
         public HierarchyEntityChanges(Allocator allocator)
         {
             CreatedEntities = new NativeList<Entity>(allocator);
             DestroyedEntities = new NativeList<Entity>(allocator);
-            AddedSceneReferenceEntities = new NativeList<Entity>(allocator);
-            RemovedSceneReferenceEntities = new NativeList<Entity>(allocator);
-            AddedSceneReferenceWithoutSceneTagEntities = new NativeList<Entity>(allocator);
-            RemovedSceneReferenceWithoutSceneTagEntities = new NativeList<Entity>(allocator);
             AddedParentEntities = new NativeList<Entity>(allocator);
             RemovedParentEntities = new NativeList<Entity>(allocator);
             AddedParentComponents = new NativeList<Parent>(allocator);
@@ -118,19 +82,12 @@ namespace Unity.Entities.Editor
             AddedSceneTagWithoutParentEntities = new NativeList<Entity>(allocator);
             RemovedSceneTagWithoutParentEntities = new NativeList<Entity>(allocator);
             AddedSceneTagWithoutParentComponents = new NativeList<SceneTag>(allocator);
-            AddedSceneTagWithSceneReferenceEntities = new NativeList<Entity>(allocator);
-            RemovedSceneTagWithSceneReferenceEntities = new NativeList<Entity>(allocator);
-            AddedSceneTagWithSceneReferenceComponents = new NativeList<SceneTag>(allocator);
         }
 
         public void Dispose()
         {
             CreatedEntities.Dispose();
             DestroyedEntities.Dispose();
-            AddedSceneReferenceEntities.Dispose();
-            RemovedSceneReferenceEntities.Dispose();
-            AddedSceneReferenceWithoutSceneTagEntities.Dispose();
-            RemovedSceneReferenceWithoutSceneTagEntities.Dispose();
             AddedParentEntities.Dispose();
             RemovedParentEntities.Dispose();
             AddedParentComponents.Dispose();
@@ -139,9 +96,6 @@ namespace Unity.Entities.Editor
             AddedSceneTagWithoutParentEntities.Dispose();
             RemovedSceneTagWithoutParentEntities.Dispose();
             AddedSceneTagWithoutParentComponents.Dispose();
-            AddedSceneTagWithSceneReferenceEntities.Dispose();
-            RemovedSceneTagWithSceneReferenceEntities.Dispose();
-            AddedSceneTagWithSceneReferenceComponents.Dispose();
         }
     }
 
@@ -165,11 +119,8 @@ namespace Unity.Entities.Editor
 
         static readonly EntityQueryDesc k_EntityQueryDesc = new EntityQueryDesc();
 
-        static readonly EntityQueryDesc k_SceneReferenceQueryDesc = new EntityQueryDesc {All = new ComponentType[] {typeof(SceneReference)}};
-        static readonly EntityQueryDesc k_SceneReferenceWithoutSceneTagQueryDesc = new EntityQueryDesc {All = new ComponentType[] {typeof(SceneReference)}, None = new ComponentType[] {typeof(SceneTag)}};
         static readonly EntityQueryDesc k_ParentQueryDesc = new EntityQueryDesc {All = new ComponentType[] {typeof(Parent)}};
         static readonly EntityQueryDesc k_SceneTagWithoutParentQueryDesc = new EntityQueryDesc {All = new ComponentType[] {typeof(SceneTag)}, None = new ComponentType[] {typeof(SceneReference), typeof(Parent)}};
-        static readonly EntityQueryDesc k_SceneTagWithSceneReference = new EntityQueryDesc {All = new ComponentType[] {typeof(SceneTag), typeof(SceneReference)}};
 
         readonly World m_World;
 
@@ -179,10 +130,7 @@ namespace Unity.Entities.Editor
         readonly EntityDiffer m_EntityChangeTracker;
 
         readonly ComponentDataDiffer m_ParentChangeTracker;
-        readonly ComponentDataDiffer m_SceneReferenceChangeTracker;
-        readonly ComponentDataDiffer m_SceneReferenceWithoutSceneTagChangeTracker;
         readonly UnmanagedSharedComponentDataDiffer m_SceneTagWithoutParentChangeTracker;
-        readonly UnmanagedSharedComponentDataDiffer m_SceneTagWithSceneReferenceChangeTracker;
         readonly EntityQuery m_EmptyQuery;
 
         OperationModeType m_OperationModeType = OperationModeType.SceneReferenceAndParentComponents;
@@ -191,10 +139,7 @@ namespace Unity.Entities.Editor
 
         EntityQuery m_EntityQuery;
         EntityQuery m_ParentQuery;
-        EntityQuery m_SceneReferenceQuery;
-        EntityQuery m_SceneReferenceWithoutSceneTagQuery;
         EntityQuery m_SceneTagWithoutParentQuery;
-        EntityQuery m_SceneTagWithSceneReference;
 
         NativeList<int> m_DistinctBuffer;
 
@@ -243,10 +188,7 @@ namespace Unity.Entities.Editor
                 {
                     m_EntityQuery = CreateEntityQuery(desc, k_EntityQueryDesc);
                     m_ParentQuery = m_EmptyQuery;
-                    m_SceneReferenceQuery = m_EmptyQuery;
-                    m_SceneReferenceWithoutSceneTagQuery = m_EmptyQuery;
                     m_SceneTagWithoutParentQuery = m_EmptyQuery;
-                    m_SceneTagWithSceneReference = m_EmptyQuery;
                     break;
                 }
 
@@ -254,10 +196,7 @@ namespace Unity.Entities.Editor
                 {
                     m_EntityQuery = CreateEntityQuery(desc, k_EntityQueryDesc);
                     m_ParentQuery = CreateEntityQuery(desc, k_ParentQueryDesc);
-                    m_SceneReferenceQuery = CreateEntityQuery(desc, k_SceneReferenceQueryDesc);
-                    m_SceneReferenceWithoutSceneTagQuery = CreateEntityQuery(desc, k_SceneReferenceWithoutSceneTagQueryDesc);
                     m_SceneTagWithoutParentQuery = CreateEntityQuery(desc, k_SceneTagWithoutParentQueryDesc);
-                    m_SceneTagWithSceneReference = CreateEntityQuery(desc, k_SceneTagWithSceneReference);
                     break;
                 }
             }
@@ -271,10 +210,7 @@ namespace Unity.Entities.Editor
             m_World = world;
             m_EntityChangeTracker = new EntityDiffer(world);
             m_ParentChangeTracker = new ComponentDataDiffer(ComponentType.ReadOnly<Parent>());
-            m_SceneReferenceChangeTracker = new ComponentDataDiffer(ComponentType.ReadOnly<SceneReference>());
-            m_SceneReferenceWithoutSceneTagChangeTracker = new ComponentDataDiffer(ComponentType.ReadOnly<SceneReference>());
             m_SceneTagWithoutParentChangeTracker = new UnmanagedSharedComponentDataDiffer(ComponentType.ReadOnly<SceneTag>());
-            m_SceneTagWithSceneReferenceChangeTracker = new UnmanagedSharedComponentDataDiffer(ComponentType.ReadOnly<SceneTag>());
 
             m_DistinctBuffer = new NativeList<int>(16, allocator);
             m_EmptyQuery = m_World.EntityManager.CreateEntityQuery(new EntityQueryDesc{All = new ComponentType[] {typeof(UnusedTag)}});
@@ -286,10 +222,7 @@ namespace Unity.Entities.Editor
         {
             m_EntityChangeTracker.Dispose();
             m_ParentChangeTracker.Dispose();
-            m_SceneReferenceChangeTracker.Dispose();
-            m_SceneReferenceWithoutSceneTagChangeTracker.Dispose();
             m_SceneTagWithoutParentChangeTracker.Dispose();
-            m_SceneTagWithSceneReferenceChangeTracker.Dispose();
             m_DistinctBuffer.Dispose();
         }
 
@@ -307,44 +240,20 @@ namespace Unity.Entities.Editor
             // Component changes can be gathered in parallel.
             var entityChangesJobHandle = m_EntityChangeTracker.GetEntityQueryMatchDiffAsync(m_EntityQuery, changes.CreatedEntities, changes.DestroyedEntities);
             var parentChanges = m_ParentChangeTracker.GatherComponentChangesAsync(m_ParentQuery, Allocator.TempJob, out var parentComponentChangesJobHandle);
-            var sceneReferenceChanges = m_SceneReferenceChangeTracker.GatherComponentChangesAsync(m_SceneReferenceQuery, Allocator.TempJob, out var sceneReferenceChangesJobHandle);
-            var sceneReferenceWithoutSceneTagChanges = m_SceneReferenceWithoutSceneTagChangeTracker.GatherComponentChangesAsync(m_SceneReferenceWithoutSceneTagQuery, Allocator.TempJob, out var sceneReferenceWithoutSceneTagChangesJobHandle);
 
-            unsafe
-            {
-                var handles = stackalloc JobHandle[4]
-                {
-                    entityChangesJobHandle,
-                    parentComponentChangesJobHandle,
-                    sceneReferenceChangesJobHandle,
-                    sceneReferenceWithoutSceneTagChangesJobHandle
-                };
-
-                Jobs.LowLevel.Unsafe.JobHandleUnsafeUtility.CombineDependencies(handles, 4).Complete();
-            }
+            JobHandle.CombineDependencies(entityChangesJobHandle, parentComponentChangesJobHandle).Complete();
 
             // Shared component changes must be gathered synchronously.
             var sceneTagWithoutParentChanges = m_SceneTagWithoutParentChangeTracker.GatherComponentChanges(m_World.EntityManager, m_SceneTagWithoutParentQuery, Allocator.TempJob);
-            var sceneTagWithSceneReferenceChanges = m_SceneTagWithSceneReferenceChangeTracker.GatherComponentChanges(m_World.EntityManager, m_SceneTagWithSceneReference, Allocator.TempJob);
 
             parentChanges.GetAddedComponentEntities(changes.AddedParentEntities);
             parentChanges.GetRemovedComponentEntities(changes.RemovedParentEntities);
             parentChanges.GetAddedComponentData(changes.AddedParentComponents);
             parentChanges.GetRemovedComponentData(changes.RemovedParentComponents);
 
-            sceneReferenceChanges.GetAddedComponentEntities(changes.AddedSceneReferenceEntities);
-            sceneReferenceChanges.GetRemovedComponentEntities(changes.RemovedSceneReferenceEntities);
-
-            sceneReferenceWithoutSceneTagChanges.GetAddedComponentEntities(changes.AddedSceneReferenceWithoutSceneTagEntities);
-            sceneReferenceWithoutSceneTagChanges.GetRemovedComponentEntities(changes.RemovedSceneReferenceWithoutSceneTagEntities);
-
             sceneTagWithoutParentChanges.GetAddedComponentEntities(changes.AddedSceneTagWithoutParentEntities);
             sceneTagWithoutParentChanges.GetRemovedComponentEntities(changes.RemovedSceneTagWithoutParentEntities);
             sceneTagWithoutParentChanges.GetAddedComponentData(changes.AddedSceneTagWithoutParentComponents);
-
-            sceneTagWithSceneReferenceChanges.GetAddedComponentEntities(changes.AddedSceneTagWithSceneReferenceEntities);
-            sceneTagWithSceneReferenceChanges.GetRemovedComponentEntities(changes.RemovedSceneTagWithSceneReferenceEntities);
-            sceneTagWithSceneReferenceChanges.GetAddedComponentData(changes.AddedSceneTagWithSceneReferenceComponents);
 
             if (changes.HasChanges())
             {
@@ -370,10 +279,7 @@ namespace Unity.Entities.Editor
             }
 
             parentChanges.Dispose();
-            sceneReferenceChanges.Dispose();
-            sceneReferenceWithoutSceneTagChanges.Dispose();
             sceneTagWithoutParentChanges.Dispose();
-            sceneTagWithSceneReferenceChanges.Dispose();
         }
 
         [BurstCompile]
@@ -393,17 +299,8 @@ namespace Unity.Entities.Editor
                 if (Changes.AddedParentEntities.Length > 0 && Changes.RemovedParentEntities.Length > 0)
                     RemoveDuplicate(DistinctBuffer.AsArray(), Changes.AddedParentEntities, Changes.RemovedParentEntities, Changes.AddedParentComponents, Changes.RemovedParentComponents);
 
-                if (Changes.AddedSceneReferenceEntities.Length > 0 && Changes.RemovedSceneReferenceEntities.Length > 0)
-                    RemoveDuplicate(DistinctBuffer, Changes.AddedSceneReferenceEntities, Changes.RemovedSceneReferenceEntities);
-
-                if (Changes.AddedSceneReferenceWithoutSceneTagEntities.Length > 0 && Changes.RemovedSceneReferenceWithoutSceneTagEntities.Length > 0)
-                    RemoveDuplicate(DistinctBuffer, Changes.AddedSceneReferenceWithoutSceneTagEntities, Changes.RemovedSceneReferenceWithoutSceneTagEntities);
-
                 if (Changes.AddedSceneTagWithoutParentEntities.Length > 0 && Changes.RemovedSceneTagWithoutParentEntities.Length > 0)
                     RemoveDuplicate(DistinctBuffer.AsArray(), Changes.AddedSceneTagWithoutParentEntities, Changes.RemovedSceneTagWithoutParentEntities, Changes.AddedSceneTagWithoutParentComponents);
-
-                if (Changes.AddedSceneTagWithSceneReferenceEntities.Length > 0 && Changes.RemovedSceneTagWithSceneReferenceEntities.Length > 0)
-                    RemoveDuplicate(DistinctBuffer.AsArray(), Changes.AddedSceneTagWithSceneReferenceEntities, Changes.RemovedSceneTagWithSceneReferenceEntities, Changes.AddedSceneTagWithSceneReferenceComponents);
             }
 
             static unsafe void RemoveDuplicate(NativeList<int> index, NativeList<Entity> added, NativeList<Entity> removed)

@@ -499,6 +499,13 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void RemoveMultipleComponents_InvalidTarget_DoesNotThrow()
+        {
+            var entity = Entity.Null;
+            Assert.DoesNotThrow((() => m_Manager.RemoveComponent(entity, new ComponentTypeSet())));
+        }
+
+        [Test]
         public void RemoveMultipleComponents_ZeroComponentsPresent()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
@@ -715,6 +722,14 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(invalidEnt);
             Assert.That(() => { m_Manager.AddComponent<EcsTestData>(invalidEnt); },
                 Throws.InvalidOperationException.With.Message.Contains("entity does not exist"));
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
+        public void AddComponents_InvalidEntity1_ShouldThrow()
+        {
+            var entity = Entity.Null;
+            Assert.Throws<InvalidOperationException>((() => m_Manager.AddComponent(entity, new ComponentTypeSet())));
         }
 
         [Test]

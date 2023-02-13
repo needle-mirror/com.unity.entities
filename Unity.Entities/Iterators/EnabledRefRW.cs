@@ -15,6 +15,13 @@ namespace Unity.Entities
     [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) }, RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
     public readonly struct EnabledRefRW<T> : IQueryTypeParameter where T : unmanaged, IEnableableComponent
     {
+        /// <summary>
+        /// Convert into a read-only version EnabledRefRO of this EnabledRefRW
+        /// </summary>
+        /// <param name="componentEnabledRefRW">The read-write reference to convert to read-only</param>
+        /// <returns>The EnabledRefRO</returns>
+        public static unsafe implicit operator EnabledRefRO<T>(EnabledRefRW<T> componentEnabledRefRW)
+            => new EnabledRefRO<T>(componentEnabledRefRW.m_Ptr);
         readonly SafeBitRef m_Ptr;
         readonly unsafe int* m_PtrChunkDisabledCount;
 

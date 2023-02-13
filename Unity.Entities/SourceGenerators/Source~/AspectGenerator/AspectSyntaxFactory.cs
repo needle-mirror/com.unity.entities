@@ -7,235 +7,380 @@ using Unity.Entities.SourceGen.Common;
 
 public static class AspectSyntaxFactory
 {
-    /// <summary>
-    /// Format code for a static array of Unity.Entities.ComponentType representing the requirements for the aspect components
-    /// </summary>
-    /// <param name="aspect"></param>
-    /// <param name="fieldName"></param>
-    /// <param name="readOnly"></param>
-    /// <returns></returns>
-    static string FormatComponentRequirement(AspectDefinition aspect, string fieldName, bool readOnly)
+    public static bool AspectNeedConstructor(this AspectDefinition aspect)
+        => aspect.HasEntityField
+           || aspect.FieldsNeedConstruction.Any()
+           || (aspect.NestedAspects != null && aspect.NestedAspects.Any(x=> AspectNeedConstructor(x.Definition)));
+
+    public static Printer PrintConstructor(Printer printer, AspectDefinition aspect)
     {
-        var fieldsWithComponentTypeRequirements = aspect.QueryFields.ToArray();
-        var components = @$"new [] {{ {fieldsWithComponentTypeRequirements.Select(field => $@" global::Unity.Entities.ComponentType.{(field.IsReadOnly | readOnly ? "ReadOnly" : "ReadWrite")}<global::{field.TypeName}>()").SeparateByComma()} }}";
-        var aspects = @$"{aspect.AspectFields.Select(field => $@" {field.TypeName}.RequiredComponents{(readOnly | field.IsReadOnly ? "RO" : "")}").SeparateByComma()}";
-        var componentTypeCount = fieldsWithComponentTypeRequirements.Length;
+        if (!AspectNeedConstructor(aspect)) return printer;
 
-        if (aspect.AspectFields.Count > 0 && componentTypeCount > 0)
-            return $"static global::Unity.Entities.ComponentType[] {fieldName} => global::Unity.Entities.ComponentType.Combine({components}, {aspects});";
-        if (aspect.AspectFields.Count > 1)
-            return $"static global::Unity.Entities.ComponentType[] {fieldName} => global::Unity.Entities.ComponentType.Combine({aspects});";
-        if (aspect.AspectFields.Count == 1)
-            return $"static global::Unity.Entities.ComponentType[] {fieldName} => {aspects};";
-        return $"static global::Unity.Entities.ComponentType[] {fieldName} => {components};";
-    }
-
-    public static bool AspectNeedConstructor(this AspectDefinition aspect) => aspect.HasEntityField || aspect.FieldsNeedContruction.Any();
-
-    public static IEnumerable<string> GetConstructerParameters(this AspectDefinition aspect)
-    {
-        if (aspect.HasEntityField)
-            yield return "global::Unity.Entities.Entity entity";
-        foreach (var field in aspect.FieldsNeedContruction)
-            yield return $"{field.SourceTypeName} {field.InternalVariableName}";
-    }
-
-    public static IEnumerable<string> GetConstructionArgumentsAspectLookup(this AspectDefinition aspect)
-    {
-        if (aspect.HasEntityField)
-            yield return "entity";
-        foreach (var field in aspect.FieldsNeedContruction)
-            yield return field.GetAspectLookupParameter();
-    }
-
-    public static IEnumerable<string> GetConstructionArgumentsResolvedChunk(this AspectDefinition aspect)
-    {
-        if (aspect.HasEntityField)
-            yield return "m_Entities[index]";
-        foreach (var field in aspect.FieldsNeedContruction)
-            yield return field.GetResolvedChunkParameter();
-    }
-public static string GenerateAspectSource(AspectDefinition aspect)
-    {
-        var aspectNamespace = aspect.SourceSyntaxNodes.First().GetParentNamespace();
-        var namespaceOpen = "";
-        var namespaceClose = "";
-
-        if (!String.IsNullOrWhiteSpace(aspectNamespace))
+        printer.PrintLine("/// <summary>");
+        printer.PrintLine("/// Construct an instance of the enclosing aspect from all required data references.");
+        printer.PrintLine("/// </summary>");
+        var printerParamList = printer.PrintBeginLine("public ").Print(aspect.Name).Print("(").AsListPrinter(", ").AsMultilineIndented;
         {
-            namespaceOpen = $"namespace {aspectNamespace}\n{{\n";
-            namespaceClose = "}\n";
+            // Constructor Parameters
+            foreach (var param in aspect.PrimitivesRouter.AllConstructorParameters)
+                printerParamList.NextItemPrinter().Print(param.TypeName).Print(" ").Print(param.ParameterName);
+            printer.PrintEndLine(")");
         }
-        Printer printer = new Printer
-        {
-            Builder = new StringBuilder(),
-            CurrentIndent = ""
-        };
 
+        var scope = printer.PrintBeginLine().ScopePrinter("{");
+        {
+            // Constructor body
+
+            // Construct all AspectFields declared by this aspect.
+            foreach (var (field, param) in aspect.PrimitivesRouter.GetRoutedConstructorParametersFor(aspect))
+                scope.PrintLine($"this.{field.FieldName} = {param.ParameterName};");
+
+            foreach (var field in aspect.FieldsRequiringDefaultConstruction)
+                scope.PrintBeginLine($"this.{field.FieldName} = default;");
+
+            // Construct all nested aspects
+            if (aspect.NestedAspects != null)
+            {
+                foreach (var nestedAspect in aspect.NestedAspects)
+                {
+                    // Route this aspect constructor parameters to the nested aspect constructor arguments.
+                    // emits something like:
+                    //      this.m_MyNestedAspect = new global::MyNestedAspect(myCompARef, myCompBRef, myCompCDynamicBuffer);
+                    var constructorArgumentList = scope.PrintBeginLine("this.")
+                        .Print(nestedAspect.AspectField.FieldName).Print(" = new ")
+                        .Print(nestedAspect.Definition.FullName).Print("(").AsListPrinter(", ").AsMultilineIndented;
+
+                    // List all constructor of arguments following the constructor parameters of the nested aspect.
+                    foreach (var param in nestedAspect.Definition.PrimitivesRouter.AllConstructorParameters)
+                    {
+                        // Get the AspectField that named the constructor parameter that routes to the current argument
+                        var originalField = aspect.PrimitivesRouter.GetRoutedFieldForAlias(param.DeclaringAspectField, out var tag);
+                        constructorArgumentList.NextItemPrinter().Print(originalField.GetParameterName(tag));
+                    }
+
+                    scope.PrintEndLine(");");
+                }
+            }
+        }
+        printer.CloseScope(scope, "}").PrintEndLine();
+        return printer;
+    }
+
+    static Printer PrintAddComponentTypes(Printer printer, AspectDefinition aspect, bool isReadOnly)
+    {
+        foreach (var bind in aspect.PrimitivesRouter.QueryBindings)
+        {
+            printer.PrintBeginLine("global::Unity.Entities.InternalCompilerInterface.CombineComponentType(ref all, ");
+            bind.PrintQueryComponentType(printer, isReadOnly).PrintEndLine(");");
+        }
+        return printer;
+    }
+
+    public static string GenerateAspectSource(AspectDefinition aspect)
+    {
         string interfaceToImplement = "global::Unity.Entities.IAspect";
         if (!aspect.IsIAspectCreateCorrectlyImplementedByUser)
             interfaceToImplement += $", global::Unity.Entities.IAspectCreate<{aspect.Name}>";
 
-        return @$"
-{namespaceOpen}
-    {string.Join(" ", aspect.SourceSyntaxNodes.First().Modifiers.Select(token => token.ToString()))} struct {aspect.Name} : {interfaceToImplement}
-    {{
-{
-    // Output a constructor that build an aspect from each component ComponentDataRef as parameters.
-    (aspect.AspectNeedConstructor() ? @$"        {aspect.Name}({aspect.GetConstructerParameters().SeparateByComma()})
-        {{
-{aspect.FieldsNeedContruction.Select(x => $"            this.{x.FieldName} = {x.InternalVariableName};").SeparateByNewLine()}
-{printer.WithIndentCleared("            ").PrintLinesToString(aspect.FieldsRequiringDefaultConstruction.Select(x => $"this.{x.FieldName} = default;"))}
-{aspect.HasEntityField.SelectFuncOrDefault(x => $"            this.{aspect.EntityField.FieldName} = {aspect.EntityField.ConstructorAssignment};\n")}
-        }}" : "")
-}
-        {$@"public {aspect.Name} CreateAspect(global::Unity.Entities.Entity entity, ref global::Unity.Entities.SystemState systemState, bool isReadOnly)
-        {{
-            var lookup = new Lookup(ref systemState, isReadOnly);
-            return lookup[entity];
-        }}".EmitIfTrue(!aspect.IsIAspectCreateCorrectlyImplementedByUser)}
+        // Print the full scope path of namespace/class/struct to the aspect declaration
+        SyntaxNodeScopePrinter aspectNestedScopePrinter = new SyntaxNodeScopePrinter(Printer.DefaultLarge, aspect.SourceSyntaxNodes.First().Parent);
+        aspectNestedScopePrinter.PrintOpen();
+        Printer printer = aspectNestedScopePrinter.Printer;
+        printer.PrintEndLine();
 
-        public static global::Unity.Entities.ComponentType[] ExcludeComponents => global::System.Array.Empty<Unity.Entities.ComponentType>();
-        {FormatComponentRequirement(aspect, "s_RequiredComponents", false)}
-        {FormatComponentRequirement(aspect, "s_RequiredComponentsRO", true)}
-        public static global::Unity.Entities.ComponentType[] RequiredComponents => s_RequiredComponents;
-        public static global::Unity.Entities.ComponentType[] RequiredComponentsRO => s_RequiredComponentsRO;
-        public struct Lookup
-        {{
-            bool _IsReadOnly
-            {{
-                get {{ return __IsReadOnly == 1; }}
-                set {{ __IsReadOnly = value ? (byte) 1 : (byte) 0; }}
-            }}
-            private byte __IsReadOnly;
+        // Print struct declaration: "public readonly struct MyAspect : IAspect"
+        printer.PrintBeginLine()
+            .AsListPrinter(" ").PrintAll(aspect.SourceSyntaxNodes.First().Modifiers.Select(token => token.ToString()))
+            .Printer.Print(" struct ").Print(aspect.Name).Print(" : ").Print(interfaceToImplement);
+        {
+            printer.OpenScope();
+            // Print Aspect's Constructor
+            PrintConstructor(printer, aspect);
+            // Print IAspectCreate implementation if needed
+            if (!aspect.IsIAspectCreateCorrectlyImplementedByUser)
+            {
+                printer.PrintEndLine();
+                printer.PrintLine(@"/// <summary>");
+                printer.PrintLine(@"/// Create an instance of the enclosing aspect struct pointing at a specific entity's components data.");
+                printer.PrintLine(@"/// </summary>");
+                printer.PrintLine(@"/// <param name=""entity"">The entity to create the aspect struct from.</param>");
+                printer.PrintLine(@"/// <param name=""systemState"">The system state from which data is extracted.</param>");
+                printer.PrintLine(@"/// <param name=""isReadOnly"">Set to true to force all reference to data to be read-only.</param>");
+                printer.PrintLine(@"/// <returns>Instance of the aspect struct pointing at a specific entity's components data.</returns>");
+                printer.PrintBeginLine("public ").Print(aspect.Name).Print(" CreateAspect(global::Unity.Entities.Entity entity, ref global::Unity.Entities.SystemState systemState, bool isReadOnly)");
+                {
+                    printer.OpenScope();
+                    printer.PrintLine("var lookup = new Lookup(ref systemState, isReadOnly);");
+                    printer.PrintLine("return lookup[entity];");
+                    printer.CloseScope();
+                }
+            }
 
-{aspect.Lookup.DeclareCode(ref printer.WithIndentCleared("            "))}
-{aspect.Lookup.BufferLookup.Select(field => $"{field.ReadOnlyAttribute}            global::Unity.Entities.BufferLookup<{field.TypeName}> {field.InternalFieldName};").SeparateByNewLine()}
-{aspect.AspectFields.Select(field => $"{field.ReadOnlyAttribute}            global::{field.TypeName}.Lookup {field.InternalFieldName};").SeparateByNewLine()}
-            public Lookup(ref global::Unity.Entities.SystemState state, bool isReadOnly)
-            {{
-                __IsReadOnly = isReadOnly ? (byte) 1u : (byte) 0u;
-{aspect.Lookup.ConstructCode(ref printer.WithIndentCleared("                "))}
-{aspect.Lookup.BufferLookup.Select(field => $"                this.{field.InternalFieldName} = state.GetBufferLookup<{field.TypeName}>({field.ResolveReadOnly("isReadOnly")});").SeparateByNewLine()}
-{aspect.AspectFields.Select(field => $"                this.{field.InternalFieldName} = new global::{field.TypeName}.Lookup(ref state, {field.ResolveReadOnly("isReadOnly")});").SeparateByNewLine()}
-            }}
-            public void Update(ref global::Unity.Entities.SystemState state)
-            {{
-{aspect.Lookup.UpdateCode(ref printer.WithIndentCleared("                "))}
-{aspect.Lookup.Update.Select(field => $"                this.{field.InternalFieldName}.Update(ref state);").SeparateByNewLine()}
-            }}
-            public {aspect.Name} this[global::Unity.Entities.Entity entity]
-            {{
-                get
-                {{
-                    return new {aspect.Name}({aspect.GetConstructionArgumentsAspectLookup().SeparateByComma()});
-                }}
-            }}
-        }}
-        public struct ResolvedChunk
-        {{
-{aspect.HasEntityField.SelectOrDefault("            internal global::Unity.Collections.NativeArray<global::Unity.Entities.Entity> m_Entities;")}
-{aspect.ResolvedChunk.DeclareCode(ref printer.WithIndentCleared("            "))}
-{aspect.AspectFields.Select(field => $"            internal global::{field.TypeName}.ResolvedChunk {field.InternalFieldName};").SeparateByNewLine()}
-            public {aspect.Name} this[int index]
-            {{
-                get
-                {{
-                    return new {aspect.Name}({aspect.GetConstructionArgumentsResolvedChunk().SeparateByCommaAndNewLine()});
-                }}
-            }}
-            public int Length;
-        }}
-        public struct TypeHandle
-        {{
-{aspect.TypeHandle.DeclareCode(ref printer.WithIndentCleared("            "))}
-{aspect.HasEntityField.SelectOrDefault($"            global::Unity.Entities.EntityTypeHandle m_Entities;")}
-{aspect.TypeHandle.BufferTypeHandle.Select(field => $"{field.ReadOnlyAttribute}            global::Unity.Entities.BufferTypeHandle<global::{field.TypeName}> {field.InternalFieldName};").SeparateByNewLine()}
-{aspect.AspectFields.Select(field => $"{field.ReadOnlyAttribute}            global::{field.TypeName}.TypeHandle {field.InternalFieldName};").SeparateByNewLine()}
-            public TypeHandle(ref global::Unity.Entities.SystemState state, bool isReadOnly)
-            {{
-{aspect.TypeHandle.ConstructCode(ref printer.WithIndentCleared("                "))}
-{aspect.HasEntityField.SelectOrDefault($"                this.m_Entities = state.GetEntityTypeHandle();")}
-{aspect.TypeHandle.BufferTypeHandle.Select(field => $"                this.{field.InternalFieldName} = state.GetBufferTypeHandle<global::{field.TypeName}>({(field.IsReadOnly ? "true" : "isReadOnly")});").SeparateByNewLine()}
-{aspect.AspectFields.Select(field => $"                this.{field.InternalFieldName} = new global::{field.TypeName}.TypeHandle(ref state, {(field.IsReadOnly ? "true" : "isReadOnly")});").SeparateByNewLine()}
-            }}
-            public void Update(ref global::Unity.Entities.SystemState state)
-            {{
-{aspect.TypeHandle.UpdateCode(ref printer.WithIndentCleared("                "))}
-{aspect.HasEntityField.SelectOrDefault($"                this.m_Entities.Update(ref state);")}
-{aspect.TypeHandle.Update.Select(field => $"                this.{field.InternalFieldName}.Update(ref state);").SeparateByNewLine()}
-            }}
-            public ResolvedChunk Resolve(global::Unity.Entities.ArchetypeChunk chunk)
-            {{
-                ResolvedChunk resolved;
-{ aspect.HasEntityField.SelectOrDefault($"                resolved.m_Entities = chunk.GetNativeArray(this.m_Entities);")}
-{ aspect.AspectFields.Select(field => $"                resolved.{field.InternalFieldName} = this.{field.InternalFieldName}.Resolve(chunk);").SeparateByNewLine()}
-{aspect.ResolvedChunk.ResolveCode(ref printer.WithIndentCleared("                "))}
-                resolved.Length = chunk.Count;
-                return resolved;
-            }}
-        }}
-        public static Enumerator Query(global::Unity.Entities.EntityQuery query, TypeHandle typeHandle) {{ return new Enumerator(query, typeHandle); }}
-        public struct Enumerator : global::System.Collections.Generic.IEnumerator<{aspect.Name}>, global::System.Collections.Generic.IEnumerable<{aspect.Name}>
-        {{
-            ResolvedChunk                                _Resolved;
-            global::Unity.Entities.EntityQueryEnumerator _QueryEnumerator;
-            TypeHandle                                   _Handle;
-            internal Enumerator(global::Unity.Entities.EntityQuery query, TypeHandle typeHandle)
-            {{
-                _QueryEnumerator = new global::Unity.Entities.EntityQueryEnumerator(query);
-                _Handle = typeHandle;
-                _Resolved = default;
-            }}
-            public void Dispose() {{ _QueryEnumerator.Dispose(); }}
-            public bool MoveNext()
-            {{
-                if (_QueryEnumerator.MoveNextHotLoop())
-                    return true;
-                return MoveNextCold();
-            }}
-            [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-            bool MoveNextCold()
-            {{
-                var didMove = _QueryEnumerator.MoveNextColdLoop(out var chunk);
-                if (didMove)
-                    _Resolved = _Handle.Resolve(chunk);
-                return didMove;
-            }}
-            public {aspect.Name} Current {{
-                get {{
-                    #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                        _QueryEnumerator.CheckDisposed();
-                    #endif
-                        return _Resolved[_QueryEnumerator.IndexInChunk];
-                    }}
-            }}
-            public Enumerator GetEnumerator()  {{ return this; }}
-            void global::System.Collections.IEnumerator.Reset() => throw new global::System.NotImplementedException();
-            object global::System.Collections.IEnumerator.Current => throw new global::System.NotImplementedException();
-            global::System.Collections.Generic.IEnumerator<{aspect.Name}> global::System.Collections.Generic.IEnumerable<{aspect.Name}>.GetEnumerator() => throw new global::System.NotImplementedException();
-            global::System.Collections.IEnumerator global::System.Collections.IEnumerable.GetEnumerator()=> throw new global::System.NotImplementedException();
-        }}
+            printer.PrintEndLine();
+            printer.PrintLine(@"/// <summary>");
+            printer.PrintLine(@"/// Add component requirements from this aspect into all / any / none archetype lists.");
+            printer.PrintLine(@"/// </summary>");
+            printer.PrintLine(@"/// <param name=""all"">Archetype ""all"" component requirements.</param>");
+            printer.PrintLine(@"/// <param name=""any"">Archetype ""any"" component requirements.</param>");
+            printer.PrintLine(@"/// <param name=""none"">Archetype ""none"" component requirements.</param>");
+            printer.PrintLine(@"/// <param name=""disabled"">Archetype ""disabled"" component requirements.</param>");
+            printer.PrintLine(@"/// <param name=""absent"">Archetype ""absent"" component requirements.</param>");
+            printer.PrintLine(@"/// <param name=""isReadOnly"">set to true to force all components to be read-only.</param>");
+            printer.PrintBeginLine(
+                    "public void AddComponentRequirementsTo(ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> all, ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> any, ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> none, ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> disabled, ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> absent, bool isReadOnly)")
+            .OpenScope()
+                .PrintBeginLine("if (isReadOnly)")
+                .OpenScope()
+                    .PrintWith(x => PrintAddComponentTypes(x, aspect, isReadOnly: true))
+                .CloseScope()
+                .PrintBeginLine("else")
+                .OpenScope()
+                    .PrintWith(x => PrintAddComponentTypes(x, aspect, isReadOnly: false))
+                .CloseScope()
+            .CloseScope();
 
-        /// <summary>
-        /// Completes the dependency chain required for this aspect to have read access.
-        /// So it completes all write dependencies of the components, buffers, etc. to allow for reading.
-        /// </summary>
-        /// <param name=""state"">The <see cref=""SystemState""/> containing an <see cref=""EntityManager""/> storing all dependencies.</param>
-        public static void CompleteDependencyBeforeRO(ref global::Unity.Entities.SystemState state){{
-{aspect.FieldsNeedContruction.Select(f => "           "+f.GetCompleteDependencyXX(true)).SeparateByNewLine()}
-        }}
-
-        /// <summary>
-        /// Completes the dependency chain required for this component to have read and write access.
-        /// So it completes all write dependencies of the components, buffers, etc. to allow for reading,
-        /// and it completes all read dependencies, so we can write to it.
-        /// </summary>
-        /// <param name=""state"">The <see cref=""SystemState""/> containing an <see cref=""EntityManager""/> storing all dependencies.</param>
-        public static void CompleteDependencyBeforeRW(ref global::Unity.Entities.SystemState state){{
-{aspect.FieldsNeedContruction.Select(f => "           "+f.GetCompleteDependencyXX(false)).SeparateByNewLine()}
-        }}
-    }}
-{namespaceClose}";
+            // Print Aspect's Lookup primitive
+            printer.PrintEndLine();
+            printer.PrintLine(@"/// <summary>");
+            printer.PrintLine(@"/// A container type that provides access to instances of the enclosing Aspect type, indexed by <see cref=""Unity.Entities.Entity""/>.");
+            printer.PrintLine(@"/// Equivalent to <see cref=""Unity.Entities.ComponentLookup{T}""/> but for aspect types.");
+            printer.PrintLine(@"/// Constructed from an system state via its constructor.");
+            printer.PrintBeginLine("public struct Lookup");
+            {
+                printer.OpenScope();
+                printer.PrintLine("private byte __IsReadOnly;");
+                printer.PrintBeginLine("bool _IsReadOnly");
+                {
+                    printer.OpenScope();
+                    printer.PrintLine("get { return __IsReadOnly == 1; }");
+                    printer.PrintLine("set { __IsReadOnly = value ? (byte) 1 : (byte) 0; }");
+                    printer.CloseScope();
+                }
+                // Declare all lookup primitives
+                aspect.PrimitivesRouter.LookupDeclare(printer);
+                // Lookup constructor
+                printer.PrintEndLine();
+                printer.PrintLine(@"/// <summary>");
+                printer.PrintLine(@"/// Create the aspect lookup from an system state.");
+                printer.PrintLine(@"/// </summary>");
+                printer.PrintLine(@"/// <param name=""state"">The system state to create the aspect lookup from.</param>");
+                printer.PrintLine(@"/// <param name=""isReadOnly"">Set to true to force all reference in the aspect to be read-only.</param>");
+                printer.PrintBeginLine("public Lookup(ref global::Unity.Entities.SystemState state, bool isReadOnly)");
+                {
+                    printer.OpenScope();
+                    printer.PrintLine("__IsReadOnly = isReadOnly ? (byte) 1u : (byte) 0u;");
+                    aspect.PrimitivesRouter.LookupConstructFromState(printer);
+                    printer.CloseScope();
+                }
+                // Lookup Update
+                printer.PrintEndLine();
+                printer.PrintLine(@"/// <summary>");
+                printer.PrintLine(@"/// Update the lookup container.");
+                printer.PrintLine(@"/// Must be called every frames before using the lookup.");
+                printer.PrintLine(@"/// </summary>");
+                printer.PrintLine(@"/// <param name=""state"">The system state the aspect lookup was created from.</param>");
+                printer.PrintBeginLine("public void Update(ref global::Unity.Entities.SystemState state)");
+                {
+                    printer.OpenScope();
+                    aspect.PrimitivesRouter.LookupUpdate(printer);
+                    printer.CloseScope();
+                }
+                // Lookup Entity Indexer
+                printer.PrintEndLine();
+                printer.PrintLine(@"/// <summary>");
+                printer.PrintLine(@"/// Get an aspect instance pointing at a specific entity's components data.");
+                printer.PrintLine(@"/// </summary>");
+                printer.PrintLine(@"/// <param name=""entity"">The entity to create the aspect struct from.</param>");
+                printer.PrintLine(@"/// <returns>Instance of the aspect struct pointing at a specific entity's components data.</returns>");
+                printer = printer.PrintBeginLine("public ").Print(aspect.Name).Print(" this[global::Unity.Entities.Entity entity]")
+                    .OpenScope().PrintBeginLine("get").OpenScope();
+				aspect.PrimitivesRouter.LookupDecay(printer, aspect.Name);
+				printer = printer.CloseScope().CloseScope();
+                // close Lookup struct
+                printer.CloseScope();
+            }
+            // Print Aspect's Chunk Primitive
+            printer.PrintEndLine();
+            printer.PrintLine(@"/// <summary>");
+            printer.PrintLine(@"/// Chunk of the enclosing aspect instances.");
+            printer.PrintLine(@"/// the aspect struct itself is instantiated from multiple component data chunks.");
+            printer.PrintLine(@"/// </summary>");
+            printer.PrintBeginLine("public struct ResolvedChunk");
+            {
+                printer.OpenScope();
+                // Declare all Chunk Primitives
+                aspect.PrimitivesRouter.ChunkDeclare(printer);
+                // Chunk int Indexer
+                printer.PrintEndLine();
+                printer.PrintLine(@"/// <summary>");
+                printer.PrintLine(@"/// Get an aspect instance pointing at a specific entity's component data in the chunk index.");
+                printer.PrintLine(@"/// </summary>");
+                printer.PrintLine(@"/// <param name=""index""></param>");
+                printer.PrintLine(@"/// <returns>Aspect for the entity in the chunk at the given index.</returns>");
+                printer.PrintBeginLine("public ").Print(aspect.Name).PrintEndLine(" this[int index]");
+                printer.WithIncreasedIndent().PrintBeginLine("=> new ").Print(aspect.Name).Print("(").PrintWith(
+                    // Chunk Decay to References
+                    aspect.PrimitivesRouter.ChunkDecay(printer)
+                ).PrintEndLine(");");
+                printer.PrintEndLine();
+                printer.PrintLine(@"/// <summary>");
+                printer.PrintLine(@"/// Number of entities in this chunk.");
+                printer.PrintLine(@"/// </summary>");
+                printer.PrintLine("public int Length;");
+                printer.CloseScope();
+            }
+            // Print Aspect's TypeHandle Primitive
+            printer.PrintEndLine();
+            printer.PrintLine(@"/// <summary>");
+            printer.PrintLine(@"/// A handle to the enclosing aspect type, used to access a <see cref=""ResolvedChunk""/>'s components data in a job.");
+            printer.PrintLine(@"/// Equivalent to <see cref=""Unity.Entities.ComponentTypeHandle{T}""/> but for aspect types.");
+            printer.PrintLine(@"/// Constructed from an system state via its constructor.");
+            printer.PrintLine(@"/// </summary>");
+            printer.PrintBeginLine("public struct TypeHandle");
+            {
+                printer.OpenScope();
+                // Declare all Iteration Primitives
+                aspect.PrimitivesRouter.TypeHandleDeclare(printer);
+                // TypeHandle Constructor
+                printer.PrintEndLine();
+                printer.PrintLine(@"/// <summary>");
+                printer.PrintLine(@"/// Create the aspect type handle from an system state.");
+                printer.PrintLine(@"/// </summary>");
+                printer.PrintLine(@"/// <param name=""state"">System state to create the type handle from.</param>");
+                printer.PrintLine(@"/// <param name=""isReadOnly"">Set to true to force all reference in the aspect to be read-only.</param>");
+                printer.PrintBeginLine("public TypeHandle(ref global::Unity.Entities.SystemState state, bool isReadOnly)");
+                {
+                    printer.OpenScope();
+                    aspect.PrimitivesRouter.TypeHandleConstructFromState(printer);
+                    printer.CloseScope();
+                }
+                // TypeHandle Update
+                printer.PrintEndLine();
+                printer.PrintLine(@"/// <summary>");
+                printer.PrintLine(@"/// Update the type handle container.");
+                printer.PrintLine(@"/// Must be called every frames before using the type handle.");
+                printer.PrintLine(@"/// </summary>");
+                printer.PrintLine(@"/// <param name=""state"">The system state the aspect type handle was created from.</param>");
+                printer.PrintBeginLine("public void Update(ref global::Unity.Entities.SystemState state)");
+                {
+                    printer.OpenScope();
+                    aspect.PrimitivesRouter.TypeHandleUpdate(printer);
+                    printer.CloseScope();
+                }
+                // TypeHandle Decay to Chunk
+                printer.PrintEndLine();
+                printer.PrintLine(@"/// <summary>");
+                printer.PrintLine(@"/// Get the enclosing aspect's <see cref=""ResolvedChunk""/> from an <see cref=""Unity.Entities.ArchetypeChunk""/>.");
+                printer.PrintLine(@"/// </summary>");
+                printer.PrintLine(@"/// <param name=""chunk"">The ArchetypeChunk to extract the aspect's ResolvedChunk from.</param>");
+                printer.PrintLine(@"/// <returns>A ResolvedChunk representing all instances of the aspect in the chunk.</returns>");
+                printer.PrintBeginLine("public ResolvedChunk Resolve(global::Unity.Entities.ArchetypeChunk chunk)");
+                {
+                    printer.OpenScope();
+                    printer.PrintLine("ResolvedChunk resolved;");
+                    aspect.PrimitivesRouter.TypeHandleDecay(printer);
+                    printer.PrintLine("resolved.Length = chunk.Count;");
+                    printer.PrintLine("return resolved;");
+                    printer.CloseScope();
+                }
+                printer.CloseScope();
+            }
+            printer.PrintEndLine();
+            printer.PrintLine(@"/// <summary>");
+            printer.PrintLine(@"/// Enumerate the enclosing aspect from all entities in a query.");
+            printer.PrintLine(@"/// </summary>");
+            printer.PrintLine(@"/// <param name=""query"">The entity query to enumerate.</param>");
+            printer.PrintLine(@"/// <param name=""typeHandle"">The aspect's enclosing type handle.</param>");
+            printer.PrintLine(@"/// <returns>An enumerator of all the entities instance of the enclosing aspect.</returns>");
+            printer.PrintLine(@$"public static Enumerator Query(global::Unity.Entities.EntityQuery query, TypeHandle typeHandle) {{ return new Enumerator(query, typeHandle); }}");
+            printer.PrintEndLine();
+            printer.PrintLine(@"/// <summary>");
+            printer.PrintLine(@"/// Enumerable and Enumerator of the enclosing aspect.");
+            printer.PrintLine(@"/// </summary>");
+            printer.PrintLine(@$"public struct Enumerator : global::System.Collections.Generic.IEnumerator<{aspect.Name}>, global::System.Collections.Generic.IEnumerable<{aspect.Name}>");
+            printer.PrintLine(@$"{{");
+            printer.PrintLine(@$"    ResolvedChunk                                _Resolved;");
+            printer.PrintLine(@$"    global::Unity.Entities.EntityQueryEnumerator _QueryEnumerator;");
+            printer.PrintLine(@$"    TypeHandle                                   _Handle;");
+            printer.PrintLine(@$"    internal Enumerator(global::Unity.Entities.EntityQuery query, TypeHandle typeHandle)");
+            printer.PrintLine(@$"    {{");
+            printer.PrintLine(@$"        _QueryEnumerator = new global::Unity.Entities.EntityQueryEnumerator(query);");
+            printer.PrintLine(@$"        _Handle = typeHandle;");
+            printer.PrintLine(@$"        _Resolved = default;");
+            printer.PrintLine(@$"    }}");
+            printer.PrintEndLine();
+            printer.PrintLine(@$"    /// <summary>");
+            printer.PrintLine(@$"    /// Dispose of this enumerator.");
+            printer.PrintLine(@$"    /// </summary>");
+            printer.PrintLine(@$"    public void Dispose() {{ _QueryEnumerator.Dispose(); }}");
+            printer.PrintEndLine();
+            printer.PrintLine(@$"    /// <summary>");
+            printer.PrintLine(@$"    /// Move to next entity.");
+            printer.PrintLine(@$"    /// </summary>");
+            printer.PrintLine(@$"    /// <returns>if this enumerator has not reach the end of the enumeration yet. Current is valid.</returns>");
+            printer.PrintLine(@$"    public bool MoveNext()");
+            printer.PrintLine(@$"    {{");
+            printer.PrintLine(@$"        if (_QueryEnumerator.MoveNextHotLoop())");
+            printer.PrintLine(@$"            return true;");
+            printer.PrintLine(@$"        return MoveNextCold();");
+            printer.PrintLine(@$"    }}");
+            printer.PrintEndLine();
+            printer.PrintLine(@$"    [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]");
+            printer.PrintLine(@$"    bool MoveNextCold()");
+            printer.PrintLine(@$"    {{");
+            printer.PrintLine(@$"        var didMove = _QueryEnumerator.MoveNextColdLoop(out var chunk);");
+            printer.PrintLine(@$"        if (didMove)");
+            printer.PrintLine(@$"            _Resolved = _Handle.Resolve(chunk);");
+            printer.PrintLine(@$"        return didMove;");
+            printer.PrintLine(@$"    }}");
+            printer.PrintEndLine();
+            printer.PrintLine(@$"    /// <summary>");
+            printer.PrintLine(@$"    /// Get current entity aspect.");
+            printer.PrintLine(@$"    /// </summary>");
+            printer.PrintLine(@$"    public {aspect.Name} Current {{");
+            printer.PrintLine(@$"        get {{");
+            printer.PrintLine(@$"            #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG");
+            printer.PrintLine(@$"                _QueryEnumerator.CheckDisposed();");
+            printer.PrintLine(@$"            #endif");
+            printer.PrintLine(@$"                return _Resolved[_QueryEnumerator.IndexInChunk];");
+            printer.PrintLine(@$"            }}");
+            printer.PrintLine(@$"    }}");
+            printer.PrintEndLine();
+            printer.PrintLine(@$"    /// <summary>");
+            printer.PrintLine(@$"    /// Get the Enumerator from itself as a Enumerable.");
+            printer.PrintLine(@$"    /// </summary>");
+            printer.PrintLine(@$"    /// <returns>An Enumerator of the enclosing aspect.</returns>");
+            printer.PrintLine(@$"    public Enumerator GetEnumerator()  {{ return this; }}");
+            printer.PrintEndLine();
+            printer.PrintLine(@$"    void global::System.Collections.IEnumerator.Reset() => throw new global::System.NotImplementedException();");
+            printer.PrintLine(@$"    object global::System.Collections.IEnumerator.Current => throw new global::System.NotImplementedException();");
+            printer.PrintLine(@$"    global::System.Collections.Generic.IEnumerator<{aspect.Name}> global::System.Collections.Generic.IEnumerable<{aspect.Name}>.GetEnumerator() => throw new global::System.NotImplementedException();");
+            printer.PrintLine(@$"    global::System.Collections.IEnumerator global::System.Collections.IEnumerable.GetEnumerator()=> throw new global::System.NotImplementedException();");
+            printer.PrintLine(@$"}}");
+            printer.PrintEndLine();
+            printer.PrintLine(@$"/// <summary>");
+            printer.PrintLine(@$"/// Completes the dependency chain required for this aspect to have read access.");
+            printer.PrintLine(@$"/// So it completes all write dependencies of the components, buffers, etc. to allow for reading.");
+            printer.PrintLine(@$"/// </summary>");
+            printer.PrintLine(@$"/// <param name=""state"">The <see cref=""SystemState""/> containing an <see cref=""EntityManager""/> storing all dependencies.</param>");
+            printer.PrintBeginLine($"public static void CompleteDependencyBeforeRO(ref global::Unity.Entities.SystemState state)");
+            printer.OpenScope();
+            aspect.PrimitivesRouter.PrintCompleteDependency(printer, true);
+            printer.CloseScope();
+            printer.PrintEndLine();
+            printer.PrintLine(@$"/// <summary>");
+            printer.PrintLine(@$"/// Completes the dependency chain required for this component to have read and write access.");
+            printer.PrintLine(@$"/// So it completes all write dependencies of the components, buffers, etc. to allow for reading,");
+            printer.PrintLine(@$"/// and it completes all read dependencies, so we can write to it.");
+            printer.PrintLine(@$"/// </summary>");
+            printer.PrintLine(@$"/// <param name=""state"">The <see cref=""SystemState""/> containing an <see cref=""EntityManager""/> storing all dependencies.</param>");
+            printer.PrintBeginLine(@$"public static void CompleteDependencyBeforeRW(ref global::Unity.Entities.SystemState state)");
+            printer.OpenScope();
+            aspect.PrimitivesRouter.PrintCompleteDependency(printer, false);
+            printer.CloseScope();
+        }
+        printer.CloseScope();
+        aspectNestedScopePrinter.PrintClose();
+        return printer.Result;
     }
 }

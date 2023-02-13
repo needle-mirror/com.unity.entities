@@ -509,7 +509,7 @@ namespace Unity.Entities.Editor
             public int EntityCapacity;
 
             [ReadOnly] public HierarchyNodeMap<HierarchyNodeData> Nodes;
-            [ReadOnly] public UnsafeMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> Children;
+            [ReadOnly] public UnsafeParallelMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> Children;
             [ReadOnly] public int ReadChangeVersion;
 
             public ExportImmutableState State;

@@ -205,14 +205,6 @@ namespace Unity.Entities.PerformanceTests
         {
             public int LoopsPerSystem { get; set; }
 
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
             [BurstCompile(CompileSynchronously = true)]
             public void OnUpdate(ref SystemState state)
             {
@@ -227,14 +219,6 @@ namespace Unity.Entities.PerformanceTests
         [BurstCompile(CompileSynchronously = true)]
         partial struct EntitiesForEachSystem: ISystem
         {
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
             [BurstCompile(CompileSynchronously = true)]
             public void OnUpdate(ref SystemState state)
             {
@@ -257,9 +241,6 @@ namespace Unity.Entities.PerformanceTests
         {
             public int LoopsPerSystem;
             public ScheduleType ScheduleType;
-
-            public void OnCreate(ref SystemState state) {}
-            public void OnDestroy(ref SystemState state){}
 
             [BurstDiscard]
             static void CheckRunningBurst()

@@ -98,6 +98,10 @@ namespace Unity.Entities
         /// </summary>
         Presentation                    = 1 << 12,
         /// <summary>
+        /// Worlds supporting streaming
+        /// </summary>
+        Streaming                       = 1 << 13,
+        /// <summary>
         /// Flag to include all system groups defined above as well as systems decorated with [DisableAutoCreation].
         /// </summary>
         All                             = ~0u

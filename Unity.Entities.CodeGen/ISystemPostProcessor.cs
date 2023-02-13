@@ -109,18 +109,10 @@ namespace Unity.Entities.CodeGen
                 if (burstAttribute != null)
                 {
                     if (!targetMethod.DeclaringType.CustomAttributes.Any(isBurstAttribute))
-                    {
-                        _diagnosticMessages.Add(UserError.MakeWarning("",
-                            $"[BurstCompile] was added to {targetMethod.DeclaringType.Name}.{targetMethod.Name} but not {targetMethod.DeclaringType.Name}! {targetMethod.DeclaringType.Name}.{targetMethod.Name} will not be bursted!",
-                            targetMethod,
-                            null));
-                    }
-                    else
-                    {
-                        methodDef.CustomAttributes.Add(new CustomAttribute(burstAttribute.Constructor,
-                            burstAttribute.GetBlob()));
-                        memo.m_BurstCompileBits |= 1 << i;
-                    }
+                        targetMethod.DeclaringType.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(typeof(BurstCompileAttribute).GetConstructor(Type.EmptyTypes))));
+
+                    methodDef.CustomAttributes.Add(new CustomAttribute(burstAttribute.Constructor, burstAttribute.GetBlob()));
+                    memo.m_BurstCompileBits |= 1 << i;
                 }
 
 #if UNITY_DOTSRUNTIME

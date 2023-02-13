@@ -99,14 +99,14 @@ namespace Unity.Entities.Tests
         // believe the generation numbers should be.
         private void SanityCheckVersions()
         {
-            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc
+            var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
             {
                 Any = Array.Empty<ComponentType>(),
                 None = Array.Empty<ComponentType>(),
                 All = m_OurTypes,
             });
-            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
-            group.Dispose();
+            var chunks = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            query.Dispose();
 
             EntityTypeHandle entityTypeHandle = m_Manager.GetEntityTypeHandle();
 

@@ -382,6 +382,50 @@ namespace Unity.Entities.Tests
         public void SystemBase_HasSingletonWorks_ManagedComponents() => TestSystem.HasSingletonWorks_ManagedComponents();
 
 #endif
+
+        public partial class JobWritesComponentSystem : SystemBase
+        {
+            protected override void OnCreate()
+            {
+                EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+            }
+            protected override void OnUpdate()
+            {
+                new TestJob().Schedule();
+            }
+            public partial struct TestJob : IJobEntity
+            {
+                internal void Execute(ref EcsTestData normalComponent)
+                {
+                    normalComponent.value = 1;
+                }
+            }
+        }
+
+        [UpdateAfter(typeof(JobWritesComponentSystem))]
+        public partial class ReadComponentSystem : SystemBase
+        {
+            protected override void OnUpdate() { }
+            protected override void OnStartRunning()
+            {
+                // For dependencies to complete properly, BeforeOnUpdate needs to have been called.
+                CompleteDependency();
+                SystemAPI.SetSingleton<EcsTestData>(default);
+            }
+        }
+
+        [Test]
+        public void SystemBase_SingletonInOnStartRunning()
+        {
+            var sysA = World.CreateSystem<JobWritesComponentSystem>();
+            var sysB = World.CreateSystem<ReadComponentSystem>();
+
+            sysA.Update(World.Unmanaged);
+            sysB.Update(World.Unmanaged);
+
+            World.DestroySystem(sysB);
+            World.DestroySystem(sysA);
+        }
     }
 }
 

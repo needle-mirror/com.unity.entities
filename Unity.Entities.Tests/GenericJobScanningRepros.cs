@@ -240,10 +240,6 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
             });
         }
 
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
         public struct WrappedCustomJob : IJobCustom<Bar>
         {
             public int toAdd;

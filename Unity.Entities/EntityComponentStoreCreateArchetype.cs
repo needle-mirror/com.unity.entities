@@ -295,7 +295,7 @@ namespace Unity.Entities
             return archetypeChunkFilter;
         }
 
-        Archetype* GetArchetypeWithAddedComponents(Archetype* srcArchetype, ComponentTypeSet componentTypeSet)
+        Archetype* GetArchetypeWithAddedComponents(Archetype* srcArchetype, in ComponentTypeSet componentTypeSet)
         {
             var srcTypes = srcArchetype->Types;
             var dstTypesCount = srcArchetype->TypesCount + componentTypeSet.Length;
@@ -507,7 +507,7 @@ namespace Unity.Entities
             return GetOrCreateArchetype(newTypes, archetype->TypesCount - removedTypes);
         }
 
-        Archetype* GetArchetypeWithRemovedComponents(Archetype* archetype, ComponentTypeSet typeSetToRemove)
+        Archetype* GetArchetypeWithRemovedComponents(Archetype* archetype, in ComponentTypeSet typeSetToRemove)
         {
             ComponentTypeInArchetype* newTypes = stackalloc ComponentTypeInArchetype[archetype->TypesCount];
 

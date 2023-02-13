@@ -81,7 +81,7 @@ namespace Unity.Entities
                     fixedString = kMsgUnknownSystem;
             }
 
-            public void LogEntitiesAndComponentsCommand(Entity* entities, int count, ComponentTypeSet typeSet,
+            public void LogEntitiesAndComponentsCommand(Entity* entities, int count, in ComponentTypeSet typeSet,
                 in FixedString64Bytes commandAction)
             {
                 for (var i = 0; i < count; i++)
@@ -108,12 +108,12 @@ namespace Unity.Entities
                 }
             }
 
-            public void LogEntityAndComponentsCommand(Entity entity, ComponentTypeSet typeSet,
+            public void LogEntityAndComponentsCommand(Entity entity, in ComponentTypeSet typeSet,
                 in FixedString64Bytes commandAction)
             {
                 for (var i = 0; i < typeSet.Length; i++)
                 {
-                    LogEntityAndComponentCommand(entity, typeSet.Types[i], commandAction);
+                    LogEntityAndComponentCommand(entity, typeSet.UnsafeTypesPtrRO[i], commandAction);
                 }
             }
 
@@ -1487,7 +1487,7 @@ namespace Unity.Entities
             public ComponentTypeSet TypeSet;
 
             public MultipleEntitiesAndComponentsCommandView(ECBCommand commandType, int sortKey, int totalSize, EntityNode entities, int entitiesCount,
-                bool skipDeferredEntityLookup, Allocator allocator, ComponentTypeSet typeSet)
+                bool skipDeferredEntityLookup, Allocator allocator, in ComponentTypeSet typeSet)
             {
                 CommandType = commandType;
                 SortKey = sortKey;
@@ -1695,7 +1695,7 @@ namespace Unity.Entities
             public ComponentTypeSet TypeSet;
 
             public EntityMultipleComponentsCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity,
-                int identityIndex, int batchCount, ComponentTypeSet typeSet)
+                int identityIndex, int batchCount, in ComponentTypeSet typeSet)
             {
                 CommandType = commandType;
                 SortKey = sortKey;

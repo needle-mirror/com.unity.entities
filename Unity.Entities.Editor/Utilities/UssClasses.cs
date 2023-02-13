@@ -363,6 +363,7 @@ namespace Unity.Entities.Editor
                 const string k_Base = "unity-toggle";
                 public const string Text = k_Base + "__text";
                 public const string Input = k_Base + "__input";
+                public const string Checkmark = k_Base + "__checkmark";
             }
         }
 

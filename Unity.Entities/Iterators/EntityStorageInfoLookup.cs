@@ -11,6 +11,11 @@ namespace Unity.Entities
         /// <summary>
         /// The chunk containing the specified Entity.
         /// </summary>
+        /// <remarks>
+        /// Users should be extremely careful when accessing this field from job code. Specifically, multiple threads
+        /// must not modify the same <see cref="ArchetypeChunk"/>. The type is not thread-safe, and parallel writes will
+        /// result in race conditions and unpredictable behavior.
+        /// </remarks>
         public ArchetypeChunk Chunk;
 
         /// <summary>

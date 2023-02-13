@@ -8,7 +8,6 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Serialization;
 using Unity.Mathematics;
-using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
@@ -218,6 +217,9 @@ namespace Unity.Entities
             get { return ((BlobAssetHeader*) m_Ptr) - 1; }
         }
 
+
+
+#if !NET_DOTS
         /// <summary>
         /// This member is exposed to Unity.Properties to support EqualityComparison and Serialization within managed objects.
         /// </summary>
@@ -235,13 +237,13 @@ namespace Unity.Entities
         /// 3) ManagedObjectClone - When cloning managed objects Unity.Properties does not have access to the internal pointer field. This property is used to copy the bits for this struct.
         /// </remarks>
         // ReSharper disable once UnusedMember.Local
-        [RequiredMember]
         [Properties.CreateProperty]
         long SerializedHash
         {
             get => m_Align8Union;
             set => m_Align8Union = value;
         }
+#endif
 
         [BurstDiscard]
         void ValidateNonBurst()
@@ -256,16 +258,20 @@ namespace Unity.Entities
             {
             }
 
-            if (validationPtr != m_Ptr)
+            if (!(validationPtr == m_Ptr || IsProtected))
+            {
                 throw new InvalidOperationException("The BlobAssetReference is not valid. Likely it has already been unloaded or released.");
+            }
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ValidateBurst()
         {
             void* validationPtr = Header->ValidationPtr;
-            if(validationPtr != m_Ptr)
+            if (!(validationPtr == m_Ptr || IsProtected))
+            {
                 throw new InvalidOperationException("The BlobAssetReference is not valid. Likely it has already been unloaded or released.");
+            }
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -299,6 +305,7 @@ namespace Unity.Entities
         public void Dispose()
         {
             ValidateNotNull();
+            ValidateNotProtected();
             ValidateNotDeserialized();
             Memory.Unmanaged.Free(Header, Header->Allocator);
             m_Ptr = null;
@@ -318,6 +325,56 @@ namespace Unity.Entities
 #else
             return (int) m_Ptr;
 #endif
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        internal void ProtectAgainstDisposal()
+        {
+            ValidateNotNull();
+
+            if (IsProtected)
+            {
+                throw new InvalidOperationException("Cannot protect this BlobAssetReference, it is already protected.");
+            }
+#if UNITY_64
+            Header->ValidationPtr = (void*)~(long)m_Ptr;
+#else
+            Header->ValidationPtr = (void*)~(int)m_Ptr;
+#endif
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        internal void UnprotectAgainstDisposal()
+        {
+            ValidateNotNull();
+
+            if (!IsProtected)
+            {
+                throw new InvalidOperationException("Cannot unprotect this BlobAssetReference, it is not protected.");
+            }
+
+            Header->ValidationPtr = m_Ptr;
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        void ValidateNotProtected()
+        {
+            if (IsProtected)
+            {
+                throw new InvalidOperationException("This BlobAssetReference is owned by a BlobAssetStore and cannot be disposed directly.");
+            }
+        }
+
+        bool IsProtected
+        {
+            get
+            {
+#if UNITY_64
+                return Header->ValidationPtr == (void*)~(long)m_Ptr;
+#else
+                return Header->ValidationPtr == (void*)~(int)m_Ptr;
+#endif
+            }
         }
     }
 

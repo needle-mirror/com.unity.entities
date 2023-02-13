@@ -229,16 +229,6 @@ namespace Unity.Entities.Tests
             public Entity DeferredEntity;
 
             [BurstCompile]
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            [BurstCompile]
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            [BurstCompile]
             public void OnUpdate(ref SystemState state)
             {
                 var ecb = SystemAPI.GetSingletonRW<TestEntityCommandBufferSystem.Singleton>().ValueRW.CreateCommandBuffer(state.WorldUnmanaged);
@@ -1705,11 +1695,10 @@ namespace Unity.Entities.Tests
                 cmds.Playback(m_Manager);
             }
 
-            using (var entityQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
-                {
-                    All = new ComponentType[] {typeof(EcsTestData)},
-                    None = new ComponentType[] {typeof(EcsTestData2)},
-                }))
+            using (var entityQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestData>()
+                .WithNone<EcsTestData2>()
+                .Build(m_Manager))
             using (var entities = entityQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
             {
                 Assert.AreEqual(2, entities.Length, "Wrong number of entities with removed component.");
@@ -1742,11 +1731,10 @@ namespace Unity.Entities.Tests
                 cmds.Playback(m_Manager);
             }
 
-            using (var entityQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[] {typeof(EcsTestData)},
-                None = new ComponentType[] {typeof(EcsTestSharedComp)},
-            }))
+            using (var entityQuery = new EntityQueryBuilder(Allocator.Temp)
+                       .WithAllRW<EcsTestData>()
+                       .WithNone<EcsTestSharedComp>()
+                       .Build(m_Manager))
             using (var entities = entityQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
             {
                 Assert.AreEqual(2, entities.Length, "Wrong number of entities with removed component.");
@@ -1780,11 +1768,10 @@ namespace Unity.Entities.Tests
                 cmds.Playback(m_Manager);
             }
 
-            using (var entityQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[] {typeof(EcsTestData2)},
-                None = new ComponentType[] {typeof(EcsTestData), typeof(EcsTestData3)},
-            }))
+            using (var entityQuery = new EntityQueryBuilder(Allocator.Temp)
+                       .WithAllRW<EcsTestData2>()
+                       .WithNone<EcsTestData,EcsTestData3>()
+                       .Build(m_Manager))
             using (var entities = entityQuery.ToEntityArray(World.UpdateAllocator.ToAllocator))
             {
                 Assert.AreEqual(2, entities.Length, "Wrong number of entities with removed component.");
@@ -5144,6 +5131,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+#if ENABLE_IL2CPP
+        [Ignore("DOTS-7524 - \"System.ExecutionEngineException : An unresolved indirect call lookup failed\" is thrown when executed with an IL2CPP build")]
+#endif
         public void AddManagedComponent_WithEntityPatch()
         {
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
@@ -5597,6 +5587,30 @@ namespace Unity.Entities.Tests
                 Ecb.SetSharedComponent(0, DeferredEntities, Value);
             }
         }
+
+        [Test]
+        public void SetSharedComponent_DefaultValue_IsNotDuplicated()
+        {
+            const int TEST_ENTITY_COUNT = 10;
+            var value = new EcsTestSharedComp(17);
+
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            using var testEntities = m_Manager.CreateEntity(archetype, 3 * TEST_ENTITY_COUNT, World.UpdateAllocator.ToAllocator);
+
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            ecb.SetSharedComponent(testEntities.GetSubArray(TEST_ENTITY_COUNT, TEST_ENTITY_COUNT), value);
+            ecb.SetSharedComponent(testEntities.GetSubArray(2 * TEST_ENTITY_COUNT, TEST_ENTITY_COUNT), default(EcsTestSharedComp));
+            ecb.Playback(m_Manager);
+
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            query.SetSharedComponentFilter(value);
+            Assert.AreEqual(TEST_ENTITY_COUNT, query.CalculateEntityCount());
+
+            query.SetSharedComponentFilter(default(EcsTestSharedComp));
+            Assert.AreEqual(2 * TEST_ENTITY_COUNT, query.CalculateEntityCount());
+        }
+
         [Test]
         public void SetSharedComponent_TargetIsEntityArray_Works()
         {
@@ -6915,6 +6929,25 @@ namespace Unity.Entities.Tests
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [BurstCompile(CompileSynchronously = true)]
+        static void DisposeEcb(ref EntityCommandBuffer ecb)
+        {
+            ecb.Dispose();
+        }
+
+        [Test]
+        public void AddManagedComponent_DisposeFromBurst_CleanedUp()
+        {
+            var entity = m_Manager.CreateEntity();
+            var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            cmds.AddComponent(entity, new EcsTestManagedComponent());
+            cmds.Playback(m_Manager);
+
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent>(entity));
+
+            Assert.DoesNotThrow(() => { DisposeEcb(ref cmds); });
+        }
+
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void PlaybackWithTrace_AddManagedComponent()

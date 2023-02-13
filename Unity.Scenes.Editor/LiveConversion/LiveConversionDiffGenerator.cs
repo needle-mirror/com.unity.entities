@@ -212,7 +212,7 @@ namespace Unity.Scenes.Editor
                     _settingAsset);
                 var didBake = BakingUtility.BakeScene(_ConvertedWorld, _Scene, conversionSettings, !_RequestCleanConversion, _IncrementalBakingChangeTracker);
                 if (didBake)
-                    AddMissingData(_ConvertedWorld, _MissingSceneQuery, _MissingRenderDataQuery);
+                    AddMissingData(_ConvertedWorld, _MissingSceneQuery, _MissingRenderDataQuery, flags);
 
                 _IncrementalBakingChangeTracker.Clear();
                 _RequestCleanConversion = false;
@@ -264,7 +264,7 @@ namespace Unity.Scenes.Editor
                 BakingUtility.BakeScene(_IncrementalConversionDebug.World, _Scene, conversionSettings, false, null);
 
                 AddMissingData(_IncrementalConversionDebug.World, _IncrementalConversionDebug.MissingSceneQuery,
-                    _IncrementalConversionDebug.MissingRenderDataQuery);
+                    _IncrementalConversionDebug.MissingRenderDataQuery, flags);
                 const EntityManagerDifferOptions options =
                     EntityManagerDifferOptions.IncludeForwardChangeSet |
                     EntityManagerDifferOptions.ValidateUniqueEntityGuid |
@@ -351,13 +351,20 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        static void AddMissingData(World world, EntityQuery missingSceneQuery, EntityQuery missingRenderDataQuery)
+        static void AddMissingData(World world, EntityQuery missingSceneQuery, EntityQuery missingRenderDataQuery, BakingUtility.BakingFlags flags)
         {
             var em = world.EntityManager;
             // We don't know the scene tag of the destination world, so we create a null Scene Tag.
             // In the patching code this will be translated into the final scene entity.
             em.AddSharedComponentManaged(missingSceneQuery, new SceneTag { SceneEntity = Entity.Null });
-            em.AddSharedComponentManaged(missingRenderDataQuery, new EditorRenderData { SceneCullingMask = UnityEditor.SceneManagement.SceneCullingMasks.GameViewObjects, PickableObject = null });
+
+            if((flags & BakingUtility.BakingFlags.SceneViewLiveConversion) == 0)
+            {
+                // if entities should not be rendered in Scene View, set the culling mask to Game View only
+                // if the EditorRenderData is missing, the default culling is assumed (display in both Game View and Scene View)
+                const ulong cullingMask = UnityEditor.SceneManagement.SceneCullingMasks.GameViewObjects;
+                em.AddSharedComponentManaged(missingRenderDataQuery, new EditorRenderData { SceneCullingMask = cullingMask });
+            }
         }
 
         public static bool UpdateLiveConversion(Scene scene, Hash128 sceneGUID, ref LiveConversionDiffGenerator liveConversionData, LiveConversionMode mode, ulong globalAsssetDependencyVersion, GUID configGUID,

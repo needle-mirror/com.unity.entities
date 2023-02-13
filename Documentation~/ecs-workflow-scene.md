@@ -4,7 +4,7 @@ The first step in the entity component system (ECS) workflow is to create a [sub
 
 ## ECS workflow overview
 
-This task is the first task in a series of five tasks that show you how to create and optimize behavior in an ECS system. At the end of the tasks, you will have a spawner system that reads and writes component data, and instantiates entities. This workflow contains the following tasks: 
+This task is the first task in a series of five tasks that show you how to create and optimize behavior in an ECS system. At the end of the tasks, you will have a spawner system that reads and writes component data, and instantiates entities. This workflow contains the following tasks:
 
 1. [Create the subscene for the spawner example](ecs-workflow-scene.md)
 2. [Create a component for the spawner example](ecs-workflow-create-components.md)
@@ -19,16 +19,16 @@ Each task is a prerequisite for the subsequent tasks.
 You create subscenes in the Unity Editor.
 
 1. In the Editor, open a [scene](xref:CreatingScenes) that has been saved as a file.
-2. In the Inspector, right-click and select **New Sub Scene** > **Empty Scene**.
+2. In the Hierarchy, right-click and select **New Sub Scene** > **Empty Scene**.
 3. In the prompt that appears, save the new subscene. Unity adds the subscene to the open scene and you can now use it.
 
 ## Next steps
 
 To continue to create and optimize the spawner system, follow the next task in this workflow:
 
-* [Create a component for the spawner example](ecs-workflow-create-components.md)
+- [Create a component for the spawner example](ecs-workflow-create-components.md)
 
 ## Additional resources
 
-* [Understand the ECS workflow](ecs-workflow-intro.md)
-* [Subscene](scripting-loading-scenes.md)
+- [Understand the ECS workflow](ecs-workflow-intro.md)
+- [Subscene](scripting-loading-scenes.md)

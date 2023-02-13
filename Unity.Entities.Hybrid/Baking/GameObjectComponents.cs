@@ -24,18 +24,18 @@ namespace Unity.Entities.Baking
             public int       InstanceID;
         }
 
-        //UnsafeMultiHashMap<int, TransformData>      _TransformData;
+        //UnsafeParallelMultiHashMap<int, TransformData>      _TransformData;
         // GameObject InstanceID -> Component Type + component InstanceID
         // Used to keep the last converted state of each game object.
-        UnsafeMultiHashMap<int, ComponentData> _GameObjectComponentMetaData;
+        UnsafeParallelMultiHashMap<int, ComponentData> _GameObjectComponentMetaData;
 
 
         public GameObjectComponents(Allocator allocator)
         {
-            _GameObjectComponentMetaData = new UnsafeMultiHashMap<int, ComponentData>(1024, allocator);
+            _GameObjectComponentMetaData = new UnsafeParallelMultiHashMap<int, ComponentData>(1024, allocator);
         }
 
-        public UnsafeMultiHashMap<int, ComponentData>.Enumerator GetComponents(int instanceID)
+        public UnsafeParallelMultiHashMap<int, ComponentData>.Enumerator GetComponents(int instanceID)
         {
             return _GameObjectComponentMetaData.GetValuesForKey(instanceID);
         }

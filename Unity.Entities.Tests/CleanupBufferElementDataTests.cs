@@ -603,7 +603,9 @@ namespace Unity.Entities.Tests
             var buffer = m_Manager.GetBuffer<EcsIntCleanupElement>(original);
             buffer.Add(5);
 
-            var query = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntCleanupElement)}});
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsIntCleanupElement>()
+                .Build(EmptySystem);
             var job = new WriteJob
             {
                 //@TODO: Throw exception when read only flag is not accurately passed to job for buffers...
@@ -648,7 +650,9 @@ namespace Unity.Entities.Tests
             var buffer = m_Manager.GetBuffer<EcsIntCleanupElement>(original);
             buffer.Add(5);
 
-            var query = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntCleanupElement)}});
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsIntCleanupElement>()
+                .Build(EmptySystem);
             var job = new ReadOnlyJob
             {
                 Int = EmptySystem.GetBufferTypeHandle<EcsIntCleanupElement>(readOnlyType)

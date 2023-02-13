@@ -663,6 +663,69 @@ namespace Unity.Entities.Tests.ForEachCodegen
             protected override void OnUpdate() { }
         }
 
+        // This base class and its derived type(s) are part of this file to ensure that we do not inadvertently introduce
+        // a regression for this bug fix: https://github.cds.internal.unity3d.com/unity/dots/pull/7119
+        public partial class MyGenericTestBaseSystem_OneType<T> : SystemBase where T : struct, IComponentData
+        {
+            protected struct NestedType {}
+
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+        partial class MyGenericTestBaseSystemOneTypeImpl : MyGenericTestBaseSystem_OneType<EcsTestData>
+        {
+            protected void RunUpdate(NestedType _)
+            {
+                Entities.ForEach((in EcsTestData _) =>
+                {
+                }).ScheduleParallel();
+            }
+        }
+
+        // This base class and its derived type(s) are part of this file to ensure that we do not inadvertently introduce
+        // a regression for this bug fix: https://github.cds.internal.unity3d.com/unity/dots/pull/7119
+        partial class MyGenericTestBaseSystem_TwoTypes<T1, T2> : SystemBase where T1 : struct, IComponentData where T2 : struct, IComponentData
+        {
+            protected struct NestedType {}
+            protected struct AnotherNestedType {}
+
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+        partial class MyGenericTestBaseSystemTwoTypesImpl : MyGenericTestBaseSystem_TwoTypes<EcsTestData, EcsTestData2>
+        {
+            protected void RunUpdate(NestedType nested, AnotherNestedType anotherNested)
+            {
+                Entities.ForEach((in EcsTestData data1, in EcsTestData2 data2) =>
+                {
+                }).ScheduleParallel();
+            }
+        }
+
+        // This base class and its derived type(s) are part of this file to ensure that we do not inadvertently introduce
+        // a regression for this bug fix: https://github.cds.internal.unity3d.com/unity/dots/pull/7119
+        partial class MyGenericTestBaseSystem_WithNestedGenericType<T1, T2> : SystemBase where T1 : struct, IComponentData where T2 : struct, IComponentData
+        {
+            protected struct NestedType<T3> where T3 : struct, IComponentData {}
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+        partial class MyGenericTestBaseSystemWithNestedGenericTypeImpl : MyGenericTestBaseSystem_WithNestedGenericType<EcsTestData, EcsTestData2>
+        {
+            protected void RunUpdate(NestedType<EcsTestData3> _)
+            {
+                Entities.ForEach((in EcsTestData _) =>
+                {
+                }).ScheduleParallel();
+            }
+        }
+
         partial class MyTestSystem : ParentTestSystemWithoutEntitiesForEach
         {
             public EntityQuery m_StoredQuery;

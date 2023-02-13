@@ -6,21 +6,18 @@ namespace Unity.Entities.Editor.Tests
     [TestFixture]
     sealed class HierarchyNameStoreTests
     {
-        SubSceneNodeMapping m_Mapping;
         HierarchyNameStore m_Store;
 
         [SetUp]
         public void Setup()
         {
-            m_Mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            m_Store = new HierarchyNameStore(m_Mapping, Allocator.Persistent);
+            m_Store = new HierarchyNameStore(Allocator.Persistent);
         }
 
         [TearDown]
         public void Teardown()
         {
             m_Store.Dispose();
-            m_Mapping.Dispose();
         }
 
         [Test]

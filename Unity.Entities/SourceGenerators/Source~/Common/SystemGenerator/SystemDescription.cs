@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
 using static Unity.Entities.SourceGen.Common.SourceGenHelpers;
@@ -14,18 +13,23 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
 {
     public enum SystemType
     {
+        Unknown,
         SystemBase,
         ISystem
     }
 
-    public readonly struct SystemDescription : ISourceGeneratorDiagnosable
+    public readonly struct SystemDescription : ISourceGeneratorDiagnosable, IAdditionalHandlesInfo
     {
         public List<Diagnostic> Diagnostics { get; }
 
-        public readonly SystemType SystemType;
+        public HandlesDescription HandlesDescription { get; }
+
+        public TypeDeclarationSyntax TypeSyntax => SystemTypeSyntax;
+
+        public SystemType SystemType { get; }
         public readonly INamedTypeSymbol SystemTypeSymbol;
         public readonly TypeDeclarationSyntax SystemTypeSyntax;
-        public readonly SemanticModel SemanticModel;
+        public SemanticModel SemanticModel { get; }
         public readonly Compilation Compilation;
         public readonly IReadOnlyCollection<string> PreprocessorSymbolNames;
         public readonly string SystemTypeFullName;
@@ -36,9 +40,11 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
         public readonly List<MemberDeclarationSyntax> NewMiscellaneousMembers;
         public readonly Dictionary<string, string> FullEcbSystemTypeNamesToGeneratedFieldNames;
         public readonly HashSet<string> AdditionalStatementsInOnCreateForCompilerMethod;
-        public readonly HashSet<INonQueryFieldDescription> NonQueryFields;
-        public readonly Dictionary<IQueryFieldDescription, string> QueryFieldsToFieldNames;
-        public readonly int UniqueId;
+
+        public readonly bool IsForDotsRuntime;
+        public readonly bool IsDotsRuntimeProfilerEnabled;
+        public readonly bool IsProfilerEnabled;
+        public readonly bool IsUnityCollectionChecksEnabled;
 
         public SystemDescription(
             TypeDeclarationSyntax originalSystemTypeSyntax,
@@ -63,10 +69,32 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
             NonNestedReplacementsInMethods = new Dictionary<SyntaxNode, SyntaxNode>();
             AdditionalStatementsInOnCreateForCompilerMethod = new HashSet<string>();
             FullEcbSystemTypeNamesToGeneratedFieldNames = new Dictionary<string, string>();
-            QueryFieldsToFieldNames = new Dictionary<IQueryFieldDescription, string>();
-            NonQueryFields = new HashSet<INonQueryFieldDescription>();
+            HandlesDescription = HandlesDescription.Create(originalSystemTypeSyntax);
             Rewriters = new List<SystemRewriter>();
-            UniqueId = GetStableHashCode(originalSystemTypeSyntax.GetLocation().ToString()) & 0x7fffffff;
+
+            IsUnityCollectionChecksEnabled = false;
+            IsForDotsRuntime = false;
+            IsDotsRuntimeProfilerEnabled = false;
+            IsProfilerEnabled = false;
+
+            foreach (var name in PreprocessorSymbolNames)
+            {
+                switch (name)
+                {
+                    case "ENABLE_UNITY_COLLECTIONS_CHECKS":
+                        IsUnityCollectionChecksEnabled = true;
+                        break;
+                    case "UNITY_DOTSRUNTIME":
+                        IsForDotsRuntime = true;
+                        break;
+                    case "ENABLE_DOTSRUNTIME_PROFILER":
+                        IsDotsRuntimeProfilerEnabled = true;
+                        break;
+                    case "ENABLE_PROFILER":
+                        IsProfilerEnabled = true;
+                        break;
+                }
+            }
         }
 
         /// <summary>
@@ -80,72 +108,11 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
 
         public bool ContainsChangesToSystem() =>
             NonNestedReplacementsInMethods.Any()
-            || QueryFieldsToFieldNames.Any()
-            || NonQueryFields.Any()
+            || HandlesDescription.QueryFieldsToFieldNames.Any()
+            || HandlesDescription.NonQueryFields.Any()
             || FullEcbSystemTypeNamesToGeneratedFieldNames.Any()
             || NewMiscellaneousMembers.Any()
             || Rewriters.Any();
-
-        public string GetOrCreateQueryField(IQueryFieldDescription queryFieldDescription)
-        {
-            if (QueryFieldsToFieldNames.TryGetValue(queryFieldDescription, out string matchingFieldName))
-                return matchingFieldName;
-
-            var generatedName = $"__query_{UniqueId}_{QueryFieldsToFieldNames.Count}";
-            QueryFieldsToFieldNames.Add(queryFieldDescription, generatedName);
-
-            return generatedName;
-        }
-
-        // We cannot call `GetOrCreateTypeHandleField(ITypeSymbol typeSymbol, bool isReadOnly)` when creating type handle
-        // fields for source-generated types, because there aren't any type symbols available yet.
-        public string GetOrCreateSourceGeneratedTypeHandleField(string containerTypeFullName)
-        {
-            var description = new ContainerTypeHandleFieldDescription(containerTypeFullName);
-            NonQueryFields.Add(description);
-
-            return description.GeneratedFieldName;
-        }
-
-        public string GetOrCreateAspectLookup(ITypeSymbol entityTypeLookup, bool isReadOnly)
-        {
-            var entityTypeLookupField = new AspectLookupFieldDescription(entityTypeLookup, isReadOnly);
-            NonQueryFields.Add(entityTypeLookupField);
-
-            return entityTypeLookupField.GeneratedFieldName;
-        }
-
-        public string GetOrCreateEntityTypeHandleField()
-        {
-            var entityTypeHandleFieldDescription = EntityTypeHandleFieldDescription.CreateInstance();
-            NonQueryFields.Add(entityTypeHandleFieldDescription);
-
-            return EntityTypeHandleFieldDescription.GeneratedFieldName;
-        }
-
-        public string GetOrCreateTypeHandleField(ITypeSymbol typeSymbol, bool isReadOnly)
-        {
-            var typeHandleFieldDescription = new TypeHandleFieldDescription(typeSymbol, isReadOnly);
-            NonQueryFields.Add(typeHandleFieldDescription);
-
-            return typeHandleFieldDescription.GeneratedFieldName;
-        }
-
-        public string GetOrCreateComponentLookupField(ITypeSymbol typeSymbol, bool isReadOnly)
-        {
-            var lookupField = new ComponentLookupFieldDescription(typeSymbol, isReadOnly);
-            NonQueryFields.Add(lookupField);
-
-            return lookupField.GeneratedFieldName;
-        }
-
-        public string GetOrCreateBufferLookupField(ITypeSymbol typeSymbol, bool isReadOnly)
-        {
-            var bufferLookupField = new BufferLookupFieldDescription(typeSymbol, isReadOnly);
-            NonQueryFields.Add(bufferLookupField);
-
-            return bufferLookupField.GeneratedFieldName;
-        }
 
         public string GetOrCreateEntityCommandBufferSystemField(ITypeSymbol ecbSystemTypeSymbol)
         {
@@ -154,7 +121,7 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
             if (FullEcbSystemTypeNamesToGeneratedFieldNames.TryGetValue(fullEcbSystemTypeName, out var generatedFieldName))
                 return generatedFieldName;
 
-            generatedFieldName = $"__{ecbSystemTypeSymbol.ToValidVariableName()}";
+            generatedFieldName = $"__{ecbSystemTypeSymbol.ToValidIdentifier()}";
             FullEcbSystemTypeNamesToGeneratedFieldNames[fullEcbSystemTypeName] = generatedFieldName;
 
             return generatedFieldName;
@@ -166,15 +133,6 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
             foreach (var memberDeclarationSyntax in SystemTypeSyntax.Members)
                 result[typeDeclarationSyntax.GetCurrentNode(memberDeclarationSyntax).GetAnnotations(TrackedNodeAnnotationUsedByRoslyn).First()] = memberDeclarationSyntax;
             return result;
-        }
-
-        public string GetOrCreateEntityStorageInfoLookupField()
-        {
-            var storageLookupField = new EntityStorageInfoLookupFieldDescription();
-            storageLookupField.Init();
-            NonQueryFields.Add(storageLookupField);
-
-            return storageLookupField.GeneratedFieldName;
         }
     }
 }

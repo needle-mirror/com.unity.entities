@@ -815,6 +815,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+#if ENABLE_IL2CPP
+        [Ignore("DOTS-7524 - \"System.ExecutionEngineException : An unresolved indirect call lookup failed\" is thrown when executed with an IL2CPP build")]
+#endif
         public void EntityPatcher_ApplyChanges_BlobAssets_CreateEntityWithBlobAssetReferenceSharedComponent()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -825,7 +828,7 @@ namespace Unity.Entities.Tests
                 var entityGuid = CreateEntityGuid();
 
                 SrcEntityManager.SetComponentData(entity, entityGuid);
-                SrcEntityManager.AddSharedComponentManaged(entity, new EcsTestDataBlobAssetRefShared { value = blobAssetReference, value2 = blobAssetReference2});
+                SrcEntityManager.AddSharedComponent(entity, new EcsTestDataBlobAssetRefShared { value = blobAssetReference, value2 = blobAssetReference2});
 
                 PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
 
@@ -876,6 +879,15 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
                 Assert.AreEqual(11, GetComponentData<EcsTestDataBlobAssetRef2>(DstEntityManager, entityGuid).value.Value);
                 Assert.AreEqual(12, GetComponentData<EcsTestDataBlobAssetRef2>(DstEntityManager, entityGuid).value2.Value);
+            }
+        }
+
+        internal void RecomputeBlobHash<T>(BlobAssetReference<T> blobAssetReference) where T : unmanaged
+        {
+            unsafe
+            {
+                var header = blobAssetReference.m_data.Header;
+                header->Hash = math.hash(blobAssetReference.m_data.m_Ptr, header->Length);
             }
         }
 
@@ -960,11 +972,7 @@ namespace Unity.Entities.Tests
             blobAssetReferenceB.Value = 234;
 
             // Since the data payload of the blob has been changed, we have to also recompute the hash.
-            unsafe
-            {
-                var headerB = blobAssetReferenceB.m_data.Header;
-                headerB->Hash = math.hash(blobAssetReferenceB.m_data.m_Ptr, headerB->Length);
-            }
+            RecomputeBlobHash(blobAssetReferenceB);
 
             // ###########################
             // Step 5 - Blob B with hash Y
@@ -977,6 +985,99 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(234, DstEntityManager.GetComponentData<EcsTestDataBlobAssetRef>(dstEntity).value.Value);
 
             // This last check was failing because of the issue DOTS-7019
+        }
+
+        [Test]
+        public void EntityPatcher_ApplyChanges_BlobAssets_RegressionTestDOTS7722([Values(123, 345)] int otherBlobValue)
+        {
+            // See Jira DOTS-7722 for a description of the issue this test is designed to trigger.
+
+            // This test does the following:
+            // 1. Creates two blob assets A and B, with different content, on an entity.
+            // 2. Pushes the changes through the differ.
+            // 3. Copy the content of B to A, and either copy A to B or set B to a new value (cf. test param).
+            // 4. Pushes the changes through the differ.
+
+            // Note that blobs are read only, so replacing the contents shouldn't be possible.
+            // But by deallocating the blobs and reallocating them, there's a small chances that
+            // the same addresses will be recycled and this configuration can happen.
+
+            // The error that was triggered came from the remapping table in the differ that
+            // would go through an invalid state (same key twice) during its update.
+
+            // ######################################
+            // FIRST TEST CASE (otherBlobValue = 123)
+            // ######################################
+            //   Initial remap table state:
+            //   A (123) -> X (123) and B (234) -> Y (234)
+            //   After patching the blobs, it becomes:
+            //   A (234) -> X (123) and B (123) -> Y (234)
+            //   The remap table is reordered in three steps: (old behaviour, causing the bug)
+            //   Step 1 : A (234) -> X (123) and B (123) -> Y (234)
+            //   Step 2 : A (234) -> X (123) and A (234) -> Y (234) -> INVALID STATE, DUPLICATED KEY
+            //   Step 3 : B (123) -> X (123) and A (234) -> Y (234)
+
+            // ######################################
+            // SECOND TEST CASE (otherBlobValue = 345)
+            // ######################################
+            //   Initial remap table state:
+            //   A (123) -> X (123) and B (234) -> Y (234)
+            //   After patching the blobs, it becomes:
+            //   A (234) -> X (123) and B (345) -> Y (234)
+            //   The new blob is added to the remap table:
+            //   Step 1 : A (234) -> X (123) and B (123) -> Y (234) and B (345) -> Z (345) -> INVALID STATE, DUPLICATED KEY
+
+            // The two test cases trigger issues with two different locations in the code.
+
+            // --------
+
+            // Setting up the differ and a test entity with a GUID
+
+            using var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator);
+            var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+            var entityGuid = CreateEntityGuid();
+            SrcEntityManager.SetComponentData(entity, entityGuid);
+
+            // #####################################
+            // Step 1 and 2 - Blobs A and B + differ
+            // #####################################
+
+            using var blobAssetReferenceA = BlobAssetReference<int>.Create(123);
+            using var blobAssetReferenceB = BlobAssetReference<int>.Create(234);
+
+            SrcEntityManager.AddComponentData(entity, new EcsTestDataBlobAssetRef2
+            {
+                value = blobAssetReferenceA,
+                value2 = blobAssetReferenceB,
+            });
+
+            PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
+
+            // Let's cache the entity in the destination world to avoid having to look it up every time.
+            var dstEntity = GetEntity(DstEntityManager, entityGuid);
+
+            // Check that the blob assets contain the right values in the destination world.
+            Assert.AreEqual(123, DstEntityManager.GetComponentData<EcsTestDataBlobAssetRef2>(dstEntity).value.Value);
+            Assert.AreEqual(234, DstEntityManager.GetComponentData<EcsTestDataBlobAssetRef2>(dstEntity).value2.Value);
+
+            // ################################################
+            // Step 3 and 4 - Blob A and B are flipped + differ
+            // ################################################
+
+            blobAssetReferenceA.Value = 234;
+            blobAssetReferenceB.Value = otherBlobValue;
+
+            RecomputeBlobHash(blobAssetReferenceA);
+            RecomputeBlobHash(blobAssetReferenceB);
+
+            // The differ relies on change filtering, so we have to write to the component even though it hasn't changed.
+            SrcEntityManager.SetComponentData(entity, SrcEntityManager.GetComponentData<EcsTestDataBlobAssetRef2>(entity));
+
+            PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
+
+            // Check that the blob assets contain the right values in the destination world.
+            Assert.AreEqual(234, DstEntityManager.GetComponentData<EcsTestDataBlobAssetRef2>(dstEntity).value.Value);
+            Assert.AreEqual(otherBlobValue, DstEntityManager.GetComponentData<EcsTestDataBlobAssetRef2>(dstEntity).value2.Value);
         }
 
         [Test]

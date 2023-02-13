@@ -1,16 +1,7 @@
-.component-header > .unity-foldout__toggle
-{
-    margin-right: 0;
-}
-
 .component-container
 {
     margin-left: 0px;
     margin-right: 5px;
-}
-
-.component-header
-{
     padding-left: 15px;
 }
 
@@ -21,6 +12,13 @@
 
 .component-header > Toggle
 {
+    /* Default USS for Toggle is causing weird spacing issues.
+    Nullify the margins and transform them into padding.*/
+    margin: 0;
+    padding-bottom: 2px;
+    padding-left: 3px;
+    padding-top: 1px;
+
     background-color: var(--section-background-color);
     -unity-font-style: bold;
     height:22px;
@@ -111,4 +109,9 @@
     flex-shrink: 1;
     overflow: hidden;
     text-overflow:ellipsis;
+}
+
+.component-container .unity-foldout__toggle .unity-text-element--inner-input-field-component
+{
+    margin-left: 0;
 }

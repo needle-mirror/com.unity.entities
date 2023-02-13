@@ -312,10 +312,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             public UseCase UseCase;
             UseCase IUseCaseTestSystem.UseCase { get => UseCase; set => UseCase = value; }
 
-            public void OnCreate(ref SystemState state) { }
-
-            public void OnDestroy(ref SystemState state) { }
-
             public void OnUpdate(ref SystemState state)
             {
                 UseCase.MarkNotSupported(SystemKind.ISystem, ContextKind.GetAspect, AccessKind.ReadWriteAccess);

@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Unity.Collections;
 using Unity.Entities.Conversion;
+using Unity.Mathematics;
 using Unity.Profiling;
 
 namespace Unity.Entities
@@ -16,6 +18,56 @@ namespace Unity.Entities
         bool                                    m_CompanionQueryDirty = true;
         internal static string                  k_CreateCompanionGameObjectsMarkerName = "Create Companion GameObjects";
         ProfilerMarker                          m_CreateCompanionGameObjectsMarker = new ProfilerMarker(k_CreateCompanionGameObjectsMarkerName);
+        List<ComponentType>                     m_ComponentTypesOrderedByDependency = new();
+        Dictionary<ComponentType, int>          m_ComponentTypeToDependencyOrder = new();
+
+        void OrderByDependency(List<UnityEngine.Component> components)
+        {
+            void AddType(System.Type type)
+            {
+                if (m_ComponentTypeToDependencyOrder.ContainsKey(type)) return;
+
+                List<System.Type> requiredTypes = new();
+
+                foreach (var require in type.GetCustomAttributes<UnityEngine.RequireComponent>(true))
+                {
+                    void AddIfNotNull(System.Type type)
+                    {
+                        if (type != null)
+                        {
+                            requiredTypes.Add(type);
+                            AddType(type);
+                        }
+                    }
+
+                    AddIfNotNull(require.m_Type0);
+                    AddIfNotNull(require.m_Type1);
+                    AddIfNotNull(require.m_Type2);
+                }
+
+                int insertIndex = 0;
+                foreach (var required in requiredTypes)
+                {
+                    insertIndex = math.max(insertIndex, m_ComponentTypeToDependencyOrder[required] + 1);
+                }
+
+                m_ComponentTypesOrderedByDependency.Insert(insertIndex, type);
+
+                for (int i = insertIndex; i < m_ComponentTypesOrderedByDependency.Count; i++)
+                {
+                    m_ComponentTypeToDependencyOrder[m_ComponentTypesOrderedByDependency[i]] = i;
+                }
+            }
+
+            foreach (var component in components)
+            {
+                var type = component.GetType();
+                AddType(type);
+            }
+
+            // NOTE : the inversion of A and B is intentional, the components should be removed in reverse order.
+            components.Sort((a, b) => m_ComponentTypeToDependencyOrder[b.GetType()].CompareTo(m_ComponentTypeToDependencyOrder[a.GetType()]));
+        }
 
         unsafe void CreateCompanionGameObjects()
         {
@@ -91,7 +143,8 @@ namespace Unity.Entities
                             CompanionGameObjectUtility.SetCompanionName(entity, companionGameObject);
                             #endif
 
-                            var components = authoringGameObject.GetComponents<UnityEngine.Component>();
+                            var components = companionGameObject.GetComponents<UnityEngine.Component>();
+                            var unwantedComponentsList = new List<UnityEngine.Component>();
                             foreach (var component in components)
                             {
                                 // This is possible if a MonoBehaviour is added but the Script cannot be found
@@ -120,14 +173,16 @@ namespace Unity.Entities
                                 }
                                 else
                                 {
-                                    // Remove all instances of this component from the companion, we don't want them
-                                    var unwantedComponents = companionGameObject.GetComponents(type);
-                                    foreach (var unwanted in unwantedComponents)
-                                    {
-                                        //@TODO some components have [RequireComponent] dependencies to each other, and will require special handling for deletion
-                                        UnityEngine.Object.DestroyImmediate(unwanted);
-                                    }
+                                    unwantedComponentsList.Add(component);
                                 }
+                            }
+
+                            // Deletion of unwanted components is deferred so they can be ordered and removed
+                            // without violating the dependency constraints of [RequireComponent].
+                            OrderByDependency(unwantedComponentsList);
+                            foreach (var unwanted in unwantedComponentsList)
+                            {
+                                UnityEngine.Object.DestroyImmediate(unwanted);
                             }
                             EntityManager.AddComponentData(entity, new CompanionLink { Companion = companionGameObject });
 

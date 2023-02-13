@@ -83,7 +83,7 @@ namespace Unity.Scenes
     /// The meta data for the scene has to be loaded first.
     /// ResolveSceneReferenceSystem creates section entities for each scene by loading the scenesection's metadata from disk.
     /// </summary>
-    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.Streaming)]
     [UpdateInGroup(typeof(SceneSystemGroup))]
     [UpdateAfter(typeof(SceneSystem))]
     partial class ResolveSceneReferenceSystem : SystemBase
@@ -184,12 +184,13 @@ namespace Unity.Scenes
                 // AssetDependencyTrackerState will be added and results in a completed change request,
                 // but since this scene is already fully resolved with the same hash we can simply skip it.
                 if (SystemAPI.HasComponent<ResolvedSceneHash>(sceneEntity) &&
-                    SystemAPI.GetComponent<ResolvedSceneHash>(sceneEntity).ArtifactHash == (Hash128)change.ArtifactID)
+                    SystemAPI.GetComponent<ResolvedSceneHash>(sceneEntity).ArtifactHash == (Hash128) change.ArtifactID)
                 {
                     if (!SystemAPI.HasBuffer<ResolvedSectionEntity>(sceneEntity))
-                        throw new InvalidOperationException($"Entity {sceneEntity} used for a scene load has a {nameof(ResolvedSceneHash)} component but no {nameof(ResolvedSectionEntity)} buffer. " +
-                                                            "This suggests that you copied a scene entity after loading it, but before its scene data had been fully resolved. "+
-                                                            $"Please only copy it after resolving has finished, which will add {nameof(ResolvedSectionEntity)} to the entity.");
+                        throw new InvalidOperationException(
+                            $"Entity {sceneEntity} used for a scene load has a {nameof(ResolvedSceneHash)} component but no {nameof(ResolvedSectionEntity)} buffer. " +
+                            "This suggests that you copied a scene entity after loading it, but before its scene data had been fully resolved. " +
+                            $"Please only copy it after resolving has finished, which will add {nameof(ResolvedSectionEntity)} to the entity.");
                     continue;
                 }
 
@@ -197,57 +198,24 @@ namespace Unity.Scenes
                     throw new InvalidOperationException("entity should have been removed from tracker already");
 
                 // Unload any previous state
-                var unloadFlags = SceneSystem.UnloadParameters.DestroySectionProxyEntities |
-                                  SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded;
-                SceneSystem.UnloadScene(World.Unmanaged, sceneEntity, unloadFlags);
+                SceneSystem.UnloadSceneSectionMetaEntitiesOnly(World.Unmanaged, sceneEntity, false);
 
                 // Resolve new state
                 var scene = EntityManager.GetComponentData<SceneReference>(change.UserKey);
                 var request = EntityManager.GetComponentData<RequestSceneLoaded>(change.UserKey);
 
-                // TODO: Remove updating the AssetDependencyTrackerState.SceneAndBuildConfigGUID on the changed scene entity when getting rid of the bakingEnabled toggle
-                // Deal with Baking possibly changing by removing and adding new actual asset to tracker
-                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(scene.SceneGUID,
+                SceneWithBuildConfigurationGUIDs.EnsureExistsFor(scene.SceneGUID,
                     buildConfigurationGUID, true, out var requireRefresh);
-                var async = (request.LoadFlags & SceneLoadFlags.BlockOnImport) == 0;
 
-                if (change.Asset != (GUID)guid)
+                if (change.ArtifactID != default)
                 {
-                    LogResolving("Removing", change.Asset);
-                    _AssetDependencyTracker.Remove(change.Asset, change.UserKey);
-                    EntityManager.RemoveComponent<AssetDependencyTrackerState>(change.UserKey);
-
-                    using (var currentAddedScenes = m_AddScenes.ToEntityArray(Allocator.TempJob))
-                    {
-                        var trackerStates = new NativeArray<AssetDependencyTrackerState>(currentAddedScenes.Length, Allocator.Temp);
-                        for (int i = 0; i != currentAddedScenes.Length; i++)
-                        {
-                            //Update AssetDependencyTrackerState.SceneAndBuildConfigGUID with new guid
-                            if (currentAddedScenes[i].Equals(change.UserKey))
-                            {
-                                LogResolving(async ? "Adding Async" : "Adding Sync", guid);
-                                _AssetDependencyTracker.Add(guid, change.UserKey, async);
-                                trackerStates[i] = new AssetDependencyTrackerState {SceneAndBuildConfigGUID = guid};
-                            }
-                        }
-                        EntityManager.AddComponentData(m_AddScenes, trackerStates);
-                        trackerStates.Dispose();
-                    }
+                    LogResolving($"Schedule header load: {change.ArtifactID}");
+                    SceneHeaderUtility.ScheduleHeaderLoadOnEntity(EntityManager, change.UserKey, scene.SceneGUID,
+                        request, change.ArtifactID, SceneSystem.SceneLoadDir);
                 }
                 else
-                {
-                    if (change.ArtifactID != default)
-                    {
-                        LogResolving($"Schedule header load: {change.ArtifactID}");
-                        SceneHeaderUtility.ScheduleHeaderLoadOnEntity(EntityManager, change.UserKey, scene.SceneGUID, request, change.ArtifactID, SceneSystem.SceneLoadDir);
-                    }
-                    else
-                        Debug.LogError(
-                            $"Failed to import entity scene because the automatically generated SceneAndBuildConfigGUID asset was not present: '{AssetDatabaseCompatibility.GuidToPath(scene.SceneGUID)}' -> '{AssetDatabaseCompatibility.GuidToPath(change.Asset)}'");
-                }
-
-                if (requireRefresh)
-                    _AssetDependencyTracker.RequestRefresh();
+                    Debug.LogError(
+                        $"Failed to import entity scene because the automatically generated SceneAndBuildConfigGUID asset was not present: '{AssetDatabaseCompatibility.GuidToPath(scene.SceneGUID)}' -> '{AssetDatabaseCompatibility.GuidToPath(change.Asset)}'");
             }
 
             _SceneHeaderUtility.CleanupHeaders(EntityManager);
@@ -313,60 +281,24 @@ namespace Unity.Scenes
                 new AssetDependencyTracker<Entity>(EntityScenesPaths.SubSceneImporterType, "Import EntityScene");
             _Changed = new NativeList<AssetDependencyTracker<Entity>.Completed>(32, Allocator.Persistent);
             _SceneHeaderUtility = new SceneHeaderUtility(this);
-            m_ValidSceneQuery = GetEntityQuery(new EntityQueryDesc
-                {
-                    All = new[]
-                    {
-                        ComponentType.ReadOnly<SceneReference>(), ComponentType.ReadOnly<RequestSceneLoaded>(), ComponentType.ReadOnly<AssetDependencyTrackerState>()
-                    },
-                    None = new[]
-                    {
-                        ComponentType.ReadOnly<DisableSceneResolveAndLoad>(),
-                    }
-                });
+            m_ValidSceneQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<SceneReference, RequestSceneLoaded, AssetDependencyTrackerState>()
+                .WithNone<DisableSceneResolveAndLoad>()
+                .Build(this);
             Assert.IsFalse(m_ValidSceneQuery.HasFilter(), "The use of EntityQueryMask in this system will not respect the query's active filter settings.");
             m_ValidSceneMask = m_ValidSceneQuery.GetEntityQueryMask();
 
-            m_AddScenes = GetEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new[]
-                    {
-                        ComponentType.ReadOnly<SceneReference>(), ComponentType.ReadOnly<RequestSceneLoaded>()
-                    },
-                    None = new[]
-                    {
-                        ComponentType.ReadOnly<DisableSceneResolveAndLoad>(),
-                        ComponentType.ReadOnly<AssetDependencyTrackerState>(),
-                    }
-                });
-
-            m_RemoveScenes = GetEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new[] {ComponentType.ReadOnly<AssetDependencyTrackerState>()},
-                    None = new[]
-                    {
-                        ComponentType.ReadOnly<SceneReference>(),
-                        ComponentType.ReadOnly<RequestSceneLoaded>(),
-                    }
-                },
-                new EntityQueryDesc
-                {
-                    All = new[]
-                    {
-                        ComponentType.ReadOnly<AssetDependencyTrackerState>(),
-                        ComponentType.ReadOnly<DisableSceneResolveAndLoad>()
-                    }
-                },
-                new EntityQueryDesc
-                {
-                    All = new[]
-                    {
-                        ComponentType.ReadOnly<AssetDependencyTrackerState>(), ComponentType.ReadOnly<Disabled>()
-                    }
-                }
-            );
+            m_AddScenes = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<SceneReference,RequestSceneLoaded>()
+                .WithNone<DisableSceneResolveAndLoad,AssetDependencyTrackerState>()
+                .Build(this);
+            m_RemoveScenes = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AssetDependencyTrackerState>().WithNone<SceneReference,RequestSceneLoaded>()
+                .AddAdditionalQuery()
+                .WithAll<AssetDependencyTrackerState,DisableSceneResolveAndLoad>()
+                .AddAdditionalQuery()
+                .WithAll<AssetDependencyTrackerState,Disabled>()
+                .Build(this);
 
             m_ResolveSceneSectionArchetypes = ResolveSceneSectionUtility.CreateResolveSceneSectionArchetypes(EntityManager);
         }
@@ -385,6 +317,7 @@ namespace Unity.Scenes
     /// The meta data for the scene has to be loaded first.
     /// ResolveSceneReferenceSystem creates section entities for each scene by loading the scenesection's metadata from disk.
     /// </summary>
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.Streaming)]
     [UpdateInGroup(typeof(SceneSystemGroup))]
     [UpdateAfter(typeof(SceneSystem))]
     partial class ResolveSceneReferenceSystem : SystemBase

@@ -62,11 +62,6 @@
             "name": "com.unity.2d.entities.physics",
             "expression": "0.5.0-preview.1",
             "define": "ENABLE_TRANSFORM_V1"
-        },
-        {
-            "name": "Unity",
-            "expression": "2022.2.0f1",
-            "define": "USE_IMPROVED_DATAMODE"
         }
     ],
     "noEngineReferences": false

@@ -1,5 +1,7 @@
 using System;
 using System.ComponentModel;
+using System.Linq;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -512,6 +514,43 @@ namespace Unity.Entities
         public override int GetHashCode()
         {
             return TypeIndex.GetHashCode();
+        }
+    }
+    
+    public static partial class InternalCompilerInterface
+    {
+        /// <summary>
+        /// Combine a component type into an UnsafeList of component types. No duplicate are added to the list.
+        /// Useful for creating queries during initialization of systems.
+        /// Called by the generated code from the Aspect Generator
+        /// </summary>
+        /// <param name="into">List to combine component types into</param>
+        /// <param name="componentType">The component type to combine into the list</param>
+        /// <exception cref="ArgumentException">if the component type conflict with any component types in the UnsafeList.</exception>
+        [BurstCompile]
+        public static void CombineComponentType(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> into, in ComponentType componentType)
+        {
+            for (int i = 0; i != into.Length; i++)
+            {
+                if (into[i].TypeIndex == componentType.TypeIndex)
+                {
+                    if (into[i].AccessModeType == ComponentType.AccessMode.Exclude &&
+                        componentType.AccessModeType != ComponentType.AccessMode.Exclude)
+                        throw new ArgumentException(
+                            $"ComponentType.Combine {into[i]} and {componentType} are conflicting.");
+                    into[i] = new ComponentType
+                    {
+                        TypeIndex = into[i].TypeIndex,
+                        AccessModeType = into[i].AccessModeType == ComponentType.AccessMode.ReadWrite ||
+                                         componentType.AccessModeType == ComponentType.AccessMode.ReadWrite
+                            ? ComponentType.AccessMode.ReadWrite
+                            : ComponentType.AccessMode.ReadOnly
+                    };
+                    return;
+                }
+            }
+
+            into.Add(componentType);
         }
     }
 }

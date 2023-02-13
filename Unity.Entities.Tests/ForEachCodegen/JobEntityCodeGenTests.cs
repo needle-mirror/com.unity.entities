@@ -112,7 +112,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void SharedComponent([Values] ScheduleType scheduleType) => m_TestSystem.TestSharedComponent(scheduleType);
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        public void ManagedSharedComponent() => m_TestSystem.TestManagedSharedComponent();
+        public void ManagedSharedComponent([Values] ScheduleType scheduleType) => m_TestSystem.TestManagedSharedComponent(scheduleType);
 #endif
 
         #endregion
@@ -325,7 +325,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             partial struct WithTagParamJob : IJobEntity
             {
                 public int Value;
-                public void Execute(ref EcsTestData e1, in EcsTestTag testTag) => e1.value = Value;
+                public void Execute(ref EcsTestData e1, in EcsTestTag _) => e1.value = Value;
             }
 
             public void WithTagParam(ScheduleType scheduleType)
@@ -510,11 +510,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             void WithNoneDynamic(ScheduleType scheduleType)
             {
-                var query = GetEntityQuery(new EntityQueryDesc
-                {
-                    All = new ComponentType[]{typeof(EcsTestData)},
-                    None = new ComponentType[]{typeof(EcsTestData2)}
-                });
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<EcsTestData>()
+                    .WithNone<EcsTestData2>()
+                    .Build(this);
                 var job = new WithNoneDynamicJob { IncrementBy = 1 };
 
                 switch (scheduleType)
@@ -585,11 +584,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             void WithAnyDynamic(ScheduleType scheduleType)
             {
-                var query = GetEntityQuery(new EntityQueryDesc
-                {
-                    All = new ComponentType[]{typeof(EcsTestData)},
-                    Any = new ComponentType[]{typeof(EcsTestData3)}
-                });
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<EcsTestData>()
+                    .WithAnyRW<EcsTestData3>()
+                    .Build(this);
                 var job = new WithAnyDynamicJob { IncrementBy = 1 };
 
                 switch (scheduleType)
@@ -747,11 +745,32 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 void Execute(ref EcsTestData data, in ManagedSharedData1 e1) => data.value += e1.value.Item1 + e1.value.Item2;
             }
 
-            public void TestManagedSharedComponent()
+            public void TestManagedSharedComponent(ScheduleType scheduleType)
             {
                 EntityManager.AddSharedComponentManaged(s_TestEntity, new ManagedSharedData1 {value = new Tuple<int, int>(2, 3)});
-                new ManagedSharedComponentJob().Run();
-                Assert.AreEqual(3+5, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
+                switch (scheduleType)
+                {
+                    case ScheduleType.Run:
+                        new ManagedSharedComponentJob().Run();
+                        Assert.AreEqual(3+5, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
+                        break;
+                    case ScheduleType.Schedule:
+                        new ManagedSharedComponentJob().Schedule();
+                        Dependency.Complete();
+                        Assert.AreEqual(3+5, EntityManager.GetComponentData<EcsTestData>(s_TestEntity).value);
+                        break;
+                    case ScheduleType.ScheduleParallel:
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                        var ex = Assert.Throws<InvalidOperationException>(() =>
+                        {
+                            new ManagedSharedComponentJob().ScheduleParallel();
+                        });
+                        Assert.AreEqual(ex.Message, "Tried to ScheduleParallel a job with a managed execute signature. Please use .Run or .Schedule instead.");
+#endif
+                        Dependency.Complete();
+                        break;
+                }
+
             }
 #endif
 
@@ -965,10 +984,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.DoesNotThrow(() =>
                 {
 #if !ENABLE_TRANSFORM_V1
-                    var query = GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(LocalTransform)}});
+                    var query = new EntityQueryBuilder(Allocator.Temp)
+                        .WithAllRW<LocalTransform>()
+                        .Build(this);
                     query.SetChangedVersionFilter(typeof(LocalTransform));
 #else
-                    var query = GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(Translation)}});
+                    var query = new EntityQueryBuilder(Allocator.Temp)
+                        .WithAllRW<Translation>()
+                        .Build(this);
                     query.SetChangedVersionFilter(typeof(Translation));
 #endif
                     var job = new WithFilterButNotQueryDynamicJob();
@@ -1669,10 +1692,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         internal partial struct AutoDependencyOnlyAddedWhenExplicitJobHandlePassedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) {}
-
-            public void OnDestroy(ref SystemState state) {}
-
             public void OnUpdate(ref SystemState state)
             {
                 var lookup = SystemAPI.GetComponentLookup<EcsTestData>();

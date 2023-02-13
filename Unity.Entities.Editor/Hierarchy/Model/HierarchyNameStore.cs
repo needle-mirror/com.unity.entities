@@ -99,7 +99,6 @@ namespace Unity.Entities.Editor
 
 
         World m_World;
-        readonly SubSceneNodeMapping m_SubSceneNodeMapping;
 
         NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> m_Names;
         NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> m_NamesLowerInvariant;
@@ -116,11 +115,10 @@ namespace Unity.Entities.Editor
         internal EntityNameStorageLowerInvariant EntityNameStorageLowerInvariant => m_EntityNameStorageLowerInvariant;
 #endif
 
-        public HierarchyNameStore(SubSceneNodeMapping subSceneNodeMapping, Allocator allocator)
+        public HierarchyNameStore(Allocator allocator)
         {
             Formatting.Initialize();
 
-            m_SubSceneNodeMapping = subSceneNodeMapping;
             m_Names = new NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes>(16, allocator);
             m_NamesLowerInvariant = new NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes>(16, allocator);
 #if !DOTS_DISABLE_DEBUG_NAMES
@@ -251,16 +249,18 @@ namespace Unity.Entities.Editor
         {
             foreach (var scene in changes.UnloadedScenes)
             {
-                if (!scene.isRemoved)
+                if (!scene.isRemoved || scene.isSubScene)
                     continue;
 
-                RemoveName(scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene));
+                RemoveName(HierarchyNodeHandle.FromScene(scene));
             }
 
             var rootGameObjects = new List<GameObject>();
             foreach (var scene in changes.LoadedScenes)
             {
-                SetName(scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene), string.IsNullOrEmpty(scene.name) ? k_UntitledScene : scene.name);
+                if (!scene.isSubScene)
+                    SetName(HierarchyNodeHandle.FromScene(scene), string.IsNullOrEmpty(scene.name) ? k_UntitledScene : scene.name);
+
                 if (!scene.isLoaded)
                     continue;
 
@@ -285,18 +285,10 @@ namespace Unity.Entities.Editor
             {
                 if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.SceneWasRenamed) != 0)
                 {
-                    if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.UnloadedSubSceneWasRenamed) == GameObjectChangeTrackerEventType.UnloadedSubSceneWasRenamed)
-                    {
-                        var subSceneGameObject = (GameObject)EditorUtility.InstanceIDToObject(changeTrackerEvent.InstanceId);
-                        var subScene = subSceneGameObject.GetComponent<SubScene>();
-                        SetName(HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, subScene), GetSubSceneName(subScene));
-                    }
-                    else
-                    {
-                        var scene = EditorSceneManagerBridge.GetSceneByHandle(changeTrackerEvent.InstanceId);
-                        var sceneName = string.IsNullOrEmpty(scene.name) ? k_UntitledScene : scene.name;
-                        SetName(scene.isSubScene ? HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, scene) : HierarchyNodeHandle.FromScene(scene), sceneName);
-                    }
+                    var scene = EditorSceneManagerBridge.GetSceneByHandle(changeTrackerEvent.InstanceId);
+                    var sceneName = string.IsNullOrEmpty(scene.name) ? k_UntitledScene : scene.name;
+                    if (!scene.isSubScene)
+                        SetName(HierarchyNodeHandle.FromScene(scene), sceneName);
                 }
                 else if((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.Destroyed) != 0)
                 {
@@ -308,72 +300,15 @@ namespace Unity.Entities.Editor
                     if (!idToObject)
                         continue;
 
-                    if (idToObject.TryGetComponent<SubScene>(out var subScene))
-                    {
-                        m_Names.Remove(HierarchyNodeHandle.FromGameObject(changeTrackerEvent.InstanceId));
-                        SetName(HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, subScene), GetSubSceneName(subScene));
-                    }
-                    else
-                        SetName(HierarchyNodeHandle.FromGameObject(changeTrackerEvent.InstanceId), idToObject.name);
+                    SetName(HierarchyNodeHandle.FromGameObject(changeTrackerEvent.InstanceId), idToObject.name);
                 }
             }
-        }
-
-        public void IntegrateEntityChanges(HierarchyEntityChanges changes)
-        {
-            for (var i = 0; i < changes.RemovedSceneReferenceEntities.Length; i++)
-            {
-                if (!m_SubSceneNodeMapping.TryGetSubSceneIdFromSceneEntityFromCache(changes.RemovedSceneReferenceEntities[i], out var id))
-                    continue;
-
-                var handle = new HierarchyNodeHandle(NodeKind.SubScene, id);
-                RemoveName(handle);
-            }
-
-            for (var i = 0; i < changes.AddedSceneReferenceEntities.Length; i++)
-            {
-                SetName(HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, m_World.EntityManager.GetCheckedEntityDataAccess(), changes.AddedSceneReferenceEntities[i]), GetSubSceneName(changes.AddedSceneReferenceEntities[i]));
-            }
-        }
-
-        string GetSubSceneName(Entity entity)
-        {
-            if (!m_World.EntityManager.Exists(entity))
-                return k_UnknownSubSceneName;
-
-            if (!m_World.EntityManager.HasComponent<SubScene>(entity))
-            {
-                if (m_World.EntityManager.HasComponent<SceneReference>(entity))
-                {
-                    var subSceneGuid = m_World.EntityManager.GetComponentData<SceneReference>(entity).SceneGUID;
-                    var path = AssetDatabase.GUIDToAssetPath(subSceneGuid);
-                    return AssetDatabase.LoadMainAssetAtPath(path).name;
-                }
-
-                return k_UnknownSubSceneName;
-            }
-
-            var subScene = m_World.EntityManager.GetComponentObject<SubScene>(entity);
-
-            return GetSubSceneName(subScene);
-        }
-
-        static string GetSubSceneName(SubScene subScene)
-        {
-            if (subScene == null || subScene.SceneAsset == null || !subScene.SceneAsset)
-                return k_UnknownSubSceneName;
-
-            return string.IsNullOrEmpty(subScene.SceneAsset.name)
-                ? k_UnknownSubSceneName
-                : subScene.SceneAsset.name;
         }
 
         void RecursivelyAddGameObjectNames(GameObject gameObject)
         {
-            if (gameObject.TryGetComponent<SubScene>(out var subScene))
+            if (gameObject.TryGetComponent<SubScene>(out var subScene) && subScene.SceneGUID != default)
             {
-                SetName(HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, subScene), subScene.SceneAsset ? subScene.SceneAsset.name : k_UnknownSubSceneName);
-
                 var rootGameObjects = new List<GameObject>();
                 if (!subScene.IsLoaded)
                     return;

@@ -19,22 +19,6 @@ namespace Unity.Entities
     public struct WorldUpdateAllocatorResetSystem : ISystem
     {
         /// <summary>
-        /// Initializes this world update allocator reset system for rewinding memories of the world update allocator.
-        /// </summary>
-        /// <param name="state">Reference to the SystemState of the system.</param>
-        public void OnCreate(ref SystemState state)
-        {
-        }
-
-        /// <summary>
-        /// Destroys this world update allocator reset system.
-        /// </summary>
-        /// <param name="state">The SystemState of the system.</param>
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
-        /// <summary>
         /// Executes world update allocator reset system to rewind memories of the world update allocator.
         /// </summary>
         /// <param name="state">The SystemState of the system.</param>

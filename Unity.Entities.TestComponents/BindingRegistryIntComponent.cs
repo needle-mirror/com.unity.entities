@@ -13,19 +13,13 @@ namespace Unity.Entities.Tests
 
     public class BindingRegistryIntComponentAuthoring : MonoBehaviour
     {
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int1")]
+        [RegisterBinding(typeof(BindingRegistryIntComponent), nameof(BindingRegistryIntComponent.Int1))]
         public int Int1;
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int2.x", true)]
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int2.y", true)]
+        [RegisterBinding(typeof(BindingRegistryIntComponent), nameof(BindingRegistryIntComponent.Int2))]
         public int2 Int2;
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int3.x", true)]
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int3.y", true)]
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int3.z", true)]
+        [RegisterBinding(typeof(BindingRegistryIntComponent), nameof(BindingRegistryIntComponent.Int3))]
         public int3 Int3;
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int4.x", true)]
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int4.y", true)]
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int4.z", true)]
-        [RegisterBinding(typeof(BindingRegistryIntComponent), "Int4.w", true)]
+        [RegisterBinding(typeof(BindingRegistryIntComponent), nameof(BindingRegistryIntComponent.Int4))]
         public int4 Int4;
 
         class Baker : Baker<BindingRegistryIntComponentAuthoring>

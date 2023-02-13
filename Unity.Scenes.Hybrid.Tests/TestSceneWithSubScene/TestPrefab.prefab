@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4354643364930636473}
-  - component: {fileID: 4930658720938949558}
+  - component: {fileID: 818215518687633157}
   m_Layer: 0
   m_Name: EcsTestData1
   m_TagString: Untagged
@@ -27,11 +27,12 @@ Transform:
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 3690476281673674980}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4930658720938949558
+--- !u!114 &818215518687633157
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -40,7 +41,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 6013357152347189296}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cdce3259fe726dc4f98db659fe7a7f6c, type: 3}
+  m_Script: {fileID: 11500000, guid: d2f1014884174f53bf23276695c340e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Value: 42
@@ -53,7 +54,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3690476281673674980}
-  - component: {fileID: 3077581469922057306}
+  - component: {fileID: 4943398523808335581}
   m_Layer: 0
   m_Name: TestPrefab
   m_TagString: Untagged
@@ -71,13 +72,14 @@ Transform:
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4354643364930636473}
   - {fileID: 5729250215052121111}
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &3077581469922057306
+--- !u!114 &4943398523808335581
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -86,7 +88,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 6312790326507529616}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cdce3259fe726dc4f98db659fe7a7f6c, type: 3}
+  m_Script: {fileID: 11500000, guid: d2f1014884174f53bf23276695c340e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Value: 107
@@ -117,6 +119,7 @@ Transform:
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0.19, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 3690476281673674980}
   m_RootOrder: 1

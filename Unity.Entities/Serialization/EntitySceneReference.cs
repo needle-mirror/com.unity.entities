@@ -24,7 +24,7 @@ namespace Unity.Entities.Serialization
         /// <param name="sectionIndex">The subscene section index.</param>
         public EntitySceneReference(Hash128 guid, int sectionIndex)
         {
-            SceneId = new UntypedWeakReferenceId(new RuntimeGlobalObjectId { AssetGUID = guid, IdentifierType = 1, SceneObjectIdentifier0 = sectionIndex }, WeakReferenceGenerationType.SubScene);
+            SceneId = new UntypedWeakReferenceId(new RuntimeGlobalObjectId { AssetGUID = guid, IdentifierType = 1, SceneObjectIdentifier0 = sectionIndex }, WeakReferenceGenerationType.EntityScene);
         }
 
 #if UNITY_EDITOR

@@ -37,6 +37,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         public Query[] WithAllTypes { get; }
         public Query[] WithNoneTypes { get ; }
         public Query[] WithAnyTypes { get ; }
+        public Query[] WithDisabledTypes { get ; }
+        public Query[] WithAbsentTypes { get ; }
         public Query[] WithChangeFilterTypes { get ; }
         public Query[] WithSharedComponentFilterTypes { get ; }
 
@@ -78,10 +80,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         public bool NeedsEntityInQueryIndex => LambdaParameters.OfType<LambdaParamDescription_EntityInQueryIndex>().Any();
         public string ChunkBaseEntityIndexFieldName => $"{Name}_ChunkBaseEntityIndexArray";
 
-        public bool IsForDOTSRuntime => SystemDescription.PreprocessorSymbolNames.Contains("UNITY_DOTSRUNTIME");
-        public bool SafetyChecksEnabled => SystemDescription.PreprocessorSymbolNames.Contains("ENABLE_UNITY_COLLECTIONS_CHECKS");
-        public bool DOTSRuntimeProfilerEnabled => SystemDescription.PreprocessorSymbolNames.Contains("ENABLE_DOTSRUNTIME_PROFILER");
-        public bool ProfilerEnabled => SystemDescription.PreprocessorSymbolNames.Contains("ENABLE_PROFILER") || IsForEditor || DevelopmentBuildEnabled;
+        public bool IsForDOTSRuntime => SystemDescription.IsForDotsRuntime;
+        public bool SafetyChecksEnabled => SystemDescription.IsUnityCollectionChecksEnabled;
+        public bool DOTSRuntimeProfilerEnabled => SystemDescription.IsDotsRuntimeProfilerEnabled;
+        public bool ProfilerEnabled => SystemDescription.IsProfilerEnabled || IsForEditor || DevelopmentBuildEnabled;
         public bool NeedsUnsafe => ContainingMethod.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.UnsafeKeyword)) ||
                                    OriginalLambdaExpression.AncestorOfKindOrDefault<UnsafeStatementSyntax>() != null;
         public bool NeedsTimeData { get; }
@@ -108,6 +110,22 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 Schedule = GetScheduleModeAndDependencyArgument();
                 ContainingInvocationExpression = MethodInvocations[Schedule.Mode.ToString()].FirstOrDefault();
 
+                WithAbsentTypes =
+                    AllTypeArgumentSymbolsOfMethod("WithAbsent").Select(symbol =>
+                        new Query
+                        {
+                            TypeSymbol = symbol,
+                            Type = QueryType.Absent,
+                            IsReadOnly = true
+                        }).ToArray();
+                WithDisabledTypes =
+                    AllTypeArgumentSymbolsOfMethod("WithDisabled").Select(symbol =>
+                        new Query
+                        {
+                            TypeSymbol = symbol,
+                            Type = QueryType.Disabled,
+                            IsReadOnly = true
+                        }).ToArray();
                 WithAllTypes =
                     AllTypeArgumentSymbolsOfMethod("WithAll").Select(symbol =>
                         new Query

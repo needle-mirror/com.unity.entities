@@ -2,14 +2,14 @@
 
 This task shows you how to modify a system so that it uses [Burst](https://docs.unity3d.com/Packages/com.unity.burst@latest/index.html)-compatible [jobs](xref:JobSystem) that run in parallel on multiple threads.
 
->[!NOTE]
->Before you modify a system to run in parallel on multiple threads, consider whether your system affects data on enough entities to make the benefits of multi-threading exceed the overhead of scheduling the jobs. For more information, refer to [Optimize systems](ecs-workflow-intro.md#optimize-systems).
+> [!NOTE]
+> Before you modify a system to run in parallel on multiple threads, consider whether your system affects data on enough entities to make the benefits of multi-threading exceed the overhead of scheduling the jobs. For more information, refer to [Optimize systems](ecs-workflow-intro.md#optimize-systems).
 
-This example schedules a job to run in parallel which means that the job runs across multiple threads. Unity can only create entities on the main thread which means parallel jobs must use an [entity command buffer](systems-entity-command-buffers.md) to record commands to create and configure new entities. After the parallel job runs, Unity plays back the entity command buffer on the main thread to actually create and configure the entities. For more information, refer to [Use EntityCommandBuffer in a parallel job](systems-entity-command-buffers.md#use-entitycommandbuffer-in-a-parallel-job) and [Deterministic playback](systems-entity-command-buffers.md#deterministic-playback).
+This task recreates `SpawnerSystem` using [IJobEntity](xref:Unity.Entities.IJobEntity) and schedules the job to run in parallel across multiple threads. Using an `IJobEntity` changes how you query and iterate over component data, and changes how you instantiate new entities. For information on component data query and iteration changes due to `IJobEntity`, refer to [Specify a query](iterating-data-ijobentity.md#specify-a-query). Unity can only create entities on the main thread which means parallel jobs must use an [entity command buffer](systems-entity-command-buffers.md) to record commands to create and configure new entities. After the parallel job runs, Unity plays back the entity command buffer on the main thread to actually create and configure the entities. For more information, refer to [Use EntityCommandBuffer in a parallel job](systems-entity-command-buffers.md#use-entitycommandbuffer-in-a-parallel-job) and [Deterministic playback](systems-entity-command-buffers.md#deterministic-playback).
 
 ## ECS workflow overview
 
-This task is the fifth task in a series of five tasks that show you how to create and optimize behavior in an ECS system. At the end of the tasks, you will have a spawner system that reads and writes component data, and instantiates entities. This workflow contains the following tasks: 
+This task is the fifth task in a series of five tasks that show you how to create and optimize behavior in an ECS system. At the end of the tasks, you will have a spawner system that reads and writes component data, and instantiates entities. This workflow contains the following tasks:
 
 1. [Create the subscene for the spawner example](ecs-workflow-scene.md)
 2. [Create a component for the spawner example](ecs-workflow-create-components.md)
@@ -29,7 +29,7 @@ Each task is a prerequisite for the subsequent tasks.
 
 ## Additional resources
 
-* [Understand the ECS workflow](ecs-workflow-intro.md)
-* [C# Job System](xref:JobSystem)
-* [Iterate over component data with IJobEntity](iterating-data-ijobentity.md)
-* [Iterate over component data with IJobChunk](iterating-data-ijobchunk.md)
+- [Understand the ECS workflow](ecs-workflow-intro.md)
+- [C# Job System](xref:JobSystem)
+- [Iterate over component data with IJobEntity](iterating-data-ijobentity.md)
+- [Iterate over component data with IJobChunk](iterating-data-ijobchunk.md)

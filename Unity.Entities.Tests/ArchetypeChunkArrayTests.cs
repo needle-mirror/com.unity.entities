@@ -117,15 +117,11 @@ namespace Unity.Entities.Tests
         {
             CreateMixedEntities(64);
 
-            var query = new EntityQueryDesc
-            {
-                Any = new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData)}, // any
-                None = Array.Empty<ComponentType>(), // none
-                All = Array.Empty<ComponentType>(), // all
-            };
-            var group = m_Manager.CreateEntityQuery(query);
-            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
-            group.Dispose();
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAny<EcsTestData2, EcsTestData>()
+                .Build(m_Manager);
+            var chunks = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            query.Dispose();
 
             Assert.AreEqual(14, chunks.Length);
 
@@ -228,14 +224,12 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                Any = new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData)}, // any
-                None = Array.Empty<ComponentType>(), // none
-                All = new ComponentType[] {typeof(EcsTestSharedComp)}, // all
-            });
-            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
-            group.Dispose();
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAny<EcsTestData2, EcsTestData>()
+                .WithAll<EcsTestSharedComp>()
+                .Build(m_Manager);
+            var chunks = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            query.Dispose();
 
             Assert.AreEqual(14, chunks.Length);
 
@@ -576,15 +570,11 @@ namespace Unity.Entities.Tests
         {
             CreateMixedEntities(64);
 
-            var query = new EntityQueryDesc
-            {
-                Any = new ComponentType[] { typeof(EcsTestData2), typeof(EcsTestData) }, // any
-                None = Array.Empty<ComponentType>(), // none
-                All = Array.Empty<ComponentType>(), // all
-            };
-            var group = m_Manager.CreateEntityQuery(query);
-            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
-            group.Dispose();
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAnyRW<EcsTestData2, EcsTestData>()
+                .Build(m_Manager);
+            var chunks = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            query.Dispose();
 
             Assert.AreEqual(14, chunks.Length);
 
@@ -1189,10 +1179,6 @@ namespace Unity.Entities.Tests
                 typeHandle1 = state.GetComponentTypeHandle<EcsTestData>();
             }
 
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
             public void OnUpdate(ref SystemState state)
             {
                 var typeHandle2 = state.GetComponentTypeHandle<EcsTestData>();
@@ -1223,13 +1209,67 @@ namespace Unity.Entities.Tests
         // These tests require:
         // - JobsDebugger support for static safety IDs (added in 2020.1)
         // - Asserting throws
+        // - JobsDebugger support for testing for nested native containers
 #if !UNITY_DOTSRUNTIME
-        struct UseComponentTypeHandle : IJob
+        struct ComponentTypeHandleContainerJob : IJob
         {
-            public Unity.Entities.ComponentTypeHandle<EcsTestData> ecsTestData;
-            public void Execute()
-            {
-            }
+            public ComponentTypeHandle<EcsTestContainerData> handle;
+
+            public void Execute() { }
+        }
+
+        struct ComponentTypeHandleJob : IJob
+        {
+            public ComponentTypeHandle<EcsTestData> handle;
+
+            public void Execute() { }
+        }
+
+        [Test]
+        public unsafe void ComponentTypeHandle_Component_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.SetComponentData(entity, new EcsTestData { value = 17 });
+
+            var handle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.AreEqual(chunk.GetComponentDataPtrRO(ref handle)[0].value, 17);
+        }
+
+        [Test]
+        public unsafe void ComponentTypeHandle_ComponentWithContainer_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestContainerData));
+            var component = new EcsTestContainerData();
+            component.Create();
+            m_Manager.SetComponentData(entity, component);
+
+            var handle = m_Manager.GetComponentTypeHandle<EcsTestContainerData>(false);
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.AreEqual(chunk.GetComponentDataPtrRO(ref handle)[0], component);
+            Assert.AreEqual(chunk.GetComponentDataPtrRO(ref handle)[0].data[1], component.data[1]);
+
+            component.Destroy();
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Relies on jobs debugger")]
+        public void ComponentTypeHandle_ComponentWithContainerInJob_Throws()
+        {
+            var job = new ComponentTypeHandleContainerJob();
+            job.handle = m_Manager.GetComponentTypeHandle<EcsTestContainerData>(false);
+            var e = Assert.Throws<InvalidOperationException>(() => job.Schedule());
+            Assert.IsTrue(e.Message.Contains("Nested native containers are illegal in jobs"));
+        }
+
+        [Test]
+        public void ComponentTypeHandle_InJob_Works()
+        {
+            var job = new ComponentTypeHandleJob();
+            job.handle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+            Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
         [Test,DotsRuntimeFixme]
@@ -1257,9 +1297,9 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(entity, new EcsTestData(42));
             var chunkComponentType = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
 
-            var changeValuesJobs = new UseComponentTypeHandle
+            var changeValuesJobs = new ComponentTypeHandleJob
             {
-                ecsTestData = chunkComponentType,
+                handle = chunkComponentType,
             };
 
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentTypeHandle
@@ -1267,15 +1307,60 @@ namespace Unity.Entities.Tests
             Assert.That(() => { changeValuesJobs.Run(); },
                 Throws.Exception.TypeOf<InvalidOperationException>()
                     .With.Message.Contains(
-                        "ComponentTypeHandle<Unity.Entities.Tests.EcsTestData> UseComponentTypeHandle.ecsTestData which has been invalidated by a structural change."));
+                        "ComponentTypeHandle<Unity.Entities.Tests.EcsTestData> ComponentTypeHandleJob.handle which has been invalidated by a structural change."));
         }
 
-        struct UseDynamicComponentTypeHandle : IJob
+        struct DynamicComponentTypeHandleJob : IJob
         {
-            public DynamicComponentTypeHandle ecsTestData;
-            public void Execute()
-            {
-            }
+            public DynamicComponentTypeHandle handle;
+            public void Execute() { }
+        }
+
+        [Test]
+        public void DynamicComponentTypeHandle_Component_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.SetComponentData(entity, new EcsTestData { value = 17 });
+
+            var handle = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.AreEqual(chunk.GetDynamicComponentDataArrayReinterpret<EcsTestData>(ref handle, UnsafeUtility.SizeOf<EcsTestData>())[0].value, 17);
+        }
+
+        [Test]
+        public void DynamicComponentTypeHandle_ComponentWithContainer_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestContainerData));
+            var component = new EcsTestContainerData();
+            component.Create();
+            m_Manager.SetComponentData(entity, component);
+
+            var handle = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestContainerData)));
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.AreEqual(chunk.GetDynamicComponentDataArrayReinterpret<EcsTestContainerData>(ref handle, UnsafeUtility.SizeOf<EcsTestContainerData>())[0], component);
+            Assert.AreEqual(chunk.GetDynamicComponentDataArrayReinterpret<EcsTestContainerData>(ref handle, UnsafeUtility.SizeOf<EcsTestContainerData>())[0].data[1], component.data[1]);
+
+            component.Destroy();
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Relies on jobs debugger")]
+        public void DynamicComponentTypeHandle_ComponentWithContainerInJob_Throws()
+        {
+            var job = new DynamicComponentTypeHandleJob();
+            job.handle = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestContainerData)));
+            var e = Assert.Throws<InvalidOperationException>(() => job.Schedule());
+            Assert.IsTrue(e.Message.Contains("Nested native containers are illegal in jobs"));
+        }
+
+        [Test]
+        public void DynamicComponentTypeHandle_InJob_Works()
+        {
+            var job = new DynamicComponentTypeHandleJob();
+            job.handle = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
+            Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
         [Test,DotsRuntimeFixme]
@@ -1302,24 +1387,172 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(entity, new EcsTestData(42));
             var chunkComponentType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
 
-            var changeValuesJobs = new UseDynamicComponentTypeHandle
+            var changeValuesJobs = new DynamicComponentTypeHandleJob
             {
-                ecsTestData = chunkComponentType,
+                handle = chunkComponentType,
             };
 
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates DynamicComponentTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
                 Throws.Exception.TypeOf<InvalidOperationException>()
-                    .With.Message.Contains("Unity.Entities.DynamicComponentTypeHandle UseDynamicComponentTypeHandle.ecsTestData which has been invalidated by a structural change."));
+                    .With.Message.Contains("Unity.Entities.DynamicComponentTypeHandle DynamicComponentTypeHandleJob.handle which has been invalidated by a structural change."));
         }
 
-        struct UseBufferTypeHandle : IJob
+        struct DynamicSharedComponentTypeHandleJob : IJob
         {
-            public Unity.Entities.BufferTypeHandle<EcsIntElement> ecsTestData;
-            public void Execute()
+            public DynamicSharedComponentTypeHandle handle;
+            public void Execute() { }
+        }
+
+        [Test]
+        public unsafe void DynamicSharedComponentTypeHandle_Component_Works()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponentManaged(entity, new EcsTestSharedComp(17));
+            var handle = m_Manager.GetDynamicSharedComponentTypeHandle(typeof(EcsTestSharedComp));
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.AreEqual(((EcsTestSharedComp*)chunk.GetDynamicSharedComponentDataAddress(ref handle))->value, 17);
+        }
+
+        [Test]
+        public unsafe void DynamicSharedComponentTypeHandle_ComponentWithContainer_Works()
+        {
+            var entity = m_Manager.CreateEntity();
+            var component = new EcsTestContainerSharedComp();
+            component.Create();
+            m_Manager.AddSharedComponentManaged(entity, component);
+
+            var handle = m_Manager.GetDynamicSharedComponentTypeHandle(typeof(EcsTestContainerSharedComp));
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.AreEqual((*(EcsTestContainerSharedComp*)chunk.GetDynamicSharedComponentDataAddress(ref handle)), component);
+            Assert.AreEqual(((EcsTestContainerSharedComp*)chunk.GetDynamicSharedComponentDataAddress(ref handle))->data[1], component.data[1]);
+
+            component.Destroy();
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Relies on jobs debugger")]
+        public void DynamicSharedComponentTypeHandle_ComponentWithContainerInJob_Throws()
+        {
+            var job = new DynamicSharedComponentTypeHandleJob();
+            job.handle = m_Manager.GetDynamicSharedComponentTypeHandle(typeof(EcsTestContainerSharedComp));
+            var e = Assert.Throws<InvalidOperationException>(() => job.Schedule());
+            Assert.IsTrue(e.Message.Contains("Nested native containers are illegal in jobs"));
+        }
+
+        [Test]
+        public void DynamicSharedComponentTypeHandle_InJob_Works()
+        {
+            var job = new DynamicSharedComponentTypeHandleJob();
+            job.handle = m_Manager.GetDynamicSharedComponentTypeHandle(typeof(EcsTestSharedComp));
+            Assert.DoesNotThrow(() => job.Schedule().Complete());
+        }
+
+        [Test, DotsRuntimeFixme]
+        [TestRequiresCollectionChecks("Relies on static safety id system")]
+        public void DynamicSharedComponentTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.AddSharedComponentManaged(entity, new EcsTestSharedComp(17));
+            m_Manager.SetComponentData(entity, new EcsTestData(42));
+            var ecsTestData = m_Manager.GetDynamicSharedComponentTypeHandle(typeof(EcsTestSharedComp));
+
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates DynamicSharedComponentTypeHandle
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            // No main-thread code currently references SharedComponentTypeHandle.m_Safety, so we have to manually verify that it's been invalidated
+            Assert.That(() => { AtomicSafetyHandle.CheckReadAndThrow(ecsTestData.m_Safety); },
+                Throws.Exception.TypeOf<ObjectDisposedException>()
+                    .With.Message.Contains(
+                        "DynamicSharedComponentTypeHandle which has been invalidated by a structural change."));
+#endif
+        }
+
+        [Test, DotsRuntimeFixme]
+        [TestRequiresCollectionChecks("Relies on static safety id system")]
+        public void DynamicSharedComponentTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.AddSharedComponentManaged(entity, new EcsTestSharedComp(17));
+            m_Manager.SetComponentData(entity, new EcsTestData(42));
+            var ecsTestData = m_Manager.GetDynamicSharedComponentTypeHandle(typeof(EcsTestSharedComp));
+
+            var changeValuesJobs = new DynamicSharedComponentTypeHandleJob
             {
-            }
+                handle = ecsTestData,
+            };
+
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates SharedComponentTypeHandle
+
+            Assert.That(() => { changeValuesJobs.Run(); },
+                Throws.Exception.TypeOf<InvalidOperationException>()
+                    .With.Message.Contains(
+                        "DynamicSharedComponentTypeHandle DynamicSharedComponentTypeHandleJob.handle which has been invalidated by a structural change."));
+        }
+
+        struct BufferTypeHandleContainerJob : IJob
+        {
+            public BufferTypeHandle<EcsTestContainerElement> handle;
+
+            public void Execute() { }
+        }
+
+        struct BufferTypeHandleJob : IJob
+        {
+            public BufferTypeHandle<EcsIntElement> handle;
+
+            public void Execute() { }
+        }
+
+        [Test]
+        public void BufferTypeHandle_ElementWithContainer_Works()
+        {
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsTestContainerElement();
+            element.Create();
+            m_Manager.AddBuffer<EcsTestContainerElement>(entity);
+            m_Manager.GetBuffer<EcsTestContainerElement>(entity).Add(element);
+
+            var handle = m_Manager.GetBufferTypeHandle<EcsTestContainerElement>(false);
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.AreEqual(chunk.GetBufferAccessor(ref handle)[0][0], element);
+            Assert.AreEqual(chunk.GetBufferAccessor(ref handle)[0][0].data[1], element.data[1]);
+
+            element.Destroy();
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Relies on jobs debugger")]
+        public void BufferTypeHandle_ElementWithContainerInJob_Throws()
+        {
+            var job = new BufferTypeHandleContainerJob();
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsTestContainerElement();
+            m_Manager.AddBuffer<EcsTestContainerElement>(entity);
+            m_Manager.GetBuffer<EcsTestContainerElement>(entity).Add(element);
+
+            job.handle = m_Manager.GetBufferTypeHandle<EcsTestContainerElement>(false);
+
+            var e = Assert.Throws<InvalidOperationException>(() => job.Schedule());
+            Assert.IsTrue(e.Message.Contains("Nested native containers are illegal in jobs"));
+        }
+
+        [Test]
+        public void BufferTypeHandle_InJob_Works()
+        {
+            var job = new BufferTypeHandleJob();
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsIntElement();
+            m_Manager.AddBuffer<EcsIntElement>(entity);
+            m_Manager.GetBuffer<EcsIntElement>(entity).Add(element);
+
+            job.handle = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
+
+            Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
         [Test,DotsRuntimeFixme]
@@ -1345,9 +1578,9 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
             var ecsTestData = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
 
-            var changeValuesJobs = new UseBufferTypeHandle
+            var changeValuesJobs = new BufferTypeHandleJob
             {
-                ecsTestData = ecsTestData,
+                handle = ecsTestData,
             };
 
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferTypeHandle
@@ -1355,15 +1588,67 @@ namespace Unity.Entities.Tests
             Assert.That(() => { changeValuesJobs.Run(); },
                 Throws.Exception.TypeOf<InvalidOperationException>()
                     .With.Message.Contains(
-                        "BufferTypeHandle<Unity.Entities.Tests.EcsIntElement> UseBufferTypeHandle.ecsTestData which has been invalidated by a structural change."));
+                        "BufferTypeHandle<Unity.Entities.Tests.EcsIntElement> BufferTypeHandleJob.handle which has been invalidated by a structural change."));
         }
 
-        struct UseSharedComponentTypeHandle : IJob
+        struct SharedComponentTypeHandleJob : IJob
         {
-            public Unity.Entities.SharedComponentTypeHandle<EcsTestSharedComp> ecsTestData;
-            public void Execute()
-            {
-            }
+            public SharedComponentTypeHandle<EcsTestSharedComp> handle;
+
+            public void Execute() { }
+        }
+
+        struct SharedComponentTypeHandleContainerJob : IJob
+        {
+            public SharedComponentTypeHandle<EcsTestContainerSharedComp> handle;
+
+            public void Execute() { }
+        }
+
+        [Test]
+        public unsafe void SharedComponentTypeHandle_Component_Works()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponentManaged(entity, new EcsTestSharedComp(17));
+            var handle = m_Manager.GetSharedComponentTypeHandle<EcsTestSharedComp>();
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.AreEqual(chunk.GetSharedComponent(handle).value, 17);
+        }
+
+        [Test]
+        public unsafe void SharedComponentTypeHandle_ComponentWithContainer_Works()
+        {
+            var entity = m_Manager.CreateEntity();
+            var component = new EcsTestContainerSharedComp();
+            component.Create();
+            m_Manager.AddSharedComponentManaged(entity, component);
+
+            var handle = m_Manager.GetSharedComponentTypeHandle<EcsTestContainerSharedComp>();
+            var chunk = m_Manager.GetChunk(entity);
+
+            Assert.AreEqual(chunk.GetSharedComponent(handle), component);
+            Assert.AreEqual(chunk.GetSharedComponent(handle).data[1], component.data[1]);
+
+            component.Destroy();
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Relies on jobs debugger")]
+        public void SharedComponentTypeHandle_ComponentWithContainerInJob_Throws()
+        {
+            var job = new SharedComponentTypeHandleContainerJob();
+            job.handle = m_Manager.GetSharedComponentTypeHandle<EcsTestContainerSharedComp>();
+            var e = Assert.Throws<InvalidOperationException>(() => job.Schedule());
+            Assert.IsTrue(e.Message.Contains("Nested native containers are illegal in jobs"));
+        }
+
+        [Test]
+        public void SharedComponentTypeHandle_InJob_Works()
+        {
+            var job = new SharedComponentTypeHandleJob();
+            job.handle = m_Manager.GetSharedComponentTypeHandle<EcsTestSharedComp>();
+            Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
         [Test,DotsRuntimeFixme]
@@ -1395,9 +1680,9 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(entity, new EcsTestData(42));
             var ecsTestData = m_Manager.GetSharedComponentTypeHandle<EcsTestSharedComp>();
 
-            var changeValuesJobs = new UseSharedComponentTypeHandle
+            var changeValuesJobs = new SharedComponentTypeHandleJob
             {
-                ecsTestData = ecsTestData,
+                handle = ecsTestData,
             };
 
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates SharedComponentTypeHandle
@@ -1405,7 +1690,57 @@ namespace Unity.Entities.Tests
             Assert.That(() => { changeValuesJobs.Run(); },
                 Throws.Exception.TypeOf<InvalidOperationException>()
                     .With.Message.Contains(
-                        "SharedComponentTypeHandle<Unity.Entities.Tests.EcsTestSharedComp> UseSharedComponentTypeHandle.ecsTestData which has been invalidated by a structural change."));
+                        "SharedComponentTypeHandle<Unity.Entities.Tests.EcsTestSharedComp> SharedComponentTypeHandleJob.handle which has been invalidated by a structural change."));
+        }
+
+        struct BufferAccessorContainerJob : IJob
+        {
+            public BufferAccessor<EcsTestContainerElement> accessor;
+
+            public void Execute() { }
+        }
+
+        struct BufferAccessorJob : IJob
+        {
+            public BufferAccessor<EcsIntElement> accessor;
+
+            public void Execute() { }
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Relies on jobs debugger")]
+        public void BufferAccessor_ElementWithContainerInJob_Throws()
+        {
+            var job = new BufferAccessorContainerJob();
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsTestContainerElement();
+            m_Manager.AddBuffer<EcsTestContainerElement>(entity);
+            m_Manager.GetBuffer<EcsTestContainerElement>(entity).Add(element);
+
+            var chunk = m_Manager.GetChunk(entity);
+            var handle = m_Manager.GetBufferTypeHandle<EcsTestContainerElement>(false);
+
+            job.accessor = chunk.GetBufferAccessor(ref handle);
+
+            var e = Assert.Throws<InvalidOperationException>(() => job.Schedule());
+            Assert.IsTrue(e.Message.Contains("Nested native containers are illegal in jobs"));
+        }
+
+        [Test]
+        public void BufferAccessor_InJob_Works()
+        {
+            var job = new BufferAccessorJob();
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsIntElement();
+            m_Manager.AddBuffer<EcsIntElement>(entity);
+            m_Manager.GetBuffer<EcsIntElement>(entity).Add(element);
+
+            var chunk = m_Manager.GetChunk(entity);
+            var handle = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
+
+            job.accessor = chunk.GetBufferAccessor(ref handle);
+
+            Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
         struct UseEntityTypeHandle : IJob

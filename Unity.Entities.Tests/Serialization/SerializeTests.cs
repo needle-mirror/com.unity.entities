@@ -1407,7 +1407,6 @@ namespace Unity.Entities.Tests
 
         [Ignore("This test is unstable and will leak occasionally on CI causing PRs to fail. Disabled until fixed - DOTS-4206")]
         [Test]
-        [DotsRuntimeFixme] // Unity.Properties support required
         public unsafe void SerializeEntitiesWorksWithBlobAssetReferences()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestData));
@@ -2008,7 +2007,7 @@ namespace Unity.Entities.Tests
             deserializedWorld.Dispose();
         }
 
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
         public class ManagedComponent : IComponentData
         {
             public string String;
@@ -2021,7 +2020,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // DOTS Runtime Managed Component Serialization
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntities_HandlesNullManagedComponents()
         {
@@ -2042,7 +2040,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // DOTS Runtime Managed Component Serialization
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntities_RemapsEntitiesInManagedComponents()
         {
@@ -2067,7 +2064,7 @@ namespace Unity.Entities.Tests
             for (int i = 0; i != targetEntities.Length / 2; i++)
                 m_Manager.DestroyEntity(targetEntities[i * 2 + 1]);
 
-            var deserializedWorld = new World("SerializeEntities_HandlesNullManagedComponents Test World");
+            var deserializedWorld = new World("SerializeEntities_RemapsEntitiesInManagedComponents Test World");
 
             var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
             SerializeUtility.SerializeWorld(m_Manager, writer);
@@ -2102,7 +2099,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // DOTS Runtime Managed Component Serialization
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntities_ManagedComponents()
         {
@@ -2370,7 +2366,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // DOTS Runtime Managed Component Serialization
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntitiesManagedComponentWithCustomClass_ManagedComponents()
         {
@@ -2586,21 +2581,20 @@ namespace Unity.Entities.Tests
             }
         }
 
-#endif // !UNITY_DOTSRUNTIME
+#endif // UNITY_EDITOR
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 
         [Test]
-        [DotsRuntimeFixme] // Unity.Properties support required
         public void SerializeEntities_WithBlobAssetReferencesInSharedComponents()
         {
             Entity a = m_Manager.CreateEntity();
-            m_Manager.AddSharedComponentManaged(a, new EcsTestSharedCompBlobAssetRef
+            m_Manager.AddSharedComponent(a, new EcsTestSharedCompBlobAssetRef
             {
                 value = BlobAssetReference<int>.Create(123)
             });
 
             Entity b = m_Manager.CreateEntity();
-            m_Manager.AddSharedComponentManaged(b, new EcsTestSharedCompBlobAssetRef
+            m_Manager.AddSharedComponent(b, new EcsTestSharedCompBlobAssetRef
             {
                 value = BlobAssetReference<int>.Create(123)
             });
@@ -2621,18 +2615,198 @@ namespace Unity.Entities.Tests
 
             entityManager.Debug.CheckInternalConsistency();
 
-            using (var query = entityManager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadWrite<EcsTestSharedCompBlobAssetRef>()}
-            }))
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestSharedCompBlobAssetRef>().Build(entityManager))
             {
                 Assert.AreEqual(2, query.CalculateChunkCount());
             }
         }
 
+        enum TestEnum
+        {
+            Zero,
+            Value1 = 5
+        }
+
+        struct TestUnmanagedStruct : ISharedComponentData
+        {
+            public int Value;
+            public float3 Float3;
+            public TestEnum EnumValue;
+            public FixedString64Bytes StringValue;
+        }
+
         [Test]
-        [DotsRuntimeFixme] // Unity.Properties support required
-        public void SerializeEntities_WithEntityReferencesInSharedComponents_ThrowsException()
+        public void SerializeEntities_WithUnmanagedSharedComponents_Works()
+        {
+            var s1 = new TestUnmanagedStruct
+            {
+                Value = 42,
+                Float3 = new float3(1, 2, 3),
+                EnumValue = TestEnum.Value1,
+                StringValue = "boring string 漢漢"
+            };
+            var s2 = new TestUnmanagedStruct
+            {
+                Value = 43,
+                Float3 = new float3(4, 5, 6),
+                EnumValue = TestEnum.Zero,
+                StringValue = "漢漢 Other"
+            };
+
+            Entity a = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponent(a, s1);
+
+            Entity b = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponent(b, s2);
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            entityManager.GetAllUniqueSharedComponents<TestUnmanagedStruct>(out var sharedComponents, Allocator.Temp);
+            Assert.AreEqual(3, sharedComponents.Length, "Serialization / Deserialization failed - unexpected number of shared components");
+            CollectionAssert.AreEquivalent(new[] {default(TestUnmanagedStruct), s1, s2}, sharedComponents.AsArray().ToArray(), "The shared component values are not equal");
+        }
+
+        struct TestManagedStruct : ISharedComponentData, IEquatable<TestManagedStruct>
+        {
+            public int Value;
+            public float3 Float3;
+            public TestEnum EnumValue;
+            public string StringValue;
+
+            public bool Equals(TestManagedStruct other)
+            {
+                return Value == other.Value && Float3.Equals(other.Float3) && EnumValue == other.EnumValue && StringValue == other.StringValue;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is TestManagedStruct other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(Value, Float3, (int) EnumValue, StringValue);
+            }
+
+            public static bool operator ==(TestManagedStruct left, TestManagedStruct right)
+            {
+                return left.Equals(right);
+            }
+
+            public static bool operator !=(TestManagedStruct left, TestManagedStruct right)
+            {
+                return !left.Equals(right);
+            }
+        }
+
+        [Test]
+        public void SerializeEntities_WithManagedSharedComponents_Works()
+        {
+            var s1 = new TestManagedStruct
+            {
+                Value = 42,
+                Float3 = new float3(1, 2, 3),
+                EnumValue = TestEnum.Value1,
+                StringValue = "boring string 漢漢"
+            };
+            var s2 = new TestManagedStruct
+            {
+                Value = 43,
+                Float3 = new float3(4, 5, 6),
+                EnumValue = TestEnum.Zero,
+                StringValue = "漢漢 Other"
+            };
+
+            Entity a = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponentManaged(a, s1);
+
+            Entity b = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponentManaged(b, s2);
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            List<TestManagedStruct> sharedComponentValues = new List<TestManagedStruct>();
+            List<int> sharedComponentIndices = new List<int>();
+            entityManager.GetAllUniqueSharedComponentsManaged<TestManagedStruct>(sharedComponentValues, sharedComponentIndices);
+            Assert.AreEqual(3, sharedComponentValues.Count, "Serialization / Deserialization failed - unexpected number of shared components");
+            CollectionAssert.AreEquivalent(new[] {new TestManagedStruct(), s1, s2}, sharedComponentValues, "The shared component values are not equal");
+        }
+
+#if SUPPORT_SHARED_COMPONENT_REMAPPING
+        [Test]
+        public void SerializeEntities_WithEntityReferencesInUnmanagedSharedComponents_RemapsEntities()
+        {
+            {
+                var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>());
+                var entities = m_Manager.CreateEntity(archetype, 20, Allocator.Temp);
+
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.SetComponentData(entities[12], new EcsTestData(12345));
+                m_Manager.AddSharedComponentManaged(a, new EcsTestSharedCompEntity(entities[12]));
+
+                Entity b = m_Manager.CreateEntity();
+                m_Manager.SetComponentData(entities[17], new EcsTestData(23456));
+                m_Manager.AddSharedComponentManaged(b, new EcsTestSharedCompEntity(entities[17]));
+
+                entities[12] = Entity.Null;
+                entities[17] = Entity.Null;
+                m_Manager.DestroyEntity(entities);
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            Assert.DoesNotThrow(() => SerializeUtility.SerializeWorld(m_Manager, writer));
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            entityManager.GetAllUniqueSharedComponents<EcsTestSharedCompEntity>(out var sharedComponents, Allocator.Temp);
+            Assert.AreEqual(3, sharedComponents.Length, "Serialization / Deserialization failed - unexpected number of shared components");
+            Assert.IsTrue(entityManager.Exists(sharedComponents[1].value), "Entity remapping failed for unmanaged shared component");
+            Assert.IsTrue(entityManager.Exists(sharedComponents[2].value), "Entity remapping failed for unmanaged shared component");
+            CollectionAssert.AreEquivalent(new[] {12345, 23456}, new[] {entityManager.GetComponentData<EcsTestData>(sharedComponents[1].value).value, entityManager.GetComponentData<EcsTestData>(sharedComponents[2].value).value});
+        }
+#else
+        [Test]
+        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently")]
+        public void SerializeEntities_WithEntityReferencesInUnmanagedSharedComponents_ThrowsArgumentException()
         {
             {
                 var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>());
@@ -2656,6 +2830,36 @@ namespace Unity.Entities.Tests
                 Assert.Throws<ArgumentException>(() => SerializeUtility.SerializeWorld(m_Manager, writer));
             }
         }
+#endif // SUPPORT_SHARED_COMPONENT_REMAPPING
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+
+        [Test]
+        public void SerializeEntities_WithEntityReferencesInManagedSharedComponents_ThrowsArgumentException()
+        {
+            {
+                var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>());
+                var entities = m_Manager.CreateEntity(archetype, 20, Allocator.Temp);
+
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.SetComponentData(entities[12], new EcsTestData(12345));
+                m_Manager.AddSharedComponentManaged(a, new EcsTestSharedCompManagedEntity(entities[12], "First"));
+
+                Entity b = m_Manager.CreateEntity();
+                m_Manager.SetComponentData(entities[17], new EcsTestData(23456));
+                m_Manager.AddSharedComponentManaged(b, new EcsTestSharedCompManagedEntity(entities[17], "Second"));
+
+                entities[12] = Entity.Null;
+                entities[17] = Entity.Null;
+                m_Manager.DestroyEntity(entities);
+            }
+
+            using (var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator))
+            {
+                Assert.Throws<ArgumentException>(() => SerializeUtility.SerializeWorld(m_Manager, writer));
+            }
+        }
+#endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 
         [TypeManager.TypeOverrides(true, false)]
         public struct TypeOverridesSerializeInCorrectEntity : IComponentData
@@ -2696,7 +2900,6 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        [DotsRuntimeFixme] // Unity.Properties support required
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void SerializeEntities_WithBlobAssetReferencesInManagedComponents()
         {
@@ -2730,10 +2933,7 @@ namespace Unity.Entities.Tests
 
             entityManager.Debug.CheckInternalConsistency();
 
-            using (var query = entityManager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadWrite<EcsTestManagedDataBlobAssetRef>()}
-            }))
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestManagedDataBlobAssetRef>().Build(entityManager))
             {
                 var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
                 Assert.AreEqual(2, entities.Length);

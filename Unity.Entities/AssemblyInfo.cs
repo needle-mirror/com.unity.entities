@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("Unity.Animation")]
-[assembly: InternalsVisibleTo("Unity.Animation.Tests")]
+[assembly: InternalsVisibleTo("Unity.Motion")]
+[assembly: InternalsVisibleTo("Unity.Motion.Tests")]
 [assembly: InternalsVisibleTo("Unity.Authoring")]
 [assembly: InternalsVisibleTo("Unity.Burst.Tests")]
 [assembly: InternalsVisibleTo("Unity.DataFlowGraph")]

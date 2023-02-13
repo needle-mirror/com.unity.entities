@@ -122,7 +122,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 if (lambdaJobDescription.LambdaJobKind == LambdaJobKind.Entities)
                 {
                     lambdaJobDescription.EntityQueryFieldName =
-                        systemDescription.GetOrCreateQueryField(
+                        systemDescription.HandlesDescription.GetOrCreateQueryField(
                             new SingleArchetypeQueryFieldDescription(
                                 new Archetype(
                                     lambdaJobDescription.LambdaParameters
@@ -139,6 +139,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                         .ToArray(),
                                     lambdaJobDescription.WithAnyTypes,
                                     lambdaJobDescription.WithNoneTypes,
+                                    lambdaJobDescription.WithDisabledTypes,
+                                    lambdaJobDescription.WithAbsentTypes,
                                     lambdaJobDescription.EntityQueryOptions),
                                 lambdaJobDescription.WithChangeFilterTypes,
                                 queryStorageFieldName: lambdaJobDescription.WithStoreEntityQueryInFieldArgumentSyntaxes.FirstOrDefault()?.Expression.ToString())
@@ -148,9 +150,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     {
                         lambdaParameter.FieldName = lambdaParameter switch
                         {
-                            LambdaParamDescription_Entity _ => systemDescription.GetOrCreateEntityTypeHandleField(),
-                            LambdaParamDescription_DynamicBuffer dynamicBuffer => systemDescription.GetOrCreateTypeHandleField(dynamicBuffer.EntityQueryTypeSymbol, lambdaParameter.IsReadOnly),
-                            _ => systemDescription.GetOrCreateTypeHandleField(lambdaParameter.TypeSymbol, lambdaParameter.IsReadOnly)
+                            LambdaParamDescription_Entity _ => systemDescription.HandlesDescription.GetOrCreateEntityTypeHandleField(),
+                            LambdaParamDescription_DynamicBuffer dynamicBuffer => systemDescription.HandlesDescription.GetOrCreateTypeHandleField(dynamicBuffer.EntityQueryTypeSymbol, lambdaParameter.IsReadOnly),
+                            _ => systemDescription.HandlesDescription.GetOrCreateTypeHandleField(lambdaParameter.TypeSymbol, lambdaParameter.IsReadOnly)
                         };
                     }
 
@@ -159,17 +161,17 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         switch (lambdaParameter.AccessorDataType)
                         {
                             case LambdaJobsPatchableMethod.AccessorDataType.ComponentLookup:
-                                systemDescription.GetOrCreateComponentLookupField(
+                                systemDescription.HandlesDescription.GetOrCreateComponentLookupField(
                                     lambdaParameter.Type,
                                     lambdaParameter.IsReadOnly);
                                 break;
                             case LambdaJobsPatchableMethod.AccessorDataType.BufferLookup:
-                                systemDescription.GetOrCreateBufferLookupField(
+                                systemDescription.HandlesDescription.GetOrCreateBufferLookupField(
                                     lambdaParameter.Type,
                                     lambdaParameter.IsReadOnly);
                                 break;
                             case LambdaJobsPatchableMethod.AccessorDataType.AspectLookup:
-                                systemDescription.GetOrCreateAspectLookup(
+                                systemDescription.HandlesDescription.GetOrCreateAspectLookup(
                                     lambdaParameter.Type,
                                     lambdaParameter.IsReadOnly);
                                 break;
@@ -187,17 +189,17 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         switch (lambdaParameter.AccessorDataType)
                         {
                             case LambdaJobsPatchableMethod.AccessorDataType.ComponentLookup:
-                                systemDescription.GetOrCreateComponentLookupField(
+                                systemDescription.HandlesDescription.GetOrCreateComponentLookupField(
                                     lambdaParameter.Type,
                                     lambdaParameter.IsReadOnly);
                                 break;
                             case LambdaJobsPatchableMethod.AccessorDataType.BufferLookup:
-                                systemDescription.GetOrCreateBufferLookupField(
+                                systemDescription.HandlesDescription.GetOrCreateBufferLookupField(
                                     lambdaParameter.Type,
                                     lambdaParameter.IsReadOnly);
                                 break;
                             case LambdaJobsPatchableMethod.AccessorDataType.AspectLookup:
-                                systemDescription.GetOrCreateAspectLookup(
+                                systemDescription.HandlesDescription.GetOrCreateAspectLookup(
                                     lambdaParameter.Type,
                                     lambdaParameter.IsReadOnly);
                                 break;

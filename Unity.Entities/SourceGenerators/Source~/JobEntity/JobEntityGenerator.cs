@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
 using Unity.Entities.SourceGen.SystemGeneratorCommon;
@@ -14,56 +15,78 @@ using Unity.Entities.SourceGen.SystemGeneratorCommon;
 namespace Unity.Entities.SourceGen.JobEntity
 {
     [Generator]
-    public class JobEntityGenerator : ISourceGenerator, ISourceGeneratorDiagnosable
+    public class JobEntityGenerator : IIncrementalGenerator, ISourceGeneratorDiagnosable
     {
-        static readonly string GeneratorName = "JobEntity";
+        public static readonly string GeneratorName = "JobEntity";
         public List<Diagnostic> Diagnostics { get; }
 
-        public void Initialize(GeneratorInitializationContext context)
+        public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            context.RegisterForSyntaxNotifications(() => new JobEntitySyntaxReceiver(context.CancellationToken));
+            var projectPathProvider = SourceGenHelpers.GetProjectPathProvider(context);
+
+            // Do a simple filter for enums
+            var candidateProvider = context.SyntaxProvider
+                .CreateSyntaxProvider(
+                    predicate: JobEntitySyntaxFinder.IsSyntaxTargetForGeneration,
+                    transform: JobEntitySyntaxFinder.GetSemanticTargetForGeneration)
+                .Where(t => t is {});
+
+            var compilationProvider = context.CompilationProvider.WithComparer(new CompilationComparer());
+            var combined = candidateProvider.Combine(compilationProvider).Combine(projectPathProvider);
+            context.RegisterSourceOutput(combined, (productionContext, source) =>
+                Execute(productionContext,
+                    source.Left.Right, source.Left.Left,
+                    source.Right.projectPath, source.Right.performSafetyChecks, source.Right.outputSourceGenFiles));
         }
 
-        public void Execute(GeneratorExecutionContext context)
+        class CompilationComparer : IEqualityComparer<Compilation>
         {
-            if (!SourceGenHelpers.IsBuildTime && !SourceGenHelpers.ShouldRun(context))
-                return;
-            SourceGenHelpers.Setup(context);
+            public bool Equals(Compilation x, Compilation y)
+                => y != null && x != null && x.AssemblyName == y.AssemblyName;
 
-            var systemReceiver = (JobEntitySyntaxReceiver)context.SyntaxReceiver;
+            public int GetHashCode(Compilation obj)
+                => obj.AssemblyName == null ? 0 : obj.AssemblyName.GetHashCode();
+        }
+
+        void Execute(SourceProductionContext context, Compilation compilation, StructDeclarationSyntax candidate, string projectPath, bool performSafetyChecks, bool outputSourceGenFiles)
+        {
+            if (!SourceGenHelpers.ShouldRun(compilation, context.CancellationToken))
+                return;
 
             try
             {
-                foreach (var kvp in systemReceiver.JobCandidatesBySyntaxTree)
-                {
-                    context.CancellationToken.ThrowIfCancellationRequested();
-                    var syntaxTree = kvp.Key;
-                    var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
-                    var candidates = kvp.Value;
-                    var originalToGeneratedPartial = new Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax>();
-                    foreach (var candidate in candidates)
-                    {
-                        var jobEntityDescription = new JobEntityDescription(candidate, semanticModel, this);
-                        if (!jobEntityDescription.Invalid)
-                            originalToGeneratedPartial[candidate] = jobEntityDescription.Generate();
-                    }
-
-                    var rootNodes = TypeCreationHelpers.GetReplacedRootNodes(syntaxTree, originalToGeneratedPartial);
-                    if (rootNodes.Count == 0)
-                        continue;
-
-                    var outputSource = TypeCreationHelpers.GenerateSourceTextForRootNodes(GeneratorName, context, syntaxTree, rootNodes);
-                    context.AddSource(syntaxTree.GetGeneratedSourceFileName(GeneratorName), outputSource);
-                    SourceGenHelpers.OutputSourceToFile(context, syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly, GeneratorName), outputSource);
-                }
+                SourceGenHelpers.ProjectPath = projectPath;
+                context.CancellationToken.ThrowIfCancellationRequested();
+                var syntaxTree = candidate.SyntaxTree;
+                var semanticModel = compilation.GetSemanticModel(syntaxTree);
+                var jobEntityDescription = new JobEntityDescription(candidate, semanticModel, performSafetyChecks, this);
+                if (jobEntityDescription.Invalid)
+                    return;
+                var generatedJobEntity = jobEntityDescription.Generate();
+                var sourceFilePath = syntaxTree.GetGeneratedSourceFilePath(compilation.Assembly.Name, GeneratorName);
+                var outputSource = TypeCreationHelpers.GenerateSourceTextForRootNodes(sourceFilePath, candidate, generatedJobEntity, context.CancellationToken);
+                context.AddSource(syntaxTree.GetGeneratedSourceFileName(GeneratorName, candidate), outputSource);
+                if (outputSourceGenFiles)
+                    SourceGenHelpers.OutputSourceToFile(context, candidate.GetLocation(), sourceFilePath, outputSource);
             }
             catch (Exception exception)
             {
                 if (exception is OperationCanceledException)
                     throw;
-
-                context.LogError("SGICE003", "IJobEntity Generator", exception.ToUnityPrintableString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
+                context.ReportDiagnostic(
+                    Diagnostic.Create(JobEntityDiagnostics.SGICE003Descriptor,
+                        compilation.SyntaxTrees.First().GetRoot().GetLocation(),
+                        exception.ToUnityPrintableString()));
             }
         }
+    }
+
+    public static class JobEntityDiagnostics
+    {
+        public const string ID_SGICE003 = "SGICE003";
+        public static readonly DiagnosticDescriptor SGICE003Descriptor
+            = new DiagnosticDescriptor(ID_SGICE003, "IJobEntity Generator",
+                "This error indicates a bug in the DOTS source generators. We'd appreciate a bug report (Help -> Report a Bug...). Thanks! Error message: '{0}'.",
+                JobEntityGenerator.GeneratorName, DiagnosticSeverity.Error, isEnabledByDefault: true, description: "");
     }
 }

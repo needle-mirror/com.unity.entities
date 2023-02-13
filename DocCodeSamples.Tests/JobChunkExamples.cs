@@ -51,13 +51,10 @@ namespace Doc.CodeSamples.Tests
         protected override void OnCreate()
         {
             // Set up the query
-            var description = new EntityQueryDesc()
-            {
-                All = new ComponentType[]
-                       {ComponentType.ReadWrite<ObjectPosition>(),
-                        ComponentType.ReadOnly<VelocityVector>()}
-            };
-            query = this.GetEntityQuery(description);
+            query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<ObjectPosition>()
+                .WithAll<VelocityVector>()
+                .Build(this);
         }
 
         protected override void OnUpdate()
@@ -239,14 +236,10 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnCreate()
         {
-            query = GetEntityQuery(
-                new ComponentType[]
-                {
-                    ComponentType.ReadOnly<InputA>(),
-                    ComponentType.ReadOnly<InputB>(),
-                    ComponentType.ReadWrite<Output>()
-                }
-            );
+            query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<Output>()
+                .WithAll<InputA, InputB>()
+                .Build(this);
         }
     }
     #endregion
@@ -259,15 +252,10 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnCreate()
         {
-            query = GetEntityQuery(
-                new ComponentType[]
-                {
-                    ComponentType.ReadOnly<InputA>(),
-                    ComponentType.ReadOnly<InputB>(),
-                    ComponentType.ReadWrite<Output>()
-                }
-            );
-
+            query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<Output>()
+                .WithAll<InputA, InputB>()
+                .Build(this);
             query.SetChangedVersionFilter(
                     new ComponentType[]
                     {

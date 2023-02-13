@@ -16,8 +16,8 @@ Every time you add a group to a system group, it re-sorts the system update orde
 // If PeachSystem and DaisySystem are children of the same group, then the
 // entity component system puts PeachSystem somewhere before DaisySystem in 
 // the sorted order.
-    [UpdateBefore(typeof(DaisySystem))]
-    public partial class PeachSystem : SystemBase { }
+[UpdateBefore(typeof(DaisySystem))]
+public partial class PeachSystem : SystemBase { }
 ```
 
 There are a set of [default system groups](#default-system-groups) that you can use to update systems in the correct phase of a frame. You can nest one group inside another so that all systems in your group update in the correct phase and update according to the order within their group.
@@ -34,7 +34,7 @@ You can use the following attributes on a system to determine its update order:
 
 |**Attribute**|**Description**|
 |---|---|
-|`UpdateInGroup`| Specify a `ComponentSystemGroup` that this system should be a member of. If you don't set this attribute, Unity automatically adds it to the default world's `SimulationSystemGroup`. For more information, see the section on [Default system groups](#default-system-groups).|
+|`UpdateInGroup`| Specify a `ComponentSystemGroup` that this system should be a member of. If you don't set this attribute, Unity automatically adds it to the default world's `SimulationSystemGroup`. The optional `OrderFirst` and `OrderLast` parameters allow systems to be sorted before or after all other systems in the group. For more information, see the section on [Default system groups](#default-system-groups).|
 |`UpdateBefore`<br/>`UpdateAfter`| Order systems relative to other systems. The system type specified for these attributes must be a member of the same group. Unity handles ordering across group boundaries at the appropriate deepest group that contains both systems.<br/><br/> For example, if `CarSystem` is in `CarGroup`, and `TruckSystem` is in `TruckGroup`, and `CarGroup` and `TruckGroup` are both members of `VehicleGroup`, then the ordering of `CarGroup` and `TruckGroup` implicitly determines the relative ordering of `CarSystem` and `TruckSystem`. You don't need to explicitly order the systems.|
 |`CreateBefore`<br/>`CreateAfter`| Order system creation relative to other systems. The same ordering rules for `UpdateBefore` and `UpdateAfter` apply here. By default, systems are created in the same order they are updated. These attributes override the default behavior. System destruction order is defined as the reverse of creation order.|
 |`DisableAutoCreation`|Prevents Unity from creating the system during the default world initialization. You must explicitly create and update the system. However, you can add a system with this tag to a `ComponentSystemGroup`’s update list, and it automatically updates just like the other systems in that list.|
@@ -62,13 +62,11 @@ The default system groups also have a number of pre-defined member systems:
 **SimulationSystemGroup:**
 
 * BeginSimulationEntityCommandBufferSystem
+* FixedStepSimulationSystemGroup
+* VariableRateSimulationSystemGroup
 * TransformSystemGroup
     * ParentSystem
-    * CopyTransformFromGameObjectSystem
-    * TRSToLocalToWorldSystem
-    * TRSToLocalToParentSystem
-    * LocalToParentSystem
-    * CopyTransformToGameObjectSystem
+    * LocalToWorldSystem
 * LateSimulationSystemGroup
 * EndSimulationEntityCommandBufferSystem
 
@@ -98,25 +96,20 @@ You can also use the [`ICustomBootstrap`](xref:Unity.Entities.ICustomBootstrap) 
 ``` c#
 public interface ICustomBootstrap
 {
-    // Returns the systems which should be handled by the default bootstrap process.
-    // If null is returned the default world will not be created at all.
-    // Empty list creates default world and entrypoints
-    List<Type> Initialize(List<Type> systems);
+    // Create your own set of worlds or your own custom default world in this method.
+    // If true is returned, the default world bootstrap doesn't run at all and no additional worlds are created.
+    bool Initialize(string defaultWorldName);
 }
 ```
+When you implement this interface, Unity calls it before the default world initialization and uses the return value to determine if the default world initialization should run. 
 
-When you implement this interface, it passes the full list of component system types to the  `Initialize()` method, before the default world initialization. A custom bootstrapper can iterate through this list and create systems in the worlds you define. You can return a list of systems from the `Initialize()` method and Unity creates them as part of the default world initialization.
+You can use a custom bootstrapper to create worlds, get a filtered list of systems from `DefaultWorldInitialization.GetAllSystems`, and add a set of systems to a world with [`DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups`](xref:Unity.Entities.DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups*). You don't need to add the same list of systems that `DefaultWorldInitialization.GetAllSystems` returns and you can add or remove systems to modify the list. You can also create your own list of systems without using `DefaultWorldInitialization`.
 
-For example, here’s the typical procedure of a custom `MyCustomBootstrap.Initialize()` implementation:
+For example, here’s a typical procedure of a custom `MyCustomBootstrap.Initialize` implementation:
 
-1. Create any additional worlds and their top-level `ComponentSystemGroups`.
-1. For each Type in the system Type list:
-    1. Search upward through the `ComponentSystemGroup` hierarchy to find this system `Type`’s top-level group.
-    1. If it’s one of the groups created in step 1, create the system in that world and add it to the hierarchy with `group.AddSystemToUpdateList()`.
-    1. If not, append this `Type` to the `List` to return to `DefaultWorldInitialization`.
-1. Call `group.SortSystemUpdateList()` on new top-level groups.
-    1. Optionally add them to one of the default world groups
-1. Return a list of unhandled systems to `DefaultWorldInitialization`.
-
-> [!NOTE]
-> The ECS framework finds your `ICustomBootstrap` implementation by reflection.
+1. Create the set of worlds you want your game or application to have. 
+1. For each created world:
+    1. Generate a list of systems you want in that world. You can use [`DefaultWorldInitialization.GetAllSystems`](xref:Unity.Entities.DefaultWorldInitialization.GetAllSystems*) but it isn't required.
+    1. Call `DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups` to add the list of systems to the world. This also orders the systems correctly.
+    1. If you don't want to manually update the world, call `ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop` to add the world to the player loop.
+1. If you created the default world, set `World.DefaultGameObjectInjectionWorld` to the default world and return `true`. If you didn't create the default world and want the default bootstrap to do that for you, return `false`.

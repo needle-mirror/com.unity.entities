@@ -1,13 +1,11 @@
 #if ENABLE_PROFILER
-using Unity.Collections;
 using Unity.Profiling;
 
 namespace Unity.Entities
 {
-    static partial class StructuralChangesProfiler
+    partial class StructuralChangesProfiler
     {
-        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
-        public readonly struct TimeCounter
+        readonly struct TimeCounter
         {
             readonly ProfilerCounterValue<long> m_Counter;
 
@@ -17,10 +15,9 @@ namespace Unity.Entities
                 set => m_Counter.Value = value;
             }
 
-            [ExcludeFromBurstCompatTesting("Takes managed string")]
             public TimeCounter(string name)
             {
-                m_Counter = new ProfilerCounterValue<long>(s_Category, name, ProfilerMarkerDataUnit.TimeNanoseconds,
+                m_Counter = new ProfilerCounterValue<long>(s_Data.Category, name, ProfilerMarkerDataUnit.TimeNanoseconds,
                     ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush);
             }
         }

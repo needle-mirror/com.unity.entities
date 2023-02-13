@@ -217,7 +217,7 @@ namespace Unity.Entities
     public enum SceneLoadFlags
     {
         /// <summary>
-        /// Prevents adding a RequestSceneLoaded to the SubScene section entities when it gets created. If loading a GameObject scene, setting this flag is equivalent to setting activateOnlLoad to false.
+        /// Prevents adding a RequestSceneLoaded to the SubScene section entities when it gets created. If loading a GameObject scene, setting this flag is equivalent to setting activateOnLoad to false.
         /// </summary>
         DisableAutoLoad = 1,
         /// <summary>

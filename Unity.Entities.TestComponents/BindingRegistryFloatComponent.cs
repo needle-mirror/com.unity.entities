@@ -12,19 +12,13 @@ namespace Unity.Entities.Tests
 
     public class BindingRegistryFloatComponentAuthoring : UnityEngine.MonoBehaviour
     {
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float1")]
+        [RegisterBinding(typeof(BindingRegistryFloatComponent), nameof(BindingRegistryFloatComponent.Float1))]
         public float Float1;
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float2.x", true)]
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float2.y", true)]
+        [RegisterBinding(typeof(BindingRegistryFloatComponent), nameof(BindingRegistryFloatComponent.Float2))]
         public float2 Float2;
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float3.x", true)]
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float3.y", true)]
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float3.z", true)]
+        [RegisterBinding(typeof(BindingRegistryFloatComponent), nameof(BindingRegistryFloatComponent.Float3))]
         public float3 Float3;
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float4.x", true)]
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float4.y", true)]
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float4.z", true)]
-        [RegisterBinding(typeof(BindingRegistryFloatComponent), "Float4.w", true)]
+        [RegisterBinding(typeof(BindingRegistryFloatComponent), nameof(BindingRegistryFloatComponent.Float4))]
         public float4 Float4;
         class BindingRegistryFloatComponentBaker : Unity.Entities.Baker<BindingRegistryFloatComponentAuthoring>
         {

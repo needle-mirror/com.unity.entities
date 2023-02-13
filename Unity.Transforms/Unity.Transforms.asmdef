@@ -37,7 +37,7 @@
             "define": "ENABLE_TRANSFORM_V1"
         },
         {
-            "name": "com.unity.animation",
+            "name": "com.unity.motion",
             "expression": "0.16.0-preview.19",
             "define": "ENABLE_TRANSFORM_V1"
         }

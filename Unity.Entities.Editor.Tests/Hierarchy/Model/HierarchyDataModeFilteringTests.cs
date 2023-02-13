@@ -13,22 +13,19 @@ namespace Unity.Entities.Editor.Tests
     class HierarchyDataModeFilteringTests
     {
         World m_World;
-        SubSceneNodeMapping m_Mapping;
         HierarchyNodeStore m_HierarchyNodeStore;
 
         [SetUp]
         public void SetUp()
         {
             m_World = new World(nameof(HierarchyNodeStoreTests));
-            m_Mapping = new SubSceneNodeMapping(Allocator.Persistent);
-            m_HierarchyNodeStore = new HierarchyNodeStore(m_Mapping, Allocator.Persistent);
+            m_HierarchyNodeStore = new HierarchyNodeStore(Allocator.Persistent);
         }
 
         [TearDown]
         public void TearDown()
         {
             m_World.Dispose();
-            m_Mapping.Dispose();
             m_HierarchyNodeStore.Dispose();
         }
 

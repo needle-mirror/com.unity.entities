@@ -5,10 +5,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections;
 using Unity.Burst;
 using Unity.Mathematics;
-#if !NET_DOTS
-using System.Linq;
-#endif
-using UpdateOrderSystemSorter = Unity.Entities.ComponentSystemSorter<Unity.Entities.UpdateBeforeAttribute, Unity.Entities.UpdateAfterAttribute>;
 
 namespace Unity.Entities
 {
@@ -390,49 +386,77 @@ namespace Unity.Entities
         {
             RemovePending();
 
-            var groupType = GetType();
-            var allElems = new UpdateOrderSystemSorter.SystemElement[m_managedSystemsToUpdate.Count + m_UnmanagedSystemsToUpdate.Length];
+            var groupTypeIndex = m_StatePtr->m_SystemTypeIndex;
+
+            var nElems = m_managedSystemsToUpdate.Count + m_UnmanagedSystemsToUpdate.Length;
+            var allElems =
+                new UnsafeList<ComponentSystemSorter.SystemElement>(
+                    nElems,
+                    Allocator.Temp);
+            allElems.Length = nElems;
             var systemsPerBucket = new int[3];
             for (int i = 0; i < m_managedSystemsToUpdate.Count; ++i)
             {
                 var system = m_managedSystemsToUpdate[i];
-                var sysType = system.GetType();
-                int orderingBucket = ComputeSystemOrdering(sysType, groupType);
-                allElems[i] = new UpdateOrderSystemSorter.SystemElement
+                var sysTypeIndex = system.m_StatePtr->m_SystemTypeIndex;
+                int orderingBucket = ComputeSystemOrdering(sysTypeIndex, groupTypeIndex);
+                allElems[i] = new ComponentSystemSorter.SystemElement
                 {
-                    Type = sysType,
+                    TypeIndex = sysTypeIndex,
                     Index = new UpdateIndex(i, true),
                     OrderingBucket = orderingBucket,
-                    updateBefore = new List<Type>(),
+                    updateBefore = new FixedList512Bytes<int>(),
                     nAfter = 0,
                 };
                 systemsPerBucket[orderingBucket]++;
             }
             for (int i = 0; i < m_UnmanagedSystemsToUpdate.Length; ++i)
             {
-                var sysType = World.Unmanaged.GetTypeOfSystem(m_UnmanagedSystemsToUpdate[i]);
-                int orderingBucket = ComputeSystemOrdering(sysType, groupType);
-                allElems[m_managedSystemsToUpdate.Count + i] = new UpdateOrderSystemSorter.SystemElement
+                var sysTypeIndex = World.Unmanaged.ResolveSystemState(m_UnmanagedSystemsToUpdate[i])->m_SystemTypeIndex;
+                int orderingBucket = ComputeSystemOrdering(sysTypeIndex, groupTypeIndex);
+                allElems[m_managedSystemsToUpdate.Count + i] = new ComponentSystemSorter.SystemElement
                 {
-                    Type = sysType,
+                    TypeIndex = sysTypeIndex,
                     Index = new UpdateIndex(i, false),
                     OrderingBucket = orderingBucket,
-                    updateBefore = new List<Type>(),
+                    updateBefore = new FixedList512Bytes<int>(),
                     nAfter = 0,
                 };
                 systemsPerBucket[orderingBucket]++;
             }
+            
+            var lookupDictionary = new NativeHashMap<int, int>(16, Allocator.Temp);
 
+            var nativeHashMap =
+                (NativeHashMap<int, int>*)UnsafeUtility.AddressOf(ref lookupDictionary);
+
+            var badTypeIndices = new UnsafeList<int>(16, Allocator.Temp);
             // Find & validate constraints between systems in the group
-            UpdateOrderSystemSorter.FindConstraints(groupType, allElems);
+            ComponentSystemSorter.FindConstraints(groupTypeIndex,
+                (UnsafeList<ComponentSystemSorter.SystemElement>*)UnsafeUtility.AddressOf(ref allElems),
+                nativeHashMap,
+                TypeManager.SystemAttributeKind.UpdateAfter,
+                TypeManager.SystemAttributeKind.UpdateBefore,
+                (UnsafeList<int>*)UnsafeUtility.AddressOf(ref badTypeIndices));
+
+            if (badTypeIndices.Length > 0)
+            {
+                for (int i = 0; i < badTypeIndices.Length; i++)
+                {
+                    ComponentSystemSorter.WarnAboutAnySystemAttributeBadness(badTypeIndices[i], this);
+                }
+            }
 
             // Build three lists of systems
             var elemBuckets = new []
             {
-                new UpdateOrderSystemSorter.SystemElement[systemsPerBucket[0]],
-                new UpdateOrderSystemSorter.SystemElement[systemsPerBucket[1]],
-                new UpdateOrderSystemSorter.SystemElement[systemsPerBucket[2]],
+                new UnsafeList<ComponentSystemSorter.SystemElement>(systemsPerBucket[0], Allocator.Temp),
+                new UnsafeList<ComponentSystemSorter.SystemElement>(systemsPerBucket[1], Allocator.Temp),
+                new UnsafeList<ComponentSystemSorter.SystemElement>(systemsPerBucket[2], Allocator.Temp),
             };
+            elemBuckets[0].Length = systemsPerBucket[0];
+            elemBuckets[1].Length = systemsPerBucket[1];
+            elemBuckets[2].Length = systemsPerBucket[2];
             var nextBucketIndex = new int[3];
 
             for(int i=0; i<allElems.Length; ++i)
@@ -446,7 +470,12 @@ namespace Unity.Entities
             {
                 if (elemBuckets[i].Length > 0)
                 {
-                    UpdateOrderSystemSorter.Sort(elemBuckets[i]);
+                    ref var systemElements = ref elemBuckets[i];
+                    ComponentSystemSorter.Sort(
+                        (UnsafeList<ComponentSystemSorter.SystemElement>*)UnsafeUtility.AddressOf(ref systemElements),
+                        nativeHashMap);
+                    
+                    //TODO: check for circular dependencies here and throw if we find one
                 }
             }
 
@@ -488,20 +517,24 @@ namespace Unity.Entities
             }
         }
 
-        internal static int ComputeSystemOrdering(Type sysType, Type ourType)
+        internal static int ComputeSystemOrdering(int sysType, int ourTypeIndex)
         {
-            foreach (var uga in TypeManager.GetSystemAttributes(sysType, typeof(UpdateInGroupAttribute)))
+            if (ourTypeIndex == -1 || sysType == -1)
+                return 1;
+            
+            var attrs = TypeManager.GetSystemAttributes(sysType, TypeManager.SystemAttributeKind.UpdateInGroup);
+            for (int i=0; i<attrs.Length; i++)
             {
-                var updateInGroupAttribute = (UpdateInGroupAttribute) uga;
+                var attr = attrs[i];
 
-                if (updateInGroupAttribute.GroupType.IsAssignableFrom(ourType))
+                if (attr.TargetSystemTypeIndex == ourTypeIndex)
                 {
-                    if (updateInGroupAttribute.OrderFirst)
+                    if ((attr.Flags & TypeManager.SystemAttribute.kOrderFirstFlag) != 0)
                     {
                         return 0;
                     }
 
-                    if (updateInGroupAttribute.OrderLast)
+                    if ((attr.Flags & TypeManager.SystemAttribute.kOrderLastFlag) != 0)
                     {
                         return 2;
                     }
@@ -720,7 +753,7 @@ namespace Unity.Entities
     {
         /// <summary> Obsolete. Use <see cref="ComponentSystemGroup.RemoveSystemFromUpdateList(ComponentSystemBase)"/> instead.</summary>
         /// <param name="self">The component system group.</param>
-        /// <param name="sysHandle">TheSystemHandle</param>        
+        /// <param name="sysHandle">TheSystemHandle</param>
         [Obsolete("RemoveUnmanagedSystemFromUpdateList has been deprecated. Please use RemoveSystemFromUpdateList. (RemovedAfter Entities 1.0)")]
         public static void RemoveUnmanagedSystemFromUpdateList(this ComponentSystemGroup self, SystemHandle sysHandle)
         {

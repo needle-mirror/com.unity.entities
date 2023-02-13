@@ -14,6 +14,7 @@ using Unity.Burst.Intrinsics;
 
 namespace Unity.Entities.Tests
 {
+    using static AspectUtils;
     [TestFixture]
     partial class EntityQueryTests : ECSTestsFixture
     {
@@ -792,16 +793,7 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestData));
 
-            using
-            (
-                var query = m_Manager.CreateEntityQuery
-                    (
-                        new EntityQueryDesc
-                        {
-                            All = new ComponentType[] {typeof(EcsTestData)}
-                        }
-                    )
-            )
+            using var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestData>().Build(m_Manager);
             // NB: EcsTestData != EcsTestData2
             Assert.Throws<InvalidOperationException>(() => query.ToComponentDataArray<EcsTestData2>(World.UpdateAllocator.ToAllocator));
         }
@@ -1854,7 +1846,8 @@ namespace Unity.Entities.Tests
 
             m_Manager.SetSharedComponentManaged(entityA, new EcsTestSharedComp {value = 10});
 
-            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestData, EcsTestSharedComp>()
+                .Build(EmptySystem);
 
             // Test with no filter
             Assert.AreEqual(2, query.CalculateChunkCount());
@@ -1865,11 +1858,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, query.CalculateChunkCountWithoutFiltering());
 
             // Test with None + enableable components (makes sure empty chunks aren't counted)
-            var query2 = EmptySystem.GetEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]{typeof(EcsTestData)},
-                None = new ComponentType[]{typeof(EcsTestDataEnableable)},
-            });
+            var query2 = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestData>().WithNone<EcsTestDataEnableable>()
+                .Build(EmptySystem);
             var entityC = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
             Assert.AreEqual(2, query2.CalculateChunkCount());
             Assert.AreEqual(3, query2.CalculateChunkCountWithoutFiltering());
@@ -2272,11 +2262,10 @@ namespace Unity.Entities.Tests
             // new archetype, no query
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), ComponentType.ReadWrite<EcsTestData2>());
 
-            var queryA = m_Manager.CreateEntityQuery( new EntityQueryDesc
-            {
-                All = new[]{ComponentType.ReadWrite<EcsTestData>()},
-                None = new[]{ComponentType.ReadWrite<EcsTestData2>()}
-            });
+            var queryA = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestData>()
+                .WithNone<EcsTestData2>()
+                .Build(m_Manager);
 
             var entities = m_Manager.CreateEntity(archetypeA, archetypeA.ChunkCapacity, Allocator.Temp);
 
@@ -3072,7 +3061,54 @@ namespace Unity.Entities.Tests
                 .WithNone<EcsTestTag>()
                 .Build(EmptySystem);
 
-            Assert.AreEqual(3, query.CalculateEntityCount());
+            CollectionAssert.AreEquivalent(new[]{entity1, entity2, entity12},
+                query.ToEntityArray(Allocator.Temp).ToArray());
+        }
+
+        [Test]
+        public void EntityQueryBuilder_WithDisabled_Works()
+        {
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable2));
+            var entity12 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entity12,false);
+
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithDisabled<EcsTestDataEnableable2>()
+                .Build(EmptySystem);
+            var query2 = new EntityQueryBuilder(Allocator.Temp)
+                .WithDisabledRW<EcsTestDataEnableable2>()
+                .Build(EmptySystem);
+
+            CollectionAssert.AreEquivalent(new[]{entity12},
+                query.ToEntityArray(Allocator.Temp).ToArray());
+            CollectionAssert.AreEquivalent(new[]{entity12},
+                query2.ToEntityArray(Allocator.Temp).ToArray());
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        public void EntityQueryBuilder_WithDisabled_NotEnableableComponent_Throws()
+        {
+            Assert.Throws<InvalidOperationException>(() => new EntityQueryBuilder(Allocator.Temp)
+                .WithDisabled<EcsTestData>()
+                .Build(EmptySystem));
+        }
+
+        [Test]
+        public void EntityQueryBuilder_WithAbsent_Works()
+        {
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable2));
+            var entity12 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entity12,false);
+
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAbsent<EcsTestDataEnableable2>()
+                .Build(EmptySystem);
+
+            CollectionAssert.AreEquivalent(new[]{entity1},
+                query.ToEntityArray(Allocator.Temp).ToArray());
         }
 
         [Test]
@@ -3098,7 +3134,8 @@ namespace Unity.Entities.Tests
                 .WithAll<EcsTestData, EcsTestSharedComp>()
                 .Build(EmptySystem);
 
-            Assert.AreEqual(2, query.CalculateEntityCount());
+            CollectionAssert.AreEquivalent(new[]{entityWithShared1,entityWithShared2},
+                query.ToEntityArray(Allocator.Temp).ToArray());
         }
 
         [Test]
@@ -3122,12 +3159,12 @@ namespace Unity.Entities.Tests
                 .WithAllChunkComponentRW<EcsTestData>()
                 .Build(EmptySystem);
 
-            Assert.AreEqual(1, query.CalculateEntityCount());
-            Assert.AreEqual(entityWithChunkComponent, query.ToEntityArray(Allocator.Temp)[0]);
-            Assert.AreEqual(1, query2.CalculateEntityCount());
-            Assert.AreEqual(entityWithChunkComponent, query2.ToEntityArray(Allocator.Temp)[0]);
-            Assert.AreEqual(1, query3.CalculateEntityCount());
-            Assert.AreEqual(entityWithChunkComponent, query3.ToEntityArray(Allocator.Temp)[0]);
+            CollectionAssert.AreEquivalent(new[]{entityWithChunkComponent},
+                query.ToEntityArray(Allocator.Temp).ToArray());
+            CollectionAssert.AreEquivalent(new[]{entityWithChunkComponent},
+                query2.ToEntityArray(Allocator.Temp).ToArray());
+            CollectionAssert.AreEquivalent(new[]{entityWithChunkComponent},
+                query3.ToEntityArray(Allocator.Temp).ToArray());
         }
 
         [Test]
@@ -3143,12 +3180,8 @@ namespace Unity.Entities.Tests
                 .WithAnyChunkComponentRW<EcsTestData2>()
                 .Build(EmptySystem);
 
-            Assert.AreEqual(2, query.CalculateEntityCount());
-
-            var expectedArray = new NativeArray<Entity>(2, Allocator.Temp);
-            expectedArray[0] = entityWithChunkComponent1;
-            expectedArray[1] = entityWithChunkComponent2;
-            CollectionAssert.AreEquivalent(expectedArray, query.ToEntityArray(Allocator.Temp));
+            CollectionAssert.AreEquivalent(new[]{entityWithChunkComponent1,entityWithChunkComponent2},
+                query.ToEntityArray(Allocator.Temp).ToArray());
         }
 
         [Test]
@@ -3162,12 +3195,8 @@ namespace Unity.Entities.Tests
                 .WithNoneChunkComponent<EcsTestData>()
                 .Build(EmptySystem);
 
-            Assert.AreEqual(2, query.CalculateEntityCount());
-
-            var expectedArray = new NativeArray<Entity>(2, Allocator.Temp);
-            expectedArray[0] = entityWithNonChunkComponent;
-            expectedArray[1] = entityWithOtherComponent;
-            CollectionAssert.AreEquivalent(expectedArray, query.ToEntityArray(Allocator.Temp));
+            CollectionAssert.AreEquivalent(new[]{entityWithNonChunkComponent,entityWithOtherComponent},
+                query.ToEntityArray(Allocator.Temp).ToArray());
         }
 
         [Test]
@@ -3181,9 +3210,55 @@ namespace Unity.Entities.Tests
                 .WithAll<EcsCleanup1>()
                 .Build(EmptySystem);
 
-            Assert.AreEqual(2, query.CalculateEntityCount());
+            CollectionAssert.AreEquivalent(new[]{entityWithCleanup,destroyedEntityWithCleanup},
+                query.ToEntityArray(Allocator.Temp).ToArray());
             m_Manager.DestroyEntity(destroyedEntityWithCleanup);
-            Assert.AreEqual(2, query.CalculateEntityCount());
+            CollectionAssert.AreEquivalent(new[]{entityWithCleanup,destroyedEntityWithCleanup},
+                query.ToEntityArray(Allocator.Temp).ToArray());
+        }
+
+        [Test]
+        public void EntityQueryBuilder_WithAspect_Works()
+        {
+            var entityWithAspect = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>(isReadOnly: false));
+            var entityWithNothing = m_Manager.CreateEntity();
+            var entityWithOtherComponent = m_Manager.CreateEntity(typeof(EcsTestData2));
+
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAspect<MyAspect>()
+                .Build(EmptySystem);
+
+            var queryRO = new EntityQueryBuilder(Allocator.Temp)
+                .WithAspectRO<MyAspect>()
+                .Build(EmptySystem);
+
+            CollectionAssert.AreEquivalent(new[]{entityWithAspect},
+                query.ToEntityArray(Allocator.Temp).ToArray());
+            CollectionAssert.AreEquivalent(new[]{entityWithAspect},
+                queryRO.ToEntityArray(Allocator.Temp).ToArray());
+        }
+
+        [Test]
+        public void EntityQueryBuilder_WithAspect_Alias_WithAll_Works()
+        {
+            var entityWithAspect = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>(isReadOnly: false));
+            var entityWithNothing = m_Manager.CreateEntity();
+            var entityWithOtherComponent = m_Manager.CreateEntity(typeof(EcsTestData2));
+
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestData>()
+                .WithAspect<MyAspect>()
+                .Build(EmptySystem);
+
+            var queryRO = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData>()
+                .WithAspectRO<MyAspect>()
+                .Build(EmptySystem);
+
+            CollectionAssert.AreEquivalent(new[]{entityWithAspect},
+                query.ToEntityArray(Allocator.Temp).ToArray());
+            CollectionAssert.AreEquivalent(new[]{entityWithAspect},
+                queryRO.ToEntityArray(Allocator.Temp).ToArray());
         }
 
         partial struct EmptyQueryISystem : ISystem
@@ -3194,10 +3269,7 @@ namespace Unity.Entities.Tests
             {
                 EmptyQuery = new EntityQueryBuilder(Allocator.Temp).Build(ref state);
             }
-            public void OnDestroy(ref SystemState state) { }
-
-            public void OnUpdate(ref SystemState state) { }
-        }
+            }
 
         [Test]
         public void EntityQueryBuilder_EmptyQueryGetsFinalized()
@@ -3206,13 +3278,9 @@ namespace Unity.Entities.Tests
             var entity2 = m_Manager.CreateEntity(typeof(EcsTestData2));
 
             var system = World.Unmanaged.GetUnsafeSystemRef<EmptyQueryISystem>(World.CreateSystem<EmptyQueryISystem>());
-            Assert.AreEqual(2,system.EmptyQuery.CalculateEntityCount());
-            var array = system.EmptyQuery.ToEntityArray(Allocator.Temp);
 
-            var expectedArray = new NativeArray<Entity>(2, Allocator.Temp);
-            expectedArray[0] = entity1;
-            expectedArray[1] = entity2;
-            CollectionAssert.AreEquivalent(expectedArray, array);
+            CollectionAssert.AreEquivalent(new[]{entity1,entity2},
+                system.EmptyQuery.ToEntityArray(Allocator.Temp).ToArray());
         }
 
         partial struct MultipleQueryISystem : ISystem
@@ -3227,8 +3295,6 @@ namespace Unity.Entities.Tests
                 m_Query2 = new EntityQueryBuilder(Allocator.Temp).WithAll<EndSimulationEntityCommandBufferSystem.Singleton>().Build(ref state);
                 m_Query3 = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().Build(ref state);
             }
-            public void OnDestroy(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) { }
         }
 
         [Test]
@@ -3237,8 +3303,8 @@ namespace Unity.Entities.Tests
             var systemRef = World.CreateSystem<MultipleQueryISystem>();
             var systemState = World.Unmanaged.ResolveSystemState(systemRef);
 
-            Assert.AreEqual(3,systemState->EntityQueries.m_length);
-            Assert.AreEqual(4,systemState->EntityQueries.m_capacity);
+            Assert.AreEqual(3,systemState->EntityQueries.Length);
+            Assert.AreEqual(4,systemState->EntityQueries.Capacity);
         }
 
         partial struct MultipleQueryISystemWithSourcegen : ISystem
@@ -3250,8 +3316,6 @@ namespace Unity.Entities.Tests
             {
                 m_AvailableTargets = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().Build(ref state);
             }
-
-            public void OnDestroy(ref SystemState state) { }
 
             public void OnUpdate(ref SystemState state)
             {
@@ -3267,8 +3331,8 @@ namespace Unity.Entities.Tests
             var systemRef = World.CreateSystem<MultipleQueryISystemWithSourcegen>();
             var systemState = World.Unmanaged.ResolveSystemState(systemRef);
 
-            Assert.AreEqual(3,systemState->EntityQueries.m_length);
-            Assert.AreEqual(4,systemState->EntityQueries.m_capacity);
+            Assert.AreEqual(3,systemState->EntityQueries.Length);
+            Assert.AreEqual(4,systemState->EntityQueries.Capacity);
         }
 
 #if !UNITY_DOTSRUNTIME
@@ -3303,12 +3367,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(10, m_Manager.GetComponentData<EcsTestData>(entityA).value);
             Assert.AreEqual(10, m_Manager.GetComponentData<EcsTestData>(entityB).value);
 
-            var queryA = testSystem.GetEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadWrite<EcsTestData>()},
-                None = new[] {ComponentType.ReadOnly<EcsTestTag>()}
-            });
-
+            var queryA = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestData>().WithNone<EcsTestTag>()
+                .Build(testSystem);
             var queryB = testSystem.GetEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.Exclude<EcsTestTag>());
 
             Assert.AreEqual(queryA, queryB);
@@ -3946,6 +4006,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, archetypeQuery.AllCount);
             Assert.AreEqual(1, archetypeQuery.NoneCount);
             Assert.AreEqual(0, archetypeQuery.AnyCount);
+            Assert.AreEqual(0, archetypeQuery.DisabledCount);
+            Assert.AreEqual(0, archetypeQuery.AbsentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery.All[0]);
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery.None[0]);
@@ -3969,6 +4031,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, archetypeQuery.AllCount);
             Assert.AreEqual(1, archetypeQuery.NoneCount);
             Assert.AreEqual(0, archetypeQuery.AnyCount);
+            Assert.AreEqual(0, archetypeQuery.DisabledCount);
+            Assert.AreEqual(0, archetypeQuery.AbsentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery.All[0]);
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery.None[0]);
@@ -3991,6 +4055,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, archetypeQuery1.AllCount);
             Assert.AreEqual(1, archetypeQuery1.NoneCount);
             Assert.AreEqual(0, archetypeQuery1.AnyCount);
+            Assert.AreEqual(0, archetypeQuery1.DisabledCount);
+            Assert.AreEqual(0, archetypeQuery1.AbsentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery1.All[0]);
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery1.None[0]);
@@ -4000,6 +4066,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, archetypeQuery2.AllCount);
             Assert.AreEqual(0, archetypeQuery2.NoneCount);
             Assert.AreEqual(2, archetypeQuery2.AnyCount);
+            Assert.AreEqual(0, archetypeQuery2.DisabledCount);
+            Assert.AreEqual(0, archetypeQuery2.AbsentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery2.All[0]);
             Assert.That(ToManagedArray(archetypeQuery2.Any, archetypeQuery2.AnyCount), Is.EquivalentTo(new TypeIndex[] {
@@ -4028,6 +4096,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, archetypeQuery1.AllCount);
             Assert.AreEqual(1, archetypeQuery1.NoneCount);
             Assert.AreEqual(0, archetypeQuery1.AnyCount);
+            Assert.AreEqual(0, archetypeQuery1.DisabledCount);
+            Assert.AreEqual(0, archetypeQuery1.AbsentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery1.All[0]);
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery1.None[0]);
@@ -4041,6 +4111,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, archetypeQuery2.AllCount);
             Assert.AreEqual(0, archetypeQuery2.NoneCount);
             Assert.AreEqual(2, archetypeQuery2.AnyCount);
+            Assert.AreEqual(0, archetypeQuery2.DisabledCount);
+            Assert.AreEqual(0, archetypeQuery2.AbsentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery2.All[0]);
             Assert.That(ToManagedArray(archetypeQuery2.Any, archetypeQuery2.AnyCount), Is.EquivalentTo(new TypeIndex[] {
@@ -4234,11 +4306,6 @@ namespace Unity.Entities.Tests
             }
 
             [BurstCompile(CompileSynchronously = true)]
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            [BurstCompile(CompileSynchronously = true)]
             public void OnUpdate(ref SystemState state)
             {
                 _RotationTypeHandle.Update(ref state);
@@ -4276,6 +4343,8 @@ namespace Unity.Entities.Tests
                 All = new[] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() },
                 Any = new[] { ComponentType.ReadOnly<EcsTestData3>(), ComponentType.ReadWrite<EcsTestData4>() },
                 None = new[] { ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadWrite<EcsTestFloatData2>() },
+                Disabled = new[] { ComponentType.ReadOnly<EcsTestTagEnableable>(), ComponentType.ReadWrite<EcsTestDataEnableable>() },
+                Absent = new[] { ComponentType.ReadOnly<EcsIntElement>(), ComponentType.ReadWrite<EcsIntElement2>() },
                 Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
             };
             using (var query = m_Manager.CreateEntityQuery(queryDesc))
@@ -4287,16 +4356,13 @@ namespace Unity.Entities.Tests
         [Test]
         public void CreateEntityQuery_DifferentEntityQueryOptions_DontUseCachedQueryData()
         {
-            using var query1 = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]{typeof(EcsTestData)},
-                Options = default,
-            });
-            using var query2 = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]{typeof(EcsTestData)},
-                Options = EntityQueryOptions.IncludePrefab,
-            });
+            using var query1 = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestData>()
+                .Build(m_Manager);
+            using var query2 = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestData>()
+                .WithOptions(EntityQueryOptions.IncludePrefab)
+                .Build(m_Manager);
             var ent1 = m_Manager.CreateEntity(typeof(EcsTestData));
             var ent2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(Prefab));
             Assert.AreEqual(1, query1.CalculateEntityCount());
@@ -4306,16 +4372,13 @@ namespace Unity.Entities.Tests
         [Test]
         public void CreateEntityQuery_DifferentEntityQueryOptions_IncludeSystem()
         {
-            using var query1 = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[] { typeof(EcsTestData) },
-                Options = default,
-            });
-            using var query2 = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[] { typeof(EcsTestData) },
-                Options = EntityQueryOptions.IncludeSystems,
-            });
+            using var query1 = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestData>()
+                .Build(m_Manager);
+            using var query2 = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestData>()
+                .WithOptions(EntityQueryOptions.IncludeSystems)
+                .Build(m_Manager);
             var ent1 = m_Manager.CreateEntity(typeof(EcsTestData));
             var ent2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(SystemInstance));
             Assert.AreEqual(1, query1.CalculateEntityCount());
@@ -4423,10 +4486,6 @@ namespace Unity.Entities.Tests
             {
                 _query = state.GetEntityQuery(typeof(EcsTestDataEnableable));
                 _lookup = state.GetComponentLookup<EcsTestDataEnableable>(false);
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
             }
 
             public void OnUpdate(ref SystemState state)

@@ -364,11 +364,10 @@ namespace Unity.Entities.Tests
             }
             m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[0], false);
 
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[]{ComponentType.ReadWrite<EcsTestDataEnableable>()},
-                None = new[]{ComponentType.ReadWrite<EcsTestDataEnableable2>()}
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestDataEnableable>()
+                .WithNone<EcsTestDataEnableable2>()
+                .Build(m_Manager);
             Assert.AreEqual(0, query.CalculateChunkCount());
             Assert.AreEqual(1, query.CalculateChunkCountWithoutFiltering());
             var queryData = query._GetImpl()->_QueryData;
@@ -392,11 +391,10 @@ namespace Unity.Entities.Tests
             // takes precedence over the "some required components disabled" check.
             m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[0], false);
 
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[]{ComponentType.ReadWrite<EcsTestDataEnableable>()},
-                None = new[]{ComponentType.ReadWrite<EcsTestDataEnableable2>()}
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestDataEnableable>()
+                .WithNone<EcsTestDataEnableable2>()
+                .Build(m_Manager);
             Assert.AreEqual(0, query.CalculateChunkCount());
             Assert.AreEqual(1, query.CalculateChunkCountWithoutFiltering());
             var queryData = query._GetImpl()->_QueryData;
@@ -422,11 +420,10 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(ent, false);
             }
 
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[]{ComponentType.ReadWrite<EcsTestDataEnableable>()},
-                None = new[]{ComponentType.ReadWrite<EcsTestDataEnableable2>()}
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestDataEnableable>()
+                .WithNone<EcsTestDataEnableable2>()
+                .Build(m_Manager);
             Assert.AreEqual(1, query.CalculateChunkCount());
             var queryData = query._GetImpl()->_QueryData;
             var queryChunkCache = queryData->GetMatchingChunkCache();
@@ -448,11 +445,35 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateEntity(archetype, entitiesPerChunk / 2, World.UpdateAllocator.ToAllocator);
             m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[0], false);
 
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[]{ComponentType.ReadWrite<EcsTestDataEnableable>()},
-                None = new[]{ComponentType.ReadWrite<EcsTestDataEnableable2>()}
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestDataEnableable>()
+                .WithNone<EcsTestDataEnableable2>()
+                .Build(m_Manager);
+            Assert.AreEqual(1, query.CalculateChunkCount());
+            var queryData = query._GetImpl()->_QueryData;
+            var queryChunkCache = queryData->GetMatchingChunkCache();
+            var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
+            var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
+            var chunk = queryChunkCache.Ptr[0];
+            // All entities have the required component enabled, but only the first has the excluded component disabled
+            ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var chunkEnabledMask);
+            Assert.AreEqual(0x1, chunkEnabledMask.ULong0);
+            Assert.AreEqual(0, chunkEnabledMask.ULong1);
+        }
+
+        [Test]
+        public unsafe void GetEnabledMask_SomeHaveDisabledComponentEnabled_HasExpectedMask()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2));
+            int entitiesPerChunk = archetype.ChunkCapacity;
+            using var entities =
+                m_Manager.CreateEntity(archetype, entitiesPerChunk / 2, World.UpdateAllocator.ToAllocator);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[0], false);
+
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestDataEnableable>()
+                .WithDisabled<EcsTestDataEnableable2>()
+                .Build(m_Manager);
             Assert.AreEqual(1, query.CalculateChunkCount());
             var queryData = query._GetImpl()->_QueryData;
             var queryChunkCache = queryData->GetMatchingChunkCache();
@@ -477,11 +498,10 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(ent, false);
             }
 
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[]{ComponentType.ReadWrite<EcsTestDataEnableable>()},
-                None = new[]{ComponentType.ReadWrite<EcsTestDataEnableable2>()}
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestDataEnableable>()
+                .WithNone<EcsTestDataEnableable2>()
+                .Build(m_Manager);
             Assert.AreEqual(1, query.CalculateChunkCount());
             var queryData = query._GetImpl()->_QueryData;
             var queryChunkCache = queryData->GetMatchingChunkCache();
@@ -515,11 +535,10 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(query.IsEmpty);
             }
 
-            using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc()
-            {
-                All = new[] {ComponentType.ReadOnly<EcsTestData>()},
-                None = new[] {ComponentType.ReadOnly<EcsTestDataEnableable>()}
-            }))
+            using (var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData>()
+                .WithNone<EcsTestDataEnableable>()
+                .Build(m_Manager))
             {
                 Assert.IsFalse(query.IsEmpty);
             }
@@ -550,11 +569,10 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(11, entityCount);
             }
 
-            using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc()
-            {
-                All = new[] {ComponentType.ReadOnly<EcsTestData>()},
-                None = new[] {ComponentType.ReadOnly<EcsTestDataEnableable>()}
-            }))
+            using (var query = new EntityQueryBuilder(Allocator.Temp)
+                       .WithAll<EcsTestData>()
+                       .WithNone<EcsTestDataEnableable>()
+                       .Build(m_Manager))
             {
                 var entityCount = query.CalculateEntityCount();
                 Assert.AreEqual(12, entityCount);
@@ -600,11 +618,10 @@ namespace Unity.Entities.Tests
                     }
                 }
 
-                using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc()
-                {
-                    All = new[] {ComponentType.ReadOnly<EcsTestData>()},
-                    None = new[] {ComponentType.ReadOnly<EcsTestDataEnableable>()}
-                }))
+                using (var query = new EntityQueryBuilder(Allocator.Temp)
+                           .WithAll<EcsTestData>()
+                           .WithNone<EcsTestDataEnableable>()
+                           .Build(m_Manager))
                 using (var array = query.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(11, array.Length);
@@ -659,11 +676,10 @@ namespace Unity.Entities.Tests
                     }
                 }
 
-                using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc()
-                {
-                    All = new[] {ComponentType.ReadOnly<EcsTestManagedDataEntity>()},
-                    None = new[] {ComponentType.ReadOnly<EcsTestDataEnableable>()}
-                }))
+                using (var query = new EntityQueryBuilder(Allocator.Temp)
+                           .WithAll<EcsTestManagedDataEntity>()
+                           .WithNone<EcsTestDataEnableable>()
+                           .Build(m_Manager))
                 {
                     var array = query.ToComponentDataArray<EcsTestManagedDataEntity>();
                     Assert.AreEqual(11, array.Length);
@@ -714,11 +730,10 @@ namespace Unity.Entities.Tests
                     }
                 }
 
-                using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc()
-                {
-                    All = new[] {ComponentType.ReadOnly<EcsTestData>()},
-                    None = new[] {ComponentType.ReadOnly<EcsTestDataEnableable>()}
-                }))
+                using (var query = new EntityQueryBuilder(Allocator.Temp)
+                           .WithAll<EcsTestData>()
+                           .WithNone<EcsTestDataEnableable>()
+                           .Build(m_Manager))
                 using (var array = query.ToEntityArray(World.UpdateAllocator.ToAllocator))
                 {
                     Assert.AreEqual(11, array.Length);
@@ -808,11 +823,10 @@ namespace Unity.Entities.Tests
                 }
 
                 var arrayC = CollectionHelper.CreateNativeArray<EcsTestData>(11, World.UpdateAllocator.ToAllocator);
-                using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc()
-                {
-                    All = new[] {ComponentType.ReadOnly<EcsTestData>()},
-                    None = new[] {ComponentType.ReadOnly<EcsTestDataEnableable>()}
-                }))
+                using (var query = new EntityQueryBuilder(Allocator.Temp)
+                           .WithAll<EcsTestData>()
+                           .WithNone<EcsTestDataEnableable>()
+                           .Build(m_Manager))
                 {
                     for (int i = 0; i < arrayC.Length; ++i)
                     {

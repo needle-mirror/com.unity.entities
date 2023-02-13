@@ -5,18 +5,18 @@ using Unity.Collections;
 namespace Unity.Entities.Content
 {
     /// <summary>
-    /// Identifier of a remote content resource. This is used to find the <seealso cref="RemoteContentLocation"/> of a resource.
+    /// Identifier of a remote content resource.  This is used to find the <seealso cref="RemoteContentLocation"/> of a resource.
     /// </summary>
     [Serializable]
     public struct RemoteContentId : IEquatable<RemoteContentId>
     {
         /// <summary>
-        /// The name of the content. This is usually set to the path of the asset.
+        /// The name of the content.  This is ususally set to the path of the asset.
         /// </summary>
         public FixedString512Bytes Name;
 
         /// <summary>
-        /// The hash, used to compare ids. This is either set as the hash of the name or to a custom hash.
+        /// The hash, used to compare ids.  This is either set as the has of the name or to a custom hash.
         /// </summary>
         public Hash128 Hash
         {
@@ -25,7 +25,7 @@ namespace Unity.Entities.Content
         }
 
         /// <summary>
-        /// Construct an id with only the path. The Hash is computed from the name.
+        /// Construct an id with only the path.  The Hash is computed from the name.
         /// </summary>
         /// <param name="name">The name of the content.</param>
         unsafe public RemoteContentId(in FixedString512Bytes name)

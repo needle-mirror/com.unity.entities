@@ -10,6 +10,6 @@
                     max-frame-time="5"
             />
         </ui:VisualElement>
-        <ui:ListView class="components-window__list-view" item-height="18" selection-type="Single"/>
+        <ui:ListView class="components-window__list-view" selection-type="Single"/>
     </ui:VisualElement>
 </UXML>

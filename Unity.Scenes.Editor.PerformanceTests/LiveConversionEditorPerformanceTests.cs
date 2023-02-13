@@ -6,7 +6,9 @@ using Unity.Entities;
 using Unity.Entities.Conversion;
 using Unity.Entities.Tests;
 using Unity.Entities.Tests.Conversion;
+using Unity.Mathematics;
 using Unity.PerformanceTesting;
+using Unity.Transforms;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -621,6 +623,63 @@ namespace Unity.Scenes.Editor.Tests
 
             prefab.isStatic = false;
             PrefabUtility.SavePrefabAsset(prefab);
+        }
+
+        internal class AdditionalEntitiesAuthoring : MonoBehaviour
+        {
+            public int additionalEntitiesCount;
+            public int measurementTrigger;
+
+            class AdditionalEntitiesBaker : Baker<AdditionalEntitiesAuthoring>
+            {
+                public override void Bake(AdditionalEntitiesAuthoring authoring)
+                {
+                    float3 axisX = Vector3.right;
+
+                    for (int i = 0; i < authoring.additionalEntitiesCount; ++i)
+                    {
+                        var entity = CreateAdditionalEntity(TransformUsageFlags.ManualOverride);
+
+                        float3 localPosition = (axisX * i);
+#if !ENABLE_TRANSFORM_V1
+                        AddComponent(entity, LocalTransform.FromPosition(localPosition));
+#else
+                        AddComponent(entity, new Translation { Value = localPosition });
+#endif
+                        AddComponent<LocalToWorld>(entity);
+                    }
+                }
+            }
+        }
+
+        [UnityTest, Performance]
+        public IEnumerator LiveBaking_Performance_Baker_CreateAdditionalEntities([Values(100, 1000, 10000)]int numObjects)
+        {
+            LiveConversionSettings.Mode = LiveConversionSettings.ConversionMode.AlwaysCleanConvert;
+
+            var subScene = m_Test.CreateEmptySubScene("AdditionalEntitiesTest", true);
+            var go = CreateGameObject(typeof(AdditionalEntitiesAuthoring));
+            m_Objects.RegisterForDestruction(go);
+
+            var component = go.GetComponent<AdditionalEntitiesAuthoring>();
+            component.additionalEntitiesCount = numObjects;
+
+            SceneManager.MoveGameObjectToScene(go, subScene.EditingScene);
+            var w = m_Test.GetLiveConversionWorld(TestWithEditorLiveConversion.Mode.Edit);
+            yield return m_Test.UpdateEditorAndWorld(w);
+
+            var measure = new MeasureLiveConversionTime(w);
+            {
+                for (int i = 0; i <= 20; i++)
+                {
+                    Undo.RecordObject(component, "Update Authoring Component");
+                    component.measurementTrigger = i;
+                    Undo.FlushUndoRecordObjects();
+
+                    yield return m_Test.UpdateEditorAndWorld(w);
+                    measure.Commit();
+                }
+            }
         }
     }
 }

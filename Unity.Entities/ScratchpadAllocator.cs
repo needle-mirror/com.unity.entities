@@ -102,6 +102,13 @@ namespace Unity.Entities
         public bool IsCustomAllocator { get { return m_handle.IsCustomAllocator; } }
 
         /// <summary>
+        /// Check whether this allocator will automatically dispose allocations.
+        /// </summary>
+        /// <remarks>Allocations made by Scrachpad allocator are automatically disposed.</remarks>
+        /// <value>Always true</value>
+        public bool IsAutoDispose { get { return true; } }
+
+        /// <summary>
         /// Dispose the allocator.
         /// </summary>
         public void Dispose()
@@ -182,9 +189,10 @@ namespace Unity.Entities
                 var container = new NativeList<T>();
                 container.m_ListData = this.Allocate(default(UnsafeList<T>), 1);
                 container.m_ListData->Ptr = this.Allocate(default(T), capacity);
-                container.m_ListData->m_capacity = capacity;
                 container.m_ListData->m_length = 0;
-                container.m_ListData->Allocator = Handle;
+                container.m_ListData->m_capacity = 0;
+                container.m_ListData->GrowthPolicy = new CapacityGrowthPolicyImpl(Handle, 0, CapacityGrowthPolicy.CeilPow2, 0);
+                container.m_ListData->GrowthPolicy.Capacity = capacity;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 container.m_Safety = CollectionHelper.CreateSafetyHandle(ToAllocator);
                 CollectionHelper.SetStaticSafetyId<NativeList<T>>(ref container.m_Safety, ref NativeList<T>.s_staticSafetyId.Data);

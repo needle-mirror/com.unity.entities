@@ -115,12 +115,6 @@ namespace Unity.Transforms
         }
 
         [BurstCompile]
-        public void OnDestroy(ref SystemState state)
-        {
-
-        }
-
-        [BurstCompile]
         struct RotationEulerToRotation : IJobChunk
         {
             public ComponentTypeHandle<Rotation> RotationTypeHandle;

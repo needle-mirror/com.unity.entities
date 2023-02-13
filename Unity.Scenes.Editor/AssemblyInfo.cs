@@ -14,3 +14,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Scenes.PlayerTests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Baking.PerformanceTests")]
 [assembly: InternalsVisibleTo("Unity.Environment.Baking")]
+[assembly: InternalsVisibleTo("Unity.Entities.Hybrid.Tests")]

@@ -1,4 +1,6 @@
-﻿namespace Unity.Entities
+﻿using Unity.Collections;
+
+namespace Unity.Entities
 {
     [RequireMatchingQueriesForUpdate]
     [WorldSystemFilter(WorldSystemFilterFlags.EntitySceneOptimizations)]
@@ -7,12 +9,10 @@
         EntityQuery _DestroyRemoveEntityInBake;
         protected override void OnCreate()
         {
-            _DestroyRemoveEntityInBake = GetEntityQuery(
-                new EntityQueryDesc()
-                {
-                    Any = new ComponentType[] { ComponentType.ReadOnly<RemoveUnusedEntityInBake>(), ComponentType.ReadOnly<BakingOnlyEntity>() },
-                    Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-                });
+            _DestroyRemoveEntityInBake = new EntityQueryBuilder(Allocator.Temp)
+                .WithAny<RemoveUnusedEntityInBake, BakingOnlyEntity>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                .Build(this);
         }
 
         protected override void OnUpdate()

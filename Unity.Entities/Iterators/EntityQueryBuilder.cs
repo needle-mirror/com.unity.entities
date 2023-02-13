@@ -16,12 +16,14 @@ namespace Unity.Entities
     ///
     /// Use an EntityQueryBuilder object to describe complex queries.
     ///
-    /// A query description combines the component types you specify in `WithAll`, `WithAny`, and `WithNone`
+    /// A query description combines the component types you specify (using methods like `WithAll`, `WithAny`, and `WithNone`)
     /// sets according to the following rules:
     ///
     /// * All - Includes archetypes that have every component in this set
     /// * Any - Includes archetypes that have at least one component in this set
-    /// * None - Excludes archetypes that have any component in this set
+    /// * None - Excludes archetypes that have any component in this set, but includes entities which have the component disabled.
+    /// * Disabled - Includes archetypes that have every component in this set, but only matches entities where the component is disabled.
+    /// * Absent - Excludes archetypes that have any component in this set.
     ///
     /// For example, given entities with the following components:
     ///
@@ -51,6 +53,8 @@ namespace Unity.Entities
             public ComponentIndexArray All;
             public ComponentIndexArray Any;
             public ComponentIndexArray None;
+            public ComponentIndexArray Disabled;
+            public ComponentIndexArray Absent;
             public EntityQueryOptions Options;
         }
 
@@ -61,8 +65,8 @@ namespace Unity.Entities
 
             // A homogenous list of ComponentTypes use for query specification.
             internal UnsafeList<ComponentType> _typeData;
-            // List of structs that provide indices and ranges into the _typeData list for each of the All,
-            // Any, and None constraints. There will be one element in this list for each ArchetypeQuery created
+            // List of structs that provide indices and ranges into the _typeData list for each of the component lists.
+            // There will be one element in this list for each ArchetypeQuery created
             // in the EntityQuery (see AddAdditionalQuery).
             internal UnsafeList<QueryTypes> _indexData;
 
@@ -72,6 +76,8 @@ namespace Unity.Entities
             internal UnsafeList<ComponentType> _all;
             internal UnsafeList<ComponentType> _any;
             internal UnsafeList<ComponentType> _none;
+            internal UnsafeList<ComponentType> _disabled;
+            internal UnsafeList<ComponentType> _absent;
             internal EntityQueryOptions _pendingOptions;
             internal byte _isFinalized;
         }
@@ -97,14 +103,22 @@ namespace Unity.Entities
             _builderDataPtr->_all = new UnsafeList<ComponentType>(6, _allocator);
             _builderDataPtr->_any = new UnsafeList<ComponentType>(6, _allocator);
             _builderDataPtr->_none = new UnsafeList<ComponentType>(6, _allocator);
+            _builderDataPtr->_disabled = new UnsafeList<ComponentType>(6, _allocator);
+            _builderDataPtr->_absent = new UnsafeList<ComponentType>(6, _allocator);
 
             _builderDataPtr->_pendingOptions = default;
             _builderDataPtr->_isFinalized = 0;
         }
 
         /// <summary>
-        /// Create an EntityQueryBuilder from a list of component types.
+        /// Create an EntityQueryBuilder from a list of required component types.
         /// </summary>
+        /// <remarks>
+        /// This simplifies the most common case, where the only constraint is "matching archetypes must have
+        /// all of the following components".
+        ///
+        /// If a component's access mode is "Exclude", it will instead be added to the None list as a read-only type.
+        /// </remarks>
         internal EntityQueryBuilder(Allocator allocator, ComponentType* componentTypes, int count)
         {
             _allocator = allocator;
@@ -113,9 +127,11 @@ namespace Unity.Entities
             _builderDataPtr->_typeData = new UnsafeList<ComponentType>(2, _allocator);
             _builderDataPtr->_indexData = new UnsafeList<QueryTypes>(2, _allocator);
             _builderDataPtr->_all = new UnsafeList<ComponentType>(count, _allocator);
-            // There's no way to specify optional constraints with an array of ComponentType
+            // The remaining component lists start out empty, in this case.
             _builderDataPtr->_any = new UnsafeList<ComponentType>(1, _allocator);
             _builderDataPtr->_none = new UnsafeList<ComponentType>(6, _allocator);
+            _builderDataPtr->_disabled = new UnsafeList<ComponentType>(6, _allocator);
+            _builderDataPtr->_absent = new UnsafeList<ComponentType>(6, _allocator);
             _builderDataPtr->_pendingOptions = default;
             _builderDataPtr->_isFinalized = 0;
 
@@ -168,6 +184,38 @@ namespace Unity.Entities
             }
 #endif
             _builderDataPtr->_pendingOptions = options;
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add component type requirement for a given aspect.
+        /// </summary>
+        /// <typeparam name="TAspect">The aspect to add to the query</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleAspect) })]
+        public EntityQueryBuilder WithAspect<TAspect>()
+            where TAspect : struct, IAspect, IAspectCreate<TAspect>
+        {
+            CheckBuilderPtr();
+            default(TAspect).AddComponentRequirementsTo(ref _builderDataPtr->_all, ref _builderDataPtr->_any, ref _builderDataPtr->_none,
+                ref _builderDataPtr->_disabled, ref _builderDataPtr->_absent, false);
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add component type requirement for a given aspect with forced read-only access.
+        /// </summary>
+        /// <typeparam name="TAspect">The aspect to add to the query</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleAspect) })]
+        public EntityQueryBuilder WithAspectRO<TAspect>()
+            where TAspect : struct, IAspect, IAspectCreate<TAspect>
+        {
+            CheckBuilderPtr();
+            default(TAspect).AddComponentRequirementsTo(ref _builderDataPtr->_all, ref _builderDataPtr->_any, ref _builderDataPtr->_none,
+                ref _builderDataPtr->_disabled, ref _builderDataPtr->_absent, true);
             _builderDataPtr->_isFinalized = 0;
             return this;
         }
@@ -323,8 +371,6 @@ namespace Unity.Entities
         /// If a query uses the <see cref="F:Unity.Entities.EntityQueryOptions.FilterWriteGroup"/> option,
         /// you must use WithAllRW to specify the query's writeable required components. Refer to the
         /// [write groups guide](xref:systems-write-groups) for more information.
-        ///
-        /// <see cref="M:Unity.Entities.EntityQueryBuilder.WithAll``1"/> assumes the component type is read-only.
         ///
         /// To match the resulting query, an Entity must have all of the query's required component types.
         ///
@@ -750,6 +796,11 @@ namespace Unity.Entities
         /// <remarks>
         /// To match the resulting query, an Entity must not have any of the query's excluded component types.
         ///
+        /// There are several ways to exclude components from a query:
+        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        ///
         /// WithNone accepts up to seven type arguments. You can add more component types by chaining calls together.
         ///
         /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithNone``1(``0@)"/>
@@ -906,6 +957,11 @@ namespace Unity.Entities
         /// <remarks>
         /// To match the resulting query, an Entity must not have any of the query's excluded component types.
         ///
+        /// There are several ways to exclude components from a query:
+        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        ///
         /// To add component types that are known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithNone``1"/>
         ///
         /// Component types added using WithNone are never written to. If the <see cref="ComponentType.AccessMode"/> field of the
@@ -940,6 +996,447 @@ namespace Unity.Entities
             for (var i = 0; i < count; i++)
             {
                 _builderDataPtr->_none.Add(ComponentType.ReadOnly(componentTypes[i].TypeIndex));
+            }
+
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+
+        /// <summary>
+        /// Add required disabled component types to the query.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an Entity must have all of the query's required component types, *and* they
+        /// must all be disabled.
+        ///
+        /// There are several ways to exclude components from a query:
+        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        ///
+        /// WithDisabled accepts up to seven type arguments. You can add more component types by chaining calls together.
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-builder-chained-withall" title="Query Builder With Chained WithAll Calls"/>
+        /// </example>
+        ///
+        /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``1(``0@)"/>
+        /// </remarks>
+        /// <typeparam name="T1">A required disabled component type</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithDisabled<T1>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``1"/>
+        /// <typeparam name="T2">A required disabled component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithDisabled<T1,T2>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``2"/>
+        /// <typeparam name="T3">A required disabled component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithDisabled<T1,T2,T3>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``3"/>
+        /// <typeparam name="T4">A required disabled component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithDisabled<T1,T2,T3,T4>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``4"/>
+        /// <typeparam name="T5">A required disabled component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithDisabled<T1,T2,T3,T4,T5>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAll``5"/>
+        /// <typeparam name="T6">A required disabled component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithDisabled<T1,T2,T3,T4,T5,T6>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T6>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``6"/>
+        /// <typeparam name="T7">A required disabled component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithDisabled<T1,T2,T3,T4,T5,T6,T7>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T6>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T7>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add required disabled component types to the query with ReadWrite mode.
+        /// </summary>
+        /// <remarks>
+        /// If a query uses the <see cref="F:Unity.Entities.EntityQueryOptions.FilterWriteGroup"/> option,
+        /// you must use WithDisabledRW to specify the query's writeable required components. Refer to the
+        /// [write groups guide](xref:systems-write-groups) for more information.
+        ///
+        /// To match the resulting query, an Entity must have all of the query's required component types, *and* they
+        /// must all be disabled.
+        ///
+        /// There are several ways to exclude components from a query:
+        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        ///
+        /// WithDisabledRW accepts up to two type arguments. You can add more component types by chaining calls together.
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-builder-chained-withallrw" title="Query Builder With Chained WithAllRW Calls"/>
+        /// </example>
+        ///
+        /// </remarks>
+        /// <typeparam name="T1">A required disabled ReadWrite component type</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithDisabledRW<T1>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithDisabledRW``1"/>
+        /// <typeparam name="T2">A required disabled ReadWrite component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithDisabledRW<T1,T2>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
+            _builderDataPtr->_disabled.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add a list of required disabled component types to the query.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an Entity must have all of the query's required component types, *and* they
+        /// must all be disabled.
+        ///
+        /// There are several ways to exclude components from a query:
+        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        /// </remarks>
+        /// <param name="componentTypes">
+        /// A list of component types that implements <see cref="T:Unity.Collections.INativeList`1"/>.
+        /// For example, <see cref="T:Unity.Collections.NativeList`1"/> or
+        /// <see cref="T:Unity.Collections.FixedList64Bytes`1"/>
+        /// </param>
+        /// <typeparam name="T">A container of component types</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(FixedList32Bytes<ComponentType>)})]
+        public EntityQueryBuilder WithDisabled<T>(ref T componentTypes)
+            where T : INativeList<ComponentType>
+        {
+            CheckBuilderPtr();
+
+            for (var i = 0; i < componentTypes.Length; i++)
+            {
+                _builderDataPtr->_disabled.Add(componentTypes[i]);
+            }
+
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        internal EntityQueryBuilder WithDisabled(ComponentType* componentTypes, int count)
+        {
+            CheckBuilderPtr();
+
+            for (var i = 0; i < count; i++)
+            {
+                _builderDataPtr->_disabled.Add(componentTypes[i]);
+            }
+
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+
+        /// <summary>
+        /// Add absent component types to the query.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an archetype must not have any of the absent components (whether they are disabled or enabled).
+        ///
+        /// There are several ways to exclude components from a query:
+        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        ///
+        /// WithAbsent accepts up to seven type arguments. You can add more component types by chaining calls together.
+        ///
+        /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAbsent``1(``0@)"/>
+        ///
+        /// Component types added using WithAbsent are never written to. If the <see cref="ComponentType.AccessMode"/> field of the
+        /// provided component type is <see cref="ComponentType.AccessMode.ReadWrite"/>, it will be forced to
+        /// <see cref="ComponentType.AccessMode.ReadOnly"/> in the final query.
+        /// </remarks>
+        /// <typeparam name="T1">An absent component type</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithAbsent<T1>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAbsent``1"/>
+        /// <typeparam name="T2">An absent component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)})]
+        public EntityQueryBuilder WithAbsent<T1,T2>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAbsent``2"/>
+        /// <typeparam name="T3">An absent component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithAbsent<T1,T2,T3>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAbsent``3"/>
+        /// <typeparam name="T4">An absent component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithAbsent<T1,T2,T3,T4>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAbsent``4"/>
+        /// <typeparam name="T5">An absent component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithAbsent<T1,T2,T3,T4,T5>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAbsent``5"/>
+        /// <typeparam name="T6">An absent component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithAbsent<T1,T2,T3,T4,T5,T6>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T6>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAbsent``6"/>
+        /// <typeparam name="T7">An absent component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithAbsent<T1,T2,T3,T4,T5,T6,T7>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T6>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_absent.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T7>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add an absent [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to exclude any entities that have the specified chunk component.
+        /// Chunk components are a distinct component type, which are different from excluding the same type as a
+        /// standard component.
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs"
+        ///  region="query-builder-chunk-component-none" title="Query Builder With Excluded Chunk Component"/>
+        /// </example>
+        ///
+        /// To add additional excluded Chunk Components, call this method multiple times.
+        ///
+        /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithNone``1(``0@)"/>
+        ///
+        /// </remarks>
+        /// <typeparam name="T">Component type to use as an absent Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithAbsentChunkComponent<T>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_absent.Add(ComponentType.ChunkComponentReadOnly<T>());
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add absent component types to the query.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an archetype must not have any of the absent components.
+        ///
+        /// To add component types that are known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithNone``1"/>
+        ///
+        /// There are several ways to exclude components from a query:
+        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        ///
+        /// Component types added using WithAbsent are never written to. If the <see cref="ComponentType.AccessMode"/> field of the
+        /// provided component type is <see cref="ComponentType.AccessMode.ReadWrite"/>, it will be forced to
+        /// <see cref="ComponentType.AccessMode.ReadOnly"/> in the final query.
+        /// </remarks>
+        /// <param name="componentTypes">
+        /// A list of component types that implements <see cref="T:Unity.Collections.INativeList`1"/>.
+        /// For example, <see cref="T:Unity.Collections.NativeList`1"/> or
+        /// <see cref="T:Unity.Collections.FixedList64Bytes`1"/>
+        /// </param>
+        /// <typeparam name="T">A container of component types</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(FixedList32Bytes<ComponentType>)})]
+        public EntityQueryBuilder WithAbsent<T>(ref T componentTypes)
+            where T : INativeList<ComponentType>
+        {
+            CheckBuilderPtr();
+
+            for (var i = 0; i < componentTypes.Length; i++)
+            {
+                _builderDataPtr->_absent.Add(ComponentType.ReadOnly(componentTypes[i].TypeIndex));
+            }
+
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        internal EntityQueryBuilder WithAbsent(ComponentType* componentTypes, int count)
+        {
+            CheckBuilderPtr();
+
+            for (var i = 0; i < count; i++)
+            {
+                _builderDataPtr->_absent.Add(ComponentType.ReadOnly(componentTypes[i].TypeIndex));
             }
 
             _builderDataPtr->_isFinalized = 0;
@@ -1001,6 +1498,8 @@ namespace Unity.Entities
             TransferArray(ref _builderDataPtr->_all, ref qd.All);
             TransferArray(ref _builderDataPtr->_any, ref qd.Any);
             TransferArray(ref _builderDataPtr->_none, ref qd.None);
+            TransferArray(ref _builderDataPtr->_disabled, ref qd.Disabled);
+            TransferArray(ref _builderDataPtr->_absent, ref qd.Absent);
             qd.Options = _builderDataPtr->_pendingOptions;
 
             // Add the QueryTypes struct to the list of _indexData. There should be one QueryTypes
@@ -1034,6 +1533,8 @@ namespace Unity.Entities
             _builderDataPtr->_all.Dispose();
             _builderDataPtr->_any.Dispose();
             _builderDataPtr->_none.Dispose();
+            _builderDataPtr->_disabled.Dispose();
+            _builderDataPtr->_absent.Dispose();
 
             if (CollectionHelper.ShouldDeallocate(_allocator))
             {
@@ -1060,6 +1561,8 @@ namespace Unity.Entities
             _builderDataPtr->_all.Clear();
             _builderDataPtr->_any.Clear();
             _builderDataPtr->_none.Clear();
+            _builderDataPtr->_disabled.Clear();
+            _builderDataPtr->_absent.Clear();
             _builderDataPtr->_pendingOptions = default;
             _builderDataPtr->_isFinalized = 0;
         }
@@ -1136,10 +1639,11 @@ namespace Unity.Entities
 #endif
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        internal static void Validate(in UnsafeList<ComponentType> allTypes, in UnsafeList<ComponentType> anyTypes, in UnsafeList<ComponentType> noneTypes)
+        internal static void Validate(in UnsafeList<ComponentType> allTypes, in UnsafeList<ComponentType> anyTypes, in UnsafeList<ComponentType> noneTypes,
+            in UnsafeList<ComponentType> disabledTypes, in UnsafeList<ComponentType> absentTypes)
         {
             // Determine the number of ComponentTypes contained in the filters
-            var itemCount = allTypes.Length + anyTypes.Length + noneTypes.Length;
+            var itemCount = allTypes.Length + anyTypes.Length + noneTypes.Length + disabledTypes.Length + absentTypes.Length;
 
             // Project all the ComponentType Ids of None, All, Any queryDesc filters into the same array to identify duplicated later on
 
@@ -1147,13 +1651,12 @@ namespace Unity.Entities
             ValidateComponentTypes(allTypes, ref allComponentTypeIds);
             ValidateComponentTypes(anyTypes, ref allComponentTypeIds);
             ValidateComponentTypes(noneTypes, ref allComponentTypeIds);
+            ValidateComponentTypes(disabledTypes, ref allComponentTypeIds);
+            ValidateComponentTypes(absentTypes, ref allComponentTypeIds);
 
             // Check for duplicate, only if necessary
             if (itemCount > 1)
             {
-                // Build a new unsafeList for None, All, Any
-
-
                 // Sort the Ids to have identical value adjacent
                 allComponentTypeIds.Sort();
 

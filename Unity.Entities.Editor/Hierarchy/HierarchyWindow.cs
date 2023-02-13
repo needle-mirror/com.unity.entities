@@ -2,7 +2,6 @@ using System;
 using Unity.Collections;
 using Unity.Editor.Bridge;
 using Unity.Profiling;
-using Unity.Entities.UI;
 using Unity.Scenes;
 using Unity.Serialization.Editor;
 using UnityEditor;
@@ -60,16 +59,8 @@ namespace Unity.Entities.Editor
             Resources.Templates.DotsEditorCommon.AddStyles(rootVisualElement);
             Resources.AddCommonVariables(rootVisualElement);
 
-#if !USE_IMPROVED_DATAMODE
-            m_DataModeHandler.dataModeChanged += OnCurrentDataModeChanged;
-#endif
-
             // Initialize the data models.
-#if USE_IMPROVED_DATAMODE
             m_Hierarchy = new Hierarchy(Allocator.Persistent, dataModeController.dataMode)
-#else
-            m_Hierarchy = new Hierarchy(Allocator.Persistent, m_DataModeHandler.dataMode)
-#endif
             {
                 Configuration = UserSettings<HierarchySettings>.GetOrCreate(Constants.Settings.Hierarchy).Configuration,
                 State = SessionState<HierarchyState>.GetOrCreate($"{GetType().Name}.{nameof(HierarchyState)}")
@@ -81,24 +72,19 @@ namespace Unity.Entities.Editor
             m_HierarchyElement.SetDecorators(s_Decorators);
 
             Selection.selectionChanged += OnGlobalSelectionChanged;
-            EditorApplication.update += OnBackgroundUpdate;
 
-#if USE_IMPROVED_DATAMODE
             // Data mode.
             dataModeController.UpdateSupportedDataModes(GetSupportedDataModes(), GetPreferredDataMode());
             dataModeController.dataModeChanged += OnDataModeChanged;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
-#endif
         }
 
         void OnDisable()
         {
             EditorApplication.update -= OnBackgroundUpdate;
             Selection.selectionChanged -= OnGlobalSelectionChanged;
-#if USE_IMPROVED_DATAMODE
             dataModeController.dataModeChanged -= OnDataModeChanged;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
-#endif
             m_Hierarchy.Dispose();
         }
 
@@ -138,15 +124,6 @@ namespace Unity.Entities.Editor
         {
             m_HierarchyElement?.OnLostFocus();
         }
-
-#if !USE_IMPROVED_DATAMODE
-        void OnCurrentDataModeChanged(DataMode mode)
-        {
-            RequestGlobalSelectionRestoration();
-            m_Hierarchy.SetDataMode(mode);
-            Analytics.SendEditorEvent(Analytics.Window.Hierarchy, Analytics.EventType.DataModeSwitch, mode.ToString());
-        }
-#endif
 
         HierarchyElement CreateHierarchyElement(VisualElement root, Hierarchy hierarchy)
         {
@@ -190,11 +167,7 @@ namespace Unity.Entities.Editor
             if (Selection.activeContext is HierarchySelectionContext && !allowReentry)
                 return;
 
-#if USE_IMPROVED_DATAMODE
             switch (dataModeController.dataMode)
-#else
-            switch (m_DataModeHandler.dataMode)
-#endif
             {
                 case DataMode.Authoring:
                 case DataMode.Mixed:
@@ -229,8 +202,8 @@ namespace Unity.Entities.Editor
             }
             else if (obj is GameObject gameObject)
             {
-                if (m_Hierarchy.World != null && gameObject.TryGetComponent<SubScene>(out var subScene))
-                    m_HierarchyElement.SetSelection(m_Hierarchy.GetSubSceneNodeHandle(subScene));
+                if (m_Hierarchy.World != null && gameObject.TryGetComponent<SubScene>(out var subScene) && subScene.SceneGUID != default && m_Hierarchy.SubSceneMap.TryGetSubSceneNodeHandle(subScene, out var handle))
+                    m_HierarchyElement.SetSelection(handle);
                 else
                     m_HierarchyElement.SetSelection(HierarchyNodeHandle.FromGameObject(gameObject));
             }
@@ -264,10 +237,6 @@ namespace Unity.Entities.Editor
                         }
                         else
                         {
-                            // Don't reselect yourself
-                            if (Selection.activeObject == authoringObject)
-                                return;
-
                             var context = EntitySelectionProxy.CreateInstance(world, entity);
                             // Selected entities should always try to show up in Runtime mode
                             SelectionBridge.SetSelection(authoringObject, context, DataMode.Runtime);
@@ -320,11 +289,7 @@ namespace Unity.Entities.Editor
                     }
 
                     // Selected GameObjects should use whatever the current DataMode for the hierarchy is.
-#if USE_IMPROVED_DATAMODE
                     SelectionBridge.SetSelection(gameObject, context, dataModeController.dataMode);
-#else
-                    SelectionBridge.SetSelection(gameObject, context, m_DataModeHandler.dataMode);
-#endif
                     Undo.CollapseUndoOperations(undoGroup);
                     break;
                 }

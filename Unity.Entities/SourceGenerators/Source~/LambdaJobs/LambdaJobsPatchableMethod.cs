@@ -78,7 +78,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     AccessRights = ComponentAccessRights.GetFromFirstMethodParam,
                     GeneratePatchedReplacementSyntax = (methodSymbol, rewriter, originalNode) =>
                     {
-                        var arguments = GetArgumentsInOrder(originalNode);
+                        var arguments = GetArgumentsInOrder(originalNode, "isReadOnly");
                         var isReadOnly = arguments.Length > 0 && bool.Parse(arguments[0].ToLower());
                         var dataAccessField = rewriter.GetOrCreateDataAccessField(methodSymbol.TypeArguments.First(), isReadOnly, AccessorDataType.ComponentLookup);
                         return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}");
@@ -94,7 +94,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     {
                         var dataAccessField = rewriter.GetOrCreateDataAccessField(
                             methodSymbol.TypeArguments.First(), true, AccessorDataType.ComponentLookup);
-                        var entityArgument = GetArgumentsInOrder(originalNode).First();
+                        var entityArgument = GetArgumentsInOrder(originalNode, "entity").First();
                         return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}[{entityArgument}]");
                     }
                 }
@@ -122,7 +122,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     {
                         var dataAccessField = rewriter.GetOrCreateDataAccessField(
                             methodSymbol.TypeArguments.First(), true, AccessorDataType.ComponentLookup);
-                        var entityArgument = GetArgumentsInOrder(originalNode).First();
+                        var entityArgument = GetArgumentsInOrder(originalNode, "entity").First();
                         return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}.HasComponent({entityArgument})");
                     }
                 }
@@ -134,7 +134,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     AccessRights =  ComponentAccessRights.GetFromFirstMethodParam,
                     GeneratePatchedReplacementSyntax = (methodSymbol, rewriter, originalNode) =>
                     {
-                        var arguments = GetArgumentsInOrder(originalNode);
+                        var arguments = GetArgumentsInOrder(originalNode, "isReadOnly");
                         var isReadOnly = arguments.Length > 0 && bool.Parse(arguments[0].ToLower());
                         var dataAccessField = rewriter.GetOrCreateDataAccessField(
                             methodSymbol.TypeArguments.First(), isReadOnly, AccessorDataType.BufferLookup);
@@ -151,7 +151,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     {
                         var dataAccessField = rewriter.GetOrCreateDataAccessField(
                             methodSymbol.TypeArguments.First(), false, AccessorDataType.BufferLookup);
-                        var entityArgument = GetArgumentsInOrder(originalNode).First();
+                        var entityArgument = GetArgumentsInOrder(originalNode, "entity", "isReadOnly").First();
                         return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}[{entityArgument}]");
                     }
                 }
@@ -165,7 +165,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     {
                         var dataAccessField = rewriter.GetOrCreateDataAccessField(
                             methodSymbol.TypeArguments.First(), true, AccessorDataType.BufferLookup);
-                        var entityArgument = GetArgumentsInOrder(originalNode).First();
+                        var entityArgument = GetArgumentsInOrder(originalNode, "entity").First();
                         return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}.HasBuffer({entityArgument})");
                     }
                 }
@@ -190,7 +190,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     AccessRights =  ComponentAccessRights.ReadOnly,
                     GeneratePatchedReplacementSyntax = (methodSymbol, rewriter, originalNode) =>
                     {
-                        var entityArgument = GetArgumentsInOrder(originalNode).First();
+                        var entityArgument = GetArgumentsInOrder(originalNode, "entity").First();
                         var dataAccessField = rewriter.GetOrCreateDataAccessField(
                             methodSymbol.ContainingType, false, AccessorDataType.EntityStorageInfoLookup);
                         return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}.Exists({entityArgument})");
@@ -206,7 +206,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     {
                         var dataAccessField = rewriter.GetOrCreateDataAccessField(
                             methodSymbol.TypeArguments.First(), false, AccessorDataType.AspectLookup);
-                        var entityArgument = GetArgumentsInOrder(originalNode).First();
+                        var entityArgument = GetArgumentsInOrder(originalNode, "entity").First();
                         return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}[{entityArgument}]");
                     }
                 }
@@ -220,7 +220,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     {
                         var dataAccessField = rewriter.GetOrCreateDataAccessField(
                             methodSymbol.TypeArguments.First(), true, AccessorDataType.AspectLookup);
-                        var entityArgument = GetArgumentsInOrder(originalNode).First();
+                        var entityArgument = GetArgumentsInOrder(originalNode, "entity").First();
                         return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}[{entityArgument}]");
                     }
                 }

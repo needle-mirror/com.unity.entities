@@ -156,13 +156,13 @@ namespace Unity.Entities
         UntypedUnsafeParallelHashMap m_CachedEntityGUIDToEntityIndex;
 
         [GenerateTestsForBurstCompatibility(CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
-        public ref UnsafeMultiHashMap<int, Entity> CachedEntityGUIDToEntityIndex
+        public ref UnsafeParallelMultiHashMap<int, Entity> CachedEntityGUIDToEntityIndex
         {
             get
             {
                 fixed (void* ptr = &m_CachedEntityGUIDToEntityIndex)
                 {
-                    return ref UnsafeUtility.AsRef<UnsafeMultiHashMap<int, Entity>>(ptr);
+                    return ref UnsafeUtility.AsRef<UnsafeParallelMultiHashMap<int, Entity>>(ptr);
                 }
             }
         }
@@ -190,11 +190,9 @@ namespace Unity.Entities
 
         internal bool IsInExclusiveTransaction => m_DependencyManager.IsInTransaction;
 
-        [BurstCompile]
-        internal static void DestroyChunks(EntityComponentStore* ecs, in NativeArray<ArchetypeChunk> chunks)
-        {
-            ecs->DestroyEntities(chunks);
-        }
+#if ENABLE_PROFILER
+        internal ref StructuralChangesProfiler.Recorder StructuralChangesRecorder => ref m_EntityComponentStore.StructuralChangesRecorder;
+#endif
 
         [ExcludeFromBurstCompatTesting("Takes managed World")]
         public static void Initialize(EntityDataAccess* self, World world)
@@ -207,7 +205,7 @@ namespace Unity.Entities
 
             self->AliveEntityQueries = new UnsafeParallelHashMap<ulong, byte>(32, Allocator.Persistent);
 #if UNITY_EDITOR
-            self->CachedEntityGUIDToEntityIndex = new UnsafeMultiHashMap<int, Entity>(32, Allocator.Persistent);
+            self->CachedEntityGUIDToEntityIndex = new UnsafeParallelMultiHashMap<int, Entity>(32, Allocator.Persistent);
 #endif
             self->m_DependencyManager.OnCreate(world.Unmanaged);
             Entities.EntityComponentStore.Create(&self->m_EntityComponentStore, world.SequenceNumber);
@@ -343,7 +341,7 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (DependencyManager->ForEachStructuralChange.Depth != 0)
-                throw new InvalidOperationException("Structural changes are not allowed during Entities.ForEach. Please use EntityCommandBuffer or WithStructuralChanges instead.");
+                throw new InvalidOperationException("Structural changes are not allowed while iterating over entities. Please use EntityCommandBuffer instead.");
 #endif
         }
 
@@ -362,7 +360,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (!DependencyManager->ForEachStructuralChange.IsAdditiveStructuralChangePossible(archetype))
                 //@TODO: Better error message
-                throw new InvalidOperationException("Structural changes are not allowed during Entities.ForEach. Please use EntityCommandBuffer or WithStructuralChanges instead.");
+                throw new InvalidOperationException("Structural changes are not allowed while iterating over entities. Please use EntityCommandBuffer instead.");
 #endif
         }
 
@@ -531,14 +529,14 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
 #endif
 
             StructuralChange.DestroyEntity(EntityComponentStore, (Entity*) entities.GetUnsafePtr(), entities.Length);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -554,7 +552,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
 #endif
 
             using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
@@ -573,7 +571,7 @@ namespace Unity.Entities
                         if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
                             JournalAddRecord_DestroyEntity(in originSystem, in chunks);
 #endif
-                        DestroyChunks(EntityComponentStore, chunks);
+                        StructuralChange.DestroyChunks(EntityComponentStore, chunks);
                     }
                     else
                     {
@@ -584,7 +582,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -607,14 +605,14 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
 #endif
 
             StructuralChange.DestroyEntity(EntityComponentStore, entities, count);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -682,14 +680,14 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
 #endif
 
             StructuralChange.CreateEntity(EntityComponentStore, GetEntityAndSimulateArchetype().Archetype, &entity, 1);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -731,14 +729,14 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
 #endif
 
             StructuralChange.CreateEntity(EntityComponentStore, archetype.Archetype, outEntities, count);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -782,16 +780,49 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
 
             var result = StructuralChange.AddComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
             return result;
+        }
+
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="typeSet"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException">Thrown if an entity does not exist.</exception>
+        /// <exception cref="ArgumentException">Thrown if the component type being added is Entity type.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the component increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the component causes the size of the archetype to exceed the size of a chunk.</exception>
+        public void AddMultipleComponentsDuringStructuralChange(Entity entity, in ComponentTypeSet typeSet,
+            in SystemHandle originSystem = default)
+        {
+            EntityComponentStore->AssertCanAddComponents(entity, typeSet);
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_AddComponent(in originSystem, &entity, 1, typeSet.UnsafeTypesPtrRO, typeSet.Length);
+#endif
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+#endif
+
+            StructuralChange.AddComponentsEntity(EntityComponentStore, &entity, typeSet);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.End();
+#endif
         }
 
         /// <summary>
@@ -812,7 +843,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
 
             using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
@@ -832,7 +863,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -845,7 +876,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if one of the component types being added is Entity type.</exception>
         /// <exception cref="InvalidOperationException">Thrown if one of the components increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
         /// <exception cref="InvalidOperationException">Thrown if one of the components causes the size of the archetype to exceed the size of a chunk.</exception>
-        internal void AddComponentsToChunksDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentTypeSet typeSet,
+        internal void AddComponentsToChunksDuringStructuralChange(EntityQueryImpl* queryImpl, in ComponentTypeSet typeSet,
             in SystemHandle originSystem = default)
         {
             if (queryImpl->IsEmptyIgnoreFilter || typeSet.Length == 0)
@@ -854,7 +885,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
 
             using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
@@ -863,17 +894,17 @@ namespace Unity.Entities
                 {
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
                     if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
-                        JournalAddRecord_AddComponent(in originSystem, in chunks, typeSet.Types, typeSet.Length);
+                        JournalAddRecord_AddComponent(in originSystem, in chunks, typeSet.UnsafeTypesPtrRO, typeSet.Length);
 #endif
 
                     StructuralChange.AddComponentsChunks(EntityComponentStore,
-                        (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, ref typeSet);
+                        (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, typeSet);
                 }
             }
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -901,7 +932,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
 
             if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
@@ -923,7 +954,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -937,7 +968,7 @@ namespace Unity.Entities
         /// <exception cref="InvalidOperationException">Thrown if the component increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the component causes the size of the archetype to exceed the size of a chunk.</exception>
         public void AddMultipleComponentsDuringStructuralChange(NativeArray<Entity> entities,
-            ComponentTypeSet componentTypeSet, in SystemHandle originSystem = default)
+            in ComponentTypeSet componentTypeSet, in SystemHandle originSystem = default)
         {
             if (entities.Length == 0 || componentTypeSet.Length == 0)
                 return;
@@ -945,12 +976,12 @@ namespace Unity.Entities
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
-                JournalAddRecord_AddComponent(in originSystem, in entities, componentTypeSet.Types, componentTypeSet.Length);
+                JournalAddRecord_AddComponent(in originSystem, in entities, componentTypeSet.UnsafeTypesPtrRO, componentTypeSet.Length);
 #endif
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
 
             if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
@@ -959,20 +990,20 @@ namespace Unity.Entities
             {
                 StructuralChange.AddComponentsEntitiesBatch(EntityComponentStore,
                     (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
-                        ref entityBatchList), ref componentTypeSet);
+                        ref entityBatchList), componentTypeSet);
             }
             else
             {
                 for (int i = 0; i < entities.Length; i++)
                 {
                     var entity = entities[i];
-                    StructuralChange.AddComponentsEntity(EntityComponentStore, &entity, ref componentTypeSet);
+                    StructuralChange.AddComponentsEntity(EntityComponentStore, &entity, componentTypeSet);
                 }
             }
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -983,7 +1014,7 @@ namespace Unity.Entities
         /// <param name="componentTypeSet"></param>
         /// <exception cref="InvalidOperationException">Thrown if a componentType is Entity type.</exception>
         public void RemoveMultipleComponentsDuringStructuralChange(NativeArray<Entity> entities,
-            ComponentTypeSet componentTypeSet, in SystemHandle originSystem = default)
+            in ComponentTypeSet componentTypeSet, in SystemHandle originSystem = default)
         {
             if (entities.Length == 0 || componentTypeSet.Length == 0)
                 return;
@@ -991,12 +1022,12 @@ namespace Unity.Entities
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
-                JournalAddRecord_RemoveComponent(in originSystem, in entities, componentTypeSet.Types, componentTypeSet.Length);
+                JournalAddRecord_RemoveComponent(in originSystem, in entities, componentTypeSet.UnsafeTypesPtrRO, componentTypeSet.Length);
 #endif
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
 
             if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
@@ -1004,20 +1035,20 @@ namespace Unity.Entities
             {
                 StructuralChange.RemoveComponentsEntitiesBatch(EntityComponentStore,
                     (UnsafeList<EntityBatchInChunk>*) NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(
-                        ref entityBatchList), ref componentTypeSet);
+                        ref entityBatchList), componentTypeSet);
             }
             else
             {
                 for (int i = 0; i < entities.Length; i++)
                 {
                     var entity = entities[i];
-                    StructuralChange.RemoveComponentsEntity(EntityComponentStore, &entity, ref componentTypeSet);
+                    StructuralChange.RemoveComponentsEntity(EntityComponentStore, &entity, componentTypeSet);
                 }
             }
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -1039,17 +1070,45 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
 
-            var result = EntityComponentStore->RemoveComponent(entity, componentType);
+            var result = StructuralChange.RemoveComponentEntity(EntityComponentStore, &entity, componentType.TypeIndex);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
 
             return result;
+        }
+
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="componentTypeSet"></param>
+        public void RemoveComponentDuringStructuralChange(Entity entity, in ComponentTypeSet componentTypeSet,
+            in SystemHandle originSystem = default)
+        {
+            EntityComponentStore->AssertCanRemoveComponents(componentTypeSet);
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_RemoveComponent(in originSystem, &entity, 1, componentTypeSet.UnsafeTypesPtrRO, componentTypeSet.Length);
+#endif
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
+#endif
+
+            StructuralChange.RemoveComponentsEntity(EntityComponentStore, &entity, componentTypeSet);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.End();
+#endif
         }
 
         /// <summary>
@@ -1067,7 +1126,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
 
             using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
@@ -1087,7 +1146,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -1096,7 +1155,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="queryImpl"></param>
         /// <param name="componentTypeSet"></param>
-        internal void RemoveMultipleComponentsFromChunksDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentTypeSet componentTypeSet,
+        internal void RemoveMultipleComponentsFromChunksDuringStructuralChange(EntityQueryImpl* queryImpl, in ComponentTypeSet componentTypeSet,
             in SystemHandle originSystem = default)
         {
             if (queryImpl->IsEmptyIgnoreFilter || componentTypeSet.Length == 0)
@@ -1105,7 +1164,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
 
             using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
@@ -1114,18 +1173,18 @@ namespace Unity.Entities
                 {
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
                     if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
-                        JournalAddRecord_RemoveComponent(in originSystem, in chunks, componentTypeSet.Types, componentTypeSet.Length);
+                        JournalAddRecord_RemoveComponent(in originSystem, in chunks, componentTypeSet.UnsafeTypesPtrRO, componentTypeSet.Length);
 #endif
 
                     StructuralChange.RemoveComponentsChunks(EntityComponentStore,
                         (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length,
-                        ref componentTypeSet);
+                        componentTypeSet);
                 }
             }
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -1147,7 +1206,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
 
             StructuralChange.RemoveComponentChunks(EntityComponentStore,
@@ -1156,7 +1215,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -1181,7 +1240,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
 
             if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
@@ -1202,7 +1261,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -1287,12 +1346,33 @@ namespace Unity.Entities
             return EntityComponentStore->IsComponentEnabled(entity, typeIndex);
         }
 
+        public bool IsComponentEnabled(Entity entity, TypeIndex typeIndex, ref LookupCache typeLookupCache)
+        {
+            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex, ref typeLookupCache);
+            Unity.Entities.EntityComponentStore.AssertComponentEnableable(typeIndex);
+
+            return EntityComponentStore->IsComponentEnabled(entity, typeIndex, ref typeLookupCache);
+        }
+
         public void SetComponentEnabled(Entity entity, TypeIndex typeIndex, bool value)
         {
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
             Unity.Entities.EntityComponentStore.AssertComponentEnableable(typeIndex);
 
             EntityComponentStore->SetComponentEnabled(entity, typeIndex, value);
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_SetComponentEnabled(default, &entity, 1, &typeIndex, 1, value);
+#endif
+        }
+
+        public void SetComponentEnabled(Entity entity, TypeIndex typeIndex, bool value, ref LookupCache typeLookupCache)
+        {
+            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex, ref typeLookupCache);
+            Unity.Entities.EntityComponentStore.AssertComponentEnableable(typeIndex);
+
+            EntityComponentStore->SetComponentEnabled(entity, typeIndex, value, ref typeLookupCache);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
@@ -1464,8 +1544,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
             {
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
             }
 #endif
 
@@ -1477,8 +1557,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
             {
-                StructuralChangesProfiler.End(); // SetSharedComponent
-                StructuralChangesProfiler.End(); // AddComponent
+                StructuralChangesRecorder.End(); // SetSharedComponent
+                StructuralChangesRecorder.End(); // AddComponent
             }
 #endif
 
@@ -1576,8 +1656,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
             {
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
             }
 #endif
 
@@ -1588,8 +1668,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
             {
-                StructuralChangesProfiler.End(); // SetSharedComponent
-                StructuralChangesProfiler.End(); // AddComponent
+                StructuralChangesRecorder.End(); // SetSharedComponent
+                StructuralChangesRecorder.End(); // AddComponent
             }
 #endif
 
@@ -1604,7 +1684,7 @@ namespace Unity.Entities
         }
 
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
-        public void GetAllUniqueSharedComponents_Unmanaged<T>(out UnsafeList<T> sharedComponentValues,Allocator allocator) where T : unmanaged, ISharedComponentData
+        public void GetAllUniqueSharedComponents_Unmanaged<T>(out UnsafeList<T> sharedComponentValues, AllocatorManager.AllocatorHandle allocator) where T : unmanaged, ISharedComponentData
         {
             Assert.IsFalse(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<T>()));
 
@@ -1699,7 +1779,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
 #endif
 
             var componentType = ComponentType.FromTypeIndex(typeIndex);
@@ -1708,7 +1788,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -1732,7 +1812,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
 #endif
 
             var newSharedComponentDataIndex = InsertSharedComponent(componentData);
@@ -1742,7 +1822,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -1769,7 +1849,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
 #endif
 
             if (componentData != null) // null means default
@@ -1796,7 +1876,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -1834,6 +1914,49 @@ namespace Unity.Entities
             m_ManagedReferenceIndexList.Add(newSharedComponentDataIndex);
         }
 
+        /// <summary>
+        /// Sets an unmanaged shared component on an entity.
+        /// </summary>
+        /// <remarks>NOTE: This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).</remarks>
+        /// <param name="entity">The target entity.</param>
+        /// <param name="typeIndex">The type of the component.</param>
+        /// <param name="hashCode">The new hash code of the component.</param>
+        /// <param name="componentDataAddr">The unmanaged component data pointer.</param>
+        [GenerateTestsForBurstCompatibility]
+        public void SetSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(
+            Entity entity,
+            TypeIndex typeIndex,
+            int hashCode,
+            void* componentDataAddr)
+        {
+            UnityEngine.Assertions.Assert.IsTrue(
+                TypeManager.IsSharedComponentType(typeIndex) &&
+                !TypeManager.IsManagedSharedComponent(typeIndex));
+            var type = ComponentType.FromTypeIndex(typeIndex);
+            EntityComponentStore->AssertEntityHasComponent(entity, type);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+
+            var newSharedComponentDataIndex = 0;
+            if (componentDataAddr != null) // null means default
+            {
+                newSharedComponentDataIndex = EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, componentDataAddr, null);
+            }
+
+            SetSharedComponentDataIndexWithBurst(EntityComponentStore, entity, type, newSharedComponentDataIndex);
+
+
+            m_ManagedReferenceIndexList.Add(newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.End();
+#endif
+        }
+
         [GenerateTestsForBurstCompatibility]
         public void SetSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(
             NativeArray<Entity> entities,
@@ -1848,7 +1971,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
 #endif
 
             var newSharedComponentDataIndex = 0;
@@ -1866,7 +1989,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
         }
 
@@ -2137,7 +2260,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
 #endif
 
             var newSharedComponentDataIndex = InsertSharedComponent_Unmanaged(typeIndex, 0, componentData, componentDataDefaultValue);
@@ -2145,7 +2268,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -2168,7 +2291,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
 #endif
 
             var newSharedComponentDataIndex = InsertSharedComponent_Unmanaged(typeIndex, 0, componentData, componentDataDefaultValue);
@@ -2177,7 +2300,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -2335,8 +2458,13 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
             if (!TypeManager.IsBuffer(typeIndex))
+            {
+                var typeName = typeIndex.ToFixedString();
+
+                // It would be difficult to hit this error since T is constrained to IBufferElementData
                 throw new ArgumentException(
-                    $"GetBuffer<{typeof(T)}> may not be IComponentData or ISharedComponentData; currently {TypeManager.GetTypeInfo<T>().Category}");
+                    $"GetBuffer<{typeName}> may not be IComponentData or ISharedComponentData; currently {TypeManager.GetTypeInfo<T>().Category}");
+            }
 #endif
 
             if (!IsInExclusiveTransaction)
@@ -2407,14 +2535,14 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
 #endif
 
-            StructuralChange.InstantiateEntities(EntityComponentStore, &srcEntity, outputEntities, count);
+            StructuralChange.InstantiateEntity(EntityComponentStore, &srcEntity, outputEntities, count);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -2436,14 +2564,14 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.CreateEntity, in m_WorldUnmanaged);
 #endif
 
-            EntityComponentStore->InstantiateEntities(srcEntities, outputEntities, count, removePrefab);
+            StructuralChange.InstantiateEntities(EntityComponentStore, srcEntities, outputEntities, count, removePrefab);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                StructuralChangesRecorder.End();
 #endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING

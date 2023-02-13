@@ -12,15 +12,15 @@ namespace Unity.Entities.SourceGen.Aspect
     // "Enumerator"
     // A field of the same name as the aspect.
 
-    static class AspectErrors
+    public static class AspectErrors
     {
         public static void SGAICE0000(string aspectName, Location location, Exception exception)
         {
             Service<IDiagnosticLogger>.Instance?.LogError("SGAICE0000", "Aspect Generator Exception", $"Exception while generating aspect '{aspectName}': {exception}\n{exception.StackTrace}", location);
         }
-        public static void SGA0001(Location location, string componentType)
+        public static void SGA0001(Location location, string componentType, Location conflictingFieldLocation)
         {
-            Service<IDiagnosticLogger>.Instance?.LogError("SGA0001", "Component Type Duplicate", $"A field of type RefRO<{componentType}>/RefRW<{componentType}> is already defined. " +
+            Service<IDiagnosticLogger>.Instance?.LogError("SGA0001", "Component Type Duplicate", $"A field of type RefRO<{componentType}>/RefRW<{componentType}> is already defined at {conflictingFieldLocation}. " +
                 "An aspect struct must not contain more than one field of the same component type.", location);
         }
         public static void SGA0002(Location location, string structName)
@@ -57,7 +57,7 @@ namespace Unity.Entities.SourceGen.Aspect
         }
         public static void SGA0010(Location location)
         {
-            Service<IDiagnosticLogger>.Instance?.LogError(nameof(SGA0010), "Aspect definition in nested declaration are not supported.", "Aspects cannot be declared as nested types.", location);
+            Service<IDiagnosticLogger>.Instance?.LogError(nameof(SGA0010), "Nested aspects declaration must have all enclosing types declared with the 'partial' keyword.", "Aspects cannot be declared as nested types in non-partial types.", location);
         }
 
         public static void SGA0011(Location location)

@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using UnityEngine.Scripting;
 
 namespace Unity.Entities
@@ -20,7 +21,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="state">The <see cref="SystemState"/> backing this system instance</param>
         [RequiredMember]
-        void OnCreate(ref SystemState state);
+        void OnCreate(ref SystemState state) { }
 
         /// <summary>
         /// Called when this system is destroyed.
@@ -32,7 +33,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="state">The <see cref="SystemState"/> backing this system instance</param>
         [RequiredMember]
-        void OnDestroy(ref SystemState state);
+        void OnDestroy(ref SystemState state) { }
 
         /// <summary>
         /// Implement `OnUpdate` to perform the major work of this system.
@@ -61,7 +62,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="state">The <see cref="SystemState"/> backing this system instance</param>
         [RequiredMember]
-        void OnUpdate(ref SystemState state);
+        void OnUpdate(ref SystemState state) { }
     }
 
     /// <summary>
@@ -75,7 +76,8 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="state">The <see cref="SystemState"/> backing a system instance</param>
         [Preserve]
-        public delegate void Function(ref SystemState state);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Function(IntPtr systemPtr, IntPtr state);
     }
 
     /// <summary>

@@ -104,7 +104,7 @@ namespace Unity.Entities.Editor
             if (prefabInstanceRoot)
             {
                 var handle = HierarchyNodeHandle.FromGameObject(prefabInstanceRoot);
-                if (m_Model.GetNodes().Exists(handle))
+                if (m_Hierarchy.GetNodes().Exists(handle))
                     m_HierarchyElement.SetSelection(handle);
             }
         }

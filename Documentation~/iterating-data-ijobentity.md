@@ -82,4 +82,4 @@ The following is a list of all the supported `Execute` parameters you can use in
 |`int`| There are three supported ints:|
 || Mark the `int` with the attribute `[Unity.Entities.ChunkIndexInQuery]` to get the current archetype chunk index in a query.  |
 ||Mark the `int` with the attribute `[Unity.Entities.EntityIndexInChunk]` to get the current entity index in the current archetype chunk. You can add `EntityIndexInChunk` and `ChunkIndexInQuery` to get a unique identifier per entity.|
-||Mark the `int` with the attribute `[Unity.Entities.EntityIndexInQuery]` to get the packed index of the query. This has an impact on performance, using `EntityQuery.CalculateBaseEntityIndexArray[Async]`.|
+||Mark the `int` with the attribute `[Unity.Entities.EntityIndexInQuery]` to get the packed index of the query. This parameter internally uses `EntityQuery.CalculateBaseEntityIndexArray[Async]` which negatively affects performance.|

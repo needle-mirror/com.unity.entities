@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -318,9 +319,21 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertEntityHasComponent(Entity entity, TypeIndex componentType)
+        public void AssertEntityHasComponent(Entity entity, TypeIndex componentTypeIndex)
         {
-            AssertEntityHasComponent(entity, ComponentType.FromTypeIndex(componentType));
+            AssertEntityHasComponent(entity, ComponentType.FromTypeIndex(componentTypeIndex));
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        public void AssertEntityHasComponent(Entity entity, TypeIndex componentTypeIndex, ref LookupCache typeLookupCache)
+        {
+            if (Hint.Likely(HasComponent(entity, componentTypeIndex, ref typeLookupCache)))
+                return;
+
+            if (Hint.Unlikely(!Exists(entity)))
+                throw new ArgumentException("The entity does not exist." + AppendDestroyedEntityRecordError(entity));
+
+            throw new ArgumentException($"A component with type:{componentTypeIndex} has not been added to the entity." + AppendRemovedComponentRecordError(entity, ComponentType.FromTypeIndex(componentTypeIndex)));
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -348,7 +361,7 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponents(Archetype* archetype, ComponentTypeSet componentTypeSet)
+        public void AssertCanAddComponents(Archetype* archetype, in ComponentTypeSet componentTypeSet)
         {
             int totalComponentInstanceSize = 0;
             for (int i = 0; i < componentTypeSet.Length; i++)
@@ -372,7 +385,7 @@ namespace Unity.Entities
                 throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead} bytes. Attempting to add multiple components ({AggregateComponentTypes(componentTypeSet)}) with a combined size {totalComponentInstanceSize} bytes. Maximum chunk size {chunkDataSize}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
         }
 
-        static string AggregateComponentTypes(ComponentTypeSet componentTypeSet)
+        static string AggregateComponentTypes(in ComponentTypeSet componentTypeSet)
         {
             var allTypes = $"{componentTypeSet.Length}: ";
             for (var i = 0; i < componentTypeSet.Length; i++)
@@ -433,7 +446,7 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponents(UnsafeMatchingArchetypePtrList archetypeList, ComponentTypeSet componentTypeSet)
+        public void AssertCanAddComponents(UnsafeMatchingArchetypePtrList archetypeList, in ComponentTypeSet componentTypeSet)
         {
             int newShared = 0;
             int totalNewComponentSize = 0;
@@ -460,7 +473,7 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponents(Entity entity, ComponentTypeSet typeSet)
+        public void AssertCanAddComponents(Entity entity, in ComponentTypeSet typeSet)
         {
             if (!Exists(entity))
                 throw new InvalidOperationException("The entity does not exist."  + AppendDestroyedEntityRecordError(entity));
@@ -469,7 +482,7 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponents(NativeArray<Entity> entities, ComponentTypeSet typeSet)
+        public void AssertCanAddComponents(NativeArray<Entity> entities, in ComponentTypeSet typeSet)
         {
             for (int i = 0; i < entities.Length; ++i)
             {
@@ -512,7 +525,7 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanRemoveComponents(ComponentTypeSet typeSet)
+        public void AssertCanRemoveComponents(in ComponentTypeSet typeSet)
         {
             for (int i = 0; i < typeSet.Length; ++i)
                 AssertCanRemoveComponent(ComponentType.FromTypeIndex(typeSet.GetTypeIndex(i)));
@@ -796,7 +809,7 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal void AssertNotZeroSizedComponent(TypeIndex typeIndex)
         {
-            if (typeIndex.IsZeroSized)
+            if (Hint.Unlikely(typeIndex.IsZeroSized))
                 throw new System.ArgumentException(
                     "This operation can not be called with a zero sized component.");
         }
@@ -804,7 +817,7 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal static void AssertComponentSizeMatches(TypeIndex typeIndex, int size)
         {
-            if (TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size)
+            if (Hint.Unlikely(TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size))
                 throw new System.ArgumentException(
                     "SetComponentData can not be called with a zero sized component and must have same size as sizeof(T).");
         }
@@ -812,7 +825,7 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal static void AssertComponentEnableable(TypeIndex typeIndex)
         {
-            if (!typeIndex.IsEnableable)
+            if (Hint.Unlikely(!typeIndex.IsEnableable))
                 throw new System.ArgumentException(
                     "Component Enabled Bits APIs (SetComponentEnabled, IsComponentEnabled, etc) can not be called with a component type that does not implement IEnableableComponent");
         }

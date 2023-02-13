@@ -241,17 +241,17 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetEntityQuery_ArchetypeQuery()
         {
-            var query1 = new ComponentType[] { typeof(EcsTestData) };
-            var query2 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData) } };
-            var query3 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) } };
+            var queryDesc1 = new ComponentType[] { typeof(EcsTestData) };
+            var queryDesc2 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData) } };
+            var queryDesc3 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) } };
 
-            var group1 = EmptySystem.GetEntityQuery(query1);
-            var group2 = EmptySystem.GetEntityQuery(query2);
-            var group3 = EmptySystem.GetEntityQuery(query3);
+            var query1 = EmptySystem.GetEntityQuery(queryDesc1);
+            var query2 = EmptySystem.GetEntityQuery(queryDesc2);
+            var query3 = EmptySystem.GetEntityQuery(queryDesc3);
 
-            Assert.AreEqual(group1, EmptySystem.GetEntityQuery(query1));
-            Assert.AreEqual(group2, EmptySystem.GetEntityQuery(query2));
-            Assert.AreEqual(group3, EmptySystem.GetEntityQuery(query3));
+            Assert.AreEqual(query1, EmptySystem.GetEntityQuery(queryDesc1));
+            Assert.AreEqual(query2, EmptySystem.GetEntityQuery(queryDesc2));
+            Assert.AreEqual(query3, EmptySystem.GetEntityQuery(queryDesc3));
 
             Assert.AreEqual(2, EmptySystem.EntityQueries.Length);
         }
@@ -259,51 +259,51 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetEntityQuery_ComponentTypeArchetypeQueryEquality()
         {
-            var query1 = new ComponentType[] { typeof(EcsTestData) };
-            var query2 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData) } };
-            var query3 = new EntityQueryDesc { All = new[] { ComponentType.ReadWrite<EcsTestData>() } };
+            var queryDesc1 = new ComponentType[] { typeof(EcsTestData) };
+            var queryDesc2 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData) } };
+            var queryDesc3 = new EntityQueryDesc { All = new[] { ComponentType.ReadWrite<EcsTestData>() } };
 
-            var group1 = EmptySystem.GetEntityQuery(query1);
-            var group2 = EmptySystem.GetEntityQuery(query2);
-            var group3 = EmptySystem.GetEntityQuery(query3);
+            var query1 = EmptySystem.GetEntityQuery(queryDesc1);
+            var query2 = EmptySystem.GetEntityQuery(queryDesc2);
+            var query3 = EmptySystem.GetEntityQuery(queryDesc3);
 
-            Assert.AreEqual(group1, group2);
-            Assert.AreEqual(group2, group3);
+            Assert.AreEqual(query1, query2);
+            Assert.AreEqual(query2, query3);
             Assert.AreEqual(1, EmptySystem.EntityQueries.Length);
         }
 
         [Test]
         public void GetEntityQuery_RespectsRWAccessInequality()
         {
-            var query1 = new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() } };
-            var query2 = new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>() } };
+            var queryDesc1 = new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() } };
+            var queryDesc2 = new EntityQueryDesc { All = new[] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>() } };
 
-            var group1 = EmptySystem.GetEntityQuery(query1);
-            var group2 = EmptySystem.GetEntityQuery(query2);
+            var query1 = EmptySystem.GetEntityQuery(queryDesc1);
+            var query2 = EmptySystem.GetEntityQuery(queryDesc2);
 
-            Assert.AreNotEqual(group1, group2);
+            Assert.AreNotEqual(query1, query2);
             Assert.AreEqual(2, EmptySystem.EntityQueries.Length);
         }
 
         [Test]
         public void GetEntityQuery_OrderIndependent()
         {
-            var query1 = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) };
-            var query2 = new ComponentType[] { typeof(EcsTestData2), typeof(EcsTestData) };
+            var queryTypes1 = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) };
+            var queryTypes2 = new ComponentType[] { typeof(EcsTestData2), typeof(EcsTestData) };
 
-            var group1 = EmptySystem.GetEntityQuery(query1);
-            var group2 = EmptySystem.GetEntityQuery(query2);
+            var query1 = EmptySystem.GetEntityQuery(queryTypes1);
+            var query2 = EmptySystem.GetEntityQuery(queryTypes2);
 
-            Assert.AreEqual(group1, group2);
+            Assert.AreEqual(query1, query2);
             Assert.AreEqual(1, EmptySystem.EntityQueries.Length);
 
-            var query3 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData2), typeof(EcsTestData3) } };
-            var query4 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData3), typeof(EcsTestData2) } };
+            var queryDesc3 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData2), typeof(EcsTestData3) } };
+            var queryDesc4 = new EntityQueryDesc { All = new ComponentType[] { typeof(EcsTestData3), typeof(EcsTestData2) } };
 
-            var group3 = EmptySystem.GetEntityQuery(query3);
-            var group4 = EmptySystem.GetEntityQuery(query4);
+            var query3 = EmptySystem.GetEntityQuery(queryDesc3);
+            var query4 = EmptySystem.GetEntityQuery(queryDesc4);
 
-            Assert.AreEqual(group3, group4);
+            Assert.AreEqual(query3, query4);
             Assert.AreEqual(2, EmptySystem.EntityQueries.Length);
         }
 
@@ -657,6 +657,51 @@ namespace Unity.Entities.Tests
 
         }
 
+        struct ComponentLookupContainerJob : IJob
+        {
+            public ComponentLookup<EcsTestContainerData> array;
+
+            public void Execute() { }
+        }
+
+        struct ComponentLookupJob : IJob
+        {
+            public ComponentLookup<EcsTestData> array;
+
+            public void Execute() { }
+        }
+
+        [Test]
+        public void ComponentLookup_ComponentWithContainer_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestContainerData));
+            var component = new EcsTestContainerData();
+            component.Create();
+            m_Manager.SetComponentData(entity, component);
+            var array = m_Manager.GetComponentLookup<EcsTestContainerData>();
+            Assert.AreEqual(array[entity], component);
+            Assert.AreEqual(array[entity].data[1], component.data[1]);
+            component.Destroy();
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Relies on jobs debugger")]
+        public void ComponentLookup_ComponentWithContainerInJob_Throws()
+        {
+            var job = new ComponentLookupContainerJob();
+            job.array = m_Manager.GetComponentLookup<EcsTestContainerData>();
+            var e = Assert.Throws<InvalidOperationException>(() => job.Schedule());
+            Assert.IsTrue(e.Message.Contains("Nested native containers are illegal in jobs"));
+        }
+
+        [Test]
+        public void ComponentLookup_InJob_Works()
+        {
+            var job = new ComponentLookupJob();
+            job.array = m_Manager.GetComponentLookup<EcsTestData>();
+            Assert.DoesNotThrow(() => job.Schedule().Complete());
+        }
+
         [Test]
         public void ComponentLookup_TryGetComponent_HasTagComponent()
         {
@@ -664,6 +709,32 @@ namespace Unity.Entities.Tests
             var array = m_Manager.GetComponentLookup<EcsTestTag>();
             Assert.IsTrue(array.TryGetComponent(entity,out var tagComponent));
             Assert.AreEqual(default(EcsTestTag),tagComponent);
+        }
+
+        [Test]
+        public void ComponentLookup_GetComponent_Works()
+        {
+            var entityA = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.SetComponentData(entityA, new EcsTestData
+            {
+                value = 0
+            });
+            var entityB = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.SetComponentData(entityB, new EcsTestData
+            {
+                value = 1
+            });
+            var entityC = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.SetComponentData(entityC, new EcsTestData
+            {
+                value = 2
+            });
+
+            var array = m_Manager.GetComponentLookup<EcsTestData>();
+
+            Assert.AreEqual(0, array[entityA].value);
+            Assert.AreEqual(1, array[entityB].value);
+            Assert.AreEqual(2, array[entityC].value);
         }
 
         [Test]
@@ -728,6 +799,77 @@ namespace Unity.Entities.Tests
             // The set[] accessor will *NOT* update the LookupCache, because cache.Archetype still matches.
             // Before the fix, this will pass IndexInArchetype=-1 to SetChangeVersion(), which asserts / stomps unrelated memory.
             Assert.DoesNotThrow(() => { lookup[entityA] = new EcsTestData(23); });
+        }
+
+        struct BufferLookupContainerJob : IJob
+        {
+            public BufferLookup<EcsTestContainerElement> array;
+
+            public void Execute() { }
+        }
+
+        struct BufferLookupJob : IJob
+        {
+            public BufferLookup<EcsIntElement> array;
+
+            public void Execute() { }
+        }
+
+        [Test]
+        public void BufferLookup_ElementWithContainer_Works()
+        {
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsTestContainerElement();
+            element.Create();
+            m_Manager.AddBuffer<EcsTestContainerElement>(entity);
+            m_Manager.GetBuffer<EcsTestContainerElement>(entity).Add(element);
+
+            var array = m_Manager.GetBufferLookup<EcsTestContainerElement>();
+            Assert.IsTrue(array.TryGetBuffer(entity, out var bufferData));
+
+            Assert.AreEqual(bufferData[0].data[1], element.data[1]);
+
+            element.Destroy();
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Relies on jobs debugger")]
+        public void BufferLookup_ElementWithContainerInJob_Throws()
+        {
+            var job = new BufferLookupContainerJob();
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsTestContainerElement();
+            m_Manager.AddBuffer<EcsTestContainerElement>(entity);
+            m_Manager.GetBuffer<EcsTestContainerElement>(entity).Add(element);
+
+            job.array = m_Manager.GetBufferLookup<EcsTestContainerElement>();
+            var e = Assert.Throws<InvalidOperationException>(() => job.Schedule());
+            Assert.IsTrue(e.Message.Contains("Nested native containers are illegal in jobs"));
+        }
+
+        [Test]
+        public void BufferLookup_InJob_Works()
+        {
+            var job = new BufferLookupJob();
+            var entity = m_Manager.CreateEntity();
+            var element = new EcsIntElement();
+            m_Manager.AddBuffer<EcsIntElement>(entity);
+            m_Manager.GetBuffer<EcsIntElement>(entity).Add(element);
+
+            job.array = m_Manager.GetBufferLookup<EcsIntElement>();
+            Assert.DoesNotThrow(() => job.Schedule().Complete());
+        }
+
+        [Test]
+        public void BufferLookup_HasBuffer_Works()
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddBuffer<EcsIntElement>(entity);
+            m_Manager.GetBuffer<EcsIntElement>(entity).AddRange(new NativeArray<EcsIntElement>(new EcsIntElement[] { 0, 1, 2 }, Allocator.Temp));
+
+            var array = m_Manager.GetBufferLookup<EcsIntElement>();
+
+            Assert.IsTrue(array.HasBuffer(entity));
         }
 
         [Test]
@@ -864,10 +1006,6 @@ namespace Unity.Entities.Tests
             {
                 state.EntityManager.CreateEntity(typeof(EcsTestData));
                 m_Query = state.GetEntityQuery(typeof(EcsTestData));
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
             }
 
             public void OnUpdate(ref SystemState state)
@@ -1226,7 +1364,6 @@ namespace Unity.Entities.Tests
             {
                 state.EntityManager.AddComponent<UpdateCountData>(state.SystemHandle);
             }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state)
             {
                 foreach (var data in Query<RefRW<EcsTestData>>()) { }
@@ -1240,7 +1377,6 @@ namespace Unity.Entities.Tests
             {
                 state.EntityManager.AddComponent<UpdateCountData>(state.SystemHandle);
             }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state)
             {
                 foreach (var data in Query<RefRW<EcsTestData>>()) { }
@@ -1255,8 +1391,6 @@ namespace Unity.Entities.Tests
                 state.RequireForUpdate<EcsTestData>();
                 state.EntityManager.AddComponent<UpdateCountData>(state.SystemHandle);
             }
-            public void OnDestroy(ref SystemState state) { }
-
             public void OnUpdate(ref SystemState state)
             {
                 foreach (var data in Query<RefRW<EcsTestData>>()) { }
@@ -1271,7 +1405,6 @@ namespace Unity.Entities.Tests
                 state.RequireForUpdate(state.GetEntityQuery(typeof(EcsTestData)));
                 state.EntityManager.AddComponent<UpdateCountData>(state.SystemHandle);
             }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state)
             {
                 foreach (var data in Query<RefRW<EcsTestData>>()) { }
@@ -1286,7 +1419,6 @@ namespace Unity.Entities.Tests
                 state.RequireForUpdate<EcsTestData2>();
                 state.EntityManager.AddComponent<UpdateCountData>(state.SystemHandle);
             }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state)
             {
                 foreach (var data in Query<RefRW<EcsTestData>>()) { }
@@ -1305,7 +1437,6 @@ namespace Unity.Entities.Tests
                 });
                 state.RequireForUpdate(RequiredQuery);
             }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state)
             {
                 foreach (var data in Query<RefRW<EcsTestData>>()) { }
@@ -1414,9 +1545,6 @@ namespace Unity.Entities.Tests
         [WorldSystemFilter((WorldSystemFilterFlags)(1 << 20))]   // unused filter flag
         partial struct WorldSystemFilterISystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) { }
         }
 
         [WorldSystemFilter((WorldSystemFilterFlags)(1 << 20))]   // unused filter flag
@@ -1461,6 +1589,7 @@ namespace Unity.Entities.Tests
             }
 
             private EntityQuery m_Query;
+            private EntityQuery m_QueryWithAspect;
 
             [BurstCompile]
             public void OnCreate(ref SystemState state)
@@ -1473,11 +1602,9 @@ namespace Unity.Entities.Tests
                 m_Query = state.GetEntityQuery(myTypes);
 
                 myTypes.Dispose();
-            }
 
-            [BurstCompile]
-            public void OnDestroy(ref SystemState state)
-            {
+                m_QueryWithAspect = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().WithAspect<MyAspect>()
+                    .Build(ref state);
             }
 
             [BurstCompile]
@@ -1485,6 +1612,7 @@ namespace Unity.Entities.Tests
             {
                 state.GetComponentTypeHandle<EcsTestData>();
                 state.Dependency = new MyJob().ScheduleParallel(m_Query, state.Dependency);
+                state.Dependency = new MyJob().ScheduleParallel(m_QueryWithAspect, state.Dependency);
                 state.EntityManager.CreateEntity();
             }
         }
@@ -1506,14 +1634,7 @@ namespace Unity.Entities.Tests
                 });
             }
 
-            public void OnDestroy(ref SystemState state)
-            {
             }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
-        }
 
         unsafe partial struct UnmanagedSystemWithRefB : ISystem
         {
@@ -1525,14 +1646,7 @@ namespace Unity.Entities.Tests
                 });
             }
 
-            public void OnDestroy(ref SystemState state)
-            {
             }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
-        }
 
         [Test]
         public void UnmanagedSystemRefsBatchCreateWorks()

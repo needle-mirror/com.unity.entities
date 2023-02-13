@@ -4,7 +4,7 @@ uid: components-shared
 
 # Shared components
 
-Shared components group entities in chunks based on the values of their shared cComponent, which helps with with the de-duplication of data.
+Shared components group entities in chunks based on the values of their shared Component, which helps with the de-duplication of data.
 
 | **Topic**                                                    | **Description**                                              |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |

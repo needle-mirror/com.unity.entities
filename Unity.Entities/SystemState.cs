@@ -73,6 +73,8 @@ namespace Unity.Entities
         #endregion
 
         #region Rarely accessed during System.OnUpdate depending on what they do (Cold)
+        internal int                           m_SystemTypeIndex;
+        
         internal int                           m_SystemID;
 
         internal EntityManager                 m_EntityManager;
@@ -270,9 +272,11 @@ namespace Unity.Entities
         {
             m_UnmanagedMetaIndex = -1;
             m_ManagedSystem = GCHandle.Alloc(system, GCHandleType.Normal);
-            m_DebugName = TypeManager.GetSystemName(managedType);
+            var systemTypeIndex = TypeManager.GetSystemTypeIndex(managedType);
 
-            CommonInit(world, handle);
+            m_DebugName = TypeManager.GetSystemName(systemTypeIndex);
+
+            CommonInit(world, handle, systemTypeIndex);
 
             if (managedType != null)
             {
@@ -290,9 +294,10 @@ namespace Unity.Entities
 
 
         // Initialization common to managed and unmanaged systems
-        private void CommonInit(World world, SystemHandle handle)
+        private void CommonInit(World world, SystemHandle handle, int systemTypeIndex)
         {
             Enabled = true;
+            m_SystemTypeIndex = systemTypeIndex;
             m_SystemID = ++ms_SystemIDAllocator;
             m_World = GCHandle.Alloc(world);
             m_WorldUnmanaged = world.Unmanaged;
@@ -320,14 +325,13 @@ namespace Unity.Entities
 #if TEST_FOR_COPY
             m_Self = This;
 #endif
-            CommonInit(world, handle);
+            var typeIndex = TypeManager.GetSystemTypeIndex(SystemBaseRegistry.GetStructType(unmanagedMetaIndex));
+            CommonInit(world, handle, typeIndex);
 
-            m_DebugName = TypeManager.GetSystemName(m_WorldUnmanaged.GetTypeOfSystem(handle));
+            m_DebugName = TypeManager.GetSystemName(typeIndex);
 
-            var requireAttributeType = typeof(RequireMatchingQueriesForUpdateAttribute);
-            var systemType = SystemBaseRegistry.GetStructType(unmanagedMetaIndex);
-
-            var attrs = TypeManager.GetSystemAttributes(systemType, requireAttributeType);
+            var attrs = TypeManager.GetSystemAttributes(typeIndex,
+                TypeManager.SystemAttributeKind.RequireMatchingQueriesForUpdate);
             if (attrs.Length > 0)
                 RequireMatchingQueriesForUpdate = true;
 
@@ -1225,8 +1229,17 @@ namespace Unity.Entities
                         var componentType = new ComponentType{ TypeIndex = archetypeQuery.None[i], AccessModeType = (ComponentType.AccessMode)archetypeQuery.NoneAccessMode[i] };
                         builder.WithNone(&componentType, 1);
                     }
+                    for (var i = 0; i < archetypeQuery.AbsentCount; i++)
+                    {
+                        var componentType = new ComponentType{ TypeIndex = archetypeQuery.Absent[i], AccessModeType = (ComponentType.AccessMode)archetypeQuery.AbsentAccessMode[i] };
+                        builder.WithAbsent(&componentType, 1);
+                    }
+                    for (var i = 0; i < archetypeQuery.DisabledCount; i++)
+                    {
+                        var componentType = new ComponentType{ TypeIndex = archetypeQuery.Disabled[i], AccessModeType = (ComponentType.AccessMode)archetypeQuery.DisabledAccessMode[i] };
+                        builder.WithDisabled(&componentType, 1);
+                    }
                     builder.WithOptions(archetypeQuery.Options);
-
                     builder.FinalizeQueryInternal();
                 }
             }

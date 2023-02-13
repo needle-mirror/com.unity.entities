@@ -464,7 +464,7 @@ namespace Unity.Entities.Editor
                 ChunkShadowBySequenceNumber = m_ChunkShadowBySequenceNumber,
                 ChunkShadowBySequenceNumberKeys = m_ChunkShadowBySequenceNumberKeys,
                 ChunkShadowBySequenceNumberKeysFreeList = m_ChunkShadowBySequenceNumberKeysFreeList
-            }.Schedule(updateShadowChunksJobHandle);
+            }.Schedule(JobHandle.CombineDependencies(buildChangeSetJobHandle, updateShadowChunksJobHandle));
 
             var copySharedComponentsJobHandle = new CopyStateToShadowSharedComponentDataJob
             {

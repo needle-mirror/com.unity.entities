@@ -35,5 +35,28 @@ namespace Unity.Entities.Tests
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, FilterSystemsToPackages(systems, EntitiesPackage));
             return world;
         }
+
+        public enum TestWorldSystemFilterFlags
+        {
+            Default,
+            OnlyStreaming
+        }
+
+        public static World CreateEntityWorld(string name, TestWorldSystemFilterFlags testFlags)
+        {
+            IReadOnlyList<Type> systems;
+            if (testFlags == TestWorldSystemFilterFlags.OnlyStreaming)
+            {
+                systems = TypeManager.GetSystems(WorldSystemFilterFlags.Streaming, WorldSystemFilterFlags.Streaming);
+            }
+            else
+            {
+                systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.Default, true);
+            }
+
+            var world = new World(name, WorldFlags.Game);
+            DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, FilterSystemsToPackages(systems, EntitiesPackage));
+            return world;
+        }
     }
 }

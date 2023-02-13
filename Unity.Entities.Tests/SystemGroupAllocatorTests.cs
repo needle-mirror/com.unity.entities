@@ -828,9 +828,6 @@ namespace Unity.Entities.Tests
                 });
             }
 
-            public void OnDestroy(ref SystemState state)
-            {
-            }
             public void OnUpdate(ref SystemState state)
             {
                 var updatesList = state.EntityManager.GetComponentDataRW<NativeListComponent<TimeData>>(state.SystemHandle).ValueRW;
@@ -857,10 +854,6 @@ namespace Unity.Entities.Tests
                 {
                     data = new NativeList<int>(state.WorldUnmanaged.UpdateAllocator.ToAllocator)
                 });
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
             }
 
             public void OnUpdate(ref SystemState state)
@@ -904,14 +897,6 @@ namespace Unity.Entities.Tests
                 First = 1;
                 world.EntityManager.AddComponent<AllocateNativeArrayComponent>(instanceHandle);
             }
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
             public void OnUpdate(ref SystemState state)
             {
                 var allocator = state.WorldUpdateAllocator;

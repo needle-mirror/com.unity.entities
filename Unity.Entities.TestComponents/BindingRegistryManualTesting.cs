@@ -1,4 +1,5 @@
-﻿using Unity.Entities;
+﻿using System;
+using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -35,40 +36,103 @@ namespace Unity.Entities.Tests
         }
     }
 
-    public struct BindingRegistryFieldTestComponent : IComponentData
+    public struct BindingRegistrySeparateFieldsComponent : IComponentData
     {
         public float2 BindFloat2;
     }
 
-    public class BindingRegistryField1TestAuthoring : MonoBehaviour
+    public class BindingRegistrySeparateFieldsAuthoring : MonoBehaviour
     {
-        [RegisterBinding(typeof(BindingRegistryFieldTestComponent),
-            nameof(BindingRegistryFieldTestComponent.BindFloat2) + ".x")]
-        public float2 FloatField = new float2(5.0f, 0.0f);
+        [RegisterBinding(typeof(BindingRegistrySeparateFieldsComponent), nameof(BindingRegistrySeparateFieldsComponent.BindFloat2) + ".x")]
+        public float FloatField1 = 5.0f;
+        [RegisterBinding(typeof(BindingRegistrySeparateFieldsComponent), nameof(BindingRegistrySeparateFieldsComponent.BindFloat2) + ".y")]
+        public float FloatField2 = 0.0f;
 
-        class Baker : Baker<BindingRegistryField1TestAuthoring>
+        class Baker : Baker<BindingRegistrySeparateFieldsAuthoring>
         {
-            public override void Bake(BindingRegistryField1TestAuthoring authoring)
+            public override void Bake(BindingRegistrySeparateFieldsAuthoring authoring)
             {
-                AddComponent(new BindingRegistryFieldTestComponent
-                    {BindFloat2 = authoring.FloatField});
+                AddComponent(new BindingRegistrySeparateFieldsComponent
+                    { BindFloat2 = new float2(authoring.FloatField1, authoring.FloatField2) });
             }
         }
     }
 
-    public class BindingRegistryField2TestAuthoring : MonoBehaviour
+    public struct BindingRegistryColorComponent : IComponentData
     {
-        [RegisterBinding(typeof(BindingRegistryFieldTestComponent),
-            nameof(BindingRegistryFieldTestComponent.BindFloat2) + ".y")]
-        public float2 FloatField = new float2(0.0f, 5.0f);
+        public float4 BindColor;
+    }
 
-        class Baker : Baker<BindingRegistryField2TestAuthoring>
+    public class BindingRegistryColorAuthoring : MonoBehaviour
+    {
+        [RegisterBinding(typeof(BindingRegistryColorComponent), nameof(BindingRegistryColorComponent.BindColor))]
+        public UnityEngine.Color Color = Color.yellow;
+
+        class Baker : Baker<BindingRegistryColorAuthoring>
         {
-            public override void Bake(BindingRegistryField2TestAuthoring authoring)
+            public override void Bake(BindingRegistryColorAuthoring authoring)
             {
-                AddComponent(new BindingRegistryFieldTestComponent
-                        {BindFloat2 = authoring.FloatField});
+                AddComponent(new BindingRegistryColorComponent
+                {
+                    BindColor = new float4(authoring.Color.r, authoring.Color.g, authoring.Color.b, authoring.Color.a)
+                });
             }
         }
     }
+
+    public struct BindingRegistryVectorComponent : IComponentData
+    {
+        public float4 BindFloat4;
+    }
+
+    public class BindingRegistryVectorAuthoring : MonoBehaviour
+    {
+        [RegisterBinding(typeof(BindingRegistryVectorComponent), nameof(BindingRegistryVectorComponent.BindFloat4))]
+        public UnityEngine.Vector4 Vector4 = new Vector4(0f, 1f, 2f, 3f);
+
+        class Baker : Baker<BindingRegistryVectorAuthoring>
+        {
+            public override void Bake(BindingRegistryVectorAuthoring authoring)
+            {
+                AddComponent(new BindingRegistryVectorComponent
+                {
+                    BindFloat4 = new float4(authoring.Vector4.x, authoring.Vector4.y, authoring.Vector4.z, authoring.Vector4.w)
+                });
+            }
+        }
+    }
+
+    public struct BindingRegistryNestedFieldsComponent : IComponentData
+    {
+        public float4 BindFloat4;
+    }
+
+    public class BindingRegistryNestedFieldsAuthoring : MonoBehaviour
+    {
+        [Serializable]
+        public struct NestedStruct
+        {
+            public float Float;
+            public float3 Float3;
+        }
+
+        [RegisterBinding(nameof(NestedStruct.Float), typeof(BindingRegistryNestedFieldsComponent), nameof(BindingRegistryNestedFieldsComponent.BindFloat4) + ".x")]
+        [RegisterBinding(nameof(NestedStruct.Float3) + ".x", typeof(BindingRegistryNestedFieldsComponent), nameof(BindingRegistryNestedFieldsComponent.BindFloat4) + ".y")]
+        [RegisterBinding(nameof(NestedStruct.Float3) + ".y", typeof(BindingRegistryNestedFieldsComponent), nameof(BindingRegistryNestedFieldsComponent.BindFloat4) + ".z")]
+        [RegisterBinding(nameof(NestedStruct.Float3) + ".z", typeof(BindingRegistryNestedFieldsComponent), nameof(BindingRegistryNestedFieldsComponent.BindFloat4) + ".w")]
+        public NestedStruct NestedData;
+
+        class Baker : Baker<BindingRegistryNestedFieldsAuthoring>
+        {
+            public override void Bake(BindingRegistryNestedFieldsAuthoring authoring)
+            {
+                AddComponent(new BindingRegistryNestedFieldsComponent
+                {
+                    BindFloat4 = new float4(authoring.NestedData.Float, authoring.NestedData.Float3)
+                });
+            }
+        }
+    }
+
+
 }

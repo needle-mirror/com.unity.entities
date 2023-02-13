@@ -22,6 +22,7 @@ namespace Unity.Entities.Editor
             End
         }
 
+        readonly SubSceneMap m_SubSceneMap;
         readonly HierarchyNodeStore m_HierarchyNodeStore;
         readonly HierarchyNodeImmutableStore m_HierarchyNodeImmutableStore;
         readonly HierarchyNameStore m_HierarchyNameStore;
@@ -33,6 +34,7 @@ namespace Unity.Entities.Editor
 
         HierarchyEntityChangeTracker.OperationModeType m_HierarchyEntityChangeTrackerOperationMode;
 
+        SubSceneChangeTracker m_SubSceneChangeTracker;
         HierarchyEntityChangeTracker m_HierarchyEntityChangeTracker;
         HierarchyGameObjectChangeTracker m_HierarchyGameObjectChangeTracker;
         HierarchyPrefabStageChangeTracker m_HierarchyPrefabStageChangeTracker;
@@ -40,6 +42,11 @@ namespace Unity.Entities.Editor
         UpdateStep m_Step;
 
         uint m_Version;
+
+        /// <summary>
+        /// Re-usable data structure to store results from the <see cref="SubSceneMap"/>.
+        /// </summary>
+        readonly SubSceneChangeTracker.SubSceneMapChanges m_SubSceneChanges;
 
         /// <summary>
         /// Re-usable data structure to store results from the <see cref="HierarchyEntityChangeTracker"/>.
@@ -133,13 +140,15 @@ namespace Unity.Entities.Editor
 
         public bool IsHierarchyVisible { private get; set; }
 
-        public HierarchyUpdater(HierarchyNodeStore hierarchyNodeStore, HierarchyNodeImmutableStore hierarchyNodeImmutableStore, HierarchyNameStore hierarchyNameStore, HierarchyNodes hierarchyNodes, Allocator allocator)
+        public HierarchyUpdater(HierarchyNodeStore hierarchyNodeStore, HierarchyNodeImmutableStore hierarchyNodeImmutableStore, HierarchyNameStore hierarchyNameStore, HierarchyNodes hierarchyNodes, SubSceneMap subSceneMap, Allocator allocator)
         {
+            m_SubSceneMap = subSceneMap;
             m_HierarchyNodeStore = hierarchyNodeStore;
             m_HierarchyNodeImmutableStore = hierarchyNodeImmutableStore;
             m_HierarchyNameStore = hierarchyNameStore;
             m_HierarchyNodes = hierarchyNodes;
             m_Allocator = allocator;
+            m_SubSceneChanges = new SubSceneChangeTracker.SubSceneMapChanges(128, allocator);
             m_HierarchyEntityChanges = new HierarchyEntityChanges(allocator);
             m_HierarchyGameObjectChanges = new HierarchyGameObjectChanges(allocator);
             m_HierarchyPrefabStageChanges = new HierarchyPrefabStageChanges(allocator);
@@ -147,15 +156,18 @@ namespace Unity.Entities.Editor
 
             m_HierarchyGameObjectChangeTracker = new HierarchyGameObjectChangeTracker(m_Allocator);
             m_HierarchyPrefabStageChangeTracker = new HierarchyPrefabStageChangeTracker(m_Allocator);
+            m_SubSceneChangeTracker = new SubSceneChangeTracker();
 
             SetState(UpdateStep.Start);
         }
 
         public void Dispose()
         {
+            m_SubSceneChanges.Dispose();
             m_HierarchyEntityChanges.Dispose();
             m_HierarchyGameObjectChanges.Dispose();
             m_ExportImmutableState.Dispose();
+            m_SubSceneChangeTracker?.Dispose();
             m_HierarchyEntityChangeTracker?.Dispose();
             m_HierarchyGameObjectChangeTracker?.Dispose();
             m_HierarchyPrefabStageChangeTracker?.Dispose();
@@ -172,15 +184,16 @@ namespace Unity.Entities.Editor
 
             m_World = world;
 
-            m_HierarchyEntityChangeTracker?.Dispose();
+            m_SubSceneChangeTracker.SetWorld(m_World);
 
+            m_HierarchyEntityChangeTracker?.Dispose();
             m_HierarchyEntityChangeTracker = null != world
                 ? new HierarchyEntityChangeTracker(m_World, m_Allocator) { OperationMode = m_HierarchyEntityChangeTrackerOperationMode }
                 : null;
 
             Reset();
         }
-        
+
         public void ClearGameObjectTrackers()
         {
             m_HierarchyGameObjectChangeTracker.Clear();
@@ -209,26 +222,10 @@ namespace Unity.Entities.Editor
                 switch (state)
                 {
                     case UpdateStep.Start:
-                    {
-                        if (!IsHierarchyVisible)
-                        {
-                            state = UpdateStep.GetGameObjectChanges;
-                            continue;
-                        }
-
                         break;
-                    }
 
                     case UpdateStep.GetEntityChanges:
-                    {
-                        if (null == m_HierarchyEntityChangeTracker)
-                        {
-                            state = UpdateStep.GetGameObjectChanges;
-                            continue;
-                        }
-
                         break;
-                    }
 
                     case UpdateStep.GetGameObjectChanges:
                         break;
@@ -250,7 +247,7 @@ namespace Unity.Entities.Editor
                         if (m_HierarchyEntityChanges.HasChanges() && m_World is { IsCreated: true })
                         {
                             // Delegate the implementation to another enumerator.
-                            m_IntegrateEntityChangesEnumerator = m_HierarchyNodeStore.CreateIntegrateEntityChangesEnumerator(m_World, m_HierarchyEntityChanges, EntityChangeIntegrationBatchSize);
+                            m_IntegrateEntityChangesEnumerator = m_HierarchyNodeStore.CreateIntegrateEntityChangesEnumerator(m_World, m_HierarchyEntityChanges, EntityChangeIntegrationBatchSize, m_SubSceneMap.GetSceneTagToSubSceneHandleMap());
                         }
                         else
                         {
@@ -266,7 +263,7 @@ namespace Unity.Entities.Editor
                         if (m_HierarchyGameObjectChanges.HasChanges())
                         {
                             // Delegate the implementation to another enumerator.
-                            m_IntegrateGameObjectChangesEnumerator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_HierarchyGameObjectChanges, GameObjectChangeIntegrationBatchSize);
+                            m_IntegrateGameObjectChangesEnumerator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_HierarchyGameObjectChanges, m_SubSceneMap, GameObjectChangeIntegrationBatchSize);
                         }
                         else if (!IsHierarchyVisible)
                         {
@@ -332,10 +329,15 @@ namespace Unity.Entities.Editor
                     SetState(UpdateStep.GetEntityChanges);
                     return true;
                 }
-
                 case UpdateStep.GetEntityChanges:
                 {
-                    m_HierarchyEntityChangeTracker.GetChanges(m_HierarchyEntityChanges);
+                    if (IsHierarchyVisible && m_HierarchyEntityChangeTracker is not null)
+                        m_HierarchyEntityChangeTracker.GetChanges(m_HierarchyEntityChanges);
+
+                    m_SubSceneChangeTracker.GetChanges(m_SubSceneChanges);
+                    if (m_SubSceneChanges.HasChanges())
+                        m_SubSceneMap.IntegrateChanges(m_World, m_HierarchyNodeStore, m_HierarchyNameStore, m_SubSceneChanges);
+
                     SetState(UpdateStep.GetGameObjectChanges);
                     return true;
                 }
@@ -356,8 +358,8 @@ namespace Unity.Entities.Editor
                     if (m_IntegrateEntityChangesEnumerator.MoveNext())
                         return true;
 
+                    m_IntegrateEntityChangesEnumerator.Dispose();
                     m_IntegrateEntityChangesEnumerator = default;
-                    m_HierarchyNameStore?.IntegrateEntityChanges(m_HierarchyEntityChanges);
                     SetState(UpdateStep.IntegrateGameObjectChanges);
                     return true;
                 }
@@ -376,7 +378,7 @@ namespace Unity.Entities.Editor
 
                 case UpdateStep.IntegratePrefabStageChanges:
                 {
-                    m_HierarchyNodeStore.IntegratePrefabStageChanges(m_HierarchyPrefabStageChanges);
+                    m_HierarchyNodeStore.IntegratePrefabStageChanges(m_HierarchyPrefabStageChanges, m_SubSceneMap);
 
                     // @FIXME This is a bit hackish. We don't really want to be manipulating the _future state_ of the hierarchy.
                     // i.e. `m_HierarchyNodes` represents a view over the packed set which has not even been been built yet.

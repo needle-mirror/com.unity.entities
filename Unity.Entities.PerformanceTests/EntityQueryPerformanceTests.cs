@@ -886,10 +886,6 @@ namespace Unity.Entities.PerformanceTests
             {
                 Assert.Fail("QueryISystem is expected to be BurstCompiled and it isn't.");
             }
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) { }
-
             [BurstCompile(CompileSynchronously = true)]
             public static void GetQueries(ref SystemState state, ref NativeArray<NativeArray<ComponentType>> queries)
             {
@@ -1857,10 +1853,6 @@ namespace Unity.Entities.PerformanceTests
             {
                 _query = state.GetEntityQuery(typeof(EcsTestDataEnableable));
                 _lookup = state.GetComponentLookup<EcsTestDataEnableable>(false);
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
             }
 
             public void OnUpdate(ref SystemState state)

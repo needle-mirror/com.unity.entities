@@ -37,9 +37,6 @@ namespace Unity.Entities.PerformanceTests
     [BurstCompile(CompileSynchronously = true)]
     partial struct IterateAndUseAspectSystem : ISystem
     {
-        public void OnCreate(ref SystemState state) { }
-        public void OnDestroy(ref SystemState state) { }
-
         [BurstCompile(CompileSynchronously = true)]
         public void OnUpdate(ref SystemState state)
         {
@@ -52,9 +49,6 @@ namespace Unity.Entities.PerformanceTests
     [BurstCompile(CompileSynchronously = true)]
     partial struct IterateAndUseComponentsSystem : ISystem
     {
-        public void OnCreate(ref SystemState state) { }
-        public void OnDestroy(ref SystemState state) { }
-
         [BurstCompile(CompileSynchronously = true)]
         public void OnUpdate(ref SystemState state)
         {
@@ -79,6 +73,39 @@ namespace Unity.Entities.PerformanceTests
         }
     }
 
+    partial class EntitiesForEachThroughComponentsSystem : SystemBase
+    {
+        protected override void OnUpdate()
+        {
+            var time = SystemAPI.Time.DeltaTime;
+#if !ENABLE_TRANSFORM_V1
+            Entities.ForEach((ref LocalTransform localTransform, in SpeedModifier speedModifier) =>
+            {
+                localTransform.Rotation =
+                    math.mul(
+                        math.normalize(localTransform.Rotation),
+                        quaternion.AxisAngle(math.up(), time * speedModifier.Value));
+
+            }).WithBurst(synchronousCompilation: true).Run();
+#else
+            Entities.ForEach((ref Rotation rotation, in SpeedModifier speedModifier) =>
+            {
+                rotation.Value =
+                    math.mul(
+                        math.normalize(rotation.Value),
+                        quaternion.AxisAngle(math.up(), time * speedModifier.Value));
+
+            }).WithBurst(synchronousCompilation: true).Run();
+#endif
+        }
+    }
+
+    public enum IterationType
+    {
+        Idiomatic,
+        EntitiesForEach
+    }
+
     [TestFixture]
     public class IdiomaticForEachISystemPerformanceTests : ECSTestsFixture
     {
@@ -86,7 +113,7 @@ namespace Unity.Entities.PerformanceTests
 
         [SetUp]
         public void SetUp() =>
-            _archetype = m_Manager.CreateArchetype(RotateAspect.RequiredComponents.Append(ComponentType.ReadWrite<SpeedModifier>()).ToArray());
+            _archetype = m_Manager.CreateArchetype(AspectUtils.GetRequiredComponents<RotateAspect>(isReadOnly: false).Append(ComponentType.ReadWrite<SpeedModifier>()).ToArray());
 
         [Test, Performance]
         [Category("Performance")]
@@ -104,16 +131,43 @@ namespace Unity.Entities.PerformanceTests
 
         [Test, Performance]
         [Category("Performance")]
-        public unsafe void IterateAndUseComponents([Values(100, 100000)] int entityCount)
+        public unsafe void IterateAndUseComponents([Values(100, 100000)] int entityCount, [Values] IterationType iterationType)
         {
-            var system = World.GetOrCreateSystem<IterateAndUseAspectSystem>();
-            var systemPtr = &system;
-            using var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, World.UpdateAllocator.ToAllocator);
-            m_Manager.CreateEntity(_archetype, entities);
-            Measure.Method(() => systemPtr->Update(World.Unmanaged))
-                .WarmupCount(1)
-                .MeasurementCount(100)
-                .Run();
+            var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, World.UpdateAllocator.ToAllocator);
+
+            switch (iterationType)
+            {
+                case IterationType.Idiomatic:
+                {
+                    var system = World.GetOrCreateSystem<IterateAndUseComponentsSystem>();
+                    var systemPtr = &system;
+
+                    m_Manager.CreateEntity(_archetype, entities);
+
+                    Measure.Method(() => systemPtr->Update(World.Unmanaged))
+                        .WarmupCount(5)
+                        .MeasurementCount(100)
+                        .Run();
+
+                    entities.Dispose();
+                    break;
+                }
+
+                case IterationType.EntitiesForEach:
+                {
+                    var system = World.GetOrCreateSystemManaged<EntitiesForEachThroughComponentsSystem>();
+
+                    m_Manager.CreateEntity(_archetype, entities);
+
+                    Measure.Method(() => system.Update())
+                        .WarmupCount(5)
+                        .MeasurementCount(100)
+                        .Run();
+
+                    entities.Dispose();
+                    break;
+                }
+            }
         }
     }
 }

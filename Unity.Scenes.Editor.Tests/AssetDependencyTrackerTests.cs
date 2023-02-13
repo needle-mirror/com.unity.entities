@@ -230,7 +230,7 @@ namespace Unity.Scenes.Tests
             Assert.AreNotEqual(default(Hash128), list[0].ArtifactID, "Artifact should exist");
             AssetDatabaseCompatibility.GetArtifactPaths(list[0].ArtifactID, out var paths);
 
-            Assert.AreEqual(paths.Length, 2);
+            Assert.AreEqual(paths.Length, 1);
             var path = paths.First(p => p.EndsWith("output", StringComparison.Ordinal));
             Assert.AreEqual(content, File.ReadAllText(path));
         }

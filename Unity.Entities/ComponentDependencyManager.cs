@@ -568,7 +568,12 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (!JobHandle.CheckFenceIsDependencyOrDidSyncFence(m_ExclusiveTransactionDependency, value))
                     throw new InvalidOperationException(
-                        "EntityManager.ExclusiveEntityTransactionDependency must depend on the Entity Transaction job.");
+                        message: "EntityManager.ExclusiveEntityTransactionDependency must depend on the Entity Transaction job. \n" + 
+"Correct usage looks like EntityManager.ExclusiveEntityTransactionDependency = \n" +
+"yourJob.Schedule(EntityManager.ExclusiveEntityTransactionDependency) or \n" +
+"EntityManager.ExclusiveEntityTransactionDependency = \n" +
+"yourJob.Schedule(JobHandle.CombineDependencies(EntityManager.ExclusiveEntityTransactionDependency, someOtherJobHandle) \n"+
+                "This is so that you don't lose the pre-existing job dependency when adding your own to the chain.");
 #endif
                 m_ExclusiveTransactionDependency = value;
             }

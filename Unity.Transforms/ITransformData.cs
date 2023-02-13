@@ -31,7 +31,7 @@ namespace Unity.Transforms
     /// Provides extension methods for transform components.
     /// </summary>
     public static class TransformDataHelpers
-        {
+    {
         /// <summary>
         /// Gets the right vector of unit length.
         /// </summary>
@@ -547,7 +547,7 @@ namespace Unity.Transforms
         /// <summary>Checks if a transform has equal position, rotation, and scale to another.</summary>
         /// <typeparam name="T">The ITransformData type</typeparam>
         /// <param name="data">The target transform object for this extension method.</param>
-        /// <param name="other">The Transform to compare.</param>
+        /// <param name="other">The TransformData to compare.</param>
         /// <returns>Returns true if the position, rotation, and scale are equal.</returns>
         public static bool Equals<T>(this T data, in T other) where T : ITransformData
         {

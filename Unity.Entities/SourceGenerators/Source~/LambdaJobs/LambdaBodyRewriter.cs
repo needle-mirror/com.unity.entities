@@ -25,7 +25,13 @@ namespace Unity.Entities.SourceGen.LambdaJobs
     sealed class LambdaBodyRewriter
     {
         readonly LambdaJobDescription _lambdaJobDescription;
-        Dictionary<ITypeSymbol, DataLookupFieldDescription> DataLookupFields { get; } = new Dictionary<ITypeSymbol, DataLookupFieldDescription>();
+
+// TODO: This was recently fixed (https://github.com/dotnet/roslyn-analyzers/issues/5804), remove pragmas after we update .net
+#pragma warning disable RS1024
+        Dictionary<ITypeSymbol, DataLookupFieldDescription> DataLookupFields { get; } =
+            new Dictionary<ITypeSymbol, DataLookupFieldDescription>(SymbolEqualityComparer.Default);
+#pragma warning restore RS1024
+
         public bool NeedsTimeData { get; private set; }
 
         public LambdaBodyRewriter(LambdaJobDescription lambdaJobDescription)

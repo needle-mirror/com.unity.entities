@@ -73,7 +73,7 @@ namespace Unity.Entities.Editor.Tests
             m_Field.value = invalidEntity;
             Assert.That(m_EntityLabel.text, Is.EqualTo($"Entity {{{invalidEntity.Index}:{invalidEntity.Version}}}"));
             m_Field.World = m_World;
-            Assert.That(m_EntityLabel.text, Is.EqualTo($"Invalid (Entity)"));
+            Assert.That(m_EntityLabel.text, Is.EqualTo($"Invalid (Entity {{{invalidEntity.Index}:{invalidEntity.Version}}})"));
             m_Field.value = Entity.Null;
             Assert.That(m_EntityLabel.text, Is.EqualTo($"None (Entity)"));
         }

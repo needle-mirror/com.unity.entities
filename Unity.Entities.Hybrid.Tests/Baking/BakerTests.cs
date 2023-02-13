@@ -3,15 +3,24 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Entities.Conversion;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Tests;
 using Unity.Scenes.Editor.Tests;
-using UnityEditor.Search;
-using UnityEditorInternal;
 using UnityEngine;
 
 namespace Unity.Entities.Hybrid.Tests.Baking
 {
+    static class UnsafeHashSetExt
+    {
+        public static T First<T>(this UnsafeHashSet<T> @this)
+            where T : unmanaged, IEquatable<T>
+        {
+            using var enumerator = @this.GetEnumerator();
+            enumerator.MoveNext();
+            return enumerator.Current;
+        }
+    }
+
     public class DefaultAuthoringComponent : MonoBehaviour { public int Field; }
     public class Authoring_WithGameObjectField : MonoBehaviour { public GameObject GameObjectField; }
     public class Authoring_AddComponentByComponentType_PrimaryEntity : MonoBehaviour { public int Field; }
@@ -471,21 +480,6 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             AddComponent<ComponentTest1>(new ComponentTest1() {Field = 4});
         }
     }
-
-    // test for
-    //     void AddComponent<T>(Entity entity)
-    //
-    // with valid secondary entity
-    public sealed class AddDuplicateComponent_SecondaryValidEntity : Baker<DefaultAuthoringComponent>
-    {
-        public override void Bake(DefaultAuthoringComponent component)
-        {
-            Entity additionalEntity = CreateAdditionalEntity();
-            AddComponent<ComponentTest1>(additionalEntity, new ComponentTest1() {Field = 3});
-            AddComponent<ComponentTest1>(additionalEntity, new ComponentTest1() {Field = 4});
-        }
-    }
-
 
     // test for
     //     void GetComponent<T>()
@@ -1938,7 +1932,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-                var entities = m_BakingSystem.GetEntitiesForBakers(component);
+                var entities = m_BakingSystem.GetEntitiesForBakers(component).ToNativeArray(Allocator.Temp);
                 Assert.IsTrue(m_Manager.HasComponent<ManagedComponent>(entities[0]));
                 Assert.IsTrue(m_Manager.HasComponent<ManagedComponent>(entities[1]));
 
@@ -2044,10 +2038,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
 
             BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-            var entities1 = m_BakingSystem.GetEntitiesForBakers(componentEntity);
+            var entities1 = m_BakingSystem.GetEntitiesForBakers(componentEntity).ToNativeArray(Allocator.Temp);
             Assert.IsTrue(entities1.Length == 1);
 
-            var entities2 = m_BakingSystem.GetEntitiesForBakers(componentOnAdditionalEntities);
+            var entities2 = m_BakingSystem.GetEntitiesForBakers(componentOnAdditionalEntities).ToNativeArray(Allocator.Temp);
             Assert.IsTrue(entities2.Length == 2);
 
             EntitiesAssert.Contains(m_Manager, EntityMatch.Partial<ComponentTest1>(entities1[0]));
@@ -2057,10 +2051,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             //Test if fully rebaking the same gameobject, internally on the ConvertGameObjects path, will destroy the primary and additional entities before recreating new ones.
             BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-            entities1 = m_BakingSystem.GetEntitiesForBakers(componentEntity);
+            entities1 = m_BakingSystem.GetEntitiesForBakers(componentEntity).ToNativeArray(Allocator.Temp);
             Assert.IsTrue(entities1.Length == 1);
 
-            entities2 = m_BakingSystem.GetEntitiesForBakers(componentOnAdditionalEntities);
+            entities2 = m_BakingSystem.GetEntitiesForBakers(componentOnAdditionalEntities).ToNativeArray(Allocator.Temp);
             Assert.IsTrue(entities2.Length == 2);
 
             EntitiesAssert.Contains(m_Manager, EntityMatch.Partial<ComponentTest1>(entities1[0]));
@@ -2076,7 +2070,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
             // jiv - m_BakingSystem.GetEntities(component0) will fail.
-            var entities = m_BakingSystem.GetEntitiesForBakers(component1);
+            var entities = m_BakingSystem.GetEntitiesForBakers(component1).ToNativeArray(Allocator.Temp);
             Assert.IsTrue(entities.Length == 2);
 
             Assert.IsTrue(m_Manager.HasComponent<ComponentTest1>(entities[0]));
@@ -2104,7 +2098,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-                var entities = m_BakingSystem.GetEntitiesForBakers(component0);
+                var entities = m_BakingSystem.GetEntitiesForBakers(component0).ToNativeArray(Allocator.Temp);
                 Assert.IsTrue(entities.Length == 2);
 
                 Assert.IsTrue(m_Manager.HasComponent<ComponentTest1>(entities[1]));
@@ -2136,7 +2130,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-                var entities = m_BakingSystem.GetEntitiesForBakers(component1);
+                var entities = m_BakingSystem.GetEntitiesForBakers(component1).ToNativeArray(Allocator.Temp);
                 Assert.IsTrue(entities.Length == 2);
 
                 Assert.IsTrue(m_Manager.HasComponent<ComponentTest1>(entities[0]));
@@ -2170,7 +2164,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-                var entities = m_BakingSystem.GetEntitiesForBakers(component1);
+                var entities = m_BakingSystem.GetEntitiesForBakers(component1).ToNativeArray(Allocator.Temp);
                 Assert.IsTrue(entities.Length == 2);
 
                 Assert.IsTrue(m_Manager.HasChunkComponent<ComponentTest1>(entities[0]));
@@ -2200,7 +2194,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-                var entities = m_BakingSystem.GetEntitiesForBakers(component1);
+                var entities = m_BakingSystem.GetEntitiesForBakers(component1).ToNativeArray(Allocator.Temp);
                 Assert.IsTrue(entities.Length == 2);
 
                 Assert.IsTrue(m_Manager.HasComponent<UnmanagedSharedComponent>(entities[0]));
@@ -2237,7 +2231,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-                var entities = m_BakingSystem.GetEntitiesForBakers(component1);
+                var entities = m_BakingSystem.GetEntitiesForBakers(component1).ToNativeArray(Allocator.Temp);
                 Assert.IsTrue(entities.Length == 2);
 
                 Assert.IsTrue(m_Manager.HasComponent<UnmanagedSharedComponent>(entities[0]));
@@ -2274,7 +2268,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-                var entities = m_BakingSystem.GetEntitiesForBakers(component1);
+                var entities = m_BakingSystem.GetEntitiesForBakers(component1).ToNativeArray(Allocator.Temp);
                 Assert.IsTrue(entities.Length == 2);
 
                 var resultBuffer0 = m_Manager.GetBuffer<IntElement>(entities[0]);
@@ -2310,7 +2304,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-                var entities = m_BakingSystem.GetEntitiesForBakers(component1);
+                var entities = m_BakingSystem.GetEntitiesForBakers(component1).ToNativeArray(Allocator.Temp);
                 Assert.IsTrue(entities.Length == 2);
 
                 var resultBuffer0 = m_Manager.GetBuffer<IntElement>(entities[0]);
@@ -2346,7 +2340,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
-                var entities = m_BakingSystem.GetEntitiesForBakers(component1);
+                var entities = m_BakingSystem.GetEntitiesForBakers(component1).ToNativeArray(Allocator.Temp);
                 Assert.IsTrue(entities.Length == 2);
 
                 var resultBuffer0 = m_Manager.GetBuffer<IntElement>(entities[0]);
@@ -2378,23 +2372,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             var component0 = m_Prefab.AddComponent<DefaultAuthoringComponent>();
             using (new BakerDataUtility.OverrideBakers(true, typeof(AddDuplicateComponent_PrimaryEntity)))
             {
-                UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to add duplicate component Unity.Entities.Hybrid.Tests.Baking.ComponentTest1 for Baker AddDuplicateComponent_PrimaryEntity with authoring component DefaultAuthoringComponent.  Previous component added by Baker AddDuplicateComponent_PrimaryEntity");
+                UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to add duplicate component Unity.Entities.Hybrid.Tests.Baking.ComponentTest1 for Baker Unity.Entities.Hybrid.Tests.Baking.AddDuplicateComponent_PrimaryEntity with authoring component Unity.Entities.Hybrid.Tests.Baking.DefaultAuthoringComponent.  Previous component added by Baker Unity.Entities.Hybrid.Tests.Baking.AddDuplicateComponent_PrimaryEntity");
 
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
             }
         }
 
-        [Test]
-        public void AddDuplicateComponent_SecondaryEntity_Throws()
-        {
-            var component0 = m_Prefab.AddComponent<DefaultAuthoringComponent>();
-            using (new BakerDataUtility.OverrideBakers(true, typeof(AddDuplicateComponent_SecondaryValidEntity)))
-            {
-                UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to add duplicate component Unity.Entities.Hybrid.Tests.Baking.ComponentTest1 for Baker AddDuplicateComponent_SecondaryValidEntity with authoring component DefaultAuthoringComponent.  Previous component added by Baker AddDuplicateComponent_SecondaryValidEntity");
-
-                BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
-            }
-        }
 
         [Test]
         public void AddDuplicateComponentAcrossBakers_Throws()
@@ -2402,7 +2385,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             var component0 = m_Prefab.AddComponent<Authoring_AddComponentByComponentType_PrimaryEntity>();
             var component1 = m_Prefab.AddComponent<Authoring_AddComponentGeneric_PrimaryValidEntity>();
 
-            UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to add duplicate component Unity.Entities.Hybrid.Tests.Baking.ComponentTest1 for Baker AddComponentGeneric_PrimaryValidEntity with authoring component Authoring_AddComponentGeneric_PrimaryValidEntity.  Previous component added by Baker AddComponentByComponentType_PrimaryEntity");
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to add duplicate component Unity.Entities.Hybrid.Tests.Baking.ComponentTest1 for Baker Unity.Entities.Hybrid.Tests.Baking.AddComponentGeneric_PrimaryValidEntity with authoring component Unity.Entities.Hybrid.Tests.Baking.Authoring_AddComponentGeneric_PrimaryValidEntity.  Previous component added by Baker Unity.Entities.Hybrid.Tests.Baking.AddComponentByComponentType_PrimaryEntity");
 
             BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
         }
@@ -2412,7 +2395,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             var component0 = m_Prefab.AddComponent<Authoring_AddComponentGeneric_PrimaryValidEntity>();
             var component1 = m_Prefab.AddComponent<DefaultAuthoringComponent>();
-            UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to add duplicate component Unity.Entities.Hybrid.Tests.Baking.ComponentTest1 for Baker AddComponentByMultipleComponentTypes_PrimaryEntity with authoring component DefaultAuthoringComponent.  Previous component added by Baker AddComponentGeneric_PrimaryValidEntity");
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to add duplicate component Unity.Entities.Hybrid.Tests.Baking.ComponentTest1 for Baker Unity.Entities.Hybrid.Tests.Baking.AddComponentByMultipleComponentTypes_PrimaryEntity with authoring component Unity.Entities.Hybrid.Tests.Baking.DefaultAuthoringComponent.  Previous component added by Baker Unity.Entities.Hybrid.Tests.Baking.AddComponentGeneric_PrimaryValidEntity");
 
             using (new BakerDataUtility.OverrideBakers(true, typeof(AddComponentGeneric_PrimaryValidEntity),
                 typeof(AddComponentByMultipleComponentTypes_PrimaryEntity)))
@@ -2464,8 +2447,8 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
                 var entity = m_BakingSystem.GetEntitiesForBakers(component);
-                Assert.IsTrue(entity.m_length == 1);
-                EntitiesAssert.Contains(m_Manager, EntityMatch.Partial<ComponentTest1, ComponentTest2>(entity[0]));
+                Assert.IsTrue(entity.Count == 1);
+                EntitiesAssert.Contains(m_Manager, EntityMatch.Partial<ComponentTest1, ComponentTest2>(m_BakingSystem.GetPrimaryEntity(component)));
             }
         }
 
@@ -2477,7 +2460,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 typeof(AddComponent_WithMultipleBakers_PerAuthoringComponent_Baker1_Throws),
                 typeof(AddComponent_WithMultipleBakers_PerAuthoringComponent_Baker2_Throws)))
             {
-                UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to add duplicate component Unity.Entities.Hybrid.Tests.Baking.ComponentTest2 for Baker AddComponent_WithMultipleBakers_PerAuthoringComponent_Baker2_Throws with authoring component DefaultAuthoringComponent.  Previous component added by Baker AddComponent_WithMultipleBakers_PerAuthoringComponent_Baker1_Throws");
+                UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, "InvalidOperationException: Baking error: Attempt to add duplicate component Unity.Entities.Hybrid.Tests.Baking.ComponentTest2 for Baker Unity.Entities.Hybrid.Tests.Baking.BakerTests+AddComponent_WithMultipleBakers_PerAuthoringComponent_Baker2_Throws with authoring component Unity.Entities.Hybrid.Tests.Baking.DefaultAuthoringComponent.  Previous component added by Baker Unity.Entities.Hybrid.Tests.Baking.BakerTests+AddComponent_WithMultipleBakers_PerAuthoringComponent_Baker1_Throws");
 
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
             }
@@ -2495,9 +2478,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab, m_Prefab1}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity1);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
 
-                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(entities[0]);
+                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(entities.First());
                 Assert.IsTrue(component1.Field == 3);
             }
         }
@@ -2657,6 +2640,31 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         }
         [Test]
         public void SetEnableableComponentFromSameBakerWorks()
+        {
+            m_Prefab.AddComponent<DefaultAuthoringComponent>();
+
+            using (new BakerDataUtility.OverrideBakers(true, typeof(SetEnableableComponentFromSameBakerWorksBaker)))
+            {
+                BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+
+                Assert.AreEqual(1, m_BakingSystem.EntityManager.UniversalQuery.CalculateEntityCount());
+                var entities = m_BakingSystem.EntityManager.UniversalQuery.ToEntityArray(m_BakingSystem.WorldUpdateAllocator);
+                Assert.AreEqual(false, m_BakingSystem.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(entities[0]));
+                Assert.AreEqual(true, m_BakingSystem.EntityManager.IsComponentEnabled<Simulate>(entities[0]));
+            }
+        }
+
+        [DisableAutoCreation]
+        class SetEnableableComponentOnPrimaryEntityWorksBaker : Baker<DefaultAuthoringComponent>
+        {
+            public override void Bake(DefaultAuthoringComponent component)
+            {
+                AddComponent(new EcsTestDataEnableable());
+                SetComponentEnabled<EcsTestDataEnableable>(false);
+            }
+        }
+        [Test]
+        public void SetEnableableComponentOnPrimaryEntityWorks()
         {
             m_Prefab.AddComponent<DefaultAuthoringComponent>();
 
@@ -2887,9 +2895,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
 
-                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities[0]);
+                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities.First());
                 Assert.IsTrue(component1.Field == count);
 
                 // Make sure we found the same component
@@ -2926,15 +2934,16 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
+                var primaryEntity = entities.First();
 
-                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(entities[0]);
+                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(primaryEntity);
                 Assert.IsTrue(component1.Field == count);
 
                 var foundComponents = m_Prefab.GetComponents<Collider>();
                 if (foundComponents != null && foundComponents.Length > 0)
                 {
-                    var elements = m_Manager.GetBuffer<IntElement>(entities[0]);
+                    var elements = m_Manager.GetBuffer<IntElement>(primaryEntity);
                     Assert.AreEqual(foundComponents.Length, elements.Length);
                     for (int index = 0; index < foundComponents.Length; ++index)
                     {
@@ -2967,9 +2976,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {current}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
 
-                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities[0]);
+                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities.First());
                 Assert.IsTrue(component1.Field == (mask > 0 ? 1 : 0));
 
                 // Make sure we found the same component
@@ -3003,15 +3012,16 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {current}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
+                var primaryEntity = entities.First();
 
-                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(entities[0]);
+                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(primaryEntity);
                 Assert.IsTrue(component1.Field == added);
 
                 var foundComponents = current.GetComponentsInParent<Collider>();
                 if (foundComponents != null && foundComponents.Length > 0)
                 {
-                    var elements = m_Manager.GetBuffer<IntElement>(entities[0]);
+                    var elements = m_Manager.GetBuffer<IntElement>(primaryEntity);
                     Assert.AreEqual(foundComponents.Length, elements.Length);
                     for (int index = 0; index < foundComponents.Length; ++index)
                     {
@@ -3045,9 +3055,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {root}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
 
-                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities[0]);
+                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities.First());
                 Assert.IsTrue(component1.Field == (mask > 0 ? 1 : 0));
 
                 // Make sure we found the same component
@@ -3081,15 +3091,16 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {root}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
+                var primaryEntity = entities.First();
 
-                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(entities[0]);
+                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(primaryEntity);
                 Assert.IsTrue(component1.Field == added);
 
                 var foundComponents = root.GetComponentsInChildren<Collider>();
                 if (foundComponents != null && foundComponents.Length > 0)
                 {
-                    var elements = m_Manager.GetBuffer<IntElement>(entities[0]);
+                    var elements = m_Manager.GetBuffer<IntElement>(primaryEntity);
                     Assert.AreEqual(foundComponents.Length, elements.Length);
                     for (int index = 0; index < foundComponents.Length; ++index)
                     {
@@ -3121,9 +3132,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {current}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
 
-                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities[0]);
+                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities.First());
                 Assert.IsTrue(component1.Field == (count > 1 ? 1 : 0));
 
                 // Make sure we found the same component
@@ -3157,15 +3168,16 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {current}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
+                var primaryEntity = entities.First();
 
-                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(entities[0]);
+                ComponentTest1 component1 = m_Manager.GetComponentData<ComponentTest1>(primaryEntity);
                 Assert.IsTrue(component1.Field == count - 1);
 
                 var foundComponents = current.GetComponentsInParent<Transform>();
                 if (foundComponents != null && foundComponents.Length > 0)
                 {
-                    var elements = m_Manager.GetBuffer<IntElement>(entities[0]);
+                    var elements = m_Manager.GetBuffer<IntElement>(primaryEntity);
                     Assert.AreEqual(foundComponents.Length - 1, elements.Length);
                     for (int index = 1; index < foundComponents.Length; ++index)
                     {
@@ -3214,9 +3226,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 if (query < 4)
                 {
                     var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                    Assert.IsTrue(entities.Length == 1);
+                    Assert.IsTrue(entities.Count == 1);
+                    var primaryEntity = m_BakingSystem.GetPrimaryEntity(componentEntity);
 
-                    GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities[0]);
+                    GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(primaryEntity);
                     Assert.IsTrue(component1.Field == 4);
 
                     // Make sure we found the same gameobject
@@ -3245,9 +3258,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {root}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
+                var primaryEntity = m_BakingSystem.GetPrimaryEntity(componentEntity);
 
-                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(entities[0]);
+                GetComponentTest1 component1 = m_Manager.GetComponentData<GetComponentTest1>(primaryEntity);
                 Assert.IsTrue(component1.Field == 0);
             }
         }
@@ -3288,9 +3302,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 BakingUtility.BakeGameObjects(World, new[] {root}, m_BakingSystem.BakingSettings);
 
                 var entities = m_BakingSystem.GetEntitiesForBakers(componentEntity);
-                Assert.IsTrue(entities.Length == 1);
+                Assert.IsTrue(entities.Count == 1);
+                var primaryEntity = m_BakingSystem.GetPrimaryEntity(componentEntity);
 
-                var elements = m_Manager.GetBuffer<IntElement>(entities[0]);
+                var elements = m_Manager.GetBuffer<IntElement>(primaryEntity);
                 if (recursive)
                 {
                     var list = root.GetComponentsInChildren<Transform>();
@@ -3477,6 +3492,35 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             using (new BakerDataUtility.OverrideBakers(true, typeof(GameObjectBaker_IsActiveAndEnabled)))
             {
                 BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+            }
+        }
+
+        struct TestComponentWithBlobAssetReference : IComponentData
+        {
+            public BlobAssetReference<int> Value;
+        }
+
+        [DisableAutoCreation]
+        class GameObjectBaker_AddBlobAsset : Baker<DefaultAuthoringComponent>
+        {
+            public override void Bake(DefaultAuthoringComponent authoring)
+            {
+                var blobRef = BlobAssetUtility.CreateBlobAsset(authoring.Field);
+                AddBlobAsset(ref blobRef, out _);
+                AddComponent(new TestComponentWithBlobAssetReference { Value = blobRef });
+            }
+        }
+
+        [Test]
+        public void GameObjectBaker_DisposeOfBlobAssetOwnedByBaker_Throws()
+        {
+            m_Prefab.AddComponent<DefaultAuthoringComponent>().Field = 123;
+            using (new BakerDataUtility.OverrideBakers(true, typeof(GameObjectBaker_AddBlobAsset)))
+            {
+                BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+                var blobRef = GetBakedSingleton<TestComponentWithBlobAssetReference>().Value;
+
+                Assert.Throws<InvalidOperationException>(() => blobRef.Dispose());
             }
         }
     }

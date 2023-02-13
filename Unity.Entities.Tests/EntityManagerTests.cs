@@ -1605,8 +1605,6 @@ namespace Unity.Entities.Tests
             ComponentTypeHandle<EcsTestData> m_Handle;
             public void OnCreate(ref SystemState state)
                 => m_Handle = state.GetComponentTypeHandle<EcsTestData>(); // Needs to be there for system to know which component dependencies were added.
-            public void OnDestroy(ref SystemState state) {}
-
             public void OnUpdate(ref SystemState state)
                 => state.Dependency = new Job{handle = m_Handle}.Schedule(state.Dependency);
         }
@@ -1622,8 +1620,6 @@ namespace Unity.Entities.Tests
             ComponentTypeHandle<EcsTestData2> m_Handle;
             public void OnCreate(ref SystemState state)
                 => m_Handle = state.GetComponentTypeHandle<EcsTestData2>(true); // Needs to be there for system to know which component dependencies were added.
-            public void OnDestroy(ref SystemState state) {}
-
             public void OnUpdate(ref SystemState state)
                 => state.Dependency = new Job{handle = m_Handle}.Schedule(state.Dependency);
         }

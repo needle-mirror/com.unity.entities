@@ -45,12 +45,16 @@ namespace Unity.Entities
             public static _dlg_ProcessChainChunk _bfp_ProcessChainChunk;
             public delegate void _dlg_RemoveManagedReferences(IntPtr mgr, IntPtr sharedIndex, int count);
             public static object _gcDefeat_RemoveManagedReferences;
+            public delegate void _dlg_CleanupManaged(IntPtr chain);
+            public static object _gcDefeat_CleanupManaged;
             public delegate void _dlg_ProcessManagedCommand(IntPtr processor, int processorType, IntPtr header);
             public static object _gcDefeat_ProcessManagedCommand;
         }
 
         struct TagType_RemoveManagedReferences {};
         public static readonly SharedStatic<IntPtr> _bfp_RemoveManagedReferences = SharedStatic<IntPtr>.GetOrCreate<TagType_RemoveManagedReferences>();
+        struct TagType_CleanupManaged {};
+        public static readonly SharedStatic<IntPtr> _bfp_CleanupManaged = SharedStatic<IntPtr>.GetOrCreate<TagType_CleanupManaged>();
         struct TagType_ProcessManagedCommand {};
         public static readonly SharedStatic<IntPtr> _bfp_ProcessManagedCommand = SharedStatic<IntPtr>.GetOrCreate<TagType_ProcessManagedCommand>();
 
@@ -65,6 +69,11 @@ namespace Unity.Entities
             Managed._dlg_RemoveManagedReferences delegateObject = _wrapper_RemoveManagedReferences;
             Managed._gcDefeat_RemoveManagedReferences = delegateObject;
             _bfp_RemoveManagedReferences.Data = Marshal.GetFunctionPointerForDelegate(delegateObject);
+        }
+        {
+            Managed._dlg_CleanupManaged delegateObject = _wrapper_CleanupManaged;
+            Managed._gcDefeat_CleanupManaged = delegateObject;
+            _bfp_CleanupManaged.Data = Marshal.GetFunctionPointerForDelegate(delegateObject);
         }
         {
             Managed._dlg_ProcessManagedCommand delegateObject = _wrapper_ProcessManagedCommand;
@@ -119,6 +128,27 @@ namespace Unity.Entities
         private static void _wrapper_RemoveManagedReferences (IntPtr mgr, IntPtr sharedIndex, int count)
         {
             _RemoveManagedReferences((EntityDataAccess*)mgr, (int*)sharedIndex, count);
+        }
+        internal static void CleanupManaged (EntityCommandBufferChain* chain)
+        {
+            if (!UseDelegate())
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if( _bfp_CleanupManaged.Data == IntPtr.Zero)
+                    throw new InvalidOperationException("Burst Interop Classes must be initialized manually");
+#endif
+
+                var fp = new FunctionPointer<Managed._dlg_CleanupManaged>(_bfp_CleanupManaged.Data);
+                fp.Invoke((IntPtr) chain);
+                return;
+            }
+            _CleanupManaged(chain);
+        }
+
+        [MonoPInvokeCallback(typeof(Managed._dlg_CleanupManaged))]
+        private static void _wrapper_CleanupManaged (IntPtr chain)
+        {
+            _CleanupManaged((EntityCommandBufferChain*)chain);
         }
         internal static void ProcessManagedCommand (void* processor, int processorType, BasicCommand* header)
         {

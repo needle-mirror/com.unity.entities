@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using Microsoft.CodeAnalysis.Text;
 using Unity.Entities.SourceGen.SystemGeneratorCommon;
@@ -18,7 +19,6 @@ namespace Unity.Entities.SourceGen.Common
         public const string TrackedNodeAnnotationUsedByRoslyn = "Id";
 
         static string s_ProjectPath = string.Empty;
-        static bool InUnity2021OrNewer { get; set; }
 
         public static string ProjectPath
         {
@@ -28,10 +28,44 @@ namespace Unity.Entities.SourceGen.Common
                     throw new Exception("ProjectPath must set before use, this is also only permitted before 2020.");
                 return s_ProjectPath;
             }
-            private set => s_ProjectPath = value;
+            set => s_ProjectPath = value;
         }
 
         public static bool CanWriteToProjectPath => !string.IsNullOrEmpty(s_ProjectPath);
+
+        public static IncrementalValueProvider<(string projectPath, bool performSafetyChecks, bool outputSourceGenFiles)> GetProjectPathProvider(IncrementalGeneratorInitializationContext context)
+        {
+            var projectPathIsInsideText0Provider = context.ParseOptionsProvider.Select((options, token) =>
+            {
+                var outputSourceGenFiles = false;
+                var performSafetyChecks = false;
+                // Is Unity 2021.1+ and not dots runtime
+                var inUnity2021OrNewer = false;
+                var isDotsRuntime = false;
+                foreach (var symbolName in options.PreprocessorSymbolNames)
+                {
+                    isDotsRuntime |= symbolName == "UNITY_DOTSRUNTIME";
+                    inUnity2021OrNewer |= symbolName == "UNITY_2021_1_OR_NEWER";
+                    performSafetyChecks |= symbolName == "ENABLE_UNITY_COLLECTIONS_CHECKS";
+                    outputSourceGenFiles |= symbolName == "DOTS_OUTPUT_SOURCEGEN_FILES";
+                }
+                return (pathIsInsideText0: inUnity2021OrNewer && !isDotsRuntime, performSafetyChecks, outputSourceGenFiles);
+            });
+
+            return context.AdditionalTextsProvider.Collect().Combine(projectPathIsInsideText0Provider).Select((lTextsRIsInsideText, token) =>
+            {
+                var performSafetyChecks = lTextsRIsInsideText.Right.performSafetyChecks;
+                var outputSourceGenFiles = lTextsRIsInsideText.Right.outputSourceGenFiles;
+                if (Environment.GetEnvironmentVariable("SOURCEGEN_DISABLE_PROJECT_PATH_OUTPUT") == "1")
+                    return (null, performSafetyChecks, outputSourceGenFiles);
+                var texts = lTextsRIsInsideText.Left;
+                var projectPathIsInsideText0 = lTextsRIsInsideText.Right.pathIsInsideText0;
+                if (texts.Length == 0 || string.IsNullOrEmpty(texts[0].Path))
+                    return (null, performSafetyChecks, outputSourceGenFiles);
+                var path = projectPathIsInsideText0 ? texts[0].GetText(token)?.ToString() : texts[0].Path;
+                return (path?.Replace('\\', '/'), performSafetyChecks, outputSourceGenFiles);
+            });
+        }
 
         public static void Setup(GeneratorExecutionContext context)
         {
@@ -42,12 +76,12 @@ namespace Unity.Entities.SourceGen.Common
             }
 
             bool isDotsRuntime = context.ParseOptions.PreprocessorSymbolNames.Contains("UNITY_DOTSRUNTIME");
-            InUnity2021OrNewer = context.ParseOptions.PreprocessorSymbolNames.Contains("UNITY_2021_1_OR_NEWER");
+            var inUnity2021OrNewer = context.ParseOptions.PreprocessorSymbolNames.Contains("UNITY_2021_1_OR_NEWER");
 
             if (!context.AdditionalFiles.Any() || string.IsNullOrEmpty(context.AdditionalFiles[0].Path))
                 return;
 
-            ProjectPath = InUnity2021OrNewer && !isDotsRuntime ? context.AdditionalFiles[0].GetText().ToString() : context.AdditionalFiles[0].Path;
+            ProjectPath = (inUnity2021OrNewer && !isDotsRuntime ? context.AdditionalFiles[0].GetText().ToString() : context.AdditionalFiles[0].Path).Replace('\\', '/');
         }
 
         static string GetTempGeneratedPathToFile(string fileNameWithExtension)
@@ -163,6 +197,24 @@ namespace Unity.Entities.SourceGen.Common
             }
         }
 
+        public static void OutputSourceToFile(SourceProductionContext context, Location locationToErrorAt, string generatedSourceFilePath, SourceText sourceTextForNewClass)
+        {
+            // Output as generated source file for debugging/inspection
+            if (!CanWriteToProjectPath)
+                return;
+
+            try
+            {
+                LogInfo($"Outputting generated source to file {generatedSourceFilePath}...");
+                File.WriteAllText(generatedSourceFilePath, sourceTextForNewClass.ToString());
+            }
+            catch (IOException ioException)
+            {
+                // emit Entities exceptions as info but don't block compilation or generate error to fail tests
+                context.ReportDiagnostic(Diagnostic.Create(new DiagnosticDescriptor("SGICE005", "Entities Generators", ioException.ToUnityPrintableString(),"SourceGenerators", DiagnosticSeverity.Error, true), locationToErrorAt));
+            }
+        }
+
         public static bool TryGetAllTypeArgumentSymbolsOfMethod(SystemDescription systemDescription, SyntaxNode node, string methodName, QueryType resultsShouldHaveThisQueryType, out List<Query> result)
         {
             result = new List<Query>();
@@ -204,7 +256,7 @@ namespace Unity.Entities.SourceGen.Common
 
 
         /// <summary>
-        ///         
+        ///
         /// Returns true if running as part of csc.exe, otherwise we are likely running in the IDE.
         /// Skipping Source Generation in the IDE can be a considerable performance win as source
         /// generators can be run multiple times per keystroke. If the user doesn't rely on generated types
@@ -212,15 +264,15 @@ namespace Unity.Entities.SourceGen.Common
         /// </summary>
         public static readonly bool IsBuildTime = Assembly.GetEntryAssembly() != null;
 
-        public static bool ShouldRun(GeneratorExecutionContext context)
+        public static bool ShouldRun(Compilation compilation, CancellationToken cancellationToken)
         {
             // Throw if we are cancelled
-            context.CancellationToken.ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
 
             // Don't run if we don't reference Entities (or are Entities) or if we are CodeGen.Tests (which need to run generators manually)
-            return (context.Compilation.Assembly.Name == "Unity.Entities" ||
-                    context.Compilation.ReferencedAssemblyNames.Any(n => n.Name == "Unity.Entities")) &&
-                   !context.Compilation.Assembly.Name.Contains("CodeGen.Tests");
+            return (compilation.Assembly.Name == "Unity.Entities" ||
+                    compilation.ReferencedAssemblyNames.Any(n => n.Name == "Unity.Entities")) &&
+                   !compilation.Assembly.Name.Contains("CodeGen.Tests");
         }
     }
 }

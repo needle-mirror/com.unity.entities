@@ -314,7 +314,7 @@ namespace Unity.Entities
     {
 #if !NET_DOTS
         private ComponentTypeSet m_ComponentTypeSet;
-        public ComponentTypeSetDebugView(ComponentTypeSet componentTypeSet)
+        public ComponentTypeSetDebugView(in ComponentTypeSet componentTypeSet)
         {
             m_ComponentTypeSet = componentTypeSet;
         }

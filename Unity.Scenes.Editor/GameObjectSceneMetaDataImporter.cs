@@ -10,7 +10,7 @@ using UnityEditor.SceneManagement;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(42, "sceneMetaData")]
+    [ScriptedImporter(44, "sceneMetaData")]
     [InitializeOnLoad]
     class GameObjectSceneMetaDataImporter : ScriptedImporter
     {

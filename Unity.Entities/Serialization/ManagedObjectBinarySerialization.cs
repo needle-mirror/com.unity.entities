@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -13,6 +12,7 @@ using Unity.Serialization.Binary;
 
 namespace Unity.Entities.Serialization
 {
+#if !UNITY_DOTSRUNTIME
     struct SerializedKeyFrame
     {
         public float Time;
@@ -47,6 +47,7 @@ namespace Unity.Entities.Serialization
             return new SerializedKeyFrame(kf);
         }
     }
+#endif // !UNITY_DOTSRUNTIME
 
     /// <summary>
     /// Writer to write managed objects to a <see cref="UnsafeAppendBuffer"/> stream.
@@ -54,7 +55,10 @@ namespace Unity.Entities.Serialization
     /// <remarks>
     /// This is used as a wrapper around <see cref="Unity.Serialization.Binary.BinarySerialization"/> with a custom layer for <see cref="UnityEngine.Object"/>.
     /// </remarks>
-    unsafe class ManagedObjectBinaryWriter : Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>, IBinaryAdapter<UnityEngine.AnimationCurve>
+    unsafe class ManagedObjectBinaryWriter : Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>
+#if !UNITY_DOTSRUNTIME
+        , IBinaryAdapter<UnityEngine.AnimationCurve>
+#endif
     {
         static readonly UnityEngine.Object[] s_EmptyUnityObjectTable = new UnityEngine.Object[0];
 
@@ -132,6 +136,7 @@ namespace Unity.Entities.Serialization
             throw new InvalidOperationException($"Deserialize should never be invoked by {nameof(ManagedObjectBinaryWriter)}");
         }
 
+#if !UNITY_DOTSRUNTIME
         void IBinaryAdapter<UnityEngine.AnimationCurve>.Serialize(in BinarySerializationContext<UnityEngine.AnimationCurve> context, UnityEngine.AnimationCurve value)
         {
             if (value != null)
@@ -155,6 +160,7 @@ namespace Unity.Entities.Serialization
         {
             throw new InvalidOperationException($"Deserialize should never be invoked by {nameof(ManagedObjectBinaryWriter)}");
         }
+#endif // !UNITY_DOTSRUNTIME
     }
 
     /// <summary>
@@ -163,7 +169,10 @@ namespace Unity.Entities.Serialization
     /// <remarks>
     /// This is used as a wrapper around <see cref="Unity.Serialization.Binary.BinarySerialization"/> with a custom layer for <see cref="UnityEngine.Object"/>.
     /// </remarks>
-    unsafe class ManagedObjectBinaryReader : Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>, IBinaryAdapter<UnityEngine.AnimationCurve>
+    unsafe class ManagedObjectBinaryReader : Unity.Serialization.Binary.IContravariantBinaryAdapter<UnityEngine.Object>
+#if !UNITY_DOTSRUNTIME
+        , IBinaryAdapter<UnityEngine.AnimationCurve>
+#endif
     {
         readonly UnsafeAppendBuffer.Reader* m_Stream;
         readonly BinarySerializationParameters m_Params;
@@ -227,6 +236,7 @@ namespace Unity.Entities.Serialization
             return m_UnityObjects[index];
         }
 
+#if !UNITY_DOTSRUNTIME
         void IBinaryAdapter<UnityEngine.AnimationCurve>.Serialize(in BinarySerializationContext<UnityEngine.AnimationCurve> context, UnityEngine.AnimationCurve value)
         {
             throw new InvalidOperationException($"Serialize should never be invoked by {nameof(ManagedObjectBinaryReader)}.");
@@ -252,6 +262,6 @@ namespace Unity.Entities.Serialization
 
             return null;
         }
+#endif // !UNITY_DOTSRUNTIME
     }
 }
-#endif

@@ -1,6 +1,7 @@
 using System;
 using Unity.Collections;
 using System.Collections.Generic;
+using System.Text;
 #if UNITY_EDITOR
 #if USING_PLATFORMS_PACKAGE
 using Unity.Build;
@@ -123,7 +124,7 @@ namespace Unity.Entities
             // since transform.position and friends returns a value calculated from all parents
             var transform = returnedComponent as Transform;
             if (transform != null)
-                _State.Dependencies->DependOnTransformHierarchy(transform);
+                _State.Dependencies->DependOnParentTransformHierarchy(transform);
 
             return returnedComponent;
         }
@@ -171,7 +172,7 @@ namespace Unity.Entities
                 // since transform.position and friends returns a value calculated from all parents
                 var transform = component as Transform;
                 if (transform != null)
-                    _State.Dependencies->DependOnTransformHierarchy(transform);
+                    _State.Dependencies->DependOnParentTransformHierarchy(transform);
             }
         }
 
@@ -218,7 +219,7 @@ namespace Unity.Entities
                 // since transform.position and friends returns a value calculated from all parents
                 var transform = component as Transform;
                 if (transform != null)
-                    _State.Dependencies->DependOnTransformHierarchy(transform);
+                    _State.Dependencies->DependOnParentTransformHierarchy(transform);
             }
             return components;
         }
@@ -263,7 +264,7 @@ namespace Unity.Entities
             // since transform.position and friends returns a value calculated from all parents
             var transform = component as Transform;
             if (transform != null)
-                _State.Dependencies->DependOnTransformHierarchy(transform);
+                _State.Dependencies->DependOnParentTransformHierarchy(transform);
 
             return component;
         }
@@ -310,7 +311,7 @@ namespace Unity.Entities
                 // since transform.position and friends returns a value calculated from all parents
                 var transform = component as Transform;
                 if (transform != null)
-                    _State.Dependencies->DependOnTransformHierarchy(transform);
+                    _State.Dependencies->DependOnParentTransformHierarchy(transform);
             }
         }
 
@@ -355,7 +356,7 @@ namespace Unity.Entities
                 // since transform.position and friends returns a value calculated from all parents
                 var transform = component as Transform;
                 if (transform != null)
-                    _State.Dependencies->DependOnTransformHierarchy(transform);
+                    _State.Dependencies->DependOnParentTransformHierarchy(transform);
             }
             return components;
         }
@@ -401,7 +402,7 @@ namespace Unity.Entities
             // since transform.position and friends returns a value calculated from all parents
             var transform = component as Transform;
             if (transform != null)
-                _State.Dependencies->DependOnTransformHierarchy(transform);
+                _State.Dependencies->DependOnParentTransformHierarchy(transform);
 
             return component;
         }
@@ -447,7 +448,7 @@ namespace Unity.Entities
                 // since transform.position and friends returns a value calculated from all parents
                 var transform = component as Transform;
                 if (transform != null)
-                    _State.Dependencies->DependOnTransformHierarchy(transform);
+                    _State.Dependencies->DependOnParentTransformHierarchy(transform);
             }
         }
 
@@ -493,7 +494,7 @@ namespace Unity.Entities
                 // since transform.position and friends returns a value calculated from all parents
                 var transform = component as Transform;
                 if (transform != null)
-                    _State.Dependencies->DependOnTransformHierarchy(transform);
+                    _State.Dependencies->DependOnParentTransformHierarchy(transform);
             }
             return components;
         }
@@ -1134,7 +1135,7 @@ namespace Unity.Entities
             // since transform.position and friends returns a value calculated from all parents
             var transform = dependency as Transform;
             if (transform != null)
-                _State.Dependencies->DependOnTransformHierarchy(transform);
+                _State.Dependencies->DependOnParentTransformHierarchy(transform);
 
             return dependency;
         }
@@ -1255,6 +1256,14 @@ namespace Unity.Entities
             GetComponentsInChildren<T>(component);
         }
 
+        /// <summary>
+        /// This will take a dependency on the light baking, causing the component to bake every time light mapping is baked.
+        /// </summary>
+        public void DependsOnLightBaking()
+        {
+            _State.Dependencies->DependOnLightBaking();
+        }
+
         #endregion
 
 #region Debug Tracking and Validation
@@ -1273,12 +1282,12 @@ namespace Unity.Entities
                 return;
 
             _State.DebugState->addedComponentsByEntity.TryGetValue(entityComponentPair, out var debugIndex);
-            var bakerName = this.GetType().Name;
+            var bakerName = this.GetType().FullName;
 
             var previousBakers = BakerDataUtility.GetBakers(debugIndex.TypeIndex);
             var previousBaker = previousBakers[debugIndex.IndexInBakerArray].Baker;
-            var previousBakerName = previousBaker.GetType().Name;
-            var authoringComponentName = _State.AuthoringSource.GetType().Name;
+            var previousBakerName = previousBaker.GetType().FullName;
+            var authoringComponentName = _State.AuthoringSource.GetType().FullName;
             throw new InvalidOperationException($"Baking error: Attempt to add duplicate component {TypeManager.GetTypeInfo(typeIndex).DebugTypeName} for Baker {bakerName} with authoring component {authoringComponentName}.  Previous component added by Baker {previousBakerName}");
         }
 
@@ -1337,7 +1346,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="entity">The Entity to track</param>
         /// <param name="typeSet">The types of the Component to track</param>
-        void AddDebugTrackingForComponent(Entity entity, ComponentTypeSet typeSet)
+        void AddDebugTrackingForComponent(Entity entity, in ComponentTypeSet typeSet)
         {
             for (int i=0,n=typeSet.Length; i<n; ++i)
                 AddDebugTrackingForComponent(entity, typeSet.GetComponentType(i));
@@ -1366,7 +1375,7 @@ namespace Unity.Entities
         /// Adds debug tracking for a Component added to the primary Entity
         /// </summary>
         /// <param name="typeSet">The types of the Component to track</param>
-        void AddTrackingForComponent(ComponentTypeSet typeSet)
+        void AddTrackingForComponent(in ComponentTypeSet typeSet)
         {
             for (int i=0,n=typeSet.Length; i<n; ++i)
                 AddTrackingForComponent(typeSet.GetComponentType(i));
@@ -1379,12 +1388,8 @@ namespace Unity.Entities
         /// <exception cref="InvalidOperationException"></exception>
         void CheckValidAdditionalEntity(Entity entity)
         {
-            for (int i = 0; i < _State.BakerState->Entities.Length; i++)
-            {
-                if (_State.BakerState->Entities[i] == entity) return;
-            }
-
-            throw new InvalidOperationException($"Entity {entity} doesn't belong to the current authoring component.");
+            if (!_State.BakerState->Entities.Contains(entity))
+                throw new InvalidOperationException($"Entity {entity} doesn't belong to the current authoring component.");
         }
 
 #endregion
@@ -1437,9 +1442,15 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the component</remarks>
         public bool TryGetBlobAssetReference<T>(Hash128 hash, out BlobAssetReference<T> blobAssetReference) where T : unmanaged
         {
-            if (_State.BlobAssetStore.TryGet(hash, out blobAssetReference))
+            bool updateRefCount = true;
+            var hashCode = (uint) typeof(T).GetHashCode();
+            if(_State.BakerState->ReferencedBlobAssets.Contains((hashCode, hash)))
             {
-                _State.BakerState->ReferencedBlobAssets.Add(((uint)typeof(T).GetHashCode(), hash));
+                updateRefCount = false;
+            }
+            if (_State.BlobAssetStore.TryGet(hash, out blobAssetReference, updateRefCount))
+            {
+                _State.BakerState->ReferencedBlobAssets.Add((hashCode, hash));
                 return true;
             }
 
@@ -1458,8 +1469,8 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to add</typeparam>
         public void AddComponent<T>() where T : unmanaged, IComponentData
         {
-            AddTrackingForComponent<T>();
             AddDebugTrackingForComponent<T>(_State.PrimaryEntity);
+            AddTrackingForComponent<T>();
 
             _State.Ecb.AddComponent<T>(_State.PrimaryEntity);
         }
@@ -1472,8 +1483,8 @@ namespace Unity.Entities
         public void AddComponent<T>(in T component) where T : unmanaged, IComponentData
         {
             var e = GetEntity(TransformUsageFlags.Default);
-            AddTrackingForComponent<T>();
             AddDebugTrackingForComponent<T>(e);
+            AddTrackingForComponent<T>();
 
             _State.Ecb.AddComponent(e, component);
         }
@@ -1497,11 +1508,13 @@ namespace Unity.Entities
         public void AddComponent<T>(Entity entity, in T component) where T : unmanaged, IComponentData
         {
             if (_State.PrimaryEntity == entity)
+            {
+                // Only track it for Primary Entity, additional entities can only be accessed by the baker that creates them
+                AddDebugTrackingForComponent<T>(entity);
                 AddTrackingForComponent<T>();
+            }
             else
                 CheckValidAdditionalEntity(entity);
-
-            AddDebugTrackingForComponent<T>(entity);
 
             _State.Ecb.AddComponent(entity, component);
         }
@@ -1513,8 +1526,8 @@ namespace Unity.Entities
         public void AddComponent(ComponentType componentType)
         {
             var e = GetEntity(TransformUsageFlags.Default);
-            AddTrackingForComponent(componentType);
             AddDebugTrackingForComponent(e, componentType);
+            AddTrackingForComponent(componentType);
             _State.Ecb.AddComponent(e, componentType);
         }
 
@@ -1526,11 +1539,14 @@ namespace Unity.Entities
         public void AddComponent(Entity entity, ComponentType componentType)
         {
             if (_State.PrimaryEntity == entity)
+            {
+                // Only track it for Primary Entity, additional entities can only be accessed by the baker that creates them
+                AddDebugTrackingForComponent(entity, componentType);
                 AddTrackingForComponent(componentType);
+            }
             else
                 CheckValidAdditionalEntity(entity);
 
-            AddDebugTrackingForComponent(entity, componentType);
             _State.Ecb.AddComponent(entity, componentType);
         }
 
@@ -1545,11 +1561,14 @@ namespace Unity.Entities
         {
             var ctype = new ComponentType {AccessModeType = ComponentType.AccessMode.ReadWrite, TypeIndex = typeIndex};
             if (_State.PrimaryEntity == entity)
+            {
+                // Only track it for Primary Entity, additional entities can only be accessed by the baker that creates them
+                AddDebugTrackingForComponent(entity, ctype);
                 AddTrackingForComponent(ctype);
+            }
             else
                 CheckValidAdditionalEntity(entity);
 
-            AddDebugTrackingForComponent(entity, ctype);
             _State.Ecb.UnsafeAddComponent(entity, typeIndex, typeSize, componentDataPtr);
         }
 
@@ -1557,11 +1576,11 @@ namespace Unity.Entities
         /// Adds multiple components of types ComponentType to the primary Entity
         /// </summary>
         /// <param name="componentTypeSet">The types of components to add</param>
-        public void AddComponent(ComponentTypeSet componentTypeSet)
+        public void AddComponent(in ComponentTypeSet componentTypeSet)
         {
+            AddDebugTrackingForComponent(_State.PrimaryEntity, componentTypeSet);
             AddTrackingForComponent(componentTypeSet);
 
-            AddDebugTrackingForComponent(_State.PrimaryEntity, componentTypeSet);
             _State.Ecb.AddComponent(_State.PrimaryEntity, componentTypeSet);
         }
 
@@ -1570,17 +1589,19 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="entity">The Entity to add the components to</param>
         /// <param name="componentTypeSet">The types of components to add</param>
-        public void AddComponent(Entity entity, ComponentTypeSet componentTypeSet)
+        public void AddComponent(Entity entity, in ComponentTypeSet componentTypeSet)
         {
             if (_State.PrimaryEntity == entity)
             {
+                // Only track it for Primary Entity, additional entities can only be accessed by the baker that creates them
+                AddDebugTrackingForComponent(entity, componentTypeSet);
+
                 for (int i = 0; i < componentTypeSet.Length; i++)
                     _State.BakerState->AddedComponents.Add(componentTypeSet.GetTypeIndex(i));
             }
             else
                 CheckValidAdditionalEntity(entity);
 
-            AddDebugTrackingForComponent(entity, componentTypeSet);
             _State.Ecb.AddComponent(entity, componentTypeSet);
         }
 
@@ -1593,9 +1614,9 @@ namespace Unity.Entities
         public void AddComponentObject<T>(T component) where T : class
         {
             var e = GetEntity(TransformUsageFlags.Default);
+            AddDebugTrackingForComponent(e, ComponentType.ReadWrite<T>());
             AddTrackingForComponent<T>();
 
-            AddDebugTrackingForComponent(e, ComponentType.ReadWrite<T>());
             _State.Ecb.AddComponent(e, component);
         }
 
@@ -1608,11 +1629,14 @@ namespace Unity.Entities
         public void AddComponentObject<T>(Entity entity, T component) where T : class
         {
             if (_State.PrimaryEntity == entity)
+            {
+                // Only track it for Primary Entity, additional entities can only be accessed by the baker that creates them
+                AddDebugTrackingForComponent(entity, ComponentType.ReadWrite<T>());
                 AddTrackingForComponent<T>();
+            }
             else
                 CheckValidAdditionalEntity(entity);
 
-            AddDebugTrackingForComponent(entity, ComponentType.ReadWrite<T>());
             _State.Ecb.AddComponent(entity, component);
         }
 #endif
@@ -1625,8 +1649,8 @@ namespace Unity.Entities
         public void AddSharedComponentManaged<T>(T component) where T : struct, ISharedComponentData
         {
             var e = GetEntity(TransformUsageFlags.Default);
-            AddTrackingForComponent<T>();
             AddDebugTrackingForComponent(e, ComponentType.ReadWrite<T>());
+            AddTrackingForComponent<T>();
             _State.Ecb.AddSharedComponentManaged(e, component);
         }
 
@@ -1639,10 +1663,13 @@ namespace Unity.Entities
         public void AddSharedComponentManaged<T>(Entity entity, T component) where T : struct, ISharedComponentData
         {
             if (_State.PrimaryEntity == entity)
+            {
+                // Only track it for Primary Entity, additional entities can only be accessed by the baker that creates them
+                AddDebugTrackingForComponent(entity, ComponentType.ReadWrite<T>());
                 AddTrackingForComponent<T>();
+            }
             else
                 CheckValidAdditionalEntity(entity);
-            AddDebugTrackingForComponent(entity, ComponentType.ReadWrite<T>());
             _State.Ecb.AddSharedComponentManaged(entity, component);
         }
 
@@ -1654,8 +1681,8 @@ namespace Unity.Entities
         public void AddSharedComponent<T>(T component) where T : unmanaged, ISharedComponentData
         {
             var e = GetEntity(TransformUsageFlags.Default);
-            AddTrackingForComponent<T>();
             AddDebugTrackingForComponent(e, ComponentType.ReadWrite<T>());
+            AddTrackingForComponent<T>();
             _State.Ecb.AddSharedComponent(e, component);
         }
 
@@ -1668,10 +1695,13 @@ namespace Unity.Entities
         public void AddSharedComponent<T>(Entity entity, T component) where T : unmanaged, ISharedComponentData
         {
             if (_State.PrimaryEntity == entity)
+            {
+                // Only track it for Primary Entity, additional entities can only be accessed by the baker that creates them
+                AddDebugTrackingForComponent(entity, ComponentType.ReadWrite<T>());
                 AddTrackingForComponent<T>();
+            }
             else
                 CheckValidAdditionalEntity(entity);
-            AddDebugTrackingForComponent(entity, ComponentType.ReadWrite<T>());
             _State.Ecb.AddSharedComponent(entity, component);
         }
 
@@ -1683,9 +1713,8 @@ namespace Unity.Entities
         public DynamicBuffer<T> AddBuffer<T>() where T : unmanaged, IBufferElementData
         {
             var e = GetEntity(TransformUsageFlags.Default);
-            AddTrackingForComponent<T>();
-
             AddDebugTrackingForComponent<T>(e);
+            AddTrackingForComponent<T>();
             return _State.Ecb.AddBuffer<T>(e);
         }
 
@@ -1698,11 +1727,14 @@ namespace Unity.Entities
         public DynamicBuffer<T> AddBuffer<T>(Entity entity) where T : unmanaged, IBufferElementData
         {
             if (_State.PrimaryEntity == entity)
+            {
+                // Only track it for Primary Entity, additional entities can only be accessed by the baker that creates them
+                AddDebugTrackingForComponent<T>(entity);
                 AddTrackingForComponent<T>();
+            }
             else
                 CheckValidAdditionalEntity(entity);
 
-            AddDebugTrackingForComponent<T>(entity);
             return _State.Ecb.AddBuffer<T>(entity);
         }
 
@@ -1721,7 +1753,8 @@ namespace Unity.Entities
         {
             if (_State.PrimaryEntity != entity)
                 CheckValidAdditionalEntity(entity);
-            CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
+            else
+                CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
 
             _State.Ecb.SetComponent(entity, component);
         }
@@ -1739,9 +1772,21 @@ namespace Unity.Entities
         {
             if (_State.PrimaryEntity != entity)
                 CheckValidAdditionalEntity(entity);
-            CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
+            else
+                CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
 
             _State.Ecb.SetComponentEnabled<T>(entity, enabled);
+        }
+
+        /// <summary>
+        /// Sets the enabled value of the component on the primary Entity.
+        /// </summary>
+        /// <param name="enabled">True if the specified component should be enabled, or false if it should be disabled</param>
+        /// <typeparam name="T">The type of component to set</typeparam>
+        public void SetComponentEnabled<T>(bool enabled) where T : struct, IEnableableComponent
+        {
+            CheckComponentHasBeenAddedByThisBaker(_State.PrimaryEntity, TypeManager.GetTypeIndex<T>());
+            _State.Ecb.SetComponentEnabled<T>(_State.PrimaryEntity, enabled);
         }
 
          /// <summary>
@@ -1755,7 +1800,8 @@ namespace Unity.Entities
         {
             if (_State.PrimaryEntity != entity)
                 CheckValidAdditionalEntity(entity);
-            CheckComponentHasBeenAddedByThisBaker(entity, typeIndex);
+            else
+                CheckComponentHasBeenAddedByThisBaker(entity, typeIndex);
 
             _State.Ecb.UnsafeSetComponent(entity, typeIndex, typeSize, componentDataPtr);
         }
@@ -1775,7 +1821,8 @@ namespace Unity.Entities
         {
             if (_State.PrimaryEntity != entity)
                 CheckValidAdditionalEntity(entity);
-            CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
+            else
+                CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
 
             _State.Ecb.SetSharedComponentManaged(entity, component);
         }
@@ -1795,7 +1842,8 @@ namespace Unity.Entities
         {
             if (_State.PrimaryEntity != entity)
                 CheckValidAdditionalEntity(entity);
-            CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
+            else
+                CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
 
             _State.Ecb.SetSharedComponent(entity, component);
         }
@@ -1847,7 +1895,8 @@ namespace Unity.Entities
         /// <returns>The new DynamicBuffer</returns>
         private DynamicBuffer<T> SetBufferInternal<T>(Entity entity) where T : unmanaged, IBufferElementData
         {
-            CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
+            if (_State.PrimaryEntity == entity)
+                CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
 
             return _State.Ecb.SetBuffer<T>(entity);
         }
@@ -1884,7 +1933,8 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of buffer to append to</typeparam>
         private void AppendToBufferInternal<T>(Entity entity, T element) where T : unmanaged, IBufferElementData
         {
-            CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
+            if (_State.PrimaryEntity == entity)
+                CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
 
             _State.Ecb.AppendToBuffer(entity, element);
         }
@@ -1944,34 +1994,18 @@ namespace Unity.Entities
         /// <summary>
         /// Adds the TransformUsageFlags to the Flags of the Entity
         /// </summary>
-        /// <param name="authoring">The GameObject to add the Flags to</param>
+        /// <param name="entity">The Entity to add the Flags to</param>
         /// <param name="flags">The Flags to add</param>
-        public void AddTransformUsageFlags(GameObject authoring, TransformUsageFlags flags = TransformUsageFlags.Default)
+        public void AddTransformUsageFlags(Entity entity, TransformUsageFlags flags = TransformUsageFlags.Default)
         {
-            if (authoring == null)
-                return;
-
-            if (_State.AuthoringObject == authoring)
+            if (entity == _State.PrimaryEntity)
             {
                 _State.Usage->PrimaryEntityFlags.Add(flags);
             }
-            else
+            else if (entity != Entity.Null)
             {
-                var entity = _State.BakedEntityData->GetEntity(authoring);
                 _State.Usage->ReferencedEntityUsages.Add(new BakerEntityUsage.ReferencedEntityUsage(entity, flags));
             }
-        }
-
-        /// <summary>
-        /// Adds the TransformUsageFlags to the Flags of the primary Entity
-        /// </summary>
-        /// <param name="authoring">The Object to add the Flags to</param>
-        /// <param name="flags">The Flags to add</param>
-        public void AddTransformUsageFlags(Component authoring, TransformUsageFlags flags = TransformUsageFlags.Default)
-        {
-            if (authoring == null)
-                return;
-            AddTransformUsageFlags(authoring.gameObject, flags);
         }
 
         /// <summary>
@@ -2014,48 +2048,6 @@ namespace Unity.Entities
             return _State.DotsSettings;
         }
 #endif
-
-        /// <summary>
-        /// Configure the EditorRenderData for an Entity. This is marked for deprecation.
-        /// </summary>
-        /// <param name="entity">Then Entity to configure the EditorRenderData for.</param>
-        /// <param name="pickableObject">The game object that should be picked when clicking on an entity.</param>
-        /// <param name="hasGameObjectBasedRenderingRepresentation">If there is a game object based rendering representation,
-        /// like MeshRenderer this should be true. If the only way to render the object is through entities it should be false.</param>
-        //TODO: Remove once HRvNext lands in trunk WITH picking code and dots is on trunk DOTS-6750
-        public void ConfigureEditorRenderData(Entity entity, GameObject pickableObject, bool hasGameObjectBasedRenderingRepresentation)
-        {
-            #if UNITY_EDITOR
-            //@TODO: Dont apply to prefabs (runtime instances should just be pickable by the scene ... Custom one should probably have a special culling mask though?)
-
-            bool liveConversionScene = (_State.BakedEntityData->_ConversionFlags & BakingUtility.BakingFlags.SceneViewLiveConversion) != 0;
-            //bool liveConversionGameView = (Settings.ConversionFlags & ConversionFlags.GameViewLiveConversion) != 0;
-
-            // NOTE: When no live link is present all entities will simply be batched together for the whole scene
-
-            // In SceneView Live Link mode we want to show the original MeshRenderer
-            if (hasGameObjectBasedRenderingRepresentation && liveConversionScene)
-            {
-                var sceneCullingMask = UnityEditor.GameObjectUtility.ModifyMaskIfGameObjectIsHiddenForPrefabModeInContext(UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask, pickableObject);
-                AddSharedComponentManaged(entity, new EditorRenderData
-                {
-                    PickableObject = pickableObject,
-                    SceneCullingMask = sceneCullingMask
-                });
-            }
-            // Code never hit currently so outcommented:
-            // When live linking game view, we still want custom renderers to be pickable.
-            // Otherwise they will not even be visible in scene view at all.
-            //else if (!hasGameObjectBasedRenderingRepresentation && liveLinkGameView)
-            //{
-            //    m_DstManager.AddSharedComponentData(entity, new EditorRenderData
-            //    {
-            //        PickableObject = pickableObject,
-            //        SceneCullingMask = EditorRenderData.LiveLinkEditGameViewMask | EditorRenderData.LiveLinkEditSceneViewMask
-            //    });
-            //}
-            #endif
-        }
     }
 
     /// <summary>
@@ -2112,7 +2104,14 @@ namespace Unity.Entities
         internal override void InvokeBake(in BakerExecutionState state)
         {
             _State = state;
-            //@TODO: DOTS-5461
+
+            // Any Baker on a Transform needs to take an implicit dependency on the hierarchy as the Transform itself changes when the hierarchy does.
+            var potentialTransform = state.AuthoringSource as Transform;
+            if (potentialTransform != null)
+            {
+                state.Dependencies->DependOnParentTransformHierarchy(potentialTransform);
+            }
+
             Bake((TAuthoringType) state.AuthoringSource);
             _State = default;
         }

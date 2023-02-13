@@ -170,6 +170,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 VerifyQueryTypeCorrectness(description.SystemDescription, description.Location, description.WithNoneTypes, invokedMethodName: "WithNone");
             description.Success &=
                 VerifyQueryTypeCorrectness(description.SystemDescription, description.Location, description.WithAnyTypes, invokedMethodName: "WithAny");
+            description.Success &=
+                VerifyQueryTypeCorrectness(description.SystemDescription, description.Location, description.WithDisabledTypes, invokedMethodName: "WithDisabled");
+            description.Success &=
+                VerifyQueryTypeCorrectness(description.SystemDescription, description.Location, description.WithAbsentTypes, invokedMethodName: "WithAbsent");
 
             description.Success &=
                 VerifySharedComponentFilterTypesAgainstOtherQueryTypes(description.SystemDescription, description.Location, description.WithSharedComponentFilterTypes, description.WithAllTypes);
@@ -177,7 +181,17 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 VerifySharedComponentFilterTypesAgainstOtherQueryTypes(description.SystemDescription, description.Location, description.WithSharedComponentFilterTypes, description.WithAnyTypes);
             description.Success &=
                 VerifySharedComponentFilterTypesAgainstOtherQueryTypes(description.SystemDescription, description.Location, description.WithSharedComponentFilterTypes, description.WithNoneTypes);
+            description.Success &=
+                VerifySharedComponentFilterTypesAgainstOtherQueryTypes(description.SystemDescription, description.Location, description.WithSharedComponentFilterTypes, description.WithDisabledTypes);
+            description.Success &=
+                VerifySharedComponentFilterTypesAgainstOtherQueryTypes(description.SystemDescription, description.Location, description.WithSharedComponentFilterTypes, description.WithAbsentTypes);
 
+            description.Success &=
+                VerifyNoMutuallyExclusiveQueries(description.SystemDescription, description.Location, description.WithAbsentTypes, description.WithDisabledTypes, "WithAbsent", "WithDisabled");
+            description.Success &=
+                VerifyNoMutuallyExclusiveQueries(description.SystemDescription, description.Location, description.WithAbsentTypes, description.WithAllTypes, "WithAbsent", "WithAll");
+            description.Success &=
+                VerifyNoMutuallyExclusiveQueries(description.SystemDescription, description.Location, description.WithAbsentTypes, description.WithAnyTypes, "WithAbsent", "WithAny");
             description.Success &=
                 VerifyNoMutuallyExclusiveQueries(description.SystemDescription, description.Location, description.WithNoneTypes, description.WithAllTypes, "WithNone", "WithAll");
             description.Success &=

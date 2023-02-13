@@ -16,13 +16,13 @@ namespace Unity.Entities
     [GenerateTestsForBurstCompatibility]
     internal struct DependencyTracker : IDisposable
     {
-        UnsafeMultiHashMap<int, int> _dependentsByInstanceId;
-        UnsafeMultiHashMap<int, int> _dependenciesByInstanceId;
+        UnsafeParallelMultiHashMap<int, int> _dependentsByInstanceId;
+        UnsafeParallelMultiHashMap<int, int> _dependenciesByInstanceId;
 
         internal DependencyTracker(Allocator allocator)
         {
-            _dependentsByInstanceId = new UnsafeMultiHashMap<int, int>(0, allocator);
-            _dependenciesByInstanceId = new UnsafeMultiHashMap<int, int>(0, allocator);
+            _dependentsByInstanceId = new UnsafeParallelMultiHashMap<int, int>(0, allocator);
+            _dependenciesByInstanceId = new UnsafeParallelMultiHashMap<int, int>(0, allocator);
         }
 
         public void Dispose()
@@ -74,7 +74,7 @@ namespace Unity.Entities
         public bool HasDependents(int instanceId) => _dependentsByInstanceId.ContainsKey(instanceId);
 
         internal NativeArray<int> GetAllDependencies(Allocator allocator) => _dependentsByInstanceId.GetKeyArray(allocator);
-        internal UnsafeMultiHashMap<int, int>.Enumerator GetAllDependents(int instanceId) => _dependentsByInstanceId.GetValuesForKey(instanceId);
+        internal UnsafeParallelMultiHashMap<int, int>.Enumerator GetAllDependents(int instanceId) => _dependentsByInstanceId.GetValuesForKey(instanceId);
         internal bool HasDependencies() => !_dependentsByInstanceId.IsEmpty;
         internal bool HasDependencies(int instanceId) => _dependentsByInstanceId.ContainsKey(instanceId);
 

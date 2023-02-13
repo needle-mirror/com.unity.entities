@@ -7,6 +7,7 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
+    using static AspectUtils;
     struct Component01 : IComponentData
     {
         public int Value;
@@ -68,7 +69,7 @@ namespace Unity.Entities.Tests
             var notMatchingArchetype = m_Manager.CreateArchetype(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -98,7 +99,7 @@ namespace Unity.Entities.Tests
             var matchingArchetype = m_Manager.CreateArchetype(typeof(EcsTestData));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -122,7 +123,7 @@ namespace Unity.Entities.Tests
             var notMatchingArchetype = m_Manager.CreateArchetype(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype));
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.CreateEntity());
@@ -143,7 +144,7 @@ namespace Unity.Entities.Tests
             var toInstantiate = m_Manager.CreateEntity(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -166,7 +167,7 @@ namespace Unity.Entities.Tests
             var notMatchingArchetype = m_Manager.CreateArchetype(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity(notMatchingArchetype));
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateEntity());
@@ -187,7 +188,7 @@ namespace Unity.Entities.Tests
             var toInstantiate = m_Manager.GetAllEntities()[0];
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -211,7 +212,7 @@ namespace Unity.Entities.Tests
             var toInstantiate = m_Manager.CreateEntity(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate));
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate, TmpNA(2)));
@@ -230,7 +231,7 @@ namespace Unity.Entities.Tests
             var toInstantiate = m_Manager.CreateEntity(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(toInstantiate));
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(toInstantiate, TmpNA(2)));
@@ -249,7 +250,7 @@ namespace Unity.Entities.Tests
             var toCopy = m_Manager.CreateEntity(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -268,7 +269,7 @@ namespace Unity.Entities.Tests
             var toCopy = m_Manager.CreateEntity(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(TmpNA(toCopy, toCopy), TmpNA(2)));
 
@@ -285,7 +286,7 @@ namespace Unity.Entities.Tests
             var toCopy = m_Manager.GetAllEntities()[0];
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -306,7 +307,7 @@ namespace Unity.Entities.Tests
             var toCopy = m_Manager.CreateEntity(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CopyEntities(TmpNA(toCopy, toCopy), TmpNA(2)));
 
@@ -327,7 +328,7 @@ namespace Unity.Entities.Tests
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -345,7 +346,7 @@ namespace Unity.Entities.Tests
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -362,7 +363,7 @@ namespace Unity.Entities.Tests
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.CreateArchetype(typeof(Component01)));
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.CreateArchetype(TmpNA(typeof(Component01))));
@@ -377,7 +378,7 @@ namespace Unity.Entities.Tests
             SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateArchetype(typeof(Component01)));
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CreateArchetype(TmpNA(typeof(Component01))));
@@ -393,7 +394,7 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(typeof(EcsTestData));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -416,7 +417,7 @@ namespace Unity.Entities.Tests
             };
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
                 m_Manager.CopyEntities(TmpNA(prefabs), TmpNA(2));
@@ -431,7 +432,7 @@ namespace Unity.Entities.Tests
             var notMatchingArchetype = m_Manager.CreateArchetype(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -451,7 +452,7 @@ namespace Unity.Entities.Tests
             var notMatchingArchetype = m_Manager.CreateArchetype(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -471,7 +472,7 @@ namespace Unity.Entities.Tests
             var notMatchingArchetype = m_Manager.CreateArchetype(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
@@ -491,7 +492,7 @@ namespace Unity.Entities.Tests
             var toInstantiate = m_Manager.CreateEntity(typeof(Component01));
 
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
-            var query = EmptySystem.GetEntityQuery(EcsTestDataAspect.RequiredComponents);
+            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>(isReadOnly: false));
 
             var commandBuffer = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
 

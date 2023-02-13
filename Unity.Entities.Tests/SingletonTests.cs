@@ -10,11 +10,9 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate() { }
         }
+
         partial struct EmptyTestISystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) { }
         }
 
         [Test]

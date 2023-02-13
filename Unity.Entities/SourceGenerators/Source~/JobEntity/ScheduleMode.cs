@@ -6,12 +6,12 @@ namespace Unity.Entities.SourceGen.JobEntity
 {
     enum ScheduleMode
     {
+        Run,
+        RunByRef,
         Schedule,
         ScheduleByRef,
         ScheduleParallel,
         ScheduleParallelByRef,
-        Run,
-        RunByRef
     }
 
     static class ScheduleModeHelpers {
@@ -30,6 +30,10 @@ namespace Unity.Entities.SourceGen.JobEntity
                 ScheduleMode.RunByRef => "RunByRef(ref job, entityQuery)",
                 _ => throw new ArgumentOutOfRangeException()
             };
+
+        // scheduleType 0:Run, 1:Schedule, 2:ScheduleParallel
+        internal static int GetScheduleTypeAsNumber(this ScheduleMode scheduleMode)
+            => (int) scheduleMode / 2;
 
         internal static ScheduleMode GetScheduleModeFromNameOfMemberAccess(MemberAccessExpressionSyntax memberAccessExpressionSyntax)
             => memberAccessExpressionSyntax.Name.Identifier.ValueText switch

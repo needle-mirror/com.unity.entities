@@ -43,7 +43,7 @@ namespace Unity.Entities
             m_BlobAssetStore = blobAssetStore;
             m_ToCompute = new NativeParallelHashMap<Hash128, TS>(initialCapacity, allocator);
             m_Computed = new NativeParallelHashMap<Hash128, BlobAssetReference<TB>>(initialCapacity, allocator);
-            m_BlobPerUnityObject = new NativeMultiHashMap<int, Hash128>(initialCapacity, allocator);
+            m_BlobPerUnityObject = new NativeParallelMultiHashMap<int, Hash128>(initialCapacity, allocator);
             m_BlobAssetStoreTypeHash = BlobAssetStore.ComputeTypeHash(typeof(TB));
         }
 
@@ -56,7 +56,7 @@ namespace Unity.Entities
         private BlobAssetStore m_BlobAssetStore;
         private NativeParallelHashMap<Hash128, TS> m_ToCompute;
         private NativeParallelHashMap<Hash128, BlobAssetReference<TB>> m_Computed;
-        private NativeMultiHashMap<int, Hash128> m_BlobPerUnityObject;
+        private NativeParallelMultiHashMap<int, Hash128> m_BlobPerUnityObject;
         private uint m_BlobAssetStoreTypeHash;
 
         /// <summary>

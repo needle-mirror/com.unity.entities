@@ -13,11 +13,9 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate() {}
         }
+
         partial struct EmptyTestISystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) { }
         }
 
         static void CheckManagedSystemExists<T>(World world, T system) where T : SystemBase
@@ -42,6 +40,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, world.Systems.Count);
             Assert.AreEqual(SystemHandle.Null, world.Unmanaged.ExecutingSystem);
         }
+
         static void CheckUnmanagedSystemEmpty<T>(World world) where T : unmanaged, ISystem
         {
             Assert.AreEqual(SystemHandle.Null, world.GetExistingSystem<T>());
@@ -386,9 +385,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(state.SystemHandle, systemCreate);
             }
 
-            public void OnDestroy(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) {}
-        }
+            }
 
         [Test]
         public void ISystemIsAccessibleDuringOnCreate()
@@ -556,8 +553,6 @@ namespace Unity.Entities.Tests
 
         partial struct ThrowDuringDestroyISystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) { }
             public void OnDestroy(ref SystemState systemState)
             {
                 throw new ArgumentException();
@@ -582,9 +577,8 @@ namespace Unity.Entities.Tests
         {
             private string BadString;
             public void OnCreate(ref SystemState state) => Debug.LogError("Should never even get here");
-            public void OnDestroy(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) { }
         }
+
 #if !UNITY_DOTSRUNTIME_IL2CPP
         /*
          * these tests rely on throwing and catching exceptions, which is not a thing in tiny il2cpp

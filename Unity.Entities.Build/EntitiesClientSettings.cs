@@ -110,7 +110,15 @@ namespace Unity.Entities.Build
             var targetS = new VisualElement();
             targetS.AddToClassList("target-Settings");
 
-            targetS.Add(new PropertyField(so.FindProperty("FilterSettings.ExcludedBakingSystemAssemblies")));
+            var prop = so.FindProperty("FilterSettings.ExcludedBakingSystemAssemblies");
+            var propField = new PropertyField(prop);
+            propField.BindProperty(prop);
+            propField.RegisterCallback<ChangeEvent<string>>(
+                evt =>
+                {
+                    EntitiesClientSettings.instance.FilterSettings.SetDirty();
+                });
+            targetS.Add(propField);
 
             m_BuildSettingsContainer.Add(targetS);
             m_BuildSettingsContainer.Bind(so);

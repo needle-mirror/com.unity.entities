@@ -37,7 +37,10 @@ namespace Unity.Scenes.Editor
 #pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
     }
 
-    internal static class EditorEntityScenes
+    /// <summary>
+    /// Provides utility methods for dealing with entity sub scenes in the editor.
+    /// </summary>
+    public static class EditorEntityScenes
     {
         static readonly ProfilerMarker k_ProfileEntitiesSceneSave = new ProfilerMarker("EntitiesScene.Save");
         static readonly ProfilerMarker k_ProfileEntitiesSceneSaveHeader = new ProfilerMarker("EntitiesScene.WriteHeader");
@@ -948,7 +951,7 @@ namespace Unity.Scenes.Editor
         /// </summary>
         /// <param name="guid">The GUID of the scene</param>
         /// <returns>A list of all sub scenes embedded in the given scene</returns>
-        internal static Hash128[] GetSubScenes(GUID guid)
+        public static Hash128[] GetSubScenes(GUID guid)
         {
             return GameObjectSceneMetaDataImporter.GetSubScenes(guid);
         }

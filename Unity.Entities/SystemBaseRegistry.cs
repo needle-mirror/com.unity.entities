@@ -2,30 +2,40 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Assertions;
 
 namespace Unity.Entities
 {
-    internal unsafe struct UnmanagedComponentSystemDelegates
+    enum UnmanagedSystemFunctionType
+    {
+        OnCreate,
+        OnUpdate,
+        OnDestroy,
+        OnStartRunning,
+        OnStopRunning,
+        OnCreateForCompiler,
+
+        Count
+    }
+
+    unsafe struct UnmanagedComponentSystemDelegates
     {
         // The function to call from a burst context to create/update/destroy.
-        internal fixed ulong BurstFunctions[6];
+        internal fixed ulong BurstFunctions[(int)UnmanagedSystemFunctionType.Count];
 
         // The function to call from a managed context to create/update/destroy.
-        internal fixed ulong ManagedFunctions[6];
+        internal fixed ulong ManagedFunctions[(int)UnmanagedSystemFunctionType.Count];
 
         // Maintain a reference to any burst->managed delegate wrapper so they are not collected
-        internal fixed ulong GCDefeat1[6];
+        internal fixed ulong GCDefeat1[(int)UnmanagedSystemFunctionType.Count];
 
         internal ushort PresentFunctionBits;
         internal ushort BurstFunctionBits;
 
-
-
-        internal unsafe void Dispose()
+        internal void Dispose()
         {
             for (int i = 5; i >= 0; --i)
             {
@@ -42,10 +52,10 @@ namespace Unity.Entities
         }
     }
 
-    internal unsafe struct UnmanagedSystemTypeRegistryData
+    unsafe struct UnmanagedSystemTypeRegistryData
     {
-        private UnsafeParallelHashMap<long, int> m_TypeHashToIndex;
-        private UnsafeList<UnmanagedComponentSystemDelegates> m_Delegates;
+        UnsafeParallelHashMap<long, int> m_TypeHashToIndex;
+        UnsafeList<UnmanagedComponentSystemDelegates> m_Delegates;
 
         public bool Constructed => m_Delegates.Ptr != null;
 
@@ -102,7 +112,7 @@ namespace Unity.Entities
     /// Internal class used by codegen (as such it is necessary to be public). For registering unmanaged systems
     /// prefer <seealso cref="World.AddSystem"/>
     /// </summary>
-    [GenerateTestsForBurstCompatibility]    
+    [GenerateTestsForBurstCompatibility]
     public static class SystemBaseRegistry
     {
         class Managed
@@ -180,12 +190,16 @@ namespace Unity.Entities
 #endif
             }
 
+            // The order/number here must match UnmanagedSystemFunctionType
+            var functions = new[] { onCreate, onUpdate, onDestroy, onStartRunning, onStopRunning, onCreateForCompiler };
+            Assert.AreEqual(functions.Length, (int)UnmanagedSystemFunctionType.Count);
+
             // Buffer the data
             Managed.s_PendingRegistrations.Add(new RegistrationEntry
             {
                 m_Type = type,
                 m_TypeHash = typeHash,
-                m_Functions = new ForwardingFunc[] { onCreate, onUpdate, onDestroy, onStartRunning, onStopRunning, onCreateForCompiler },
+                m_Functions = functions,
                 m_DebugName = debugName,
                 m_BurstCompileBits = burstCompileBits
             });
@@ -287,7 +301,7 @@ namespace Unity.Entities
         }
 
         [Burst.CompilerServices.IgnoreWarning(1371)]
-        private static unsafe void CallForwardingFunction(SystemState* systemState, int functionIndex)
+        static unsafe void CallForwardingFunction(SystemState* systemState, UnmanagedSystemFunctionType functionType)
         {
             var metaIndex = systemState->UnmanagedMetaIndex;
             var systemPointer = systemState->m_SystemPtr;
@@ -295,6 +309,7 @@ namespace Unity.Entities
             bool isBurst = true;
             CheckBurst(ref isBurst);
 
+            var functionIndex = (int)functionType;
             if (0 != (delegates.PresentFunctionBits & (1 << functionIndex)))
             {
                 if (isBurst)
@@ -326,34 +341,13 @@ namespace Unity.Entities
         // * Burst has completed compilation of the method yet
         // Unfortunately there is no way to get this data from burst yet.
         // BUR-1651
-        internal static bool IsOnUpdateUsingBurst(in UnmanagedComponentSystemDelegates delegates)
+        internal unsafe static bool IsOnUpdateUsingBurst(in SystemState* state)
         {
             bool isBurst = true;
             CheckBurst(ref isBurst);
 
+            ref readonly var delegates = ref GetDelegates(state);
             return isBurst & (delegates.BurstFunctionBits & 2) != 0;
-        }
-
-        [GenerateTestsForBurstCompatibility]
-        [Burst.CompilerServices.IgnoreWarning(1371)]
-        internal static unsafe void CallOnUpdate(in UnmanagedComponentSystemDelegates delegates, SystemState* systemState)
-        {
-            bool isBurst = true;
-            CheckBurst(ref isBurst);
-
-            if (isBurst)
-            {
-                // Burst: we're calling either directly into Burst code, or we are calling into a managed wrapper.
-                // In any case, creating the function pointer from the IntPtr is free.
-                new FunctionPointer<ForwardingFunc>((IntPtr)delegates.BurstFunctions[1]).Invoke((IntPtr)systemState->m_SystemPtr, (IntPtr)systemState);
-            }
-            else
-            {
-                // We're in managed land. We may be calling into either a managed routine, or into Burst code.
-                // We have a managed delegate GCHandle ready to go.
-                var delegatePtr = (IntPtr)delegates.ManagedFunctions[1];
-                ForwardToManaged(delegatePtr, systemState, systemState->m_SystemPtr);
-            }
         }
 
         [BurstDiscard]
@@ -366,37 +360,37 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnCreate(SystemState* systemState)
         {
-            CallForwardingFunction(systemState, 0);
+            CallForwardingFunction(systemState, UnmanagedSystemFunctionType.OnCreate);
         }
 
         [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnUpdate(SystemState* systemState)
         {
-            CallForwardingFunction(systemState, 1);
+            CallForwardingFunction(systemState, UnmanagedSystemFunctionType.OnUpdate);
         }
 
         [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnDestroy(SystemState* systemState)
         {
-            CallForwardingFunction(systemState, 2);
+            CallForwardingFunction(systemState, UnmanagedSystemFunctionType.OnDestroy);
         }
 
         [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnStartRunning(SystemState* systemState)
         {
-            CallForwardingFunction(systemState, 3);
+            CallForwardingFunction(systemState, UnmanagedSystemFunctionType.OnStartRunning);
         }
 
         [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnStopRunning(SystemState* systemState)
         {
-            CallForwardingFunction(systemState, 4);
+            CallForwardingFunction(systemState, UnmanagedSystemFunctionType.OnStopRunning);
         }
 
         [GenerateTestsForBurstCompatibility]
         internal static unsafe void CallOnCreateForCompiler(SystemState* systemState)
         {
-            CallForwardingFunction(systemState, 5);
+            CallForwardingFunction(systemState, UnmanagedSystemFunctionType.OnCreateForCompiler);
         }
 
         [ExcludeFromBurstCompatTesting("returns managed Type")]

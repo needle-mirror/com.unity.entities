@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Build.iOS")]
 [assembly: InternalsVisibleTo("Unity.Build.Android")]
 [assembly: InternalsVisibleTo("Unity.Entities.UI.Tests")]
-[assembly: InternalsVisibleTo("Unity.Animation.Editor")]
+[assembly: InternalsVisibleTo("Unity.Motion.Editor")]
 [assembly: InternalsVisibleTo("Unity.Entities.Runtime.Build")]
 [assembly: InternalsVisibleTo("Unity.Entities.Editor")]
 [assembly: InternalsVisibleTo("Unity.Entities.Editor.Properties")]

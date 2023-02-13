@@ -16,7 +16,7 @@ You should add the following recommended set of core packages to your project:
 * [com.unity.entities.graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@latest)
 
 ## IDE support
-Entities uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
+Entities 0.51 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
 
 * Visual Studio 2022+
 * Rider 2021.3.3+

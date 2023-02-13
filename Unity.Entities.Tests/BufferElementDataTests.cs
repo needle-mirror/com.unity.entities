@@ -806,7 +806,7 @@ namespace Unity.Entities.Tests
                 buffer.Add(5);
             }
 
-            var query = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
+            var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsIntElement>().Build(EmptySystem);
             var job = new WriteJob
             {
                 Int = EmptySystem.GetBufferTypeHandle<EcsIntElement>()
@@ -855,7 +855,7 @@ namespace Unity.Entities.Tests
                 buffer.Add(5);
             }
 
-            var query = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
+            var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsIntElement>().Build(EmptySystem);
             var job = new ReadOnlyJob
             {
                 Int = EmptySystem.GetBufferTypeHandle<EcsIntElement>(readOnlyType)

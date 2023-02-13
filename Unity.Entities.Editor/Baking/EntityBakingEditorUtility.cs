@@ -1,7 +1,4 @@
 using System.Collections.Generic;
-using Unity.Collections;
-using Unity.Collections.NotBurstCompatible;
-using Unity.Entities.Conversion;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
@@ -13,14 +10,17 @@ namespace Unity.Entities.Editor
             TypeManager.Initialize();
         }
 
-        public static void GetBakingData(List<GameObject> gameObjects, World world, List<EntityBakingData> result)
+        public static unsafe void GetBakingData(List<GameObject> gameObjects, World world, List<EntityBakingData> result)
         {
             result.Clear();
             if (world == null)
                 return;
 
-            using var cachedEntities = new NativeList<Entity>(Allocator.Temp);
+            using var pooledList = PooledList<Entity>.Make();
+            var cachedEntities = pooledList.List;
+
             var lookup = world.EntityManager.Debug.GetCachedEntityGUIDToEntityIndexLookup();
+            var access = world.EntityManager.GetCheckedEntityDataAccess();
 
             foreach (var gameObject in gameObjects)
             {
@@ -28,36 +28,59 @@ namespace Unity.Entities.Editor
                     continue;
 
                 cachedEntities.Clear();
-                foreach (var e in lookup.GetValuesForKey(gameObject.GetInstanceID()))
-                    cachedEntities.Add(e);
 
-                if (cachedEntities.Length == 0)
+                foreach (var e in lookup.GetValuesForKey(gameObject.GetInstanceID()))
+                {
+                    var data = access->GetComponentData<EntityGuid>(e);
+
+                    // Detect primary entity.
+                    if (data.Serial == 0)
+                        cachedEntities.Insert(0, e);
+                    else
+                        cachedEntities.Add(e);
+                }
+
+                if (cachedEntities.Count == 0)
                     continue;
 
                 result.Add(new EntityBakingData
                 {
                     PrimaryEntity = cachedEntities[0],
-                    AdditionalEntities = cachedEntities.ToArrayNBC(),
+                    AdditionalEntities = cachedEntities.ToArray(),
                     EntityManager = world.EntityManager,
                 });
             }
         }
 
-        public static EntityBakingData GetBakingData(GameObject gameObject, World world)
+        public static unsafe EntityBakingData GetBakingData(GameObject gameObject, World world)
         {
             if (world == null || !IsGameObjectBaked(gameObject))
                 return EntityBakingData.Null;
 
-            using var cachedEntities = new NativeList<Entity>(Allocator.Temp);
-            world.EntityManager.Debug.GetEntitiesForAuthoringObject(gameObject, cachedEntities);
+            using var pooledList = PooledList<Entity>.Make();
+            var cachedEntities = pooledList.List;
 
-            if (cachedEntities.Length == 0)
+            var lookup = world.EntityManager.Debug.GetCachedEntityGUIDToEntityIndexLookup();
+            var access = world.EntityManager.GetCheckedEntityDataAccess();
+
+            foreach (var e in lookup.GetValuesForKey(gameObject.GetInstanceID()))
+            {
+                var data = access->GetComponentData<EntityGuid>(e);
+
+                // Detect primary entity.
+                if (data.Serial == 0)
+                    cachedEntities.Insert(0, e);
+                else
+                    cachedEntities.Add(e);
+            }
+
+            if (cachedEntities.Count == 0)
                 return EntityBakingData.Null;
 
             return new EntityBakingData
             {
                 PrimaryEntity = cachedEntities[0],
-                AdditionalEntities = cachedEntities.ToArrayNBC(),
+                AdditionalEntities = cachedEntities.ToArray(),
                 EntityManager = world.EntityManager,
             };
         }

@@ -11,6 +11,7 @@
  * Going the other way around, from the Companion GameObject to the Entity, isn't possible nor advised.
  */
 
+using Unity.Collections;
 using UnityEngine;
 
 namespace Unity.Entities
@@ -26,21 +27,24 @@ namespace Unity.Entities
     {
         private EntityQuery toActivate;
         private EntityQuery toDeactivate;
+        private EntityQuery toCleanup;
 
         protected override void OnCreate()
         {
             base.OnCreate();
-            toActivate = GetEntityQuery(new EntityQueryDesc
-             {
-                 All = new ComponentType[]{typeof(CompanionLink)},
-                 None = new ComponentType[]{typeof(CompanionGameObjectActiveCleanup), typeof(Disabled)}
-             });
-            toDeactivate = GetEntityQuery(new EntityQueryDesc
-             {
-                 Any = new ComponentType[]{typeof(Disabled), typeof(Prefab)},
-                 All = new ComponentType[]{typeof(CompanionGameObjectActiveCleanup), typeof(CompanionLink)},
-                 Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-             });
+            toActivate = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CompanionLink>()
+                .WithNone<CompanionGameObjectActiveCleanup, Disabled>()
+                .Build(this);
+            toDeactivate = new EntityQueryBuilder(Allocator.Temp)
+                .WithAny<Disabled, Prefab>()
+                .WithAll<CompanionGameObjectActiveCleanup, CompanionLink>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                .Build(this);
+            toCleanup = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CompanionGameObjectActiveCleanup>()
+                .WithNone<CompanionLink>()
+                .Build(this);
         }
 
         protected override void OnUpdate()
@@ -58,8 +62,7 @@ namespace Unity.Entities
                 .ForEach((CompanionLink link) => link.Companion.SetActive(false)).WithoutBurst().Run();
             EntityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(toDeactivate);
 
-            var activeCleanup = Entities.WithNone<CompanionLink>().WithAll<CompanionGameObjectActiveCleanup>().ToQuery();
-            EntityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(activeCleanup);
+            EntityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(toCleanup);
         }
     }
 }

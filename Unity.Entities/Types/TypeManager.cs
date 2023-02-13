@@ -187,6 +187,11 @@ namespace Unity.Entities
         public bool HasEntityReferences { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return  (Value & TypeManager.HasNoEntityReferencesFlag) == 0; } }
 
         /// <summary>
+        /// The component type contains a NativeContainer member. NativeContainer members found in nested member types will also cause this property to return true.
+        /// </summary>
+        public bool HasNativeContainer { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return (Value & TypeManager.HasNativeContainerFlag) != 0; } }
+
+        /// <summary>
         /// The component type is decorated with the <seealso cref="TemporaryBakingTypeAttribute"/> attribute.
         /// </summary>
         public bool IsTemporaryBakingType { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return  (Value & TypeManager.TemporaryBakingTypeFlag) != 0; } }
@@ -482,6 +487,11 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Bitflag set for component types with NativeContainer data <seealso cref="NativeContainerAttribute"/>.
+        /// </summary>
+        public const int HasNativeContainerFlag = 1 << 18;
+
+        /// <summary>
         /// Bitflag set for component types inheriting from <seealso cref="System.IEquatable{T}"/>.
         /// </summary>
         public const int IEquatableTypeFlag = 1 << 19;
@@ -575,7 +585,7 @@ namespace Unity.Entities
         /// <summary>
         /// Bit mask to clear all flag bits from a <seealso cref="TypeIndex"/> />
         /// </summary>
-        public const int ClearFlagsMask = 0x0007FFFF;
+        public const int ClearFlagsMask = 0x0003FFFF;
 
         /// <summary>
         /// Maximum number of <seealso cref="Entity"/> instances stored in a given <seealso cref="Chunk"/>/>
@@ -1443,11 +1453,12 @@ namespace Unity.Entities
 
 #if !UNITY_DOTSRUNTIME
             InitializeAllComponentTypes();
-            InitializeAllSystemTypes();
 #else
             // Registers all types and their static info from the static type registry
             RegisterStaticAssemblyTypes();
 #endif
+            InitializeAllSystemTypes();
+
 
             // Must occur after we've constructed s_TypeInfos
             InitializeSharedStatics();
@@ -1479,6 +1490,8 @@ namespace Unity.Entities
             SharedTypeNames.Ref.Data = new IntPtr(s_TypeNames.Ptr);
             SharedTypeFullNameHashes.Ref.Data = new IntPtr(s_TypeFullNameHashes.Ptr);
             SharedSystemTypeNames.Ref.Data = new IntPtr(s_SystemTypeNames.Ptr);
+            SharedSystemAttributes.Ref.Data = new IntPtr(s_SystemAttributes.Ptr);
+            SharedSystemTypeHashes.Ref.Data = new IntPtr(s_SystemTypeHashes.Ptr);
         }
 
         static void ShutdownSharedStatics()
@@ -1497,6 +1510,8 @@ namespace Unity.Entities
             SharedTypeNames.Ref.Data = default;
             SharedTypeFullNameHashes.Ref.Data = default;
             SharedSystemTypeNames.Ref.Data = default;
+            SharedSystemAttributes.Ref.Data = default;
+            SharedSystemTypeHashes.Ref.Data = default;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             // If the TypeManager failed to initialize, this may not have been set
@@ -1562,7 +1577,6 @@ namespace Unity.Entities
             s_Initialized = false;
 
             s_TypeCount = 0;
-            s_FastEqualityTypeInfoList.Clear();
             s_Types.Clear();
 
             ShutdownSystemsState();
@@ -1940,12 +1954,9 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new Type[] { typeof(Entity) })]
         public static int GetHashCode<T>(ref T val) where T : struct
         {
-#if !UNITY_DOTSRUNTIME
             var typeIndex = GetTypeIndex<T>();
             return GetHashCode(UnsafeUtility.AddressOf(ref val), typeIndex);
-#else
-            return (int)XXHash.Hash32((byte*)UnsafeUtility.AddressOf(ref val), UnsafeUtility.SizeOf<T>());
-#endif
+
         }
 
         /// <summary>
@@ -2498,7 +2509,7 @@ namespace Unity.Entities
                 // could lead to crashes due to the unsafe nature of how invoke burst instance methods from generic code paths
                 if (s_FailedTypeBuildException.Count > 0)
                 {
-                    throw new ArgumentException("TypeManager initialization failed. Please fix all exceptions logged above before continuing."); 
+                    throw new ArgumentException("TypeManager initialization failed. Please fix all exceptions logged above before continuing.");
                 }
 
                 Profiler.EndSample();
@@ -2572,7 +2583,7 @@ namespace Unity.Entities
         private static void AddAllComponentTypes(Type[] componentTypes, int startTypeIndex, Dictionary<int, HashSet<TypeIndex>> writeGroupByType, Dictionary<Type, int> descendantCountByType)
         {
             Dictionary<Type, ulong> hashCache = new Dictionary<Type, ulong>();
-            HashSet<Type> nestedContainerCache = new HashSet<Type>();
+            Dictionary<Type, bool> nestedContainerCache = new Dictionary<Type, bool>();
             var expectedTypeIndex = startTypeIndex;
 
             for (int i = 0; i < componentTypes.Length; i++)
@@ -2698,10 +2709,10 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        internal static void CheckIsAllowedAsComponentData(Type type, string baseTypeDesc, HashSet<Type> nestedContainerCache)
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+        internal static void CheckIsAllowedAsComponentData(Type type, string baseTypeDesc, Dictionary<Type, bool> nestedContainerCache, out bool hasNativeContainer)
         {
-            ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
+            hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
 
             if (UnsafeUtility.IsUnmanaged(type))
                 return;
@@ -2712,14 +2723,19 @@ namespace Unity.Entities
             // if something went wrong and the above didn't throw, then throw
             throw new ArgumentException($"{type} cannot be used as component data for unknown reasons (BUG)");
         }
+#endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-        internal static void CheckIsAllowedAsManagedComponentData(Type type, string baseTypeDesc, HashSet<Type> nestedContainerCache)
+        internal static void CheckIsAllowedAsManagedComponentData(Type type, string baseTypeDesc, Dictionary<Type, bool> nestedContainerCache, out bool hasNativeContainer)
         {
             if (type.IsClass && typeof(IComponentData).IsAssignableFrom(type))
             {
-                ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
-                ThrowOnDisallowedManagedComponentData(type, type, baseTypeDesc);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
+#else
+                hasNativeContainer = false;
+#endif
+                ThrowOnDisallowedManagedComponentData(type, baseTypeDesc);
                 return;
             }
 
@@ -2727,12 +2743,12 @@ namespace Unity.Entities
             throw new ArgumentException($"{type} cannot be used as managed component data for unknown reasons (BUG)");
         }
 
-        internal static void ThrowOnDisallowedManagedComponentData(Type type, Type baseType, string baseTypeDesc)
+        internal static void ThrowOnDisallowedManagedComponentData(Type type, string baseTypeDesc)
         {
-            // Validate the class IComponentData is usable:
+            // Validate the class component data type is usable:
             // - Has a default constructor
             if (type.GetConstructor(Type.EmptyTypes) == null)
-                throw new ArgumentException($"{type} is a class based IComponentData. Class based IComponentData must implement a default constructor.");
+                throw new ArgumentException($"{type} is a class based {baseTypeDesc}. Class based {baseTypeDesc} must implement a default constructor.");
         }
 #endif
 
@@ -2761,41 +2777,52 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        internal static void ThrowOnNestedNativeContainerComponentData(Type type, Type baseType, HashSet<Type> nestedContainerCache)
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+        internal static bool ThrowOnNestedNativeContainerComponentData(Type type, Type baseType, Dictionary<Type, bool> nestedContainerCache)
         {
-            if (nestedContainerCache.Contains(type))
-                return;
-
-            nestedContainerCache.Add(type);
+            if (nestedContainerCache.TryGetValue(type, out bool hasContainer))
+                return hasContainer;
 
             if (type.IsPrimitive)
-                return;
+            {
+                nestedContainerCache.Add(type, false);
+                return false;
+            }
 
             if (type.IsArray)
             {
+                hasContainer = false;
                 var elementType = type.GetElementType();
                 if (elementType != null)
-                    ThrowOnNestedNativeContainerComponentData(elementType, baseType, nestedContainerCache);
-                return;
+                    hasContainer = ThrowOnNestedNativeContainerComponentData(elementType, baseType, nestedContainerCache);
+                nestedContainerCache.Add(type, hasContainer);
+                return hasContainer;
             }
 
-            const int kScriptTypeNestedNativeContainerFlag = 0x2;
+            const int kScriptTypeNativeContainerFlag = 0x2;
+
             if (Attribute.IsDefined(type, typeof(NativeContainerAttribute)))
             {
+                hasContainer = true;
                 foreach (var genericArg in type.GenericTypeArguments)
                 {
-                    if ((UnsafeUtility.GetScriptingTypeFlags(genericArg) & kScriptTypeNestedNativeContainerFlag) == kScriptTypeNestedNativeContainerFlag)
+                    if ((UnsafeUtility.GetScriptingTypeFlags(genericArg) & kScriptTypeNativeContainerFlag) == kScriptTypeNativeContainerFlag)
                         throw new ArgumentException(
                             $"{baseType} contains a field of {type} which is a nested native container");
                 }
             }
 
+            nestedContainerCache.Add(type, hasContainer);
+
             foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {
-                ThrowOnNestedNativeContainerComponentData(field.FieldType, baseType, nestedContainerCache);
+                hasContainer |= ThrowOnNestedNativeContainerComponentData(field.FieldType, baseType, nestedContainerCache);
             }
+
+            nestedContainerCache[type] = hasContainer;
+            return hasContainer;
         }
+#endif
 
         // https://stackoverflow.com/a/27851610
         static bool IsZeroSizeStruct(Type t)
@@ -2804,12 +2831,12 @@ namespace Unity.Entities
                 t.GetFields((BindingFlags)0x34).All(fi => IsZeroSizeStruct(fi.FieldType));
         }
 
-        internal static TypeInfo BuildComponentType(Type type, Dictionary<Type, ulong> hashCache, HashSet<Type> nestedContainerCache)
+        internal static TypeInfo BuildComponentType(Type type, Dictionary<Type, ulong> hashCache, Dictionary<Type, bool> nestedContainerCache)
         {
             return BuildComponentType(type, null, hashCache, nestedContainerCache);
         }
 
-        internal static TypeInfo BuildComponentType(Type type, TypeIndex[] writeGroups, Dictionary<Type, ulong> hashCache, HashSet<Type> nestedContainerCache)
+        internal static TypeInfo BuildComponentType(Type type, TypeIndex[] writeGroups, Dictionary<Type, ulong> hashCache, Dictionary<Type, bool> nestedContainerCache)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             CheckComponentType(type);
@@ -2841,12 +2868,15 @@ namespace Unity.Entities
                 throw new ArgumentException($"{type} is an interface. It must be a concrete type.");
 #endif
             bool hasEntityReferences = false;
+            bool hasNativeContainer = false;
             bool hasBlobReferences = false;
             bool hasWeakAssetReferences = false;
 
             if (typeof(IComponentData).IsAssignableFrom(type) && !isManaged)
             {
-                CheckIsAllowedAsComponentData(type, nameof(IComponentData), nestedContainerCache);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                CheckIsAllowedAsComponentData(type, nameof(IComponentData), nestedContainerCache, out hasNativeContainer);
+#endif
 
                 category = TypeCategory.ComponentData;
 
@@ -2863,7 +2893,7 @@ namespace Unity.Entities
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             else if (typeof(IComponentData).IsAssignableFrom(type) && isManaged)
             {
-                CheckIsAllowedAsManagedComponentData(type, nameof(IComponentData), nestedContainerCache);
+                CheckIsAllowedAsManagedComponentData(type, nameof(IComponentData), nestedContainerCache, out hasNativeContainer);
 
                 category = TypeCategory.ComponentData;
                 sizeInChunk = sizeof(int);
@@ -2875,7 +2905,9 @@ namespace Unity.Entities
 #endif
             else if (typeof(IBufferElementData).IsAssignableFrom(type))
             {
-                CheckIsAllowedAsComponentData(type, nameof(IBufferElementData), nestedContainerCache);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                CheckIsAllowedAsComponentData(type, nameof(IBufferElementData), nestedContainerCache, out hasNativeContainer);
+#endif
 
                 category = TypeCategory.BufferData;
 
@@ -2904,23 +2936,31 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (!type.IsValueType)
                     throw new ArgumentException($"{type} is an ISharedComponentData, and thus must be a struct.");
+                hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
 #endif
                 valueTypeSize = UnsafeUtility.SizeOf(type);
 
                 // Empty types will always be 1 bytes in size as per language requirements
-                // Check for size 1 first so we don't lookup type fields for all buffer types as it's uncommon 
+                // Check for size 1 first so we don't lookup type fields for all buffer types as it's uncommon
                 if (valueTypeSize == 1 && type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Length == 0)
                     throw new ArgumentException($"Type {type} is an ISharedComponentData type, however it has no fields and is thus invalid; this will waste chunk space for no benefit. If you want an empty component, consider using IComponentData instead.");
 
-                EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult);
-
-                // Shared components explicitly do not allow patching of entity references
-                hasEntityReferences = false;
-                hasBlobReferences = blobRefResult > 0;
-
-                // XXX this will break when we have class Myclass : ISharedComponentData and its parent implements iequatable
                 category = TypeCategory.ISharedComponentData;
                 isManaged = !UnsafeUtility.IsUnmanaged(type);
+
+                if (isManaged)
+                {
+                    EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult);
+
+                    // Managed shared components explicitly do not allow patching of entity references
+                    hasEntityReferences = false;
+                    hasBlobReferences = blobRefResult > 0;
+                }
+                else
+                {
+                    EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList);
+                }
+
             }
             else if (type.IsClass)
             {
@@ -3002,6 +3042,9 @@ namespace Unity.Entities
                 if (!hasEntityReferences)
                     typeIndex |= HasNoEntityReferencesFlag;
 
+                if (hasNativeContainer)
+                    typeIndex |= HasNativeContainerFlag;
+
                 if (isManaged)
                     typeIndex |= ManagedComponentTypeFlag;
 
@@ -3047,14 +3090,7 @@ namespace Unity.Entities
                 s_FastEqualityTypeInfoList.Add(FastEquality.CreateTypeInfo(type));
 #endif
         }
-
-        private struct SharedSystemTypeIndex
-        {
-            public static ref int Get(Type systemType)
-            {
-                return ref SharedStatic<int>.GetOrCreate(typeof(TypeManagerKeyContext), systemType).Data;
-            }
-        }
+        
 
         private struct TypeManagerKeyContext { }
         private struct SharedTypeInfos
@@ -3103,10 +3139,6 @@ namespace Unity.Entities
         {
             public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedTypeFullNameHashes>();
         }
-        private struct SharedSystemTypeNames
-        {
-            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedSystemTypeNames>();
-        }
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private struct SharedSafetyHandle
         {
@@ -3118,12 +3150,6 @@ namespace Unity.Entities
         internal struct SharedTypeIndex<TComponent>
         {
             public static readonly SharedStatic<TypeIndex> Ref = SharedStatic<TypeIndex>.GetOrCreate<TypeManagerKeyContext, TComponent>();
-        }
-
-        // Marked as internal as this is used by StaticTypeRegistryILPostProcessor
-        internal struct SharedSystemTypeIndex<TSystem>
-        {
-            public static readonly SharedStatic<int> Ref = SharedStatic<int>.GetOrCreate<TypeManagerKeyContext, TSystem>();
         }
 
         private sealed class Shared_SharedComponentData_FnPtrs

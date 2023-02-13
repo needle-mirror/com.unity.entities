@@ -27,6 +27,7 @@ namespace Unity.Entities
             // Per-component-type Static safety IDs are shared across all Worlds.
             public int* m_StaticSafetyIdsForComponentLookup;
             public int* m_StaticSafetyIdsForArchetypeChunkArrays;
+            public int m_StaticSafetyIdForDynamicSharedComponentTypeHandle;
             public int m_StaticSafetyIdForDynamicComponentTypeHandle;
             public int m_StaticSafetyIdForEntityTypeHandle;
         }
@@ -91,12 +92,14 @@ namespace Unity.Entities
             }
         }
 
-        private void SetStaticSafetyIdForHandle_ArchetypeChunk(ref AtomicSafetyHandle handle, TypeIndex typeIndex, bool dynamic)
+        private void SetStaticSafetyIdForHandle_ArchetypeChunk(ref AtomicSafetyHandle handle, TypeIndex typeIndex, DynamicComponentTypeHandleType dynamicType)
         {
             // Configure safety handle static safety ID for ArchetypeChunk*Type by default
             int staticSafetyId = 0;
-            if (dynamic)
+            if (dynamicType == DynamicComponentTypeHandleType.Dynamic)
                 staticSafetyId = m_StaticSafetyIdData.Data.m_StaticSafetyIdForDynamicComponentTypeHandle;
+            else if (dynamicType == DynamicComponentTypeHandleType.DynamicShared)
+                staticSafetyId = m_StaticSafetyIdData.Data.m_StaticSafetyIdForDynamicSharedComponentTypeHandle;
             else if (typeIndex == EntityTypeIndex)
                 staticSafetyId = m_StaticSafetyIdData.Data.m_StaticSafetyIdForEntityTypeHandle;
             else
@@ -124,14 +127,16 @@ namespace Unity.Entities
 
             m_ComponentSafetyHandles[arrayIndex].SafetyHandle = AtomicSafetyHandle.Create();
             AtomicSafetyHandle.SetAllowSecondaryVersionWriting(m_ComponentSafetyHandles[arrayIndex].SafetyHandle, false);
+            AtomicSafetyHandle.SetNestedContainer(m_ComponentSafetyHandles[arrayIndex].SafetyHandle, typeIndex.HasNativeContainer);
             m_ComponentSafetyHandles[arrayIndex].BufferHandle = AtomicSafetyHandle.Create();
             AtomicSafetyHandle.SetBumpSecondaryVersionOnScheduleWrite(m_ComponentSafetyHandles[arrayIndex].BufferHandle, true);
+            AtomicSafetyHandle.SetNestedContainer(m_ComponentSafetyHandles[arrayIndex].BufferHandle, typeIndex.HasNativeContainer);
 
             // Create static safety IDs for this type if they don't already exist.
             CreateStaticSafetyIdsForType(typeIndex);
             // Set default static safety IDs for handles
-            SetStaticSafetyIdForHandle_ArchetypeChunk(ref m_ComponentSafetyHandles[arrayIndex].SafetyHandle, typeIndex, false);
-            SetStaticSafetyIdForHandle_ArchetypeChunk(ref m_ComponentSafetyHandles[arrayIndex].BufferHandle, typeIndex, false);
+            SetStaticSafetyIdForHandle_ArchetypeChunk(ref m_ComponentSafetyHandles[arrayIndex].SafetyHandle, typeIndex, DynamicComponentTypeHandleType.None);
+            SetStaticSafetyIdForHandle_ArchetypeChunk(ref m_ComponentSafetyHandles[arrayIndex].BufferHandle, typeIndex, DynamicComponentTypeHandleType.None);
             return arrayIndex;
         }
 
@@ -157,6 +162,7 @@ namespace Unity.Entities
             m_InvalidateArraysMarker = new ProfilerMarker("InvalidateArrays");
 
             m_StaticSafetyIdData.Data.m_StaticSafetyIdForDynamicComponentTypeHandle = CreateStaticSafetyId("Unity.Entities.DynamicComponentTypeHandle");
+            m_StaticSafetyIdData.Data.m_StaticSafetyIdForDynamicSharedComponentTypeHandle = CreateStaticSafetyId("Unity.Entities.DynamicSharedComponentTypeHandle");
             m_StaticSafetyIdData.Data.m_StaticSafetyIdForEntityTypeHandle = CreateStaticSafetyId("Unity.Entities.EntityTypeHandle");
         }
 
@@ -322,11 +328,26 @@ namespace Unity.Entities
             return GetSafetyHandle(type, isReadOnly);
         }
 
+        private enum DynamicComponentTypeHandleType
+        {
+            None,
+            Dynamic,
+            DynamicShared
+        }
+
         public AtomicSafetyHandle GetSafetyHandleForDynamicComponentTypeHandle(TypeIndex type, bool isReadOnly)
         {
             var handle = GetSafetyHandle(type, isReadOnly);
             // We need to override the handle's default static safety ID to use the DynamicComponentTypeHandle version.
-            SetStaticSafetyIdForHandle_ArchetypeChunk(ref handle, type, true);
+            SetStaticSafetyIdForHandle_ArchetypeChunk(ref handle, type, DynamicComponentTypeHandleType.Dynamic);
+            return handle;
+        }
+
+        public AtomicSafetyHandle GetSafetyHandleForDynamicSharedComponentTypeHandle(TypeIndex type, bool isReadOnly)
+        {
+            var handle = GetSafetyHandle(type, isReadOnly);
+            // We need to override the handle's default static safety ID to use the DynamicComponentTypeHandle version.
+            SetStaticSafetyIdForHandle_ArchetypeChunk(ref handle, type, DynamicComponentTypeHandleType.DynamicShared);
             return handle;
         }
 

@@ -1,4 +1,7 @@
-﻿using NUnit.Framework;
+using System;
+using NUnit.Framework;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
 {
@@ -13,10 +16,14 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
             _testSystem = World.GetOrCreateSystemManaged<MyTestSystem>();
         }
 
-        [Test] public void WithAll_WithAny_WithNone_WithOptions_Test() => _testSystem.WithAll_WithAny_WithNone_WithOptions();
+        [Test] public void WithAllTheThings_Test() => _testSystem.WithAllTheThings();
         [Test] public void CreateTwoArchetypeQueries_WithRO_AndRW_Test() => _testSystem.CreateArchetypeQueries_WithRO_AndRW();
         [Test] public void CreateMultipleArchetypeQueries_Test() => _testSystem.CreateMultipleArchetypeQueries();
         [Test] public void ChainedWithEntityQueryMethodAfterBuilding_Test() => _testSystem.ChainedWithEntityQueryMethodAfterBuilding();
+
+        [Test] public void WithAspect([Values] bool forceReadOnly) => _testSystem.WithAspect(forceReadOnly);
+        [Test] public void WithAspect2([Values] bool forceReadOnly) => _testSystem.WithAspect2(forceReadOnly);
+        [Test] public void WithAspectAliased([Values] bool forceReadOnly) => _testSystem.WithAspectAliased(forceReadOnly);
 
         partial class MyTestSystem : SystemBase
         {
@@ -28,9 +35,23 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 return array;
             }
 
-            public unsafe void WithAll_WithAny_WithNone_WithOptions()
+            unsafe NativeArray<T> ToSortedNativeArray<T>(T[] values) where T : unmanaged, IComparable<T>
             {
-                var query = SystemAPI.QueryBuilder().WithAll<EcsTestData>().WithAny<EcsTestData2>().WithNone<EcsTestData3>().WithOptions(EntityQueryOptions.IncludeDisabledEntities).Build();
+                var array = new NativeArray<T>(values, Allocator.Temp);
+                NativeSortExtension.Sort((T*)array.GetUnsafePtr(), array.Length);
+                return array;
+            }
+
+            public unsafe void WithAllTheThings()
+            {
+                var query = SystemAPI.QueryBuilder()
+                    .WithAll<EcsTestData>()
+                    .WithAny<EcsTestData2>()
+                    .WithNone<EcsTestData3>()
+                    .WithDisabled<EcsTestDataEnableable>()
+                    .WithAbsent<EcsTestData5>()
+                    .WithOptions(EntityQueryOptions.IncludeDisabledEntities)
+                    .Build();
                 var queryData = query._GetImpl()->_QueryData;
 
                 Assert.AreEqual(1, queryData->ArchetypeQueryCount);
@@ -40,10 +61,14 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(1, archetypeQuery.AllCount);
                 Assert.AreEqual(1, archetypeQuery.NoneCount);
                 Assert.AreEqual(1, archetypeQuery.AnyCount);
+                Assert.AreEqual(1, archetypeQuery.DisabledCount);
+                Assert.AreEqual(1, archetypeQuery.AbsentCount);
 
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery.All[0]);
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery.Any[0]);
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData3>().TypeIndex, archetypeQuery.None[0]);
+                Assert.AreEqual(ComponentType.ReadOnly<EcsTestDataEnableable>().TypeIndex, archetypeQuery.Disabled[0]);
+                Assert.AreEqual(ComponentType.ReadOnly<EcsTestData5>().TypeIndex, archetypeQuery.Absent[0]);
 
                 Assert.AreEqual(EntityQueryOptions.IncludeDisabledEntities, archetypeQuery.Options);
             }
@@ -65,6 +90,8 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(1, archetypeQuery1.AllCount);
                 Assert.AreEqual(1, archetypeQuery1.NoneCount);
                 Assert.AreEqual(0, archetypeQuery1.AnyCount);
+                Assert.AreEqual(0, archetypeQuery1.DisabledCount);
+                Assert.AreEqual(0, archetypeQuery1.AbsentCount);
 
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery1.All[0]);
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery1.None[0]);
@@ -74,6 +101,8 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(1, archetypeQuery2.AllCount);
                 Assert.AreEqual(0, archetypeQuery2.NoneCount);
                 Assert.AreEqual(2, archetypeQuery2.AnyCount);
+                Assert.AreEqual(0, archetypeQuery2.DisabledCount);
+                Assert.AreEqual(0, archetypeQuery2.AbsentCount);
 
                 Assert.AreEqual(ComponentType.ReadWrite<EcsTestData2>().TypeIndex, archetypeQuery2.All[0]);
                 Assert.That(ToManagedArray(archetypeQuery2.Any, archetypeQuery2.AnyCount), Is.EquivalentTo(new TypeIndex[] {
@@ -116,9 +145,121 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 EntityManager.DestroyEntity(entity);
             }
 
+            public unsafe void WithAspect(bool forceReadOnly)
+            {
+                EntityQuery query;
+
+                if(forceReadOnly)
+                    query = SystemAPI.QueryBuilder().WithAspectRO<MyAspect>().Build();
+                else
+                    query = SystemAPI.QueryBuilder().WithAspect<MyAspect>().Build();
+                var queryData = query._GetImpl()->_QueryData;
+
+                Assert.AreEqual(1, queryData->ArchetypeQueryCount);
+
+                var archetypeQuery = queryData->ArchetypeQueries[0];
+
+                Assert.AreEqual(1, archetypeQuery.AllCount);
+                Assert.AreEqual(0, archetypeQuery.NoneCount);
+                Assert.AreEqual(0, archetypeQuery.AnyCount);
+                Assert.AreEqual(0, archetypeQuery.DisabledCount);
+                Assert.AreEqual(0, archetypeQuery.AbsentCount);
+                if (forceReadOnly)
+                    Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
+                else
+                    Assert.AreEqual(ComponentType.ReadWrite<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
+            }
+
+            public unsafe void WithAspect2(bool forceReadOnly)
+            {
+                EntityQuery query;
+
+                if (forceReadOnly)
+                    query = SystemAPI.QueryBuilder().WithAspectRO<MyAspect>().WithAspectRO<MyAspectMiscTests>().Build();
+                else
+                    query = SystemAPI.QueryBuilder().WithAspect<MyAspect>().WithAspect<MyAspectMiscTests>().Build();
+                var queryData = query._GetImpl()->_QueryData;
+
+                Assert.AreEqual(1, queryData->ArchetypeQueryCount);
+                var archetypeQuery = queryData->ArchetypeQueries[0];
+
+                using NativeArray<ComponentType> receivedAll = archetypeQuery.SortedComponentTypeAll();
+                using NativeArray<ComponentType> expectedAll = ToSortedNativeArray(forceReadOnly ?
+                    // when read-only
+                    new ComponentType[]
+                    {
+                        ComponentType.ReadOnly<EcsTestData>(),
+                        ComponentType.ReadOnly<EcsTestData2>(),
+                        ComponentType.ReadOnly<EcsTestData3>(),
+                        ComponentType.ReadOnly<EcsTestData4>()
+                    }
+                    : // when not read-only
+                    new ComponentType[]
+                    {
+                        ComponentType.ReadWrite<EcsTestData>(),
+                        ComponentType.ReadWrite<EcsTestData2>(),
+                        ComponentType.ReadWrite<EcsTestData3>(),
+                        ComponentType.ReadOnly<EcsTestData4>()
+                    });
+
+                Assert.AreEqual(expectedAll.Length, archetypeQuery.AllCount);
+                for (int i = 0; i != expectedAll.Length; i++)
+                    Assert.AreEqual(expectedAll[i], receivedAll[i]);
+
+                Assert.AreEqual(0, archetypeQuery.NoneCount);
+                Assert.AreEqual(0, archetypeQuery.AnyCount);
+                Assert.AreEqual(0, archetypeQuery.DisabledCount);
+                Assert.AreEqual(0, archetypeQuery.AbsentCount);
+            }
+
+            public unsafe void WithAspectAliased(bool forceReadOnly)
+            {
+                EntityQuery query;
+
+                if (forceReadOnly)
+                    query = SystemAPI.QueryBuilder().WithAll<EcsTestData>().WithAspectRO<MyAspect>().Build();
+                else
+                    query = SystemAPI.QueryBuilder().WithAll<EcsTestData>().WithAspect<MyAspect>().Build();
+                var queryData = query._GetImpl()->_QueryData;
+
+                Assert.AreEqual(1, queryData->ArchetypeQueryCount);
+
+                var archetypeQuery = queryData->ArchetypeQueries[0];
+
+                Assert.AreEqual(1, archetypeQuery.AllCount);
+                Assert.AreEqual(0, archetypeQuery.NoneCount);
+                Assert.AreEqual(0, archetypeQuery.AnyCount);
+                Assert.AreEqual(0, archetypeQuery.DisabledCount);
+                Assert.AreEqual(0, archetypeQuery.AbsentCount);
+
+                if (forceReadOnly)
+                    Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
+                else
+                    Assert.AreEqual(ComponentType.ReadWrite<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
+            }
+
             protected override void OnUpdate()
             {
             }
+        }
+
+    }
+
+    static class ArchetypeQueryExt
+    {
+        public static unsafe NativeArray<ComponentType> SortedComponentTypeAll(this ArchetypeQuery archetypeQuery)
+        {
+            var array = new NativeArray<ComponentType>(archetypeQuery.AllCount, Allocator.Temp);
+            for (int i = 0; i != array.Length; i++)
+                array[i] = archetypeQuery.GetComponentTypeAllAt(i);
+            NativeSortExtension.Sort((ComponentType*)array.GetUnsafePtr(), array.Length);
+            return array;
+        }
+        public static unsafe ComponentType GetComponentTypeAllAt(this ArchetypeQuery archetypeQuery, int index)
+        {
+            var componentType = ComponentType.FromTypeIndex(archetypeQuery.All[index]);
+            componentType.AccessModeType = (ComponentType.AccessMode)archetypeQuery.AllAccessMode[index];
+            return componentType;
         }
     }
 }

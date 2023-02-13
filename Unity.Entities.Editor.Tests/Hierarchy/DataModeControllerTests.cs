@@ -1,5 +1,4 @@
-﻿#if USE_IMPROVED_DATAMODE
-using System;
+﻿using System;
 using System.Collections;
 using System.Linq;
 using NUnit.Framework;
@@ -134,4 +133,3 @@ namespace Unity.Entities.Editor.Tests
         }
     }
 }
-#endif

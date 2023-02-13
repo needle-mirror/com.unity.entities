@@ -342,7 +342,7 @@ namespace Unity.Entities
                 int patchIndex = sortedPatches[i].index;
                 int* offsetPtr = (int*)sortedPatches[i].p;
 
-                while (offsetPtr > allocEnd)
+                while (offsetPtr >= allocEnd)
                 {
                     ++iAlloc;
                     allocStart = m_allocations[sortedAllocs[iAlloc].index].p;

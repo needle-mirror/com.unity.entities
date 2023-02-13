@@ -11,9 +11,9 @@ namespace Unity.Entities.SourceGen.Common
         public static string SeparateByComma(this IEnumerable<string> lines) => string.Join(",", lines.Where(s => !string.IsNullOrEmpty(s)));
         public static string SeparateByCommaAndSpace(this IEnumerable<string> lines) => string.Join(", ", lines.Where(s => !string.IsNullOrEmpty(s)));
         public static string SeparateByBinaryOr(this IEnumerable<string> lines) => string.Join("|", lines.Where(s => !string.IsNullOrEmpty(s)));
-        public static string SeparateByCommaAndNewLine(this IEnumerable<string> lines) => string.Join(",\r\n", lines.Where(s => !string.IsNullOrEmpty(s)));
-        public static string SeparateByNewLine(this IEnumerable<string> lines) => string.Join("\r\n", lines.Where(s => !string.IsNullOrEmpty(s)));
-        public static string SeparateBySemicolonAndNewLine(this IEnumerable<string> things) => string.Join(";\r\n", things.Where(s => !string.IsNullOrEmpty(s)));
+        public static string SeparateByCommaAndNewLine(this IEnumerable<string> lines) => string.Join($",{Environment.NewLine}", lines.Where(s => !string.IsNullOrEmpty(s)));
+        public static string SeparateByNewLine(this IEnumerable<string> lines) => string.Join(Environment.NewLine, lines.Where(s => !string.IsNullOrEmpty(s)));
+        public static string SeparateBySemicolonAndNewLine(this IEnumerable<string> things) => string.Join($";{Environment.NewLine}", things.Where(s => !string.IsNullOrEmpty(s)));
         public static string JoinAttributes(this IEnumerable<string> attributes) => string.Join("", attributes.Where(s => !string.IsNullOrEmpty(s)).Select(s => $"[{s}] "));
 
         public static IEnumerable<TSource> DistinctBy<TSource, TKey>(

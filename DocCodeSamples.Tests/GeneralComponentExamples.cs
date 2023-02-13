@@ -14,10 +14,7 @@ namespace Doc.CodeSamples.Tests
             state.EntityManager.AddComponent<Rotation>(entity);
         }
 
-        public void OnUpdate(ref SystemState state) { }
-
-        public void OnDestroy(ref SystemState state) { }
-    }
+        }
     #endregion
 
     #region add-component-multiple-entities
@@ -30,10 +27,6 @@ namespace Doc.CodeSamples.Tests
             var query = state.GetEntityQuery(typeof(ComponentA));
             state.EntityManager.AddComponent<ComponentB>(query);
         }
-
-        public void OnUpdate(ref SystemState state) { }
-
-        public void OnDestroy(ref SystemState state) { }
     }
     #endregion
 
@@ -45,10 +38,6 @@ namespace Doc.CodeSamples.Tests
             var query = state.GetEntityQuery(typeof(Rotation));
             state.EntityManager.RemoveComponent<Rotation>(query);
         }
-
-        public void OnUpdate(ref SystemState state) { }
-
-        public void OnDestroy(ref SystemState state) { }
     }
     #endregion
 

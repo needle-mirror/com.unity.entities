@@ -29,6 +29,8 @@ namespace Unity.Entities.UniversalDelegates
     public delegate void VR<T0, T1>(T0 t0, ref T1 t1);
 
     public delegate void VV<T0, T1>(T0 t0, T1 t1);
+
+    public delegate void RRI<T0, T1, T2>(ref T0 t0, ref T1 t1, in T2 t2);
 }
 
 public static partial class LambdaForEachDescriptionConstructionMethods
@@ -43,6 +45,7 @@ public static partial class LambdaForEachDescriptionConstructionMethods
     public static TDescription ForEach<TDescription, T0, T1>(this TDescription description, [AllowDynamicValue] VI<T0, T1> codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();
     public static TDescription ForEach<TDescription, T0, T1>(this TDescription description, [AllowDynamicValue] VR<T0, T1> codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();
     public static TDescription ForEach<TDescription, T0, T1>(this TDescription description, [AllowDynamicValue] VV<T0, T1> codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();
+    public static TDescription ForEach<TDescription,T0, T1, T2>(this TDescription description, [AllowDynamicValue] RRI<T0, T1, T2> codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();
 }
 
 namespace Unity.Entities.CodeGeneratedJobForEach

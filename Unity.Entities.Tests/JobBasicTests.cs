@@ -413,7 +413,7 @@ namespace Unity.Entities.Tests
         public struct MultiHashWriterParallelFor : IJobParallelFor
         {
             [WriteOnly]
-            public NativeMultiHashMap<int, int>.ParallelWriter result;
+            public NativeParallelMultiHashMap<int, int>.ParallelWriter result;
 
             [WriteOnly]
             public NativeParallelHashMap<int, bool>.ParallelWriter threadMap;

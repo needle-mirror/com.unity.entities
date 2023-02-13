@@ -65,5 +65,10 @@ namespace Unity.Entities
         {
             addedComponentsByEntity.Dispose();
         }
+
+        public void Clear()
+        {
+            addedComponentsByEntity.Clear();
+        }
     }
 }

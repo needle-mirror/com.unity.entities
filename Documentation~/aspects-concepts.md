@@ -1,15 +1,16 @@
-# Aspect overview
+# Aspect concepts
 
-An aspect is an object-like wrapper that you can use to group together a subset of an entity's components into a single C# struct. Aspects are useful for organizing component code and simplifying queries in your systems. 
+An aspect is an object-like wrapper that you can use to group together a subset of an entity's components into a single C# struct. Aspects are useful for organizing component code and simplifying queries in your systems. Unity provides predefined aspects for groups of related components or you can define your own with the [`IAspect`](xref:Unity.Entities.IAspect) interface.
 
-For example, the [`TransformAspect`](xref:Unity.Transforms.TransformAspect) groups together the individual position, rotation, and scale of components and enables you to access these components from a query that includes the `TransformAspect`. You can also define your own aspects with the [`IAspect`](xref:Unity.Entities.IAspect) interface.
+For example, [`TransformAspect`](xref:Unity.Transforms.TransformAspect) groups together the `LocalTransform`, `WorldTransform`, and `ParentTransform` components. It also provides several utility methods for acting on these components. The utility methods are accessible from any query or `IJobEntity` that includes `TransformAspect`. 
 
-Aspects can include items such as:
+Aspects can include items such as the following:
 
-* A single entity field to store the entity's ID
-* `RefRW<T>` and `RefRO<T>` fields to access component data of type T, which implements [`IComponentData`](xref:Unity.Entities.IComponentData).
+* A single `Entity` field to store the entity's ID
+* `RefRW<T>` and `RefRO<T>` fields to access component data of type `T`, where `T` implements [`IComponentData`](xref:Unity.Entities.IComponentData).
 * `EnabledRefRW` and `EnabledRefRO` fields to access the enabled state of components that implement [`IEnableableComponent`](xref:Unity.Entities.IEnableableComponent).
-* `DynamicBuffer<T>` fields
+* `DynamicBuffer<T>` fields to access the buffer elements that implement `IBufferElementData`
+* Any `ISharedComponent` fields to access the shared component value as read-only.
 * Other aspect types
 
 ## Further information

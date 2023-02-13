@@ -44,16 +44,18 @@ namespace Unity.Entities
     [NativeContainer]
     public unsafe struct ComponentLookup<T> where T : unmanaged, IComponentData
     {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal AtomicSafetyHandle               m_Safety;
-        readonly byte                    m_IsReadOnly;
-#endif
         [NativeDisableUnsafePtrRestriction]
         readonly EntityDataAccess*       m_Access;
+        LookupCache                      m_Cache;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        internal AtomicSafetyHandle               m_Safety;
+#endif
         readonly TypeIndex               m_TypeIndex;
         uint                             m_GlobalSystemVersion;
         readonly byte                    m_IsZeroSized;          // cache of whether T is zero-sized
-        LookupCache                      m_Cache;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        readonly byte                    m_IsReadOnly;
+#endif
 
         internal uint GlobalSystemVersion => m_GlobalSystemVersion;
 
@@ -119,16 +121,13 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// <returns>True if the entity has a component of type T, and false if it does not. Also returns false if
         /// the Entity instance refers to an entity that has been destroyed.</returns>
-        /// <remarks>To report if the provided entity has a component of type T, this function confirms
-        /// whether the <see cref="EntityArchetype"/> of the provided entity includes components of type T.
-        /// </remarks>
         public bool HasComponent(Entity entity)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            return ecs->HasComponent(entity, m_TypeIndex);
+            return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
         }
 
         /// <summary>
@@ -138,16 +137,13 @@ namespace Unity.Entities
         /// <param name="system">The system handle.</param>
         /// <returns>True if the entity associated with the system has a component of type T, and false if it does not. Also returns false if
         /// the system handle refers to a system that has been destroyed.</returns>
-        /// <remarks>To report if the provided entity has a component of type T, this function confirms
-        /// whether the <see cref="EntityArchetype"/> of the provided entity includes components of type T.
-        /// </remarks>
         public bool HasComponent(SystemHandle system)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            return ecs->HasComponent(system.m_Entity, m_TypeIndex);
+            return ecs->HasComponent(system.m_Entity, m_TypeIndex, ref m_Cache);
         }
 
         /// <summary>
@@ -157,9 +153,6 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// /// <param name="componentData">The component of type T for the given entity, if it exists.</param>
         /// <returns>True if the entity has a component of type T, and false if it does not.</returns>
-        /// <remarks>To report if the provided entity has a component of type T, this function confirms
-        /// whether the <see cref="EntityArchetype"/> of the provided entity includes components of type T.
-        /// </remarks>
         public bool TryGetComponent(Entity entity, out T componentData)
         {
 
@@ -207,8 +200,10 @@ namespace Unity.Entities
         {
             var ecs = m_Access->EntityComponentStore;
             var chunk = ecs->GetChunk(entity);
-
-            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, m_TypeIndex);
+            var archetype = chunk->Archetype;
+            if (Hint.Unlikely(archetype != m_Cache.Archetype))
+                m_Cache.Update(archetype, m_TypeIndex);
+            var typeIndexInArchetype = m_Cache.IndexInArchetype;
             if (typeIndexInArchetype == -1) return false;
             var chunkVersion = chunk->GetChangeVersion(typeIndexInArchetype);
 
@@ -237,7 +232,7 @@ namespace Unity.Entities
                 AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
                 var ecs = m_Access->EntityComponentStore;
-                ecs->AssertEntityHasComponent(entity, m_TypeIndex);
+                ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
 
                 if (m_IsZeroSized != 0)
                     return default;
@@ -253,7 +248,7 @@ namespace Unity.Entities
                 AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
                 var ecs = m_Access->EntityComponentStore;
-                ecs->AssertEntityHasComponent(entity, m_TypeIndex);
+                ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
 
                 if (m_IsZeroSized != 0)
                     return;
@@ -297,7 +292,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            return m_Access->IsComponentEnabled(entity, m_TypeIndex);
+            return m_Access->IsComponentEnabled(entity, m_TypeIndex, ref m_Cache);
         }
 
         /// <summary>
@@ -314,7 +309,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            return m_Access->IsComponentEnabled(systemHandle.m_Entity, m_TypeIndex);
+            return m_Access->IsComponentEnabled(systemHandle.m_Entity, m_TypeIndex, ref m_Cache);
         }
 
         /// <summary>
@@ -332,7 +327,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
-            m_Access->SetComponentEnabled(systemHandle.m_Entity, m_TypeIndex, value);
+            m_Access->SetComponentEnabled(systemHandle.m_Entity, m_TypeIndex, value, ref m_Cache);
         }
 
         /// <summary>
@@ -350,7 +345,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
-            m_Access->SetComponentEnabled(entity, m_TypeIndex, value);
+            m_Access->SetComponentEnabled(entity, m_TypeIndex, value, ref m_Cache);
         }
 
         /// <summary>
@@ -365,7 +360,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            ecs->AssertEntityHasComponent(system.m_Entity, m_TypeIndex);
+            ecs->AssertEntityHasComponent(system.m_Entity, m_TypeIndex, ref m_Cache);
 
             if (m_IsZeroSized != 0)
                 return default;
@@ -392,7 +387,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            ecs->AssertEntityHasComponent(entity, m_TypeIndex);
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
 
             if (m_IsZeroSized != 0)
                 return default;
@@ -421,7 +416,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            ecs->AssertEntityHasComponent(entity, m_TypeIndex);
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
 
             if (m_IsZeroSized != 0)
                 return default;
@@ -518,14 +513,44 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            ecs->AssertEntityHasComponent(entity, m_TypeIndex);
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
 
             int indexInBitField;
             int* ptrChunkDisabledCount;
             var ptr =
                 isReadOnly
-                    ? ecs->GetEnabledRawRO(entity, m_TypeIndex, out indexInBitField, out ptrChunkDisabledCount)
-                    : ecs->GetEnabledRawRW(entity, m_TypeIndex, m_GlobalSystemVersion, out indexInBitField, out ptrChunkDisabledCount);
+                    ? ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out ptrChunkDisabledCount)
+                    : ecs->GetEnabledRawRW(entity, m_TypeIndex, ref m_Cache, m_GlobalSystemVersion, out indexInBitField, out ptrChunkDisabledCount);
+
+            return new EnabledRefRW<T2>(MakeSafeBitRef(ptr, indexInBitField), ptrChunkDisabledCount);
+        }
+
+        /// <summary>
+        /// Gets a safe reference to the component enabled state.
+        /// </summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <param name="isReadOnly">True if you only want to read from the returned component enabled state; false if you also want to write to it</param>
+        /// <returns>Returns a safe reference to the component enabled state. If the component
+        /// doesn't exist, it returns a default ComponentEnabledRefRW.</returns>
+        public EnabledRefRW<T2> GetComponentEnabledRefRWOptional<T2>(Entity entity, bool isReadOnly)
+            where T2 : unmanaged, IComponentData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
+            if (!HasComponent(entity))
+                return new EnabledRefRW<T2>(default, default);
+
+            var ecs = m_Access->EntityComponentStore;
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
+
+            int indexInBitField;
+            int* ptrChunkDisabledCount;
+            var ptr =
+                isReadOnly
+                    ? ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out ptrChunkDisabledCount)
+                    : ecs->GetEnabledRawRW(entity, m_TypeIndex, ref m_Cache, m_GlobalSystemVersion, out indexInBitField, out ptrChunkDisabledCount);
 
             return new EnabledRefRW<T2>(MakeSafeBitRef(ptr, indexInBitField), ptrChunkDisabledCount);
         }
@@ -543,9 +568,32 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            ecs->AssertEntityHasComponent(entity, m_TypeIndex);
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
             int indexInBitField;
-            var ptr = ecs->GetEnabledRawRO(entity, m_TypeIndex, out indexInBitField, out _);
+            var ptr = ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out _);
+            return new EnabledRefRO<T2>(MakeSafeBitRef(ptr, indexInBitField));
+        }
+
+        /// <summary>
+        /// Gets a safe reference to the component enabled state.
+        /// </summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns> Returns a safe reference to the component enabled state.
+        /// If the component doesn't exist, returns a default ComponentEnabledRefRO.</returns>
+        public EnabledRefRO<T2> GetComponentEnabledRefROOptional<T2>(Entity entity)
+            where T2 : unmanaged, IComponentData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
+            if (!HasComponent(entity))
+                return new EnabledRefRO<T2>(default);
+
+            var ecs = m_Access->EntityComponentStore;
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
+            int indexInBitField;
+            var ptr = ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out var ptrChunkDisabledCount);
             return new EnabledRefRO<T2>(MakeSafeBitRef(ptr, indexInBitField));
         }
     }

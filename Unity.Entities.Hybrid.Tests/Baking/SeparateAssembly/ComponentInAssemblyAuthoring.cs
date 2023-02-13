@@ -1,6 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using Unity.Entities;
 using UnityEngine;
 
 namespace Unity.Entities.Hybrid.Tests.Baking.SeparateAssembly
@@ -10,7 +7,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking.SeparateAssembly
         public int value;
     }
 
-    public struct ComponentInAssemblyComponent : IComponentData
+    public struct ComponentInAssemblyBakerC : IComponentData
+    {
+        public int value;
+    }
+
+    public struct ComponentInAssemblyBakingSystemC : IComponentData
     {
         public int value;
     }
@@ -19,10 +21,27 @@ namespace Unity.Entities.Hybrid.Tests.Baking.SeparateAssembly
     {
         public override void Bake(ComponentInAssemblyAuthoring authoring)
         {
-            AddComponent(new ComponentInAssemblyComponent
+            AddComponent(new ComponentInAssemblyBakerC
             {
                 value = authoring.value
             });
+        }
+    }
+
+    [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
+    public partial class ComponentInAssemblyBakingSystem : SystemBase
+    {
+        private EntityQuery query;
+
+        protected override void OnCreate()
+        {
+            query = GetEntityQuery(
+                typeof(ComponentInAssemblyBakerC));
+        }
+
+        protected override void OnUpdate()
+        {
+            EntityManager.AddComponent<ComponentInAssemblyBakingSystemC>(query);
         }
     }
 }

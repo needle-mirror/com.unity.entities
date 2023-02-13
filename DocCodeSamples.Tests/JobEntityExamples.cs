@@ -70,18 +70,6 @@ namespace DocCodeSamples.Tests
     #endregion
 
     #region EntityIndexInQuery
-    [BurstCompile]
-    partial struct CopyPositionsJob : IJobEntity
-    {
-        public NativeArray<float3> copyPositions;
-
-        // Iterates over all `LocalToWorld` and stores their position inside `copyPositions`.
-        public void Execute([EntityIndexInQuery] int entityIndexInQuery, in LocalToWorld localToWorld)
-        {
-            copyPositions[entityIndexInQuery] = localToWorld.Position;
-        }
-    }
-
     [RequireMatchingQueriesForUpdate]
     public partial class EntityInQuerySystem : SystemBase
     {
@@ -108,6 +96,18 @@ namespace DocCodeSamples.Tests
     #endregion
 
     #region Boids
+    [BurstCompile]
+    partial struct CopyPositionsJob : IJobEntity
+    {
+        public NativeArray<float3> copyPositions;
+
+        // Iterates over all `LocalToWorld` and stores their position inside `copyPositions`.
+        public void Execute([EntityIndexInQuery] int entityIndexInQuery, in LocalToWorld localToWorld)
+        {
+            copyPositions[entityIndexInQuery] = localToWorld.Position;
+        }
+    }
+    
     [RequireMatchingQueriesForUpdate]
     public partial class BoidJobEntitySystem : SystemBase
     {

@@ -176,12 +176,15 @@ namespace Unity.Transforms.PerformanceTests
                         World.UpdateAllocator.Rewind();
 #if !ENABLE_TRANSFORM_V1
                         // Expensive validation code -- significantly increases this test's running time
-                        //var expectedP2w = m_Manager.GetComponentData<WorldTransform>(rootIndex == 0 ? root0 : root1).Value;
+                        //var expectedP2w = m_Manager.GetComponentData<WorldTransform>(rootIndex == 0 ? root0 : root1);
                         //foreach (var t in children)
                         //{
-                        //    Assert.AreEqual(expectedP2w, m_Manager.GetComponentData<ParentTransform>(t).Value);
-                        //    var expected = expectedP2w.TransformTransform(m_Manager.GetComponentData<LocalTransform>(t).Value);
-                        //    var actual = m_Manager.GetComponentData<WorldTransform>(t).Value;
+                        //    var parentTransform = m_Manager.GetComponentData<ParentTransform>(t);
+                        //    Assert.AreEqual(expectedP2w.Position, parentTransform.Position);
+                        //    Assert.AreEqual(expectedP2w.Rotation, parentTransform.Rotation);
+                        //    Assert.AreEqual(expectedP2w.Scale, parentTransform.Scale);
+                        //    var expected = expectedP2w.TransformTransform(m_Manager.GetComponentData<LocalTransform>(t));
+                        //    var actual = m_Manager.GetComponentData<WorldTransform>(t);
                         //    Assert.AreEqual(expected, actual);
                         //}
 #endif
@@ -359,10 +362,10 @@ namespace Unity.Transforms.PerformanceTests
                             World.UpdateAllocator.Rewind();
 #if !ENABLE_TRANSFORM_V1
                             // Only for validation; enabling will significantly affect performance test results
-                            //var rootL2w = m_Manager.GetComponentData<WorldTransform>(rootEnt).Value;
+                            //var rootL2w = m_Manager.GetComponentData<WorldTransform>(rootEnt);
                             //for (int i = 0; i < entities.Length; ++i)
                             //{
-                            //    var expected = rootL2w.TransformTransform(m_Manager.GetComponentData<LocalTransform>(entities[i]).Value).ToMatrix();
+                            //    var expected = rootL2w.TransformTransform(m_Manager.GetComponentData<LocalTransform>(entities[i])).ToMatrix();
                             //    var actual = m_Manager.GetComponentData<LocalToWorld>(entities[i]).Value;
                             //    Assert.AreEqual(expected, actual);
                             //}
@@ -476,14 +479,17 @@ namespace Unity.Transforms.PerformanceTests
                         //{
                         //    var childEnt = allChildEntities[i];
                         //    var parentEnt = m_Manager.GetComponentData<Parent>(childEnt).Value;
-                        //    var parentWorldTransform = m_Manager.GetComponentData<WorldTransform>(parentEnt).Value;
-                        //    Assert.AreEqual(parentWorldTransform, m_Manager.GetComponentData<ParentTransform>(childEnt).Value);
-                        //    var expected = parentWorldTransform.TransformTransform(m_Manager.GetComponentData<LocalTransform>(childEnt).Value);
-                        //    var actual = m_Manager.GetComponentData<WorldTransform>(childEnt).Value;
+                        //    var parentWorldTransform = m_Manager.GetComponentData<WorldTransform>(parentEnt);
+                        //    var childParentTransform = m_Manager.GetComponentData<ParentTransform>(childEnt);
+                        //    Assert.AreEqual(parentWorldTransform.Position, childParentTransform.Position);
+                        //    Assert.AreEqual(parentWorldTransform.Rotation, childParentTransform.Rotation);
+                        //    Assert.AreEqual(parentWorldTransform.Scale, childParentTransform.Scale);
+                        //    var expected = parentWorldTransform.TransformTransform(m_Manager.GetComponentData<LocalTransform>(childEnt));
+                        //    var actual = m_Manager.GetComponentData<WorldTransform>(childEnt);
                         //    Assert.AreEqual(expected, actual, $"Mismatch in iteration {iteration} on child {i} of {allChildEntities.Length}");
                         //    var childWorldTransform = m_Manager.GetComponentData<WorldTransform>(childEnt);
                         //    var childLocalToWorld = m_Manager.GetComponentData<LocalToWorld>(childEnt);
-                        //    Assert.IsTrue(AreNearlyEqual(childWorldTransform.Value.ToMatrix(), childLocalToWorld.Value, 0.00001f));
+                        //    Assert.IsTrue(AreNearlyEqual(childWorldTransform.ToMatrix(), childLocalToWorld.Value, 0.00001f));
                         //}
 #endif
                         iteration++;

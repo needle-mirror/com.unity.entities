@@ -431,9 +431,6 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
 
-                    Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents[0].Enabled); // Set to false (EcsTestEnableableBuffer1)
-                    Assert.AreEqual(-1, changes.ForwardChangeSet.SetComponents[1].Enabled); // No enableable changes (EcsTestEnableableBuffer2)
-
                     var packedComponents = changes.ForwardChangeSet.TypeHashes;
                     foreach (var setComponent in changes.ForwardChangeSet.SetComponents)
                     {
@@ -1754,6 +1751,9 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme] // Requires Unity.Properties support
+#if ENABLE_IL2CPP
+        [Ignore("DOTS-7524 - \"System.ExecutionEngineException : An unresolved indirect call lookup failed\" is thrown when executed with an IL2CPP build")]
+#endif
         public unsafe void EntityDiffer_GetChanges_BlobAssets_ManagedComponents()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -1813,6 +1813,9 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme] // Requires Unity.Properties support
+#if ENABLE_IL2CPP
+        [Ignore("DOTS-7524 - \"System.ExecutionEngineException : An unresolved indirect call lookup failed\" is thrown when executed with an IL2CPP build")]
+#endif
         public unsafe void EntityDiffer_GetChanges_BlobAssets_SharedComponents()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))

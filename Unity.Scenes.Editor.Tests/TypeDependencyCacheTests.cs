@@ -24,7 +24,7 @@ namespace Unity.Scenes.Editor.Tests
         [SerializeField]
         private string m_Guid;
 
-        private static string m_ScriptFilePath = "Packages/com.unity.entities/Unity.Scenes.Editor.Tests/TypeDependencyCacheAuthoring.cs";
+        private static string m_ScriptFilePath = "Packages/com.unity.entities/Unity.Scenes.Editor.Tests/TypeDependencyCacheTestAssembly/TypeDependencyCacheAuthoring.cs";
 
         [SerializeField]
         private string m_ScriptFileFullPath;
@@ -74,10 +74,12 @@ namespace Unity.Scenes.Editor.Tests
             yield return null;
         }
 
-        private IEnumerator AddingBakingAttribute()
+        private IEnumerator AddingBakingAttribute(bool excluded = false)
         {
             var bakerDeclaration = "    public class TypeDependencyCacheBaker : Baker<TypeDependencyCacheAuthoring>";
             var lineToAdd = "[BakingVersion(\"\", 1)]";
+            if(excluded)
+                lineToAdd = "[BakingVersion(true)]";
             var allLines = File.ReadAllLines(m_ScriptFileFullPath).ToList();
             allLines.Insert(allLines.IndexOf(bakerDeclaration), lineToAdd);
             File.WriteAllLines(m_ScriptFileFullPath, allLines);
@@ -111,6 +113,7 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [UnityTest]
+        [Ignore("TODO: Unstable on CI https://jira.unity3d.com/browse/DOTS-7758")]
         public IEnumerator TypeDependencyCache_UpdateBakerScript_TriggersReimport()
         {
             //reset script state
@@ -128,7 +131,28 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [UnityTest]
-        [Ignore("TODO https://jira.unity3d.com/browse/DOTS-5863. This test is currently failing on CI only. Scene reimport shouldn't happen after updating an assembly containing a baking version attribute")]
+        [Ignore("TODO: Unstable on CI https://jira.unity3d.com/browse/DOTS-7758")]
+        public IEnumerator TypeDependencyCache_UsingBakingAttribute_Excluded_DoesTriggerReimport()
+        {
+            //reset script state
+            RemoveBakingAttribute();
+
+            yield return AddingBakingAttribute(true);
+            yield return new WaitForDomainReload();
+
+            m_OriginalHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, ImportMode.Synchronous).ToString();
+
+            // Updating an assembly that has a baker with a baking version attribute shouldn't trigger an import
+            yield return UpdatingScriptFile();
+            yield return new WaitForDomainReload();
+
+            var newHash = EntityScenesPaths.GetSubSceneArtifactHash(new Hash128(m_Guid), new Hash128(m_BuildSettingsGuid), true, ImportMode.Synchronous).ToString();
+
+            Assert.AreNotEqual(m_OriginalHash, newHash);
+        }
+
+        [UnityTest]
+        [Ignore("TODO: Unstable on CI https://jira.unity3d.com/browse/DOTS-7758")]
         public IEnumerator TypeDependencyCache_UsingBakingAttribute_DoesntTriggerReimport()
         {
             //reset script state
@@ -149,6 +173,7 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [UnityTest]
+        [Ignore("TODO: Unstable on CI https://jira.unity3d.com/browse/DOTS-7758")]
         public IEnumerator TypeDependencyCache_UpdatingBakingVersionAttribute_DoesReimport()
         {
             //reset script state

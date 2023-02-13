@@ -138,7 +138,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         return null;
                     }
 
-                    if (!typeSymbol.GetMembers().OfType<IFieldSymbol>().Any())
+                    if (typeSymbol.IsZeroSizedComponent())
                         return new LambdaParamDescription_TagComponent(param, typeSymbol, lambdaJobName);
                     return new LambdaParamDescription_Component(param, typeSymbol, lambdaJobName);
                 }

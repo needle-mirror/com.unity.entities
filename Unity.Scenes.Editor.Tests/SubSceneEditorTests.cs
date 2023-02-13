@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 using Unity.Scenes;
 using Unity.Scenes.Editor;
+using Unity.Scenes.Editor.Tests;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -85,6 +87,15 @@ public class SubSceneEditorTests
         Assert.Throws<ArgumentException>(
             () => { CreateSubScene("", "ParentScene"); }
             , "Empty SubScene name is handled gracefully");
+    }
+
+    [Test]
+    public void MissingSceneForSubScene_GetSceneName_ReturnsEmptyString()
+    {
+        var go = new GameObject();
+        var subscene = go.AddComponent<SubScene>();
+        Assert.IsNull(subscene.SceneAsset);
+        Assert.AreEqual(string.Empty, subscene.SceneName);
     }
 
     [Test]
@@ -185,5 +196,38 @@ public class SubSceneEditorTests
         Assert.IsTrue(subSceneComponent == null, "The SubScene component should have been destroyed as part of Undo");
         Assert.IsNotNull(rootTransform, "The root should still be valid after Undo");
         Assert.IsFalse(rootTransform.gameObject.scene.isSubScene, "The GameObject moved to the SubScene should now be back in the parent scene");
+    }
+
+    [Test]
+    public void SubSceneAssetSavedToNewAssetPath_WillFixUpItsSceneAssetReference()
+    {
+        var mainScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        var path = Path.Combine(m_TempAssetDir, "MainScene_SavedAs.unity");
+        EditorSceneManager.SaveScene(mainScene, path);
+
+        var subSceneComponent = SubSceneTestsHelper.CreateSubSceneInSceneFromObjects("SubScene1", true, mainScene, () =>
+        {
+            var go = new GameObject("GameObject1");
+            return new List<GameObject> { go };
+        });
+
+        var subScenePath = subSceneComponent.EditableScenePath;
+        var dir = Path.GetDirectoryName(subScenePath);
+        var ext = Path.GetExtension(subScenePath);
+        var newPath = Path.Combine(dir, "SubScene2" + ext);
+        newPath = newPath.Replace("\\", "/");
+
+        Assert.IsFalse(subSceneComponent.gameObject.scene.isDirty);
+
+        // Save scene to a new path (Simulating File -> Save As menu item for an SubScene set as the Active Scene)
+        var subScene = subSceneComponent.EditingScene;
+        EditorSceneManager.SaveScene(subScene, newPath, /*saveAsCopy =*/ false);
+
+        Assert.IsTrue(subSceneComponent.gameObject.scene.isDirty);
+        var canBeFoundScene = SceneManager.GetSceneByPath(newPath);
+        Assert.IsTrue(canBeFoundScene.IsValid());
+        Assert.IsTrue(!string.IsNullOrEmpty(subSceneComponent.EditingScene.path), "The SubScene lost its editing scene after it was saved to a new path. This will break authoring.");
+        Assert.AreEqual(canBeFoundScene.path, subSceneComponent.EditingScene.path);
+        Assert.IsNotNull(subSceneComponent.EditingScene.GetRootGameObjects()[0]);
     }
 }

@@ -1,3 +1,5 @@
+using Unity.Collections.LowLevel.Unsafe;
+
 namespace Unity.Entities
 {
     // This exists only to be able to make generic instances of generic methods to test burst compatibility.
@@ -30,6 +32,11 @@ namespace Unity.Entities
     {
         public int UnusedField;
 
+        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, ref UnsafeList<ComponentType> any, ref UnsafeList<ComponentType> none,
+            ref UnsafeList<ComponentType> disabled, ref UnsafeList<ComponentType> absent, bool isReadOnly)
+        {
+        }
+
         BurstCompatibleAspect IAspectCreate<BurstCompatibleAspect>.CreateAspect(Entity entity, ref SystemState system, bool isReadOnly)
         {
             throw new System.NotImplementedException();
@@ -40,16 +47,5 @@ namespace Unity.Entities
     [DisableAutoCreation]
     partial struct BurstCompatibleSystem : ISystem
     {
-        public void OnCreate(ref SystemState state)
-        {
         }
-
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
-        public void OnUpdate(ref SystemState state)
-        {
-        }
-    }
 }

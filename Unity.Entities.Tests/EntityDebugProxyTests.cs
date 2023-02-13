@@ -170,7 +170,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(new Entity_(World, enabledEnabled2, false).ToString(), matchingEntities[2].ToString());
 
             query.Dispose();
-            
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             // This code relies on Atomic Safety Handles for detecting disposal
             Assert.AreEqual(null, debug.MatchingEntities);
@@ -211,18 +211,6 @@ namespace Unity.Entities.Tests
         partial struct DebugISystemWithVariable : ISystem
         {
             public int Value;
-            public void OnCreate(ref SystemState state)
-            {
-
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
         }
 
         [Test]

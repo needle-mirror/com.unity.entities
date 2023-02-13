@@ -32,7 +32,7 @@ namespace Unity.Entities.Serialization
         /// <summary>
         /// Reference to an Entity based scene.
         /// </summary>
-        SubScene,
+        EntityScene,
         /// <summary>
         /// Reference to a converted prefab.
         /// </summary>
@@ -58,7 +58,7 @@ namespace Unity.Entities.Serialization
     }
 
     /// <summary>
-    /// USed to identify weakly referenced data.
+    /// Used to identify weakly referenced data.
     /// </summary>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]

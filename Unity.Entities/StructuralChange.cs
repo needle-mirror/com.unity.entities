@@ -1,10 +1,11 @@
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
     [BurstCompile]
-    unsafe partial struct StructuralChange
+    static unsafe class StructuralChange
     {
         [BurstCompile]
         public static void AddComponentEntitiesBatch(EntityComponentStore* entityComponentStore, UnsafeList<EntityBatchInChunk>* entityBatchList, TypeIndex typeIndex)
@@ -13,9 +14,9 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void AddComponentsEntitiesBatch(EntityComponentStore* entityComponentStore, UnsafeList<EntityBatchInChunk>* entityBatchList, ref ComponentTypeSet typeSet)
+        public static void AddComponentsEntitiesBatch(EntityComponentStore* entityComponentStore, UnsafeList<EntityBatchInChunk>* entityBatchList, in ComponentTypeSet typeSet)
         {
-            entityComponentStore->AddComponents(entityBatchList, ref typeSet);
+            entityComponentStore->AddComponents(entityBatchList, typeSet);
         }
 
         [BurstCompile]
@@ -25,7 +26,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void AddComponentsEntity(EntityComponentStore* entityComponentStore, Entity* entity, ref ComponentTypeSet typeSet)
+        public static void AddComponentsEntity(EntityComponentStore* entityComponentStore, Entity* entity, in ComponentTypeSet typeSet)
         {
             entityComponentStore->AddComponent(*entity, typeSet);
         }
@@ -37,7 +38,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void AddComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypeSet typeSet)
+        public static void AddComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, in ComponentTypeSet typeSet)
         {
             entityComponentStore->AddComponents(chunks, chunkCount, typeSet);
         }
@@ -49,7 +50,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void RemoveComponentsEntity(EntityComponentStore* entityComponentStore, Entity* entity, ref ComponentTypeSet typeSet)
+        public static void RemoveComponentsEntity(EntityComponentStore* entityComponentStore, Entity* entity, in ComponentTypeSet typeSet)
         {
             entityComponentStore->RemoveComponent(*entity, typeSet);
         }
@@ -61,9 +62,9 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void RemoveComponentsEntitiesBatch(EntityComponentStore* entityComponentStore, UnsafeList<EntityBatchInChunk>* entityBatchList, ref ComponentTypeSet typeSet)
+        public static void RemoveComponentsEntitiesBatch(EntityComponentStore* entityComponentStore, UnsafeList<EntityBatchInChunk>* entityBatchList, in ComponentTypeSet typeSet)
         {
-            entityComponentStore->RemoveComponents(entityBatchList, ref typeSet);
+            entityComponentStore->RemoveComponents(entityBatchList, typeSet);
         }
 
         [BurstCompile]
@@ -73,7 +74,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void RemoveComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypeSet typeSet)
+        public static void RemoveComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, in ComponentTypeSet typeSet)
         {
             entityComponentStore->RemoveComponents(chunks, chunkCount, typeSet);
         }
@@ -130,9 +131,21 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void InstantiateEntities(EntityComponentStore* entityComponentStore, Entity* srcEntity, Entity* outputEntities, int instanceCount)
+        public static void DestroyChunks(EntityComponentStore* entityComponentStore, in NativeArray<ArchetypeChunk> chunks)
+        {
+            entityComponentStore->DestroyEntities(chunks);
+        }
+
+        [BurstCompile]
+        public static void InstantiateEntity(EntityComponentStore* entityComponentStore, Entity* srcEntity, Entity* outputEntities, int instanceCount)
         {
             entityComponentStore->InstantiateEntities(*srcEntity, outputEntities, instanceCount);
+        }
+
+        [BurstCompile]
+        public static void InstantiateEntities(EntityComponentStore* entityComponentStore, Entity* srcEntities, Entity* outputEntities, int entityCount, bool removePrefab)
+        {
+            entityComponentStore->InstantiateEntities(srcEntities, outputEntities, entityCount, removePrefab);
         }
     }
 }

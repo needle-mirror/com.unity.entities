@@ -18,11 +18,7 @@ namespace Unity.Entities.Editor
 
         static BindingRegistryLiveProperties()
         {
-#if USE_IMPROVED_DATAMODE
             LivePropertyBridge.EnableLivePropertyFeatureGlobally(true);
-#else
-            LivePropertyBridge.EnableLivePropertyFeatureGlobally(false);
-#endif
             RegisterBindingsFromBuiltinTypes();
 
             foreach (var b in BindingRegistry.s_AuthoringToRuntimeBinding)

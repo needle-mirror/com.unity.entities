@@ -81,7 +81,7 @@ namespace Unity.Entities
         protected UnsafeList<EntityCommandBuffer>* m_PendingBuffers;
         internal AllocatorHelper<RewindableAllocator> m_EntityCommandBufferAllocator;
 
-        internal ref UnsafeList<EntityCommandBuffer> PendingBuffers
+        protected internal ref UnsafeList<EntityCommandBuffer> PendingBuffers
         {
             get { return ref *m_PendingBuffers; }
         }
@@ -331,31 +331,47 @@ namespace Unity.Entities
         /// Every unmanaged Singleton that implements IECBSingleton must be registered by this function, at the end of
         /// its owner's EntityCommandBufferSystem.OnCreate method, in order to prepare the Singleton with the
         /// unmanaged data necessary for it to work from unmanaged code, without holding a managed reference to the
-        /// EntityCommandBufferSystem.
+        /// EntityCommandBufferSystem. This Singleton component will be added to the system entity for this
+        /// EntityCommandBufferSystem derived type.
         /// </summary>
         /// <param name="system">The managed EntityCommandBufferSystem that owns the Singleton</param>
         /// <param name="pendingBuffers">The list of command buffers in the managed System to append to</param>
         /// <param name="world">The world that this command buffer buffers changes for</param>
-        /// <param name="entityName">An optional Entity name for the Singleton Entity</param>
         /// <typeparam name="T">
         /// The unmanaged Singleton type, that corresponds to the managed EntityCommandBufferSystem subclass
         /// </typeparam>
         public static void RegisterSingleton<T>(
             this EntityCommandBufferSystem system,
             ref UnsafeList<EntityCommandBuffer> pendingBuffers,
-            WorldUnmanaged world,
-            string entityName = default)
+            WorldUnmanaged world)
             where T : unmanaged, IECBSingleton, IComponentData
         {
-            var e = world.EntityManager.CreateEntity(ComponentType.ReadWrite<T>());
-            if (!string.IsNullOrWhiteSpace(entityName))
-                world.EntityManager.SetName(e, entityName);
-
-            var query = new EntityQueryBuilder(system.WorldUpdateAllocator).WithAllRW<T>().Build(system);
+            world.EntityManager.AddComponent(system.SystemHandle, ComponentType.ReadWrite<T>());
+            
+            var query = new EntityQueryBuilder(system.WorldUpdateAllocator).WithAllRW<T>().WithOptions(EntityQueryOptions.IncludeSystems).Build(system);
             ref var s = ref query.GetSingletonRW<T>().ValueRW;
-
+            
             s.SetPendingBufferList(ref pendingBuffers);
             s.SetAllocator(system.m_EntityCommandBufferAllocator.Allocator.ToAllocator);
+        }
+
+        /// <summary>Obsolete. System entities are used for ECB component data, rather than entityName.</summary>
+        /// <param name="system">The managed EntityCommandBufferSystem that owns the Singleton</param>
+        /// <param name="pendingBuffers">The list of command buffers in the managed System to append to</param>
+        /// <param name="world">The world that this command buffer buffers changes for</param>
+        /// <param name="entityName">The name of the entity.</param>
+        /// <typeparam name="T">
+        /// The unmanaged Singleton type, that corresponds to the managed EntityCommandBufferSystem subclass
+        /// </typeparam>
+        [Obsolete("The entityName parameter is obsolete. System entities are now used for ECB component data.")]
+        public static void RegisterSingleton<T>(
+            this EntityCommandBufferSystem system,
+            ref UnsafeList<EntityCommandBuffer> pendingBuffers,
+            WorldUnmanaged world,
+            string entityName)
+            where T : unmanaged, IECBSingleton, IComponentData
+        {
+            RegisterSingleton<T>(system, ref pendingBuffers, world);
         }
     }
 }

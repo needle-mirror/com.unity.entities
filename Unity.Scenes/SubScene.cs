@@ -23,9 +23,13 @@ namespace Unity.Scenes
     [InitializeOnLoad]
     internal static class SubSceneUtility
     {
+        static SceneSavedAtNewPath s_SceneSavedAtNewPath;
+
         static SubSceneUtility()
         {
             EditorApplication.update += SanitiseOpenedSubScenes;
+            EditorSceneManager.sceneSaving += OnSceneSaving;
+            EditorSceneManager.sceneSaved += OnSceneSaved;
         }
 
         // This fixes an issue with Unity automatically loading whatever scene you had opened when you last closed it.
@@ -59,6 +63,53 @@ namespace Unity.Scenes
                     }
                 }
             }
+        }
+
+        class SceneSavedAtNewPath
+        {
+            public string NewPath;
+            public List<SubScene> SubScenes = new List<SubScene>();
+        }
+
+        static void OnSceneSaving(Scene scene, string path)
+        {
+            if (SubScene.AllSubScenes.Count == 0)
+                return;
+
+            if (scene.path == path)
+                return;
+
+            s_SceneSavedAtNewPath = new SceneSavedAtNewPath();
+            s_SceneSavedAtNewPath.NewPath = path;
+            foreach (var subScene in SubScene.AllSubScenes)
+            {
+                if (subScene.EditingScene == scene)
+                {
+                    if (scene.path != path)
+                        s_SceneSavedAtNewPath.SubScenes.Add(subScene);
+                }
+            }
+
+            if (s_SceneSavedAtNewPath.SubScenes.Count == 0)
+                s_SceneSavedAtNewPath = null;
+        }
+
+        static void OnSceneSaved(Scene scene)
+        {
+            if (s_SceneSavedAtNewPath == null)
+                return;
+
+            var newSceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(s_SceneSavedAtNewPath.NewPath);
+            if (newSceneAsset != null && scene.path == s_SceneSavedAtNewPath.NewPath)
+            {
+                foreach (var subscene in s_SceneSavedAtNewPath.SubScenes)
+                {
+                    subscene.SceneAsset = newSceneAsset;
+                    EditorUtility.SetDirty(subscene);
+                }
+            }
+
+            s_SceneSavedAtNewPath = null;
         }
     }
 #endif
@@ -134,7 +185,7 @@ namespace Unity.Scenes
         /// </summary>
         public string SceneName
         {
-            get { return SceneAsset.name; }
+            get { return _SceneAsset != null ? _SceneAsset.name : ""; }
         }
 
         /// <summary>
@@ -251,16 +302,22 @@ namespace Unity.Scenes
 
         void OnEnable()
         {
-            // Do not move the default initialization below the early out, it's important for the world to exist
-            // if the Subscene gets assigned later, otherwise the change won't trigger an import/conversion.
-            DefaultWorldInitialization.DefaultLazyEditModeInitialize();
-
 #if UNITY_EDITOR
             WarnIfNeeded();
 
             _IsAddedToListOfAllSubScenes = true;
             m_AllSubScenes.Add(this);
 
+            // If this is an import worker, we do not want to initialise an Entity world
+            if (AssetDatabaseCompatibility.IsAssetImportWorkerProcess())
+                return;
+#endif
+
+            // Do not move the default initialization below the early out, it's important for the world to exist
+            // if the Subscene gets assigned later, otherwise the change won't trigger an import/conversion.
+            DefaultWorldInitialization.DefaultLazyEditModeInitialize();
+
+#if UNITY_EDITOR
             if (_SceneGUID == default(Hash128))
                 return;
 
@@ -276,6 +333,10 @@ namespace Unity.Scenes
 #if UNITY_EDITOR
             _IsAddedToListOfAllSubScenes = false;
             m_AllSubScenes.Remove(this);
+
+            // We don't want to do any Entity work if we're in the worker
+            if (AssetDatabaseCompatibility.IsAssetImportWorkerProcess())
+                return;
 #endif
 
             RemoveSceneEntities();
@@ -324,10 +385,7 @@ namespace Unity.Scenes
 
                     var stateptr = world.Unmanaged.ResolveSystemState(sceneSystem);
                     if (stateptr != null)
-                        SceneSystem.UnloadScene(world.Unmanaged,
-                            sceneGUID,
-                            SceneSystem.UnloadParameters.DestroySceneProxyEntity |
-                            SceneSystem.UnloadParameters.DestroySectionProxyEntities);
+                        SceneSystem.UnloadScene(world.Unmanaged, sceneGUID, SceneSystem.UnloadParameters.DestroyMetaEntities);
                 }
             }
         }

@@ -21,12 +21,12 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// Gets or sets the hierarchy update mode.
         /// </summary>
-        [Unity.Properties.CreateProperty] public Hierarchy.UpdateModeType UpdateMode = Hierarchy.UpdateModeType.Asynchronous;
+        [CreateProperty] public Hierarchy.UpdateModeType UpdateMode = Hierarchy.UpdateModeType.Asynchronous;
 
         /// <summary>
         /// The minimum number of milliseconds between update ticks. This is used to throttle the refresh rate to a reasonable value.
         /// </summary>
-        [Unity.Properties.CreateProperty] public int MinimumMillisecondsBetweenHierarchyUpdateCycles = 16;
+        [CreateProperty] public int MinimumMillisecondsBetweenHierarchyUpdateCycles = 16;
 
         /// <summary>
         /// The maximum number of milliseconds to spend on an update tick. This is used to drive time-slicing.
@@ -34,7 +34,7 @@ namespace Unity.Entities.Editor
         /// <remarks>
         /// This is only used if <see cref="UpdateMode"/> is set to 'Asynchronous'.
         /// </remarks>
-        [Unity.Properties.CreateProperty] public int MaximumMillisecondsPerEditorUpdate = 16;
+        [CreateProperty] public int MaximumMillisecondsPerEditorUpdate = 16;
 
         /// <summary>
         /// The internal batch size to use when integrating entity changes. A higher value means less overhead but larger chunks of work done per tick which can exceed the <see cref="MaximumMillisecondsPerEditorUpdate"/>.
@@ -42,7 +42,7 @@ namespace Unity.Entities.Editor
         /// <remarks>
         /// This is only used if <see cref="UpdateMode"/> is set to 'Asynchronous'.
         /// </remarks>
-        [Unity.Properties.CreateProperty] public int EntityChangeIntegrationBatchSize = 100000;
+        [CreateProperty] public int EntityChangeIntegrationBatchSize = 100000;
 
         /// <summary>
         /// The internal batch size to use when integrating gameobject changes. A higher value means less overhead but larger chunks of work done per tick which can exceed the <see cref="MaximumMillisecondsPerEditorUpdate"/>.
@@ -50,7 +50,7 @@ namespace Unity.Entities.Editor
         /// <remarks>
         /// This is only used if <see cref="UpdateMode"/> is set to 'Asynchronous'.
         /// </remarks>
-        [Unity.Properties.CreateProperty] public int GameObjectChangeIntegrationBatchSize = 100;
+        [CreateProperty] public int GameObjectChangeIntegrationBatchSize = 100;
 
         /// <summary>
         /// The internal batch size to use when baking out the immutable hierarchy. A higher value means less overhead but larger chunks of work done per tick which can exceed the <see cref="MaximumMillisecondsPerEditorUpdate"/>.
@@ -58,12 +58,12 @@ namespace Unity.Entities.Editor
         /// <remarks>
         /// This is only used if <see cref="UpdateMode"/> is set to 'Asynchronous'.
         /// </remarks>
-        [Unity.Properties.CreateProperty] public int ExportImmutableBatchSize = 100000;
+        [CreateProperty] public int ExportImmutableBatchSize = 100000;
 
         /// <summary>
         /// A flag to disable considering unnamed nodes when searching. This will accelerate performance.
         /// </summary>
-        [Unity.Properties.CreateProperty] public bool ExcludeUnnamedNodesForSearch = false;
+        [CreateProperty] public bool ExcludeUnnamedNodesForSearch = false;
     }
 
     /// <summary>
@@ -72,7 +72,7 @@ namespace Unity.Entities.Editor
     [GeneratePropertyBag]
     class HierarchyState
     {
-        [Unity.Properties.CreateProperty] public Dictionary<string, HierarchyNodesState> Nodes = new Dictionary<string, HierarchyNodesState>();
+        [CreateProperty] public Dictionary<string, HierarchyNodesState> Nodes = new Dictionary<string, HierarchyNodesState>();
 
         public HierarchyNodesState GetHierarchyNodesSerializableState(string world)
         {
@@ -104,47 +104,47 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// The current running counter for update ticks.
         /// </summary>
-        [Unity.Properties.CreateProperty, UsedImplicitly] public int UpdateCount { get; private set; }
+        [CreateProperty, UsedImplicitly] public int UpdateCount { get; private set; }
 
         /// <summary>
         /// The current running counter for skipped update ticks.
         /// </summary>
-        [Unity.Properties.CreateProperty, UsedImplicitly] public int UpdateSkipCount { get; private set; }
+        [CreateProperty, UsedImplicitly] public int UpdateSkipCount { get; private set; }
 
         /// <summary>
         /// The current running timer for the update.
         /// </summary>
-        [Unity.Properties.CreateProperty, UsedImplicitly] public long UpdateTime { get; private set; }
+        [CreateProperty, UsedImplicitly] public long UpdateTime { get; private set; }
 
         /// <summary>
         /// The number of ticks the last hierarchy update cycle took.
         /// </summary>
-        [Unity.Properties.CreateProperty, UsedImplicitly] public int LastUpdateCount { get; private set; } = -1;
+        [CreateProperty, UsedImplicitly] public int LastUpdateCount { get; private set; } = -1;
 
         /// <summary>
         /// The number of ticks the last update cycle skipped.
         /// </summary>
-        [Unity.Properties.CreateProperty, UsedImplicitly] public int LastUpdateSkipCount { get; private set; } = -1;
+        [CreateProperty, UsedImplicitly] public int LastUpdateSkipCount { get; private set; } = -1;
 
         /// <summary>
         /// The current running timer for the update.
         /// </summary>
-        [Unity.Properties.CreateProperty, UsedImplicitly] public long LastUpdateTime { get; private set; } = -1;
+        [CreateProperty, UsedImplicitly] public long LastUpdateTime { get; private set; } = -1;
 
         /// <summary>
         /// The average number of ticks to complete a hierarchy update cycle. This is an exponential moving average using a period of 20.
         /// </summary>
-        [Unity.Properties.CreateProperty, UsedImplicitly] public float AverageUpdateCount => m_AverageUpdateCount;
+        [CreateProperty, UsedImplicitly] public float AverageUpdateCount => m_AverageUpdateCount;
 
         /// <summary>
         /// The average number of ticks to skipped per hierarchy update cycle. This is an exponential moving average using a period of 20.
         /// </summary>
-        [Unity.Properties.CreateProperty, UsedImplicitly] public float AverageUpdateSkipCount => m_AverageUpdateSkipCount;
+        [CreateProperty, UsedImplicitly] public float AverageUpdateSkipCount => m_AverageUpdateSkipCount;
 
         /// <summary>
         /// The average number of milliseconds to complete a hierarchy update cycle. This is an exponential moving average using a period of 20.
         /// </summary>
-        [Unity.Properties.CreateProperty, UsedImplicitly] public float AverageUpdateTime => m_AverageUpdateTime;
+        [CreateProperty, UsedImplicitly] public float AverageUpdateTime => m_AverageUpdateTime;
 
         internal void IncrementUpdateCounter()
         {
@@ -194,13 +194,13 @@ namespace Unity.Entities.Editor
             /// Standard operation mode for the hierarchy.
             /// </summary>
             Normal,
-            
+
             /// <summary>
             /// Places the hierarchy in to a self debugging mode.
             /// </summary>
             Debug
         }
-        
+
         /// <summary>
         /// The internal hierarchy update mode.
         /// </summary>
@@ -287,7 +287,7 @@ namespace Unity.Entities.Editor
         /// </summary>
         HierarchyFilter m_Filter;
 
-        SubSceneNodeMapping m_SubSceneNodeMapping;
+        internal readonly SubSceneMap SubSceneMap;
 
         /// <summary>
         /// The hierarchy configuration. This is data which is managed externally by settings, tests or users but drives internal behaviours.
@@ -310,7 +310,7 @@ namespace Unity.Entities.Editor
                 m_HierarchyNodes.SetSerializableState(null != m_World ? value.GetHierarchyNodesSerializableState(m_World.Name) : new HierarchyNodesState());
             }
         }
-        
+
         /// <summary>
         /// Gets or sets the operation type. This can be used for self debugging.
         /// </summary>
@@ -345,14 +345,14 @@ namespace Unity.Entities.Editor
             m_Allocator = allocator;
 
             // Internal data storage.
-            m_SubSceneNodeMapping = new SubSceneNodeMapping(allocator);
-            m_HierarchyNodeStore = new HierarchyNodeStore(m_SubSceneNodeMapping, allocator);
+            SubSceneMap = new SubSceneMap();
+            m_HierarchyNodeStore = new HierarchyNodeStore(allocator);
             m_HierarchyNodeImmutableStore = new HierarchyNodeImmutableStore(allocator);
-            m_HierarchyNameStore = new HierarchyNameStore(m_SubSceneNodeMapping, allocator);
+            m_HierarchyNameStore = new HierarchyNameStore(allocator);
             m_HierarchyNodes = new HierarchyNodes(allocator);
 
             // Internal features.
-            m_Updater = new HierarchyUpdater(m_HierarchyNodeStore, m_HierarchyNodeImmutableStore, m_HierarchyNameStore, m_HierarchyNodes, allocator);
+            m_Updater = new HierarchyUpdater(m_HierarchyNodeStore, m_HierarchyNodeImmutableStore, m_HierarchyNameStore, m_HierarchyNodes, SubSceneMap, allocator);
             m_Search = new HierarchySearch(m_HierarchyNameStore, allocator);
 
             m_UpdateThrottleTimer = new Stopwatch();
@@ -371,7 +371,7 @@ namespace Unity.Entities.Editor
             m_Updater.Dispose();
             m_Search.Dispose();
             m_Filter?.Dispose();
-            m_SubSceneNodeMapping.Dispose();
+            SubSceneMap.Dispose();
         }
 
         /// <summary>
@@ -437,7 +437,7 @@ namespace Unity.Entities.Editor
             m_HierarchyNameStore.SetWorld(world);
 
             // Clear the internal state.
-            m_SubSceneNodeMapping.Clear();
+            SubSceneMap.Clear();
             m_HierarchyNodeStore.Clear();
             m_HierarchyNodeImmutableStore.Clear();
 
@@ -464,8 +464,8 @@ namespace Unity.Entities.Editor
 
             // Set the entity change tracker strategy. Note that we do NOT need to flush or handle when this value changes.
             // Instead we can always update it and the change tracker will pick it up on the next execution.
-            m_Updater.SetEntityChangeTrackerMode(OperationMode == OperationModeType.Normal 
-                ? HierarchyEntityChangeTracker.OperationModeType.SceneReferenceAndParentComponents  
+            m_Updater.SetEntityChangeTrackerMode(OperationMode == OperationModeType.Normal
+                ? HierarchyEntityChangeTracker.OperationModeType.SceneReferenceAndParentComponents
                 : HierarchyEntityChangeTracker.OperationModeType.Linear);
 
             // Setup configuration parameters.
@@ -547,7 +547,8 @@ namespace Unity.Entities.Editor
             {
                 // @FIXME This should really be called every tick instead of at the end of each update cycle.
                 // Refresh the virtualized node list. The work is only done if the underlying data is actually changed.
-                m_HierarchyNodes.Refresh(m_HierarchyNodeImmutableStore.GetReadBuffer(), World, m_SubSceneNodeMapping);
+                using var subSceneStateMap = SubSceneMap.GetSubSceneStateMap();
+                m_HierarchyNodes.Refresh(m_HierarchyNodeImmutableStore.GetReadBuffer(), World, subSceneStateMap);
             }
         }
 
@@ -596,7 +597,7 @@ namespace Unity.Entities.Editor
                         return true;
 
                     var sceneEntity = GetParentSceneEntity(entity);
-                    return sceneEntity != Entity.Null && GetSubSceneState(sceneEntity) == SubSceneLoadedState.Closed;
+                    return sceneEntity != Entity.Null && SubSceneMap.GetSubSceneStateImmediate(handle, World) == SubSceneLoadedState.Closed;
                 }
                 case NodeKind.GameObject:
                 {
@@ -606,7 +607,6 @@ namespace Unity.Entities.Editor
 
                     return false;
                 }
-
             }
 
             return false;
@@ -704,37 +704,6 @@ namespace Unity.Entities.Editor
 
                     return m_World.EntityManager.GetComponentData<EntityGuid>(entity).OriginatingId;
                 }
-
-                case NodeKind.SubScene:
-                {
-                    var sceneHash = m_SubSceneNodeMapping.GetSceneHashFromNode(handle);
-                    
-                    //ensure scenesystem exists
-                    World.Unmanaged.GetOrCreateUnmanagedSystem<SceneSystem>();
-                    var entity = SceneSystem.GetSceneEntity(World.Unmanaged, sceneHash);
-
-                    if (!m_World.EntityManager.Exists(entity))
-                    {
-                        // Special case. This is a sub-scene with a missing scene asset.
-                        if (handle.Version == -1)
-                        {
-                            var gameObject = EditorUtility.InstanceIDToObject(handle.Index) as GameObject;
-
-                            if (gameObject)
-                                return gameObject.GetComponent<SubScene>()?.GetInstanceID() ?? 0;
-
-                            return 0;
-                        }
-
-                        return 0;
-                    }
-
-                    if (!m_World.EntityManager.HasComponent<SubScene>(entity))
-                        return 0;
-
-                    return m_World.EntityManager.GetComponentObject<SubScene>(entity)?.GetInstanceID() ?? 0;
-                }
-
                 case NodeKind.GameObject:
                 {
                     return handle.Index;
@@ -754,15 +723,6 @@ namespace Unity.Entities.Editor
             return EditorUtility.InstanceIDToObject(GetInstanceId(handle));
         }
 
-        public enum SubSceneLoadedState
-        {
-            None,
-            Closed,
-            NotLoaded,
-            LiveConverted,
-            Opened
-        }
-
         Entity GetParentSceneEntity(Entity e)
         {
             var entityManager = World.EntityManager;
@@ -775,48 +735,6 @@ namespace Unity.Entities.Editor
                 return entityManager.GetComponentData<SceneEntityReference>(sceneTag.SceneEntity).SceneEntity;
             else
                 return Entity.Null;
-        }
-
-        SubSceneLoadedState GetSubSceneState(Entity sceneEntity)
-        {
-            var unitySceneIsLoaded = World.EntityManager.HasComponent<SubScene>(sceneEntity) && World.EntityManager.GetComponentObject<SubScene>(sceneEntity).IsLoaded;
-            var entitySceneIsLoaded = SceneSystem.IsSceneLoaded(World.Unmanaged, sceneEntity);
-            var liveConversionEnabled = LiveConversionEditorSettings.LiveConversionEnabled;
-
-            return (unitySceneIsLoaded, entitySceneIsLoaded, liveConversionEnabled) switch
-            {
-                (unitySceneIsLoaded: true,  entitySceneIsLoaded: _,     liveConversionEnabled: true)  => SubSceneLoadedState.LiveConverted,
-                (unitySceneIsLoaded: true,  entitySceneIsLoaded: _,     liveConversionEnabled: false) => SubSceneLoadedState.Opened,
-                (unitySceneIsLoaded: false, entitySceneIsLoaded: true,  liveConversionEnabled: _)     => SubSceneLoadedState.Closed,
-                (unitySceneIsLoaded: false, entitySceneIsLoaded: false, liveConversionEnabled: _)     => SubSceneLoadedState.NotLoaded,
-            };
-        }
-
-        public SubSceneLoadedState GetSubSceneState(HierarchyNodeHandle handle)
-        {
-            //ensure scenesystem exists
-            World.Unmanaged.GetOrCreateUnmanagedSystem<SceneSystem>();
-            
-            return handle.Kind == NodeKind.SubScene
-                ? GetSubSceneState(SceneSystem
-                    .GetSceneEntity(World.Unmanaged,
-                        m_SubSceneNodeMapping.GetSceneHashFromNode(handle)))
-                : SubSceneLoadedState.None;
-        }
-
-        public HierarchyNodeHandle GetSubSceneNodeHandle(SubScene subScene)
-            => HierarchyNodeHandle.FromSubScene(m_SubSceneNodeMapping, World, subScene);
-
-        public SubScene GetSubSceneFromNodeHandle(HierarchyNodeHandle handle)
-        {
-            var sceneHash = m_SubSceneNodeMapping.GetSceneHashFromNode(handle);
-            foreach (var subScene in SubScene.AllSubScenes)
-            {
-                if (subScene.SceneGUID == sceneHash)
-                    return subScene;
-            }
-
-            return null;
         }
     }
 }

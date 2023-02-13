@@ -49,6 +49,7 @@ namespace Unity.Entities.Baking
         public NativeList<GameObjectProperties> ChangedGameObjectProperties;
         public NativeList<IncrementalBakingChanges.ParentChange> ParentChangeInstanceIds;
         public NativeList<int> ParentWithChildrenOrderChangedInstanceIds;
+        public bool LightBakingChanged;
 
         public bool HasStructuralChanges()
         {
@@ -66,7 +67,8 @@ namespace Unity.Entities.Baking
                 DeletedAssets = new NativeList<int>(Allocator.Persistent),
                 ChangedGameObjectProperties = new NativeList<GameObjectProperties>(Allocator.Persistent),
                 ParentChangeInstanceIds = new NativeList<IncrementalBakingChanges.ParentChange>(Allocator.Persistent),
-                ParentWithChildrenOrderChangedInstanceIds = new NativeList<int>(Allocator.Persistent)
+                ParentWithChildrenOrderChangedInstanceIds = new NativeList<int>(Allocator.Persistent),
+                LightBakingChanged = false
             };
         }
 
@@ -80,6 +82,7 @@ namespace Unity.Entities.Baking
             ChangedGameObjectProperties.Clear();
             ParentChangeInstanceIds.Clear();
             ParentWithChildrenOrderChangedInstanceIds.Clear();
+            LightBakingChanged = false;
         }
 
         public void Dispose()

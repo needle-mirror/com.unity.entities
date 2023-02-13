@@ -12,7 +12,6 @@ namespace Doc.CodeSamples.Tests
     public class BlobAssetExamples
     {
         #region CreateSimpleBlobAsset
-
         struct MarketData
         {
             public float PriceOranges;
@@ -40,11 +39,9 @@ namespace Doc.CodeSamples.Tests
             builder.Dispose();
             return result;
         }
-
         #endregion
 
         #region CreateBlobAssetWithString
-
         struct CharacterSetup
         {
             public float Loveliness;
@@ -65,11 +62,9 @@ namespace Doc.CodeSamples.Tests
             builder.Dispose();
             return result;
         }
-
         #endregion
 
         #region CreateBlobAssetWithArray
-
         struct Hobby
         {
             public float Excitement;
@@ -114,11 +109,9 @@ namespace Doc.CodeSamples.Tests
             builder.Dispose();
             return result;
         }
-
         #endregion
 
         #region CreateBlobAssetWithInternalPointer
-
         struct FriendList
         {
             public BlobPtr<BlobString> BestFriend;
@@ -143,11 +136,9 @@ namespace Doc.CodeSamples.Tests
             builder.Dispose();
             return result;
         }
-
         #endregion
 
         #region BlobAssetOnAComponent
-
         struct Hobbies : IComponentData
         {
             public BlobAssetReference<HobbyPool> Blob;
@@ -174,7 +165,32 @@ namespace Doc.CodeSamples.Tests
 
             return mostExcitingHobby;
         }
+        #endregion
 
+        #region BlobAssetInRuntime
+        public partial struct BlobAssetInRuntimeSystem : ISystem
+        {
+            private BlobAssetReference<MarketData> _blobAssetReference;
+
+            public void OnCreate(ref SystemState state)
+            {
+                using (var builder = new BlobBuilder(Allocator.Temp))
+                {
+                    ref MarketData marketData = ref builder.ConstructRoot<MarketData>();
+                    marketData.PriceApples = 2f;
+                    marketData.PriceOranges = 4f;
+                    _blobAssetReference =
+                        builder.CreateBlobAssetReference<MarketData>(Allocator.Persistent);
+                }
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+                // Calling Dispose on the BlobAssetReference will destroy the referenced
+                // BlobAsset and free its memory
+                _blobAssetReference.Dispose();
+            }
+        }
         #endregion
     }
 }

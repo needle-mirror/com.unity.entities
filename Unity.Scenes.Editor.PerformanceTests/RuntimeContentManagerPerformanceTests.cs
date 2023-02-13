@@ -6,6 +6,7 @@ using Unity.Entities.Content;
 using Unity.Entities.Serialization;
 using Unity.Mathematics;
 using Unity.PerformanceTesting;
+using Unity.Scenes.Editor;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
@@ -65,7 +66,7 @@ namespace Unity.Entities.Tests.Content
         {
             TestLoader loader = default;
             UntypedWeakReferenceId[] ids = default;
-            
+
             Measure.Method(() =>
             {
                 LoadObjects(loadCount, objCount, ids);
@@ -218,6 +219,10 @@ namespace Unity.Entities.Tests.Content
             RuntimeContentManager.OverrideLoader.Dispose();
             RuntimeContentManager.Cleanup(out var unrleasedCount);
             Assert.AreEqual(0, unrleasedCount);
+            // We must initialise to return the static state for other tests to normal operation
+            RuntimeContentManager.Initialize();
+            // We must also assign the override loader back to default
+            RuntimeContentManager.OverrideLoader = new EditorPlayModeLoader();
         }
     }
 }

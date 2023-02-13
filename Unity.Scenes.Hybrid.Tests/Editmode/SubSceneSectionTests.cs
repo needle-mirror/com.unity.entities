@@ -9,23 +9,6 @@ using Unity.Entities.Tests;
 
 namespace Unity.Scenes.Hybrid.Tests
 {
-    public class SubSceneSectionTestsConversion : SubSceneSectionTests
-    {
-        [OneTimeSetUp]
-        public void OneTimeSetup()
-        {
-            m_Settings.Setup(false);
-            base.SetUpOnce();
-        }
-
-        [OneTimeTearDown]
-        public void OneTimeTeardown()
-        {
-            base.TearDownOnce();
-            m_Settings.TearDown();
-        }
-    }
-
     public class SubSceneSectionTestsBaking : SubSceneSectionTests
     {
         [OneTimeSetUp]
@@ -90,7 +73,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 };
 
                 var subSceneSectionTestDataQuery = manager.CreateEntityQuery(typeof(SubSceneSectionTestData));
-                
+
                 var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
                 world.Update();
 
@@ -174,6 +157,254 @@ namespace Unity.Scenes.Hybrid.Tests
                     EntityMatch.Partial(new SubSceneSectionTestData(42)),
                     EntityMatch.Partial(new SubSceneSectionTestData(43)),
                     EntityMatch.Partial(new SubSceneSectionTestData(44)));
+            }
+        }
+
+        // Only works in Editor for now until we can support SubScene building with new build settings in a test
+        [Test]
+        [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
+        public void TestGetSectionStreamingState()
+        {
+            using (var world = TestWorldSetup.CreateEntityWorld("World", false))
+            {
+                var manager = world.EntityManager;
+
+                var resolveParams = new SceneSystem.LoadParameters
+                {
+                    Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn | SceneLoadFlags.DisableAutoLoad
+                };
+
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                Assert.AreEqual(SceneSystem.SceneStreamingState.Loading, SceneSystem.GetSceneStreamingState(world.Unmanaged, sceneEntity));
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SceneStreamingState.LoadedSectionEntities, SceneSystem.GetSceneStreamingState(world.Unmanaged, sceneEntity));
+
+                var section0Entity = FindSectionEntity(manager, sceneEntity, 0);
+                var section10Entity = FindSectionEntity(manager, sceneEntity, 10);
+                var section20Entity = FindSectionEntity(manager, sceneEntity, 20);
+                Assert.AreNotEqual(Entity.Null, section0Entity);
+                Assert.AreNotEqual(Entity.Null, section10Entity);
+                Assert.AreNotEqual(Entity.Null, section20Entity);
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.AddComponentData(section10Entity, new RequestSceneLoaded());
+                Assert.AreEqual(SceneSystem.SectionStreamingState.LoadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.LoadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.RemoveComponent<RequestSceneLoaded>(section10Entity);
+                Assert.AreEqual(SceneSystem.SectionStreamingState.UnloadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.AddComponentData(section0Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                Assert.AreEqual(SceneSystem.SectionStreamingState.LoadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.AddComponentData(section10Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                Assert.AreEqual(SceneSystem.SectionStreamingState.LoadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.AddComponentData(section20Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                Assert.AreEqual(SceneSystem.SectionStreamingState.LoadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.RemoveComponent<RequestSceneLoaded>(section10Entity);
+                Assert.AreEqual(SceneSystem.SectionStreamingState.UnloadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.RemoveComponent<RequestSceneLoaded>(section0Entity);
+                Assert.AreEqual(SceneSystem.SectionStreamingState.UnloadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+
+                world.Update();
+
+                // Section 0 unload is on hold until we unload section 20
+                Assert.AreEqual(SceneSystem.SectionStreamingState.UnloadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.RemoveComponent<RequestSceneLoaded>(section20Entity);
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.AddComponentData(section0Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                manager.AddComponentData(section10Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                manager.AddComponentData(section20Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                // Unloading section 0 and 20 while loading section 10. This will unload section 20, load section 10 and put section 0 on UnloadRequested
+                manager.RemoveComponent<RequestSceneLoaded>(section10Entity);
+                world.Update();
+
+                manager.RemoveComponent<RequestSceneLoaded>(section0Entity);
+                manager.RemoveComponent<RequestSceneLoaded>(section20Entity);
+
+                manager.AddComponentData(section10Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SectionStreamingState.UnloadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+            }
+        }
+
+        // Only works in Editor for now until we can support SubScene building with new build settings in a test
+        [Test]
+        [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
+        public void TestLoadSectionsSynchronously_OutOfOrder()
+        {
+            using (var world = TestWorldSetup.CreateEntityWorld("World", false))
+            {
+                var manager = world.EntityManager;
+
+                var resolveParams = new SceneSystem.LoadParameters
+                {
+                    Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn | SceneLoadFlags.DisableAutoLoad
+                };
+
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                Assert.AreEqual(SceneSystem.SceneStreamingState.Loading, SceneSystem.GetSceneStreamingState(world.Unmanaged, sceneEntity));
+                world.Update();
+
+                Assert.AreEqual(SceneSystem.SceneStreamingState.LoadedSectionEntities, SceneSystem.GetSceneStreamingState(world.Unmanaged, sceneEntity));
+
+                var section0Entity = FindSectionEntity(manager, sceneEntity, 0);
+                var section10Entity = FindSectionEntity(manager, sceneEntity, 10);
+                var section20Entity = FindSectionEntity(manager, sceneEntity, 20);
+                Assert.AreNotEqual(Entity.Null, section0Entity);
+                Assert.AreNotEqual(Entity.Null, section10Entity);
+                Assert.AreNotEqual(Entity.Null, section20Entity);
+
+                // Check nothing is loaded initially
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                world.Update();
+
+                // Loading section 10 sync when section 0 is not loaded. This should produce an error and change the loading to async instead. After that is will put the loading of section 1 on hold.
+                manager.AddComponentData(section10Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                Assert.AreEqual(SceneSystem.SectionStreamingState.LoadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+
+                // world.Update() will throw an error as a result, the section will be set to async load and wait for section 0
+                UnityEngine.TestTools.LogAssert.Expect(LogType.Error, "Can't load section 10 synchronously because section 0 hasn't been loaded first. Loading section asynchronously instead");
+                world.Update();
+                Assert.AreEqual(SceneSystem.SectionStreamingState.LoadRequested, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+
+                // Removing the loading on section 0 (that was on hold) to check the system resets correctly when the load is on hold.
+                manager.RemoveComponent<RequestSceneLoaded>(section10Entity);
+
+                world.Update();
+
+                // Check the state is reset
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                // Check that the order in the chunk doesn't change the outcome on the loading
+                // Load section 0, 10, 20
+                manager.AddComponentData(section0Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                manager.AddComponentData(section10Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                manager.AddComponentData(section20Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+
+                world.Update();
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.RemoveComponent<RequestSceneLoaded>(section0Entity);
+                manager.RemoveComponent<RequestSceneLoaded>(section10Entity);
+                manager.RemoveComponent<RequestSceneLoaded>(section20Entity);
+
+                world.Update();
+
+                // Check all unloaded
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                // Load section 20, 10, 0
+                manager.AddComponentData(section20Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                manager.AddComponentData(section10Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                manager.AddComponentData(section0Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+
+                world.Update();
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.RemoveComponent<RequestSceneLoaded>(section0Entity);
+                manager.RemoveComponent<RequestSceneLoaded>(section10Entity);
+                manager.RemoveComponent<RequestSceneLoaded>(section20Entity);
+
+                world.Update();
+
+                // Check all unloaded
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                // Load section 10, 0, 20
+                manager.AddComponentData(section10Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                manager.AddComponentData(section0Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+                manager.AddComponentData(section20Entity, new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
+
+                world.Update();
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Loaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
+
+                manager.RemoveComponent<RequestSceneLoaded>(section0Entity);
+                manager.RemoveComponent<RequestSceneLoaded>(section10Entity);
+                manager.RemoveComponent<RequestSceneLoaded>(section20Entity);
+
+                world.Update();
+
+                // Check all unloaded
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section0Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section10Entity));
+                Assert.AreEqual(SceneSystem.SectionStreamingState.Unloaded, SceneSystem.GetSectionStreamingState(world.Unmanaged, section20Entity));
             }
         }
 

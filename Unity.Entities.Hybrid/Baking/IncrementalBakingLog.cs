@@ -29,13 +29,28 @@ namespace Unity.Entities.Baking
         }
     }
 
-    struct ComponentBakeTrigger
+    struct ComponentBakeTrigger : IEquatable<ComponentBakeTrigger>
     {
         public int AuthoringComponentId;
         public ComponentBakeReason BakeReason;
         public int ReasonId;
         public Hash128 ReasonGuid;
         public TypeIndex BakingUnityTypeIndex;
+
+        public bool Equals(ComponentBakeTrigger other)
+        {
+            return AuthoringComponentId == other.AuthoringComponentId && BakeReason == other.BakeReason && ReasonId == other.ReasonId && ReasonGuid.Equals(other.ReasonGuid) && BakingUnityTypeIndex.Equals(other.BakingUnityTypeIndex);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ComponentBakeTrigger other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(AuthoringComponentId, (int) BakeReason, ReasonId, ReasonGuid, BakingUnityTypeIndex);
+        }
     }
 
     enum ComponentBakeReason
@@ -255,7 +270,8 @@ namespace Unity.Entities.Baking
             public UnsafeParallelHashSet<GUID> ChangedAssetsOnDisk;
 #endif
 
-            public UnsafeMultiHashMap<int, ComponentBakeTrigger> ComponentBakeTriggers;
+            public UnsafeParallelHashMap<ComponentBakeTrigger, int> ComponentBakeTriggersCount;
+            public UnsafeParallelMultiHashMap<int, ComponentBakeTrigger> ComponentBakeTriggers;
 
             bool isCreated;
 
@@ -275,7 +291,8 @@ namespace Unity.Entities.Baking
                 ChangedAssetsOnDisk = new UnsafeParallelHashSet<GUID>(10, allocator);
 #endif
 
-                ComponentBakeTriggers = new UnsafeMultiHashMap<int, ComponentBakeTrigger>(1024, allocator);
+                ComponentBakeTriggersCount = new UnsafeParallelHashMap<ComponentBakeTrigger, int>(1024, allocator);
+                ComponentBakeTriggers = new UnsafeParallelMultiHashMap<int, ComponentBakeTrigger>(1024, allocator);
 
                 isCreated = true;
             }
@@ -298,6 +315,7 @@ namespace Unity.Entities.Baking
                 ChangedAssetsOnDisk.Dispose();
 #endif
 
+                ComponentBakeTriggersCount.Dispose();
                 ComponentBakeTriggers.Dispose();
 
                 isCreated = false;
@@ -318,6 +336,7 @@ namespace Unity.Entities.Baking
                 ChangedAssetsOnDisk.Clear();
 #endif
 
+                ComponentBakeTriggersCount.Clear();
                 ComponentBakeTriggers.Clear();
             }
         }
@@ -366,14 +385,21 @@ namespace Unity.Entities.Baking
                         case BakeRecordType.ChangedAssets:
                             info.ChangedAssets.Add(bakerEntry.intValue);
                             break;
-#if UNITY_EDITOR
+    #if UNITY_EDITOR
                         case BakeRecordType.ChangedAssetsOnDisk:
                             info.ChangedAssetsOnDisk.Add(bakerEntry.guidValue);
                             break;
-#endif
+    #endif
                         case BakeRecordType.ComponentBakeTriggers:
-                            info.ComponentBakeTriggers.Add(bakerEntry.triggerValue.AuthoringComponentId, bakerEntry.triggerValue);
-                            break;
+                        {
+                            if (!info.ComponentBakeTriggersCount.TryGetValue(bakerEntry.triggerValue, out var count))
+                            {
+                                info.ComponentBakeTriggers.Add(bakerEntry.triggerValue.AuthoringComponentId, bakerEntry.triggerValue);
+                            }
+                            info.ComponentBakeTriggersCount[bakerEntry.triggerValue] = count + 1;
+                        }
+
+                        break;
                     }
                 }
             }
@@ -389,174 +415,205 @@ namespace Unity.Entities.Baking
             var sb = new StringBuilder();
 
             using var bakerRecords = ReadRecords();
-
-            sb.AppendLine($"Incremental Baking Log");
-            sb.AppendLine($"----------------------");
+            sb.AppendLine($"Incremental Baking Log: Frame {Time.frameCount}");
+            sb.AppendLine($"==============================\n");
 
             // Write all changed GameObjects
             // -----------------------------
-            sb.AppendLine($"Changed GameObjects: {bakerRecords.ChangedGameObjects.Count()}");
-            sb.AppendLine($"------------------------------");
-            foreach (var gameObjectId in bakerRecords.ChangedGameObjects)
+            if (bakerRecords.ChangedGameObjects.Count() > 0)
             {
-                WriteGameObject(ref gameObjectComponents, sb, gameObjectId);
+                sb.AppendLine($"Changed GameObjects: {bakerRecords.ChangedGameObjects.Count()}");
+                sb.AppendLine($"------------------------------");
+                foreach (var gameObjectId in bakerRecords.ChangedGameObjects)
+                {
+                    WriteGameObject(ref gameObjectComponents, sb, gameObjectId);
+                }
+                sb.AppendLine($"------------------------------\n");
             }
-            sb.AppendLine($"------------------------------\n");
 
             // Write all new GameObjects
             // -------------------------
-            sb.AppendLine($"New GameObjects: {bakerRecords.NewGameObjects.Count()}");
-            sb.AppendLine($"------------------------------");
-            foreach (var gameObjectId in bakerRecords.NewGameObjects)
+            if (bakerRecords.NewGameObjects.Count() > 0)
             {
-                WriteGameObject(ref gameObjectComponents, sb, gameObjectId);
+                sb.AppendLine($"New GameObjects: {bakerRecords.NewGameObjects.Count()}");
+                sb.AppendLine($"------------------------------");
+                foreach (var gameObjectId in bakerRecords.NewGameObjects)
+                {
+                    WriteGameObject(ref gameObjectComponents, sb, gameObjectId);
+                }
+                sb.AppendLine($"------------------------------\n");
             }
-            sb.AppendLine($"------------------------------\n");
 
             // Write all changed Components
             // -------------------------
-            sb.AppendLine($"Changed Components: {bakerRecords.ChangedComponents.Count()}");
-            sb.AppendLine($"------------------------------");
-            foreach (var componentId in bakerRecords.ChangedComponents)
+            if (bakerRecords.ChangedComponents.Count() > 0)
             {
-                WriteComponent(sb, componentId);
+                sb.AppendLine($"Changed Components: {bakerRecords.ChangedComponents.Count()}");
+                sb.AppendLine($"------------------------------");
+                foreach (var componentId in bakerRecords.ChangedComponents)
+                {
+                    WriteComponent(sb, componentId);
+                }
+                sb.AppendLine($"------------------------------\n");
             }
-            sb.AppendLine($"------------------------------\n");
 
             // Write all new Components
             // -------------------------
-            sb.AppendLine($"New Components: {bakerRecords.NewComponents.Count()}");
-            sb.AppendLine($"------------------------------");
-            foreach (var componentId in bakerRecords.NewComponents)
+            if (bakerRecords.NewComponents.Count() > 0)
             {
-                WriteComponent(sb, componentId);
+                sb.AppendLine($"New Components: {bakerRecords.NewComponents.Count()}");
+                sb.AppendLine($"------------------------------");
+                foreach (var componentId in bakerRecords.NewComponents)
+                {
+                    WriteComponent(sb, componentId);
+                }
+                sb.AppendLine($"------------------------------\n");
             }
-            sb.AppendLine($"------------------------------\n");
 
             // Write dependency triggers
             // -------------------------
-            sb.AppendLine($"Bake Reasons");
-            sb.AppendLine($"------------------------------");
-            using var authoringIds = bakerRecords.ComponentBakeTriggers.GetKeyArray(Allocator.Temp);
-            foreach (var authoringId in authoringIds)
+            using var authoringIds = NativeParallelHashMapExtensions.GetUniqueKeyArray(bakerRecords.ComponentBakeTriggers, Allocator.Temp).Item1;
+            if (authoringIds.Length > 0)
             {
-                var obj = Resources.InstanceIDToObject(authoringId);
-                if (obj != null)
+                sb.AppendLine($"Bake Reasons");
+                sb.AppendLine($"------------------------------");
+                foreach (var authoringId in authoringIds)
                 {
-                    if (obj is GameObject go)
+                    var obj = Resources.InstanceIDToObject(authoringId);
+                    if (obj != null)
                     {
-                        sb.AppendLine($"GameObject: {go.name} ({go.GetInstanceID()})");
-                    }
-                    if (obj is Component component)
-                    {
-                        sb.AppendLine($"Type: {component.GetType().Name}");
-                        sb.AppendLine($"GameObject: {component.gameObject.name} ({component.gameObject.GetInstanceID()})");
-                    }
-                }
-
-                sb.AppendLine($"InstanceID: {authoringId}");
-                sb.AppendLine("Why did I bake?:");
-                foreach (var trigger in bakerRecords.ComponentBakeTriggers.GetValuesForKey(authoringId))
-                {
-                    var typeInfo = TypeManager.GetTypeInfo(trigger.BakingUnityTypeIndex);
-                    switch (trigger.BakeReason)
-                    {
-                        case ComponentBakeReason.NewComponent:
+                        if (obj is GameObject go)
                         {
-                            sb.AppendLine($"\tNew Component - {typeInfo.DebugTypeName} ({trigger.AuthoringComponentId}");
-                            break;
-                        }
-                        case ComponentBakeReason.ComponentChanged:
-                        {
-                            sb.AppendLine($"\tComponent Changed - {typeInfo.DebugTypeName} ({trigger.AuthoringComponentId}");
-                            break;
-                        }
-                        case ComponentBakeReason.GetComponentChanged:
-                        {
-                            sb.AppendLine($"\tGetComponent({typeInfo.DebugTypeName}) Changed ({trigger.ReasonId})");
-                            break;
-                        }
-                        case ComponentBakeReason.GetComponentStructuralChange:
-                        {
-                            sb.AppendLine($"\tGetComponent({typeInfo.DebugTypeName}) Structural Change ({trigger.ReasonId})");
-                            break;
-                        }
-                        case ComponentBakeReason.GetComponentsStructuralChange:
-                        {
-                            sb.AppendLine($"\tGetComponents({typeInfo.DebugTypeName}) Structural Change");
-                            break;
-                        }
-                        case ComponentBakeReason.GetHierarchySingleStructuralChange:
-                        {
-                            sb.AppendLine($"\tHierarchy({typeInfo.DebugTypeName}) Structural Change ({trigger.ReasonId})");
-                            break;
-                        }
-                        case ComponentBakeReason.GetHierarchyStructuralChange:
-                        {
-                            sb.AppendLine($"\tHierarchy({typeInfo.DebugTypeName}) Structural Change");
-                            break;
-                        }
-                        case ComponentBakeReason.ObjectExistStructuralChange:
-                        {
-                            sb.AppendLine($"\tObjectExist({typeInfo.DebugTypeName}) Structural Change ({trigger.ReasonId})");
-                            break;
-                        }
-                        case ComponentBakeReason.ReferenceChanged:
-                        {
-                            sb.AppendLine($"\tReference() Changed ({trigger.ReasonId})");
-                            break;
-                        }
-                        case ComponentBakeReason.GameObjectPropertyChange:
-                        {
-                            sb.AppendLine($"\tGameObject Property() Changed ({trigger.ReasonId})");
-                            break;
+                            sb.AppendLine($"GameObject: {go.name} ({go.GetInstanceID()})");
                         }
 
-                        case ComponentBakeReason.GameObjectStaticChange:
+                        if (obj is Component component)
                         {
-                            sb.AppendLine($"\tGameObject IsStatic() Changed ({trigger.ReasonId})");
-                            break;
+                            sb.AppendLine($"Type: {component.GetType().Name}");
+                            sb.AppendLine(
+                                $"GameObject: {component.gameObject.name} ({component.gameObject.GetInstanceID()})");
                         }
+                    }
+                    else
+                    {
+                        sb.AppendLine($"GameObject/Component: Not Available, possibly deleted ({authoringId})");
+                    }
+
+                    sb.AppendLine($"InstanceID: {authoringId}");
+                    sb.AppendLine("Why did I bake?:");
+                    foreach (var trigger in bakerRecords.ComponentBakeTriggers.GetValuesForKey(authoringId))
+                    {
+                        var typeInfo = TypeManager.GetTypeInfo(trigger.BakingUnityTypeIndex);
+                        switch (trigger.BakeReason)
+                        {
+                            case ComponentBakeReason.NewComponent:
+                            {
+                                sb.Append(
+                                    $"\tNew Component - {typeInfo.DebugTypeName} ({trigger.AuthoringComponentId})");
+                                break;
+                            }
+                            case ComponentBakeReason.ComponentChanged:
+                            {
+                                sb.Append(
+                                    $"\tComponent Changed - {typeInfo.DebugTypeName} ({trigger.AuthoringComponentId})");
+                                break;
+                            }
+                            case ComponentBakeReason.GetComponentChanged:
+                            {
+                                sb.Append($"\tGetComponent({typeInfo.DebugTypeName}) Changed ({trigger.ReasonId})");
+                                break;
+                            }
+                            case ComponentBakeReason.GetComponentStructuralChange:
+                            {
+                                sb.Append(
+                                    $"\tGetComponent({typeInfo.DebugTypeName}) Structural Change ({trigger.ReasonId})");
+                                break;
+                            }
+                            case ComponentBakeReason.GetComponentsStructuralChange:
+                            {
+                                sb.Append($"\tGetComponents({typeInfo.DebugTypeName}) Structural Change");
+                                break;
+                            }
+                            case ComponentBakeReason.GetHierarchySingleStructuralChange:
+                            {
+                                sb.Append(
+                                    $"\tHierarchy({typeInfo.DebugTypeName}) Structural Change ({trigger.ReasonId})");
+                                break;
+                            }
+                            case ComponentBakeReason.GetHierarchyStructuralChange:
+                            {
+                                sb.Append($"\tHierarchy({typeInfo.DebugTypeName}) Structural Change");
+                                break;
+                            }
+                            case ComponentBakeReason.ObjectExistStructuralChange:
+                            {
+                                sb.Append(
+                                    $"\tObjectExist({typeInfo.DebugTypeName}) Structural Change ({trigger.ReasonId})");
+                                break;
+                            }
+                            case ComponentBakeReason.ReferenceChanged:
+                            {
+                                sb.Append($"\tReference() Changed ({trigger.ReasonId})");
+                                break;
+                            }
+                            case ComponentBakeReason.GameObjectPropertyChange:
+                            {
+                                sb.Append($"\tGameObject Property() Changed ({trigger.ReasonId})");
+                                break;
+                            }
+
+                            case ComponentBakeReason.GameObjectStaticChange:
+                            {
+                                sb.Append($"\tGameObject IsStatic() Changed ({trigger.ReasonId})");
+                                break;
+                            }
 #if UNITY_EDITOR
-                        case ComponentBakeReason.ReferenceChangedOnDisk:
-                        {
-                            var path = AssetDatabase.GUIDToAssetPath(trigger.ReasonGuid);
-                            sb.AppendLine($"\tReference({path}) Changed On Disk ({trigger.ReasonGuid})");
-                            break;
-                        }
+                            case ComponentBakeReason.ReferenceChangedOnDisk:
+                            {
+                                var path = AssetDatabase.GUIDToAssetPath(trigger.ReasonGuid);
+                                sb.Append($"\tReference({path}) Changed On Disk ({trigger.ReasonGuid})");
+                                break;
+                            }
 #endif
-                        case ComponentBakeReason.ActiveChanged:
-                        {
-                            var gameObject = (GameObject)Resources.InstanceIDToObject(trigger.ReasonId);
-                            if (gameObject != null)
+                            case ComponentBakeReason.ActiveChanged:
                             {
-                                sb.AppendLine($"\tIsActive() Changed ({gameObject.name}, {trigger.ReasonId})");
-                            }
-                            else
-                            {
-                                sb.AppendLine($"\tIsActive() Changed ({trigger.ReasonId})");
-                            }
-                            break;
-                        }
-                        case ComponentBakeReason.UpdatePrefabInstance:
-                        {
-                            var gameObject = (GameObject)Resources.InstanceIDToObject(trigger.ReasonId);
-                            if (gameObject != null)
-                            {
-                                sb.AppendLine($"\tUpdatePrefabInstance ({gameObject.name}, {trigger.ReasonId}) - Caused when a prefab asset is instance in a SubScene and the original asset is modified, thus updating the non-overridden properties in the scene instance.");
-                            }
-                            else
-                            {
-                                sb.AppendLine($"\tUpdatePrefabInstance ({trigger.ReasonId}) - Caused when a prefab asset is instance in a SubScene and the original asset is modified, thus updating the non-overridden properties in the scene instance.");
-                            }
-                            break;
-                        }
-                    }
-                }
+                                var gameObject = (GameObject) Resources.InstanceIDToObject(trigger.ReasonId);
+                                if (gameObject != null)
+                                {
+                                    sb.Append($"\tIsActive() Changed ({gameObject.name}, {trigger.ReasonId})");
+                                }
+                                else
+                                {
+                                    sb.Append($"\tIsActive() Changed ({trigger.ReasonId})");
+                                }
 
-                sb.AppendLine();
+                                break;
+                            }
+                            case ComponentBakeReason.UpdatePrefabInstance:
+                            {
+                                var gameObject = (GameObject) Resources.InstanceIDToObject(trigger.ReasonId);
+                                if (gameObject != null)
+                                {
+                                    sb.Append(
+                                        $"\tUpdatePrefabInstance ({gameObject.name}, {trigger.ReasonId}) - Caused when a prefab asset is instance in a SubScene and the original asset is modified, thus updating the non-overridden properties in the scene instance.");
+                                }
+                                else
+                                {
+                                    sb.Append(
+                                        $"\tUpdatePrefabInstance ({trigger.ReasonId}) - Caused when a prefab asset is instance in a SubScene and the original asset is modified, thus updating the non-overridden properties in the scene instance.");
+                                }
+
+                                break;
+                            }
+                        }
+
+                        int count = bakerRecords.ComponentBakeTriggersCount[trigger];
+                        sb.AppendLine($"\t-\t Event Count: {count}");
+                    }
+                    sb.AppendLine();
+                }
+                sb.AppendLine($"------------------------------\n");
             }
-            sb.AppendLine($"------------------------------\n");
 
             Debug.Log(sb.ToString());
         }

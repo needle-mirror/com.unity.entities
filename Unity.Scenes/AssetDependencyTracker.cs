@@ -50,7 +50,7 @@ namespace Unity.Scenes
             }
         }
 
-        private NativeMultiHashMap<GUID, ReportedValue> _AllAssets;
+        private NativeParallelMultiHashMap<GUID, ReportedValue> _AllAssets;
         private NativeParallelHashMap<GUID, RefCount>               _AllAssetsRefCount;
 
         private NativeList<GUID> _InProgress;
@@ -78,7 +78,7 @@ namespace Unity.Scenes
             _ProgressID = -1;
             _ProgressSummary = progressSummary;
 
-             _AllAssets = new NativeMultiHashMap<GUID, ReportedValue>(1024, Allocator.Persistent);
+             _AllAssets = new NativeParallelMultiHashMap<GUID, ReportedValue>(1024, Allocator.Persistent);
              _AllAssetsRefCount = new NativeParallelHashMap<GUID, RefCount>(1024, Allocator.Persistent);
              _InProgress = new NativeList<GUID>(1024, Allocator.Persistent);
             _ArtifactCache = new NativeList<Hash128>(1024, Allocator.Persistent);
@@ -348,7 +348,7 @@ namespace Unity.Scenes
             get { return _InProgress.Length; }
         }
 
-        bool GetIterator(GUID asset, T userKey, out NativeMultiHashMapIterator<GUID> iterator, out ReportedValue value)
+        bool GetIterator(GUID asset, T userKey, out NativeParallelMultiHashMapIterator<GUID> iterator, out ReportedValue value)
         {
             if (_AllAssets.TryGetFirstValue(asset, out value, out iterator))
             {

@@ -7,7 +7,7 @@ namespace Unity.Entities.Editor
 {
     partial struct HierarchyNodeStore
     {
-        internal void IntegratePrefabStageChanges(HierarchyPrefabStageChanges changes)
+        internal void IntegratePrefabStageChanges(HierarchyPrefabStageChanges changes, SubSceneMap subSceneMap)
         {
             if (changes.GameObjectChangeTrackerEvents.Length == 0)
                 return;
@@ -32,7 +32,7 @@ namespace Unity.Entities.Editor
                 if (!gameObject)
                     continue;
 
-                HierarchyNodeHandle parent = gameObject.transform.parent ? GetNodeHandle(gameObject.transform.parent.gameObject) : HierarchyNodeHandle.Root;
+                HierarchyNodeHandle parent = gameObject.transform.parent ? GetNodeHandle(gameObject.transform.parent.gameObject, subSceneMap) : HierarchyNodeHandle.Root;
 
                 if (null != gameObject.transform.parent)
                 {
@@ -58,7 +58,7 @@ namespace Unity.Entities.Editor
                     }
                 }
 
-                var handle = GetNodeHandle(gameObject);
+                var handle = GetNodeHandle(gameObject, subSceneMap);
 
                 if ((changeTrackerEvent.EventType & GameObjectChangeTrackerEventType.CreatedOrChanged) != 0)
                 {

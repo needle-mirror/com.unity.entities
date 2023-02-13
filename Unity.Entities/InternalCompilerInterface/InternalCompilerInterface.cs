@@ -1,8 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 
@@ -63,6 +65,179 @@ namespace Unity.Entities
 
         public static unsafe IntPtr UnsafeGetChunkNativeArrayIntPtr<T>(ArchetypeChunk chunk, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData =>
             (IntPtr) chunk.GetRequiredComponentDataPtrRW(ref typeHandle);
+
+        /// <summary>
+        /// There is no need to conduct the same checks in this method as we do in `GetRequiredComponentDataPtrRO` and `GetRequiredComponentDataPtrRW` --
+        /// the source-generator has already ensured that everything is correctly set up.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe IntPtr UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<T>(in ArchetypeChunk chunk, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData =>
+            (IntPtr)ChunkDataUtility.GetComponentDataWithTypeRO(
+                chunk.m_Chunk,
+                chunk.m_Chunk->Archetype,
+                0,
+                typeHandle.m_TypeIndex,
+                ref typeHandle.m_LookupCache);
+
+        /// <summary>
+        /// There is no need to conduct the same checks in this method as we do in `GetRequiredComponentDataPtrRO` and `GetRequiredComponentDataPtrRW` --
+        /// the source-generator has already ensured that everything is correctly set up.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe IntPtr UnsafeGetChunkNativeArrayIntPtrWithoutChecks<T>(in ArchetypeChunk chunk, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
+        {
+            byte* ptr =
+                ChunkDataUtility.GetComponentDataWithTypeRW(
+                    chunk.m_Chunk,
+                    chunk.m_Chunk->Archetype,
+                    0,
+                    typeHandle.m_TypeIndex,
+                    typeHandle.GlobalSystemVersion,
+                    ref typeHandle.m_LookupCache);
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(chunk.m_EntityComponentStore->m_RecordToJournal != 0))
+                chunk.JournalAddRecordGetComponentDataRW(ref typeHandle, ptr, typeHandle.m_LookupCache.ComponentSizeOf * chunk.Count);
+#endif
+
+            return (IntPtr)ptr;
+        }
+
+// `UnsafeGetUncheckedRefRO<T>()` is called from within source-generated code for `foreach` iterations
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static UncheckedRefRO<T> UnsafeGetUncheckedRefRO<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
+        {
+            return new UncheckedRefRO<T>(ptr, index, typeHandle.m_Safety);
+        }
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static UncheckedRefRO<T> UnsafeGetUncheckedRefRO<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
+        {
+            return new UncheckedRefRO<T>(ptr, index);
+        }
+#endif
+
+// `UnsafeGetUncheckedRefRW<T>()` is called from within source-generated code for `foreach` iterations
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static UncheckedRefRW<T> UnsafeGetUncheckedRefRW<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
+        {
+            return new UncheckedRefRW<T>(ptr, index, typeHandle.m_Safety);
+        }
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static UncheckedRefRW<T> UnsafeGetUncheckedRefRW<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
+        {
+            return new UncheckedRefRW<T>(ptr, index);
+        }
+#endif
+
+// `GetRefRO<T>()` is called from within source-generated `IJobChunk`s
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe RefRO<T> GetRefRO<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
+        {
+            return new RefRO<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index, typeHandle.m_Safety);
+        }
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe RefRO<T> GetRefRO<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
+        {
+            return new RefRO<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index);
+        }
+#endif
+
+// `GetRefRW<T>()` is called from within source-generated `IJobChunk`s
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe RefRW<T> GetRefRW<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
+        {
+            return new RefRW<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index, typeHandle.m_Safety);
+        }
+#else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe RefRW<T> GetRefRW<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
+        {
+            return new RefRW<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index);
+        }
+#endif
+
+        /// <summary>
+        /// This type is used by source-generators to circumvent per-component safety checks when iterating through `RefRO` types in `foreach` statements,
+        /// by replacing `RefRO` with `UncheckedRefRO`.
+        /// </summary>
+        public readonly unsafe struct UncheckedRefRO<T> where T : unmanaged, IComponentData
+        {
+            private readonly IntPtr _ptr;
+            private readonly int _index;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            private readonly AtomicSafetyHandle _safety;
+
+            public UncheckedRefRO(IntPtr ptr, int index, AtomicSafetyHandle safety)
+            {
+                _ptr = ptr;
+                _index = index;
+                _safety = safety;
+            }
+#else
+            public UncheckedRefRO(IntPtr ptr, int index)
+            {
+                _ptr = ptr;
+                _index = index;
+            }
+#endif
+            public ref readonly T ValueRO => ref *((T*)_ptr + _index);
+
+            public static implicit operator RefRO<T>(UncheckedRefRO<T> @unchecked)
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                return new RefRO<T>((T*)@unchecked._ptr, @unchecked._safety);
+#else
+                return new RefRO<T>((T*)@unchecked._ptr);
+#endif
+            }
+        }
+
+        /// <summary>
+        /// This type is used by source-generators to circumvent per-component safety checks when iterating through `RefRW` types in `foreach` statements,
+        /// by replacing `RefRW` with `UncheckedRefRW`.
+        /// </summary>
+        public readonly unsafe struct UncheckedRefRW<T> where T : unmanaged, IComponentData
+        {
+            private readonly IntPtr _ptr;
+            private readonly int _index;
+
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            private readonly AtomicSafetyHandle _safety;
+
+            public UncheckedRefRW(IntPtr ptr, int index, AtomicSafetyHandle safety)
+            {
+                _ptr = ptr;
+                _index = index;
+                _safety = safety;
+            }
+    #else
+            public UncheckedRefRW(IntPtr ptr, int index)
+            {
+                _ptr = ptr;
+                _index = index;
+            }
+    #endif
+
+            public ref T ValueRW => ref *((T*)_ptr + _index);
+            public ref readonly T ValueRO => ref *((T*)_ptr + _index);
+
+            public static implicit operator RefRW<T>(UncheckedRefRW<T> @unchecked)
+            {
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                return new RefRW<T>((T*)@unchecked._ptr, @unchecked._safety);
+    #else
+                return new RefRW<T>((T*)@unchecked._ptr);
+    #endif
+            }
+        }
 
         public static unsafe IntPtr UnsafeGetChunkEntityArrayIntPtr(ArchetypeChunk chunk, EntityTypeHandle typeHandle) =>
             (IntPtr) chunk.GetEntityDataPtrRO(typeHandle);
@@ -160,8 +335,6 @@ namespace Unity.Entities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static EntityQuery OnlyAllowedInSourceGeneratedCodeGetSingleQuery<T>(SystemBase system)
             => new EntityQueryBuilder(system.WorldUpdateAllocator).WithAllRW<T>().Build(system);
-
-        public interface IIsFullyUnmanaged {}
 
         /// <summary>
         /// Used internally by all Source Generation stubs. It throws an InvalidOperations from Source-gen not running.

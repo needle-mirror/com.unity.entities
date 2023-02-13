@@ -239,7 +239,6 @@ namespace Unity.Entities
             {
                 SystemHandle system = allSystemHandlesToAdd[i];
                 Type systemType = systemTypesArray[i];
-                var ismanaged = typeof(ComponentSystemBase).IsAssignableFrom(systemType);
 
                 // Skip the built-in root-level system groups
                 if (rootGroups.IsRootGroup(systemType))
@@ -289,11 +288,11 @@ namespace Unity.Entities
 
             if (!TypeManager.IsSystemType(uga.GroupType) || !TypeManager.IsSystemAGroup(uga.GroupType))
             {
-                throw new InvalidOperationException($"Invalid [UpdateInGroup] attribute for {systemType}: {uga.GroupType} must be derived from ComponentSystemGroup.");
+                throw new InvalidOperationException($"Invalid [{nameof(UpdateInGroupAttribute)}] attribute for {systemType}: {uga.GroupType} must be derived from {nameof(ComponentSystemGroup)}.");
             }
             if (uga.OrderFirst && uga.OrderLast)
             {
-                throw new InvalidOperationException($"The system {systemType} can not specify both OrderFirst=true and OrderLast=true in its [UpdateInGroup] attribute.");
+                throw new InvalidOperationException($"The system {systemType} can not specify both OrderFirst=true and OrderLast=true in its [{nameof(UpdateInGroupAttribute)}] attribute.");
             }
 
             var groupSys = world.GetExistingSystemManaged(uga.GroupType);
@@ -303,12 +302,12 @@ namespace Unity.Entities
                 var parentDisableAutoCreation = TypeManager.GetSystemAttributes(uga.GroupType, typeof(DisableAutoCreationAttribute)).Length > 0;
                 if (parentDisableAutoCreation)
                 {
-                    Debug.LogWarning($"A system {systemType} wants to execute in {uga.GroupType} but this group has [DisableAutoCreation] and {systemType} does not. The system will not be added to any group and thus not update.");
+                    Debug.LogWarning($"A system {systemType} wants to execute in {uga.GroupType} but this group has [{nameof(DisableAutoCreationAttribute)}] and {systemType} does not. The system will not be added to any group and thus not update.");
                 }
                 else
                 {
                     Debug.LogWarning(
-                        $"A system {systemType} could not be added to group {uga.GroupType}, because the group was not created. Fix these errors before continuing. The system will not be added to any group and thus not update.");
+                        $"A system {systemType} could not be added to group {uga.GroupType}, because the group was not created in the world {world.Name}. Fix these errors before continuing. The system will not be added to any group and thus not update.");
                 }
             }
 

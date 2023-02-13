@@ -608,10 +608,6 @@ namespace Unity.Entities.Tests
             _query = state.GetEntityQuery(typeof(EcsTestSharedComp));
         }
 
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
         [BurstCompile(CompileSynchronously = true)]
         public void OnUpdate(ref SystemState state)
         {

@@ -375,7 +375,60 @@ namespace Unity.Entities.PerformanceTests
             dstWorld.Dispose();
         }
 
-        //todo: removed 100,000 entities count from test due to excessive runtime. investigate further to determine if this is worth keeping
+        [Test, Performance]
+        public void AddComponent_ComponentTypeSet_Individual()
+        {
+            int entityCount = 10000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+
+            var typeSet = new ComponentTypeSet(typeof(EcsTestData2));
+            Measure.Method(() =>
+                {
+                    foreach (var e in entities)
+                    {
+                        m_Manager.AddComponent(e, typeSet);
+                    }
+                })
+                .SetUp(() =>
+                {
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.RemoveComponent(entities, typeSet);
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .Run();
+        }
+
+        [Test, Performance]
+        public void RemoveComponent_ComponentTypeSet_Individual()
+        {
+            int entityCount = 10000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob);
+
+            var typeSet = new ComponentTypeSet(typeof(EcsTestData2));
+            Measure.Method(() =>
+                {
+                    foreach (var e in entities)
+                    {
+                        m_Manager.RemoveComponent(e, typeSet);
+                    }
+                })
+                .SetUp(() =>
+                {
+                    m_Manager.AddComponent(entities, typeSet);
+                })
+                .CleanUp(() =>
+                {
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .Run();
+        }
+
         [Test, Performance]
         public void AddComponentsWithGroup([Values(1, 10, 1000, 10000)] int entityCount,
             [Values(1, 5, 10, 100, 1000, 10000)] int archetypeCount)

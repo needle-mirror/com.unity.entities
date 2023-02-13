@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
+﻿using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -8,33 +6,51 @@ using Unity.Entities.SourceGen.Common;
 
 namespace Unity.Entities.SourceGen
 {
-    public class JobEntitySyntaxReceiver : ISyntaxReceiver
+    public static class JobEntitySyntaxFinder
     {
-        public Dictionary<SyntaxTree, List<StructDeclarationSyntax>> JobCandidatesBySyntaxTree = new Dictionary<SyntaxTree, List<StructDeclarationSyntax>>();
-        readonly CancellationToken _cancelationToken;
-
-        public JobEntitySyntaxReceiver(CancellationToken cancellationToken)
+        public static bool IsSyntaxTargetForGeneration(SyntaxNode syntaxNode, CancellationToken cancellationToken)
         {
-            _cancelationToken = cancellationToken;
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
-        {
-            _cancelationToken.ThrowIfCancellationRequested();
-
+            // Is Struct
             if (syntaxNode is StructDeclarationSyntax structDeclarationSyntax)
             {
+                // Has Base List
                 if (structDeclarationSyntax.BaseList == null)
-                    return;
+                    return false;
 
-                if (!structDeclarationSyntax.BaseList.Types.Any(baseType => baseType.Type is IdentifierNameSyntax {Identifier: {ValueText: "IJobEntity"}}))
-                    return;
+                // Has IJobEntity identifier
+                var hasIJobEntityIdentifier = false;
+                foreach (var baseType in structDeclarationSyntax.BaseList.Types)
+                    if (baseType.Type is IdentifierNameSyntax { Identifier: { ValueText: "IJobEntity" } })
+                    {
+                        hasIJobEntityIdentifier = true;
+                        break;
+                    }
+                if (!hasIJobEntityIdentifier)
+                    return false;
 
-                if (!structDeclarationSyntax.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
-                    return;
+                // Has Partial keyword
+                var hasPartial = false;
+                foreach (var m in structDeclarationSyntax.Modifiers)
+                    if (m.IsKind(SyntaxKind.PartialKeyword))
+                    {
+                        hasPartial = true;
+                        break;
+                    }
 
-                JobCandidatesBySyntaxTree.Add(structDeclarationSyntax.SyntaxTree, structDeclarationSyntax);
+                return hasPartial;
             }
+            return false;
+        }
+
+        public static StructDeclarationSyntax GetSemanticTargetForGeneration(GeneratorSyntaxContext ctx, CancellationToken cancellationToken)
+        {
+            var structDeclarationSyntax = (StructDeclarationSyntax)ctx.Node;
+            foreach (var baseTypeSyntax in structDeclarationSyntax.BaseList!.Types)
+                if (ctx.SemanticModel.GetTypeInfo(baseTypeSyntax.Type).Type.ToFullName() == "global::Unity.Entities.IJobEntity")
+                    return structDeclarationSyntax;
+            return null;
         }
     }
 }

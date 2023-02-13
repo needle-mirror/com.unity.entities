@@ -88,4 +88,41 @@ namespace Unity.Entities.TestComponents
             }
         }
     }
+
+    public struct BlobAssetReferenceElement : IBufferElementData
+    {
+        public Hash128 blobHash;
+    }
+
+    public class MultipleTryGetRefCountingBaker : Baker<BlobAssetAddTestAuthoring>
+    {
+        public override void Bake(BlobAssetAddTestAuthoring authoring)
+        {
+            var customHash = authoring.blobValue.GetHashCode();
+            var customCustomHash = new Hash128((uint) customHash, 1, 2, 3);
+
+            // First add the blob asset
+            var blobReference = BlobAssetUtility.CreateBlobAsset(authoring.blobValue);
+            AddBlobAssetWithCustomHash(ref blobReference, customCustomHash);
+            AddComponent(new BlobAssetGetReference()
+            {
+                blobValue = blobReference.Value,
+                blobHash = customCustomHash,
+                blobReference = blobReference
+            });
+
+            var buffer = AddBuffer<BlobAssetReferenceElement>();
+
+            // TryGet 4 times (adds 4 refcounting in the Baker and BlobAssetStore)
+            for (int i = 0; i < 4; i++)
+            {
+                if (TryGetBlobAssetReference(customCustomHash, out BlobAssetReference<int> secondBlobReference))
+                {
+                    buffer.Add(new BlobAssetReferenceElement() {blobHash = customCustomHash});
+                }
+            }
+
+
+        }
+    }
 }

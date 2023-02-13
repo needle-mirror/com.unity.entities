@@ -66,7 +66,7 @@ namespace Unity.Entities
         List<Transform>          _TransformCache = new List<Transform>();
 
         /// <summary>
-        /// Access to the <see cref="BlobAssetStore"/> used during baking. 
+        /// Access to the <see cref="BlobAssetStore"/> used during baking.
         /// </summary>
         /// <remarks>
         /// The blob assets created by baking systems need to
@@ -97,9 +97,14 @@ namespace Unity.Entities
             return _BakedEntities.GetEntity(gameObject);
         }
 
-        internal UnsafeList<Entity> GetEntitiesForBakers(Component component)
+        internal UnsafeHashSet<Entity> GetEntitiesForBakers(Component component)
         {
             return _BakedEntities.GetEntitiesForBakers(component);
+        }
+
+        internal Entity GetPrimaryEntity(Component component)
+        {
+            return _BakedEntities.GetPrimaryEntity(component);
         }
 
         internal bool Bake(IncrementalBakingChangeTracker changeTracker, GameObject[] cleanRootGameObjects)

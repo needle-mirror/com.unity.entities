@@ -47,10 +47,7 @@ namespace Unity.Entities.Tests
 
         public partial struct TestEmptySystemUnmanaged : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) { }
-        }
+            }
 
         public partial class TestSystemManaged : SystemBase
         {
@@ -70,9 +67,6 @@ namespace Unity.Entities.Tests
                 var entity = state.EntityManager.CreateEntity(typeof(EcsTestData));
                 state.EntityManager.SetComponentData(entity, new EcsTestData { value = 1 });
             }
-
-            public void OnDestroy(ref SystemState state) { }
-            public void OnUpdate(ref SystemState state) { }
         }
 
         public partial class TestSystemCreatingOtherSystems : SystemBase

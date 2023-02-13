@@ -1,9 +1,9 @@
 #if ENABLE_PROFILER
 namespace Unity.Entities
 {
-    static partial class StructuralChangesProfiler
+    partial class StructuralChangesProfiler
     {
-        public enum StructuralChangeType
+        public enum StructuralChangeType : int
         {
             CreateEntity,
             DestroyEntity,

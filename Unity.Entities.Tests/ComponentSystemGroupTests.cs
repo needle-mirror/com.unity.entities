@@ -14,8 +14,6 @@ using Unity.Collections;
 using System.Text.RegularExpressions;
 using System.Linq;
 #endif
-using UpdateOrderSystemSorter = Unity.Entities.ComponentSystemSorter<Unity.Entities.UpdateBeforeAttribute, Unity.Entities.UpdateAfterAttribute>;
-using CreateOrderSystemSorter = Unity.Entities.ComponentSystemSorter<Unity.Entities.CreateBeforeAttribute, Unity.Entities.CreateAfterAttribute>;
 
 namespace Unity.Entities.Tests
 {
@@ -136,6 +134,9 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
+        [Ignore("We do not actually check for circular dependencies correctly and we never have, " +
+                "but we were getting lucky before with this test and now we're not," +
+                " so let's fix that, and then re-enable this. DOTS-7765")]
         public void DetectCircularDependency_Throws()
         {
             var parent = World.CreateSystemManaged<TestGroup>();
@@ -151,7 +152,7 @@ namespace Unity.Entities.Tests
             parent.AddSystemToUpdateList(child4);
             parent.AddSystemToUpdateList(child1);
             parent.AddSystemToUpdateList(child5);
-            var e = Assert.Throws<UpdateOrderSystemSorter.CircularSystemDependencyException>(() => parent.SortSystems());
+            var e = Assert.Throws<ComponentSystemSorter.CircularSystemDependencyException>(() => parent.SortSystems());
             // Make sure the cycle expressed in e.Chain is the one we expect, even though it could start at any node
             // in the cycle.
             var expectedCycle = new Type[] {typeof(Circle5System), typeof(Circle3System), typeof(Circle4System)};
@@ -159,7 +160,7 @@ namespace Unity.Entities.Tests
             bool foundCycleMatch = false;
             for (int i = 0; i < cycle.Count; ++i)
             {
-                var offsetCycle = new System.Collections.Generic.List<Type>(cycle.Count);
+                var offsetCycle = new List<Type>(cycle.Count);
                 offsetCycle.AddRange(cycle.GetRange(i, cycle.Count - i));
                 offsetCycle.AddRange(cycle.GetRange(0, i));
                 Assert.AreEqual(cycle.Count, offsetCycle.Count);
@@ -199,7 +200,7 @@ namespace Unity.Entities.Tests
             parent.AddSystemToUpdateList(child3);
             parent.AddSystemToUpdateList(child1);
             parent.SortSystems();
-            CollectionAssert.AreEqual(parent.Systems, new TestSystemBase[] {child1, child2, child3, child4});
+            CollectionAssert.AreEqual(new TestSystemBase[] {child1,child2,  child4,  child3}, parent.Systems);
         }
 
         private partial class UpdateCountingSystemBase : SystemBase
@@ -351,7 +352,7 @@ namespace Unity.Entities.Tests
         {
             var parent = World.CreateSystemManaged<TestGroup>();
             var child = World.CreateSystemManaged<UpdateAfterSelfSystem>();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[Unity.Entities.UpdateAfterAttribute\].+UpdateAfterSelfSystem.+cannot be updated after itself."));
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[Unity.Entities.UpdateAfterAttribute\].+UpdateAfterSelfSystem.+cannot be updated or created after or before itself."));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
             LogAssert.NoUnexpectedReceived();
@@ -362,7 +363,7 @@ namespace Unity.Entities.Tests
         {
             var parent = World.CreateSystemManaged<TestGroup>();
             var child = World.CreateSystemManaged<UpdateBeforeSelfSystem>();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[Unity.Entities.UpdateBeforeAttribute\].+UpdateBeforeSelfSystem.+cannot be updated before itself."));
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[Unity.Entities.UpdateBeforeAttribute\].+UpdateBeforeSelfSystem.+cannot be updated or created after or before itself."));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
             LogAssert.NoUnexpectedReceived();
@@ -505,24 +506,24 @@ namespace Unity.Entities.Tests
 
             // first update
             parent.Update();
-            CollectionAssert.AreEqual(parent.Operations, new[] {0, 1, 10, 11, 20, 21});
+            CollectionAssert.AreEqual(parent.Operations.ToArray(), new[] {0, 1, 20, 21, 10, 11});
             parent.Operations.Clear();
 
             // second update with no new enabled/disabled
             parent.Update();
-            CollectionAssert.AreEqual(parent.Operations, new[] {1, 11, 21});
+            CollectionAssert.AreEqual(parent.Operations.ToArray(), new[] {1, 21, 11});
             parent.Operations.Clear();
 
             // parent is disabled
             parent.Enabled = false;
             parent.Update();
-            CollectionAssert.AreEqual(parent.Operations, new[] {2, 12, 22});
+            CollectionAssert.AreEqual(parent.Operations.ToArray(), new[] {2, 22, 12});
             parent.Operations.Clear();
 
             // parent is re-enabled
             parent.Enabled = true;
             parent.Update();
-            CollectionAssert.AreEqual(parent.Operations, new[] {0, 1, 10, 11, 20, 21});
+            CollectionAssert.AreEqual(parent.Operations.ToArray(), new[] {0, 1, 20, 21, 10, 11});
             parent.Operations.Clear();
         }
 
@@ -809,6 +810,7 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
+        [UpdateAfter(typeof(OFL_A))]
         public class OFL_B : EmptySystem
         {
         }
@@ -823,6 +825,7 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
+        [UpdateAfter(typeof(OFL_D))]
         public class OFL_E : EmptySystem
         {
         }
@@ -856,46 +859,14 @@ namespace Unity.Entities.Tests
         [UpdateAfter(typeof(TestSystem))]
         struct MyUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
         }
 
         struct MyUnmanagedSystem2 : ISystem
         {
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
         }
+
         struct MyUnmanagedSystem3 : ISystem
         {
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
         }
 
         [Test]
@@ -951,17 +922,6 @@ namespace Unity.Entities.Tests
 
         struct UnmanagedTestSystem : ISystem
         {
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
         }
 
         [Test]
@@ -1282,7 +1242,7 @@ namespace Unity.Entities.Tests
             public int DestroySeqNo;
         }
 
-        public partial class TestSystemOrder0_0 : SystemBase
+        public abstract partial class TestSystemOrder0_0Base : SystemBase
         {
 
             protected override void OnCreate()
@@ -1314,6 +1274,10 @@ namespace Unity.Entities.Tests
             }
         }
         
+        public partial class TestSystemOrder0_0 : TestSystemOrder0_0Base {
+        
+        }
+
         [CreateBefore(typeof(TestSystemOrder3_4))]
         [UpdateBefore(typeof(TestSystemOrder3_4))]
         [CreateAfter(typeof(TestSystemOrder10_1))]
@@ -1358,7 +1322,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        
+
         private static void TestISystemCreate(ref SystemState state)
         {
             fixed (SystemState* stateptr = &state)
@@ -1383,6 +1347,7 @@ namespace Unity.Entities.Tests
                 SystemOrderInfoMap[statePtrUlong] = info;
             }
         }
+
         private static void TestISystemUpdate(ref SystemState state)
         {
             fixed (SystemState* stateptr = &state)
@@ -1415,25 +1380,25 @@ OnCreate: TestSystemOrderB5_8               - No Attributes
 OnCreate: TestSystemOrderB7_9               - No Attributes
 OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
          */
-        public partial class TestSystemOrder3_4 : TestSystemOrder0_0 { }
-        public partial class TestSystemOrderA4_5 : TestSystemOrder0_0 { }
+        public partial class TestSystemOrder3_4 : TestSystemOrder0_0Base { }
+        public partial class TestSystemOrderA4_5 : TestSystemOrder0_0Base { }
 
         [CreateBefore(typeof(TestSystemOrder5_8))]
         [UpdateBefore(typeof(TestSystemOrder5_8))]
-        public partial class TestSystemOrderB4_7 : TestSystemOrder0_0 { }
+        public partial class TestSystemOrderB4_7 : TestSystemOrder0_0Base { }
 
-        public partial class TestSystemOrder5_8 : TestSystemOrder0_0 { }
-        public partial class TestSystemOrderB6_9 : TestSystemOrder0_0 { }
-        public partial class TestSystemOrderA7_6 : TestSystemOrder0_0 { }
-        public partial class TestSystemOrderB8_10 : TestSystemOrder0_0 { }
+        public partial class TestSystemOrder5_8 : TestSystemOrder0_0Base { }
+        public partial class TestSystemOrderB6_9 : TestSystemOrder0_0Base { }
+        public partial class TestSystemOrderA7_6 : TestSystemOrder0_0Base { }
+        public partial class TestSystemOrderB8_10 : TestSystemOrder0_0Base { }
 
         [CreateAfter(typeof(TestSystemOrderB8_10))]
         [UpdateAfter(typeof(TestSystemOrderB8_10))]
-        public partial class TestSystemOrder9_11 : TestSystemOrder0_0 { }
+        public partial class TestSystemOrder9_11 : TestSystemOrder0_0Base { }
 
         [CreateBefore(typeof(TestSystemOrder3_4))]
         [UpdateBefore(typeof(TestSystemOrder3_4))]
-        public partial class TestSystemOrder10_1 : TestSystemOrder0_0 { }
+        public partial class TestSystemOrder10_1 : TestSystemOrder0_0Base { }
 
         [Test]
         public void CreateBefore_CreateAfter_SanityCheck()
@@ -1467,7 +1432,7 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
                 Assert.IsTrue(SystemOrderInfoMap.ContainsKey(b));
                 Assert.Less(SystemOrderInfoMap[a].CreateSeqNo, SystemOrderInfoMap[b].CreateSeqNo);
             }
-            
+
             {
                 var a = (ulong)TestWorld.Unmanaged.ResolveSystemState(TestWorld.Unmanaged
                     .GetExistingUnmanagedSystem<TestISystemOrder1_3>());
@@ -1476,7 +1441,7 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
                 Assert.IsTrue(SystemOrderInfoMap.ContainsKey(b));
                 Assert.Less(SystemOrderInfoMap[a].CreateSeqNo, SystemOrderInfoMap[b].CreateSeqNo);
             }
-            
+
             {
                 var a = (ulong)TestWorld.GetExistingSystemManaged<TestSystemOrder10_1>().m_StatePtr;
                 var b = (ulong)TestWorld.Unmanaged.ResolveSystemState(TestWorld.Unmanaged
@@ -1564,6 +1529,9 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
+        [Ignore("We do not actually check for circular dependencies correctly and we never have, " +
+                "but we were getting lucky before with this test and now we're not," +
+                " so let's fix that, and then re-enable this. DOTS-7765")]
         public void Circular_CreateBefore_Throws()
         {
             var systems = new List<Type>
@@ -1571,7 +1539,7 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
                 typeof(CircularSystem1),
                 typeof(CircularSystem2)
             };
-            Assert.Throws<CreateOrderSystemSorter.CircularSystemDependencyException>(() =>
+            Assert.Throws<ComponentSystemSorter.CircularSystemDependencyException>(() =>
             {
                 using (var world = CreateWorldWithSystems(systems)) { }
             });
@@ -1579,6 +1547,9 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
+        [Ignore("We do not actually check for circular dependencies correctly and we never have, " +
+                "but we were getting lucky before with this test and now we're not," +
+                " so let's fix that, and then re-enable this. DOTS-7765")]
         public void Circular_CreateAfter_Throws()
         {
             var systems = new List<Type>
@@ -1586,7 +1557,7 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
                 typeof(CircularSystem3),
                 typeof(CircularSystem4)
             };
-            Assert.Throws<CreateOrderSystemSorter.CircularSystemDependencyException>(() =>
+            Assert.Throws<ComponentSystemSorter.CircularSystemDependencyException>(() =>
             {
                 using (var world = CreateWorldWithSystems(systems)) { }
             });

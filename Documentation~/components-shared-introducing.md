@@ -2,7 +2,7 @@
 
 Shared components group entities in chunks based on the values of their shared component, which helps with the de-duplication of data. To do this, Unity stores all entities of an archetype that have the same shared component values together. This removes repeated values across entities.
 
-Shared components are structs, but depending on the types of properties you add to the shared component, you can create both [managed](components-managed.md) and [unmanaged](components-unmanaged.md) shared components. If a shared component contains a managed type, such as a string or other class object, the shared component is a managed shared component. Otherwise, it's an unmanaged shared component. Managed shared components have the same advantages and restrictions as regular [managed components](components-managed.md).
+You can create both [managed and unmanaged shared components](components-shared-create.md). Managed shared components have the same advantages and restrictions as [regular managed components](components-managed.md).
 
 ## Shared component value storage
 

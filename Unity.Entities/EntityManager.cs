@@ -446,8 +446,11 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (chunk.Invalid())
+            {
+                var typeName = TypeManager.GetTypeIndex<T>().ToFixedString();
                 throw new System.ArgumentException(
-                    $"GetChunkComponentData<{typeof(T)}> can not be called with an invalid archetype chunk.");
+                    $"GetChunkComponentData<{typeName}> can not be called with an invalid archetype chunk.");
+            }
 #endif
             var metaChunkEntity = chunk.m_Chunk->metaChunkEntity;
             return GetComponentData<T>(metaChunkEntity);
@@ -491,8 +494,11 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (chunk.Invalid())
+            {
+                var typeName = TypeManager.GetTypeIndex<T>().ToFixedString();
                 throw new System.ArgumentException(
-                    $"SetChunkComponentData<{typeof(T)}> can not be called with an invalid archetype chunk.");
+                    $"SetChunkComponentData<{typeName}> can not be called with an invalid archetype chunk.");
+            }
 #endif
             var metaChunkEntity = chunk.m_Chunk->metaChunkEntity;
             SetComponentData<T>(metaChunkEntity, componentValue);
@@ -508,7 +514,7 @@ namespace Unity.Entities
         /// <remarks>
         /// Accessing data in a managed object forfeits many opportunities for increased performance. Using
         /// managed objects should be avoided or used sparingly.
-        /// 
+        ///
         /// The method also works for adding managed objects implementing `IComponentData`, but `GetComponentData` is the preferred method for those objects.
         /// </remarks>
         [ExcludeFromBurstCompatTesting("Returns managed object")]
@@ -529,7 +535,7 @@ namespace Unity.Entities
         /// <remarks>
         /// Accessing data in a managed object forfeits many opportunities for increased performance. Using
         /// managed objects should be avoided or used sparingly.
-        /// 
+        ///
         /// The method also works for adding managed objects implementing `IComponentData`, but `GetComponentData` is the preferred method for those objects.
         /// </remarks>
         [ExcludeFromBurstCompatTesting("Returns managed object")]
@@ -549,7 +555,7 @@ namespace Unity.Entities
         /// <remarks>
         /// Accessing data in a managed object forfeits many opportunities for increased performance. Using
         /// managed objects should be avoided or used sparingly.
-        /// 
+        ///
         /// The method also works for adding managed objects implementing `IComponentData`, but `GetComponentData` is the preferred method for those objects.
         /// </remarks>
         [ExcludeFromBurstCompatTesting("Returns managed object")]
@@ -570,7 +576,7 @@ namespace Unity.Entities
         /// <remarks>
         /// Accessing data in a managed object forfeits many opportunities for increased performance. Using
         /// managed objects should be avoided or used sparingly.
-        /// 
+        ///
         /// The method also works for adding managed objects implementing `IComponentData`, but `GetComponentData` is the preferred method for those objects.
         /// </remarks>
         [ExcludeFromBurstCompatTesting("Returns managed object")]
@@ -722,8 +728,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
                 if (StructuralChangesProfiler.Enabled)
                 {
-                    StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, access->m_WorldUnmanaged);
-                    StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, access->m_WorldUnmanaged);
+                    access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
+                    access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in access->m_WorldUnmanaged);
                 }
 #endif
 
@@ -739,8 +745,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
                 if (StructuralChangesProfiler.Enabled)
                 {
-                    StructuralChangesProfiler.End(); // SetSharedComponent
-                    StructuralChangesProfiler.End(); // AddComponent
+                    access->StructuralChangesRecorder.End(); // SetSharedComponent
+                    access->StructuralChangesRecorder.End(); // AddComponent
                 }
 #endif
 
@@ -812,8 +818,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
                 if (StructuralChangesProfiler.Enabled)
                 {
-                    StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, access->m_WorldUnmanaged);
-                    StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, access->m_WorldUnmanaged);
+                    access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
+                    access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in access->m_WorldUnmanaged);
                 }
 #endif
 
@@ -829,8 +835,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
                 if (StructuralChangesProfiler.Enabled)
                 {
-                    StructuralChangesProfiler.End(); // SetSharedComponent
-                    StructuralChangesProfiler.End(); // AddComponent
+                    access->StructuralChangesRecorder.End(); // SetSharedComponent
+                    access->StructuralChangesRecorder.End(); // AddComponent
                 }
 #endif
 
@@ -1233,10 +1239,10 @@ namespace Unity.Entities
         /// <param name="allocator">The allocator for the native list of sharedComponentValues</param>
         /// <typeparam name="T">The type of shared component.</typeparam>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
-        public void GetAllUniqueSharedComponents<T>(out NativeList<T> sharedComponentValues, Allocator allocator) where T : unmanaged, ISharedComponentData
+        public void GetAllUniqueSharedComponents<T>(out NativeList<T> sharedComponentValues, AllocatorManager.AllocatorHandle allocator) where T : unmanaged, ISharedComponentData
         {
             var access = GetCheckedEntityDataAccess();
-            sharedComponentValues = new NativeList<T>(16, allocator);
+            sharedComponentValues = new NativeList<T>(0, allocator);
             access->GetAllUniqueSharedComponents_Unmanaged<T>(out *sharedComponentValues.m_ListData, allocator);
         }
 
@@ -1675,7 +1681,10 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             var typeIndex = TypeManager.GetTypeIndex<T>();
             if (TypeManager.IsZeroSized(typeIndex))
-                throw new InvalidOperationException($"Singleton component {typeof(T)} can not be created because it is a zero-size type.");
+            {
+                var typeName = typeIndex.ToFixedString();
+                throw new InvalidOperationException($"Singleton component {typeName} can not be created because it is a zero-size type.");
+            }
 #endif
             return CreateSingletonEntityInternal<T>(name);
         }
@@ -1685,11 +1694,19 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             var query = CreateEntityQuery(new EntityQueryBuilder(Allocator.Temp).WithAllRW<T>().WithOptions(EntityQueryOptions.IncludeSystems));
-            if (query.CalculateEntityCount() != 0)
-                throw new InvalidOperationException($"Singleton component {typeof(T)} can not be created because entities already exist with this component type.");
             var typeIndex = TypeManager.GetTypeIndex<T>();
+
+            if (query.CalculateEntityCount() != 0)
+            {
+                var typeName = typeIndex.ToFixedString();
+                throw new InvalidOperationException($"Singleton component {typeName} can not be created because entities already exist with this component type.");
+            }
+
             if (TypeManager.IsEnableable(typeIndex))
-                throw new InvalidOperationException($"Singleton component {typeof(T)} can not be created because it is an enableable component type.");
+            {
+                var typeName = typeIndex.ToFixedString();
+                throw new InvalidOperationException($"Singleton component {typeName} can not be created because it is an enableable component type.");
+            }
 #endif
             var componentType = ComponentType.ReadWrite<T>();
             var entity = CreateEntity(CreateArchetype(&componentType, 1));
@@ -1763,7 +1780,7 @@ namespace Unity.Entities
         /// <param name="entityQuery">The EntityQuery defining the entities to modify.</param>
         /// <param name="componentTypeSet">The type of components to add.</param>
         [StructuralChangeMethod]
-        public void AddComponent(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+        public void AddComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess();
             access->AssertQueryIsValid(entityQuery);
@@ -1899,7 +1916,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
+                access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
 #endif
 
             // This method does not use EntityDataAccess.AddComponentDuringStructuralChange because
@@ -1927,7 +1944,7 @@ namespace Unity.Entities
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
+                ecs->StructuralChangesRecorder.End();
 #endif
         }
 
@@ -1949,7 +1966,7 @@ namespace Unity.Entities
         /// <param name="entities">The collection of entities to modify.</param>
         /// <param name="componentTypeSet">The type of components to add.</param>
         [StructuralChangeMethod]
-        public void AddComponent(NativeArray<Entity> entities, ComponentTypeSet componentTypeSet)
+        public void AddComponent(NativeArray<Entity> entities, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess();
             access->AssertMainThread();
@@ -1982,7 +1999,7 @@ namespace Unity.Entities
         /// <param name="entities">The collection of entities to modify.</param>
         /// <param name="componentTypeSet">The types of components to remove.</param>
         [StructuralChangeMethod]
-        public void RemoveComponent(NativeArray<Entity> entities, ComponentTypeSet componentTypeSet)
+        public void RemoveComponent(NativeArray<Entity> entities, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess();
             access->AssertMainThread();
@@ -2064,7 +2081,7 @@ namespace Unity.Entities
         ///
         /// The added components have the default values for the type.
         ///
-        /// If the <see cref="Entity"/> object refers to an entity that has been destroyed, this function throws an ArgumentError
+        /// If the <see cref="Entity"/> object refers to an entity that has been destroyed, this function throws an InvalidOperationException
         /// exception.
         ///
         /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
@@ -2072,14 +2089,16 @@ namespace Unity.Entities
         /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
         /// be able to use the processing power of all available cores.
         /// </remarks>
-        /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+        /// <exception cref="InvalidOperationException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="system">The system handle.</param>
         /// <param name="componentTypeSet">The types of components to add.</param>
         [StructuralChangeMethod]
-        public void AddComponent(SystemHandle system, ComponentTypeSet componentTypeSet)
+        public void AddComponent(SystemHandle system, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess(system);
-            AddComponentsInternal(access, system.m_Entity, componentTypeSet);
+            var changes = access->BeginStructuralChanges();
+            access->AddMultipleComponentsDuringStructuralChange(system.m_Entity, componentTypeSet);
+            access->EndStructuralChanges(ref changes);
         }
 
         /// <summary>
@@ -2093,7 +2112,7 @@ namespace Unity.Entities
         ///
         /// The added components have the default values for the type.
         ///
-        /// If the <see cref="Entity"/> object refers to an entity that has been destroyed, this function throws an ArgumentError
+        /// If the <see cref="Entity"/> object refers to an entity that has been destroyed, this function throws an InvalidOperationException
         /// exception.
         ///
         /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
@@ -2101,55 +2120,26 @@ namespace Unity.Entities
         /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
         /// be able to use the processing power of all available cores.
         /// </remarks>
-        /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+        /// <exception cref="InvalidOperationException">The <see cref="Entity"/> does not exist.</exception>
         /// <param name="entity">The entity to modify.</param>
         /// <param name="componentTypeSet">The types of components to add.</param>
         [StructuralChangeMethod]
-        public void AddComponent(Entity entity, ComponentTypeSet componentTypeSet)
+        public void AddComponent(Entity entity, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess();
-            AddComponentsInternal(access, entity, componentTypeSet);
-        }
-
-        unsafe void AddComponentsInternal(EntityDataAccess* access, Entity entity, ComponentTypeSet typeSet)
-        {
-            var ecs = access->EntityComponentStore;
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            // Have to record here because method is not using EntityDataAccess
-            if (Hint.Unlikely(ecs->m_RecordToJournal != 0))
-                access->JournalAddRecord_AddComponent(default, &entity, 1, typeSet.Types, typeSet.Length);
-#endif
-
-#if ENABLE_PROFILER
-            if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
-#endif
-
-            ecs->AssertCanAddComponents(entity, typeSet);
-            access->AssertMainThread();
-
             var changes = access->BeginStructuralChanges();
-
-            // TODO(DOTS-4174): Go through EntityDataAccess
-            ecs->AddComponent(entity, typeSet);
-
+            access->AddMultipleComponentsDuringStructuralChange(entity, componentTypeSet);
             access->EndStructuralChanges(ref changes);
-
-#if ENABLE_PROFILER
-            if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
-#endif
         }
 
 
-        /// <summary> Obsolete. Use <see cref="AddComponent(Entity,ComponentTypeSet)"/> instead.</summary>
+        /// <summary> Obsolete. Use <see cref="AddComponent"/> instead.</summary>
         /// <param name="entity">The entity to modify.</param>
         /// <param name="componentTypeSet">The types of components to add.</param>
         // We can't use (UnityUpgradable) reliably here, since the parameter type ComponentTypes is also being renamed
         // to ComponentTypeSet. So for now it's just a warning that wraps the new function.
         [Obsolete("AddComponents() has been renamed to AddComponent(). AddComponents() will be removed in a future package release.", false)]
-        public void AddComponents(Entity entity, ComponentTypeSet componentTypeSet)
+        public void AddComponents(Entity entity, in ComponentTypeSet componentTypeSet)
         {
             AddComponent(entity, componentTypeSet);
         }
@@ -2161,7 +2151,7 @@ namespace Unity.Entities
         /// <remarks>
         /// Can remove any kind of component.
         ///
-        /// Returns false if the entity already does not have the specified component.
+        /// Returns false if the entity already does not have the specified component, or if the entity does not exist.
         ///
         /// Removing a component changes an entity's archetype and results in the entity being moved to a different
         /// chunk.
@@ -2193,7 +2183,7 @@ namespace Unity.Entities
         /// <remarks>
         /// Can remove any kind of component.
         ///
-        /// Returns false if the entity already does not have the specified component.
+        /// Returns false if the entity already does not have the specified component, or if the entity does not exist.
         ///
         /// Removing a component changes an entity's archetype and results in the entity being moved to a different
         /// chunk.
@@ -2225,7 +2215,8 @@ namespace Unity.Entities
         /// <remarks>
         /// You can use this method to remove a component from an Entity
         ///
-        /// It's OK if some or all of the components to remove are already missing from the entity.
+        /// It's OK if some or all of the components to remove are already missing from the entity, or if the target
+        /// entity does not exist.
         ///
         /// Removing components changes an entity's archetype and results in the entity being moved to a different
         /// chunk.
@@ -2241,36 +2232,13 @@ namespace Unity.Entities
         /// <param name="entity">The entity to modify.</param>
         /// <param name="componentTypeSet">The types of components to remove.</param>
         [StructuralChangeMethod]
-        public void RemoveComponent(Entity entity, ComponentTypeSet componentTypeSet)
+        public void RemoveComponent(Entity entity, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess();
-            var ecs = access->EntityComponentStore;
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            // Have to record here because method is not using EntityDataAccess
-            if (Hint.Unlikely(ecs->m_RecordToJournal != 0))
-                access->JournalAddRecord_RemoveComponent(default, &entity, 1, componentTypeSet.Types, componentTypeSet.Length);
-#endif
-
-#if ENABLE_PROFILER
-            if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in access->m_WorldUnmanaged);
-#endif
-
-            ecs->AssertCanRemoveComponents(componentTypeSet);
             access->AssertMainThread();
-
             var changes = access->BeginStructuralChanges();
-
-            // TODO(DOTS-4174): Go through EntityDataAccess
-            ecs->RemoveComponent(entity, componentTypeSet);
-
+            access->RemoveComponentDuringStructuralChange(entity, componentTypeSet);
             access->EndStructuralChanges(ref changes);
-
-#if ENABLE_PROFILER
-            if (StructuralChangesProfiler.Enabled)
-                StructuralChangesProfiler.End();
-#endif
         }
 
         /// <summary>
@@ -2340,7 +2308,7 @@ namespace Unity.Entities
         /// <param name="entityQuery">The EntityQuery defining the entities to modify.</param>
         /// <param name="componentTypeSet">The types of components to add.</param>
         [StructuralChangeMethod]
-        public void RemoveComponent(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+        public void RemoveComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess();
             access->AssertQueryIsValid(entityQuery);
@@ -2933,8 +2901,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
                     if (StructuralChangesProfiler.Enabled)
                     {
-                        StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, access->m_WorldUnmanaged);
-                        StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, access->m_WorldUnmanaged);
+                        access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
+                        access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in access->m_WorldUnmanaged);
                     }
 #endif
 
@@ -2948,8 +2916,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
                     if (StructuralChangesProfiler.Enabled)
                     {
-                        StructuralChangesProfiler.End(); // SetSharedComponent
-                        StructuralChangesProfiler.End(); // AddComponent
+                        access->StructuralChangesRecorder.End(); // SetSharedComponent
+                        access->StructuralChangesRecorder.End(); // AddComponent
                     }
 #endif
 
@@ -3033,8 +3001,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
                     if (StructuralChangesProfiler.Enabled)
                     {
-                        StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, access->m_WorldUnmanaged);
-                        StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, access->m_WorldUnmanaged);
+                        access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
+                        access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in access->m_WorldUnmanaged);
                     }
 #endif
 
@@ -3047,8 +3015,8 @@ namespace Unity.Entities
 #if ENABLE_PROFILER
                     if (StructuralChangesProfiler.Enabled)
                     {
-                        StructuralChangesProfiler.End(); // SetSharedComponent
-                        StructuralChangesProfiler.End(); // AddComponent
+                        access->StructuralChangesRecorder.End(); // SetSharedComponent
+                        access->StructuralChangesRecorder.End(); // AddComponent
                     }
 #endif
 
@@ -3803,11 +3771,10 @@ namespace Unity.Entities
                 srcEntityManager.CopyEntities(srcEntities, srcManagerInstances);
                 srcEntityManager.AddComponent(srcManagerInstances, ComponentType.ReadWrite<IsolateCopiedEntities>());
 
-                var instantiated = srcEntityManager.CreateEntityQuery(new EntityQueryDesc
-                {
-                    All = new ComponentType[] { typeof(IsolateCopiedEntities) },
-                    Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-                });
+                var instantiated = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<IsolateCopiedEntities>()
+                    .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                    .Build(srcEntityManager);
 
                 using (var entityRemapping = srcEntityManager.CreateEntityRemapArray(Allocator.TempJob))
                 {
@@ -4287,7 +4254,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var access = GetCheckedEntityDataAccess();
             return new DynamicSharedComponentTypeHandle(componentType,
-                access->DependencyManager->Safety.GetSafetyHandleForDynamicComponentTypeHandle(componentType.TypeIndex,
+                access->DependencyManager->Safety.GetSafetyHandleForDynamicSharedComponentTypeHandle(componentType.TypeIndex,
                     // Only read only mode supported for DynamicSharedComponentTypeHandle
                     true));
 #else
@@ -5774,11 +5741,17 @@ namespace Unity.Entities
             var componentType = ComponentType.ReadWrite<T>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             EntityQuery query = manager.CreateEntityQuery(componentType);
-            if (query.CalculateEntityCount() != 0)
-                throw new InvalidOperationException($"Singleton component {typeof(T)} can not be created because entities already exist with this component type.");
             var typeIndex = TypeManager.GetTypeIndex<T>();
+            if (query.CalculateEntityCount() != 0)
+            {
+                var typeName = typeIndex.ToFixedString();
+                throw new InvalidOperationException($"Singleton component {typeName} can not be created because entities already exist with this component type.");
+            }
             if (TypeManager.IsEnableable(typeIndex))
-                throw new InvalidOperationException($"Singleton component {typeof(T)} can not be created because it is an enableable component type.");
+            {
+                var typeName = typeIndex.ToFixedString();
+                throw new InvalidOperationException($"Singleton component {typeName} can not be created because it is an enableable component type.");
+            }
 #endif
             var entity = manager.CreateEntity(manager.CreateArchetype(&componentType, 1));
 
@@ -5873,8 +5846,11 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (chunk.Invalid())
+            {
+                var typeName = TypeManager.GetTypeIndex<T>().ToFixedString();
                 throw new System.ArgumentException(
-                    $"GetChunkComponentData<{typeof(T)}> can not be called with an invalid archetype chunk.");
+                    $"GetChunkComponentData<{typeName}> can not be called with an invalid archetype chunk.");
+            }
 #endif
             var metaChunkEntity = chunk.m_Chunk->metaChunkEntity;
             return manager.GetComponentData<T>(metaChunkEntity);
@@ -5916,8 +5892,11 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (chunk.Invalid())
+            {
+                var typeName = TypeManager.GetTypeIndex<T>().ToFixedString();
                 throw new System.ArgumentException(
-                    $"SetChunkComponentData<{typeof(T)}> can not be called with an invalid archetype chunk.");
+                    $"SetChunkComponentData<{typeName}> can not be called with an invalid archetype chunk.");
+            }
 #endif
             var metaChunkEntity = chunk.m_Chunk->metaChunkEntity;
             manager.SetComponentData<T>(metaChunkEntity, componentValue);

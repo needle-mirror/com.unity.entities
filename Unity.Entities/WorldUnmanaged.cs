@@ -184,7 +184,7 @@ namespace Unity.Entities
         internal AllocatorHelper<AutoFreeAllocator> m_WorldAllocatorHelper;
         internal NativeParallelHashMap<int, IntPtr> m_SystemStatePtrMap;
         private StateAllocator _stateMemory;
-        private UnsafeMultiHashMap<long, ushort> _unmanagedSlotByTypeHash;
+        private UnsafeParallelMultiHashMap<long, ushort> _unmanagedSlotByTypeHash;
         internal UnsafeList<PerWorldSystemInfo> sysHandlesInCreationOrder;
         internal readonly ulong SequenceNumber;
         public WorldFlags Flags;
@@ -244,7 +244,7 @@ namespace Unity.Entities
             SequenceNumber = sequenceNumber;
             MaximumDeltaTime = 1.0f / 3.0f;
             Flags = flags;
-            _unmanagedSlotByTypeHash = new UnsafeMultiHashMap<long, ushort>(32, allocatorHandle);
+            _unmanagedSlotByTypeHash = new UnsafeParallelMultiHashMap<long, ushort>(32, allocatorHandle);
             _stateMemory = default;
             _stateMemory.Init();
             Version = 0;
@@ -713,7 +713,7 @@ namespace Unity.Entities
             }
 
             var outputIndex = 0;
-            var result = new NativeArray<SystemHandle>(totalCount, a);
+            var result = CollectionHelper.CreateNativeArray<SystemHandle>(totalCount, a);
 
             for (int i = 0; i < 64; ++i)
             {
@@ -748,7 +748,7 @@ namespace Unity.Entities
             }
 
             var outputIndex = 0;
-            var result = new NativeArray<SystemHandle>(totalCount, a);
+            var result = CollectionHelper.CreateNativeArray<SystemHandle>(totalCount, a);
 
             for (int i = 0; i < 64; ++i)
             {
@@ -808,10 +808,9 @@ namespace Unity.Entities
         internal static void UnmanagedUpdate(void* pSystemState)
         {
             SystemState* state = (SystemState*) pSystemState;
-            ref readonly var delegates = ref SystemBaseRegistry.GetDelegates(state);
 
 #if ENABLE_PROFILER
-            if (SystemBaseRegistry.IsOnUpdateUsingBurst(delegates))
+            if (SystemBaseRegistry.IsOnUpdateUsingBurst(state))
             {
                 state->SetWasUsingBurstProfilerMarker(true);
                 state->m_ProfilerMarkerBurst.Begin();
@@ -826,16 +825,16 @@ namespace Unity.Entities
 
             if (state->Enabled && state->ShouldRunSystem())
             {
+                state->BeforeOnUpdate();
+
                 if (!state->PreviouslyEnabled)
                 {
                     state->PreviouslyEnabled = true;
                     SystemBaseRegistry.CallOnStartRunning(state);
                 }
 
-                state->BeforeOnUpdate();
-
                 state->EnableIsExecutingISystemOnUpdate();
-                SystemBaseRegistry.CallOnUpdate(delegates, state);
+                SystemBaseRegistry.CallOnUpdate(state);
 
                 state->AfterOnUpdate();
             }
@@ -843,7 +842,9 @@ namespace Unity.Entities
             {
                 state->PreviouslyEnabled = false;
                 state->DisableIsExecutingOnUpdate();
+                state->BeforeOnUpdate();
                 SystemBaseRegistry.CallOnStopRunning(state);
+                state->AfterOnUpdate();
             }
 #if ENABLE_PROFILER
             if (state->WasUsingBurstProfilerMarker())
@@ -1256,5 +1257,14 @@ namespace Unity.Entities
 
             return result;
         }
+
+#if ENABLE_PROFILER
+        internal void GetInfo(out ulong sequenceNumber, out SystemHandle executingSystem)
+        {
+            var impl = GetImpl();
+            sequenceNumber = impl.SequenceNumber;
+            executingSystem = impl.ExecutingSystem;
+        }
+#endif
     }
 }

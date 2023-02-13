@@ -112,11 +112,6 @@ namespace Unity.Transforms
         }
 
         [BurstCompile]
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
-        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             LocalToWorldTypeHandleRO.Update(ref state);

@@ -96,10 +96,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
     {
         EntityQuery m_StoredQuery;
 
-        public void OnCreate(ref SystemState state) {}
-        public void OnDestroy(ref SystemState state) {}
-        public void OnUpdate(ref SystemState state) {}
-
         public void SimplestCase(ref SystemState systemState, bool useSystemStateForEach)
         {
             if (useSystemStateForEach)

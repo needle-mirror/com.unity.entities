@@ -328,8 +328,14 @@ namespace Unity.Entities
                 }
                 else if (fieldType.IsValueType || fieldType.IsSealed)
                 {
-                    ProcessEntityOrBlobReferencesRecursiveManaged(fieldType, ref localHasEntityRefs,
-                        ref localHasBlobRefs, depth + 1, ref cache, maxDepth);
+                    HasRefResult recursiveHasEntityRefs = HasRefResult.NoRef;
+                    HasRefResult recursiveHasBlobRefs = HasRefResult.NoRef;
+
+                    ProcessEntityOrBlobReferencesRecursiveManaged(fieldType, ref recursiveHasEntityRefs,
+                        ref recursiveHasBlobRefs, depth + 1, ref cache, maxDepth);
+
+                    localHasEntityRefs = localHasEntityRefs > recursiveHasEntityRefs ? localHasEntityRefs : recursiveHasEntityRefs;
+                    localHasBlobRefs = localHasBlobRefs > recursiveHasBlobRefs ? localHasBlobRefs : recursiveHasBlobRefs;
                 }
                 // It is not possible to determine if there are entity references in a polymorphic non-sealed class type
                 else

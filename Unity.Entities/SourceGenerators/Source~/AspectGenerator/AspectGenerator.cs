@@ -1,70 +1,25 @@
+// Uncomment to get debug logs
+//#if DEBUG
+//#define ASPECT_DEBUG
+//#endif
+
 using System;
 using System.Text;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
-
 namespace Unity.Entities.SourceGen.Aspect
 {
-    public static class BoolExt
-    {
-        /// <summary>
-        /// Select the value based on the bool value.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="b"></param>
-        /// <param name="falseValue"></param>
-        /// <param name="trueValue"></param>
-        /// <returns></returns>
-        public static T Select<T>(this bool b, T trueValue, T falseValue) => b ? trueValue : falseValue;
-
-        /// <summary>
-        /// Select the value based on the bool value.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="b"></param>
-        /// <param name="falseValue"></param>
-        /// <param name="trueValue"></param>
-        /// <returns></returns>
-        public static T SelectOrDefault<T>(this bool b, T trueValue) => b ? trueValue : default;
-
-        /// <summary>
-        /// execute the function and return the result if the bool is true, otherwise return default
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="b">this bool</param>
-        /// <param name="trueValue">Func to execute if bool is true</param>
-        /// <returns></returns>
-        public static T SelectFuncOrDefault<T>(this bool b, Func<bool, T> trueValue) => b ? trueValue(b) : default;
-    }
-    public static class DictionaryExt
-    {
-        /// <summary>
-        /// If the key does not exist in the dictionary, funcNew is called first.
-        /// Then funcSet(value) is called to set the desired value.
-        /// </summary>
-        /// <typeparam name="TKey"></typeparam>
-        /// <typeparam name="TValue"></typeparam>
-        /// <param name="dictionary"></param>
-        /// <param name="key"></param>
-        /// <param name="funcNew">Called when the value does not exist and must be created</param>
-        /// <param name="funcSet">Called to set the desired new value</param>
-        public static void AddOrSetValue<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, Func<TValue> funcNew, Func<TValue, TValue> funcSet)
-            where TValue : struct
-        {
-            if (!dictionary.TryGetValue(key, out var value))
-                value = funcNew();
-            dictionary[key] = funcSet(value);
-        }
-    }
-
     [Generator]
     public class AspectGenerator : ISourceGenerator, IDiagnosticFrame
     {
         static readonly string s_GeneratorName = "Aspect";
+        private static Dictionary<string, AspectDefinition> m_cache = null;
+        private static Dictionary<string, AspectDefinition> AspectCache => m_cache ??= new Dictionary<string, AspectDefinition>();
 
         /// <summary>
         /// Register our syntax receiver
@@ -75,137 +30,98 @@ namespace Unity.Entities.SourceGen.Aspect
             context.RegisterForSyntaxNotifications(() => new AspectReceiver(context.CancellationToken));
         }
 
-        bool IsZeroSize(ITypeSymbol symbol)
-        {
-            // Check if it's a primitive type, which are non-zero
-            switch (symbol.SpecialType)
-            {
-                case SpecialType.System_Void:
-                    return true;
-                case SpecialType.None:
-                    break;
-                default:
-                    return false;
-            }
-
-            // visit all member for anything that is non-zero
-            foreach (var member in symbol.GetMembers())
-            {
-                if(member is IFieldSymbol fieldSymbol)
-                {
-                    // Ignore static and const fields
-                    if (fieldSymbol.IsStatic || fieldSymbol.IsConst)
-                        continue;
-
-                    //var namedTypeSymbol = fieldSymbol.Type as INamedTypeSymbol;
-
-                    if (fieldSymbol.Type != null)
-                    {
-                        if (fieldSymbol.Type.TypeKind == TypeKind.Struct)
-                            return IsZeroSize(fieldSymbol.Type);
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-
-        /// </summary>
+        /// <summary>
         /// <param name="semanticModel"></param>
         /// <param name="node"></param>
         /// <param name="aspectField"></param>
+        /// </summary>
         /// <returns></returns>
-        bool TryParseField(SemanticModel semanticModel, SyntaxNode node, AspectDefinition aspectDefinition, out AspectField aspectField)
+        bool TryParseField(IFieldSymbol field, AspectDefinition aspectDefinition, out AspectField aspectField)
         {
+            DebugTrace.WriteLine($"Try Parsing Field {aspectDefinition.Name}.{field.Name} at {field.Locations.Select(x => x.ToString()).SeparateByNewLine()}");
+
             aspectField = default;
-            if (!node.TryGetFirstChildByType(out VariableDeclarationSyntax variableDeclaration)) return false;
-
-            var symbolInfo = semanticModel.GetSymbolInfo(variableDeclaration.Type);
-            if (symbolInfo.Symbol == null) return false;
-
-            var fieldTypeName = symbolInfo.Symbol.GetSymbolTypeName();
+            var fieldTypeName = field.Type.ToFullName();
 
             // RefRW<T>
             if (fieldTypeName.StartsWith(AspectStrings.k_RefRWFullName))
-                return TryParseFieldRef(semanticModel, node, aspectDefinition, out aspectField, variableDeclaration, isRO: false);
+                return TryParseFieldRef(aspectDefinition, field, out aspectField, isRO: false);
 
             // RefRO<T>
             if (fieldTypeName.StartsWith(AspectStrings.k_RefROFullName))
-                return TryParseFieldRef(semanticModel, node, aspectDefinition, out aspectField, variableDeclaration, isRO: true);
+                return TryParseFieldRef(aspectDefinition, field, out aspectField, isRO: true);
 
             // DynamicBuffer<T>
             if (fieldTypeName.StartsWith(AspectStrings.k_DynamicBufferFullName))
-                return TryParseFieldDynamicBuffer(semanticModel, node, aspectDefinition, out aspectField, variableDeclaration);
+                return TryParseFieldDynamicBuffer(aspectDefinition, field, out aspectField);
 
             // EnabledRefRW
             if (fieldTypeName.StartsWith(AspectStrings.k_EnabledRefRWFullName))
-                return TryParseFieldEnabledRef(semanticModel, node, aspectDefinition, out aspectField, variableDeclaration, isRO: false);
+                return TryParseFieldEnabledRef(aspectDefinition, field, out aspectField, isRO: false);
 
             // EnabledRefRO
             if (fieldTypeName.StartsWith(AspectStrings.k_EnabledRefROFullName))
-                return TryParseFieldEnabledRef(semanticModel, node, aspectDefinition, out aspectField, variableDeclaration, isRO: false);
+                return TryParseFieldEnabledRef(aspectDefinition, field, out aspectField, isRO: true);
 
             // Entity
             if (fieldTypeName.StartsWith(AspectStrings.k_EntityFullName))
-                return TryParseFieldEntity(semanticModel, node, aspectDefinition, out aspectField, variableDeclaration);
-            return TryParseFieldAspect(semanticModel, node, aspectDefinition, out aspectField, variableDeclaration, symbolInfo);
+                return TryParseFieldEntity(aspectDefinition, field, out aspectField);
+
+            // Shared Component
+            if (TryParseFieldSharedComponent(aspectDefinition, field, out aspectField))
+                return true;
+
+            return TryParseFieldAspect(aspectDefinition, field, out aspectField);
         }
 
-        bool TryParseFieldRef(SemanticModel semanticModel, SyntaxNode node, AspectDefinition aspectDefinition, out AspectField aspectField,
-            VariableDeclarationSyntax variableDeclaration, bool isRO)
+        bool TryParseFieldRef(AspectDefinition aspectDefinition, IFieldSymbol fieldSymbol, out AspectField aspectField, bool isRO)
         {
-            var genericTypeSymbol = variableDeclaration.GetGenericParam1Symbol(semanticModel, out var symbolName);
-            if (genericTypeSymbol is INamedTypeSymbol genericNameTypeSymbol)
+            aspectField = default;
+            if (!(fieldSymbol.Type is INamedTypeSymbol typeSymbol)) return false;
+            if (typeSymbol.TypeArguments.FirstOrDefault() is INamedTypeSymbol genericNameTypeSymbol)
             {
-                var fieldName = variableDeclaration.Variables.First().Identifier.ToString();
-                if (node.HasAttributeCandidate(AspectStrings.k_CollectionPackageNamespace, AspectStrings.k_ReadOnly))
+                if (fieldSymbol.HasAttribute("Unity.Collections.ReadOnlyAttribute"))
                 {
-                    AspectErrors.SGA0011(node.GetLocation());
+                    AspectErrors.SGA0011(fieldSymbol.Locations.FirstOrDefault());
                     aspectField = default;
                     return false;
                 }
-                ComponentRefField field;
+                var fieldName = fieldSymbol.Name;
+                var isOptional = fieldSymbol.HasAttribute("Unity.Entities.OptionalAttribute");
+                AspectField field;
                 if (isRO)
                 {
-                    field = new ComponentRefROField
+                    field = new AspectField
                     {
-                        SourceSyntaxNode = variableDeclaration,
+                        AspectDefinition = aspectDefinition,
                         FieldName = fieldName,
-                        InternalFieldName = fieldName,
-                        TypeName = symbolName,
-                        InternalVariableName = fieldName.ToLower(),
+                        TypeName = genericNameTypeSymbol.ToFullName(),
                         IsReadOnly = true,
-                        IsOptional = node.HasAttributeCandidate(AspectStrings.k_EntityPackageNamespace, AspectStrings.k_Optional),
-                        IsZeroSize = IsZeroSize(genericNameTypeSymbol)
+                        IsOptional = isOptional,
+                        IsZeroSize = genericNameTypeSymbol.IsZeroSizedComponent(),
+                        Symbol = fieldSymbol
                     };
                 }
                 else
                 {
-                    field = new ComponentRefRWField
+                    field = new AspectField
                     {
-                        SourceSyntaxNode = variableDeclaration,
+                        AspectDefinition = aspectDefinition,
                         FieldName = fieldName,
-                        InternalFieldName = fieldName,
-                        TypeName = symbolName,
-                        InternalVariableName = fieldName.ToLower(),
+                        TypeName = genericNameTypeSymbol.ToFullName(),
                         IsReadOnly = false,
-                        IsOptional = node.HasAttributeCandidate(AspectStrings.k_EntityPackageNamespace, AspectStrings.k_Optional),
-                        IsZeroSize = IsZeroSize(genericNameTypeSymbol)
+                        IsOptional = isOptional,
+                        IsZeroSize = genericNameTypeSymbol.IsZeroSizedComponent(),
+                        Symbol = fieldSymbol
                     };
                 }
 
-                if (!field.IsZeroSize)
-                {
-                    aspectDefinition.Lookup.AddFieldRequireComponentLookup(field);
-                    aspectDefinition.TypeHandle.AddFieldRequireCTH(field);
-                }
-
-                aspectDefinition.AddQueryField(field);
+                if(!aspectDefinition.PrimitivesRouter.AddRef(field, out var conflictingField))
+                    AspectErrors.SGA0001(field.Symbol.Locations.FirstOrDefault(), field.TypeName, conflictingField?.Symbol?.Locations.FirstOrDefault());
 
                 if (!field.IsZeroSize)
                 {
-                    aspectDefinition.FieldsNeedContruction.Add(field);
-                    aspectDefinition.ResolvedChunk.ComponentDataNativeArray.Add(field);
+                    aspectDefinition.FieldsNeedConstruction.Add(field);
                 }
                 else
                     aspectDefinition.FieldsRequiringDefaultConstruction.Add(field);
@@ -216,31 +132,27 @@ namespace Unity.Entities.SourceGen.Aspect
             return false;
         }
 
-        bool TryParseFieldDynamicBuffer(SemanticModel semanticModel, SyntaxNode node, AspectDefinition aspectDefinition, out AspectField aspectField,
-            VariableDeclarationSyntax variableDeclaration)
+        bool TryParseFieldDynamicBuffer(AspectDefinition aspectDefinition, IFieldSymbol fieldSymbol, out AspectField aspectField)
         {
-            if (variableDeclaration.TryGetGenericParam1TypeName(semanticModel, out var symbolName))
+            aspectField = default;
+            if (!(fieldSymbol.Type is INamedTypeSymbol typeSymbol)) return false;
+            if (typeSymbol.TypeArguments.FirstOrDefault() is INamedTypeSymbol genericNameTypeSymbol)
             {
-                var fieldName = variableDeclaration.Variables.First().Identifier.ToString();
-                var field = new BufferAspectField
+                var fieldName = fieldSymbol.Name;
+                var field = new AspectField
                 {
-                    SourceSyntaxNode = variableDeclaration,
+                    AspectDefinition = aspectDefinition,
                     FieldName = fieldName,
-                    InternalFieldName = fieldName + AspectStrings.k_DynamicBufferTag,
-                    TypeName = symbolName,
-                    InternalVariableName = fieldName.ToLower(),
-                    IsReadOnly = node.HasAttributeCandidate(AspectStrings.k_CollectionPackageNamespace, AspectStrings.k_ReadOnly),
-                    IsOptional = node.HasAttributeCandidate(AspectStrings.k_EntityPackageNamespace, AspectStrings.k_Optional)
+                    TypeName = genericNameTypeSymbol.ToFullName(),
+                    IsReadOnly = fieldSymbol.HasAttribute("Unity.Collections.ReadOnlyAttribute"),
+                    IsOptional = fieldSymbol.HasAttribute("Unity.Entities.OptionalAttribute"),
+                    Symbol = fieldSymbol
                 };
 
-                aspectDefinition.AddQueryField(field);
-                aspectDefinition.FieldsNeedContruction.Add(field);
-                aspectDefinition.Lookup.BufferLookup.Add(field);
-                aspectDefinition.Lookup.Update.Add(field);
-                aspectDefinition.ResolvedChunk.BufferAccessors.Add(field);
-                aspectDefinition.TypeHandle.BufferTypeHandle.Add(field);
-                aspectDefinition.TypeHandle.Update.Add(field);
+                if(!aspectDefinition.PrimitivesRouter.AddDynamicBuffer(field, out var conflictingField))
+                    AspectErrors.SGA0001(field.Symbol.Locations.FirstOrDefault(), field.TypeName, conflictingField?.Symbol?.Locations.FirstOrDefault());
 
+                aspectDefinition.FieldsNeedConstruction.Add(field);
                 aspectField = field;
                 return true;
             }
@@ -248,57 +160,51 @@ namespace Unity.Entities.SourceGen.Aspect
             return false;
         }
 
-        bool TryParseFieldEntity(SemanticModel semanticModel, SyntaxNode node, AspectDefinition aspectDefinition, out AspectField aspectField,
-            VariableDeclarationSyntax variableDeclaration)
+        bool TryParseFieldEntity(AspectDefinition aspectDefinition, IFieldSymbol fieldSymbol, out AspectField aspectField)
         {
             // Entity-in-Aspect
             if (aspectDefinition.HasEntityField)
-                AspectErrors.SGA0006(variableDeclaration.GetLocation());
+                AspectErrors.SGA0006(fieldSymbol.Locations.FirstOrDefault());
             else
             {
-                aspectDefinition.EntityField = new EntityField
+                var field = new AspectField
                 {
-                    SourceSyntaxNode = variableDeclaration,
-                    FieldName = variableDeclaration.Variables.First().Identifier.ToString(),
-                    ConstructorAssignment = "entity",
+                    AspectDefinition = aspectDefinition,
+                    FieldName = fieldSymbol.Name,
+                    Symbol = fieldSymbol,
+                    TypeName = "global::Unity.Entities.Entity",
                     IsReadOnly = true
                 };
-                aspectField = aspectDefinition.EntityField;
+                if(!aspectDefinition.PrimitivesRouter.AddEntity(field, out var conflictingField))
+                    AspectErrors.SGA0001(field.Symbol.Locations.FirstOrDefault(), field.TypeName, conflictingField?.Symbol?.Locations.FirstOrDefault());
+                aspectField = field;
+
                 return true;
             }
             aspectField = default;
             return false;
         }
 
-        bool TryParseFieldAspect(SemanticModel semanticModel, SyntaxNode node, AspectDefinition aspectDefinition, out AspectField aspectField,
-            VariableDeclarationSyntax variableDeclaration, SymbolInfo symbolInfo)
+        bool TryParseFieldAspect(AspectDefinition aspectDefinition, IFieldSymbol fieldSymbol, out AspectField aspectField)
         {
-
-            var type = symbolInfo.Symbol.GetSymbolType();
+            var type = fieldSymbol.Type.GetSymbolType();
             if (type != null && type.Interfaces.Any(i => i.ToFullName() == AspectStrings.k_AspectInterfaceFullName))
             {
                 // Nested Aspect Field
-                var symbolName = symbolInfo.Symbol.GetSymbolTypeName();
-                var fieldName = variableDeclaration.Variables.First().Identifier.ToString();
-                var field = new NestedAspectAspectField
+                var symbolName = fieldSymbol.Type.ToFullName();
+                var fieldName = fieldSymbol.Name;
+                var field = new AspectField
                 {
-                    SourceSyntaxNode = variableDeclaration,
+                    AspectDefinition = aspectDefinition,
                     FieldName = fieldName,
-                    InternalFieldName = fieldName,
                     TypeName = symbolName,
-                    InternalVariableName = fieldName.ToLower(),
-                    IsReadOnly = node.HasAttributeCandidate(AspectStrings.k_CollectionPackageNamespace, AspectStrings.k_ReadOnly),
-                    IsOptional = node.HasAttributeCandidate(AspectStrings.k_EntityPackageNamespace, AspectStrings.k_Optional)
+                    IsReadOnly = fieldSymbol.HasAttribute("Unity.Collections.ReadOnlyAttribute"),
+                    IsOptional = fieldSymbol.HasAttribute("Unity.Entities.OptionalAttribute"),
+                    IsNestedAspect = true,
+                    Symbol = fieldSymbol
                 };
 
-                // aspect do not use the same query implementation as the other field
-                // no need to do: aspectDefinition.QueryField.Add(field);
-
-                aspectDefinition.FieldsNeedContruction.Add(field);
                 aspectDefinition.AspectFields.Add(field);
-                aspectDefinition.Lookup.Update.Add(field);
-                aspectDefinition.TypeHandle.Update.Add(field);
-
                 aspectField = field;
                 return true;
             }
@@ -306,65 +212,85 @@ namespace Unity.Entities.SourceGen.Aspect
             return false;
         }
 
-        bool TryParseFieldEnabledRef(SemanticModel semanticModel, SyntaxNode node, AspectDefinition aspectDefinition,
-            out AspectField aspectField,
-            VariableDeclarationSyntax variableDeclaration, bool isRO)
+        bool TryParseFieldEnabledRef(AspectDefinition aspectDefinition, IFieldSymbol fieldSymbol,
+            out AspectField aspectField, bool isRO)
         {
-            var genericTypeSymbol = variableDeclaration.GetGenericParam1Symbol(semanticModel, out var symbolName);
-            if (genericTypeSymbol is INamedTypeSymbol genericNameTypeSymbol)
+            aspectField = default;
+            if (!(fieldSymbol.Type is INamedTypeSymbol typeSymbol)) return false;
+            if (typeSymbol.TypeArguments.FirstOrDefault() is INamedTypeSymbol genericNameTypeSymbol)
             {
-                var fieldName = variableDeclaration.Variables.First().Identifier.ToString();
-                if (node.HasAttributeCandidate(AspectStrings.k_CollectionPackageNamespace, AspectStrings.k_ReadOnly))
+                var fieldName = fieldSymbol.Name;
+                if (fieldSymbol.HasAttribute("Unity.Collections.ReadOnlyAttribute"))
                 {
-                    AspectErrors.SGA0011(node.GetLocation());
+                    AspectErrors.SGA0011(fieldSymbol.Locations.FirstOrDefault());
                     aspectField = default;
                     return false;
                 }
-                EnabledField field;
+                AspectField field;
                 if (isRO)
                 {
-                    field = new EnabledRefROField
+                    field = new AspectField
                     {
-                        SourceSyntaxNode = variableDeclaration,
+                        AspectDefinition = aspectDefinition,
                         FieldName = fieldName,
-                        InternalFieldName = fieldName,
-                        TypeName = symbolName,
-                        InternalVariableName = fieldName.ToLower(),
+                        TypeName = genericNameTypeSymbol.ToFullName(),
                         IsReadOnly = true,
-                        IsOptional = node.HasAttributeCandidate(AspectStrings.k_EntityPackageNamespace, AspectStrings.k_Optional),
-                        IsZeroSize = IsZeroSize(genericNameTypeSymbol)
+                        IsOptional = fieldSymbol.HasAttribute("Unity.Entities.OptionalAttribute"),
+                        IsZeroSize = genericNameTypeSymbol.IsZeroSizedComponent(),
+                        Symbol = fieldSymbol
                     };
                 }
                 else
                 {
-                    field = new EnabledRefRWField
+                    field = new AspectField
                     {
-                        SourceSyntaxNode = variableDeclaration,
+                        AspectDefinition = aspectDefinition,
                         FieldName = fieldName,
-                        InternalFieldName = fieldName,
-                        TypeName = symbolName,
-                        InternalVariableName = fieldName.ToLower(),
+                        TypeName = genericNameTypeSymbol.ToFullName(),
                         IsReadOnly = false,
-                        IsOptional = node.HasAttributeCandidate(AspectStrings.k_EntityPackageNamespace, AspectStrings.k_Optional),
-                        IsZeroSize = IsZeroSize(genericNameTypeSymbol)
+                        IsOptional = fieldSymbol.HasAttribute("Unity.Entities.OptionalAttribute"),
+                        IsZeroSize = genericNameTypeSymbol.IsZeroSizedComponent(),
+                        Symbol = fieldSymbol
                     };
                 }
 
-                // Require a ComponentLookup for Aspect.Lookup
-                aspectDefinition.Lookup.AddFieldRequireComponentLookup(field);
+                // Require a ComponentLookup/ComponentTypeHandle for Aspect.EntityLookup
+                if(!aspectDefinition.PrimitivesRouter.AddEnabledRef(field, out var conflictingField))
+                    AspectErrors.SGA0001(field.Symbol.Locations.FirstOrDefault(), field.TypeName, conflictingField?.Symbol?.Locations.FirstOrDefault());
 
-                // Require a ComponentTypeHandle for Aspect.TypeHandle
-                aspectDefinition.TypeHandle.AddFieldRequireCTH(field);
-
-                // Require a ComponentEnableBitBuffer for Aspect.ResolvedChunk
-                aspectDefinition.ResolvedChunk.ComponentEnableBitBuffer.Add(field);
 
                 // Require the field to be initialized from the constructor parameter
-                aspectDefinition.FieldsNeedContruction.Add(field);
+                aspectDefinition.FieldsNeedConstruction.Add(field);
 
-                // The field adds constraints to the aspect's query
-                aspectDefinition.AddQueryField(field);
+                aspectField = field;
+                return true;
+            }
+            aspectField = default;
+            return false;
+        }
 
+        bool TryParseFieldSharedComponent(AspectDefinition aspectDefinition, IFieldSymbol fieldSymbol, out AspectField aspectField)
+        {
+            var type = fieldSymbol.Type.GetSymbolType();
+            if (type != null && type.Interfaces.Any(i => i.ToFullName() == "global::Unity.Entities.ISharedComponentData"))
+            {
+                // Shared Component Aspect Field
+                var symbolName = fieldSymbol.Type.ToFullName();
+                var fieldName = fieldSymbol.Name;
+                var field = new AspectField
+                {
+                    AspectDefinition = aspectDefinition,
+                    FieldName = fieldName,
+                    TypeName = symbolName,
+                    IsReadOnly = true,
+                    IsOptional = fieldSymbol.HasAttribute("Unity.Entities.OptionalAttribute"),
+                    Symbol = fieldSymbol
+                };
+
+                if (!aspectDefinition.PrimitivesRouter.AddSharedComponent(field, out var conflictingField))
+                    AspectErrors.SGA0001(field.Symbol.Locations.FirstOrDefault(), field.TypeName, conflictingField?.Symbol?.Locations.FirstOrDefault());
+
+                aspectDefinition.FieldsNeedConstruction.Add(field);
                 aspectField = field;
                 return true;
             }
@@ -378,10 +304,13 @@ namespace Unity.Entities.SourceGen.Aspect
         /// <param name="context"></param>
         public void Execute(GeneratorExecutionContext context)
         {
-            if (!SourceGenHelpers.ShouldRun(context))
+            if (!SourceGenHelpers.ShouldRun(context.Compilation, context.CancellationToken))
                 return;
 
             SourceGenHelpers.Setup(context);
+
+            // Flush aspect cache
+            m_cache = null;
 
             // Scope a DiagnosticLogger for the entirety of the scope of execution.
             using (Service<IDiagnosticLogger>.Scoped(new DiagnosticLogger(context)))
@@ -403,16 +332,16 @@ namespace Unity.Entities.SourceGen.Aspect
                 // Go through aspect candidates and resolve them to the same type (multiple aspect partial declarations can map to a single definition)
                 var fullNameToAspectDefinition = new Dictionary<string, AspectDefinition>();
                 var aspectReceiver = (AspectReceiver)context.SyntaxReceiver;
+
                 foreach (var aspectCandidate in aspectReceiver._AspectCandidates)
                 {
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     var aspectDeclarationSymbol = GetSemanticModel(aspectCandidate).GetDeclaredSymbol(aspectCandidate);
                     var aspectFullName = aspectDeclarationSymbol.ToFullName();
-                    if (fullNameToAspectDefinition.ContainsKey(aspectFullName))
-                        fullNameToAspectDefinition[aspectFullName].SourceSyntaxNodes.Add(aspectCandidate);
-                    else
-                        fullNameToAspectDefinition[aspectFullName] = new AspectDefinition(aspectCandidate, aspectCandidate.Identifier.ToString(), aspectFullName);
+                    if (!fullNameToAspectDefinition.ContainsKey(aspectFullName))
+                        fullNameToAspectDefinition[aspectFullName] = new AspectDefinition(aspectDeclarationSymbol);
+                    fullNameToAspectDefinition[aspectFullName].SourceSyntaxNodes.Add(aspectCandidate);
                 }
 
                 // Group by syntax tree so we can emit new source per original source file (for inspection of generated code that matches source)
@@ -436,6 +365,9 @@ namespace Unity.Entities.SourceGen.Aspect
                             // Check for Disable Generation
                             if (aspectDef.SyntaxHasAttributeCandidate(AspectStrings.k_EntityPackageNamespace, AspectStrings.k_DisableGeneration))
                                 continue;
+
+                            DebugTrace.WriteLine(
+                                $"Parsing {aspectDef.Name} at {aspectDef.SourceSyntaxNodes.Select(x => x.GetLocation().ToString()).SeparateByNewLine()}");
 
                             bool valid = true;
 
@@ -465,8 +397,8 @@ namespace Unity.Entities.SourceGen.Aspect
 
                                 if (node.Parent != null)
                                 {
-                                    if (node.Parent.IsKind(SyntaxKind.StructDeclaration) ||
-                                        node.Parent.IsKind(SyntaxKind.ClassDeclaration))
+                                    if(node.Parent is TypeDeclarationSyntax typeDec
+                                       && typeDec.Modifiers.All(x => x.Kind() != SyntaxKind.PartialKeyword))
                                     {
                                         AspectErrors.SGA0010(node.GetLocation());
                                         valid = false;
@@ -483,27 +415,37 @@ namespace Unity.Entities.SourceGen.Aspect
                             }
 
                             // gather all fields
-                            foreach (var childNode in aspectDef.ChildNodes)
+                            var syntaxNode = aspectDef.SourceSyntaxNodes.FirstOrDefault();
+                            var semanticModel = context.Compilation.GetSemanticModel(syntaxNode.SyntaxTree);
+                            ITypeSymbol aspectTypeSymbol = semanticModel.GetDeclaredSymbol(syntaxNode);
+                            if (aspectTypeSymbol != null)
                             {
-                                var semanticModel = context.Compilation.GetSemanticModel(childNode.SyntaxTree);
-
-                                if (!childNode.IsKind(SyntaxKind.FieldDeclaration)) continue;
-
-                                if (!TryParseField(semanticModel, childNode, aspectDef, out _))
+                                aspectDef.Symbol = aspectTypeSymbol;
+                                foreach (var field in aspectTypeSymbol.GetMembers().OfType<IFieldSymbol>())
                                 {
-                                    if (!childNode.HasTokenOfKind(SyntaxKind.ConstKeyword))
-                                        AspectErrors.SGA0007(childNode.GetLocation());
+                                    if (!TryParseField(field, aspectDef, out var aspectField))
+                                    {
+                                        if (!field.IsConst)
+                                            AspectErrors.SGA0007(field.Locations.FirstOrDefault());
+                                    }
                                 }
                             }
 
+                            // Resolve additional required primitives by the aspect excluding its nested aspect.
+                            aspectDef.PrimitivesRouter.ResolveDependencies();
+
+                            // Dealias the required primitives for each nested aspect and merge them into this aspect
+                            SolveAliasing(aspectDef);
+
                             // If there are no field that participates to the query, the aspect in invalid, raise SGA0004
-                            if (aspectDef.QueryFields.Count == 0 && aspectDef.AspectFields.Count == 0)
+                            if (!aspectDef.PrimitivesRouter.HasAnyQueryComponents && aspectDef.AspectFields.Count == 0)
                                 AspectErrors.SGA0004(aspectDef.SourceSyntaxNodes.First().GetLocation());
 
                             if (!valid)
                                 continue;
 
-                            aspectDef.ResolveFieldDependencies();
+                            DebugTrace.WriteLine($"Aspect {aspectDef.Name} at {aspectDef.Symbol.Locations.FirstOrDefault()}");
+                            DebugTrace.WriteLine(Printer.PrintToString(aspectDef.PrimitivesRouter));
 
                             syntaxTreeSourceBuilder.Write(AspectSyntaxFactory.GenerateAspectSource(aspectDef));
                         }
@@ -532,7 +474,7 @@ namespace Unity.Entities.SourceGen.Aspect
                     syntaxTreeSourceBuilder.Flush();
 
                     var generatedSourceHint = syntaxTree.GetGeneratedSourceFileName(s_GeneratorName);
-                    var generatedSourceFullPath = syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly, s_GeneratorName);
+                    var generatedSourceFullPath = syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, s_GeneratorName);
 
                     SourceGenHelpers.LogInfo($"Outputting generated aspect source to file {generatedSourceFullPath}...");
 
@@ -544,6 +486,100 @@ namespace Unity.Entities.SourceGen.Aspect
                 }
             }
         }
+
+
+        /// <summary>
+        /// Route all fields that alias the same component type
+        /// to the same dots primitive such as ComponentLookup<T>
+        /// and ComponentTypeHandle<T>
+        /// </summary>
+        /// <param name="aspect"></param>
+        /// <remarks>
+        /// Aliasing is caused by nested aspects having the same
+        /// component type as one of the host's component type
+        /// In this example, MyComponent is aliased in instances of AspectB since the component is present in both AspectB and AspectA.
+        /// However, MyComponent is not aliased in instances of AspectB.
+        /// ex:
+        ///  public readonly struct AspectA : IAspect<AspectA>
+        ///  {
+        ///      readonly RefRO<MyComponent> m_MyComponent;
+        ///  }
+        ///  public readonly struct AspectB : IAspect<AspectB>
+        ///  {
+        ///      readonly AspectA m_AspectA;
+        ///      readonly RefRO<MyComponent> m_MyComponent;
+        ///  }
+        /// </remarks>
+        void SolveAliasing(AspectDefinition aspect)
+        {
+            if (aspect.AspectFields.Count == 0) return;
+            var nestedAspects = new List<NestedAspectDefinition>();
+            foreach (var aspectField in aspect.AspectFields)
+            {
+                // Parse each nested aspect's fields
+                AspectDefinition nestedAspect = ParseNestedFields(aspectField);
+                if (nestedAspect != null)
+                    nestedAspects.Add(new NestedAspectDefinition { AspectField = aspectField, Definition = nestedAspect });
+            }
+            aspect.NestedAspects = nestedAspects.ToArray();
+        }
+
+        AspectDefinition ParseNestedFields(AspectField field)
+        {
+            if (SymbolEqualityComparer.Default.Equals(field.Symbol.Type, field.AspectDefinition.Symbol))
+            {
+                // try to nest itself. the compiler will report that as an error
+                return null;
+            }
+            DebugTrace.WriteLineAndIndentIncrease($"Parse Fields of nested aspect '{field.Symbol.Name}'");
+
+            AspectDefinition nestedAspect = ParseNestedAspectFields(field.Symbol.Type);
+            nestedAspect.Parent = field.AspectDefinition;
+            nestedAspect.PrimitivesRouter.ResolveDependencies();
+
+            DebugTrace.IndentDecrease();
+            DebugTrace.WriteLineAndIndentIncrease($"Merge in AccessRouter of nested aspect '{field.Symbol.Name}'");
+
+            // Merge all the required Decay Primitives and their dependent fields from the parsed nested aspect
+            field.AspectDefinition.PrimitivesRouter.Merge(nestedAspect.PrimitivesRouter, field.BindOverride);
+
+            DebugTrace.IndentDecrease();
+            return nestedAspect;
+        }
+
+        /// <summary>
+        /// Parse all fields from an aspect
+        /// All nested aspect fields will be parsed and resulting AccessRouter and
+        /// their dependencies will be merged into the root aspect
+        /// </summary>
+        /// <param name="symbol"></param>
+        /// <returns></returns>
+        AspectDefinition ParseNestedAspectFields(ITypeSymbol symbol)
+        {
+            var name = symbol.ToFullName();
+            if (AspectCache.TryGetValue(name, out var aspect))
+                return aspect;
+
+            AspectDefinition nestedAspect = new AspectDefinition(symbol);
+            var nestedAspects = new List<NestedAspectDefinition>();
+            foreach (var m in symbol.GetMembers())
+            {
+                switch (m)
+                {
+                    case IFieldSymbol fs:
+                        if (TryParseField(fs, nestedAspect, out var aspectField))
+                            if (aspectField.IsNestedAspect)
+                                nestedAspects.Add(new NestedAspectDefinition { AspectField = aspectField, Definition = ParseNestedFields(aspectField) });
+                        break;
+                }
+            }
+            nestedAspect.NestedAspects = nestedAspects.ToArray();
+            AspectCache.Add(name, nestedAspect);
+
+            return nestedAspect;
+        }
+
+
 
         static (bool Success, string ErrorMessage)
             VerifyIAspectCreateImplementationCorrectOrAbsent(AspectDefinition aspect, StructDeclarationSyntax node)
@@ -576,11 +612,12 @@ namespace Unity.Entities.SourceGen.Aspect
 
                 return (Success: false,
                     ErrorMessage:
-                    $"You have implemented `IAspect<{aspectTypeName}>` on `{node.Identifier.ValueText}`. This is incorrect. Please implement `IAspect<{node.Identifier.ValueText}>` instead. " +
-                    $"If you do not implement `IAspect<{node.Identifier.ValueText}>`, a default implementation will be generated for you automatically.");
+                    $"You have implemented `IAspectCreate<{aspectTypeName}>` on `{node.Identifier.ValueText}`. This is incorrect. Please implement `IAspectCreate<{node.Identifier.ValueText}>` instead. " +
+                    $"If you do not implement `IAspectCreate<{node.Identifier.ValueText}>`, a default implementation will be generated for you automatically.");
             }
             return (Success: true, string.Empty);
         }
+
 
         static SortedSet<string> GetAllUsingsInSyntaxTree(IGrouping<SyntaxTree, AspectDefinition> aspectTreeGrouping)
         {
@@ -608,7 +645,6 @@ namespace Unity.Entities.SourceGen.Aspect
         string IDiagnosticFrame.GetBrief()
         {
             return null;
-
             // TODO: fix this so that it doesn't rely on fields stored in AspectGenerator (generators are not allowed to store state)
             /*
             if (m_CurrentAspectDefinition == null) return "";
@@ -643,5 +679,30 @@ namespace Unity.Entities.SourceGen.Aspect
             return sb.ToString();
             */
         }
+    }
+
+    public static class DebugTrace
+    {
+        private static string ms_Indent = "";
+        [System.Diagnostics.Conditional("ASPECT_DEBUG")]
+        public static void WriteLineAndIndentIncrease(string line)
+        {
+            WriteLine(line);
+            ms_Indent += "  ";
+        }
+        [System.Diagnostics.Conditional("ASPECT_DEBUG")]
+        public static void IndentDecrease()
+        {
+            ms_Indent = ms_Indent.Substring(0, ms_Indent.Length - 2);
+        }
+        [System.Diagnostics.Conditional("ASPECT_DEBUG")]
+        public static void WriteLine(string line) => Console.WriteLine(ms_Indent + line);
+
+        [System.Diagnostics.Conditional("ASPECT_DEBUG")]
+        public static void Write(string text) => Console.Write(text);
+
+        [System.Diagnostics.Conditional("ASPECT_DEBUG")]
+        public static void WriteLine() => Console.WriteLine();
+
     }
 }

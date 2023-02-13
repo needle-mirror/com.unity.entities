@@ -86,7 +86,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 string CapturedVariableFields()
                 {
                     static string FieldForCapturedVariable(LambdaCapturedVariableDescription variable) =>
-                        $@"{variable.Attributes.JoinAttributes()}public {variable.Symbol.GetSymbolTypeName()} {variable.VariableFieldName};"
+                        $@"{variable.Attributes.JoinAttributes()}public {variable.Symbol.GetSymbolType().ToFullName()} {variable.VariableFieldName};"
                     ;
 
                     return description.VariablesCaptured.Concat(description.VariablesCapturedOnlyByLocals)
@@ -531,7 +531,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                 "new Unity.Profiling.ProfilerCategory(\"Burst\", Unity.Profiling.ProfilerCategoryColor.BurstJobs), ";
                         marker += "\"";
                         marker += description.Name;
-                        marker += "\");\n";
+                        marker += $"\");{Environment.NewLine}";
                     }
                     else
                     {
@@ -541,7 +541,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                             marker += ".Schedule";
                         else
                             marker += ".ScheduleParallel";
-                        marker += "\");\n";
+                        marker += $"\");{Environment.NewLine}";
                     }
 
                     return marker;
@@ -621,8 +621,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     {
                         return
                             description.Schedule.Mode == ScheduleMode.Run && variable.IsWritable
-                                ? $@"ref {variable.Symbol.GetSymbolTypeName()} {variable.Symbol.Name}"
-                                : $@"{variable.Symbol.GetSymbolTypeName()} {variable.Symbol.Name}";
+                                ? $@"ref {variable.Type.ToFullName()} {variable.Symbol.Name}"
+                                : $@"{variable.Type.ToFullName()} {variable.Symbol.Name}";
                     }
 
                     var paramStrings = new List<string>();
@@ -639,7 +639,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     }
 
                     foreach (var argument in description.AdditionalVariablesCapturedForScheduling)
-                        paramStrings.Add($@"{argument.Symbol.GetSymbolTypeName()} {argument.Name}");
+                        paramStrings.Add($@"{argument.Symbol.GetSymbolType().ToFullName()} {argument.Name}");
 
                     if (description.InStructSystem)
                         paramStrings.Add($"ref SystemState {description.SystemStateParameterName}");

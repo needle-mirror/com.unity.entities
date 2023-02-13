@@ -172,16 +172,14 @@ namespace Unity.Entities.Tests.TestSystemAPI
         [Test]
         public void PropertyWithOnlyGetter() => World.CreateSystem<TestISystemSystem.PropertyWithOnlyGetterSystem>().Update(World.Unmanaged);
 
+        [Test]
+        public void ExplicitInterfaceImplementation() => World.CreateSystem<TestISystemSystem.ExplicitInterfaceImplementationSystem>().Update(World.Unmanaged);
         #endregion
     }
 
     [BurstCompile]
     partial struct TestISystemSystem : ISystem
     {
-        public void OnCreate(ref SystemState state) {}
-        public void OnDestroy(ref SystemState state) {}
-        public void OnUpdate(ref SystemState state) {}
-
         #region Query Access
         [BurstCompile]
         public void QuerySetup(ref SystemState state, int queryArgumentCount, SystemAPIAccess access)
@@ -1662,7 +1660,6 @@ namespace Unity.Entities.Tests.TestSystemAPI
             Assert.AreEqual(15, coinsCollected);
         }
 #endif
-
         /// <summary>
         /// This will throw in cases where SystemAPI doesn't properly insert .Update and .CompleteDependencyXX statements.
         /// </summary>
@@ -1680,24 +1677,31 @@ namespace Unity.Entities.Tests.TestSystemAPI
                 }
             }
         }
+        
+        [BurstCompile]
+        public partial struct ExplicitInterfaceImplementationSystem : ISystem
+        {
+            [BurstCompile]
+            void ISystem.OnUpdate(ref SystemState state)
+            {
+                state.EntityManager.AddComponentData(state.SystemHandle, new EcsTestData(5));
+                Assert.AreEqual(GetSingleton<EcsTestData>().value, 5);
+            }
+        }
 
         [BurstCompile]
-        public partial struct VariableInOnCreateSystem : ISystem {
+        public partial struct VariableInOnCreateSystem : ISystem 
+        {
             [BurstCompile]
             public void OnCreate(ref SystemState state) {
                 var readOnly = true;
                 var lookupA = GetComponentLookup<EcsTestData>(readOnly);
             }
-
-            public void OnDestroy(ref SystemState state) {}
-            public void OnUpdate(ref SystemState state) {}
         }
 
         [BurstCompile]
-        public partial struct PropertyWithOnlyGetterSystem : ISystem {
-            public void OnCreate(ref SystemState state) {}
-            public void OnDestroy(ref SystemState state) {}
-
+        public partial struct PropertyWithOnlyGetterSystem : ISystem
+        {
             int DataValue => GetSingleton<EcsTestData>().value;
 
             [BurstCompile]

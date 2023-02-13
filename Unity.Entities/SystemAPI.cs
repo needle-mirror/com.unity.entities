@@ -589,8 +589,8 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="T">The <see cref="IBufferElementData"/> subtype of the singleton buffer component.
         /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
-        /// <param name="value">The buffer. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</param>
-        /// <param name="isReadOnly">If the caller does not need to modify the buffer contents, pass true here.</param>
+        /// <param name="value">The buffer. If an <see cref="Entity"/> with the specified type doesn't exist in the <see cref="World"/>, this is assigned a default value</param>
+        /// <param name="isReadOnly">Whether the buffer data is read-only or not. Set to false by default.</param>
         /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
         /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
         public static bool TryGetSingletonBuffer<T>(out DynamicBuffer<T> value, bool isReadOnly = false)
@@ -915,6 +915,19 @@ namespace Unity.Entities
 
             #region Handles
             /////////////////////////////////// TypeHandle Caching ///////////////////////////////////
+
+            /// <summary>
+            /// Gets the run-time type information required to access an array of component data in a chunk.
+            /// </summary>
+            /// <param name="isReadOnly">Whether the component data is only read, not written. Access components as
+            /// read-only whenever possible.</param>
+            /// <typeparam name="T">A class that implements <see cref="IComponentData"/>.</typeparam>
+            /// <returns>An object representing the type information required to safely access component data stored in a
+            /// chunk.</returns>
+            /// <remarks>Pass an <see cref="ComponentTypeHandle{T}"/> instance to a job that has access to chunk data,
+            /// such as an <see cref="IJobChunk"/> job, to access that type of component inside the job.</remarks>
+            /// <remarks> Not working in Entities.ForEach, IJobEntity, Utility methods, and Aspects</remarks>
+            public static ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : class, IComponentData => throw InternalCompilerInterface.ThrowCodeGenException();
 
             /// <summary>
             /// Gets the run-time type information required to access a shared component data in a chunk.

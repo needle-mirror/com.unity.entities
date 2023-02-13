@@ -28,7 +28,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.NetCode.Editor")]
 [assembly: InternalsVisibleTo("Unity.Physics.PlayModeTests")]
 [assembly: InternalsVisibleTo("Unity.Physics.EditModeTests")]
-[assembly: InternalsVisibleTo("Unity.Animation.Hybrid.Tests")]
+[assembly: InternalsVisibleTo("Unity.Motion.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Build.Editor")]
 [assembly: InternalsVisibleTo("Unity.NetCode.Authoring.Hybrid")]
 [assembly: InternalsVisibleTo("Assembly-CSharp")]

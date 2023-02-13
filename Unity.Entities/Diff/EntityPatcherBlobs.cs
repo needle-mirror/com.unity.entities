@@ -76,7 +76,7 @@ namespace Unity.Entities
         static void ApplyBlobAssetChanges(
             EntityManager entityManager,
             NativeArray<EntityGuid> packedEntityGuids,
-            NativeMultiHashMap<int, Entity> packedEntities,
+            NativeParallelMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes,
             NativeArray<BlobAssetChange> createdBlobAssets,
             NativeArray<byte> createdBlobAssetData,
@@ -88,7 +88,7 @@ namespace Unity.Entities
 
             s_ApplyBlobAssetChangesProfilerMarker.Begin();
 
-            var managedObjectBlobAssetReferencePatches = new NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>(blobAssetReferenceChanges.Length, Allocator.Temp);
+            var managedObjectBlobAssetReferencePatches = new NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>(blobAssetReferenceChanges.Length, Allocator.Temp);
 
             var patcherBlobAssetSystem = entityManager.World.GetOrCreateSystemManaged<EntityPatcherBlobAssetSystem>();
 
@@ -158,7 +158,6 @@ namespace Unity.Entities
             }
             s_ApplyBlobAssetChangesProfilerMarker.End();
 
-#if !UNITY_DOTSRUNTIME
             var managedObjectPatcher = new ManagedObjectBlobAssetReferencePatcher(patcherBlobAssetSystem);
 
             // Apply all managed entity patches
@@ -177,17 +176,41 @@ namespace Unity.Entities
                         var obj = entityManager.GetComponentObject<object>(pair.Entity, pair.Component);
                         managedObjectPatcher.ApplyPatches(ref obj, patches);
                     }
-                    else if (pair.Component.IsSharedComponent)
+                    else if (pair.Component.TypeIndex.IsManagedSharedComponent)
                     {
                         var obj = entityManager.GetSharedComponentData(pair.Entity, pair.Component.TypeIndex);
                         managedObjectPatcher.ApplyPatches(ref obj, patches);
                         entityManager.SetSharedComponentDataBoxedDefaultMustBeNull(pair.Entity, pair.Component.TypeIndex, obj);
                     }
+                    else if (pair.Component.IsSharedComponent && !pair.Component.TypeIndex.IsManagedSharedComponent)
+                    {
+                        var access = entityManager.GetCheckedEntityDataAccess();
+                        var changes = access->BeginStructuralChanges();
+                        var sharedComponentIndex = access->EntityComponentStore->GetSharedComponentDataIndex(pair.Entity, pair.Component.TypeIndex);
+                        var dataPtr = (byte*)access->EntityComponentStore->GetSharedComponentDataAddr_Unmanaged(sharedComponentIndex, pair.Component.TypeIndex);
+                        foreach (var patch in patches)
+                        {
+                            var targetOffset = patch.Id;
+
+                            BlobAssetReferenceData targetBlobAssetReferenceData;
+                            if (patcherBlobAssetSystem.TryGetBlobAsset(patch.Target, out var blobAssetPtr))
+                            {
+                                targetBlobAssetReferenceData = new BlobAssetReferenceData {m_Ptr = (byte*)blobAssetPtr.Data};
+                            }
+                            UnsafeUtility.MemCpy(dataPtr + targetOffset, &targetBlobAssetReferenceData, sizeof(BlobAssetReferenceData));
+                        }
+
+                        var hashCode = 0;
+                        if (dataPtr != null)
+                            hashCode = TypeManager.GetHashCode(dataPtr, pair.Component.TypeIndex);
+
+                        access->SetSharedComponentDataAddrDefaultMustBeNullDuringStructuralChange(pair.Entity, pair.Component.TypeIndex, hashCode, dataPtr);
+                        access->EndStructuralChanges(ref changes);
+                    }
 
                     patches.Dispose();
                 }
             }
-#endif
 
             managedObjectBlobAssetReferencePatches.Dispose();
 
@@ -195,11 +218,10 @@ namespace Unity.Entities
             patcherBlobAssetSystem.ReleaseUnusedBlobAssets();
         }
 
-#if !UNITY_DOTSRUNTIME
         class ManagedObjectBlobAssetReferencePatcher : PropertyVisitor, Properties.IVisitPropertyAdapter<BlobAssetReferenceData>
         {
             EntityPatcherBlobAssetSystem m_EntityPatcherBlobAssetSystem;
-            NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator Patches;
+            NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator Patches;
 
             public ManagedObjectBlobAssetReferencePatcher(EntityPatcherBlobAssetSystem entityPatcherBlobAssetSystem)
             {
@@ -207,7 +229,7 @@ namespace Unity.Entities
                 AddAdapter(this);
             }
 
-            public void ApplyPatches(ref object obj, NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator patches)
+            public void ApplyPatches(ref object obj, NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator patches)
             {
                 Patches = patches;
                 PropertyContainer.Accept(this, ref obj);
@@ -236,6 +258,5 @@ namespace Unity.Entities
                 }
             }
         }
-#endif
     }
 }

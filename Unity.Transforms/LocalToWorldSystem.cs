@@ -71,13 +71,13 @@ namespace Unity.Transforms
                 Assert.IsFalse(useEnabledMask);
 
                 LocalTransform* chunkLocalTransforms = (LocalTransform*)chunk.GetRequiredComponentDataPtrRO(ref LocalTransformTypeHandleRO);
-                WorldTransform* chunkWorldTransforms = (WorldTransform*)chunk.GetRequiredComponentDataPtrRW(ref WorldTransformTypeHandleRW);
-                LocalToWorld* chunkLocalToWorlds = (LocalToWorld*)chunk.GetRequiredComponentDataPtrRW(ref LocalToWorldTypeHandleRW);
                 if (Hint.Unlikely(chunk.Has(ref PostTransformScaleTypeHandleRO)))
                 {
                     if (chunk.DidChange(ref LocalTransformTypeHandleRO, LastSystemVersion) ||
                         chunk.DidChange(ref PostTransformScaleTypeHandleRO, LastSystemVersion))
                     {
+                        WorldTransform* chunkWorldTransforms = (WorldTransform*)chunk.GetRequiredComponentDataPtrRW(ref WorldTransformTypeHandleRW);
+                        LocalToWorld* chunkLocalToWorlds = (LocalToWorld*)chunk.GetRequiredComponentDataPtrRW(ref LocalToWorldTypeHandleRW);
                         PostTransformScale* chunkPostTransformScales =
                             (PostTransformScale*)chunk.GetRequiredComponentDataPtrRO(
                                 ref PostTransformScaleTypeHandleRO);
@@ -93,6 +93,8 @@ namespace Unity.Transforms
                 {
                     if (chunk.DidChange(ref LocalTransformTypeHandleRO, LastSystemVersion))
                     {
+                        WorldTransform* chunkWorldTransforms = (WorldTransform*)chunk.GetRequiredComponentDataPtrRW(ref WorldTransformTypeHandleRW);
+                        LocalToWorld* chunkLocalToWorlds = (LocalToWorld*)chunk.GetRequiredComponentDataPtrRW(ref LocalToWorldTypeHandleRW);
                         for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; ++i)
                         {
                             chunkWorldTransforms[i] = (WorldTransform)chunkLocalTransforms[i];
@@ -108,6 +110,7 @@ namespace Unity.Transforms
         {
             [ReadOnly] public BufferTypeHandle<Child> ChildTypeHandleRO;
             [ReadOnly] public BufferLookup<Child> ChildLookupRO;
+            [ReadOnly] public ComponentTypeHandle<PropagateLocalToWorld> PropagateLocalToWorldRO;
             public ComponentTypeHandle<WorldTransform> WorldTransformTypeHandleRW;
             public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandleRW;
 
@@ -218,9 +221,7 @@ namespace Unity.Transforms
                 BufferAccessor<Child> chunkChildBuffers = chunk.GetBufferAccessor(ref ChildTypeHandleRO);
                 // If this component is present, the entity's descendants should use the parent's LocalToWorld
                 // rather than its WorldTransform to compute their own world-space transform.
-                // TODO(DOTS-6385): We already have a ComponentLookup<T> for this types.
-                // If ComponentLookup had a HasComponent(chunk) method, we could use it & get the benefits of its LookupCache to accelerate this operation.
-                if (Hint.Unlikely(chunk.Has<PropagateLocalToWorld>()))
+                if (Hint.Unlikely(chunk.Has(ref PropagateLocalToWorldRO)))
                 {
                     updateChildrenTransform = updateChildrenTransform ||
                                               chunk.DidChange(ref LocalToWorldTypeHandleRW, LastSystemVersion);
@@ -259,6 +260,7 @@ namespace Unity.Transforms
 
         ComponentTypeHandle<LocalTransform> _localTransformTypeHandleRO;
         ComponentTypeHandle<PostTransformScale> _postTransformScaleTypeHandleRO;
+        ComponentTypeHandle<PropagateLocalToWorld> _propagateLocalToWorldHandleRO;
         ComponentTypeHandle<LocalTransform> _localTransformTypeHandleRW;
         ComponentTypeHandle<WorldTransform> _worldTransformTypeHandleRW;
         ComponentTypeHandle<LocalToWorld> _localToWorldTypeHandleRW;
@@ -307,6 +309,7 @@ namespace Unity.Transforms
 
             _localTransformTypeHandleRO = state.GetComponentTypeHandle<LocalTransform>(true);
             _postTransformScaleTypeHandleRO = state.GetComponentTypeHandle<PostTransformScale>(true);
+            _propagateLocalToWorldHandleRO = state.GetComponentTypeHandle<PropagateLocalToWorld>(true);
             _localTransformTypeHandleRW = state.GetComponentTypeHandle<LocalTransform>(false);
             _worldTransformTypeHandleRW = state.GetComponentTypeHandle<WorldTransform>(false);
             _localToWorldTypeHandleRW = state.GetComponentTypeHandle<LocalToWorld>(false);
@@ -323,11 +326,6 @@ namespace Unity.Transforms
         }
 
         /// <inheritdoc cref="ISystem.OnDestroy"/>
-        [BurstCompile]
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
         /// <inheritdoc cref="ISystem.OnUpdate"/>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -341,6 +339,7 @@ namespace Unity.Transforms
 
             _localTransformTypeHandleRO.Update(ref state);
             _postTransformScaleTypeHandleRO.Update(ref state);
+            _propagateLocalToWorldHandleRO.Update(ref state);
             _localTransformTypeHandleRW.Update(ref state);
             _worldTransformTypeHandleRW.Update(ref state);
             _localToWorldTypeHandleRW.Update(ref state);
@@ -371,6 +370,7 @@ namespace Unity.Transforms
             {
                 ChildTypeHandleRO = _childTypeHandleRO,
                 ChildLookupRO = _childLookupRO,
+                PropagateLocalToWorldRO = _propagateLocalToWorldHandleRO,
                 WorldTransformTypeHandleRW = _worldTransformTypeHandleRW,
                 LocalToWorldTypeHandleRW = _localToWorldTypeHandleRW,
                 LocalTransformLookupRO = _localTransformLookupRO,

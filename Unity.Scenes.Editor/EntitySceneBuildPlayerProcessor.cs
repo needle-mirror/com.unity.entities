@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using UnityEditor.Experimental;
 using System.IO;
 using Unity.Entities.Build;
+using UnityEditor.Build.Content;
 using UnityEngine;
 #if USING_PLATFORMS_PACKAGE
 using Unity.Build.Classic.Private;
@@ -68,10 +69,18 @@ namespace Unity.Scenes.Editor
 
             if (instance.GetPlayerType() == DotsGlobalSettings.PlayerType.Server)
             {
-                opts.extraScriptingDefines = instance.ServerProvider.GetExtraScriptingDefines();
+                //If a server provider is not present use at least the default setting for the client build.
+                var provider = instance.ServerProvider;
+                if (provider == null)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"No available DotsPlayerSettingsProvider for the current platform ({EditorUserBuildSettings.activeBuildTarget}). Using the client settings instead.");
+                    provider = instance.ClientProvider;
+                }
+                opts.extraScriptingDefines = provider.GetExtraScriptingDefines();
                 // Adding EnableHeadlessMode as an option will switch the platform to dedicated server that defines UNITY_SERVER in the Editor as well.
                 // We may want to switch back to the original platform at the end of the build to prevent it if we don't support switching to dedicated server. Currently the Editor fails to compile after switching to the dedicated server subtarget.
-                opts.options |= instance.ServerProvider.GetExtraBuildOptions();
+                opts.options |= provider.GetExtraBuildOptions();
             }
             else
             {

@@ -1,7 +1,11 @@
 using System;
 using NUnit.Framework;
+using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
+using Unity.Mathematics;
+using Unity.Transforms;
+using UnityEngine;
 using static Unity.Entities.SystemAPI;
 
 namespace Unity.Entities.Tests
@@ -19,6 +23,8 @@ namespace Unity.Entities.Tests
             All,
             Any,
             None,
+            Disabled,
+            Absent,
             NoExtension
         }
 
@@ -28,7 +34,8 @@ namespace Unity.Entities.Tests
             IdentifierName,
             TupleWithNamedElementsAndExplicitTypes,
             TupleWithNamedElementsAndImplicitTypes,
-            TupleWithoutNamedElements
+            TupleWithoutNamedElements,
+            TupleWithDiscardedElement
         }
 
         public struct SystemQueryData : IComponentData
@@ -179,10 +186,6 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
             public void OnUpdate(ref SystemState state)
             {
                 ref var sumData = ref state.EntityManager.GetComponentDataRW<SumData>(state.SystemHandle).ValueRW;
@@ -191,18 +194,35 @@ namespace Unity.Entities.Tests
             }
         }
 
-        partial struct IterateThroughTagComponent : ISystem
+        partial struct IterateThroughTagComponents : ISystem
         {
             public void OnCreate(ref SystemState state)
-                => state.EntityManager.AddComponent<EcsTestTag>(state.EntityManager.CreateEntity());
-
-            public void OnDestroy(ref SystemState state) {}
+            {
+                var entity = state.EntityManager.CreateEntity();
+                state.EntityManager.AddComponent(
+                    entity,
+                    new ComponentTypeSet(
+                        ComponentType.ReadOnly<EcsTestTag>(),
+                        ComponentType.ReadWrite<AnotherEcsTestTag>(),
+                        ComponentType.ReadWrite<EcsTestTagEnableable>()));
+            }
 
             public void OnUpdate(ref SystemState state)
             {
                 var taggedEntity = GetSingletonEntity<EcsTestTag>();
-                foreach (var (tag, entity) in Query<RefRO<EcsTestTag>>().WithEntityAccess())
+
+                foreach (var (tagRefRO, tagRefRW, enabledRefRw, entity) in Query<RefRO<EcsTestTag>, RefRW<AnotherEcsTestTag>, EnabledRefRW<EcsTestTagEnableable>>().WithEntityAccess())
+                {
                     Assert.That(entity == taggedEntity);
+
+                    Assert.DoesNotThrow(() => Debug.Log(tagRefRO.ValueRO));
+
+                    Assert.DoesNotThrow(() => Debug.Log(tagRefRW.ValueRW));
+                    Assert.DoesNotThrow(() => Debug.Log(tagRefRW.ValueRO));
+
+                    enabledRefRw.ValueRW = !enabledRefRw.ValueRO;
+                    Assert.IsFalse(enabledRefRw.ValueRO);
+                }
             }
         }
 
@@ -239,10 +259,6 @@ namespace Unity.Entities.Tests
             public void OnCreate(ref SystemState state)
             {
                 state.EntityManager.AddComponent<SumData>(state.SystemHandle);
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
             }
 
             public void OnUpdate(ref SystemState state)
@@ -340,23 +356,25 @@ namespace Unity.Entities.Tests
 
         partial struct IterateThroughAspectsAndComponentsSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) =>
+            public void OnCreate(ref SystemState state)
+            {
                 state.EntityManager.AddComponent(state.SystemHandle,
-                    new ComponentTypeSet(
+                    new ComponentTypeSet(new[]
+                    {
                         ComponentType.ReadWrite<SystemQueryData>(),
                         ComponentType.ReadWrite<EcsTestData>(),
                         ComponentType.ReadWrite<EcsTestData2>(),
                         ComponentType.ReadWrite<EcsTestData3>(),
-                        ComponentType.ReadOnly<EcsTestTag>()));
-
-            public void OnDestroy(ref SystemState state)
-            {
+                        ComponentType.ReadOnly<EcsTestTag>(),
+                        ComponentType.ReadOnly<EcsTestDataEnableable>()
+                    }));
+                state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(state.SystemHandle, true);
             }
 
             public void OnUpdate(ref SystemState state)
             {
-                var QueryExtensionToTest = state.EntityManager.GetComponentData<SystemQueryData>(state.SystemHandle).extensionToTest;
-                switch (QueryExtensionToTest)
+                var queryExtensionToTest = state.EntityManager.GetComponentData<SystemQueryData>(state.SystemHandle).extensionToTest;
+                switch (queryExtensionToTest)
                 {
                     case QueryExtension.NoExtension:
                         foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
@@ -402,6 +420,28 @@ namespace Unity.Entities.Tests
                             ecsTestData3.ValueRW.value2 = 30;
                         }
                         break;
+                    case QueryExtension.Absent:
+                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithAbsent<EcsTestTag>().WithOptions(EntityQueryOptions.IncludeSystems))
+                        {
+                            myAspect._Data.ValueRW = new EcsTestData { value = 10 };
+                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
+
+                            ecsTestData3.ValueRW.value0 = 10;
+                            ecsTestData3.ValueRW.value1 = 20;
+                            ecsTestData3.ValueRW.value2 = 30;
+                        }
+                        break;
+                    case QueryExtension.Disabled:
+                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithDisabled<EcsTestDataEnableable>().WithOptions(EntityQueryOptions.IncludeSystems))
+                        {
+                            myAspect._Data.ValueRW = new EcsTestData { value = 10 };
+                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
+
+                            ecsTestData3.ValueRW.value0 = 10;
+                            ecsTestData3.ValueRW.value1 = 20;
+                            ecsTestData3.ValueRW.value2 = 30;
+                        }
+                        break;
                 }
             }
         }
@@ -416,10 +456,6 @@ namespace Unity.Entities.Tests
                         ComponentType.ReadWrite<EcsTestData2>(),
                         ComponentType.ReadWrite<EcsTestData3>(),
                         ComponentType.ReadOnly<EcsTestTag>()));
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
 
             public void OnUpdate(ref SystemState state)
             {
@@ -436,7 +472,11 @@ namespace Unity.Entities.Tests
 
                             queryReturnType.Item2.ValueRW.value0 = 10;
 
-                            var ecsTestData3 = queryReturnType.Item2;
+                            // Our source-generator solution changes the type of `queryReturnType.Item2` to `Unity.Entities.InternalCompilerInterface.UncheckedRefRW<Unity.Entities.Tests.EcsTestData3>`
+                            // behind the scenes so that calling `ValueRW` and `ValueRO` will not trigger safety checks. (Safety checks are only crucial when dealing with long-lived `RefRW`/`RefRO` instances.)
+                            // This change behind the scenes is not exposed to users, and the next line tests that the usage of explicit types (`RefRW<EcsTestData3>` in this case) is correctly
+                            // supported.
+                            RefRW<EcsTestData3> ecsTestData3 = queryReturnType.Item2;
                             ecsTestData3.ValueRW.value1 = 20;
                             ecsTestData3.ValueRW.value2 = 30;
                         }
@@ -489,6 +529,17 @@ namespace Unity.Entities.Tests
                             ecsTestData3.ValueRW.value2 = 30;
                         }
                         break;
+                    case QueryReturnType.TupleWithDiscardedElement:
+                        foreach (var (myAspect, ecsTestData3, _) in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems).WithEntityAccess())
+                        {
+                            myAspect._Data.ValueRW = new EcsTestData { value = 10 };
+                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
+
+                            ecsTestData3.ValueRW.value0 = 10;
+                            ecsTestData3.ValueRW.value1 = 20;
+                            ecsTestData3.ValueRW.value2 = 30;
+                        }
+                        break;
                 }
             }
         }
@@ -519,15 +570,12 @@ namespace Unity.Entities.Tests
             }
 
             public void OnUpdate(ref SystemState state) => new TestJob{syncHandle = syncHandle}.Schedule();
-            public void OnDestroy(ref SystemState state) {}
-        }
+            }
 
         partial struct IterateThroughAspectsAndComponents_EnsureDependencyCompletedSystem_MainThread : ISystem
         {
             public NativeArray<int> syncHandle;
             public bool ForceDependencyCompletion { get; set; }
-            public void OnCreate(ref SystemState state) {}
-
             // Writing to syncHandle will fail unless all jobs are done writing to it.
             // Original idea: https://unity.slack.com/archives/CE7DZN2H1/p1656923150762329?thread_ts=1656916738.070989&cid=CE7DZN2H1
             public void OnUpdate(ref SystemState state)
@@ -551,8 +599,6 @@ namespace Unity.Entities.Tests
                     syncHandle1[0] = 2;
                 }
             }
-
-            public void OnDestroy(ref SystemState state) {}
         }
 
         public partial struct IterateThroughAspectsAndComponents_MultipleUsersWrittenPartsInSystem : ISystem
@@ -569,10 +615,6 @@ namespace Unity.Entities.Tests
                 state.EntityManager.SetComponentData(state.SystemHandle, new EcsTestData(10));
                 state.EntityManager.SetComponentData(state.SystemHandle, new EcsTestData2(20));
                 state.EntityManager.SetComponentData(state.SystemHandle, new EcsTestData3(30));
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
             }
 
             public void OnUpdate(ref SystemState state)
@@ -623,10 +665,6 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
             public void OnUpdate(ref SystemState state)
             {
                 foreach (var (ecsTestData, intBufferElements) in Query<RefRO<EcsTestData>, DynamicBuffer<IntBufferElement>>())
@@ -652,10 +690,6 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
             public void OnUpdate(ref SystemState state)
             {
                 ref var sumData = ref state.EntityManager.GetComponentDataRW<EcsTestData>(state.SystemHandle).ValueRW;
@@ -664,14 +698,11 @@ namespace Unity.Entities.Tests
                     sumData.value += ecsTestData3.value0;
             }
         }
+
         partial struct IterateThroughSingleComponentSystem : ISystem
         {
             public void OnCreate(ref SystemState state) =>
                 state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<EcsTestData3>());
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
 
             public void OnUpdate(ref SystemState state)
             {
@@ -689,10 +720,6 @@ namespace Unity.Entities.Tests
         partial struct IterateThroughEmptyComponentSystem : ISystem
         {
             public void OnCreate(ref SystemState state) => state.EntityManager.CreateEntity(ComponentType.ReadOnly<EcsTestTag>());
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
 
             public void OnUpdate(ref SystemState state)
             {
@@ -716,10 +743,6 @@ namespace Unity.Entities.Tests
                 state.EntityManager.SetComponentData(state.SystemHandle, new EcsTestData2(inValue: 10));
             }
 
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
             public void OnUpdate(ref SystemState state)
             {
                 foreach (var (ecsTestData3, ecsTestData2) in Query<RefRW<EcsTestData3>, RefRO<EcsTestData2>>().WithOptions(EntityQueryOptions.IncludeSystems))
@@ -738,8 +761,6 @@ namespace Unity.Entities.Tests
             public void OnCreate(ref SystemState state) =>
                 state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<EcsTestDataEntity>());
 
-            public void OnDestroy(ref SystemState state) {}
-
             public void OnUpdate(ref SystemState state)
             {
                 foreach (var (data, entity) in Query<RefRW<EcsTestDataEntity>>().WithEntityAccess().WithOptions(EntityQueryOptions.IncludeSystems))
@@ -751,8 +772,6 @@ namespace Unity.Entities.Tests
         {
             public void OnCreate(ref SystemState state) =>
                 state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<EcsTestDataEntity>());
-
-            public void OnDestroy(ref SystemState state) {}
 
             public void OnUpdate(ref SystemState state)
             {
@@ -766,6 +785,37 @@ namespace Unity.Entities.Tests
             public int Value;
         }
 
+        struct LinearVelocity : IComponentData
+        {
+            public float2 Value;
+        }
+
+        partial struct IterateThroughEnabledComponentsSystem : ISystem
+        {
+            public void OnCreate(ref SystemState state)
+            {
+                state.EntityManager.AddComponent<MartialArtsAbilityComponent>(state.SystemHandle);
+
+                for (int i = 0; i <= 2; i++)
+                {
+                    var e = state.EntityManager.CreateEntity();
+
+                    state.EntityManager.AddComponentData(e, new EcsTestData());
+
+                    state.EntityManager.AddComponentData(e, new LinearVelocity());
+
+                    state.EntityManager.AddComponentData(e, new MartialArtsAbilityComponent());
+                    state.EntityManager.SetComponentEnabled<MartialArtsAbilityComponent>(e, i % 2 == 0);
+                }
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                ref var sumData = ref state.EntityManager.GetComponentDataRW<MartialArtsAbilityComponent>(state.SystemHandle).ValueRW;
+                foreach (var component in Query<MyAspect, LinearVelocity>().WithAll<MartialArtsAbilityComponent>())
+                    sumData.Value++;
+            }
+        }
         partial struct IterateThroughValueTypeEnableableComponentSystem : ISystem
         {
             public void OnCreate(ref SystemState state)
@@ -782,8 +832,6 @@ namespace Unity.Entities.Tests
                 state.EntityManager.AddComponentData(entity2, new MartialArtsAbilityComponent{ Value = 2 });
                 state.EntityManager.SetComponentEnabled<MartialArtsAbilityComponent>(entity2, true);
             }
-
-            public void OnDestroy(ref SystemState state) {}
 
             public void OnUpdate(ref SystemState state)
             {
@@ -807,8 +855,6 @@ namespace Unity.Entities.Tests
                 state.EntityManager.SetComponentEnabled<MartialArtsAbilityComponent>(entity1, true);
                 state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<DisabledData>());
             }
-
-            public void OnDestroy(ref SystemState state) {}
 
             public void OnUpdate(ref SystemState state)
             {
@@ -888,7 +934,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         public void ForEachIteration_IterateThroughTagComponent()
-            => World.GetOrCreateSystem<IterateThroughTagComponent>().Update(World.Unmanaged);
+            => World.GetOrCreateSystem<IterateThroughTagComponents>().Update(World.Unmanaged);
 
         [Test]
         public void ForEachIteration_ThroughComponent_WithChangeFilter()
@@ -1014,6 +1060,8 @@ namespace Unity.Entities.Tests
 
             switch (queryExtension)
             {
+                case QueryExtension.Disabled:
+                case QueryExtension.Absent:
                 case QueryExtension.None:
                     Assert.AreEqual(0, myAspect._Data.ValueRO.value);
                     Assert.AreEqual(0, myAspect._Data2.ValueRO.value0);
@@ -1169,6 +1217,17 @@ namespace Unity.Entities.Tests
             var ecsTestData = GetComponent<EcsTestDataEntity>(system);
 
             Assert.AreEqual(system.m_Entity, ecsTestData.value1);
+        }
+
+        [Test]
+        public void ForEachIterationThroughEnabledComponents()
+        {
+            var system = World.GetOrCreateSystem<IterateThroughEnabledComponentsSystem>();
+
+            system.Update(World.Unmanaged);
+            var martialArtsAbilityEnabledCount = World.EntityManager.GetComponentData<MartialArtsAbilityComponent>(system);
+
+            Assert.AreEqual(expected: 2, actual: martialArtsAbilityEnabledCount.Value);
         }
 
         [Test]

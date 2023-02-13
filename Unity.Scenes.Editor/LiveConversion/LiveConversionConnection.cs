@@ -58,6 +58,7 @@ namespace Unity.Scenes.Editor
                 _ConfigurationGUID = _SettingAsset.GUID;
             }
 
+            Lightmapping.bakeCompleted += OnLightBakingCompleted;
             ObjectChangeEvents.changesPublished += OnEditorChangeEvents;
             EditorSceneManager.sceneOpened += SceneOpened;
             EditorSceneManager.sceneClosed += SceneClosed;
@@ -69,6 +70,7 @@ namespace Unity.Scenes.Editor
         public void Dispose()
         {
             k_AllConnections.Remove(this);
+            Lightmapping.bakeCompleted -= OnLightBakingCompleted;
             EditorSceneManager.sceneOpened -= SceneOpened;
             EditorSceneManager.sceneClosed -= SceneClosed;
             ObjectChangeEvents.changesPublished -= OnEditorChangeEvents;
@@ -285,6 +287,12 @@ namespace Unity.Scenes.Editor
         {
             foreach (var liveConversion in _SceneGUIDToLiveConversion.Values)
                 liveConversion.RequestCleanConversion();
+        }
+
+        void OnLightBakingCompleted()
+        {
+            foreach (var diffGenerator in _SceneGUIDToLiveConversion.Values)
+                diffGenerator.ChangeTracker.MarkLightBakingChanged();
         }
 
         public void Update(List<LiveConversionChangeSet> changeSets, NativeList<Hash128> loadScenes, NativeList<Hash128> unloadScenes, LiveConversionMode mode)

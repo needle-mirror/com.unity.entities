@@ -3,7 +3,7 @@
 To remove components from an entity, use the [`EntityManager`](xref:Unity.Entities.EntityManager) for the [World](concepts-worlds.md) that the entity is in.
 
 > [!IMPORTANT]
-> Adding a component to an entity is a [structural change](concepts-structural-changes.md) which means that the entity moves to a different archetype chunk.
+> Removing a component from an entity is a [structural change](concepts-structural-changes.md) which means that the entity moves to a different archetype chunk.
 
 ## From the main thread
 You can directly remove components from an entity from the main thread. The following code sample gets every entity with an attached [`Rotation`](xref:Unity.Entities.TransformAuthoring.Rotation) component and then removes the `Rotation` component.

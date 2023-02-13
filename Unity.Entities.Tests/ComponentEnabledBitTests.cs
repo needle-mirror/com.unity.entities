@@ -775,12 +775,7 @@ namespace Unity.Entities.Tests
             var archetypeC = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2));
             var archetypeD = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable3), typeof(EcsTestDataEnableable4));
 
-            using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadOnly<EcsTestData>(),},
-                None = new ComponentType[0],
-                Any = new ComponentType[0]
-            }))
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().Build(m_Manager))
             {
                 var queryData = query._GetImpl()->_QueryData;
                 var matchingArchetypes = queryData->MatchingArchetypes;
@@ -790,26 +785,25 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(0, a->EnableableComponentsCount_All);
                 Assert.AreEqual(0, a->EnableableComponentsCount_None);
                 Assert.AreEqual(0, a->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, a->EnableableComponentsCount_Disabled);
                 var b = matchingArchetypes.Ptr[1];
                 Assert.AreEqual(0, b->EnableableComponentsCount_All);
                 Assert.AreEqual(0, b->EnableableComponentsCount_None);
                 Assert.AreEqual(0, b->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, b->EnableableComponentsCount_Disabled);
                 var c = matchingArchetypes.Ptr[2];
                 Assert.AreEqual(0, c->EnableableComponentsCount_All);
                 Assert.AreEqual(0, c->EnableableComponentsCount_None);
                 Assert.AreEqual(0, c->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, c->EnableableComponentsCount_Disabled);
                 var d = matchingArchetypes.Ptr[3];
                 Assert.AreEqual(0, d->EnableableComponentsCount_All);
                 Assert.AreEqual(0, d->EnableableComponentsCount_None);
                 Assert.AreEqual(0, d->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, d->EnableableComponentsCount_Disabled);
             }
 
-            using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestDataEnableable>(), },
-                None = new ComponentType[0],
-                Any = new ComponentType[0]
-            }))
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData,EcsTestDataEnableable>().Build(m_Manager))
             {
                 var queryData = query._GetImpl()->_QueryData;
                 var matchingArchetypes = queryData->MatchingArchetypes;
@@ -819,18 +813,15 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(1, a->EnableableComponentsCount_All);
                 Assert.AreEqual(0, a->EnableableComponentsCount_None);
                 Assert.AreEqual(0, a->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, a->EnableableComponentsCount_Disabled);
                 var b = matchingArchetypes.Ptr[1];
                 Assert.AreEqual(1, b->EnableableComponentsCount_All);
                 Assert.AreEqual(0, b->EnableableComponentsCount_None);
                 Assert.AreEqual(0, b->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, b->EnableableComponentsCount_Disabled);
             }
 
-            using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadOnly<EcsTestData>(), },
-                None = new [] {ComponentType.ReadOnly<EcsTestDataEnableable>()},
-                Any = new ComponentType[0]
-            }))
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().WithNone<EcsTestDataEnableable>().Build(m_Manager))
             {
                 var queryData = query._GetImpl()->_QueryData;
                 var matchingArchetypes = queryData->MatchingArchetypes;
@@ -840,28 +831,25 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(0, a->EnableableComponentsCount_All);
                 Assert.AreEqual(0, a->EnableableComponentsCount_None);
                 Assert.AreEqual(0, a->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, a->EnableableComponentsCount_Disabled);
                 var b = matchingArchetypes.Ptr[1];
                 Assert.AreEqual(0, b->EnableableComponentsCount_All);
                 Assert.AreEqual(1, b->EnableableComponentsCount_None);
                 Assert.AreEqual(0, b->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, b->EnableableComponentsCount_Disabled);
                 var c = matchingArchetypes.Ptr[1];
                 Assert.AreEqual(0, c->EnableableComponentsCount_All);
                 Assert.AreEqual(1, c->EnableableComponentsCount_None);
                 Assert.AreEqual(0, c->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, c->EnableableComponentsCount_Disabled);
                 var d = matchingArchetypes.Ptr[1];
                 Assert.AreEqual(0, d->EnableableComponentsCount_All);
                 Assert.AreEqual(1, d->EnableableComponentsCount_None);
                 Assert.AreEqual(0, d->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, d->EnableableComponentsCount_Disabled);
             }
 
-            using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-                   {
-                       All = new ComponentType[0],
-                       None = new ComponentType[0],
-                       Any = new [] {ComponentType.ReadOnly<EcsTestDataEnableable2>(),
-                           ComponentType.ReadOnly<EcsTestDataEnableable3>(),
-                           ComponentType.ReadOnly<EcsTestDataEnableable4>(),}
-                   }))
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAny<EcsTestDataEnableable2,EcsTestDataEnableable3,EcsTestDataEnableable4>().Build(m_Manager))
             {
                 var queryData = query._GetImpl()->_QueryData;
                 var matchingArchetypes = queryData->MatchingArchetypes;
@@ -871,23 +859,48 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(0, a->EnableableComponentsCount_All);
                 Assert.AreEqual(0, a->EnableableComponentsCount_None);
                 Assert.AreEqual(1, a->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, a->EnableableComponentsCount_Disabled);
                 var b = matchingArchetypes.Ptr[1];
                 Assert.AreEqual(0, b->EnableableComponentsCount_All);
                 Assert.AreEqual(0, b->EnableableComponentsCount_None);
                 Assert.AreEqual(2, b->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, b->EnableableComponentsCount_Disabled);
             }
 
             // None on non-enableable types does not result in extra archetypes added to MatchingArchetypes
-            using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadOnly<EcsTestDataEnableable>(), },
-                None = new [] {ComponentType.ReadOnly<EcsTestData>()},
-                Any = new ComponentType[0]
-            }))
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestDataEnableable>().WithNone<EcsTestData>().Build(m_Manager))
             {
                 var queryData = query._GetImpl()->_QueryData;
                 var matchingArchetypes = queryData->MatchingArchetypes;
                 Assert.AreEqual(0, matchingArchetypes.Length);
+            }
+
+            // Absent on *any* type (even enableable ones) does not result in extra archetypes added to MatchingArchetypes
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestDataEnableable>().WithAbsent<EcsTestData>().Build(m_Manager))
+            {
+                var queryData = query._GetImpl()->_QueryData;
+                var matchingArchetypes = queryData->MatchingArchetypes;
+                Assert.AreEqual(0, matchingArchetypes.Length);
+            }
+
+            // WithDisabled components result in the same matching archetypes as WithAll, but the component types go into
+            // a different list.
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().WithDisabled<EcsTestDataEnableable>().Build(m_Manager))
+            {
+                var queryData = query._GetImpl()->_QueryData;
+                var matchingArchetypes = queryData->MatchingArchetypes;
+                Assert.AreEqual(2, matchingArchetypes.Length);
+
+                var a = matchingArchetypes.Ptr[0];
+                Assert.AreEqual(0, a->EnableableComponentsCount_All);
+                Assert.AreEqual(0, a->EnableableComponentsCount_None);
+                Assert.AreEqual(0, a->EnableableComponentsCount_Any);
+                Assert.AreEqual(1, a->EnableableComponentsCount_Disabled);
+                var b = matchingArchetypes.Ptr[1];
+                Assert.AreEqual(0, b->EnableableComponentsCount_All);
+                Assert.AreEqual(0, b->EnableableComponentsCount_None);
+                Assert.AreEqual(0, b->EnableableComponentsCount_Any);
+                Assert.AreEqual(1, b->EnableableComponentsCount_Disabled);
             }
         }
 
@@ -1077,10 +1090,9 @@ namespace Unity.Entities.Tests
             using var entities =
                 m_Manager.CreateEntity(archetype, archetype.ChunkCapacity - 4, World.UpdateAllocator.ToAllocator);
 
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]{ typeof(EcsTestData),},
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData>()
+                .Build(m_Manager);
             var chunk = archetype.Archetype->Chunks[0];
             var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var mask);
@@ -1102,10 +1114,9 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[1], false);
             m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[126], false);
 
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]{ typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2),},
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestDataEnableable, EcsTestDataEnableable2>()
+                .Build(m_Manager);
             var chunk = archetype.Archetype->Chunks[0];
             var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var mask);
@@ -1128,13 +1139,41 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[126], false);
             m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[126], false);
 
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                None = new ComponentType[]{ typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2),},
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithNone<EcsTestDataEnableable, EcsTestDataEnableable2>()
+                .Build(m_Manager);
             var chunk = archetype.Archetype->Chunks[0];
             var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var mask);
+            // Any entity with both component disabled should have its bit set in the mask; all other bits should be off.
+            Assert.AreEqual(0x0000000000000002, mask.ULong0);
+            Assert.AreEqual(0x4000000000000000, mask.ULong1);
+        }
+
+        [Test]
+        public unsafe void GetEnabledMask_OnlyDisabledTypes_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2));
+
+            _ = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore;
+
+            // Create one less entity than a full chunk, to make sure that the final bit of the mask isn't set (there's no valid entity there)
+            using var entities =
+                m_Manager.CreateEntity(archetype, archetype.ChunkCapacity - 1, World.UpdateAllocator.ToAllocator);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[0], false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[1], false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[1], false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[126], false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[126], false);
+
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithDisabled<EcsTestDataEnableable, EcsTestDataEnableable2>()
+                .Build(m_Manager);
+
+            var chunk = archetype.Archetype->Chunks[0];
+            var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
+            ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var mask);
+
             // Any entity with both component disabled should have its bit set in the mask; all other bits should be off.
             Assert.AreEqual(0x0000000000000002, mask.ULong0);
             Assert.AreEqual(0x4000000000000000, mask.ULong1);
@@ -1155,10 +1194,9 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[126], false);
             m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[126], false);
 
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                Any = new ComponentType[]{ typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2),},
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAny<EcsTestDataEnableable, EcsTestDataEnableable2>()
+                .Build(m_Manager);
             var chunk = archetype.Archetype->Chunks[0];
             var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var mask);
@@ -1189,14 +1227,53 @@ namespace Unity.Entities.Tests
                 if ((variety & 0x8) != 0)
                     m_Manager.SetComponentEnabled<EcsTestDataEnableable4>(entities[i], false);
             }
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]{ typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2),},
-                None = new ComponentType[]{ typeof(EcsTestDataEnableable3), typeof(EcsTestDataEnableable4),},
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestDataEnableable, EcsTestDataEnableable2>()
+                .WithNone<EcsTestDataEnableable3, EcsTestDataEnableable4>()
+                .Build(m_Manager);
             var chunk = archetype.Archetype->Chunks[0];
             var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var mask);
+            // Bits should be set for entities with components 1 and 2 enabled, and 3 and 4 disabled.
+            // In every group of 16 bits, the 12th bit should be set. The high 4 bits should be clear, since there's no
+            // entities there.
+            Assert.AreEqual(0x1000100010001000, mask.ULong0);
+            Assert.AreEqual(0x0000100010001000, mask.ULong1);
+        }
+
+        [Test]
+        public unsafe void GetEnabledMask_AllAndDisabledTypes_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2),
+                typeof(EcsTestDataEnableable3), typeof(EcsTestDataEnableable4));
+
+            // Create less than a full chunk, to make sure that the final bits of the mask isn't set (there's no valid entities there)
+            using var entities =
+                m_Manager.CreateEntity(archetype, archetype.ChunkCapacity - 4, World.UpdateAllocator.ToAllocator);
+
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                int variety = i % 16;
+                if ((variety & 0x1) != 0)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+                if ((variety & 0x2) != 0)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[i], false);
+                if ((variety & 0x4) != 0)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable3>(entities[i], false);
+                if ((variety & 0x8) != 0)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable4>(entities[i], false);
+            }
+
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestDataEnableable, EcsTestDataEnableable2>()
+                .WithDisabled<EcsTestDataEnableable3, EcsTestDataEnableable4>()
+                .Build(m_Manager);
+
+            var chunk = archetype.Archetype->Chunks[0];
+            var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
+
+            ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var mask);
+
             // Bits should be set for entities with components 1 and 2 enabled, and 3 and 4 disabled.
             // In every group of 16 bits, the 12th bit should be set. The high 4 bits should be clear, since there's no
             // entities there.
@@ -1225,12 +1302,11 @@ namespace Unity.Entities.Tests
                 if ((variety & 0x8) != 0)
                     m_Manager.SetComponentEnabled<EcsTestDataEnableable4>(entities[i], false);
             }
-            using var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]{ typeof(EcsTestDataEnableable),},
-                None = new ComponentType[]{ typeof(EcsTestDataEnableable2),},
-                Any = new ComponentType[]{ typeof(EcsTestDataEnableable3), typeof(EcsTestDataEnableable4),},
-            });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestDataEnableable>()
+                .WithNone<EcsTestDataEnableable2>()
+                .WithAny<EcsTestDataEnableable3,EcsTestDataEnableable4>()
+                .Build(m_Manager);
             var chunk = archetype.Archetype->Chunks[0];
             var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var mask);
@@ -1242,6 +1318,87 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public unsafe void GetEnabledMask_All_None_Disabled_Absent_AnyTypes_Works()
+        {
+            var archetype =
+                m_Manager.CreateArchetype(
+                    typeof(EcsTestDataEnableable),
+                    typeof(EcsTestDataEnableable2),
+                    typeof(EcsTestDataEnableable3),
+                    typeof(EcsTestDataEnableable4),
+                    typeof(EcsTestDataEnableable5));
+
+            // Create less than a full chunk, to make sure that the final bits of the mask isn't set (there's no valid entities there)
+            using var entities =
+                m_Manager.CreateEntity(archetype, archetype.ChunkCapacity - 32, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                int variety = i % 16;
+                if ((variety & 0x1) != 0)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+
+                if ((variety & 0x2) != 0)
+                {
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entities[i], false);
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable5>(entities[i], false);
+                }
+
+                if ((variety & 0x4) != 0)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable3>(entities[i], false);
+                if ((variety & 0x8) != 0)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable4>(entities[i], false);
+            }
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestDataEnableable>()
+                .WithNone<EcsTestDataEnableable2>()
+                .WithAny<EcsTestDataEnableable3, EcsTestDataEnableable4>()
+                .WithDisabled<EcsTestDataEnableable5>()
+                .WithAbsent<EcsTestTag>()
+                .Build(m_Manager);
+
+            var chunk = archetype.Archetype->Chunks[0];
+            var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
+            ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var mask);
+
+            // Bits should be set for entities with components 1 enabled, 2 and 5 disabled, as well as either 3 or 4 enabled.
+            // In every group of 16 bits, the 12th bit should be set.
+            // The high 32 bits should be clear, since there's no entities there.
+            Assert.AreEqual(0x0444044404440444, mask.ULong0);
+            Assert.AreEqual(0x0000000004440444, mask.ULong1);
+        }
+
+        [Test]
+        public unsafe void GetEnabledMask_QueryDisabled_HasExpectedMask()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var ecs = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore;
+
+            Assert.AreEqual(128, archetype.ChunkCapacity);
+
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData>()
+                .WithDisabled<EcsTestDataEnableable>()
+                .Build(m_Manager);
+
+            using (var chunks = CreateChunks(ref m_Manager, archetype, 1, World.UpdateAllocator.ToAllocator))
+            {
+                var enableableTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
+                var firstChunk = chunks[0];
+                firstChunk.SetComponentEnabled(ref enableableTypeHandle, 0, false);
+                firstChunk.SetComponentEnabled(ref enableableTypeHandle, 32, false);
+                firstChunk.SetComponentEnabled(ref enableableTypeHandle, 33, false);
+                firstChunk.SetComponentEnabled(ref enableableTypeHandle, 34, false);
+
+                var matchingArchetype = query._GetImpl()->_QueryData->MatchingArchetypes.Ptr[0];
+
+                ChunkIterationUtility.GetEnabledMask(firstChunk.m_Chunk, matchingArchetype, out var mask);
+
+                Assert.AreEqual(0x0000000700000001, mask.ULong0);
+                Assert.AreEqual(0x0000000000000000, mask.ULong1);
+            }
+        }
+
+        [Test]
         public unsafe void GetEnabledMask_QueryNone_HasExpectedMask()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable));
@@ -1249,11 +1406,10 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(128, archetype.ChunkCapacity);
 
-            using (var query = m_Manager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadOnly<EcsTestData>()},
-                None = new[] {ComponentType.ReadOnly<EcsTestDataEnableable>()}
-            }))
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData>()
+                .WithNone<EcsTestDataEnableable>()
+                .Build(m_Manager);
             using (var chunks = CreateChunks(ref m_Manager, archetype, 1, World.UpdateAllocator.ToAllocator))
             {
                 var enableableTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
@@ -1477,16 +1633,13 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void EntityQuery_MultipleArchetypeQueriesWithEnableableTypes_StoresAllUnique()
         {
-            using var query = m_Manager.CreateEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new ComponentType[]{typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2)},
-                    None = new ComponentType[]{typeof(EcsTestDataEnableable4)},
-                },
-                new EntityQueryDesc{
-                    All = new ComponentType[]{typeof(EcsTestDataEnableable3)},
-                    None = new ComponentType[]{typeof(EcsTestDataEnableable2), typeof(EcsTestDataEnableable4)},
-                });
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestDataEnableable, EcsTestDataEnableable2>()
+                .WithNone<EcsTestDataEnableable4>()
+                .AddAdditionalQuery()
+                .WithAll<EcsTestDataEnableable3>()
+                .WithNone<EcsTestDataEnableable2, EcsTestDataEnableable4>()
+                .Build(m_Manager);
             var queryData = query._GetImpl()->_QueryData;
             var expectedTypeIndices = new TypeIndex[] {
                         TypeManager.GetTypeIndex<EcsTestDataEnableable>(),
@@ -1507,18 +1660,15 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityQuery_MultipleArchetypeQueries_ThrowIfDifferentIgnoreEnabledBitsFlags()
         {
-            Assert.Throws<ArgumentException>(() => m_Manager.CreateEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new ComponentType[]{typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2)},
-                    None = new ComponentType[]{typeof(EcsTestDataEnableable4)},
-                    Options = EntityQueryOptions.IgnoreComponentEnabledState,
-                },
-                new EntityQueryDesc{
-                    All = new ComponentType[]{typeof(EcsTestDataEnableable3)},
-                    None = new ComponentType[]{typeof(EcsTestDataEnableable2), typeof(EcsTestDataEnableable4)},
-                    Options = default,
-                }));
+            Assert.Throws<ArgumentException>(() => new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestDataEnableable, EcsTestDataEnableable2>()
+                .WithNone<EcsTestDataEnableable4>()
+                .WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)
+                .AddAdditionalQuery()
+                .WithAll<EcsTestDataEnableable3>()
+                .WithNone<EcsTestDataEnableable2, EcsTestDataEnableable4>()
+                .WithOptions(default)
+                .Build(m_Manager));
         }
 
         [Test]

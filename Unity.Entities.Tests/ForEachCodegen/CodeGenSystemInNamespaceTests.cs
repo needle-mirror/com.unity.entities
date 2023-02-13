@@ -41,8 +41,6 @@ namespace MyNamespace.System
 
     public partial struct IdiomaticForeachComponentSystemInNamespaceEndingInSystem : ISystem
     {
-        public void OnCreate(ref SystemState state) { }
-        public void OnDestroy(ref SystemState state) { }
         public void OnUpdate(ref SystemState state)
         {
             foreach (var data in SystemAPI.Query<RefRO<EcsTestData>, RefRW<EcsTestData2>>())
@@ -53,8 +51,6 @@ namespace MyNamespace.System
 
     public partial struct IdiomaticForeachAspectSystemInNamespaceEndingInSystem : ISystem
     {
-        public void OnCreate(ref SystemState state) { }
-        public void OnDestroy(ref SystemState state) { }
         public void OnUpdate(ref SystemState state)
         {
             foreach (var data in SystemAPI.Query<AspectInNamespaceEndingInSystem>())

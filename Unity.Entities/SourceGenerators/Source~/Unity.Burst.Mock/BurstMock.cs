@@ -40,4 +40,21 @@ namespace Unity.Burst
         Medium,
         Low,
     }
+
+    namespace CompilerServices
+    {
+        public static class Hint
+        {
+            public static bool Likely(bool condition) => condition;
+            public static bool Unlikely(bool condition) => condition;
+        }
+    }
+}
+
+namespace AOT
+{
+    public class MonoPInvokeCallbackAttribute : Attribute
+    {
+        public MonoPInvokeCallbackAttribute(Type type) { }
+    }
 }

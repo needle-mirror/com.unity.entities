@@ -52,13 +52,13 @@ namespace Unity.Entities.SourceGen.SystemGenerator
             context.LogError(nameof(DC0065), k_ErrorTitle, $"Only value type 'ISystem' types are allowed.  Make sure {className} is defined as a 'struct' or use 'SystemBase' if you want to use a class.", location);
         }
 
-        public static void SGSG0001<T>(SystemDescription systemDescription, T candidate) where T : ISystemCandidate {
+        public static void SGSG0001<T>(ISourceGeneratorDiagnosable systemDescription, T candidate) where T : ISystemCandidate {
             systemDescription.LogError(nameof(SGSG0001), k_SystemStateAccess,
                 $"SystemState cannot passed in as an argument, as properties can't have parameters, as such {candidate.CandidateTypeName} access is not working on properties. Instead move it to a method passing in `ref SystemState`",
                 candidate.Node.GetLocation());
         }
 
-        public static void SGSG0002<T>(SystemDescription systemDescription, T candidate) where T : ISystemCandidate {
+        public static void SGSG0002<T>(ISourceGeneratorDiagnosable systemDescription, T candidate) where T : ISystemCandidate {
             systemDescription.LogError(nameof(SGSG0002), k_SystemStateAccess,
                 $"No reference to SystemState was found for function with {candidate.CandidateTypeName} access, add `ref SystemState ...` as method parameter. This will be used for updating handles and completing dependencies.",
                 candidate.Node.GetLocation());

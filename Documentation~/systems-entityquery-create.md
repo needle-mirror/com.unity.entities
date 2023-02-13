@@ -13,6 +13,7 @@ Queries only match archetypes that contain the components you specify. You can s
 * `WithAll<T>()`: To match the query, an archetype must contain all the query's required components.
 * `WithAny<T>()`: To match the query, an archetype must contain at least one of the query's optional components.
 * `WithNone<T>()`: To match the query, an archetype must not contain any of the query's excluded components.
+* `WithAspect<T>()`: To match the query, an archetype must meet the [aspect’s](aspects-intro.md) component requirements. Use last when building a query to avoid component aliasing.
 
 For example, the following query includes archetypes that contain the `ObjectRotation` and `ObjectRotationSpeed`components, but excludes any archetypes that contain the `Static` component:
 

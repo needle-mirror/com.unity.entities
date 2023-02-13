@@ -71,7 +71,7 @@ namespace Unity.Scenes
 #if UNITY_EDITOR
             var sceneName = sceneMetaData.SceneName.ToString();
             var sceneNameFs = new FixedString64Bytes();
-            FixedStringMethods.CopyFromTruncated(ref sceneNameFs, $"Scene: {sceneNameFs}"); // Long scene names are truncated.
+            FixedStringMethods.CopyFromTruncated(ref sceneNameFs, $"Scene: {sceneName}"); // Long scene names are truncated.
             entityManager.SetName(sceneEntity, sceneNameFs);
 #endif
             // Resolve first (Even if the file doesn't exist we want to stop continuously trying to load the section)

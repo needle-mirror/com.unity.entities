@@ -1,6 +1,6 @@
 # Native container component support
 
-The [Collections package](https://docs.unity3d.com/Packages/com.unity.collections@latest) provide container types such as `NativeList` and `NativeHashMap`, plus unsafe containers such as `UnsafeList`. You can use these container types in components.
+The [Collections package](https://docs.unity3d.com/Packages/com.unity.collections@latest) provides [native container](xref:JobSystemNativeContainer) types such as `NativeList` and `NativeHashMap`, plus unsafe containers such as `UnsafeList`. You can use these container types in components.
 
 Both native and unsafe containers are value types rather than reference types. The key differences between `Unsafe` containers and `Native` containers are:
 
@@ -11,11 +11,11 @@ A `NativeContainer` is safer and consistently meets expectations than an `Unsafe
 
 ## Component limitations
 
-If you put a container types in a component, they have the following limitations
+If you put a container types in a component, they have the following limitations:
 
 |**Functionality**|**Native containers**|**Unsafe containers**|
 |--|--|--|
-|Compatible with Jobs Debugger|No|No|
+|Compatible with Jobs Debugger|Yes|No|
 |Can be used in job worker threads|Yes|Yes|
 |Can be used on main thread|Yes|Yes|
 |Usable with [ComponentLookup](xref:Unity.Entities.ComponentLookup`1) on main thread|Yes|Yes|

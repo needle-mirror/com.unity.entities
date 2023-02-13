@@ -5,7 +5,7 @@ using Unity.Burst;
 namespace Unity.Entities.Tests
 {
     [BurstCompile]
-    public class ISystemTests : ECSTestsFixture
+    public partial class ISystemTests : ECSTestsFixture
     {
         struct MySystemData2 : IComponentData
         {
@@ -18,10 +18,6 @@ namespace Unity.Entities.Tests
             public void OnCreate(ref SystemState state)
             {
                 state.EntityManager.AddComponent<MySystemData2>(state.SystemHandle);
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
             }
 
             public void OnUpdate(ref SystemState state)
@@ -79,11 +75,6 @@ namespace Unity.Entities.Tests
             {
                 state.EntityManager.AddComponent<MySystemData2>(state.SystemHandle);
             }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
 
             [BurstCompile(CompileSynchronously = true)]
             public void OnUpdate(ref SystemState state)
@@ -188,6 +179,38 @@ namespace Unity.Entities.Tests
             sysRef.Update(World.Unmanaged);
             ref var UpdateData = ref World.EntityManager.GetComponentDataRW<MySystemData2>(sysRef).ValueRW;
             Assert.AreEqual(1, UpdateData.UpdateCount);
+        }
+
+        [Test]
+        public void CheckForBursting()
+        {
+            if (IsBurstEnabled()) // Test is checking if the system update is bursted (that only works if Burst is on)
+                World.CreateSystem<SystemWithBurstAssertedUpdate>().Update(World.Unmanaged);
+        }
+
+        private partial struct SystemWithBurstAssertedUpdate : ISystem
+        {
+            public void OnCreate(ref SystemState state)
+            {
+                IsNonBurst(out var notBursted);
+                Assert.IsTrue(notBursted);
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnDestroy(ref SystemState state)
+            {
+                IsNonBurst(out var notBursted);
+                Assert.IsFalse(notBursted);
+            }
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnUpdate(ref SystemState state)
+            {
+                IsNonBurst(out var notBursted);
+                Assert.IsFalse(notBursted);
+            }
+
+            [BurstDiscard]
+            void IsNonBurst(out bool value) => value = true;
         }
 
         [Test]
@@ -313,6 +336,56 @@ namespace Unity.Entities.Tests
 
             SnoopSystem.AssertCallsWereMade(SnoopSystem.CallFlags.OnDestroy);
             SnoopSystem.AssertCallsWereNotMade(SnoopSystem.CallFlags.OnStopRunning);
+        }
+
+        private partial struct JobWritesComponentSystem : ISystem
+        {
+            public void OnCreate(ref SystemState state)
+            {
+                state.EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+            }
+            public void OnDestroy(ref SystemState state) { }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                new TestJob().Schedule();
+            }
+            partial struct TestJob : IJobEntity
+            {
+                void Execute(ref EcsTestData normalComponent)
+                {
+                    normalComponent.value = 1;
+                }
+            }
+
+        }
+
+        [UpdateAfter(typeof(JobWritesComponentSystem))]
+        partial struct ReadComponentSystem : ISystem, ISystemStartStop
+        {
+            public void OnCreate(ref SystemState state) { }
+            public void OnDestroy(ref SystemState state) { }
+            public void OnUpdate(ref SystemState state) { }
+            public void OnStartRunning(ref SystemState state)
+            {
+                // For dependencies to complete properly, BeforeOnUpdate needs to have been called.
+                state.CompleteDependency();
+                SystemAPI.SetSingleton<EcsTestData>(default);
+            }
+            public void OnStopRunning(ref SystemState state) { }
+        }
+        
+        [Test]
+        public void ISystem_SingletonInOnStartRunning()
+        {
+            var sysA = World.CreateSystem<JobWritesComponentSystem>();
+            var sysB = World.CreateSystem<ReadComponentSystem>();
+        
+            sysA.Update(World.Unmanaged);
+            sysB.Update(World.Unmanaged);
+        
+            World.DestroySystem(sysB);
+            World.DestroySystem(sysA);
         }
     }
 }

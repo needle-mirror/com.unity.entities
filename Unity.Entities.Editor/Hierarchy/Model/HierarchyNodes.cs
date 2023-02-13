@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor
     [GeneratePropertyBag]
     class HierarchyNodesState
     {
-        [Unity.Properties.CreateProperty] internal HashSet<HierarchyNodeHandle> Expanded = new HashSet<HierarchyNodeHandle>();
+        [CreateProperty] internal HashSet<HierarchyNodeHandle> Expanded = new HashSet<HierarchyNodeHandle>();
     }
 
     /// <summary>
@@ -302,7 +302,7 @@ namespace Unity.Entities.Editor
         /// <remarks>
         /// @TODO convert this to an enumerator which can be time-sliced.
         /// </remarks>
-        internal unsafe void Refresh(HierarchyNodeStore.Immutable immutable, World world, SubSceneNodeMapping subSceneNodeMapping)
+        internal unsafe void Refresh(HierarchyNodeStore.Immutable immutable, World world, NativeParallelHashMap<HierarchyNodeHandle, bool> subSceneStateMap)
         {
             if (immutable.ChangeVersion == 0)
                 return;
@@ -350,8 +350,6 @@ namespace Unity.Entities.Editor
                     m_Rebuild = false;
                     m_ChangeVersion++;
 
-                    using var subSceneStateMap = BuildSubSceneStateMap(m_ImmutableNodes, subSceneNodeMapping, world, AllocatorManager.TempJob);
-
                     new BuildExpandedNodes
                     {
                         Hierarchy = m_ImmutableNodes,
@@ -373,8 +371,6 @@ namespace Unity.Entities.Editor
         [BurstCompile]
         internal unsafe struct BuildExpandedNodes : IJob
         {
-            const int k_MaxNestedSubScenes = 8;
-
             [ReadOnly] public HierarchyNodeStore.Immutable Hierarchy;
             [ReadOnly] public NativeParallelHashSet<HierarchyNodeHandle> Expanded;
             [ReadOnly] public NativeParallelHashMap<HierarchyNodeHandle,bool> SubSceneStateMap;
@@ -421,7 +417,8 @@ namespace Unity.Entities.Editor
                     {
                         inSubScene = true;
 
-                        currentSubScene = new SubSceneInfo { SubSceneEndIndex = readIndex + node.NextSiblingOffset - 1, IsOpened = SubSceneStateMap[node.Handle], SubSceneNodeDepth = node.Depth };
+                        SubSceneStateMap.TryGetValue(node.Handle, out var isLoaded);
+                        currentSubScene = new SubSceneInfo { SubSceneEndIndex = readIndex + node.NextSiblingOffset - 1, IsOpened = isLoaded, SubSceneNodeDepth = node.Depth };
                         if (DataMode is DataMode.Mixed && currentSubScene.IsOpened)
                             CreateSubSceneGameObjectCache(readIndex, currentSubScene, ref rootGameObjectsInSubScene);
                     }
@@ -569,73 +566,6 @@ namespace Unity.Entities.Editor
                 }
 
                 Nodes.Length = writeIndex;
-            }
-        }
-
-        NativeParallelHashMap<HierarchyNodeHandle, bool> BuildSubSceneStateMap(HierarchyNodeStore.Immutable immutable, SubSceneNodeMapping subSceneNodeMapping, World world, AllocatorManager.AllocatorHandle allocator)
-        {
-            if (null == world || !world.IsCreated)
-                return new NativeParallelHashMap<HierarchyNodeHandle, bool>(1, allocator);
-            using var subSceneNodesIndices = new NativeArray<int>(subSceneNodeMapping.SubSceneCount, allocator.ToAllocator);
-            new FilterSubSceneNodes()
-            {
-                Nodes = immutable,
-                SubSceneNodes = subSceneNodesIndices
-            }.Run();
-
-            var map = new NativeParallelHashMap<HierarchyNodeHandle, bool>(subSceneNodesIndices.Length, allocator);
-            //ensure scenesystem exists
-            world.Unmanaged.GetOrCreateUnmanagedSystem<SceneSystem>();
-
-            for (var i = 0; i < subSceneNodesIndices.Length; i++)
-            {
-                var subSceneNodeIndex = subSceneNodesIndices[i];
-                if (subSceneNodeIndex == -1)
-                    continue;
-                var subSceneNode = immutable[subSceneNodeIndex].Handle;
-                var sceneEntity = SceneSystem.GetSceneEntity(world.Unmanaged, subSceneNodeMapping.GetSceneHashFromNode(subSceneNode));
-                map.Add(subSceneNode, sceneEntity != Entity.Null &&
-                                      world.EntityManager.HasComponent<SubScene>(sceneEntity) &&
-                                      world.EntityManager.GetComponentObject<SubScene>(sceneEntity).IsLoaded);
-            }
-
-            return map;
-        }
-
-        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
-        struct FilterSubSceneNodes : IJob
-        {
-            [ReadOnly] public HierarchyNodeStore.Immutable Nodes;
-            [WriteOnly] public NativeArray<int> SubSceneNodes;
-
-            public void Execute()
-            {
-                var subSceneNodesCount = 0;
-                for (var i = 0; i < Nodes.CountHierarchicalNodes; )
-                {
-                    var node = Nodes[i];
-
-                    switch (node.Handle.Kind)
-                    {
-                        // we know a subscene can't be under an entity so skip to next sibling
-                        case NodeKind.Entity:
-                            i += node.NextSiblingOffset;
-                            break;
-                        // we don't support nested subscenes yet, skip to next sibling
-                        case NodeKind.SubScene:
-                            SubSceneNodes[subSceneNodesCount++] = i;
-                            i += node.NextSiblingOffset;
-                            break;
-                        default:
-                            i++;
-                            break;
-                    }
-                }
-
-                for (var i = subSceneNodesCount; i < SubSceneNodes.Length; i++)
-                {
-                    SubSceneNodes[i] = -1;
-                }
             }
         }
 

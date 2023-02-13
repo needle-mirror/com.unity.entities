@@ -27,6 +27,7 @@ namespace Unity.Entities
             ComponentType = runtimeComponent;
             ComponentField = runtimeField;
             Generated = false;
+            AuthoringField = null;
         }
 
         /// <summary>
@@ -35,11 +36,27 @@ namespace Unity.Entities
         /// <param name="runtimeComponent">The target component type</param>
         /// <param name="runtimeField">The target component field</param>
         /// <param name="generated">If true, the type is auto-generated</param>
+        [Obsolete("You can now use base RegisterBindingAttribute(Type, string) to register vector based properties. (RemovedAfter 2023-02-14)")]
         public  RegisterBindingAttribute(Type runtimeComponent, string runtimeField, bool generated)
         {
             ComponentType = runtimeComponent;
             ComponentField = runtimeField;
             Generated = generated;
+            AuthoringField = null;
+        }
+
+        /// <summary>
+        /// Establish a binding between the tagged authoring type and a runtime component field.
+        /// </summary>
+        /// <param name="authoringField">The nested authoring field. Uses tagged field if null or empty.</param>
+        /// <param name="runtimeComponent">The target component type</param>
+        /// <param name="runtimeField">The target component field</param>
+        public RegisterBindingAttribute(string authoringField, Type runtimeComponent, string runtimeField)
+        {
+            ComponentType = runtimeComponent;
+            ComponentField = runtimeField;
+            Generated = false;
+            AuthoringField = authoringField;
         }
 
         internal bool Generated { get;  }
@@ -52,5 +69,10 @@ namespace Unity.Entities
         /// The name of the target component field
         /// </summary>
         public string ComponentField { get; }
+
+        /// <summary>
+        /// Name of the nested authoring field. The base field if null or empty.
+        /// </summary>
+        public string AuthoringField { get;  }
     }
 }

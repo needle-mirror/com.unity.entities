@@ -79,7 +79,8 @@ namespace Unity.Entities
 
             public void Dispose()
             {
-                LayoutInfo.Dispose();
+                if(LayoutInfo.IsCreated)
+                    LayoutInfo.Dispose();
             }
         }
 

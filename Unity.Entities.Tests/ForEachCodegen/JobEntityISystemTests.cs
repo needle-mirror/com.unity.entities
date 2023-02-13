@@ -26,7 +26,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 ComponentType.ReadWrite<EcsTestSharedComp2>(),
                 ComponentType.ReadWrite<EcsIntElement>(),
                 ComponentType.ReadWrite<EcsTestTag>(),
-                ComponentType.ReadWrite<EcsTestDataEnableable>());
+                ComponentType.ReadWrite<EcsTestDataEnableable>(),
+                ComponentType.ReadWrite<EcsTestTagEnableable>());
 
             TestEntity = m_Manager.CreateEntity(myArch);
             m_Manager.SetComponentData(TestEntity, new EcsTestData { value = 3});
@@ -37,7 +38,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
             m_Manager.SetSharedComponentManaged(TestEntity, new EcsTestSharedComp { value = 5 });
             m_Manager.SetSharedComponentManaged(TestEntity, new EcsTestSharedComp2 { value0 = 11, value1 = 13 });
 
-            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(TestEntity, true);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(TestEntity, false);
+            m_Manager.SetComponentEnabled<EcsTestTagEnableable>(TestEntity, false);
 
             DisabledEntity = m_Manager.CreateEntity(typeof(Disabled), typeof(EcsTestData3));
         }
@@ -75,7 +77,16 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void WithTagComponent() => GetTestSystemUnsafe().WithTagComponent(ref GetSystemStateRef());
 
         [Test]
+        public void WithTagComponentRefParam() => GetTestSystemUnsafe().WithTagComponentRefParam(ref GetSystemStateRef());
+
+        [Test]
         public void WithNone() => GetTestSystemUnsafe().WithNone(ref GetSystemStateRef());
+
+        [Test]
+        public void WithDisabled() => GetTestSystemUnsafe().WithDisabled(ref GetSystemStateRef());
+
+        [Test]
+        public void WithAbsent() => GetTestSystemUnsafe().WithAbsent(ref GetSystemStateRef());
 
         [Test]
         public void WithAny_DoesntExecute_OnEntityWithoutThatComponent() => GetTestSystemUnsafe().WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref GetSystemStateRef());
@@ -118,19 +129,22 @@ namespace Unity.Entities.Tests.ForEachCodegen
         // public void ForEach_SystemStateAccessor_Matches() => GetTestSystemUnsafe().ForEach_SystemStateAccessor_Matches_SystemAPI(ref GetSystemStateRef());
     }
 
+    [WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)]
     partial struct ToggleEnabledJob : IJobEntity
     {
-        void Execute(EnabledRefRW<EcsTestDataEnableable> enabledRef)
+        void Execute(EnabledRefRW<EcsTestDataEnableable> enabledRef1, EnabledRefRW<EcsTestTagEnableable> enabledRefR2)
         {
-            enabledRef.ValueRW = !enabledRef.ValueRO;
+            enabledRef1.ValueRW = !enabledRef1.ValueRO;
+            enabledRefR2.ValueRW = !enabledRefR2.ValueRO;
         }
     }
 
+    [WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)]
     partial struct CheckEnabledJob : IJobEntity
     {
         void Execute(EnabledRefRO<EcsTestDataEnableable> enabledRef, ref EcsTestData data)
         {
-            if (enabledRef.ValueRO)
+            if (!enabledRef.ValueRO)
                 data.value *= 2;
         }
     }
@@ -155,11 +169,36 @@ namespace Unity.Entities.Tests.ForEachCodegen
         void Execute(ref EcsTestData e1) => e1.value = 5;
     }
 
+    partial struct WithTagComponentRefParamJob : IJobEntity
+    {
+        void Execute(ref EcsTestData e1, RefRO<EcsTestTag> tag)
+        {
+            e1.value = 5;
+            Assert.DoesNotThrow(() => Debug.Log(tag.ValueRO));
+        }
+    }
+
     [WithNone(typeof(EcsTestData2))]
     partial struct WithNoneJob : IJobEntity
     {
         public int one;
         void Execute(ref EcsTestData e1) => e1.value += one;
+    }
+
+    [WithDisabled(typeof(EcsTestDataEnableable))]
+    partial struct WithDisabledJob : IJobEntity
+    {
+        public int disabledValue;
+
+        void Execute(ref EcsTestData e1) => e1.value = disabledValue;
+    }
+
+    [WithAbsent(typeof(EcsTestData3))]
+    partial struct WithAbsentJob : IJobEntity
+    {
+        public int absentValue;
+
+        void Execute(ref EcsTestData e1) => e1.value = absentValue;
     }
 
     [WithAny(typeof(EcsTestData3))]
@@ -210,21 +249,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
     {
         public EntityQuery m_StoredQuery;
 
-        public void OnCreate(ref SystemState state) {}
-        public void OnDestroy(ref SystemState state) {}
-        public void OnUpdate(ref SystemState state) {}
-
         public void ToggleEnabled(ref SystemState state)
         {
             var job = new ToggleEnabledJob();
             job.Run();
-            Assert.IsFalse(state.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity));
+
+            Assert.IsTrue(state.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity));
+            Assert.IsTrue(state.EntityManager.IsComponentEnabled<EcsTestTagEnableable>(JobEntityISystemTests.TestEntity));
         }
 
         public void CheckEnabled(ref SystemState state)
         {
             var job = new CheckEnabledJob();
             job.Run();
+
             Assert.AreEqual(6, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
         }
 
@@ -249,11 +287,32 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(5, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
         }
 
+        public void WithTagComponentRefParam(ref SystemState state)
+        {
+            new WithTagComponentRefParamJob().Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(5, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
         public void WithNone(ref SystemState state)
         {
             new WithNoneJob{one = 1}.Schedule();
             state.Dependency.Complete();
             Assert.AreEqual(3, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
+        public void WithDisabled(ref SystemState state)
+        {
+            new WithDisabledJob{ disabledValue = 1 }.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(1, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
+        public void WithAbsent(ref SystemState state)
+        {
+            new WithAbsentJob{ absentValue= 1}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(1, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
         }
 
         public void WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref SystemState state)

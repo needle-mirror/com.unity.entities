@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Unity.Collections;
 using Unity.Entities.Hybrid.Baking;
 using Unity.Profiling;
 using UnityEngine;
@@ -76,7 +75,7 @@ namespace Unity.Entities
                 if (!incremental)
                     cleanRootGameObjects = scene.GetRootGameObjects();
 
-                PreprocessBake(conversionWorld, settings, bakingSystem);
+                PreprocessBake(conversionWorld, settings);
 
                 // We can't early out as Preprocess might have done some actions that need to be completed by PostProcess
                 // An example of this is LinkedEntityGroupBakingCleanUp
@@ -99,10 +98,21 @@ namespace Unity.Entities
             return true;
         }
 
-        static void PreprocessBake(World conversionWorld, BakingSettings settings, BakingSystem bakingSystem)
+        static void PreprocessBake(World conversionWorld, BakingSettings settings)
         {
-            //TODO: DOTS-5452
-            var systemTypes = settings.Systems ?? DefaultWorldInitialization.GetAllSystems(settings.FilterFlags);
+            var systemTypes = (settings.Systems ?? DefaultWorldInitialization.GetAllSystems(settings.FilterFlags)).ToList();
+
+#if UNITY_EDITOR
+            if (settings.BakingSystemFilterSettings != null)
+            {
+                for (var i = systemTypes.Count - 1; i >= 0;  i--)
+                {
+                    if (!settings.BakingSystemFilterSettings.ShouldRunBakingSystem(systemTypes[i]))
+                        systemTypes.RemoveAt(i);
+                }
+            }
+#endif
+
             AddBakingSystems(conversionWorld, systemTypes.Concat(settings.ExtraSystems));
 #if UNITY_EDITOR
 #if ENABLE_CLOUD_SERVICES_ANALYTICS
@@ -165,7 +175,7 @@ namespace Unity.Entities
             {
                 var bakingSystem = conversionWorld.GetOrCreateSystemManaged<BakingSystem>();
                 bakingSystem.PrepareForBaking(settings, default);
-                PreprocessBake(conversionWorld, settings, bakingSystem);
+                PreprocessBake(conversionWorld, settings);
                 bakingSystem.Bake(default, rootGameObjects);
                 PostprocessBake(conversionWorld, settings, bakingSystem);
             }

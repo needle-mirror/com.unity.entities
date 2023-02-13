@@ -156,6 +156,11 @@ namespace Unity.Entities.Content
         public bool IsCreated => ObjectLocations.IsCreated;
 
         /// <summary>
+        /// True if there is no data loaded into the catalog.
+        /// </summary>
+        public bool IsEmpty => ObjectLocations.IsEmpty;
+
+        /// <summary>
         /// Retrieves the stored string value.
         /// </summary>
         /// <param name="index">Index of the stored string value;</param>
@@ -217,7 +222,7 @@ namespace Unity.Entities.Content
             if (!ArchiveLocations.IsCreated)
                 ArchiveLocations = new UnsafeHashMap<ContentArchiveId, ArchiveLocation>(catalogData.Archives.Length, Allocator.Persistent);
             else
-                ArchiveLocations.Capacity = ArchiveLocations.Capacity + catalogData.Archives.Length;
+                ArchiveLocations.Capacity = ArchiveLocations.Count + catalogData.Archives.Length;
 
             for (int archiveIndex = 0; archiveIndex < catalogData.Archives.Length; archiveIndex++)
             {
@@ -234,7 +239,7 @@ namespace Unity.Entities.Content
             if (!FileLocations.IsCreated)
                 FileLocations = new UnsafeHashMap<ContentFileId, FileLocation>(catalogData.Files.Length, Allocator.Persistent);
             else
-                FileLocations.Capacity = FileLocations.Capacity + catalogData.Files.Length;
+                FileLocations.Capacity = FileLocations.Count + catalogData.Files.Length;
 
             for (int fileIndex = 0; fileIndex < catalogData.Files.Length; fileIndex++)
             {
@@ -256,7 +261,7 @@ namespace Unity.Entities.Content
             if (!SceneLocations.IsCreated)
                 SceneLocations = new UnsafeHashMap<UntypedWeakReferenceId, SceneLocation>(catalogData.Scenes.Length, Allocator.Persistent);
             else
-                SceneLocations.Capacity = SceneLocations.Capacity + catalogData.Scenes.Length;
+                SceneLocations.Capacity = SceneLocations.Count + catalogData.Scenes.Length;
 
             for (int sceneIndex = 0; sceneIndex < catalogData.Scenes.Length; sceneIndex++)
             {
@@ -271,7 +276,7 @@ namespace Unity.Entities.Content
             if (!ObjectLocations.IsCreated)
                 ObjectLocations = new UnsafeHashMap<UntypedWeakReferenceId, ObjectLocation>(catalogData.Objects.Length, Allocator.Persistent);
             else
-                ObjectLocations.Capacity = ObjectLocations.Capacity + catalogData.Objects.Length;
+                ObjectLocations.Capacity = ObjectLocations.Count + catalogData.Objects.Length;
 
             var filePtr = (ContentFileLocation*)catalogData.Files.GetUnsafePtr();
             var objPtr = (ContentObjectLocation*)catalogData.Objects.GetUnsafePtr();

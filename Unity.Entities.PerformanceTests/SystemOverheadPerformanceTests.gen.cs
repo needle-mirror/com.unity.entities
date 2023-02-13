@@ -4039,13 +4039,40 @@ namespace Unity.Entities.PerformanceTests
         };
 
         [Test, Performance]
+        public void ComponentSystemGroup_Sorting_Performance([Values(1, 10, 100, 1000)] int systemCount)
+        {
+            World testWorld = default;
+            SimulationSystemGroup simulationGroup = default;
+            Measure.Method(
+                () =>
+                {
+                    simulationGroup.SortSystems();
+                })
+                .SetUp(
+                () =>
+                {
+                    testWorld = new World("Test World");
+                    simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
+                    for (int i = 0; i < systemCount; ++i)
+                    {
+                        simulationGroup.AddSystemToUpdateList(testWorld.CreateSystem(emptySystemTypes[i]));
+                    }
+                })
+                .CleanUp(() => { testWorld.Dispose(); })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .SampleGroup($"ComponentSystemGroup_SortSystems_{systemCount}")
+                .Run();
+        }
+
+        [Test, Performance]
         public void EmptySystem_NoMatchingEntities_Overhead()
         {
             var testWorld = new World("Test World");
             var simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
             for (int i = 0; i < 1000; ++i)
             {
-                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystemManaged(emptySystemTypes[i]));
+                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystem(emptySystemTypes[i]));
             }
 
             Measure.Method(
@@ -4068,7 +4095,7 @@ namespace Unity.Entities.PerformanceTests
             var simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
             for (int i = 0; i < 1000; ++i)
             {
-                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystemManaged(emptySystemTypes[i]));
+                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystem(emptySystemTypes[i]));
             }
 
             testWorld.EntityManager.CreateEntity(typeof(EcsTestData));
@@ -4093,7 +4120,7 @@ namespace Unity.Entities.PerformanceTests
             var simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
             for (int i = 0; i < 1000; ++i)
             {
-                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystemManaged(scheduleSystemTypes[i]));
+                simulationGroup.AddSystemToUpdateList(testWorld.CreateSystem(scheduleSystemTypes[i]));
             }
 
             testWorld.EntityManager.CreateEntity(typeof(EcsTestData));

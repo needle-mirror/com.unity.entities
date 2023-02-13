@@ -62,7 +62,9 @@ namespace Unity.Entities.SourceGen.Common
             }
         }
 
-        public static string GetGeneratedSourceFileName(this SyntaxTree syntaxTree, string generatorName)
+        public static string GetGeneratedSourceFileName(this SyntaxTree syntaxTree, string generatorName, SyntaxNode node)
+            => GetGeneratedSourceFileName(syntaxTree, generatorName, node.GetLocation().GetLineSpan().StartLinePosition.Line);
+        public static string GetGeneratedSourceFileName(this SyntaxTree syntaxTree, string generatorName, int salting = 0)
         {
             var (isSuccess, fileName) = TryGetFileNameWithoutExtension(syntaxTree);
             var stableHashCode = SourceGenHelpers.GetStableHashCode(syntaxTree.FilePath) & 0x7fffffff;
@@ -70,25 +72,23 @@ namespace Unity.Entities.SourceGen.Common
             var postfix = generatorName.Length > 0 ? $"__{generatorName}" : String.Empty;
 
             if (isSuccess)
-                fileName = $"{fileName}{postfix}_{stableHashCode}.g.cs";
+                fileName = $"{fileName}{postfix}_{stableHashCode}{salting}.g.cs";
             else
                 fileName = Path.Combine($"{Path.GetRandomFileName()}{postfix}", ".g.cs");
 
             return fileName;
         }
 
-        public static string GetGeneratedSourceFilePath(this SyntaxTree syntaxTree, IAssemblySymbol assembly, string generatorName)
+        public static string GetGeneratedSourceFilePath(this SyntaxTree syntaxTree, string assemblyName, string generatorName)
         {
             var fileName = GetGeneratedSourceFileName(syntaxTree, generatorName);
-
             if (SourceGenHelpers.CanWriteToProjectPath)
             {
-                var saveToDirectory = Path.Combine(SourceGenHelpers.ProjectPath, "Temp", "GeneratedCode", assembly.Name);
+                var saveToDirectory = $"{SourceGenHelpers.ProjectPath}/Temp/GeneratedCode/{assemblyName}/";
                 Directory.CreateDirectory(saveToDirectory);
-                return Path.Combine(saveToDirectory, fileName);
+                return saveToDirectory+fileName;
             }
-            else
-                return Path.Combine("Temp", "GeneratedCode", assembly.Name);
+            return $"Temp/GeneratedCode/{assemblyName}";
         }
 
         static (bool IsSuccess, string FileName) TryGetFileNameWithoutExtension(SyntaxTree syntaxTree)

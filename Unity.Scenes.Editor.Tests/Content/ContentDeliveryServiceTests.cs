@@ -107,8 +107,8 @@ namespace Unity.Entities.Editor.Tests
 
         IEnumerator UpdateService(ContentDeliveryService cds)
         {
-            var update = new ContentDeliverySystem.ContentUpdateContext { cachePath = CachePath, remoteUrlRoot = $"file://{PublishPath}/", initialContentSet = "start" };
-            ContentDeliverySystem.ContentUpdateState updateState = ContentDeliverySystem.ContentUpdateState.None;
+            var update = new ContentDeliveryGlobalState.ContentUpdateContext { cachePath = CachePath, remoteUrlRoot = $"file://{PublishPath}/", initialContentSet = "start" };
+            ContentDeliveryGlobalState.ContentUpdateState updateState = ContentDeliveryGlobalState.ContentUpdateState.None;
             while (!update.Update(cds, ref updateState))
             {
                 cds.Process();

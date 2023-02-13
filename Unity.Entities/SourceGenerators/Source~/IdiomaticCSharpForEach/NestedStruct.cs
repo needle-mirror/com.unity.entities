@@ -29,7 +29,9 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
         {
             public readonly string Setup;
             public readonly string Value;
+
             public bool RequiresSetup => !string.IsNullOrEmpty(Setup);
+            public bool IsEmpty => string.IsNullOrEmpty(Value);
 
             public ArgumentInReturnedType(string value, string setup = null)
             {
@@ -39,7 +41,7 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
         }
 
         internal static IEnumerable<(Field Field, ArgumentInReturnedType ArgumentInReturnedTupleDuringIndexAccess)>
-            ResolvedChunk(IReadOnlyCollection<ReturnedTupleElementDuringEnumeration> elements, bool provideEntityAccess)
+            ResolvedChunk(IReadOnlyCollection<ReturnedTupleElementDuringEnumeration> elements, bool provideEntityAccess, bool performCollectionChecks)
         {
             foreach (var arg in elements)
             {
@@ -50,77 +52,170 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
                 switch (arg.Type)
                 {
                     case QueryType.Aspect:
-                        fieldName = $"{arg.PreferredName}_ResolvedChunk";
+                        fieldName = $"{arg.Name}_ResolvedChunk";
                         fieldDeclaration = $"public {arg.TypeSymbolFullName}.ResolvedChunk {fieldName};";
                         elementInReturnedTuple = $"{fieldName}[index]";
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.TagComponent:
                         fieldName = "";
                         fieldDeclaration = "";
                         elementInReturnedTuple = $"default({arg.TypeSymbolFullName})";
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.ValueTypeComponent:
-                        fieldName = $"{arg.PreferredName}_NativeArray";
-                        fieldDeclaration = $"public Unity.Collections.NativeArray<{arg.TypeSymbolFullName}> {fieldName};";
-                        elementInReturnedTuple = $"{fieldName}[index]";
+                        fieldName = $"{arg.Name}_IntPtr";
+                        fieldDeclaration = $"public global::System.IntPtr {fieldName};";
+                        elementInReturnedTuple = $"Unity.Entities.InternalCompilerInterface.UnsafeGetCopyOfNativeArrayPtrElement<{arg.TypeSymbolFullName}>({fieldName}, index)";
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.RefRW:
-                        fieldName = $"{arg.PreferredName}_NativeArray";
-                        fieldDeclaration = $"public Unity.Collections.NativeArray<{arg.TypeArgumentFullName}> {fieldName};";
-                        elementInReturnedTuple = $"new RefRW<{arg.TypeArgumentFullName}>({fieldName}, index)";
+                    case QueryType.RefRW_TagComponent:
+                        string typeHandleName = $"{arg.Name}_TypeHandle";
+
+                        if (performCollectionChecks)
+                        {
+                            fieldName = typeHandleName;
+                            fieldDeclaration = $"public Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
+
+                            yield return
+                            (
+                                new Field(fieldDeclaration, fieldName),
+                                new ArgumentInReturnedType(default)
+                            );
+                        }
+
+                        fieldName = $"{arg.Name}_IntPtr";
+                        fieldDeclaration = $"public global::System.IntPtr {fieldName};";
+                        elementInReturnedTuple =
+                            performCollectionChecks
+                                ? $"Unity.Entities.InternalCompilerInterface.UnsafeGetUncheckedRefRW<{arg.TypeArgumentFullName}>({fieldName}, index, ref {typeHandleName})"
+                                : $"Unity.Entities.InternalCompilerInterface.UnsafeGetUncheckedRefRW<{arg.TypeArgumentFullName}>({fieldName}, index)" ;
+
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.EnabledRefRW:
-                        fieldName = $"{arg.PreferredName}_EnabledMask";
+                        fieldName = $"{arg.Name}_EnabledMask";
                         fieldDeclaration = $"public Unity.Entities.EnabledMask {fieldName};";
                         elementInReturnedTuple = $"{fieldName}.GetEnabledRefRW<{arg.TypeArgumentFullName}>(index)";
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.RefRO:
-                        fieldName = $"{arg.PreferredName}_NativeArray";
-                        fieldDeclaration = $"public Unity.Collections.NativeArray<{arg.TypeArgumentFullName}> {fieldName};";
-                        elementInReturnedTuple = $"new RefRO<{arg.TypeArgumentFullName}>({fieldName}, index)";
+                    case QueryType.RefRO_TagComponent:
+                        string typeHandleName_= $"{arg.Name}_TypeHandle";
+
+                        if (performCollectionChecks)
+                        {
+                            fieldName = typeHandleName_;
+                            fieldDeclaration = $"[Unity.Collections.ReadOnly] public Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
+
+                            yield return
+                            (
+                                new Field(fieldDeclaration, fieldName),
+                                new ArgumentInReturnedType(default)
+                            );
+                        }
+
+                        fieldName = $"{arg.Name}_IntPtr";
+                        fieldDeclaration = $"public global::System.IntPtr {fieldName};";
+                        elementInReturnedTuple =
+                            performCollectionChecks
+                                ? $"Unity.Entities.InternalCompilerInterface.UnsafeGetUncheckedRefRO<{arg.TypeArgumentFullName}>({fieldName}, index, ref {typeHandleName_})"
+                                : $"Unity.Entities.InternalCompilerInterface.UnsafeGetUncheckedRefRO<{arg.TypeArgumentFullName}>({fieldName}, index)";
+
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.EnabledRefRO:
-                        fieldName = $"{arg.PreferredName}_EnabledMask";
+                        fieldName = $"{arg.Name}_EnabledMask";
                         fieldDeclaration = $"public Unity.Entities.EnabledMask {fieldName};";
                         elementInReturnedTuple = $"{fieldName}.GetEnabledRefRO<{arg.TypeArgumentFullName}>(index)";
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.UnmanagedSharedComponent:
                     case QueryType.ManagedSharedComponent:
-                        fieldName = $"{arg.PreferredName}";
+                        fieldName = $"{arg.Name}";
                         fieldDeclaration = $"public {arg.TypeSymbolFullName} {fieldName};";
                         elementInReturnedTuple = fieldName;
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.DynamicBuffer:
-                        fieldName = $"{arg.PreferredName}_BufferAccessor";
+                        fieldName = $"{arg.Name}_BufferAccessor";
                         fieldDeclaration = $"public Unity.Entities.BufferAccessor<{arg.TypeArgumentFullName}> {fieldName};";
                         elementInReturnedTuple = $"{fieldName}[index]";
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.UnityEngineComponent:
-                        fieldName = $"{arg.PreferredName}_ManagedComponentAccessor";
+                        fieldName = $"{arg.Name}_ManagedComponentAccessor";
                         fieldDeclaration = $"public Unity.Entities.ManagedComponentAccessor<{arg.TypeArgumentFullName}> {fieldName};";
                         elementInReturnedTuple = $"new Unity.Entities.SystemAPI.ManagedAPI.UnityEngineComponent<{arg.TypeArgumentFullName}>({fieldName}[index])";
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     case QueryType.ManagedComponent:
-                        fieldName = $"{arg.PreferredName}_ManagedComponentAccessor";
+                        fieldName = $"{arg.Name}_ManagedComponentAccessor";
                         fieldDeclaration = $"public Unity.Entities.ManagedComponentAccessor<{arg.TypeSymbolFullName}> {fieldName};";
                         elementInReturnedTuple = $"{fieldName}[index]";
+                        yield return
+                        (
+                            new Field(fieldDeclaration, fieldName),
+                            new ArgumentInReturnedType(elementInReturnedTuple)
+                        );
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
-                yield return (new Field(fieldDeclaration, fieldName), new ArgumentInReturnedType(elementInReturnedTuple));
             }
 
             if (provideEntityAccess)
                 yield return
                     (
-                        new Field("public Unity.Collections.NativeArray<Unity.Entities.Entity> Entity_NativeArray;", "Entity_NativeArray"),
-                        new ArgumentInReturnedType("Entity_NativeArray[index]")
+                        new Field("public global::System.IntPtr Entity_IntPtr;", "Entity_IntPtr"),
+                        new ArgumentInReturnedType("Unity.Entities.InternalCompilerInterface.UnsafeGetCopyOfNativeArrayPtrElement<Unity.Entities.Entity>(Entity_IntPtr, index)")
                     );
         }
 
         public static IEnumerable<(Field Field, ArgumentInReturnedType ArgumentWhenInitializingResolvedChunk)>
-            TypeHandle(IReadOnlyCollection<ReturnedTupleElementDuringEnumeration> elements, bool provideEntityAccess)
+            TypeHandle(IReadOnlyCollection<ReturnedTupleElementDuringEnumeration> elements, bool provideEntityAccess,
+                bool performsCollectionChecks)
         {
             foreach (var arg in elements)
             {
@@ -130,101 +225,272 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
                 string resolvedChunkInitializerArgument;
                 string initializerArgumentSetUp = default;
 
+                Field field;
+
                 switch (arg.Type)
                 {
                     case QueryType.Aspect:
-                        fieldName = $"{arg.PreferredName}_AspectTypeHandle";
+                        fieldName = $"{arg.Name}_AspectTypeHandle";
                         fieldDeclaration = $"{arg.TypeSymbolFullName}.TypeHandle {fieldName};";
                         fieldAssignment = $"{fieldName} = new {arg.TypeSymbolFullName}.TypeHandle(ref systemState, isReadOnly);";
                         resolvedChunkInitializerArgument = $"{fieldName}.Resolve(archetypeChunk);";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     case QueryType.TagComponent:
                         fieldName = "";
                         fieldDeclaration = "";
                         fieldAssignment = "";
                         resolvedChunkInitializerArgument = "";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
+                        break;
+                    case QueryType.RefRO_TagComponent:
+                        fieldName = $"{arg.Name}_ComponentTypeHandle_RO";
+                        fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
+                        fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: true);";
+
+                        field = new Field(fieldDeclaration, fieldName, fieldAssignment);
+
+                        if (performsCollectionChecks)
+                        {
+                            resolvedChunkInitializerArgument = $"{fieldName};";
+                            yield return
+                            (
+                                field,
+                                new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                            );
+                        }
+
+                        resolvedChunkInitializerArgument =
+                            $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
+
+                        yield return
+                        (
+                            field,
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
+                        break;
+                    case QueryType.RefRW_TagComponent:
+                        fieldName = $"{arg.Name}_ComponentTypeHandle_RW";
+                        fieldDeclaration = $"Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
+                        fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly);";
+
+                        field = new Field(fieldDeclaration, fieldName, fieldAssignment);
+
+                        if (performsCollectionChecks)
+                        {
+                            resolvedChunkInitializerArgument = $"{fieldName};";
+                            yield return
+                            (
+                                field,
+                                new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                            );
+                        }
+
+                        resolvedChunkInitializerArgument =
+                            $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
+
+                        yield return
+                        (
+                            field,
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     case QueryType.ValueTypeComponent:
-                        fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RO";
+                        fieldName = $"{arg.Name}_ComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeSymbolFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeSymbolFullName}>(isReadOnly: true);";
-                        resolvedChunkInitializerArgument = $"archetypeChunk.GetNativeArray(ref {fieldName});";
+                        resolvedChunkInitializerArgument = $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<{arg.TypeSymbolFullName}>(archetypeChunk, ref {fieldName});";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     case QueryType.RefRW:
-                        fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RW";
+                        fieldName = $"{arg.Name}_ComponentTypeHandle_RW";
                         fieldDeclaration = $"Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly);";
-                        resolvedChunkInitializerArgument = $"archetypeChunk.GetNativeArray(ref {fieldName});";
+
+                        field = new Field(fieldDeclaration, fieldName, fieldAssignment);
+                        if (performsCollectionChecks)
+                        {
+                            resolvedChunkInitializerArgument = $"{fieldName};";
+                            yield return
+                            (
+                                field,
+                                new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                            );
+                        }
+
+                        resolvedChunkInitializerArgument =
+                            $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
+
+                        yield return
+                        (
+                            field,
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     case QueryType.EnabledRefRW:
-                        fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RW";
+                        fieldName = $"{arg.Name}_ComponentTypeHandle_RW";
                         fieldDeclaration = $"Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly);";
                         resolvedChunkInitializerArgument = $"archetypeChunk.GetEnabledMask(ref {fieldName});";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     case QueryType.RefRO:
-                        fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RO";
+                        fieldName = $"{arg.Name}_ComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: true);";
-                        resolvedChunkInitializerArgument = $"archetypeChunk.GetNativeArray(ref {fieldName});";
+
+                        field = new Field(fieldDeclaration, fieldName, fieldAssignment);
+
+                        if (performsCollectionChecks)
+                        {
+                            resolvedChunkInitializerArgument = $"{fieldName};";
+                            yield return
+                            (
+                                field,
+                                new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                            );
+                        }
+
+                        resolvedChunkInitializerArgument =
+                            $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
+
+                        yield return
+                        (
+                            field,
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     case QueryType.EnabledRefRO:
-                        fieldName = $"{arg.PreferredName}_ComponentTypeHandle_RO";
+                        fieldName = $"{arg.Name}_ComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: true);";
                         resolvedChunkInitializerArgument = $"archetypeChunk.GetEnabledMask(ref {fieldName});";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     case QueryType.UnmanagedSharedComponent:
-                        fieldName = $"{arg.PreferredName}_SharedComponentTypeHandle_RO";
+                        fieldName = $"{arg.Name}_SharedComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.SharedComponentTypeHandle<{arg.TypeSymbolFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetSharedComponentTypeHandle<{arg.TypeSymbolFullName}>();";
-                        resolvedChunkInitializerArgument = $"{arg.PreferredName};";
-                        initializerArgumentSetUp = $"var {arg.PreferredName} = archetypeChunk.GetSharedComponent({fieldName}, _entityManager);";
+                        resolvedChunkInitializerArgument = $"{arg.Name};";
+                        initializerArgumentSetUp = $"var {arg.Name} = archetypeChunk.GetSharedComponent({fieldName}, _entityManager);";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment,
+                                dependsOnEntityManagerField: true),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument, initializerArgumentSetUp)
+                        );
                         break;
                     case QueryType.ManagedSharedComponent:
-                        fieldName = $"{arg.PreferredName}_SharedComponentTypeHandle_RO";
+                        fieldName = $"{arg.Name}_SharedComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.SharedComponentTypeHandle<{arg.TypeSymbolFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetSharedComponentTypeHandle<{arg.TypeSymbolFullName}>();";
-                        resolvedChunkInitializerArgument = $"{arg.PreferredName};";
-                        initializerArgumentSetUp = $"var {arg.PreferredName} = archetypeChunk.GetSharedComponentManaged({fieldName}, _entityManager);";
+                        resolvedChunkInitializerArgument = $"{arg.Name};";
+                        initializerArgumentSetUp = $"var {arg.Name} = archetypeChunk.GetSharedComponentManaged({fieldName}, _entityManager);";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment,
+                                dependsOnEntityManagerField: true),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument, initializerArgumentSetUp)
+                        );
                         break;
                     case QueryType.UnityEngineComponent:
-                        fieldName = $"{arg.PreferredName}_ManagedComponentTypeHandle_RO";
+                        fieldName = $"{arg.Name}_ManagedComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.EntityManager.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(true);";
                         resolvedChunkInitializerArgument = $"archetypeChunk.GetManagedComponentAccessor(ref {fieldName}, _entityManager);";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment,
+                                dependsOnEntityManagerField: true),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     case QueryType.ManagedComponent:
-                        fieldName = $"{arg.PreferredName}_ManagedComponentTypeHandle_RO";
+                        fieldName = $"{arg.Name}_ManagedComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeSymbolFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.EntityManager.GetComponentTypeHandle<{arg.TypeSymbolFullName}>(true);";
                         resolvedChunkInitializerArgument = $"archetypeChunk.GetManagedComponentAccessor(ref {fieldName}, _entityManager);";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment,
+                                dependsOnEntityManagerField: true),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     case QueryType.DynamicBuffer:
-                        fieldName = $"{arg.PreferredName}_BufferTypeHandle_RW";
+                        fieldName = $"{arg.Name}_BufferTypeHandle_RW";
                         fieldDeclaration = $"Unity.Entities.BufferTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetBufferTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly);";
                         resolvedChunkInitializerArgument = $"archetypeChunk.GetBufferAccessor(ref {fieldName});";
+
+                        yield return
+                        (
+                            new Field(
+                                fieldDeclaration,
+                                fieldName,
+                                fieldAssignment),
+                            new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                        );
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
-
-                var nestedStructField =
-                    new Field(
-                        fieldDeclaration,
-                        fieldName,
-                        fieldAssignment,
-                        dependsOnEntityManagerField: arg.Type == QueryType.ManagedSharedComponent
-                                                     || arg.Type == QueryType.UnmanagedSharedComponent
-                                                     || arg.Type == QueryType.ManagedComponent
-                                                     || arg.Type == QueryType.UnityEngineComponent);
-
-                yield return
-                (
-                    nestedStructField,
-                    new ArgumentInReturnedType(resolvedChunkInitializerArgument, initializerArgumentSetUp)
-                );
             }
 
             if (provideEntityAccess)
@@ -234,7 +500,7 @@ namespace Unity.Entities.SourceGen.IdiomaticCSharpForEach
                         "Unity.Entities.EntityTypeHandle Entity_TypeHandle;",
                         "Entity_TypeHandle",
                         "Entity_TypeHandle = systemState.GetEntityTypeHandle();");
-                yield return (entityField, new ArgumentInReturnedType("archetypeChunk.GetNativeArray(Entity_TypeHandle);"));
+                yield return (entityField, new ArgumentInReturnedType("Unity.Entities.InternalCompilerInterface.UnsafeGetChunkEntityArrayIntPtr(archetypeChunk, Entity_TypeHandle);"));
             }
         }
 

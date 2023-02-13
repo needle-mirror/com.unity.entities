@@ -221,10 +221,6 @@ namespace Unity.Entities.Tests
                 m_Query = state.GetEntityQuery(typeof(EcsTestData));
             }
 
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
             public void OnUpdate(ref SystemState state)
             {
                 using (var chunks = m_Query.ToArchetypeChunkArray(Allocator.Temp))

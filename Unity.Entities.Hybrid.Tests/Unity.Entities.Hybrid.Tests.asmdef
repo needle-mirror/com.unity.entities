@@ -20,7 +20,8 @@
         "Unity.Scenes.Editor",
         "Unity.Entities.Hybrid.Tests.SeparateAssembly",
         "Unity.Entities.Build.Editor",
-        "Unity.Entities.Build"
+        "Unity.Entities.Build",
+        "Unity.Entities.Hybrid.Tests.ExcludedAssembly"
     ],
     "includePlatforms": [
         "Editor"

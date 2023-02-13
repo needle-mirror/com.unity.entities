@@ -16,7 +16,7 @@ namespace Unity.Entities
     }
 
     /// <summary>
-    /// A NativeContainer that provides access to all instances of DynamicBuffer components with elements of type T,
+    /// A [NativeContainer] that provides access to all instances of DynamicBuffer components with elements of type T,
     /// indexed by <see cref="Entity"/>.
     /// </summary>
     /// <typeparam name="T">The type of <see cref="IBufferElementData"/> to access.</typeparam>
@@ -34,6 +34,7 @@ namespace Unity.Entities
     /// by adding [NativeDisableParallelForRestrictionAttribute] to the BufferLookup field definition in the job struct.
     ///
     ///
+    /// [NativeContainer]: https://docs.unity3d.com/ScriptReference/Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute
     /// [NativeDisableParallelForRestrictionAttribute]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeDisableParallelForRestrictionAttribute.html
     /// </remarks>
     [NativeContainer]
@@ -48,11 +49,11 @@ namespace Unity.Entities
 
 #endif
         [NativeDisableUnsafePtrRestriction] private readonly EntityDataAccess* m_Access;
+        LookupCache m_Cache;
         private readonly TypeIndex m_TypeIndex;
 
         uint m_GlobalSystemVersion;
         int m_InternalCapacity;
-        LookupCache m_Cache;
         private readonly byte  m_IsReadOnly;
 
         internal uint GlobalSystemVersion => m_GlobalSystemVersion;
@@ -73,8 +74,11 @@ namespace Unity.Entities
             m_GlobalSystemVersion = access->EntityComponentStore->GlobalSystemVersion;
 
             if (!TypeManager.IsBuffer(m_TypeIndex))
+            {
+                var typeName = m_TypeIndex.ToFixedString();
                 throw new ArgumentException(
-                    $"GetComponentBufferArray<{typeof(T)}> must be IBufferElementData");
+                    $"GetComponentBufferArray<{typeName}> must be IBufferElementData");
+            }
 
             m_InternalCapacity = TypeManager.GetTypeInfo<T>().BufferCapacity;
         }
@@ -99,9 +103,6 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// /// <param name="bufferData">The buffer component of type T for the given entity, if it exists.</param>
         /// <returns>True if the entity has a buffer component of type T, and false if it does not.</returns>
-        /// <remarks>To report if the provided entity has a buffer component of type T, this function confirms
-        /// whether the <see cref="EntityArchetype"/> of the provided entity includes buffer components of type T.
-        /// </remarks>
         public bool TryGetBuffer(Entity entity, out DynamicBuffer<T> bufferData)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -141,16 +142,13 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// <returns>True if the entity has a buffer component of type T, and false if it does not. Also returns false if
         /// the Entity instance refers to an entity that has been destroyed.</returns>
-        /// <remarks>To report if the provided entity has a buffer component of type T, this function confirms
-        /// whether the <see cref="EntityArchetype"/> of the provided entity includes buffer components of type T.
-        /// </remarks>
         public bool HasBuffer(Entity entity)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            return ecs->HasComponent(entity, m_TypeIndex);
+            return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
         }
         /// <summary> Obsolete. Use <see cref="HasBuffer(Unity.Entities.Entity)"/> instead.</summary>
         /// <param name="entity">The entity.</param>
@@ -180,8 +178,10 @@ namespace Unity.Entities
         {
             var ecs = m_Access->EntityComponentStore;
             var chunk = ecs->GetChunk(entity);
-
-            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, m_TypeIndex);
+            var archetype = chunk->Archetype;
+            if (Hint.Unlikely(archetype != m_Cache.Archetype))
+                m_Cache.Update(archetype, m_TypeIndex);
+            var typeIndexInArchetype = m_Cache.IndexInArchetype;
             if (typeIndexInArchetype == -1) return false;
             var chunkVersion = chunk->GetChangeVersion(typeIndexInArchetype);
 
@@ -215,7 +215,7 @@ namespace Unity.Entities
                 AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
 #endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                ecs->AssertEntityHasComponent(entity, m_TypeIndex);
+                ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
 #endif
 
                 var header = (m_IsReadOnly != 0)?
@@ -246,7 +246,7 @@ namespace Unity.Entities
             // The native array performs the actual read only / write only checks
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
 #endif
-            return m_Access->IsComponentEnabled(entity, m_TypeIndex);
+            return m_Access->IsComponentEnabled(entity, m_TypeIndex, ref m_Cache);
         }
 
         /// <summary>Obsolete. Use <see cref="IsBufferEnabled"/> instead.</summary>
@@ -294,7 +294,7 @@ namespace Unity.Entities
             // The native array performs the actual read only / write only checks
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
 #endif
-            m_Access->SetComponentEnabled(entity, m_TypeIndex, value);
+            m_Access->SetComponentEnabled(entity, m_TypeIndex, value, ref m_Cache);
         }
 
         /// <summary>

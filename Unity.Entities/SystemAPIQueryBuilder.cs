@@ -9,6 +9,192 @@ namespace Unity.Entities
     public struct SystemAPIQueryBuilder
     {
         /// <summary>
+        /// Add an absent [Chunk Component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to exclude any entities that have the specified chunk component.
+        /// Chunk components are a distinct component type, which are different from excluding the same type as a
+        /// standard component.
+        ///
+        /// To add additional excluded Chunk Components, call this method multiple times.
+        /// </remarks>
+        /// <typeparam name="T1">Component type to use as an absent Chunk Component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithAbsentChunkComponent<T1>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must NOT be present.
+        /// </summary>
+        /// <typeparam name="T1">Absent component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithAbsent<T1>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must NOT be present.
+        /// </summary>
+        /// <typeparam name="T1">Absent component</typeparam>
+        /// <typeparam name="T2">Absent component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithAbsent<T1, T2>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must NOT be present.
+        /// </summary>
+        /// <typeparam name="T1">Absent component</typeparam>
+        /// <typeparam name="T2">Absent component</typeparam>
+        /// <typeparam name="T3">Absent component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithAbsent<T1, T2, T3>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must NOT be present.
+        /// </summary>
+        /// <typeparam name="T1">Absent component</typeparam>
+        /// <typeparam name="T2">Absent component</typeparam>
+        /// <typeparam name="T3">Absent component</typeparam>
+        /// <typeparam name="T4">Absent component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithAbsent<T1, T2, T3, T4>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must NOT be present.
+        /// </summary>
+        /// <typeparam name="T1">Absent component</typeparam>
+        /// <typeparam name="T2">Absent component</typeparam>
+        /// <typeparam name="T3">Absent component</typeparam>
+        /// <typeparam name="T4">Absent component</typeparam>
+        /// <typeparam name="T5">Absent component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithAbsent<T1, T2, T3, T4, T5>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must NOT be present.
+        /// </summary>
+        /// <typeparam name="T1">Absent component</typeparam>
+        /// <typeparam name="T2">Absent component</typeparam>
+        /// <typeparam name="T3">Absent component</typeparam>
+        /// <typeparam name="T4">Absent component</typeparam>
+        /// <typeparam name="T5">Absent component</typeparam>
+        /// <typeparam name="T6">Absent component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithAbsent<T1, T2, T3, T4, T5, T6>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must NOT be present.
+        /// </summary>
+        /// <typeparam name="T1">Absent component</typeparam>
+        /// <typeparam name="T2">Absent component</typeparam>
+        /// <typeparam name="T3">Absent component</typeparam>
+        /// <typeparam name="T4">Absent component</typeparam>
+        /// <typeparam name="T5">Absent component</typeparam>
+        /// <typeparam name="T6">Absent component</typeparam>
+        /// <typeparam name="T7">Absent component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithAbsent<T1, T2, T3, T4, T5, T6, T7>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only DISABLED component types that must be present.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory disabled component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithDisabled<T1>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only DISABLED component types that must be present.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory disabled component</typeparam>
+        /// <typeparam name="T2">Mandatory disabled component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithDisabled<T1, T2>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only DISABLED component types that must be present.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory disabled component</typeparam>
+        /// <typeparam name="T2">Mandatory disabled component</typeparam>
+        /// <typeparam name="T3">Mandatory disabled component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithDisabled<T1, T2, T3>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only DISABLED component types that must be present.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory disabled component</typeparam>
+        /// <typeparam name="T2">Mandatory disabled component</typeparam>
+        /// <typeparam name="T3">Mandatory disabled component</typeparam>
+        /// <typeparam name="T4">Mandatory disabled component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithDisabled<T1, T2, T3, T4>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only DISABLED component types that must be present.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory disabled component</typeparam>
+        /// <typeparam name="T2">Mandatory disabled component</typeparam>
+        /// <typeparam name="T3">Mandatory disabled component</typeparam>
+        /// <typeparam name="T4">Mandatory disabled component</typeparam>
+        /// <typeparam name="T5">Mandatory disabled component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithDisabled<T1, T2, T3, T4, T5>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only DISABLED component types that must be present.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory disabled component</typeparam>
+        /// <typeparam name="T2">Mandatory disabled component</typeparam>
+        /// <typeparam name="T3">Mandatory disabled component</typeparam>
+        /// <typeparam name="T4">Mandatory disabled component</typeparam>
+        /// <typeparam name="T5">Mandatory disabled component</typeparam>
+        /// <typeparam name="T6">Mandatory disabled component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithDisabled<T1, T2, T3, T4, T5, T6>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only DISABLED component types that must be present.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory disabled component</typeparam>
+        /// <typeparam name="T2">Mandatory disabled component</typeparam>
+        /// <typeparam name="T3">Mandatory disabled component</typeparam>
+        /// <typeparam name="T4">Mandatory disabled component</typeparam>
+        /// <typeparam name="T5">Mandatory disabled component</typeparam>
+        /// <typeparam name="T6">Mandatory disabled component</typeparam>
+        /// <typeparam name="T7">Mandatory disabled component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithDisabled<T1, T2, T3, T4, T5, T6, T7>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all DISABLED component types (with write access) that must be present.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory disabled component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithDisabledRW<T1>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all DISABLED component types (with write access) that must be present.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory disabled component</typeparam>
+        /// <typeparam name="T2">Mandatory disabled component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithDisabledRW<T1, T2>() => throw ThrowNotBuildException();
+
+        /// <summary>
         /// Specify all read-only component types that must be present.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
@@ -352,6 +538,23 @@ namespace Unity.Entities
         /// <typeparam name="T">Component type to use as an excluded Chunk Component</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
         public SystemAPIQueryBuilder WithNoneChunkComponent<T>() => throw ThrowNotBuildException();
+
+
+        /// <summary>
+        /// Add component type requirement for a given aspect.
+        /// </summary>
+        /// <typeparam name="TAspect">The aspect to add to the query</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        public SystemAPIQueryBuilder WithAspect<TAspect>()
+            where TAspect : struct, IAspect, IAspectCreate<TAspect> => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Add component type requirement for a given aspect with forced read-only access.
+        /// </summary>
+        /// <typeparam name="TAspect">The aspect to add to the query</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        public SystemAPIQueryBuilder WithAspectRO<TAspect>()
+            where TAspect : struct, IAspect, IAspectCreate<TAspect> => throw ThrowNotBuildException();
 
         /// <summary>
         /// Specify your own `EntityQueryOptions`.

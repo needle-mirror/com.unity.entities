@@ -148,7 +148,7 @@ namespace Unity.Entities.Content
         {
             var id = new RemoteContentId(originalPath);
             var status = ProcessDownload(id);
-            ContentDeliverySystem.LogFunc?.Invoke($"RemapContentPath id [{id.Name},{id.Hash}] with relative path {originalPath}, new path ={status.DownloadStatus.LocalPath}");
+            ContentDeliveryGlobalState.LogFunc?.Invoke($"RemapContentPath id [{id.Name},{id.Hash}] with relative path {originalPath}, new path ={status.DownloadStatus.LocalPath}");
 
             if (status.State != DeliveryState.ContentDownloaded)
                 return originalPath;
@@ -176,7 +176,7 @@ namespace Unity.Entities.Content
             while (!downloadServices.TryAdd(service.Priority, service))
                 service.Priority++;
             service.OnAddedToDeliveryService(this);
-            ContentDeliverySystem.LogFunc?.Invoke($"Added download service {service.Name}");
+            ContentDeliveryGlobalState.LogFunc?.Invoke($"Added download service {service.Name}");
         }
 
         ContentDownloadService GetDownloadServiceForLocation(in RemoteContentLocation location)
@@ -206,7 +206,7 @@ namespace Unity.Entities.Content
             while (!locationServices.TryAdd(service.Priority, service))
                 service.Priority++;
             service.OnAddedToDeliveryService(this);
-            ContentDeliverySystem.LogFunc?.Invoke($"Added location service {service.Name}");
+            ContentDeliveryGlobalState.LogFunc?.Invoke($"Added location service {service.Name}");
         }
 
         /// <summary>
@@ -216,7 +216,7 @@ namespace Unity.Entities.Content
         /// <param name="totalBytes">The total number of bytes of the data.</param>
         /// <param name="cachedBytes">The total number of bytes already cached by the download service.</param>
         /// <param name="uncachedBytes">The total number of bytes not cached by the download service.</param>
-        /// <returns>Returns true if the computation was successful.</returns>
+        /// <returns>Returns true if successful.</returns>
         public bool AccumulateContentSize(ref int entryCount, ref long totalBytes, ref long cachedBytes, ref long uncachedBytes)
         {
             var locations = new NativeHashSet<RemoteContentLocation>(32, Allocator.Temp);
@@ -317,7 +317,7 @@ namespace Unity.Entities.Content
                     {
                         if (!validPaths.Contains(file))
                         {
-                            ContentDeliverySystem.LogFunc?.Invoke($"Deleting file {file} from cache");
+                            ContentDeliveryGlobalState.LogFunc?.Invoke($"Deleting file {file} from cache");
                             File.Delete(file);
                             var dir = Path.GetDirectoryName(file);
                             if (Directory.GetFiles(dir).Length == 0)
@@ -326,7 +326,7 @@ namespace Unity.Entities.Content
                         }
                     }
                 }
-                ContentDeliverySystem.LogFunc?.Invoke($"Cleaned cache, {deletedFileCount} files deleted.");
+                ContentDeliveryGlobalState.LogFunc?.Invoke($"Cleaned cache, {deletedFileCount} files deleted.");
             }
             catch (Exception e)
             {
@@ -476,7 +476,7 @@ namespace Unity.Entities.Content
         /// <returns>False if the id is not known. True otherwise.</returns>
         public bool CancelDelivery(in RemoteContentId id)
         {
-            ContentDeliverySystem.LogFunc?.Invoke($"Cancelling content delivery for {id}.");
+            ContentDeliveryGlobalState.LogFunc?.Invoke($"Cancelling content delivery for {id}.");
 
             var status = GetDeliveryStatus(id);
             if (status.State == DeliveryState.None)
@@ -497,7 +497,7 @@ namespace Unity.Entities.Content
         /// <param name="id">The remote content id for the content.</param>
         public void DeliverContent(in RemoteContentId id)
         {
-            ContentDeliverySystem.LogFunc?.Invoke($"Delivering content for {id}.");
+            ContentDeliveryGlobalState.LogFunc?.Invoke($"Delivering content for {id}.");
 
             if (downloadStates.TryGetValue(id, out var status))
             {
@@ -518,7 +518,7 @@ namespace Unity.Entities.Content
         /// <returns>The remote id for the content set.  This can be used to check the download status.</returns>
         unsafe public RemoteContentId DeliverContent(in FixedString512Bytes setName)
         {
-            ContentDeliverySystem.LogFunc?.Invoke($"Delivering content set for {setName}.");
+            ContentDeliveryGlobalState.LogFunc?.Invoke($"Delivering content set for {setName}.");
             foreach (var ls in locationServices)
             {
                 if (ls.Value.TryGetLocationSet(setName, out var idPtr, out var count))

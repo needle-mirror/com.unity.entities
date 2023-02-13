@@ -71,14 +71,6 @@ internal class ExampleWordUpdateAllocator
     // Access world update allocator through SystemState.WorldUpdateAllocator.
     unsafe partial struct AllocateNativeArrayISystem : ISystem
     {
-        public void OnCreate(ref SystemState state)
-        {
-        }
-
-        public void OnDestroy(ref SystemState state)
-        {
-        }
-
         public void OnUpdate(ref SystemState state)
         {
             // Get world update allocator through SystemState.WorldUpdateAllocator.

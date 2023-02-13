@@ -121,9 +121,12 @@ namespace Unity.Entities.Tests
 
         void CheckPrefabAndDisabledQueryOptions(EntityQueryOptions options, int expected)
         {
-            var group = m_Manager.CreateEntityQuery(new EntityQueryDesc { All = new[] {ComponentType.ReadWrite<EcsTestData>()}, Options = options });
-            Assert.AreEqual(expected, group.CalculateEntityCount());
-            group.Dispose();
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestData>()
+                .WithOptions(options)
+                .Build(m_Manager);
+            Assert.AreEqual(expected, query.CalculateEntityCount());
+            query.Dispose();
         }
     }
 }

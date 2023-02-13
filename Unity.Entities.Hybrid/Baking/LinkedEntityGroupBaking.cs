@@ -9,7 +9,7 @@ namespace Unity.Entities.Hybrid.Baking
     [RequireMatchingQueriesForUpdate]
     internal partial class LinkedEntityGroupBaking : SystemBase
     {
-        private EntityQuery _AdditionalEntityquery;
+        private EntityQuery _AdditionalEntityQuery;
         private EntityQuery _LinkedEntityGroupBakingDataQuery;
         private EntityQuery _NoBakeOnlyQuery;
         private EntityQueryMask _HasAdditionalEntityMask;
@@ -17,31 +17,24 @@ namespace Unity.Entities.Hybrid.Baking
 
         protected override void OnCreate()
         {
-            EntityQueryDesc desc = new EntityQueryDesc()
-            {
-                All = new[] {ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<AdditionalEntitiesBakingData>())},
-                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-            };
-
-            EntityQueryDesc descNoBakingOnly = new EntityQueryDesc()
-            {
-                None = new[] {ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<BakingOnlyEntity>())},
-                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-            };
+            _AdditionalEntityQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AdditionalEntitiesBakingData>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                .Build(this);
+            Assert.IsFalse(_AdditionalEntityQuery.HasFilter(), "The use of EntityQueryMask in this job will not respect the query's active filter settings.");
+            _HasAdditionalEntityMask = _AdditionalEntityQuery.GetEntityQueryMask();
 
             // Only add LinkedEntityGroups to Entities that are not marked BakingOnlyEntity
-            EntityQueryDesc legTempDesc = new EntityQueryDesc()
-            {
-                All = new[] {ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<LinkedEntityGroupBakingData>())},
-                None = new[] {ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<BakingOnlyEntity>())},
-                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-            };
+            _LinkedEntityGroupBakingDataQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<LinkedEntityGroupBakingData>()
+                .WithNone<BakingOnlyEntity>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                .Build(this);
 
-            _AdditionalEntityquery = GetEntityQuery(desc);
-            _LinkedEntityGroupBakingDataQuery = GetEntityQuery(legTempDesc);
-            Assert.IsFalse(_LinkedEntityGroupBakingDataQuery.HasFilter(), "The use of EntityQueryMask in this job will not respect the query's active filter settings.");
-            _HasAdditionalEntityMask = _AdditionalEntityquery.GetEntityQueryMask();
-            _NoBakeOnlyQuery = GetEntityQuery(descNoBakingOnly);
+            _NoBakeOnlyQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithNone<BakingOnlyEntity>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                .Build(this);
             Assert.IsFalse(_NoBakeOnlyQuery.HasFilter(), "The use of EntityQueryMask in this job will not respect the query's active filter settings.");
             _NoBakeOnlyMask = _NoBakeOnlyQuery.GetEntityQueryMask();
         }
@@ -51,7 +44,7 @@ namespace Unity.Entities.Hybrid.Baking
             var cmd = new EntityCommandBuffer(Allocator.TempJob);
             var additionalEntityJob = new AddLinkedEntityGroupBakingJob
             {
-                AdditionalEntities = EntityManager.GetBufferLookup<AdditionalEntitiesBakingData>(),
+                AdditionalEntities = EntityManager.GetBufferLookup<AdditionalEntitiesBakingData>(true),
                 LinkedEntityGroupBakingDataHandle = EntityManager.GetBufferTypeHandle<LinkedEntityGroupBakingData>(true),
                 Entities = EntityManager.GetEntityTypeHandle(),
                 Commands = cmd.AsParallelWriter(),
@@ -74,6 +67,7 @@ namespace Unity.Entities.Hybrid.Baking
         public EntityQueryMask                               NoBakeOnlyMask;
         [ReadOnly]
         public BufferLookup<AdditionalEntitiesBakingData>      AdditionalEntities;
+        [ReadOnly]
         public BufferTypeHandle<LinkedEntityGroupBakingData>       LinkedEntityGroupBakingDataHandle;
         public EntityCommandBuffer.ParallelWriter            Commands;
 

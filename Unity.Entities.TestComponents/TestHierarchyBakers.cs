@@ -1,9 +1,35 @@
 using System;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
+    public class GetComponentTransformBaker : Baker<TestComponentAuthoring>
+    {
+        public struct Vector3Element : IComponentData
+        {
+            public static implicit operator float3(Vector3Element e)
+            {
+                return e.Value;
+            }
+
+            public static implicit operator Vector3Element(float3 e)
+            {
+                return new Vector3Element {Value = e};
+            }
+
+            public float3 Value;
+        }
+
+        public override void Bake(TestComponentAuthoring authoring)
+        {
+            var position = GetComponent<Transform>().position;
+
+            AddComponent(new Vector3Element { Value =  position });
+        }
+    }
+
     public class GetParentBaker : Baker<TestComponentAuthoring>
 	{
         public struct IntElement : IBufferElementData

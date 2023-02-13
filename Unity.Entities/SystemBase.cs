@@ -399,42 +399,56 @@ namespace Unity.Entities
 
                 if (Enabled && ShouldRunSystem())
                 {
-                    if (!state->PreviouslyEnabled)
-                    {
-                        state->PreviouslyEnabled = true;
-                        OnStartRunning();
-                    }
+                    ref var world = ref World.Unmanaged.GetImpl();
+                    var previousGlobalState = new WorldUnmanagedImpl.PreviousSystemGlobalState(ref world, state);
 
                     state->BeforeOnUpdate();
 
-                    ref var world = ref World.Unmanaged.GetImpl();
-
-                    var previousGlobalState = new WorldUnmanagedImpl.PreviousSystemGlobalState(ref world, state);
-
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    bool success = false;
+#endif
                     try
                     {
+                        if (!state->PreviouslyEnabled)
+                        {
+                            state->PreviouslyEnabled = true;
+                            OnStartRunning();
+                        }
+
                         OnUpdate();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                        success = true;
+#endif
                     }
-                    catch
+                    finally
                     {
                         state->AfterOnUpdate();
                         previousGlobalState.Restore(ref world, state);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                         // Limit follow up errors if we arrived here due to a job related exception by syncing all jobs
-                        state->m_DependencyManager->Safety.PanicSyncAll();
+                        if (!success)
+                            state->m_DependencyManager->Safety.PanicSyncAll();
 #endif
-
-                        throw;
                     }
-
-                    state->AfterOnUpdate();
-                    previousGlobalState.Restore(ref world, state);
                 }
                 else if (state->PreviouslyEnabled)
                 {
+                    ref var world = ref World.Unmanaged.GetImpl();
+                    var previousGlobalState = new WorldUnmanagedImpl.PreviousSystemGlobalState(ref world, state);
+
                     state->PreviouslyEnabled = false;
-                    OnStopRunningInternal();
+                    state->BeforeOnUpdate();
+
+                    try
+                    {
+                        OnStopRunningInternal();
+                    }
+                    finally
+                    {
+                        state->AfterOnUpdate();
+                        previousGlobalState.Restore(ref world, state);
+                    }
                 }
             }
         }

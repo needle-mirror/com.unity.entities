@@ -5,6 +5,5 @@ This section contains information about best practices when scripting in Entitie
 |**Page**|**Description**|
 |---|---|
 |[Organize your code with aspects](aspects-intro.md)|Use aspects to group together a subset of an entity's components into a single C# struct. |
-|[Blob assets](scripting-blob-assets.md)|Information about blob assets, which are pieces of binary data that are optimized for streaming.|
-|[Loading scenes at runtime](scripting-loading-scenes.md)|Information about how Entities loads scenes.|
+|[Blob assets](blob-assets-intro.md)|Information about blob assets, which are pieces of binary data that are optimized for streaming.|
 |[Transform system](transforms-intro.md)|Information about how transforms work in Entities.|

@@ -74,7 +74,6 @@ namespace Unity.Entities.Tests
                 state.GetComponentTypeHandle<EcsTestData>(false);
             }
 
-            public void OnDestroy(ref SystemState state) { }
             [BurstCompile]
 
             public void OnUpdate(ref SystemState state)
@@ -91,8 +90,6 @@ namespace Unity.Entities.Tests
             {
                 state.GetComponentTypeHandle<EcsTestData>(false);
             }
-            public void OnDestroy(ref SystemState state) { }
-
             [BurstCompile]
 
             public void OnUpdate(ref SystemState state)
@@ -109,9 +106,6 @@ namespace Unity.Entities.Tests
             {
                 state.GetComponentTypeHandle<EcsTestData>(false);
             }
-            public void OnDestroy(ref SystemState state) { }
-
-
             public void OnUpdate(ref SystemState state)
             {
                 state.WorldUnmanaged.GetExistingUnmanagedSystem<MisbehavingISystem>().Update(state.WorldUnmanaged);
@@ -215,8 +209,6 @@ namespace Unity.Entities.Tests
             {
                 lookup = state.GetComponentLookup<EcsTestData>();
             }
-            public void OnDestroy(ref SystemState state) { }
-
             partial struct TestJob : IJobEntity
             {
                 public ComponentLookup<EcsTestData> lookup;

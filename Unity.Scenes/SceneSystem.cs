@@ -27,7 +27,7 @@ namespace Unity.Scenes
     /// <summary>
     /// High level API for loading and unloading scenes
     /// </summary>
-    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.Streaming)]
     [UpdateInGroup(typeof(SceneSystemGroup))]
     [BurstCompile]
     public partial struct SceneSystem : ISystem, ISystemStartStop
@@ -67,6 +67,7 @@ namespace Unity.Scenes
         private EntityQuery _unloadSceneQuery;
         BlobAssetReference<ResourceCatalogData> catalogData;
 
+
 #if UNITY_DOTSRUNTIME
         internal void SetCatalogData(BlobAssetReference<ResourceCatalogData> newCatalogData)
         {
@@ -74,11 +75,13 @@ namespace Unity.Scenes
         }
 #endif
 
+
         static internal string SceneLoadDir =>
 #if UNITY_DOTSRUNTIME
             "Data";
 #else
             Application.streamingAssetsPath;
+
 #endif
 
         /// <summary>
@@ -98,7 +101,7 @@ namespace Unity.Scenes
         /// <param name="state">The entity system state.</param>
         public void OnStopRunning(ref SystemState state)
         {
-        
+
         }
 
 
@@ -108,11 +111,10 @@ namespace Unity.Scenes
         /// <param name="state">The entity system state.</param>
         public void OnCreate(ref SystemState state)
         {
-            _unloadSceneQuery = state.GetEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadWrite<SceneSectionStreamingSystem.StreamingState>()},
-                None = new[] { ComponentType.ReadOnly<SceneEntityReference>() }
-            });
+            _unloadSceneQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<SceneSectionStreamingSystem.StreamingState>()
+                .WithNone<SceneEntityReference>()
+                .Build(ref state);
 
             state.EntityManager.AddComponentData(state.SystemHandle, new SceneSystemData());
         }
@@ -130,14 +132,6 @@ namespace Unity.Scenes
                 }
             }
 #endif
-        }
-
-        /// <summary>
-        /// Callback invoked when the system is destroyed.
-        /// </summary>
-        /// <param name="state">The entity system state.</param>
-        public void OnDestroy(ref SystemState state)
-        {
         }
 
         /// <summary>
@@ -199,6 +193,176 @@ namespace Unity.Scenes
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Contains the streaming state of a loading scene.
+        /// </summary>
+        public enum SceneStreamingState
+        {
+            /// <summary>
+            /// The scene is not loading and is not expected to load. It could be that it has just been fully
+            /// unloaded.
+            /// </summary>
+            Unloaded,
+            /// <summary>
+            /// The scene and section entities are loaded, but the content for the sections is not loaded or expected to load.
+            /// </summary>
+            LoadedSectionEntities,
+            /// <summary>
+            /// The scene still loading.
+            /// </summary>
+            Loading,
+            /// <summary>
+            /// The scene and all the requested sections loaded successfully.
+            /// </summary>
+            LoadedSuccessfully,
+            /// <summary>
+            /// The scene is currently unloading.
+            /// </summary>
+            Unloading,
+
+            /// <summary>
+            /// The scene failed to load the scene header.
+            /// </summary>
+            FailedLoadingSceneHeader,
+            /// <summary>
+            /// The scene finished loading, but at least one the sections failed to load successfully.
+            /// </summary>
+            LoadedWithSectionErrors,
+        }
+
+        /// <summary>
+        /// Check the streaming state of a scene that is being loaded.
+        /// </summary>
+        /// <param name="world">The <see cref="World"/> in which the scene is loaded.</param>
+        /// <param name="entity">The entity with the loading component data.  This is the entity returned by LoadSceneAsync.</param>
+        /// <returns>The streaming state of the loading scene.</returns>
+        public static SceneStreamingState GetSceneStreamingState(WorldUnmanaged world, Entity entity)
+        {
+            // Check if the entity is a Scene entity
+            if (!world.EntityManager.HasComponent<SceneReference>(entity))
+                return SceneStreamingState.Unloaded;
+
+            DynamicBuffer<ResolvedSectionEntity> resolvedSectionEntities;
+
+            // We check if we are loading the header
+            if (world.EntityManager.HasComponent<RequestSceneLoaded>(entity) && !world.EntityManager.HasComponent<ResolvedSectionEntity>(entity) )
+                return SceneStreamingState.Loading;
+
+            resolvedSectionEntities = world.EntityManager.GetBuffer<ResolvedSectionEntity>(entity, true);
+            if (resolvedSectionEntities.Length == 0)
+                return SceneStreamingState.FailedLoadingSceneHeader;
+
+            // We check the state of each section
+            bool anyLoaded = false;
+            bool anyFailed = false;
+            foreach (var s in resolvedSectionEntities)
+            {
+                // If the streaming state is not there yet
+                if (!world.EntityManager.HasComponent<SceneSectionStreamingSystem.StreamingState>(s.SectionEntity))
+                {
+                    // If RequestSceneLoaded is not there, it's not meant to load. We skip that section.
+                    if (!world.EntityManager.HasComponent<RequestSceneLoaded>(s.SectionEntity))
+                        continue; // This section is not loaded
+                    return SceneStreamingState.Loading;
+                }
+
+                var sectionState = world.EntityManager.GetComponentData<SceneSectionStreamingSystem.StreamingState>(s.SectionEntity);
+                switch (sectionState.Status)
+                {
+                    case SceneSectionStreamingSystem.StreamingStatus.Loading:
+                    case SceneSectionStreamingSystem.StreamingStatus.NotYetProcessed:
+                        return SceneStreamingState.Loading;
+                    case SceneSectionStreamingSystem.StreamingStatus.FailedToLoad:
+                        anyFailed = true;
+                        break;
+                    case SceneSectionStreamingSystem.StreamingStatus.Loaded:
+                        anyLoaded = true;
+                        break;
+                }
+            }
+
+            // There was no section requested to load
+            if (!anyLoaded && !anyFailed)
+                return SceneStreamingState.LoadedSectionEntities;
+
+            // We only return the error when all the sections that are requested to load are either loaded or failed to load
+            if (anyFailed)
+                return SceneStreamingState.LoadedWithSectionErrors;
+            return SceneStreamingState.LoadedSuccessfully;
+        }
+
+        /// <summary>
+        /// Contains the streaming state of a loading section.
+        /// </summary>
+        public enum SectionStreamingState
+        {
+            /// <summary>
+            /// The section is not loading and it's not expected to load. It could be that it has just been fully
+            /// unloaded.
+            /// </summary>
+            Unloaded,
+            /// <summary>
+            /// The section is expected to load, but the loading hasn't started yet. It could be waiting for section 0
+            /// to load.
+            /// </summary>
+            LoadRequested,
+            /// <summary>
+            /// The section has been loaded.
+            /// </summary>
+            Loaded,
+            /// <summary>
+            /// The section currently is loading.
+            /// </summary>
+            Loading,
+            /// <summary>
+            /// The section has been marked for unloading but it hasn't been processed yet.
+            /// </summary>
+            UnloadRequested,
+            /// <summary>
+            /// The section failed to load.
+            /// </summary>
+            FailedToLoad,
+        }
+
+        /// <summary>
+        /// Check the streaming state of a section that is being loaded.
+        /// </summary>
+        /// <param name="world">The <see cref="World"/> in which the section is loaded.</param>
+        /// <param name="sectionEntity">The section entity representing the scene section. The section entities can be found in the ResolvedSectionEntity buffer on the scene entity.</param>
+        /// <returns>The streaming state of the loading section.</returns>
+        public static SectionStreamingState GetSectionStreamingState(WorldUnmanaged world, Entity sectionEntity)
+        {
+            bool requestLoad = world.EntityManager.HasComponent<RequestSceneLoaded>(sectionEntity);
+            if (world.EntityManager.HasComponent<SceneSectionStreamingSystem.StreamingState>(sectionEntity))
+            {
+                if (requestLoad)
+                {
+                    var internalStatus = world.EntityManager
+                        .GetComponentData<SceneSectionStreamingSystem.StreamingState>(sectionEntity).Status;
+                    switch (internalStatus)
+                    {
+                        case SceneSectionStreamingSystem.StreamingStatus.Loaded:
+                            return SectionStreamingState.Loaded;
+                        case SceneSectionStreamingSystem.StreamingStatus.NotYetProcessed:
+                            return SectionStreamingState.LoadRequested;
+                        case SceneSectionStreamingSystem.StreamingStatus.Loading:
+                            return SectionStreamingState.Loading;
+                        case SceneSectionStreamingSystem.StreamingStatus.FailedToLoad:
+                            return SectionStreamingState.FailedToLoad;
+                    }
+                }
+                else
+                    // The Section is loaded or loading, but unloading has been requested by deleting the component RequestSceneLoaded
+                    return SectionStreamingState.UnloadRequested;
+            }
+            else if (requestLoad)
+            {
+                // This could happen when the component RequestSceneLoaded has been added, but the systems haven't run yet.
+                return SectionStreamingState.LoadRequested;
+            }
+            return SectionStreamingState.Unloaded;
         }
 
         /// <summary>
@@ -326,24 +490,13 @@ namespace Unity.Scenes
         public enum UnloadParameters
         {
             /// <summary>
-            /// Options for the default unloading behavior.
+            /// Options for the default unloading behavior. Destroys the request scene loaded entity, but preserves the section and scene entities when the unload completes.
             /// </summary>
-            /// <remarks>Destroys the request scene loaded entity, but preserves the section and scene entities when the unload completes.</remarks>
             Default = 0,
             /// <summary>
-            /// Destroys the section proxy entities when unloading the scene.
+            /// In addition, it destroys the scene and sections meta entities when unloading the scene.
             /// </summary>
-            DestroySectionProxyEntities = 1 << 1,
-            /// <summary>
-            /// Destroys the scene proxy entity when unloading the scene.
-            /// </summary>
-            /// <remarks>You can't destroy the scene entity proxy without also destroying the section entity proxies.
-            /// Therefore, when you set this flag, you must also set <see cref="DestroySectionProxyEntities"/>.</remarks>
-            DestroySceneProxyEntity = 1 << 2,
-            /// <summary>
-            /// Retains the request components in the entity that represents the scene load state.
-            /// </summary>
-            DontRemoveRequestSceneLoaded = 1 << 3,
+            DestroyMetaEntities = 1 << 1,
         }
 
         /// <summary>
@@ -351,28 +504,25 @@ namespace Unity.Scenes
         /// </summary>
         /// <param name="world">The world from which to unload the scene.</param>
         /// <param name="sceneEntity">The entity for the scene.</param>
-        /// <param name="unloadParams">Parameters controlling the unload process.  These are ignored for GameObject scenes.</param>
+        /// <param name="unloadParams">Parameters controlling the unload process.</param>
+        /// <remarks>
+        /// By default this function will keep the scene and section meta entities alive and just unload the content for the sections. Keeping these meta entities alive will speed up any potential reloading of the scene.
+        /// Call the function with unloadParams set to UnloadParameters.DestroyMetaEntities to destroy those meta entities and fully unload the scene.
+        /// </remarks>
         public static void UnloadScene(WorldUnmanaged world, Entity sceneEntity, UnloadParameters unloadParams = UnloadParameters.Default)
         {
-            bool removeRequest = (unloadParams & UnloadParameters.DontRemoveRequestSceneLoaded) == 0;
-            bool destroySceneProxyEntity = (unloadParams & UnloadParameters.DestroySceneProxyEntity) != 0;
-            bool destroySectionProxyEntities = (unloadParams & UnloadParameters.DestroySectionProxyEntities) != 0;
-
-            if (destroySceneProxyEntity && !destroySectionProxyEntities)
-                throw new ArgumentException("When unloading a scene it's not possible to destroy the scene entity without also destroying the section entities. Please also add the UnloadParameters.DestroySectionProxyEntities flag");
-
+            bool destroySceneProxyEntity = (unloadParams & UnloadParameters.DestroyMetaEntities) != 0;
             if (world.EntityManager.HasComponent<ResolvedSectionEntity>(sceneEntity))
             {
                 using (var sections = world.EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity).ToNativeArray(Allocator.Temp))
                 {
                     foreach (var section in sections)
                     {
-                        //@TODO: Should this really be in SubSceneStreamingSystem?
                         SceneSectionStreamingSystem.UnloadSectionImmediate(world, section.SectionEntity);
 
-                        if (destroySectionProxyEntities)
+                        if (destroySceneProxyEntity)
                             world.EntityManager.DestroyEntity(section.SectionEntity);
-                        else if (removeRequest)
+                        else
                             world.EntityManager.RemoveComponent<RequestSceneLoaded>(section.SectionEntity);
                     }
                 }
@@ -385,16 +535,56 @@ namespace Unity.Scenes
             }
             else
             {
-                if (destroySectionProxyEntities)
-                {
-                    world.EntityManager.RemoveComponent<ResolvedSectionEntity>(sceneEntity);
-                    world.EntityManager.RemoveComponent<LinkedEntityGroup>(sceneEntity);
-                    world.EntityManager.RemoveComponent<ResolvedSceneHash>(sceneEntity);
-                }
-
-                if (removeRequest)
-                    world.EntityManager.RemoveComponent<RequestSceneLoaded>(sceneEntity);
+                world.EntityManager.RemoveComponent<RequestSceneLoaded>(sceneEntity);
             }
+        }
+
+        internal static void UnloadSceneSectionMetaEntitiesOnly(WorldUnmanaged world, Entity sceneEntity, bool removeRequestSceneLoaded)
+        {
+            // Exit if the scene entity is not valid, we added this check as RemoveComponent with a ComponentTypeSet and an invalid entity throws an error.
+            if (!world.EntityManager.Exists(sceneEntity))
+            {
+                return;
+            }
+
+            if (world.EntityManager.HasComponent<ResolvedSectionEntity>(sceneEntity))
+            {
+                using (var sections = world.EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity).ToNativeArray(Allocator.Temp))
+                {
+                    foreach (var section in sections)
+                    {
+                        SceneSectionStreamingSystem.UnloadSectionImmediate(world, section.SectionEntity);
+                    }
+                    world.EntityManager.DestroyEntity(sections.Reinterpret<Entity>());
+                }
+            }
+
+            var removeComponentSet = new ComponentTypeSet(
+                ComponentType.ReadOnly<ResolvedSectionEntity>(),
+                ComponentType.ReadOnly<LinkedEntityGroup>(),
+                ComponentType.ReadOnly<ResolvedSceneHash>());
+
+            world.EntityManager.RemoveComponent(sceneEntity, removeComponentSet);
+
+            if (removeRequestSceneLoaded)
+                world.EntityManager.RemoveComponent<RequestSceneLoaded>(sceneEntity);
+        }
+
+        /// <summary>
+        /// Unload a SubScene by its weak reference id. This will only unload the first matching scene.
+        /// </summary>
+        /// <param name="world">The <see cref="World"/> in which the scene is loaded.</param>
+        /// <param name="sceneReferenceId">The weak asset reference to the scene.</param>
+        /// <param name="unloadParams">Parameters controlling the unload process.</param>
+        /// <remarks>
+        /// By default this function will keep the scene and section meta entities alive and just unload the content for the sections. Keeping these meta entities alive will speed up any potential reloading of the scene.
+        /// Call the function with unloadParams set to UnloadParameters.DestroyMetaEntities to destroy those meta entities and fully unload the scene.
+        ///
+        /// The version of this function receiving an entity scene instead of an EntityPrefabReference is faster because no lookup is needed.
+        /// </remarks>
+        public static void UnloadScene(WorldUnmanaged world, EntityPrefabReference sceneReferenceId, UnloadParameters unloadParams = UnloadParameters.Default)
+        {
+            UnloadScene(world, sceneReferenceId.PrefabId.GlobalId.AssetGUID, unloadParams);
         }
 
         /// <summary>
@@ -402,7 +592,13 @@ namespace Unity.Scenes
         /// </summary>
         /// <param name="world">The <see cref="World"/> in which the scene is loaded.</param>
         /// <param name="sceneGUID">The guid of the scene.</param>
-        /// <param name="unloadParams">Parameters controlling the unload process.  These are ignored for GameObject scenes.</param>
+        /// <param name="unloadParams">Parameters controlling the unload process.</param>
+        /// <remarks>
+        /// By default this function will keep the scene and section meta entities alive and just unload the content for the sections.  Keeping these meta entities alive will speed up any potential reloading of the scene.
+        /// Call the function with unloadParams set to UnloadParameters.DestroyMetaEntities to destroy those meta entities and fully unload the scene.
+        ///
+        /// The version of this function receiving an entity scene instead of sceneGUID is faster because no lookup is needed.
+        /// </remarks>
         public static void UnloadScene(
             WorldUnmanaged world,
             Hash128 sceneGUID,
@@ -445,18 +641,11 @@ namespace Unity.Scenes
         {
             Entity sceneEntity = Entity.Null;
 
-            var query = state.GetEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[]
-                {
-                    ComponentType.ReadOnly<SceneReference>()
-                },
-                None = new ComponentType[]
-                {
-                    ComponentType.ReadWrite<DisableLiveConversion>()
-                },
-                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-            });
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<SceneReference>()
+                .WithNone<DisableLiveConversion>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                .Build(ref state);
             foreach (var e in query.ToEntityArray(Allocator.Temp))
             {
                 var r = state.EntityManager.GetComponentData<SceneReference>(e);

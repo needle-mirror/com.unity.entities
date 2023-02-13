@@ -385,6 +385,37 @@ namespace Unity.Entities.Tests.Conversion
             });
             Assert.That(m_Manager.HasComponent<CompanionLink>(entity), Is.True);
         }
+
+        [Test]
+        public void CompanionComponentConversion_DoesNotThrow_WhenRemovingComponentsWithRequireComponentAttribute()
+        {
+            var gameObject = CreateGameObject("RemoveComponentRequiredByAttribute");
+
+            gameObject.AddComponent<ConversionTestCompanionComponent>();
+            gameObject.AddComponent<ConversionTestCompanionComponentRequiredByAnotherComponent>();
+            gameObject.AddComponent<ConversionTestCompanionComponentWithRequireComponentAttribute>();
+
+            Entity entity = default;
+            Assert.DoesNotThrow(() =>
+            {
+                using var blobAssetStore = new BlobAssetStore(128);
+                var bakingSettings = MakeDefaultSettings();
+                bakingSettings.BlobAssetStore = blobAssetStore;
+                BakingUtility.BakeGameObjects(World, new []{gameObject}, bakingSettings);
+                var findEntityQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
+                    {All = new[] {new ComponentType(typeof(ConversionTestCompanionComponent))}});
+                var entities = findEntityQuery.ToEntityArray(Allocator.Temp);
+                Assert.AreEqual(1, entities.Length);
+                entity = entities[0];
+                entities.Dispose();
+            });
+
+            var component = m_Manager.GetComponentObject<ConversionTestCompanionComponent>(entity);
+            var companion = component.gameObject;
+
+            Assert.IsTrue(companion.GetComponent<ConversionTestCompanionComponentWithRequireComponentAttribute>() == null);
+            Assert.IsTrue(companion.GetComponent<ConversionTestCompanionComponentRequiredByAnotherComponent>() == null);
+        }
     }
 }
 #endif

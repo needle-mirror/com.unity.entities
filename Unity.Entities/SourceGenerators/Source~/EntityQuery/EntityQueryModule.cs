@@ -123,14 +123,16 @@ namespace Unity.Entities.SourceGen
                 success &= SourceGenHelpers.TryGetAllTypeArgumentSymbolsOfMethod(systemDescription, entitiesSyntaxNode, "WithAll", QueryType.All, out var withAllTypes);
                 success &= SourceGenHelpers.TryGetAllTypeArgumentSymbolsOfMethod(systemDescription, entitiesSyntaxNode, "WithAny", QueryType.Any, out var withAnyTypes);
                 success &= SourceGenHelpers.TryGetAllTypeArgumentSymbolsOfMethod(systemDescription, entitiesSyntaxNode, "WithNone", QueryType.None, out var withNoneTypes);
+                success &= SourceGenHelpers.TryGetAllTypeArgumentSymbolsOfMethod(systemDescription, entitiesSyntaxNode, "WithDisabled", QueryType.Disabled, out var withDisabledTypes);
+                success &= SourceGenHelpers.TryGetAllTypeArgumentSymbolsOfMethod(systemDescription, entitiesSyntaxNode, "WithAbsent", QueryType.Absent, out var withAbsentTypes);
                 success &= SourceGenHelpers.TryGetAllTypeArgumentSymbolsOfMethod(systemDescription, entitiesSyntaxNode, "WithChangeFilter", QueryType.ChangeFilter, out var withChangeFilterTypes);
 
                 // Create query
                 var queryDescription =
-                    new SingleArchetypeQueryFieldDescription(new Archetype(withAllTypes, withAnyTypes, withNoneTypes, EntityQueryOptions.Default), changeFilterTypes: withChangeFilterTypes);
+                    new SingleArchetypeQueryFieldDescription(new Archetype(withAllTypes, withAnyTypes, withNoneTypes, withDisabledTypes, withAbsentTypes), changeFilterTypes: withChangeFilterTypes);
 
                 // Create member variable and initialization in OnCreateForCompiler
-                var queryText = systemDescription.GetOrCreateQueryField(queryDescription);
+                var queryText = systemDescription.HandlesDescription.GetOrCreateQueryField(queryDescription);
 
                 var invocationText = queryText;
                 if (candidate.MethodName != "ToQuery") // "ToQuery" is special: it uses the naked queryText "__query_0"

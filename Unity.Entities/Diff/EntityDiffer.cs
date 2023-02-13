@@ -486,6 +486,42 @@ namespace Unity.Entities
                     }
                 }
 
+                {
+                    var deferredAdd = new NativeArray<(BlobAssetPtr key, BlobAssetPtr value)>(sameHashDifferentAddressBlobAssets.Length, Allocator.Temp);
+                    var deferredAddCount = 0;
+                    for (int i = 0; i < sameHashDifferentAddressBlobAssets.Length; i++)
+                    {
+                        var update = sameHashDifferentAddressBlobAssets[i];
+
+                        using (var keys = remap.GetKeyArray(Allocator.Temp))
+                        using (var values = remap.GetValueArray(Allocator.Temp))
+                        {
+                            for (var remapIndex = 0; remapIndex < values.Length; remapIndex++)
+                            {
+                                if (values[remapIndex].Hash != update.Hash)
+                                    continue;
+
+                                if (keys[remapIndex].Data != update.Data)
+                                {
+                                    remap.Remove(keys[remapIndex]);
+                                    deferredAdd[deferredAddCount] = (update, values[remapIndex]);
+                                    deferredAddCount += 1;
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i < deferredAddCount; i++)
+                    {
+                        remap.Add(deferredAdd[i].key, deferredAdd[i].value);
+                    }
+                }
+
+                // NOTE : it's important that adding the new blobs is done AFTER remapping the existing ones.
+                // Because if the address of a previously existing blob has been reused, adding it before
+                // updating the remap table would try to insert the same key twice.
                 for (var i = 0; i < createdBlobAssets.Length; i++)
                 {
                     if (batch->TryGetBlobAsset(createdBlobAssets[i].Header->Hash, out _))
@@ -497,29 +533,6 @@ namespace Unity.Entities
                     var blobAssetPtr = batch->AllocateBlobAsset(createdBlobAssets[i].Data,
                         createdBlobAssets[i].Length, createdBlobAssets[i].Header->Hash);
                     remap.Add(createdBlobAssets[i], blobAssetPtr);
-                }
-
-                for (int i = 0; i < sameHashDifferentAddressBlobAssets.Length; i++)
-                {
-                    var update = sameHashDifferentAddressBlobAssets[i];
-
-                    using (var keys = remap.GetKeyArray(Allocator.Temp))
-                    using (var values = remap.GetValueArray(Allocator.Temp))
-                    {
-                        for (var remapIndex = 0; remapIndex < values.Length; remapIndex++)
-                        {
-                            if (values[remapIndex].Hash != update.Hash)
-                                continue;
-
-                            if (keys[remapIndex].Data != update.Data)
-                            {
-                                remap.Remove(keys[remapIndex]);
-                                remap.Add(update, values[remapIndex]);
-                            }
-
-                            break;
-                        }
-                    }
                 }
 
                 if (destroyedBlobAssets.Length > 0 || createdBlobAssets.Length > 0)

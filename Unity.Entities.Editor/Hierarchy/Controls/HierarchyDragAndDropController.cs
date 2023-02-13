@@ -12,11 +12,11 @@ namespace Unity.Entities.Editor
 {
     class HierarchyDragAndDropController : ICollectionDragAndDropController
     {
-        readonly Hierarchy m_Model;
+        readonly Hierarchy m_Hierarchy;
 
-        public HierarchyDragAndDropController(Hierarchy model)
+        public HierarchyDragAndDropController(Hierarchy hierarchy)
         {
-            m_Model = model;
+            m_Hierarchy = hierarchy;
         }
 
         public bool CanStartDrag(IEnumerable<int> itemIndices) => true;
@@ -28,7 +28,7 @@ namespace Unity.Entities.Editor
 
             // Hierarchy doesn't support multiselect yet, this will only take care of the first item of itemIndices
             var itemIndex = itemIndices.First();
-            var handle = m_Model.GetNodes()[itemIndex].GetHandle();
+            var handle = m_Hierarchy.GetNodes()[itemIndex].GetHandle();
 
             return new StartDragArgs(string.Empty, handle, GetUnityObject(handle));
         }
@@ -40,7 +40,7 @@ namespace Unity.Entities.Editor
                 case NodeKind.GameObject:
                     return EditorUtility.InstanceIDToObject(handle.Index);
                 case NodeKind.SubScene:
-                    var scene = m_Model.GetSubSceneFromNodeHandle(handle);
+                    var scene = m_Hierarchy.SubSceneMap.GetSubSceneMonobehaviourFromHandle(handle);
                     return scene?.gameObject;
                 default:
                     return null;
@@ -69,7 +69,7 @@ namespace Unity.Entities.Editor
 
             if (dropFlags is HierarchyDropFlags.DropUpon or HierarchyDropFlags.DropBetween
                 && destinationHandle.Kind is NodeKind.SubScene
-                && m_Model.GetSubSceneState(destinationHandle) is not (Hierarchy.SubSceneLoadedState.Opened or Hierarchy.SubSceneLoadedState.LiveConverted))
+                && m_Hierarchy.SubSceneMap.GetSubSceneStateImmediate(destinationHandle, null) is not (SubSceneLoadedState.Opened or SubSceneLoadedState.LiveConverted))
                 return DragVisualMode.Rejected;
 
             var targetDropId = GetDestinationInstanceId(destination);
@@ -154,7 +154,7 @@ namespace Unity.Entities.Editor
 
         HierarchyNode.Immutable GetDestinationNode(int insertAtIndex, DragAndDropPosition position, out HierarchyDropFlags dropFlags)
         {
-            var hierarchyNodes = m_Model.GetNodes();
+            var hierarchyNodes = m_Hierarchy.GetNodes();
             if (insertAtIndex > hierarchyNodes.Count - 1)
                 position = DragAndDropPosition.OutsideItems;
 
@@ -219,7 +219,7 @@ namespace Unity.Entities.Editor
         {
             NodeKind.GameObject => destination.GetHandle().Index,
             NodeKind.Scene => destination.GetHandle().Index,
-            NodeKind.SubScene => m_Model.GetSubSceneFromNodeHandle(destination.GetHandle()).gameObject.GetInstanceID(),
+            NodeKind.SubScene => m_Hierarchy.SubSceneMap.GetSubSceneMonobehaviourFromHandle(destination.GetHandle()).gameObject.GetInstanceID(),
             _ => 0
         };
 
@@ -269,14 +269,14 @@ namespace Unity.Entities.Editor
 
             var scene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
             var handle = HierarchyNodeHandle.FromScene(scene);
-            var nodes = m_Model.GetNodes();
+            var nodes = m_Hierarchy.GetNodes();
             var index = nodes.IndexOf(handle);
             return index != -1 ? nodes[index] : node;
         }
 
         NodeKind GetNodeContainerKind(HierarchyNodeHandle handle)
         {
-            var nodes = m_Model.GetNodes();
+            var nodes = m_Hierarchy.GetNodes();
             var node = nodes[handle];
             var parent = node.GetParent();
             for (;;)

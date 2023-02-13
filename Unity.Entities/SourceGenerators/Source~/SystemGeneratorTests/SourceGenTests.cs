@@ -1,184 +1,228 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using System.Reflection;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Testing;
+using Microsoft.CodeAnalysis.Formatting;
+using Microsoft.CodeAnalysis.Simplification;
+using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Testing.Model;
+using Microsoft.CodeAnalysis.Testing.Verifiers;
+using Microsoft.CodeAnalysis.Text;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity.Burst;
-using Unity.Entities;
 using Unity.Entities.Hybrid;
-using Unity.Entities.SourceGen.Aspect;
-using VerifyTests;
-using VerifyXunit;
-using Xunit;
 
-public static class SourceGenTests
+namespace Unity.Entities.SourceGenerators.Test
 {
-    [ModuleInitializer]
-    public static void Init()
+    public static class CSharpSourceGeneratorVerifier<TSourceGenerator>
+        where TSourceGenerator : ISourceGenerator, new()
     {
-        VerifySourceGenerators.Enable();
-    }
+        /// <summary>
+        /// if true a throwing verification test will replace the old source of truth with the correct source of truth.
+        /// </summary>
+        static bool k_OverrideSourceOfTruthOnTestThrow = false;
 
-    static bool _autoVerify = false;
+        public static DiagnosticResult CompilerError(string compileError) => DiagnosticResult.CompilerError(compileError);
+        public static DiagnosticResult CompilerWarning(string compilerWarning) => DiagnosticResult.CompilerWarning(compilerWarning);
+        public static DiagnosticResult CompilerInfo(string compilerInfo) => new (compilerInfo, DiagnosticSeverity.Info);
 
-    static VerifySettings GetSettings(string systemTypeName)
-    {
-        var settings = new VerifySettings();
-        settings.UseDirectory($"{systemTypeName}/Verified");
-        if (_autoVerify)
-            settings.AutoVerify();
+        public static async Task VerifySourceGeneratorAsync(string source, string generatedFolderName = "Default", params string[] expectedFileNames)
+            => await VerifySourceGeneratorAsync(source, DiagnosticResult.EmptyDiagnosticResults, true, generatedFolderName, expectedFileNames);
+        public static async Task VerifySourceGeneratorAsync(string source, params DiagnosticResult[] expected)
+            => await VerifySourceGeneratorAsync(source, expected, false);
+        public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult expected, IEnumerable<Assembly> additionalAssembliesOverride)
+            => await VerifySourceGeneratorAsync(source, new []{expected}, additionalAssembliesOverride, false);
+        public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult expected, Assembly additionalAssemblyOverride)
+            => await VerifySourceGeneratorAsync(source, new []{expected}, new []{additionalAssemblyOverride}, false);
+        public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, Assembly additionalAssemblyOverride)
+            => await VerifySourceGeneratorAsync(source, expected, new []{additionalAssemblyOverride}, false);
+        public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, IEnumerable<Assembly> additionalAssembliesOverride)
+            => await VerifySourceGeneratorAsync(source, expected, additionalAssembliesOverride, false);
 
-        // Ensure that line breaks and new lines are normalized across platforms
-        settings.ScrubLinesWithReplace(
-            line =>
-            {
-                var newLine = line;
-                if (line.TrimStart().StartsWith("#line"))
-                    newLine = newLine.Replace('/', '\\');
+        static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
+            => await VerifySourceGeneratorAsync(source, expected, new []{
+            typeof(EntitiesMock).Assembly,
+            typeof(EntitiesHybridMock).Assembly,
+            typeof(BurstMock).Assembly
+        }, checksGeneratedSource, generatedFolderName, expectedFileNames);
 
-                newLine = newLine.ReplaceLineEndings("\\r\\n");
-                return newLine;
-            });
-
-        return settings;
-    }
-
-    public static Task Verify<T>(string source) where T : ISourceGenerator, new()
-    {
-        var settings = GetSettings(typeof(T).Name);
-        var (driver, compilation) = SetupGeneratorDriver<T>(source);
-        var ranGenerator = driver.RunGenerators(compilation);
-        var runResults = ranGenerator.GetRunResult();
-
-        Assert.Empty(runResults.Diagnostics);
-        Assert.Single(runResults.GeneratedTrees);
-        return Verifier.Verify(ranGenerator, settings);
-    }
-
-    public static string PrefixSource(string source) =>
-        @"
-        using Unity.Entities;
-        using Unity.Entities.Tests;
-        using Unity.Collections;
-        " + source;
-
-    public static void CheckForError<T>(string source, string errorCode, string? dependsOnAspectGeneratedSource = null,
-        bool referenceBurst = true) where T : ISourceGenerator, new()
-    {
-        CheckForDiagnostic<T>(source, errorCode, DiagnosticSeverity.Error, dependsOnAspectGeneratedSource, referenceBurst);
-    }
-
-    public static void CheckForWarning<T>(string source, string errorCode, string? dependsOnAspectGeneratedSource = null) where T : ISourceGenerator, new()
-    {
-        CheckForDiagnostic<T>(source, errorCode, DiagnosticSeverity.Warning, dependsOnAspectGeneratedSource, false);
-    }
-
-    public static void CheckForInfo<T>(string source, string errorCode, string? dependsOnAspectGeneratedSource = null) where T : ISourceGenerator, new()
-    {
-        CheckForDiagnostic<T>(source, errorCode, DiagnosticSeverity.Info, dependsOnAspectGeneratedSource, false);
-    }
-
-    static void CheckForDiagnostic<T>(string source, string errorCode, DiagnosticSeverity severity,
-        string? dependsOnAspectGeneratedSource = null, bool referenceBurst = true) where T : ISourceGenerator, new()
-    {
-        source = PrefixSource(source);
-
-        var aspectGeneratorCompilationResult = GetAspectGenerationCompilationResult(dependsOnAspectGeneratedSource);
-        var (driver, compilation) = SetUpGeneratorDriverAndUpdateCompilation<T>(source,
-            aspectGeneratorCompilationResult, referenceBurst);
-
-        driver.RunGeneratorsAndUpdateCompilation(compilation, out var c, out var diagnostics);
-        Assert.True(diagnostics.Any(diagnostic => diagnostic.Severity == severity && diagnostic.Id == errorCode),
-            $"No diagnostic with correct error code: {errorCode}");
-    }
-
-    public static void CheckForNoError<T>(string source, string? dependsOnAspectGeneratedSource = null) where T : ISourceGenerator, new()
-    {
-        source = PrefixSource(source);
-
-        var aspectGeneratorCompilationResult = GetAspectGenerationCompilationResult(dependsOnAspectGeneratedSource);
-        var (driver, compilation) = SetUpGeneratorDriverAndUpdateCompilation<T>(source, aspectGeneratorCompilationResult);
-
-        driver.RunGeneratorsAndUpdateCompilation(compilation, out var resultingCompilation, out _);
-
-        var compilationDiagnostics = resultingCompilation.GetDiagnostics();
-        Assert.False(compilationDiagnostics.Any(diagnostic =>
-                diagnostic.Severity != DiagnosticSeverity.Info
-                && diagnostic.Id != "CS8019"
-                && diagnostic.Id != "CS0105"), // allow for redundant/repeated using statements
-            $"Diagnostic found with: {compilationDiagnostics.First()}");
-
-    }
-
-    static readonly string[] s_IgnoreAssemblies =
-    {
-        "Unity.Entities",
-        "Unity.Entities.Hybrid",
-        "Unity.Burst"
-    };
-
-    static (CSharpGeneratorDriver, CSharpCompilation) SetUpGeneratorDriverAndUpdateCompilation<T>(string source,
-        Compilation? aspectGeneratorCompilationResult, bool referenceBurst = true) where T : ISourceGenerator, new()
-    {
-        source += "\npublic static class __MainClass {public static void Main(){}}";
-
-        var (driver, compilation) = SetupGeneratorDriver<T>(source, referenceBurst:referenceBurst);
-
-        compilation =
-            compilation.AddReferences(AppDomain.CurrentDomain.GetAssemblies()
-                .Where(assembly => !assembly.IsDynamic && !s_IgnoreAssemblies.Contains(assembly.GetName().Name))
-                .Select(assembly => MetadataReference.CreateFromFile(assembly.Location)));
-
-        if (aspectGeneratorCompilationResult != null)
-            compilation = compilation.AddReferences(aspectGeneratorCompilationResult.ToMetadataReference());
-
-        return (driver, compilation);
-    }
-
-    static Compilation? GetAspectGenerationCompilationResult(string? dependentGeneratedSource)
-    {
-        if (string.IsNullOrEmpty(dependentGeneratedSource))
-            return null;
-
-        var (dependentDriver, dependentCompilation) = SetupGeneratorDriver<AspectGenerator>(dependentGeneratedSource, "SourceGen.GeneratedSourceAssembly");
-
-        dependentCompilation =
-            dependentCompilation.AddReferences(AppDomain.CurrentDomain.GetAssemblies()
-                .Where(assembly => !assembly.IsDynamic && !s_IgnoreAssemblies.Contains(assembly.GetName().Name))
-                .Select(assembly => MetadataReference.CreateFromFile(assembly.Location)));
-
-        dependentDriver.RunGeneratorsAndUpdateCompilation(dependentCompilation, out Compilation dependentCompilationResult, out _);
-
-        return dependentCompilationResult;
-    }
-
-    static (CSharpGeneratorDriver driver, CSharpCompilation compilation) SetupGeneratorDriver<T>(string source,
-        string assemblyName = "SourceGen.VerifyTests", bool referenceBurst = true) where T : ISourceGenerator, new()
-    {
-        var syntaxTree = CSharpSyntaxTree.ParseText($"{source}", path: "Verify.gen.cs");
-        var assemblies = new List<MetadataReference>
+        static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, IEnumerable<Assembly> additionalAssembliesOverride, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
         {
-            MetadataReference.CreateFromFile(typeof(EntitiesMock).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(EntitiesHybridMock).Assembly.Location)
-        };
-        if (referenceBurst)
-            assemblies.Add(MetadataReference.CreateFromFile(typeof(BurstMock).Assembly.Location));
+            // Initial Test setup
+            var test = new Test { TestCode = source.ReplaceLineEndings() };
+            foreach (var additionalReference in additionalAssembliesOverride)
+                test.TestState.AdditionalReferences.Add(additionalReference);
 
-        var compilation = CSharpCompilation.Create(assemblyName, new[] { syntaxTree }, assemblies);
+            // Create verification-results folder if not present
+            var executingAssemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
 
-        var generator = new T();
-        var driver = CSharpGeneratorDriver.Create(generator);
-        return (driver, compilation);
-    }
+            try
+            {
+                // Include expected files with name from expectedFileNames from verification-results folder as expected source generated files!
+                if (checksGeneratedSource)
+                {
+                    var generatedFolderPath = Path.Join(executingAssemblyPath, "verification-results", generatedFolderName);
+                    Directory.CreateDirectory(generatedFolderPath);
+                    var foundExpectedFiles = Directory.EnumerateFiles(generatedFolderPath).Select(Path.GetFileName).Where(expectedFileNames.Contains);
+                    var existingSources = foundExpectedFiles.Select(file =>
+                    {
+                        if (file == null)
+                            throw new InvalidOperationException();
 
-    public static void Profile<T>(string testSource) where T : ISourceGenerator, new()
-    {
-        var (driver, compilation) = SetupGeneratorDriver<T>(testSource);
+                        var fileDir = Path.Join(generatedFolderPath, file);
+                        var text = File.ReadAllText(fileDir).ReplaceLineEndings();
+                        return (Test.GetTestPath(file), SourceText.From(text, Encoding.UTF8));
+                    });
+                    test.TestState.GeneratedSources.AddRange(existingSources);
+                }
 
-        var ranGenerator = driver.RunGenerators(compilation);
+                // Run Test
+                test.TestBehaviors = checksGeneratedSource ? TestBehaviors.None : TestBehaviors.SkipGeneratedSourcesCheck;
+                test.ExpectedDiagnostics.AddRange(expected);
+                await test.RunAsync(CancellationToken.None);
+            }
+            catch (Exception)
+            {
+                // Rethrow Quickly if we don't check for generated sources
+                if (!checksGeneratedSource || !k_OverrideSourceOfTruthOnTestThrow)
+                    throw;
 
-        Assert.Single(ranGenerator.GetRunResult().GeneratedTrees);
+                // Generate Correct Sources on throw
+                var (correctSources, originalSource) = await test.GenerateCorrectSources();
+
+                // Asserts an error if what it generated is different than the files input by the test
+                var generatedFilesNotPartOfExpectedFileNames = correctSources.Select(s => s.fileName).Where(s => !expectedFileNames.Contains(s)).ToArray();
+                if (generatedFilesNotPartOfExpectedFileNames.Length > 0)
+                {
+                    var filesJoined = string.Join(", ", generatedFilesNotPartOfExpectedFileNames.Select(actualFileName => $"\"{actualFileName}\""));
+                    var plural = generatedFilesNotPartOfExpectedFileNames.Length > 1;
+                    var anoutputfile = plural ? "output files" : "an output file";
+                    var fileNames = plural ? "filenames" : "filename";
+                    var was = plural ? "were" : "was";
+                    var @is = plural ? "are" : "is";
+                    var argument = plural ? "arguments" : "argument";
+                    var expectedFileNameDiffErrorMsg = $"The test {generatedFolderName} generated {anoutputfile} which {was} not listed when calling VerifyCS.VerifySourceGeneratorAsync. ";
+                    expectedFileNameDiffErrorMsg += $"To fix, add the {fileNames} that {@is} expected to be output from this test as the last {argument} to VerifySourceGeneratorAsync. ";
+                    expectedFileNameDiffErrorMsg += $"(`await VerifyCS.VerifySourceGeneratorAsync(source, nameof({generatedFolderName}), {filesJoined});`).";
+                    Assert.Fail($"{expectedFileNameDiffErrorMsg}");
+                }
+
+                // Recreate Testing Folder
+                var verificationPath = Path.Join(Path.Combine(executingAssemblyPath, "..","..",".."), "verification-results", generatedFolderName);
+                if (Directory.Exists(verificationPath))
+                {
+                    var dir = new DirectoryInfo(verificationPath);
+                    dir.Attributes &= ~FileAttributes.ReadOnly;
+                    dir.Delete(true); // deletes folders including files in it.
+                }
+                Directory.CreateDirectory(verificationPath);
+
+                // Write new sources
+                var writers = new Task[correctSources.Length+1];
+                for (var i = 0; i < correctSources.Length; i++)
+                    writers[i] = File.WriteAllTextAsync(Path.Join(verificationPath, correctSources[i].fileName), correctSources[i].content.ToString());
+                writers[^1] = File.WriteAllTextAsync(Path.Join(verificationPath, originalSource.fileName), originalSource.content.ToString());
+                Task.WaitAll(writers);
+
+                // Make sure to still throw original error.
+                throw;
+            }
+        }
+
+        class Test : CSharpSourceGeneratorTest<TSourceGenerator, MSTestVerifier>
+        {
+            public Test()
+            {
+                ReferenceAssemblies = new ReferenceAssemblies("net6.0", new PackageIdentity("Microsoft.NETCore.App.Ref", "6.0.0"), Path.Combine("ref", "net6.0"));
+                SolutionTransforms.Add((solution, projectId) =>
+                {
+                    var compilationOptions = solution.GetProject(projectId)?.CompilationOptions;
+                    if (compilationOptions == null) throw new ArgumentException("ProjectId does not exist");
+                    compilationOptions = compilationOptions.WithSpecificDiagnosticOptions(
+                        compilationOptions.SpecificDiagnosticOptions.SetItems(CSharpVerifierHelper.NullableWarnings));
+                    solution = solution.WithProjectCompilationOptions(projectId, compilationOptions);
+
+                    return solution;
+                });
+            }
+
+            /// <summary>
+            /// Folder used by TSourceGenerator to output generated source-files into.
+            /// The test expects file-paths to match.
+            /// </summary>
+            /// <param name="filename">
+            /// Filename of file we expect generator to have created.
+            /// </param>
+            /// <returns>relative filepath of source generated files</returns>
+            public static string GetTestPath(string filename)
+                => Path.Join(GetFilePathPrefixForGenerator(typeof(TSourceGenerator)), filename);
+
+            public async Task<((string fileName, SourceText content)[] generatedSources, (string fileName, SourceText content) source)> GenerateCorrectSources()
+            {
+                // Initial Setup
+                var cancellationToken = CancellationToken.None;
+                var fixableDiagnostics = ImmutableArray<string>.Empty;
+                var testState = TestState.WithInheritedValuesApplied(null, fixableDiagnostics).WithProcessedMarkup(MarkupOptions, null, ImmutableArray<DiagnosticDescriptor>.Empty, fixableDiagnostics, DefaultFilePath);
+                var sourceGenerators = GetSourceGenerators().ToImmutableArray();
+
+                // Create project with applied generators
+                var project = await CreateProjectAsync(new EvaluatedProjectState(testState, ReferenceAssemblies), testState.AdditionalProjects.Values.Select(additionalProject => new EvaluatedProjectState(additionalProject, ReferenceAssemblies)).ToImmutableArray(), cancellationToken);
+                (project, _) = await ApplySourceGeneratorAsync(sourceGenerators, project, Verify, cancellationToken).ConfigureAwait(false);
+
+                // Splits project.Documents output into 'Generated Files' and Original Source Input
+                var generatedSources = project.Documents
+                    .Where(d => d.Name.Contains(".g.cs"))
+                    .Select(async doc => (Path.GetFileName(doc.Name), await GetSourceTextFromDocumentAsync(doc, cancellationToken).ConfigureAwait(false)));
+                return (generatedSources.Select(t=>t.Result).ToArray(),
+                    (Path.GetFileName(project.Documents.First().Name), await GetSourceTextFromDocumentAsync(project.Documents.First(), cancellationToken).ConfigureAwait(false)));
+            }
+
+            #region Copied From Roslyn!
+
+            /// <summary>
+            /// Based on <see cref="GeneratorDriver.GetFilePathPrefixForGenerator"/> which is internal.
+            /// </summary>
+            static string GetFilePathPrefixForGenerator(Type sourceGenType)
+                => Path.Combine(sourceGenType.Assembly.GetName().Name ?? string.Empty, sourceGenType.FullName!);
+
+            /// <summary>
+            /// <see cref="SourceGeneratorTest{TVerifier}.ApplySourceGeneratorAsync"/> is private so this is a copy of it
+            /// </summary>
+            async Task<(Project project, ImmutableArray<Diagnostic> diagnostics)> ApplySourceGeneratorAsync(ImmutableArray<ISourceGenerator> sourceGenerators, Project project, IVerifier verifier, CancellationToken cancellationToken)
+            {
+                var compilation = await project.GetCompilationAsync(cancellationToken).ConfigureAwait(false);
+                verifier.True(compilation is { });
+
+                var driver = CreateGeneratorDriver(project, sourceGenerators).RunGenerators(compilation, cancellationToken);
+                var result = driver.GetRunResult();
+
+                var updatedProject = project;
+                foreach (var tree in result.GeneratedTrees)
+                {
+                    updatedProject = updatedProject.AddDocument(tree.FilePath, await tree.GetTextAsync(cancellationToken).ConfigureAwait(false), filePath: tree.FilePath).Project;
+                }
+
+                return (updatedProject, result.Diagnostics);
+            }
+
+            /// <summary>
+            /// <see cref="SourceGeneratorTest{TVerifier}.GetSourceTextFromDocumentAsync"/> is private so this is a copy of it
+            /// </summary>
+            static async Task<SourceText> GetSourceTextFromDocumentAsync(Document document, CancellationToken cancellationToken)
+            {
+                var simplifiedDoc = await Simplifier.ReduceAsync(document, Simplifier.Annotation, cancellationToken: cancellationToken).ConfigureAwait(false);
+                var formatted = await Formatter.FormatAsync(simplifiedDoc, Formatter.Annotation, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return await formatted.GetTextAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            #endregion
+        }
     }
 }

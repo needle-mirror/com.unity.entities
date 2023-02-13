@@ -806,8 +806,6 @@ namespace Unity.Entities.Tests
                 state.RequireForUpdate<EcsTestTag>();
             }
 
-            public void OnDestroy(ref SystemState state) { }
-
             public void OnStartRunning(ref SystemState state)
             {
                 // Increment all EcsTestData components, then add a new one.
@@ -839,10 +837,6 @@ namespace Unity.Entities.Tests
                 }
                 _query.CopyFromComponentDataArray(arr);
             }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
         }
 
         [BurstCompile(CompileSynchronously = true)]
@@ -865,8 +859,6 @@ namespace Unity.Entities.Tests
                 _query = state.GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
                 _query.AddChangedVersionFilter(ComponentType.ReadWrite<EcsTestData>());
             }
-            public void OnDestroy(ref SystemState state) { }
-
             [BurstCompile(CompileSynchronously = true)]
             public void OnUpdate(ref SystemState state)
             {

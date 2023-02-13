@@ -16,13 +16,13 @@ namespace Unity.Entities.Content
         public enum LocationType
         {
              /// <summary>
-            /// Specifies that the Path property is a remote URL. This enum is intended to be expanded as other download service types are added.
+            /// Specifies that the Path property is a remote URL.  This enum is intended to be expanded as other download service types are added.
             /// </summary>
             RemoteURL
         }
 
         /// <summary>
-        /// The type of location. This can be used by download services to determine if they are compatible.
+        /// The type of location.  This can be used by download services to determine if they are compatible.
         /// </summary>
         public LocationType Type;
 
@@ -37,7 +37,7 @@ namespace Unity.Entities.Content
         public Hash128 Hash;
 
         /// <summary>
-        /// The CRC value for the remote data. This is used to detect data corruption.
+        /// The CRC value for the remote data.  This is used to detect data corruption.
         /// </summary>
         public uint Crc;
 

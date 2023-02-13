@@ -50,16 +50,6 @@ namespace Unity.Entities
         }
 
 #if UNITY_EDITOR
-#if USING_PLATFORMS_PACKAGE
-        public static void ApplyAssemblyFilter(ConversionSystemFilterSettings filter)
-        {
-            foreach (var assemblyEntry in _BakersByAssembly)
-            {
-                assemblyEntry.Value.Enabled = (filter == null || !filter.IsAssemblyExcluded(assemblyEntry.Key));
-            }
-        }
-#endif
-
         public static void ApplyAssemblyFilter(BakingSystemFilterSettings filter)
         {
             foreach (var assemblyEntry in _BakersByAssembly)

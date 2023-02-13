@@ -130,7 +130,7 @@ namespace Unity.Entities.Editor.Inspectors
             {
                 return entity == Entity.Null
                     ? $"None ({nameof(Entity)})"
-                    : $"Invalid ({nameof(Entity)})";
+                    : $"Invalid ({nameof(Entity)} {{{entity.Index}:{entity.Version}}})";
             }
 
             var entityName = entityManager.GetName(entity);

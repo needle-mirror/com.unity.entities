@@ -42,7 +42,7 @@ namespace Unity.Scenes
     /// System that controls streaming scene sections.
     /// </summary>
     [RequireMatchingQueriesForUpdate]
-    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.Streaming)]
     [UpdateInGroup(typeof(SceneSystemGroup))]
     [UpdateAfter(typeof(ResolveSceneReferenceSystem))]
     [BurstCompile]
@@ -169,49 +169,38 @@ namespace Unity.Scenes
 
             m_SynchronousSceneLoadWorld = new World("LoadingWorld (synchronous)", WorldFlags.Streaming);
 
-            m_PendingStreamRequests = GetEntityQuery(new EntityQueryDesc()
-            {
-                All = new[] { ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<SceneSectionData>(), ComponentType.ReadWrite<ResolvedSectionPath>() },
-                None = new[] { ComponentType.ReadWrite<StreamingState>(), ComponentType.ReadWrite<DisableSceneResolveAndLoad>() }
-            });
-
-            m_UnloadStreamRequests = GetEntityQuery(new EntityQueryDesc()
-            {
-                All = new[] { ComponentType.ReadWrite<StreamingState>() },
-                None = new[] { ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<DisableSceneResolveAndLoad>() }
-            });
-
-            m_NestedScenesPending = GetEntityQuery(new EntityQueryDesc()
-            {
-                All = new[] { ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<SceneTag>() },
-                None = new[] { ComponentType.ReadWrite<StreamingState>(), ComponentType.ReadWrite<DisableSceneResolveAndLoad>() }
-            });
+            m_PendingStreamRequests = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<RequestSceneLoaded, SceneSectionData>()
+                .WithAllRW<ResolvedSectionPath>()
+                .WithNone<StreamingState, DisableSceneResolveAndLoad>()
+                .Build(this);
+            m_UnloadStreamRequests = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<StreamingState>()
+                .WithAll<SceneSectionData,SceneEntityReference>()
+                .WithNone<RequestSceneLoaded, DisableSceneResolveAndLoad>()
+                .Build(this);
+            m_NestedScenesPending = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<RequestSceneLoaded, SceneTag>()
+                .WithNone<StreamingState, DisableSceneResolveAndLoad>()
+                .Build(this);
 
             EntityManager.AddComponentData(SystemHandle, new SceneSectionStreamingData
             {
-                m_NestedScenes = GetEntityQuery(new EntityQueryDesc()
-                {
-                    All = new[] { ComponentType.ReadWrite<RequestSceneLoaded>(), ComponentType.ReadWrite<SceneTag>() },
-                }),
-                m_SceneFilter = GetEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new[] { ComponentType.ReadWrite<SceneTag>() },
-                    Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-                }),
+                m_NestedScenes = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<RequestSceneLoaded,SceneTag>()
+                    .Build(this),
+                m_SceneFilter = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<SceneTag>()
+                    .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                    .Build(this),
             });
 
-            m_PublicRefFilter = GetEntityQuery
-                (
-                ComponentType.ReadWrite<SceneTag>(),
-                ComponentType.ReadWrite<PublicEntityRef>()
-                );
-
-            m_SectionData = GetEntityQuery
-                (
-                ComponentType.ReadWrite<SceneSectionData>(),
-                ComponentType.ReadWrite<SceneEntityReference>()
-                );
+            m_PublicRefFilter = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<SceneTag, PublicEntityRef>()
+                .Build(this);
+            m_SectionData = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<SceneSectionData,SceneEntityReference>()
+                .Build(this);
         }
 
         /// <summary>
@@ -330,10 +319,9 @@ namespace Unity.Scenes
 #if UNITY_EDITOR
             using (s_AddSceneSharedComponents.Auto())
             {
-                var data = new EditorRenderData()
+                var data = new EditorRenderData
                 {
-                    SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask | (1UL << 59),
-                    PickableObject = EntityManager.HasComponent<SubScene>(sectionEntity) ? EntityManager.GetComponentObject<SubScene>(sectionEntity).gameObject : null
+                    SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask | (1UL << 59)
                 };
                 srcManager.AddSharedComponentManaged(srcManager.UniversalQuery, data);
             }
@@ -666,39 +654,49 @@ namespace Unity.Scenes
                     var priorityList = new NativeList<Entity>(Allocator.Temp);
                     var priorities = new NativeArray<int>(entities.Length, Allocator.Temp);
                     var sceneDataFromEntity = GetComponentLookup<SceneSectionData>(true);
+                    var sceneEntityFromSection = GetComponentLookup<SceneEntityReference>(true);
 
+                    // We need to make sure sections 0 load first within each group (sync and async)
                     for (int i = 0; i < entities.Length; ++i)
                     {
                         var entity = entities[i];
-
                         if (SceneSectionRequiresSynchronousLoading(entity))
-                        {
-                            var streamingState = new StreamingState
-                                {ActiveStreamIndex = -1, Status = StreamingStatus.NotYetProcessed};
-                            EntityManager.AddComponentData(entity, streamingState);
-
-                            priorities[i] = 0;
-                            var operation = CreateAsyncLoadSceneOperation(m_SynchronousSceneLoadWorld.EntityManager,
-                                entity, true);
-                            var result = UpdateLoadOperation(ref *m_StatePtr, operation, m_SynchronousSceneLoadWorld, entity, true);
-                            operation.Dispose();
-
-                            if (result == UpdateLoadOperationResult.Error)
-                            {
-                                m_SynchronousSceneLoadWorld.Dispose();
-                                m_SynchronousSceneLoadWorld =
-                                    new World("LoadingWorld (synchronous)", WorldFlags.Streaming);
-                            }
-                            Assert.AreNotEqual(UpdateLoadOperationResult.Aborted, result);
-                            sceneDataFromEntity.Update(this);
-                        }
-                        else if (sceneDataFromEntity[entity].SubSectionIndex == 0)
-                            priorities[i] = 1;
+                            priorities[i] = sceneDataFromEntity[entity].SubSectionIndex == 0 ? 0 : 1;
                         else
-                            priorities[i] = 2;
+                            priorities[i] = sceneDataFromEntity[entity].SubSectionIndex == 0 ? 2 : 3;
                     }
 
-                    for (int priority = 1; priority <= 2; ++priority)
+                    // Load sections synchronously (Priorities 0 and 1)
+                    for (int priority = 0; priority <= 1; ++priority)
+                    {
+                        for (int i = 0; i < entities.Length; ++i)
+                        {
+                            if (priorities[i] == priority)
+                            {
+                                var entity = entities[i];
+
+                                // If we are not loading a section 0, we need to make sure that the section 0 is loaded.
+                                // Otherwise the loading will get blocked.
+                                if (priority == 0 || IsSection0Loaded(sceneEntityFromSection[entity].SceneEntity))
+                                {
+                                    LoadSectionSynchronously(entity, ref *m_StatePtr);
+                                    sceneDataFromEntity.Update(this);
+                                    sceneEntityFromSection.Update(this);
+                                }
+                                else
+                                {
+                                    // Throw error
+                                    UnityEngine.Debug.LogError($"Can't load section {sceneDataFromEntity[entity].SubSectionIndex} synchronously because section 0 hasn't been loaded first. Loading section asynchronously instead");
+
+                                    // Set the priority to 3 as it will load asynchronously and it is not a section 0
+                                    priorities[i] = 3;
+                                }
+                            }
+                        }
+                    }
+
+                    // Load sections asynchronously (Priorities 2 and 3)
+                    for (int priority = 2; priority <= 3; ++priority)
                     {
                         for (int i = 0; i < entities.Length; ++i)
                         {
@@ -730,16 +728,103 @@ namespace Unity.Scenes
             if (!m_UnloadStreamRequests.IsEmptyIgnoreFilter)
             {
                 var destroySubScenes = m_UnloadStreamRequests.ToEntityArray(Allocator.Temp);
+                var sceneSectionDatas = m_UnloadStreamRequests.ToComponentDataArray<SceneSectionData>(Allocator.Temp);
+                var sceneEntityReferences = m_UnloadStreamRequests.ToComponentDataArray<SceneEntityReference>(Allocator.Temp);
 
-                var count = destroySubScenes.Length;
-                if (count > m_MaximumSectionsUnloadedPerUpdate && m_MaximumSectionsUnloadedPerUpdate > 0)
-                    count = m_MaximumSectionsUnloadedPerUpdate;
-                for (int i = 0; i < count; i++)
-                    UnloadSectionImmediate(World.Unmanaged, destroySubScenes[i]);
+                var destroySubScenesLength = destroySubScenes.Length;
+                var maxCount = destroySubScenesLength;
+                if (maxCount > m_MaximumSectionsUnloadedPerUpdate && m_MaximumSectionsUnloadedPerUpdate > 0)
+                    maxCount = m_MaximumSectionsUnloadedPerUpdate;
+                int currentCount = 0;
+
+                // We need to do 2 passes in case we set m_MaximumSectionsUnloadedPerUpdate > 0.
+                // m_MaximumSectionsUnloadedPerUpdate > 0 means that not all the sections are going to be unloaded in
+                // this frame. So we even if other sections are planned to unload, we can't unload section 0 first as
+                // those sections might be marked for loading again in the next frame. Leaving the scene with section 0
+                // unloaded and other sections loaded.
+
+                // First pass for sections != 0
+                for (int index = 0; index < destroySubScenesLength && currentCount < maxCount; ++index)
+                {
+                    if (sceneSectionDatas[index].SubSectionIndex != 0)
+                    {
+                        UnloadSectionImmediate(World.Unmanaged, destroySubScenes[index]);
+                        ++currentCount;
+                    }
+                }
+
+                // Check if there is any section 0 to be unloaded
+                if (currentCount < maxCount)
+                {
+                    // Second pass for sections == 0
+                    for (int index = 0; index < destroySubScenesLength && currentCount < maxCount; ++index)
+                    {
+                        if (sceneSectionDatas[index].SubSectionIndex == 0)
+                        {
+                            // Check that other sections are not loaded or loading
+                            if (!CheckDependantSectionsLoaded(EntityManager, sceneEntityReferences[index].SceneEntity))
+                            {
+                                UnloadSectionImmediate(World.Unmanaged, destroySubScenes[index]);
+                            }
+                            else
+                            {
+                                // Trying to unload section 0, but another section in the same scene is still loaded
+                                // Skipping this until the other sections are unloaded.
+                                // SceneSystem.GetSectionStreamingState will return SectionStreamingState.UnloadRequested,
+                                // until the other sections are unloaded or section 0 is requested to load again.
+                            }
+                            ++currentCount;
+                        }
+                    }
+                }
             }
 
             if (ProcessActiveStreams(ref *m_StatePtr))
                 EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+        }
+
+        internal bool IsSection0Loaded(Entity sceneEntity)
+        {
+            if (EntityManager.HasBuffer<ResolvedSectionEntity>(sceneEntity))
+            {
+                var sectionEntities = EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity);
+                return SceneSystem.IsSectionLoaded(EntityManager.WorldUnmanaged, sectionEntities[0].SectionEntity);
+            }
+            return false;
+        }
+
+        internal void LoadSectionSynchronously(Entity entity, ref SystemState systemState)
+        {
+            var streamingState = new StreamingState
+                {ActiveStreamIndex = -1, Status = StreamingStatus.NotYetProcessed};
+            EntityManager.AddComponentData(entity, streamingState);
+
+            var operation = CreateAsyncLoadSceneOperation(m_SynchronousSceneLoadWorld.EntityManager,
+                entity, true);
+            var result = UpdateLoadOperation(ref systemState, operation, m_SynchronousSceneLoadWorld, entity, true);
+            operation.Dispose();
+
+            if (result == UpdateLoadOperationResult.Error)
+            {
+                m_SynchronousSceneLoadWorld.Dispose();
+                m_SynchronousSceneLoadWorld =
+                    new World("LoadingWorld (synchronous)", WorldFlags.Streaming);
+            }
+            Assert.AreNotEqual(UpdateLoadOperationResult.Aborted, result);
+        }
+
+        internal static bool CheckDependantSectionsLoaded(EntityManager entityManager, Entity sceneEntity)
+        {
+            var sectionEntities = entityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity);
+            for (int sectionIndex = 1; sectionIndex < sectionEntities.Length; ++sectionIndex)
+            {
+                var sectionEntity = sectionEntities[sectionIndex].SectionEntity;
+                if (entityManager.HasComponent<RequestSceneLoaded>(sectionEntity))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         internal static void UnloadSectionImmediate(WorldUnmanaged world, Entity scene)
@@ -760,12 +845,9 @@ namespace Unity.Scenes
                 {
                     using (var nestedSubscenes = singleton.m_NestedScenes.ToEntityArray(Allocator.Temp))
                     {
-                        SceneSystem.UnloadParameters nestedSceneUnloadParams = new SceneSystem.UnloadParameters();
-                        nestedSceneUnloadParams |= SceneSystem.UnloadParameters.DestroySectionProxyEntities;
-
                         for (int i=0; i<nestedSubscenes.Length; ++i)
                         {
-                            SceneSystem.UnloadScene(world, nestedSubscenes[i], nestedSceneUnloadParams);
+                            SceneSystem.UnloadSceneSectionMetaEntitiesOnly(world, nestedSubscenes[i], true);
                         }
                     }
                 }

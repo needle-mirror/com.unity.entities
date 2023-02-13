@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -21,6 +22,15 @@ namespace Unity.Entities.SourceGen.Common
         static SymbolDisplayFormat QualifiedFormat { get; } =
             new SymbolDisplayFormat(
                 typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+                globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
+                genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+                miscellaneousOptions:
+                SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
+                SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
+
+        static SymbolDisplayFormat QualifiedFormatWithoutGlobalPrefix { get; } =
+            new SymbolDisplayFormat(
+                typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
                 genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
                 miscellaneousOptions:
                 SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
@@ -35,6 +45,8 @@ namespace Unity.Entities.SourceGen.Common
 
         public static bool Is(this ITypeSymbol symbol, string fullyQualifiedName, bool checkBaseType = true)
         {
+            fullyQualifiedName = PrependGlobalIfMissing(fullyQualifiedName);
+
             if (symbol is null)
                 return false;
 
@@ -49,7 +61,7 @@ namespace Unity.Entities.SourceGen.Common
             if (symbol.BaseType != null)
             {
                 var baseTypeName = symbol.BaseType.ToDisplayString(QualifiedFormat);
-                if (baseTypeName != "System.ValueType")
+                if (baseTypeName != "global::System.ValueType")
                     yield return baseTypeName;
             }
 
@@ -59,15 +71,54 @@ namespace Unity.Entities.SourceGen.Common
 
         public static bool IsInt(this ITypeSymbol symbol) => symbol.SpecialType == SpecialType.System_Int32;
         public static bool IsDynamicBuffer(this ITypeSymbol symbol) =>
-            symbol.Name == "DynamicBuffer" && symbol.ContainingNamespace.ToDisplayString(QualifiedFormat) == "Unity.Entities";
+            symbol.Name == "DynamicBuffer" && symbol.ContainingNamespace.ToDisplayString(QualifiedFormat) == "global::Unity.Entities";
         public static bool IsSharedComponent(this ITypeSymbol symbol) => symbol.InheritsFromInterface("Unity.Entities.ISharedComponentData");
         public static bool IsComponent(this ITypeSymbol symbol) => symbol.InheritsFromInterface("Unity.Entities.IComponentData");
+        public static bool IsZeroSizedComponent(this ITypeSymbol symbol, HashSet<ITypeSymbol> seenSymbols = null)
+        {
+// TODO: This was recently fixed (https://github.com/dotnet/roslyn-analyzers/issues/5804), remove pragmas after we update .net
+#pragma warning disable RS1024
+            if (seenSymbols == null)
+                seenSymbols = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default) { symbol };
+#pragma warning restore RS1024
+
+            foreach (var field in symbol.GetMembers().OfType<IFieldSymbol>())
+            {
+                switch (symbol.SpecialType)
+                {
+                    case SpecialType.System_Void:
+                        continue;
+                    case SpecialType.None:
+                        if (field.IsStatic || field.IsConst)
+                            continue;
+
+                        if (field.Type.TypeKind == TypeKind.Struct)
+                        {
+                            // Handle cycles in type (otherwise we will stack overflow)
+                            if (!seenSymbols.Add(field.Type))
+                                continue;
+
+                            if (IsZeroSizedComponent(field.Type))
+                                continue;
+                        }
+                        return false;
+                    default:
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        public static bool IsEnableableComponent(this ITypeSymbol symbol) => symbol.InheritsFromInterface("Unity.Entities.IEnableableComponent");
 
         public static string ToFullName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormat);
-        public static string ToValidVariableName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormat).Replace('.', '_');
+        public static string ToSimpleName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormatWithoutGlobalPrefix);
+        public static string ToValidIdentifier(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormatWithoutGlobalPrefix).Replace('.', '_');
 
         public static bool ImplementsInterface(this ISymbol symbol, string interfaceName)
         {
+            interfaceName = PrependGlobalIfMissing(interfaceName);
+
             return symbol is ITypeSymbol typeSymbol
                    && typeSymbol.AllInterfaces.Any(i => i.ToFullName() == interfaceName || i.InheritsFromInterface(interfaceName));
         }
@@ -96,12 +147,12 @@ namespace Unity.Entities.SourceGen.Common
             };
         }
 
-        public static string GetSymbolTypeName(this ISymbol symbol) => GetSymbolType(symbol).ToFullName();
-
         public static bool InheritsFromInterface(this ITypeSymbol symbol, string interfaceName, bool checkBaseType = true)
         {
             if (symbol is null)
                 return false;
+
+            interfaceName = PrependGlobalIfMissing(interfaceName);
 
             foreach (var @interface in symbol.Interfaces)
             {
@@ -131,6 +182,8 @@ namespace Unity.Entities.SourceGen.Common
 
         public static bool InheritsFromType(this ITypeSymbol symbol, string typeName, bool checkBaseType = true)
         {
+            typeName = PrependGlobalIfMissing(typeName);
+
             if (symbol is null)
                 return false;
 
@@ -148,11 +201,15 @@ namespace Unity.Entities.SourceGen.Common
 
         public static bool HasAttribute(this ISymbol typeSymbol, string fullyQualifiedAttributeName)
         {
+            fullyQualifiedAttributeName = PrependGlobalIfMissing(fullyQualifiedAttributeName);
+
             return typeSymbol.GetAttributes().Any(attribute => attribute.AttributeClass.ToFullName() == fullyQualifiedAttributeName);
         }
 
         public static bool HasAttributeOrFieldWithAttribute(this ITypeSymbol typeSymbol, string fullyQualifiedAttributeName)
         {
+            fullyQualifiedAttributeName = PrependGlobalIfMissing(fullyQualifiedAttributeName);
+
             return typeSymbol.HasAttribute(fullyQualifiedAttributeName) ||
                    typeSymbol.GetMembers().OfType<IFieldSymbol>().Any(f => !f.IsStatic && f.Type.HasAttributeOrFieldWithAttribute(fullyQualifiedAttributeName));
         }
@@ -176,6 +233,37 @@ namespace Unity.Entities.SourceGen.Common
         }
 
         public static bool IsAspect(this ITypeSymbol typeSymbol) => typeSymbol.InheritsFromInterface("Unity.Entities.IAspect");
+
+        /// <summary>
+        /// Test if the type is unmanaged or one of the unmanaged types generated nested in an aspect by the aspect generator.
+        /// The aspect nested types may not be generated yet and trying to resolve them will result in a SymbolKind.ErrorType and ITypeSymbol.IsUnmanagedType will be false.
+        /// But we know that the nest aspect types "Lookup" and "TypeHandle" will be generated and will be unmanaged.
+        /// Will test recursively for struct that are not IsUnmanagedType and test if all their unmanaged fields are aspect types.
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns>if type is unmanaged</returns>
+        public static bool IsUnmanagedOrAspectPrimitive(this ITypeSymbol type)
+        {
+            if (type.IsUnmanagedType) return true;
+
+            // SymbolKind.ErrorType happens for aspects Lookup and TypeHandle types which are not yet generated when we hit this point.
+            // these types are assumed to be unmanaged.
+            if (type.Kind == SymbolKind.ErrorType
+                && (type.Name == "Lookup" || type.Name == "TypeHandle")
+                && type.ContainingType != null && type.ContainingType.IsAspect())
+                return true;
+
+            // Structs that nest any aspect Lookup or TypeHandle are considered unmanaged as well.
+            if (type.TypeKind == TypeKind.Struct)
+            {
+                foreach (var member in type.GetMembers())
+                    if (member is IFieldSymbol field && !field.Type.IsUnmanagedOrAspectPrimitive())
+                        return false;
+                return true;
+            }
+
+            return false;
+        }
 
         public static TypedConstantKind GetTypedConstantKind(this ITypeSymbol type)
         {
@@ -209,5 +297,8 @@ namespace Unity.Entities.SourceGen.Common
                     return TypedConstantKind.Type;
             }
         }
+
+        static string PrependGlobalIfMissing(this string typeOrNamespaceName) =>
+            !typeOrNamespaceName.StartsWith("global::") ? $"global::{typeOrNamespaceName}" : typeOrNamespaceName;
     }
 }

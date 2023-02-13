@@ -14,7 +14,7 @@ using UnityEngine.SceneManagement;
 
 namespace Unity.Entities
 {
-    //@todo: Would it be better to store this outside of it in one big NativeMultiHashMap?
+    //@todo: Would it be better to store this outside of it in one big NativeParallelMultiHashMap?
 
     //@TODO: Test for adding a condional component... (Test that reset actually runs incremental)
 
@@ -63,6 +63,7 @@ namespace Unity.Entities
         UnsafeParallelHashMap<int, int>                              _ComponentToAdditionalEntityCounter;
         UnsafeParallelHashSet<int>                                   _AdditionalGameObjectsToBake;
         UnsafeParallelHashMap<int, PrefabState>                      _PrefabStates;
+        BakerDebugState                                              _BakerDebugState;
 
         // GameObject => Entity
         internal UnsafeParallelHashMap<int, Entity>                  _GameObjectToEntity;
@@ -133,6 +134,7 @@ namespace Unity.Entities
             _PrefabStates = new UnsafeParallelHashMap<int, PrefabState>(10, Allocator.Persistent);
             _GameObjectToEntity = new UnsafeParallelHashMap<int, Entity>(10, Allocator.Persistent);
             _ReferencedEntities = new UnsafeParallelHashMap<Entity, TransformUsageFlagCounters>(10, Allocator.Persistent);
+            _BakerDebugState = new BakerDebugState(Allocator.Persistent);
             _EntityManager = manager;
             _DefaultArchetype = default;
             _DefaultArchetypeAdditionalEntity = default;
@@ -182,6 +184,7 @@ namespace Unity.Entities
             _ComponentToAdditionalEntityCounter.Dispose();
             _GameObjectToEntity.Dispose();
             _ReferencedEntities.Dispose();
+            _BakerDebugState.Dispose();
         }
 
         public void Clear()
@@ -194,6 +197,7 @@ namespace Unity.Entities
             _ComponentToAdditionalEntityCounter.Clear();
             _GameObjectToEntity.Clear();
             _ReferencedEntities.Clear();
+            _BakerDebugState.Clear();
             _IsReferencedEntitiesDirty = true;
         }
 
@@ -269,12 +273,10 @@ namespace Unity.Entities
         {
             NativeList<int> gameObjectsNoEntity = new NativeList<int>(100, allocator);
 
-            EntityQueryDesc desc = new EntityQueryDesc()
-            {
-                All = new[] {ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<EntityGuid>())},
-                Options = EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab
-            };
-            var query = _EntityManager.CreateEntityQuery(desc);
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EntityGuid>()
+                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
+                .Build(_EntityManager);
             Assert.IsFalse(query.HasFilter(), "The use of EntityQueryMask in this job will not respect the query's active filter settings.");
             var mask = query.GetEntityQueryMask();
 
@@ -292,8 +294,6 @@ namespace Unity.Entities
             {
                 _GameObjectToEntity.Remove(gameObject);
             }
-
-            query.Dispose();
 
             return gameObjectsNoEntity;
         }
@@ -371,7 +371,7 @@ namespace Unity.Entities
 
                         using (s_RevertComponents.Auto())
                         {
-                            bakerState.Revert(revertEcb, default, ref _ReferencedEntities, blobAssetStore, ref _IsReferencedEntitiesDirty, ref this);
+                            bakerState.Revert(revertEcb, default, ref _ReferencedEntities, blobAssetStore, ref _BakerDebugState, ref _IsReferencedEntitiesDirty, ref this);
                             bakerState.Usage.Revert(default, ref _ReferencedEntities, ref _IsReferencedEntitiesDirty);
                         }
 
@@ -427,300 +427,335 @@ namespace Unity.Entities
             var tempDependencies = new BakeDependencies.RecordedDependencies(16, Allocator.TempJob);
             var tempUsage = new BakerEntityUsage(default, 16, Allocator.TempJob);
 
-            // debug state used to track duplicate destination component adds
-            BakerDebugState bakerDebugState = new BakerDebugState(Allocator.TempJob);
-            IBaker.BakerExecutionState state;
-            state.Ecb = ecb;
-            state.World = _EntityManager.World;
-            state.BakedEntityData = (BakedEntityData*)UnsafeUtility.AddressOf(ref this);
-            state.DebugState = &bakerDebugState;
-            state.BlobAssetStore = blobAssetStore;
-#if UNITY_EDITOR
-#if USING_PLATFORMS_PACKAGE
-            state.BuildConfiguration = bakingSettings.BuildConfiguration;
-#endif
-            state.DotsSettings = bakingSettings.DotsSettings;
-#endif
-
             // Base size on created game objects, as worse case is initial bake and this will avoid too many allocations in that case
             var entitiesBaked = new NativeParallelHashSet<Entity>(instructions.CreatedGameObjects.Count, Allocator.Temp);
 
-            using (s_Bake.Auto())
+            fixed (BakerDebugState* bakerDebugState = &_BakerDebugState)
             {
-                var gameObjectTypeIndex = TypeManager.GetTypeIndex(typeof(UnityEngine.GameObject));
-                var gameObjectBakers = BakerDataUtility.GetBakers(gameObjectTypeIndex);
-                if (gameObjectBakers != null)
-                {
+                // debug state used to track duplicate destination component adds
+                IBaker.BakerExecutionState state;
+                state.Ecb = ecb;
+                state.World = _EntityManager.World;
+                state.BakedEntityData = (BakedEntityData*) UnsafeUtility.AddressOf(ref this);
+                state.DebugState = bakerDebugState;
+                state.BlobAssetStore = blobAssetStore;
 #if UNITY_EDITOR
-#if ENABLE_CLOUD_SERVICES_ANALYTICS
-                    // Save the data for Analytics
-                    BakingAnalytics.LogBakerTypeIndex(gameObjectTypeIndex);
+#if USING_PLATFORMS_PACKAGE
+                state.BuildConfiguration = bakingSettings.BuildConfiguration;
 #endif
+                state.DotsSettings = bakingSettings.DotsSettings;
 #endif
 
-                    // bake the GameObject properties
+                using (s_Bake.Auto())
+                {
+                    // Revert as a single pass all the component bakers that are going to rebake
+                    foreach (var component in instructions.BakeComponents)
+                    {
+                        var instanceID = component.ComponentID;
+                        if (_AuthoringIDToBakerState.TryGetValue(instanceID, out var bakerState))
+                        {
+                            if (!_GameObjectToEntity.TryGetValue(component.GameObjectInstanceID, out var entity) ||
+                                !_EntityManager.Exists(entity))
+                            {
+                                Debug.LogError(
+                                    $"Baking entity that doesn't exist: {entity} GameObject: {component.GameObjectInstanceID} Component: {component}",
+                                    (GameObject) Resources.InstanceIDToObject(component.GameObjectInstanceID));
+                                continue;
+                            }
+
+                            ResetComponentAdditionalEntityCount(instanceID, entity);
+                            bakerState.Revert(revertEcb, entity, ref _ReferencedEntities, blobAssetStore,
+                                ref _BakerDebugState, ref _IsReferencedEntitiesDirty, ref this);
+                        }
+                    }
+
+                    // Revert as a single pass all the GameObject bakers that are going to rebake
                     foreach (var gameObject in instructions.BakeGameObjects)
                     {
                         var instanceID = gameObject.GetInstanceID();
-                        if (!_GameObjectToEntity.TryGetValue(instanceID, out var entity) || !_EntityManager.Exists(entity))
+                        if (_AuthoringIDToBakerState.TryGetValue(instanceID, out var bakerState))
                         {
-                            Debug.LogError($"Baking entity that doesn't exist: {entity} GameObject: {instanceID}", gameObject);
-                            continue;
+                            if (!_GameObjectToEntity.TryGetValue(instanceID, out var entity) ||
+                                !_EntityManager.Exists(entity))
+                            {
+                                Debug.LogError($"Baking entity that doesn't exist: {entity} GameObject: {instanceID}",
+                                    gameObject);
+                                continue;
+                            }
+
+                            ResetComponentAdditionalEntityCount(instanceID, entity);
+                            bakerState.Revert(revertEcb, entity, ref _ReferencedEntities, blobAssetStore,
+                                ref _BakerDebugState, ref _IsReferencedEntitiesDirty, ref this);
                         }
+                    }
 
+                    var gameObjectTypeIndex = TypeManager.GetTypeIndex(typeof(UnityEngine.GameObject));
+                    var gameObjectBakers = BakerDataUtility.GetBakers(gameObjectTypeIndex);
+                    if (gameObjectBakers != null)
+                    {
+#if UNITY_EDITOR
+#if ENABLE_CLOUD_SERVICES_ANALYTICS
+                        // Save the data for Analytics
+                        BakingAnalytics.LogBakerTypeIndex(gameObjectTypeIndex);
+#endif
+#endif
+
+                        // bake the GameObject properties
+                        foreach (var gameObject in instructions.BakeGameObjects)
+                        {
+                            var instanceID = gameObject.GetInstanceID();
+                            if (!_GameObjectToEntity.TryGetValue(instanceID, out var entity) ||
+                                !_EntityManager.Exists(entity))
+                            {
+                                Debug.LogError($"Baking entity that doesn't exist: {entity} GameObject: {instanceID}",
+                                    gameObject);
+                                continue;
+                            }
+
+                            entitiesBaked.Add(entity);
+
+                            var didExist = _AuthoringIDToBakerState.TryGetValue(instanceID, out var bakerState);
+                            try
+                            {
+                                // Need full revert / rebake
+                                if (didExist)
+                                {
+                                    tempDependencies.Clear();
+                                    tempUsage.Clear(entity);
+
+                                    for (int i = 0, n = gameObjectBakers.Length; i < n; ++i)
+                                    {
+                                        var baker = gameObjectBakers[i];
+
+                                        // We don't run bake if the baker belongs to a disabled assembly
+                                        if (!baker.AssemblyData.Enabled)
+                                            continue;
+
+                                        using (baker.Profiler.Auto())
+                                        {
+                                            try
+                                            {
+                                                state.Usage = &tempUsage;
+                                                state.Dependencies = &tempDependencies;
+                                                state.DebugIndex.TypeIndex = gameObjectTypeIndex;
+                                                state.DebugIndex.IndexInBakerArray = i;
+                                                state.BakerState = &bakerState;
+                                                state.AuthoringSource = null;
+                                                state.AuthoringObject = gameObject;
+                                                state.AuthoringId = gameObject.GetInstanceID();
+                                                state.PrimaryEntity = entity;
+
+                                                // baker.Baker.BakeInternal(ref tempDependencies, ref tempUsage, ref bakerState, ref _BakerDebugState, i, ref this, ref ecb, component.Component, blobAssetStore);
+                                                baker.Baker.InvokeBake(state);
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                Debug.LogException(e);
+                                            }
+                                        }
+                                    }
+
+                                    using (s_RegisterDependencies.Auto())
+                                    {
+                                        UpdateDependencies(ref dependencies, instanceID, ref bakerState,
+                                            ref tempDependencies, ref tempUsage);
+                                    }
+                                }
+                                else
+                                {
+                                    for (int i = 0, n = gameObjectBakers.Length; i < n; ++i)
+                                    {
+                                        var baker = gameObjectBakers[i];
+
+                                        // We don't run bake if the baker belongs to a disabled assembly
+                                        if (!baker.AssemblyData.Enabled)
+                                            continue;
+
+                                        using (s_CreateBakerState.Auto())
+                                        {
+                                            bakerState = new BakerState(entity, Allocator.Persistent);
+                                        }
+
+                                        using (baker.Profiler.Auto())
+                                        {
+                                            try
+                                            {
+                                                state.Usage = &bakerState.Usage;
+                                                state.Dependencies = &bakerState.Dependencies;
+                                                state.DebugIndex.TypeIndex = gameObjectTypeIndex;
+                                                state.DebugIndex.IndexInBakerArray = i;
+                                                state.BakerState = &bakerState;
+                                                state.AuthoringSource = null;
+                                                state.AuthoringObject = gameObject;
+                                                state.AuthoringId = gameObject.GetInstanceID();
+                                                state.PrimaryEntity = entity;
+
+                                                // baker.Baker.BakeInternal(ref tempDependencies, ref tempUsage, ref bakerState, ref _BakerDebugState, i, ref this, ref ecb, component.Component, blobAssetStore);
+                                                baker.Baker.InvokeBake(state);
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                Debug.LogException(e);
+                                            }
+                                        }
+                                    }
+
+                                    using (s_RegisterDependencies.Auto())
+                                    {
+                                        AddDependencies(ref dependencies, instanceID, ref bakerState);
+                                    }
+                                }
+                            }
+                            finally
+                            {
+                                _AuthoringIDToBakerState[instanceID] = bakerState;
+                            }
+                        }
+                    }
+
+                    // bake new and changed components
+                    foreach (var component in instructions.BakeComponents)
+                    {
+                        var instanceID = component.ComponentID;
+
+                        _GameObjectToEntity.TryGetValue(component.GameObjectInstanceID, out var entity);
+                        if (!_EntityManager.Exists(entity))
+                            Debug.LogError(
+                                $"Baking entity that doesn't exist: {entity} GameObject: {component.GameObjectInstanceID} Component: {component}",
+                                (GameObject) Resources.InstanceIDToObject(component.GameObjectInstanceID));
+
+#if UNITY_EDITOR
+                        if (bakingSettings != null && bakingSettings.BakingSystemFilterSettings != null)
+                        {
+                            BakerDataUtility.ApplyAssemblyFilter(bakingSettings.BakingSystemFilterSettings);
+                        }
+#endif
+
+                        var bakeTypeIndex = TypeManager.GetTypeIndex(component.Component.GetType());
+                        var bakers = BakerDataUtility.GetBakers(bakeTypeIndex);
+                        if (bakers == null)
+                            continue;
+#if UNITY_EDITOR
+#if ENABLE_CLOUD_SERVICES_ANALYTICS
+                        // Save the data for Analytics
+                        BakingAnalytics.LogBakerTypeIndex(bakeTypeIndex);
+#endif
+#endif
                         entitiesBaked.Add(entity);
-
                         var didExist = _AuthoringIDToBakerState.TryGetValue(instanceID, out var bakerState);
                         try
                         {
                             // Need full revert / rebake
                             if (didExist)
                             {
-                                ResetComponentAdditionalEntityCount(instanceID, entity);
-                                bakerState.Revert(revertEcb, entity, ref _ReferencedEntities, blobAssetStore, ref _IsReferencedEntitiesDirty, ref this);
-
                                 tempDependencies.Clear();
                                 tempUsage.Clear(entity);
 
-                                for (int i = 0, n = gameObjectBakers.Length; i < n; ++i)
+                                // We don't bake disabled components
+                                if (!component.Component.IsComponentDisabled())
                                 {
-                                    var baker = gameObjectBakers[i];
-
-                                    // We don't run bake if the baker belongs to a disabled assembly
-                                    if (!baker.AssemblyData.Enabled)
-                                        continue;
-
-                                    using (baker.Profiler.Auto())
+                                    // Rebake all bakers for this component
+                                    for (int i = 0, n = bakers.Length; i < n; ++i)
                                     {
-                                        try
-                                        {
-                                            state.Usage = &tempUsage;
-                                            state.Dependencies = &tempDependencies;
-                                            state.DebugIndex.TypeIndex = gameObjectTypeIndex;
-                                            state.DebugIndex.IndexInBakerArray = i;
-                                            state.BakerState = &bakerState;
-                                            state.AuthoringSource = null;
-                                            state.AuthoringObject = gameObject;
-                                            state.AuthoringId = gameObject.GetInstanceID();
-                                            state.PrimaryEntity = entity;
+                                        var baker = bakers[i];
 
-                                            // baker.Baker.BakeInternal(ref tempDependencies, ref tempUsage, ref bakerState, ref bakerDebugState, i, ref this, ref ecb, component.Component, blobAssetStore);
-                                            baker.Baker.InvokeBake(state);
-                                        }
-                                        catch (Exception e)
+                                        // We don't run bake if the baker belongs to a disabled assembly
+                                        if (!baker.AssemblyData.Enabled)
+                                            continue;
+
+                                        using (baker.Profiler.Auto())
                                         {
-                                            Debug.LogException(e);
+                                            try
+                                            {
+                                                state.Usage = &tempUsage;
+                                                state.Dependencies = &tempDependencies;
+                                                state.DebugIndex.TypeIndex = bakeTypeIndex;
+                                                state.DebugIndex.IndexInBakerArray = i;
+                                                state.BakerState = &bakerState;
+                                                state.AuthoringSource = component.Component;
+                                                state.AuthoringObject = component.Component.gameObject;
+                                                state.AuthoringId = component.Component.GetInstanceID();
+                                                state.PrimaryEntity = entity;
+
+                                                // baker.Baker.BakeInternal(ref tempDependencies, ref tempUsage, ref bakerState, ref _BakerDebugState, i, ref this, ref ecb, component.Component, blobAssetStore);
+                                                baker.Baker.InvokeBake(state);
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                Debug.LogException(e);
+                                            }
                                         }
                                     }
-                                }
 
-                                using (s_RegisterDependencies.Auto())
-                                {
-                                    UpdateDependencies(ref dependencies, instanceID, ref bakerState, ref tempDependencies, ref tempUsage);
+                                    using (s_RegisterDependencies.Auto())
+                                    {
+                                        UpdateDependencies(ref dependencies, instanceID, ref bakerState,
+                                            ref tempDependencies, ref tempUsage);
+                                    }
                                 }
                             }
+                            // Added baker for the first time, can just add.
                             else
                             {
-                                for (int i = 0, n = gameObjectBakers.Length; i < n; ++i)
+                                using (s_CreateBakerState.Auto())
                                 {
-                                    var baker = gameObjectBakers[i];
-
-                                    // We don't run bake if the baker belongs to a disabled assembly
-                                    if (!baker.AssemblyData.Enabled)
-                                        continue;
-
-                                    using (s_CreateBakerState.Auto())
-                                    {
-                                        bakerState = new BakerState(entity, Allocator.Persistent);
-                                    }
-
-                                    using (baker.Profiler.Auto())
-                                    {
-                                        try
-                                        {
-                                            state.Usage = &bakerState.Usage;
-                                            state.Dependencies = &bakerState.Dependencies;
-                                            state.DebugIndex.TypeIndex = gameObjectTypeIndex;
-                                            state.DebugIndex.IndexInBakerArray = i;
-                                            state.BakerState = &bakerState;
-                                            state.AuthoringSource = null;
-                                            state.AuthoringObject = gameObject;
-                                            state.AuthoringId = gameObject.GetInstanceID();
-                                            state.PrimaryEntity = entity;
-
-                                            // baker.Baker.BakeInternal(ref tempDependencies, ref tempUsage, ref bakerState, ref bakerDebugState, i, ref this, ref ecb, component.Component, blobAssetStore);
-                                            baker.Baker.InvokeBake(state);
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            Debug.LogException(e);
-                                        }
-                                    }
+                                    bakerState = new BakerState(entity, Allocator.Persistent);
                                 }
 
-                                using (s_RegisterDependencies.Auto())
+                                // We don't bake disabled components
+                                if (!component.Component.IsComponentDisabled())
                                 {
-                                    AddDependencies(ref dependencies, instanceID, ref bakerState);
+                                    // Rebake all bakers for this component
+                                    for (int i = 0, n = bakers.Length; i < n; ++i)
+                                    {
+                                        var baker = bakers[i];
+
+                                        // We don't run bake if the baker belongs to a disabled assembly
+                                        if (!baker.AssemblyData.Enabled)
+                                            continue;
+
+                                        using (baker.Profiler.Auto())
+                                        {
+                                            try
+                                            {
+                                                state.Usage = &bakerState.Usage;
+                                                state.Dependencies = &bakerState.Dependencies;
+                                                state.DebugIndex.TypeIndex = bakeTypeIndex;
+                                                state.DebugIndex.IndexInBakerArray = i;
+                                                state.BakerState = &bakerState;
+                                                state.AuthoringSource = component.Component;
+                                                state.AuthoringObject = component.Component.gameObject;
+                                                state.AuthoringId = component.Component.GetInstanceID();
+                                                state.PrimaryEntity = entity;
+
+                                                baker.Baker.InvokeBake(state);
+                                            }
+                                            catch (Exception e)
+                                            {
+                                                Debug.LogException(e);
+                                            }
+                                        }
+                                    }
+
+                                    using (s_RegisterDependencies.Auto())
+                                    {
+                                        AddDependencies(ref dependencies, instanceID, ref bakerState);
+                                    }
                                 }
                             }
                         }
                         finally
                         {
+                            // NOTE: Have to copy back to the baking context since BakerState is copied by value
+                            // Would be better to keep a ref to the bakerState (Should come into master soon)
                             _AuthoringIDToBakerState[instanceID] = bakerState;
                         }
+
+                        //Debug.Log($"ApplyInstruction - Bake: {entity} GameObject: {component.GameObjectInstanceID} ({Resources.InstanceIDToObject(component.GameObjectInstanceID)}) Component: {component.Component.GetInstanceID()} ({component.Component})");
                     }
-                }
-
-                // bake new and changed components
-                foreach (var component in instructions.BakeComponents)
-                {
-                    var instanceID = component.ComponentID;
-
-                    _GameObjectToEntity.TryGetValue(component.GameObjectInstanceID, out var entity);
-                    if (!_EntityManager.Exists(entity))
-                        Debug.LogError($"Baking entity that doesn't exist: {entity} GameObject: {component.GameObjectInstanceID} Component: {component}", (GameObject)Resources.InstanceIDToObject(component.GameObjectInstanceID));
-
-#if UNITY_EDITOR
-                    if (bakingSettings != null && bakingSettings.BakingSystemFilterSettings != null)
-                    {
-                        BakerDataUtility.ApplyAssemblyFilter(bakingSettings.BakingSystemFilterSettings);
-                    }
-#if USING_PLATFORMS_PACKAGE
-                    else
-                    {
-                        // Reset a filter in case one was there before
-                        BakerDataUtility.ApplyAssemblyFilter((ConversionSystemFilterSettings)null);
-                    }
-#endif
-#endif
-
-                    var bakeTypeIndex = TypeManager.GetTypeIndex(component.Component.GetType());
-                    var bakers = BakerDataUtility.GetBakers(bakeTypeIndex);
-                    if (bakers == null)
-                        continue;
-#if UNITY_EDITOR
-#if ENABLE_CLOUD_SERVICES_ANALYTICS
-                    // Save the data for Analytics
-                    BakingAnalytics.LogBakerTypeIndex(bakeTypeIndex);
-#endif
-#endif
-                    entitiesBaked.Add(entity);
-                    var didExist = _AuthoringIDToBakerState.TryGetValue(instanceID, out var bakerState);
-                    try
-                    {
-                        // Need full revert / rebake
-                        if (didExist)
-                        {
-                            ResetComponentAdditionalEntityCount(instanceID, entity);
-                            bakerState.Revert(revertEcb, entity, ref _ReferencedEntities, blobAssetStore, ref _IsReferencedEntitiesDirty, ref this);
-
-                            tempDependencies.Clear();
-                            tempUsage.Clear(entity);
-
-                            // We don't bake disabled components
-                            if (!component.Component.IsComponentDisabled())
-                            {
-                                // Rebake all bakers for this component
-                                for (int i = 0, n = bakers.Length; i < n; ++i)
-                                {
-                                    var baker = bakers[i];
-
-                                    // We don't run bake if the baker belongs to a disabled assembly
-                                    if (!baker.AssemblyData.Enabled)
-                                        continue;
-
-                                    using (baker.Profiler.Auto())
-                                    {
-                                        try
-                                        {
-                                            state.Usage = &tempUsage;
-                                            state.Dependencies = &tempDependencies;
-                                            state.DebugIndex.TypeIndex = bakeTypeIndex;
-                                            state.DebugIndex.IndexInBakerArray = i;
-                                            state.BakerState = &bakerState;
-                                            state.AuthoringSource = component.Component;
-                                            state.AuthoringObject = component.Component.gameObject;
-                                            state.AuthoringId = component.Component.GetInstanceID();
-                                            state.PrimaryEntity = entity;
-
-                                            // baker.Baker.BakeInternal(ref tempDependencies, ref tempUsage, ref bakerState, ref bakerDebugState, i, ref this, ref ecb, component.Component, blobAssetStore);
-                                            baker.Baker.InvokeBake(state);
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            Debug.LogException(e);
-                                        }
-                                    }
-                                }
-
-                                using (s_RegisterDependencies.Auto())
-                                {
-                                    UpdateDependencies(ref dependencies, instanceID, ref bakerState, ref tempDependencies, ref tempUsage);
-                                }
-                            }
-                        }
-                        // Added baker for the first time, can just add.
-                        else
-                        {
-                            using (s_CreateBakerState.Auto())
-                            {
-                                bakerState = new BakerState(entity, Allocator.Persistent);
-                            }
-
-                            // We don't bake disabled components
-                            if (!component.Component.IsComponentDisabled())
-                            {
-                                // Rebake all bakers for this component
-                                for (int i = 0, n = bakers.Length; i < n; ++i)
-                                {
-                                    var baker = bakers[i];
-
-                                    // We don't run bake if the baker belongs to a disabled assembly
-                                    if (!baker.AssemblyData.Enabled)
-                                        continue;
-
-                                    using (baker.Profiler.Auto())
-                                    {
-                                        try
-                                        {
-                                            state.Usage = &bakerState.Usage;
-                                            state.Dependencies = &bakerState.Dependencies;
-                                            state.DebugIndex.TypeIndex = bakeTypeIndex;
-                                            state.DebugIndex.IndexInBakerArray = i;
-                                            state.BakerState = &bakerState;
-                                            state.AuthoringSource = component.Component;
-                                            state.AuthoringObject = component.Component.gameObject;
-                                            state.AuthoringId = component.Component.GetInstanceID();
-                                            state.PrimaryEntity = entity;
-
-                                            baker.Baker.InvokeBake(state);
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            Debug.LogException(e);
-                                        }
-                                    }
-                                }
-
-                                using (s_RegisterDependencies.Auto())
-                                {
-                                    AddDependencies(ref dependencies, instanceID, ref bakerState);
-                                }
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        // NOTE: Have to copy back to the baking context since BakerState is copied by value
-                        // Would be better to keep a ref to the bakerState (Should come into master soon)
-                        _AuthoringIDToBakerState[instanceID] = bakerState;
-                    }
-
-                    //Debug.Log($"ApplyInstruction - Bake: {entity} GameObject: {component.GameObjectInstanceID} ({Resources.InstanceIDToObject(component.GameObjectInstanceID)}) Component: {component.Component.GetInstanceID()} ({component.Component})");
                 }
             }
 
-            bakerDebugState.Dispose();
             tempDependencies.Dispose();
             tempUsage.Dispose();
 
@@ -767,7 +802,7 @@ namespace Unity.Entities
 
                                 using (s_RevertComponents.Auto())
                                 {
-                                    bakerState.Revert(revertEcb, default, ref _ReferencedEntities,  blobAssetStore,ref _IsReferencedEntitiesDirty, ref this);
+                                    bakerState.Revert(revertEcb, default, ref _ReferencedEntities,  blobAssetStore, ref _BakerDebugState, ref _IsReferencedEntitiesDirty, ref this);
                                     bakerState.Usage.Revert(default, ref _ReferencedEntities, ref _IsReferencedEntitiesDirty);
                                 }
 
@@ -1064,12 +1099,17 @@ namespace Unity.Entities
             return entity;
         }
 
-        public UnsafeList<Entity> GetEntitiesForBakers(Component component)
+        public UnsafeHashSet<Entity> GetEntitiesForBakers(Component component)
         {
             var builder = _AuthoringIDToBakerState[component.GetInstanceID()];
             return builder.GetEntities();
         }
 
+        public Entity GetPrimaryEntity(Component component)
+        {
+            var builder = _AuthoringIDToBakerState[component.GetInstanceID()];
+            return builder.GetPrimaryEntity();
+        }
 
         public void UpdateTransforms(TransformAuthoringBaking transformAuthoringBaking)
         {

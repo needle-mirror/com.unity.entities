@@ -178,8 +178,6 @@ namespace Doc.CodeSamples.Tests
             var exampleBufferAccessJob = new AccessDynamicBufferJob { BufferLookup = _bufferLookup };
             exampleBufferAccessJob.ScheduleParallel();
         }
-
-        public void OnDestroy(ref SystemState state) { }
     }
     #endregion
 
@@ -292,7 +290,9 @@ namespace Doc.CodeSamples.Tests
     {
         protected override void OnUpdate()
         {
-            var query = EntityManager.CreateEntityQuery(typeof(ExampleBufferComponent));
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<ExampleBufferComponent>()
+                .Build(EntityManager);
             NativeArray<ArchetypeChunk> chunks = query.ToArchetypeChunkArray(Allocator.Temp);
             for (int i = 0; i < chunks.Length; i++)
             {
@@ -332,9 +332,9 @@ namespace Doc.CodeSamples.Tests
         {
             //Create a query to find all entities with a dynamic buffer
             // containing MyBufferElement
-            EntityQueryDesc queryDescription = new EntityQueryDesc();
-            queryDescription.All = new[] {ComponentType.ReadOnly<MyBufferElement>()};
-            query = GetEntityQuery(queryDescription);
+            query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<MyBufferElement>()
+                .Build(this);
         }
 
         public struct BuffersInChunks : IJobChunk

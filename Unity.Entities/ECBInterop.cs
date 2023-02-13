@@ -9,7 +9,7 @@ namespace Unity.Entities
     {
         [BurstMonoInteropMethod]
         [BurstDiscard]
-        internal unsafe static void _RemoveManagedReferences(EntityDataAccess* mgr, int* sharedIndex, int count)
+        internal static unsafe void _RemoveManagedReferences(EntityDataAccess* mgr, int* sharedIndex, int count)
         {
             try
             {
@@ -32,6 +32,19 @@ namespace Unity.Entities
             }
         }
 
+        [BurstMonoInteropMethod]
+        [BurstDiscard]
+        internal static unsafe void _CleanupManaged(EntityCommandBufferChain* chain)
+        {
+            var cleanup_list = chain->m_Cleanup->CleanupList;
+            while (cleanup_list != null)
+            {
+                cleanup_list->BoxedObject.Free();
+                cleanup_list = cleanup_list->Prev;
+            }
+
+            chain->m_Cleanup->CleanupList = null;
+        }
 
         [BurstMonoInteropMethod]
         [BurstDiscard]

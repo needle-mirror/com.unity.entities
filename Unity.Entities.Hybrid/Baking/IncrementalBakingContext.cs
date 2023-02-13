@@ -461,6 +461,7 @@ namespace Unity.Entities.Baking
 
                 //Debug.Log($"BuildIncrementalInstructions - ChangedComponentOrDependency: {componentID} ({component.gameObject.name}) ({component.GetType().Name})");
 
+                // Add for bake
                 var bake = new IncrementalBakeInstructions.BakeComponent { GameObjectInstanceID = gameObjectID, Component = component, ComponentID = componentID};
                 _BakeInstructionsCache.BakeComponents.Add(bake);
             }
@@ -500,7 +501,10 @@ namespace Unity.Entities.Baking
                     _ComponentsExistingCache.Clear();
                     _Components.AddGameObject(gameObject, _ComponentCache);
 
-                    _BakeInstructionsCache.BakeComponents.Add(new IncrementalBakeInstructions.BakeComponent { GameObjectInstanceID = gameObject.GetInstanceID(), Component = com, ComponentID = com.GetInstanceID()});
+                    var componentID = com.GetInstanceID();
+
+                    // Add for bake
+                    _BakeInstructionsCache.BakeComponents.Add(new IncrementalBakeInstructions.BakeComponent { GameObjectInstanceID = gameObject.GetInstanceID(), Component = com, ComponentID = componentID});
 
                     IncrementalBakingLog.RecordGameObjectNew(gameObjectID);
                 }
@@ -596,6 +600,8 @@ namespace Unity.Entities.Baking
                 if (batch.ChangedAssets.Length != 0)
                     outData.ChangedAssets.AddRange(batch.ChangedAssets);
 
+                outData.LightBakingChanged |= batch.LightBakingChanged;
+
                 var requestHierarchyBake = new NativeList<int>(Allocator.Temp);
                 requestHierarchyBake.AddRange(batch.BakeHierarchyInstanceIds);
 
@@ -639,7 +645,37 @@ namespace Unity.Entities.Baking
                                 CopyToList(visitedInstances, outData.RemovedGameObjects);
                             }
 
+
                             IncrementalHierarchyFunctions.Remove(_Hierarchy, changeFailed.AsArray());
+                        }
+
+                        // Consider all the transform when reparenting as modified components
+                        {
+                            if (!outData.ParentChangeInstanceIds.IsEmpty)
+                            {
+                                // Extract the successful GameObject IDs
+                                NativeArray<int> transformIDs = new NativeArray<int>(outData.ParentChangeInstanceIds.Length, Allocator.Temp);
+                                for (int index = 0; index < outData.ParentChangeInstanceIds.Length; ++index)
+                                {
+                                    transformIDs[index] = outData.ParentChangeInstanceIds[index].InstanceId;
+                                }
+
+                                var objs = InstanceIdToObject(transformIDs);
+                                var transformTypeIndex = TypeManager.GetTypeIndex<Transform>();
+                                foreach (var obj in objs)
+                                {
+                                    GameObject go = (obj as GameObject);
+                                    if (go != null)
+                                    {
+                                        var transform = go.transform;
+                                        outData.ChangedComponents.Add(new IncrementalBakingData.ChangedComponentsInfo()
+                                        {
+                                            instanceID = transform.GetInstanceID(),
+                                            unityTypeIndex = transformTypeIndex
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
                 }

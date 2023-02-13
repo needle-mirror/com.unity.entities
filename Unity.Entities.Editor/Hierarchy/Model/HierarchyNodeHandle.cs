@@ -81,36 +81,8 @@ namespace Unity.Entities.Editor
         public static HierarchyNodeHandle FromScene(UnloadedScene scene)
             => new HierarchyNodeHandle(NodeKind.Scene, index: scene.handle);
 
-        public static unsafe HierarchyNodeHandle FromSubScene(SubSceneNodeMapping mapping, EntityDataAccess* access, Entity entity)
-            => new HierarchyNodeHandle(NodeKind.SubScene, index: mapping.GetSubSceneIdFromSceneEntity(entity, access));
-
-        public static unsafe HierarchyNodeHandle FromSubScene(SubSceneNodeMapping mapping, EntityDataAccess* access, SceneTag sceneTag)
-            => new HierarchyNodeHandle(NodeKind.SubScene, index: mapping.GetSubSceneIdFromSceneEntity(access->GetComponentData<SceneEntityReference>(sceneTag.SceneEntity).SceneEntity, access));
-
-        public static unsafe HierarchyNodeHandle FromSubScene(SubSceneNodeMapping mapping, World world, Scenes.SubScene subScene)
-        {
-            var sceneSystem = world.GetExistingSystem<SceneSystem>();
-            var statePtr = world.Unmanaged.ResolveSystemState(sceneSystem);
-            return statePtr == null ? default : FromSubScene(mapping, world.EntityManager.GetCheckedEntityDataAccess(), SceneSystem.GetSceneEntity(world.Unmanaged, subScene.SceneGUID));
-        }
-
-        public static HierarchyNodeHandle FromSubScene(SubSceneNodeMapping subSceneNodeMapping, Scene scene)
-        {
-            var id = subSceneNodeMapping.GetIdFromScenePath(scene.path);
-            return new HierarchyNodeHandle(NodeKind.SubScene, index: id);
-        }
-
-        public static HierarchyNodeHandle FromSubScene(SubSceneNodeMapping subSceneNodeMapping, UnloadedScene scene)
-        {
-            var id = subSceneNodeMapping.GetIdFromScenePath(scene.path);
-            return new HierarchyNodeHandle(NodeKind.SubScene, index: id);
-        }
-
-        public static HierarchyNodeHandle FromSubScene(SubSceneNodeMapping subSceneNodeMapping, SubScene subScene)
-        {
-            var id = subSceneNodeMapping.GetIdFromSubSceneComponent(subScene);
-            return new HierarchyNodeHandle(NodeKind.SubScene, index: id);
-        }
+        public static HierarchyNodeHandle FromSubScene(int subSceneMapIndex)
+            => new HierarchyNodeHandle(NodeKind.SubScene, index: subSceneMapIndex);
 
         public override string ToString()
             => Equals(Root) ? $"{nameof(HierarchyNodeHandle)}(Root)" : $"{nameof(HierarchyNodeHandle)}(Kind:{Kind}, Index:{Index}, Version:{Version})";

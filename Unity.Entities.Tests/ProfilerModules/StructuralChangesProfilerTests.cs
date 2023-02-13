@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Profiling;
 using UnityEditor.Profiling;
 using UnityEditorInternal;
@@ -69,8 +70,6 @@ namespace Unity.Entities.Tests
 
         partial struct CreateEntityUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => CreateEntity(state.EntityManager);
         }
 
@@ -81,8 +80,6 @@ namespace Unity.Entities.Tests
 
         partial struct CreateEntityWithArchetypeUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => CreateEntityWithArchetype(state.EntityManager);
         }
 
@@ -93,8 +90,6 @@ namespace Unity.Entities.Tests
 
         partial struct CreateEntityWithComponentTypeSetUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => CreateEntityWithComponentTypeSet(state.EntityManager);
         }
 
@@ -105,8 +100,6 @@ namespace Unity.Entities.Tests
 
         partial struct CreateEntityWithArchetypeAndEntityCountUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => CreateEntityWithArchetypeAndEntityCount(state.EntityManager);
         }
 
@@ -117,8 +110,6 @@ namespace Unity.Entities.Tests
 
         partial struct CreateEntityWithArchetypeAndEntityCountAndAllocatorUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => CreateEntityWithArchetypeAndEntityCountAndAllocator(state.EntityManager);
         }
 
@@ -129,8 +120,6 @@ namespace Unity.Entities.Tests
 
         partial struct CreateEntityWithArchetypeAndEntityArrayUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => CreateEntityWithArchetypeAndEntityArray(state.EntityManager);
         }
 
@@ -141,8 +130,6 @@ namespace Unity.Entities.Tests
 
         partial struct CreateEntityFromECBUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => CreateEntityFromECB(state.EntityManager);
         }
 
@@ -153,8 +140,6 @@ namespace Unity.Entities.Tests
 
         partial struct CreateEntityFromECBWithArchetypeUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => CreateEntityFromECBWithArchetype(state.EntityManager);
         }
 
@@ -165,8 +150,6 @@ namespace Unity.Entities.Tests
 
         partial struct DestroyEntityUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => DestroyEntity(state.EntityManager);
         }
 
@@ -177,8 +160,6 @@ namespace Unity.Entities.Tests
 
         partial struct DestroyEntityArrayUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => DestroyEntityArray(state.EntityManager);
         }
 
@@ -189,8 +170,6 @@ namespace Unity.Entities.Tests
 
         partial struct DestroyEntityArraySliceUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => DestroyEntityArraySlice(state.EntityManager);
         }
 
@@ -201,8 +180,6 @@ namespace Unity.Entities.Tests
 
         partial struct DestroyEntityWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => DestroyEntityWithQuery(state.EntityManager);
         }
 
@@ -213,8 +190,6 @@ namespace Unity.Entities.Tests
 
         partial struct DestroyEntityFromECBUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => DestroyEntityFromECB(state.EntityManager);
         }
 
@@ -225,8 +200,6 @@ namespace Unity.Entities.Tests
 
         partial struct DestroyEntityFromECBWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => DestroyEntityFromECBWithQuery(state.EntityManager);
         }
 
@@ -237,8 +210,6 @@ namespace Unity.Entities.Tests
 
         partial struct AddComponentUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => AddComponent(state.EntityManager, s_ComponentType);
         }
 
@@ -249,8 +220,6 @@ namespace Unity.Entities.Tests
 
         partial struct AddComponentWithComponentTypeSetUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => AddComponentWithComponentTypeSet(state.EntityManager, s_ComponentTypeSet);
         }
 
@@ -261,8 +230,6 @@ namespace Unity.Entities.Tests
 
         partial struct AddComponentWithEntityArrayUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => AddComponentWithEntityArray(state.EntityManager, s_ComponentType);
         }
 
@@ -273,8 +240,6 @@ namespace Unity.Entities.Tests
 
         partial struct AddComponentWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => AddComponentWithQuery(state.EntityManager, s_QueryComponentType, s_ComponentType);
         }
 
@@ -285,8 +250,6 @@ namespace Unity.Entities.Tests
 
         partial struct AddComponentFromECBUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => AddComponentFromECB(state.EntityManager, s_ComponentType);
         }
 
@@ -297,8 +260,6 @@ namespace Unity.Entities.Tests
 
         partial struct AddComponentFromECBWithComponentTypeSetUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => AddComponentFromECBWithComponentTypeSet(state.EntityManager, s_ComponentTypeSet);
         }
 
@@ -309,8 +270,6 @@ namespace Unity.Entities.Tests
 
         partial struct AddComponentFromECBWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => AddComponentFromECBWithQuery(state.EntityManager, s_QueryComponentType, s_ComponentType);
         }
 
@@ -321,8 +280,6 @@ namespace Unity.Entities.Tests
 
         partial struct AddComponentFromECBWithQueryAndComponentTypeSetUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => AddComponentFromECBWithQueryAndComponentTypeSet(state.EntityManager, s_QueryComponentType, s_ComponentTypeSet);
         }
 
@@ -333,8 +290,6 @@ namespace Unity.Entities.Tests
 
         partial struct RemoveComponentUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => RemoveComponent(state.EntityManager, s_ComponentType);
         }
 
@@ -345,8 +300,6 @@ namespace Unity.Entities.Tests
 
         partial struct RemoveComponentWithComponentTypeSetUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => RemoveComponentWithComponentTypeSet(state.EntityManager, s_ComponentTypeSet);
         }
 
@@ -357,8 +310,6 @@ namespace Unity.Entities.Tests
 
         partial struct RemoveComponentWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => RemoveComponentWithQuery(state.EntityManager, s_QueryComponentType, s_ComponentType);
         }
 
@@ -369,8 +320,6 @@ namespace Unity.Entities.Tests
 
         partial struct RemoveComponentWithQueryAndComponentTypeSetUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => RemoveComponentWithQueryAndComponentTypeSet(state.EntityManager, s_QueryComponentType, s_ComponentTypeSet);
         }
 
@@ -381,8 +330,6 @@ namespace Unity.Entities.Tests
 
         partial struct RemoveComponentFromECBUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => RemoveComponentFromECB(state.EntityManager, s_ComponentType);
         }
 
@@ -393,8 +340,6 @@ namespace Unity.Entities.Tests
 
         partial struct RemoveComponentFromECBWithComponentTypeSetUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => RemoveComponentFromECBWithComponentTypeSet(state.EntityManager, s_ComponentTypeSet);
         }
 
@@ -405,8 +350,6 @@ namespace Unity.Entities.Tests
 
         partial struct RemoveComponentFromECBWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => RemoveComponentFromECBWithQuery(state.EntityManager, s_QueryComponentType, s_ComponentType);
         }
 
@@ -417,8 +360,6 @@ namespace Unity.Entities.Tests
 
         partial struct RemoveComponentFromECBWithQueryAndComponentTypeSetUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => RemoveComponentFromECBWithQueryAndComponentTypeSet(state.EntityManager, s_QueryComponentType, s_ComponentTypeSet);
         }
 
@@ -429,8 +370,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponent(state.EntityManager, new EcsTestSharedComp { value = 42 });
         }
 
@@ -441,8 +380,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentWithEntityArrayUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentWithEntityArray(state.EntityManager, new EcsTestSharedComp { value = 42 });
         }
 
@@ -453,8 +390,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentWithQuery(state.EntityManager, new EcsTestSharedComp { value = 42 });
         }
 
@@ -465,8 +400,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentFromECBUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentFromECB(state.EntityManager, new EcsTestSharedComp { value = 42 });
         }
 
@@ -477,8 +410,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentFromECBWithEntityArrayUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentFromECBWithEntityArray(state.EntityManager, new EcsTestSharedComp { value = 42 });
         }
 
@@ -489,8 +420,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentFromECBWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentFromECBWithQuery(state.EntityManager, new EcsTestSharedComp { value = 42 });
         }
 
@@ -501,8 +430,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentManagedUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentManaged(state.EntityManager, new EcsTestSharedCompManaged { value = "hello" });
         }
 
@@ -513,8 +440,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentManagedWithEntityArrayUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentManagedWithEntityArray(state.EntityManager, new EcsTestSharedCompManaged { value = "hello" });
         }
 
@@ -525,8 +450,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentManagedWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentManagedWithQuery(state.EntityManager, new EcsTestSharedCompManaged { value = "hello" });
         }
 
@@ -537,8 +460,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentManagedFromECBUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentManagedFromECB(state.EntityManager, new EcsTestSharedCompManaged { value = "hello" });
         }
 
@@ -549,8 +470,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentManagedFromECBWithEntityArrayUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentManagedFromECBWithEntityArray(state.EntityManager, new EcsTestSharedCompManaged { value = "hello" });
         }
 
@@ -561,8 +480,6 @@ namespace Unity.Entities.Tests
 
         partial struct SetSharedComponentManagedFromECBWithQueryUnmanagedSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) { }
-            public void OnDestroy(ref SystemState state) { }
             public void OnUpdate(ref SystemState state) => SetSharedComponentManagedFromECBWithQuery(state.EntityManager, new EcsTestSharedCompManaged { value = "hello" });
         }
 
@@ -728,7 +645,7 @@ namespace Unity.Entities.Tests
             manager.AddComponent(s_Entity, type);
         }
 
-        static void AddComponentWithComponentTypeSet(EntityManager manager, ComponentTypeSet types)
+        static void AddComponentWithComponentTypeSet(EntityManager manager, in ComponentTypeSet types)
         {
             manager.AddComponent(s_Entity, types);
         }
@@ -755,7 +672,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        static void AddComponentFromECBWithComponentTypeSet(EntityManager manager, ComponentTypeSet types)
+        static void AddComponentFromECBWithComponentTypeSet(EntityManager manager, in ComponentTypeSet types)
         {
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             {
@@ -774,7 +691,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        static void AddComponentFromECBWithQueryAndComponentTypeSet(EntityManager manager, ComponentType queryType, ComponentTypeSet types)
+        static void AddComponentFromECBWithQueryAndComponentTypeSet(EntityManager manager, ComponentType queryType, in ComponentTypeSet types)
         {
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             using (var query = manager.CreateEntityQuery(queryType))
@@ -789,7 +706,7 @@ namespace Unity.Entities.Tests
             manager.RemoveComponent(s_Entity, type);
         }
 
-        static void RemoveComponentWithComponentTypeSet(EntityManager manager, ComponentTypeSet types)
+        static void RemoveComponentWithComponentTypeSet(EntityManager manager, in ComponentTypeSet types)
         {
             manager.RemoveComponent(s_Entity, types);
         }
@@ -802,7 +719,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        static void RemoveComponentWithQueryAndComponentTypeSet(EntityManager manager, ComponentType queryType, ComponentTypeSet types)
+        static void RemoveComponentWithQueryAndComponentTypeSet(EntityManager manager, ComponentType queryType, in ComponentTypeSet types)
         {
             using (var query = manager.CreateEntityQuery(queryType))
             {
@@ -819,7 +736,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        static void RemoveComponentFromECBWithComponentTypeSet(EntityManager manager, ComponentTypeSet types)
+        static void RemoveComponentFromECBWithComponentTypeSet(EntityManager manager, in ComponentTypeSet types)
         {
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             {
@@ -838,7 +755,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        static void RemoveComponentFromECBWithQueryAndComponentTypeSet(EntityManager manager, ComponentType queryType, ComponentTypeSet types)
+        static void RemoveComponentFromECBWithQueryAndComponentTypeSet(EntityManager manager, ComponentType queryType, in ComponentTypeSet types)
         {
             using (var ecb = new EntityCommandBuffer(Allocator.Temp))
             using (var query = manager.CreateEntityQuery(queryType))
@@ -1000,25 +917,26 @@ namespace Unity.Entities.Tests
         public void Uninitialized_DoesNotThrow()
         {
             StructuralChangesProfiler.Shutdown();
+            using var recorder = new StructuralChangesProfiler.Recorder(Allocator.Persistent);
             Assert.DoesNotThrow(() =>
             {
-                StructuralChangesProfiler.Begin(StructuralChangeType.CreateEntity, default);
-                StructuralChangesProfiler.End();
+                recorder.Begin(StructuralChangeType.CreateEntity, default);
+                recorder.End();
             });
             Assert.DoesNotThrow(() =>
             {
-                StructuralChangesProfiler.Begin(StructuralChangeType.DestroyEntity, default);
-                StructuralChangesProfiler.End();
+                recorder.Begin(StructuralChangeType.DestroyEntity, default);
+                recorder.End();
             });
             Assert.DoesNotThrow(() =>
             {
-                StructuralChangesProfiler.Begin(StructuralChangeType.AddComponent, default);
-                StructuralChangesProfiler.End();
+                recorder.Begin(StructuralChangeType.AddComponent, default);
+                recorder.End();
             });
             Assert.DoesNotThrow(() =>
             {
-                StructuralChangesProfiler.Begin(StructuralChangeType.RemoveComponent, default);
-                StructuralChangesProfiler.End();
+                recorder.Begin(StructuralChangeType.RemoveComponent, default);
+                recorder.End();
             });
             Assert.DoesNotThrow(() => StructuralChangesProfiler.Flush());
         }
@@ -2213,6 +2131,61 @@ namespace Unity.Entities.Tests
         {
             World.EntityManager.CreateEntity(World.EntityManager.CreateArchetype(typeof(EcsTestSharedCompManaged)), 10);
             VerifyFrameMetaDataUnmanagedSystem<SetSharedComponentManagedFromECBWithQueryUnmanagedSystem>(StructuralChangeType.SetSharedComponent);
+        }
+
+        partial struct FakeDeserializeJob : IJob
+        {
+            [ReadOnly] public int EntityCount;
+            public ExclusiveEntityTransaction Transaction;
+
+            public void Execute()
+            {
+                for (var i = 0; i < EntityCount; ++i)
+                {
+                    var entity = Transaction.CreateEntity(typeof(EcsTestData));
+                    Transaction.AddComponent(entity, typeof(EcsTestData2));
+                    Transaction.RemoveComponent(entity, typeof(EcsTestData));
+                }
+            }
+        }
+
+        [Test]
+        public void CanRecord_DuringExclusiveEntityTransaction()
+        {
+            const int k_WorldCount = 10;
+            const int k_EntityCount = 10000;
+            using (var scope = new ProfilerEnableScope(s_DataFilePath, StructuralChangesProfiler.Category))
+            {
+                // Create worlds
+                var worlds = new World[k_WorldCount];
+                for (var i = 0; i < k_WorldCount; ++i)
+                    worlds[i] = new World($"Test World {i + 1}");
+
+                // Schedule jobs
+                var jobs = new JobHandle[k_WorldCount];
+                for (var i = 0; i < k_WorldCount; ++i)
+                {
+                    jobs[i] = new FakeDeserializeJob
+                    {
+                        EntityCount = k_EntityCount,
+                        Transaction = worlds[i].EntityManager.BeginExclusiveEntityTransaction()
+                    }.Schedule();
+                }
+
+                // Wait for jobs to complete
+                for (var i = 0; i < k_WorldCount; ++i)
+                {
+                    jobs[i].Complete();
+                    worlds[i].EntityManager.EndExclusiveEntityTransaction();
+                }
+
+                // Cleanup
+                for (var i = 0; i < k_WorldCount; ++i)
+                {
+                    worlds[i].Dispose();
+                    worlds[i] = null;
+                }
+            }
         }
     }
 }

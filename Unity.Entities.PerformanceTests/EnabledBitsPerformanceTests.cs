@@ -18,18 +18,20 @@ namespace Unity.Entities.PerformanceTests
         struct TestData3 : IComponentData, IEnableableComponent {public int Value;}
         struct TestData4 : IComponentData, IEnableableComponent {public int Value;}
         struct TestData5 : IComponentData, IEnableableComponent {public int Value;}
+        struct TestData6 : IComponentData, IEnableableComponent {public int Value;}
+        struct TestData7 : IComponentData, IEnableableComponent {public int Value;}
 
         [Test, Performance]
         public unsafe void GetEnabledMask([Values(0, 1, 2)] int allTypeCount, [Values(0, 1, 2)] int noneTypeCount,
-            [Values(0, 1, 2)] int anyTypeCount)
+            [Values(0, 1, 2)] int anyTypeCount, [Values(0, 1, 2)] int disabledTypeCount)
         {
             var archetype = m_Manager.CreateArchetype(typeof(TestData0), typeof(TestData1), typeof(TestData2),
-                typeof(TestData3), typeof(TestData4), typeof(TestData5));
+                typeof(TestData3), typeof(TestData4), typeof(TestData5), typeof(TestData6), typeof(TestData7));
             int chunkCount = 1000;
             m_Manager.CreateEntity(archetype, chunkCount * archetype.ChunkCapacity);
 
             var possibleTypes = new ComponentType[]{typeof(TestData0), typeof(TestData1), typeof(TestData2),
-                typeof(TestData3), typeof(TestData4), typeof(TestData5)};
+                typeof(TestData3), typeof(TestData4), typeof(TestData5), typeof(TestData6), typeof(TestData7)};
             using var queryBuilder = new EntityQueryBuilder(Allocator.Temp);
             int queryTypeCount = 0;
 
@@ -54,6 +56,13 @@ namespace Unity.Entities.PerformanceTests
             }
             queryBuilder.WithAny(ref anyTypes);
 
+            var disabledTypes = new FixedList32Bytes<ComponentType>();
+            for (int i = 0; i < disabledTypeCount; ++i)
+            {
+                disabledTypes.Add(possibleTypes[queryTypeCount++]);
+            }
+            queryBuilder.WithDisabled(ref disabledTypes);
+
             using var query = m_Manager.CreateEntityQuery(queryBuilder);
 
             var chunkCache = query.__impl->_QueryData->GetMatchingChunkCache();
@@ -71,7 +80,7 @@ namespace Unity.Entities.PerformanceTests
                     })
                 .WarmupCount(1)
                 .MeasurementCount(100)
-                .SampleGroup("GetEnabledMask (1000x)")
+                .SampleGroup($"$GetEnabledMask (Chunks={chunkCount} All={allTypeCount} Any={anyTypeCount} None={noneTypeCount} Disabled={disabledTypeCount})")
                 .Run();
         }
 

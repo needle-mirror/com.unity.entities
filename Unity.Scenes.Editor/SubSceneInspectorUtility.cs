@@ -102,6 +102,21 @@ namespace Unity.Scenes.Editor
             return entities.GetBuffer<ResolvedSectionEntity>(sceneEntity).Reinterpret<Entity>().AsNativeArray();
         }
 
+        // Return the loadable sections of a given subScene
+        internal static LoadableScene[] GetLoadableSections(SubScene subScene, LoadableScene[] loadableScenes)
+        {
+            var scenes = new List<LoadableScene>();
+            foreach (var scene in loadableScenes)
+            {
+                if (scene.SubScene.SceneGUID == subScene.SceneGUID)
+                {
+                    scenes.Add(scene);
+                }
+            }
+
+            return scenes.ToArray();
+        }
+
         public static SubSceneInspectorUtility.LoadableScene[] GetLoadableScenes(SubScene[] scenes)
         {
             var loadables = new List<SubSceneInspectorUtility.LoadableScene>();
@@ -153,6 +168,15 @@ namespace Unity.Scenes.Editor
             }
 
             return loadables.ToArray();
+        }
+
+        [InitializeOnLoadMethod]
+        static void SetupForceReimportOnLightBaking()
+        {
+            Lightmapping.bakeCompleted += () =>
+            {
+                ForceReimport(UnityEngine.Object.FindObjectsOfType<SubScene>());
+            };
         }
 
         public static unsafe void ForceReimport(params SubScene[] scenes)

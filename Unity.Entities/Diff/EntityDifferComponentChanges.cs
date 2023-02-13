@@ -7,9 +7,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-#if !UNITY_DOTSRUNTIME
 using Unity.Properties;
-#endif
 
 namespace Unity.Entities
 {
@@ -1595,9 +1593,7 @@ namespace Unity.Entities
             var result = new List<PackedSharedComponentDataChange>();
             unmanagedSharedComponentData = new UnsafeAppendBuffer(0, 8, allocator);
 
-#if !UNITY_DOTSRUNTIME
             var managedObjectPatches = new ManagedObjectPatches(afterEntityComponentStore);
-#endif
 
             for (var i = 0; i < changes.Length; i++)
             {
@@ -1661,13 +1657,36 @@ namespace Unity.Entities
                     afterValue = TypeManager.ConstructComponentFromBuffer(change.TypeIndex, afterValueAddr);
                 (afterValue as IRefCounted)?.Retain();
 
-#if !UNITY_DOTSRUNTIME
                 // NOTE: Extracting entity patches from shared components is intentionally disabled here until a full solution is ready.
                 if (null != afterValue && (typeInfo.HasBlobAssetRefs || TypeManager.HasEntityReferences(change.TypeIndex)))
                 {
-                    managedObjectPatches.ExtractPatches(ref afterValue, packedComponent, default, blobAssetReferencePatches);
+                    if (EntityComponentStore.IsUnmanagedSharedComponentIndex(change.BeforeSharedComponentIndex))
+                    {
+                        var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(typeInfo);
+
+                        for (int refIndex = 0; refIndex < typeInfo.BlobAssetRefOffsetCount; ++refIndex)
+                        {
+                            var blobAssetRefOffset = blobAssetRefOffsets[refIndex].Offset;
+                            var blobAssetRefPtr = (BlobAssetReferenceData*)((byte*)afterValueAddr + blobAssetRefOffset);
+
+                            var hash = default(ulong);
+
+                            if (blobAssetRefPtr->m_Ptr != null)
+                                hash = blobAssetRefPtr->Header->Hash;
+
+                            blobAssetReferencePatches.Add(new BlobAssetReferenceChange
+                            {
+                                Component = packedComponent,
+                                Offset = blobAssetRefOffset,
+                                Value = hash
+                            });
+                        }
+                    }
+                    else
+                    {
+                        managedObjectPatches.ExtractPatches(ref afterValue, packedComponent, default, blobAssetReferencePatches);
+                    }
                 }
-#endif
 
                 var packedSharedComponentDataChange = new PackedSharedComponentDataChange
                 {
@@ -1709,9 +1728,7 @@ namespace Unity.Entities
 
             var managedObjectClone = new ManagedObjectClone();
 
-#if !UNITY_DOTSRUNTIME
             var managedObjectPatches = new ManagedObjectPatches(afterEntityComponentStore);
-#endif
 
             for (var i = 0; i < changes.Length; i++)
             {
@@ -1751,10 +1768,8 @@ namespace Unity.Entities
 
                 afterValue = managedObjectClone.Clone(afterValue);
 
-#if !UNITY_DOTSRUNTIME
                 if (null != afterValue && (typeInfo.HasBlobAssetRefs || TypeManager.HasEntityReferences(change.TypeIndex)))
                     managedObjectPatches.ExtractPatches(ref afterValue, packedComponent, entityReferencePatches, blobAssetReferencePatches);
-#endif
 
                 result.Add(new PackedManagedComponentDataChange
                 {
@@ -1918,7 +1933,6 @@ namespace Unity.Entities
             return namesChanges;
         }
 
-#if !UNITY_DOTSRUNTIME
     class ManagedObjectPatches :
             PropertyVisitor,
             IVisitPropertyAdapter<Entity>,
@@ -2001,6 +2015,5 @@ namespace Unity.Entities
                 });
             }
         }
-#endif
     }
 }

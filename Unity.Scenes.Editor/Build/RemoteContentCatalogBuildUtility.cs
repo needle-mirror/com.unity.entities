@@ -65,13 +65,12 @@ namespace Unity.Entities.Content
                     foreach (var h in EditorEntityScenes.GetSubScenes(s.Scene.assetGUID))
                         subSceneGuids.Add(h);
                 var platform = buildConfig.GetComponent<ClassicBuildProfile>().Platform;
-                var builtTarget = platform.GetBuildTarget();
+                var buildTarget = platform.GetBuildTarget();
                 var buildFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildConfigName}-ContentUpdate");
-                var publishFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildConfigName}-RemoteContent");
-                var artifactKeys = new Dictionary<Hash128, ArtifactKey>();
                 var id = GlobalObjectId.GetGlobalObjectIdSlow(BuildConfiguration.GetActive());
-                EntitySceneBuildUtility.PrepareEntityBinaryArtifacts(id.assetGUID, subSceneGuids, artifactKeys);
-                EntitySceneBuildUtility.PrepareAdditionalFiles(default, artifactKeys.Keys.ToArray(), artifactKeys.Values.ToArray(), builtTarget, (s, d) => DoCopy(s, Path.Combine(buildFolder, d)));
+                BuildContent(subSceneGuids, id.assetGUID, buildTarget, buildFolder);
+
+                var publishFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildConfigName}-RemoteContent");
                 PublishContent(buildFolder, publishFolder, f => new string[] { "all" });
             }
             else
@@ -95,21 +94,27 @@ namespace Unity.Entities.Content
                         foreach (var ss in ssGuids)
                             subSceneGuids.Add(ss);
                     }
-                    var artifactKeys = new Dictionary<Hash128, ArtifactKey>();
-                    var binaryFiles = new EntitySectionBundlesInBuild();
 
-                    EntitySceneBuildUtility.PrepareEntityBinaryArtifacts(playerGuid, subSceneGuids, artifactKeys);
-                    binaryFiles.Add(artifactKeys.Keys, artifactKeys.Values);
-                    var entitySceneGUIDs = binaryFiles.SceneGUIDs.ToArray();
-
-                    EntitySceneBuildUtility.PrepareAdditionalFiles(default, artifactKeys.Keys.ToArray(), artifactKeys.Values.ToArray(), buildTarget, (s, d) => DoCopy(s, Path.Combine(tmpBuildFolder, d)));
-
+                    BuildContent(subSceneGuids, playerGuid, buildTarget, tmpBuildFolder);
 
                     var publishFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildFolder}-RemoteContent");
                     PublishContent(tmpBuildFolder, publishFolder, f => new string[] { "all" });
                 }
             }
+        }
 
+        /// <summary>
+        /// Builds content for the player.  This can be used in conjunction with PublishContent to prepare a content update.
+        /// </summary>
+        /// <param name="subScenes">The subscenes to include in the build.</param>
+        /// <param name="playerGUID">The player guid.  This can be provided from <seealso cref="DotsGlobalSettings"/> by calling GetClientGUID() or GetServerGUID().</param>
+        /// <param name="target">The build target. <seealso cref="EditorUserBuildSettings.activeBuildTarget"/> can be used.</param>
+        /// <param name="buildFolder">The folder to build the content into.</param>
+        public static void BuildContent(HashSet<Hash128> subScenes, Hash128 playerGUID, BuildTarget target, string buildFolder)
+        {
+            var artifactKeys = new Dictionary<Hash128, ArtifactKey>();
+            EntitySceneBuildUtility.PrepareEntityBinaryArtifacts(playerGUID, subScenes, artifactKeys);
+            EntitySceneBuildUtility.PrepareAdditionalFiles(playerGUID, artifactKeys.Keys.ToArray(), artifactKeys.Values.ToArray(), target, (s, d) => DoCopy(s, Path.Combine(buildFolder, d)));
         }
 
         static void DoCopy(string src, string dst)
@@ -159,7 +164,7 @@ namespace Unity.Entities.Content
                         File.Delete(f);
                 }
 
-                var catalogLocationsPath = ContentDeliverySystem.CreateCatalogLocationPath(targetFolder);
+                var catalogLocationsPath = ContentDeliveryGlobalState.CreateCatalogLocationPath(targetFolder);
                 return CreateRemoteContentCatalogData(targetFolder, catalogLocationsPath, entries.Count, i => entries[i]);
             }
             catch (Exception e)
@@ -194,8 +199,8 @@ namespace Unity.Entities.Content
                 DoCopy(catalogTempPath, Path.Combine(targetFolder, catalogLocationFileName));
 
                 CreateRemoteContentLocationData(catalogLocationsPath, 1,
-                    i => (new RemoteContentId(ContentDeliverySystem.kCatalogLocations), new RemoteContentLocation { Hash = catalogContentHash, Path = catalogLocationFileName, Size = catalogSize, Crc = 0 },
-                    new string[] { ContentDeliverySystem.kCatalogLocations }));
+                    i => (new RemoteContentId(ContentDeliveryGlobalState.kCatalogLocations), new RemoteContentLocation { Hash = catalogContentHash, Path = catalogLocationFileName, Size = catalogSize, Crc = 0 },
+                    new string[] { ContentDeliveryGlobalState.kCatalogLocations }));
 
                 File.Delete(catalogTempPath);
                 return true;

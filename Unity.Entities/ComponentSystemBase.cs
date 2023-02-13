@@ -634,6 +634,8 @@ namespace Unity.Entities
         /// In other words, if any required query does not find matching entities, the update is skipped even
         /// if another query created for the system (either explicitly or implicitly) does match entities and
         /// vice versa. </remarks>
+        /// <remarks>Note that query filters are ignored so for components that implement <see cref="T:Unity.Entities.IEnableableComponent"/>
+        /// this method ignores whether the component is enabled or not, it only checks whether it exists. </remarks>
         /// <seealso cref="M:Unity.Entities.ComponentSystemBase.ShouldRunSystem"/>
         /// <seealso cref="M:Unity.Entities.ComponentSystemBase.RequireForUpdate``1"/>
         /// <seealso cref="T:Unity.Entities.RequireMatchingQueriesForUpdateAttribute"/>
@@ -737,8 +739,11 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             var typeIndex = TypeManager.GetTypeIndex<T>();
             if (TypeManager.IsEnableable(typeIndex))
+            {
+                var typeName = typeIndex.ToFixedString();
                 throw new InvalidOperationException(
-                    $"Can't call HasSingleton<{typeof(T)}>() with enableable component type {typeof(T)}.");
+                    $"Can't call HasSingleton<{typeName}>() with enableable component type {typeName}.");
+            }
 #endif
             var type = ComponentType.ReadOnly<T>();
             var query = CheckedState()->GetSingletonEntityQueryInternal(type);

@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 
 namespace Unity.Entities.SourceGen.Common
 {
@@ -17,6 +18,13 @@ namespace Unity.Entities.SourceGen.Common
 
             // names with __ are reserved for the compiler by convention
             return !jobName.Contains("__");
+        }
+
+
+        // Todo: This is temporary until we have a unified SourceGen printer (as .AppendLine will do the proper thing for us, the problem is from using Verbatim strings)
+        public static string ReplaceLineEndings(this string value)
+        {
+            return value.Replace("\r", "").Replace("\n", Environment.NewLine);
         }
     }
 }

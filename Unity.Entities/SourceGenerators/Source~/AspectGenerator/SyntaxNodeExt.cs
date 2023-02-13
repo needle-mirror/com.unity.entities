@@ -175,7 +175,7 @@ namespace Unity.Entities.SourceGen.Aspect
 
             var symbol = model.GetSymbolInfo(syntaxNode).Symbol;
             if (symbol == null) return false;
-            var symbolTypeName2 = symbol.GetSymbolTypeName();
+            var symbolTypeName2 = symbol.GetSymbolType().ToFullName();
             return symbolTypeName2 == symbolTypeName;
         }
 
@@ -219,7 +219,7 @@ namespace Unity.Entities.SourceGen.Aspect
             var genericParam1 = syntaxNode.DescendantNodes().OfType<TypeArgumentListSyntax>().FirstOrDefault()?.
                 DescendantNodes().OfType<TypeSyntax>().FirstOrDefault();
             if (genericParam1 == null) return false;
-            typename = semanticModel.GetSymbolInfo(genericParam1).Symbol?.GetSymbolTypeName();
+            typename = semanticModel.GetSymbolInfo(genericParam1).Symbol?.GetSymbolType().ToFullName();
             return typename != null;
         }
 
@@ -230,7 +230,7 @@ namespace Unity.Entities.SourceGen.Aspect
                                                     DescendantNodes().OfType<TypeSyntax>().FirstOrDefault();
             if (genericParam1 == null) return null;
             var symbol = semanticModel.GetSymbolInfo(genericParam1).Symbol;
-            typename = symbol?.GetSymbolTypeName();
+            typename = symbol?.GetSymbolType().ToFullName();
             return symbol;
         }
     }

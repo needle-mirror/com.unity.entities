@@ -6,6 +6,9 @@ using Unity.Entities;
 using Unity.Entities.Serialization;
 using Unity.IO.LowLevel.Unsafe;
 using Unity.Jobs;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
 
@@ -74,38 +77,17 @@ namespace Unity.Scenes
 #if !UNITY_DOTSRUNTIME
             _PendingCleanups = new NativeList<RequestSceneHeader>(0, Allocator.Persistent);
 #endif
-            _CleanupHeaderQuery = system.GetEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new[] {ComponentType.ReadOnly<RequestSceneHeader>()},
-                    None = new[] {ComponentType.ReadOnly<SceneReference>()}
-                },
-                new EntityQueryDesc
-                {
-                    All = new[] {ComponentType.ReadOnly<RequestSceneHeader>()},
-                    None = new[] {ComponentType.ReadOnly<ResolvedSceneHash>()}
-                },
-                new EntityQueryDesc
-                {
-                    All = new[] {ComponentType.ReadOnly<RequestSceneHeader>()},
-                    None = new[] {ComponentType.ReadOnly<RequestSceneLoaded>()}
-                },
-                new EntityQueryDesc
-                {
-                    All = new[]
-                    {
-                        ComponentType.ReadOnly<RequestSceneHeader>(),
-                        ComponentType.ReadOnly<DisableSceneResolveAndLoad>()
-                    }
-                },
-                new EntityQueryDesc
-                {
-                    All = new[]
-                    {
-                        ComponentType.ReadOnly<RequestSceneHeader>(), ComponentType.ReadOnly<Disabled>()
-                    }
-                }
-            );
+            _CleanupHeaderQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<RequestSceneHeader>().WithNone<SceneReference>()
+                .AddAdditionalQuery()
+                .WithAll<RequestSceneHeader>().WithNone<ResolvedSceneHash>()
+                .AddAdditionalQuery()
+                .WithAll<RequestSceneHeader>().WithNone<RequestSceneLoaded>()
+                .AddAdditionalQuery()
+                .WithAll<RequestSceneHeader, DisableSceneResolveAndLoad>()
+                .AddAdditionalQuery()
+                .WithAll<RequestSceneHeader, Disabled>()
+                .Build(system);
         }
 
         public void Dispose(EntityManager entityManager)
@@ -405,7 +387,7 @@ namespace Unity.Scenes
             for (int i = 0; i < sceneMetaData.Sections.Length; ++i)
             {
                 var sectionIndex = sceneMetaData.Sections[i].SubSectionIndex;
-                
+
                 var scenePath = EntityScenesPaths.GetLoadPathFromArtifactPaths(Paths, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
                 var hybridPath = sceneMetaData.Sections[i].ObjectReferenceCount > 0 ? EntityScenesPaths.GetLoadPathFromArtifactPaths(Paths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex) : null;
                 var sectionPath = new ResolvedSectionPath();
@@ -431,8 +413,10 @@ namespace Unity.Scenes
                 case HeaderLoadStatus.MissingFile:
 #if UNITY_EDITOR
                     var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneGUID);
+                    var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath);
+                    var sceneName = sceneAsset?.name;
                     var logPath = System.IO.Path.GetFullPath(System.IO.Path.Combine(UnityEngine.Application.dataPath, "../Logs"));
-                    Debug.LogError($"Loading Entity Scene failed because the entity header file couldn't be resolved. This might be caused by a failed import of the entity scene. Please take a look at the SubScene MonoBehaviour that references this scene or at the asset import worker log in {logPath}. scenePath={scenePath} guid={sceneGUID}");
+                    Debug.LogError($"Loading Entity Scene failed because the entity header file couldn't be resolved. This might be caused by a failed import of a subscene. Please try to reimport the subscene {sceneName} from its inspector, look at any errors/exceptions in the console or look at the asset import worker log in {logPath}. scenePath={scenePath} guid={sceneGUID}");
 #else
                     Debug.LogError($"Loading Entity Scene failed because the entity header file couldn't be resolved: guid={sceneGUID}.");
 #endif

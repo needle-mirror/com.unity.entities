@@ -112,18 +112,16 @@ namespace Unity.Scenes
         {
             _DstWorld = destinationWorld;
 
-            _AddedScenesQuery = _DstWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[] {typeof(SceneTag)},
-                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
-            });
+            _AddedScenesQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<SceneTag>()
+                .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)
+                .Build(_DstWorld.EntityManager);
             _AddedScenesQuery.SetSharedComponentFilter(new SceneTag { SceneEntity = Entity.Null});
 
-            _RemovedScenesQuery = _DstWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new ComponentType[] {typeof(LiveConvertedSceneCleanup)},
-                None = new ComponentType[] {typeof(SceneReference)},
-            });
+            _RemovedScenesQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<LiveConvertedSceneCleanup>()
+                .WithNone<SceneReference>()
+                .Build(_DstWorld.EntityManager);
         }
 
         public void Dispose()
@@ -171,11 +169,7 @@ namespace Unity.Scenes
 
             dstEntities.RemoveComponent<DisableSceneResolveAndLoad>(sceneEntity);
             dstEntities.RemoveComponent<LiveConvertedSceneCleanup>(sceneEntity);
-            SceneSystem.UnloadScene(_DstWorld.Unmanaged,
-                sceneEntity,
-                SceneSystem.UnloadParameters.DestroySectionProxyEntities |
-                SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded);
-
+            SceneSystem.UnloadSceneSectionMetaEntitiesOnly(_DstWorld.Unmanaged, sceneEntity, false);
 
             // Cleanup leftover LiveConvertedSceneCleanup
             // (This happens if the scene entity got destroyed)
@@ -215,10 +209,7 @@ namespace Unity.Scenes
             if (changeSet.UnloadAllPreviousEntities)
             {
                 //@Todo: Can we try to keep scene & section entities alive? (In case user put custom data on it)
-                SceneSystem.UnloadScene(_DstWorld.Unmanaged,
-                    sceneEntity,
-                    SceneSystem.UnloadParameters.DestroySectionProxyEntities |
-                    SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded);
+                SceneSystem.UnloadSceneSectionMetaEntitiesOnly(_DstWorld.Unmanaged, sceneEntity, false);
 
                 // Create section
                 sectionEntity = dstEntities.CreateEntity();

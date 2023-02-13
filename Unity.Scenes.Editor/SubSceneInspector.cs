@@ -180,43 +180,41 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        private static bool DrawClosedSubScenes(SubSceneInspectorUtility.LoadableScene[] loadableScenes, SubScene[] subscenes)
+        private static bool DrawClosedSubScenes(SubSceneInspectorUtility.LoadableScene[] loadableScenes, SubScene[] closedSubScenes)
         {
-            if (World.DefaultGameObjectInjectionWorld != null && loadableScenes.Length != 0)
+            if (World.DefaultGameObjectInjectionWorld != null && closedSubScenes.Length != 0)
             {
                 GUILayout.Space(EditorGUIUtility.singleLineHeight);
                 var entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
 
+                int numScenesLoaded = 0;
+                int numScenesImported = 0;
+                foreach (var scene in loadableScenes)
                 {
-                    int numScenesLoaded = 0;
-                    int numScenesImported = 0;
-                    foreach (var scene in loadableScenes)
-                    {
-                        if (entityManager.HasComponent<RequestSceneLoaded>(scene.Scene))
-                            numScenesLoaded++;
-                        if (IsSubsceneImported(scene.SubScene))
-                            numScenesImported++;
-                    }
-
-                    if (EditorGUIUtility.wideMode)
-                    {
-                        GUILayout.BeginHorizontal();
-                        GUILayout.Label(Content.ClosedSubScenesLabel, EditorStyles.boldLabel);
-                        GUILayout.FlexibleSpace();
-                        GUILayout.Label(string.Format(Content.ClosedStatusString, numScenesLoaded, loadableScenes.Length, numScenesImported));
-                        GUILayout.EndHorizontal();
-                    }
-                    else
-                    {
-                        GUILayout.Label(Content.ClosedSubScenesLabel, EditorStyles.boldLabel);
-                        GUILayout.BeginHorizontal();
-                        GUILayout.FlexibleSpace();
-                        GUILayout.Label(string.Format(Content.ClosedStatusString, numScenesLoaded, loadableScenes.Length, numScenesImported));
-                        GUILayout.EndHorizontal();
-                    }
+                    if (entityManager.HasComponent<RequestSceneLoaded>(scene.Scene))
+                        numScenesLoaded++;
+                    if (IsSubsceneImported(scene.SubScene, ImportMode.NoImport))
+                        numScenesImported++;
                 }
 
-                if (loadableScenes.Length > 1)
+                if (EditorGUIUtility.wideMode)
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label(Content.ClosedSubScenesLabel, EditorStyles.boldLabel);
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label(string.Format(Content.ClosedStatusString, numScenesLoaded, loadableScenes.Length, numScenesImported));
+                    GUILayout.EndHorizontal();
+                }
+                else
+                {
+                    GUILayout.Label(Content.ClosedSubScenesLabel, EditorStyles.boldLabel);
+                    GUILayout.BeginHorizontal();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label(string.Format(Content.ClosedStatusString, numScenesLoaded, loadableScenes.Length, numScenesImported));
+                    GUILayout.EndHorizontal();
+                }
+
+                if (closedSubScenes.Length > 1 || loadableScenes.Length > 1)
                 {
                     GUILayout.BeginHorizontal();
                     bool reimportRequested = GUILayout.Button(Content.ReimportAllLabel);
@@ -239,75 +237,109 @@ namespace Unity.Scenes.Editor
                             if (entityManager.HasComponent<RequestSceneLoaded>(scene.Scene))
                                 entityManager.RemoveComponent<RequestSceneLoaded>(scene.Scene);
                         }
+
                         EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
                     }
 
                     GUILayout.EndHorizontal();
 
                     if (reimportRequested && EditorUtility.DisplayDialog(Content.ReimportAllSubScenes, Content.ReimportAllSubScenesDetails, Content.Yes, Content.No))
-                        SubSceneInspectorUtility.ForceReimport(subscenes);
+                        SubSceneInspectorUtility.ForceReimport(closedSubScenes);
 
                     GUILayout.Space(EditorGUIUtility.standardVerticalSpacing);
                 }
 
-                bool needsRepaint = false;
-                foreach (var scene in loadableScenes)
+                bool isImporting = false;
+                foreach (var scene in closedSubScenes)
                 {
-                    s_TmpContent.text = scene.Name;
-                    s_TmpContent.tooltip = scene.SubScene.EditableScenePath;
-
-                    var buttonRect = DrawButtonGridLabelAndGetFirstButtonRect(s_TmpContent, 3, out var spacing);
-
-                    if (!IsSubsceneImported(scene.SubScene))
+                    var loadableSections = SubSceneInspectorUtility.GetLoadableSections(scene, loadableScenes);
+                    if (loadableSections.Length > 0)
                     {
-                        GUI.Label(buttonRect, Content.ImportingLabel);
-                        needsRepaint = true;
-                    }
-                    else if (GUI.Button(buttonRect, Content.ReimportLabel))
-                    {
-                        SubSceneInspectorUtility.ForceReimport(scene.SubScene);
-                    }
-
-                    buttonRect.x += buttonRect.width + spacing;
-                    if (!scene.IsLoaded)
-                    {
-                        using (new EditorGUI.DisabledScope(!scene.Section0IsLoaded && scene.SectionIndex != 0))
+                        foreach (var loadableScene in loadableSections)
                         {
-                            if (GUI.Button(buttonRect, Content.LoadLabel))
-                            {
-                                // if we load any scene, we also have load section 0
-                                entityManager.AddComponentData(scene.Scene, new RequestSceneLoaded());
-                                EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
-                            }
+                            DrawSection(entityManager, loadableScene.SubScene, true, loadableScene);
                         }
                     }
                     else
                     {
-                        using (new EditorGUI.DisabledScope(scene.NumSubSceneSectionsLoaded > 1 && scene.SectionIndex == 0))
-                        {
-                            if (GUI.Button(buttonRect, Content.UnloadLabel))
-                            {
-                                // if we unload section 0, we also need to unload the entire rest
-                                entityManager.RemoveComponent<RequestSceneLoaded>(scene.Scene);
-                                EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
-                            }
-                        }
+                        DrawSection(entityManager, scene, false, default);
                     }
 
-                    buttonRect.x += buttonRect.width + spacing;
-                    using (new EditorGUI.DisabledScope(!SubSceneInspectorUtility.CanEditScene(scene.SubScene)))
+                    if (!IsSubsceneImported(scene, ImportMode.NoImport))
                     {
-                        if (GUI.Button(buttonRect, Content.OpenLabel))
-                        {
-                            SubSceneUtility.EditScene(scene.SubScene);
-                        }
+                        isImporting = true;
                     }
                 }
-
-                return needsRepaint;
+                return isImporting;
             }
 
             return false;
+        }
+
+
+        static void DrawSection(EntityManager entityManager, SubScene subscene, bool hasLoadableSections, SubSceneInspectorUtility.LoadableScene loadableScene)
+        {
+            if (hasLoadableSections)
+            {
+                s_TmpContent.text = loadableScene.Name;
+                s_TmpContent.tooltip = loadableScene.SubScene.EditableScenePath;
+            }
+            else
+            {
+                s_TmpContent.text = subscene.SceneName;
+                s_TmpContent.tooltip = subscene.EditableScenePath;
+            }
+
+            var buttonRect = DrawButtonGridLabelAndGetFirstButtonRect(s_TmpContent, 3, out var spacing);
+
+            if (!hasLoadableSections)
+            {
+                // add empty space space so buttons are right-aligned
+                buttonRect.x += buttonRect.width + spacing;
+            }
+
+            if (GUI.Button(buttonRect, Content.ReimportLabel))
+            {
+                SubSceneInspectorUtility.ForceReimport(subscene);
+            }
+
+            if (hasLoadableSections)
+            {
+                buttonRect.x += buttonRect.width + spacing;
+                if (!loadableScene.IsLoaded)
+                {
+                    using (new EditorGUI.DisabledScope(!loadableScene.Section0IsLoaded && loadableScene.SectionIndex != 0))
+                    {
+                        if (GUI.Button(buttonRect, Content.LoadLabel))
+                        {
+                            // if we load any scene, we also have load section 0
+                            entityManager.AddComponentData(loadableScene.Scene, new RequestSceneLoaded());
+                            EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+                        }
+                    }
+                }
+                else
+                {
+                    using (new EditorGUI.DisabledScope(loadableScene.NumSubSceneSectionsLoaded > 1 && loadableScene.SectionIndex == 0))
+                    {
+                        if (GUI.Button(buttonRect, Content.UnloadLabel))
+                        {
+                            // if we unload section 0, we also need to unload the entire rest
+                            entityManager.RemoveComponent<RequestSceneLoaded>(loadableScene.Scene);
+                            EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+                        }
+                    }
+                }
+            }
+
+            buttonRect.x += buttonRect.width + spacing;
+            using (new EditorGUI.DisabledScope(!SubSceneInspectorUtility.CanEditScene(subscene)))
+            {
+                if (GUI.Button(buttonRect, Content.OpenLabel))
+                {
+                    SubSceneUtility.EditScene(subscene);
+                }
+            }
         }
 
         public override void OnInspectorGUI()
@@ -339,11 +371,13 @@ namespace Unity.Scenes.Editor
             if (prevAutoLoad != subScene.AutoLoadScene)
                 subScene.RebuildSceneEntities();
 
+            bool isImportingClosedSubscenes = false;
             DrawOpenSubScenes(_selectedSubscenes);
             var loadableScenes = SubSceneInspectorUtility.GetLoadableScenes(_selectedSubscenes);
-            if (DrawClosedSubScenes(loadableScenes, _selectedSubscenes))
+            var closedSubScenes = _selectedSubscenes.Where(s => !s.IsLoaded).ToArray();
+            if (DrawClosedSubScenes(loadableScenes, closedSubScenes))
             {
-                Repaint();
+                isImportingClosedSubscenes = true;
             }
 
 #if false
@@ -396,6 +430,14 @@ namespace Unity.Scenes.Editor
             {
                 EditorGUILayout.HelpBox($"SubScenes can not have child game objects. Close the scene and delete the child game objects.", MessageType.Warning, true);
             }
+
+            GUILayout.Space(EditorGUIUtility.singleLineHeight);
+            // Initial behaviour with conversion was to trigger an async import for the first target only if it didn't happen successfully before. Let's keep it for now
+            if (isImportingClosedSubscenes || !IsSubsceneImported(subScene, ImportMode.Asynchronous))
+            {
+                GUILayout.Label(Content.ImportingLabel);
+                Repaint();
+            }
         }
 
         // Invoked by Unity magically for FrameSelect command.
@@ -418,7 +460,7 @@ namespace Unity.Scenes.Editor
             SubSceneInspectorUtility.DrawSubsceneBounds(scene);
         }
 
-        static bool IsSubsceneImported(SubScene subScene)
+        static bool IsSubsceneImported(SubScene subScene, ImportMode mode)
         {
             foreach (var world in World.All)
             {
@@ -426,7 +468,7 @@ namespace Unity.Scenes.Editor
 
                 if (sceneSystem != SystemHandle.Null)
                 {
-                    var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, world.EntityManager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID, true, ImportMode.NoImport);
+                    var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, world.EntityManager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID, true, mode);
                     if (!hash.IsValid)
                         return false;
                 }

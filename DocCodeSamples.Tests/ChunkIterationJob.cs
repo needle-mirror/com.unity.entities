@@ -28,8 +28,9 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnCreate()
         {
-            m_Query = GetEntityQuery(ComponentType.ReadOnly<Rotation>(),
-                ComponentType.ReadOnly<RotationSpeed>());
+            m_Query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<Rotation, RotationSpeed>()
+                .Build(this);
             //...
         }
 
@@ -91,19 +92,11 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnCreate()
         {
-            var queryDescription = new EntityQueryDesc()
-            {
-                None = new ComponentType[]
-                {
-                    typeof(Static)
-                },
-                All = new ComponentType[]
-                {
-                    ComponentType.ReadWrite<Rotation>(),
-                    ComponentType.ReadOnly<RotationSpeed>()
-                }
-            };
-            m_Query = GetEntityQuery(queryDescription);
+            m_Query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<Rotation>()
+                .WithAll<RotationSpeed>()
+                .WithNone<Static>()
+                .Build(this);
         }
 
         #endregion
@@ -146,17 +139,11 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnCreate()
         {
-            var queryDescription0 = new EntityQueryDesc
-            {
-                All = new ComponentType[] {typeof(Rotation)}
-            };
-
-            var queryDescription1 = new EntityQueryDesc
-            {
-                All = new ComponentType[] {typeof(RotationSpeed)}
-            };
-
-            m_Query = GetEntityQuery(new EntityQueryDesc[] {queryDescription0, queryDescription1});
+            m_Query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<Rotation>()
+                .AddAdditionalQuery()
+                .WithAllRW<RotationSpeed>()
+                .Build(this);
         }
 
         #endregion
@@ -219,10 +206,10 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnCreate()
         {
-            m_Query = GetEntityQuery(
-                ComponentType.ReadWrite<Output>(),
-                ComponentType.ReadOnly<InputA>(),
-                ComponentType.ReadOnly<InputB>());
+            m_Query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<Output>()
+                .WithAll<InputA, InputB>()
+                .Build(this);
             m_Query.SetChangedVersionFilter(
                 new ComponentType[]
                 {
@@ -338,7 +325,10 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnCreate()
         {
-            query = this.GetEntityQuery(ComponentType.ReadOnly<Target>(), typeof(ChaserPosition));
+            query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<ChaserPosition>()
+                .WithAll<Target>()
+                .Build(this);
         }
 
         protected override void OnUpdate()

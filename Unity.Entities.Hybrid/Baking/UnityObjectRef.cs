@@ -80,7 +80,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Checks if two <see cref="UnityObjectRef{T}"/> are equal.
+        /// Returns true if two <see cref="UnityObjectRef{T}"/> are equal.
         /// </summary>
         /// <param name="left">The first reference to compare for equality.</param>
         /// <param name="right">The second reference to compare for equality.</param>
@@ -91,7 +91,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Checks if two <see cref="UnityObjectRef{T}"/> aren't equal.
+        /// Returns true if two <see cref="UnityObjectRef{T}"/> are not equal.
         /// </summary>
         /// <param name="left">The first reference to compare for equality.</param>
         /// <param name="right">The second reference to compare for equality.</param>

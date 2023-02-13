@@ -462,7 +462,7 @@ namespace Unity.Entities
             [BurstCompile]
             struct BuildInstanceIDToEntityIndex : IJobChunk
             {
-                public UnsafeMultiHashMap<int, Entity>.ParallelWriter EntityLookup;
+                public UnsafeParallelMultiHashMap<int, Entity>.ParallelWriter EntityLookup;
                 [ReadOnly]
                 public ComponentTypeHandle<EntityGuid>                GuidType;
                 [ReadOnly]
@@ -550,7 +550,7 @@ namespace Unity.Entities
                 }
             }
 
-            internal UnsafeMultiHashMap<int, Entity> GetCachedEntityGUIDToEntityIndexLookup()
+            internal UnsafeParallelMultiHashMap<int, Entity> GetCachedEntityGUIDToEntityIndexLookup()
             {
                 var access = m_Manager.GetCheckedEntityDataAccess();
                 UpdateCachedEntityGUIDToEntity(access);

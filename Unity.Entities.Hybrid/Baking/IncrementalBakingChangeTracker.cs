@@ -19,6 +19,7 @@ namespace Unity.Entities
         internal readonly HashSet<Component> ComponentChanges;
         private readonly List<Component> ValidComponents;
         internal NativeList<int> ParentWithChildrenOrderChangedInstanceIds;
+        internal bool LightBakingChanged;
 
         public IncrementalBakingChangeTracker()
         {
@@ -32,6 +33,7 @@ namespace Unity.Entities
             ComponentChanges = new HashSet<Component>();
             ValidComponents = new List<Component>();
             ParentWithChildrenOrderChangedInstanceIds = new NativeList<int>(Allocator.Persistent);
+            LightBakingChanged = false;
         }
 
         internal void Clear()
@@ -46,19 +48,21 @@ namespace Unity.Entities
             ComponentChanges.Clear();
             ValidComponents.Clear();
             ParentWithChildrenOrderChangedInstanceIds.Clear();
+            LightBakingChanged = false;
         }
 
         internal bool HasAnyChanges()
         {
             return DeletedInstanceIds.Length > 0 ||
-                   !ChangedInstanceIds.IsEmpty ||
-                   !BakeHierarchyInstanceIds.IsEmpty ||
-                   !ForceBakeHierarchyInstanceIds.IsEmpty ||
-                   ComponentChanges.Count > 0 ||
-                   !ParentChangeInstanceIds.IsEmpty ||
-                   ChangedAssets.Length > 0 ||
-                   DeletedAssets.Length > 0 ||
-                   ParentWithChildrenOrderChangedInstanceIds.Length > 0;
+                !ChangedInstanceIds.IsEmpty ||
+                !BakeHierarchyInstanceIds.IsEmpty ||
+                !ForceBakeHierarchyInstanceIds.IsEmpty ||
+                ComponentChanges.Count > 0 ||
+                !ParentChangeInstanceIds.IsEmpty ||
+                ChangedAssets.Length > 0 ||
+                DeletedAssets.Length > 0 ||
+                ParentWithChildrenOrderChangedInstanceIds.Length > 0 ||
+                LightBakingChanged;
         }
 
         internal void FillBatch(ref IncrementalBakingBatch batch)
@@ -74,6 +78,7 @@ namespace Unity.Entities
             batch.ParentWithChildrenOrderChangedInstanceIds = ParentWithChildrenOrderChangedInstanceIds.AsArray();
             // We don't need RecreateInstanceIds unless an previously baked entity has been deleted
             batch.RecreateInstanceIds = default;
+            batch.LightBakingChanged = LightBakingChanged;
             ValidComponents.AddRange(ComponentChanges);
         }
 
@@ -156,6 +161,8 @@ namespace Unity.Entities
 
         public void MarkChildrenOrderChange(int instanceId) =>
             ParentWithChildrenOrderChangedInstanceIds.Add(instanceId);
+
+        public void MarkLightBakingChanged() => LightBakingChanged = true;
     }
 
     /// <summary>
@@ -220,6 +227,11 @@ namespace Unity.Entities
         /// </summary>
         public NativeArray<int> ParentWithChildrenOrderChangedInstanceIds;
 
+        /// <summary>
+        /// True if the lights have been baked, meaning that the components that depend on light mapping should be updated
+        /// </summary>
+        public bool LightBakingChanged;
+
         public void Dispose()
         {
             DeletedInstanceIds.Dispose();
@@ -244,6 +256,11 @@ namespace Unity.Entities
         internal void FormatSummary(StringBuilder sb)
         {
             sb.AppendLine(nameof(IncrementalBakingBatch));
+
+            sb.Append(nameof(LightBakingChanged));
+            sb.Append(": ");
+            sb.AppendLine(LightBakingChanged.ToString());
+
             PrintOut(sb, nameof(DeletedInstanceIds), DeletedInstanceIds);
             PrintOut(sb, nameof(ChangedInstanceIds), ChangedInstanceIds);
             PrintOut(sb, nameof(BakeHierarchyInstanceIds), BakeHierarchyInstanceIds);

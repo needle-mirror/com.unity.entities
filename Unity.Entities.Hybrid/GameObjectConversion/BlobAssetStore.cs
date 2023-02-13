@@ -23,7 +23,7 @@ namespace Unity.Entities
     {
         NativeParallelHashMap<Hash128, BlobAssetReferenceData> m_BlobAssets;
         NativeParallelHashMap<Hash128, int>                    m_RefCounterPerBlobHash;
-        NativeMultiHashMap<int, Hash128>                       m_HashByOwner;  //Context
+        NativeParallelMultiHashMap<int, Hash128>                       m_HashByOwner;  //Context
         NativeList<int>                                        m_CacheStats;
 
         Allocator                                              m_Allocator;
@@ -43,7 +43,7 @@ namespace Unity.Entities
             m_Allocator = Allocator.Persistent;
             m_BlobAssets = new NativeParallelHashMap<Hash128, BlobAssetReferenceData>(capacity, m_Allocator);
             m_RefCounterPerBlobHash = new NativeParallelHashMap<Hash128, int>(capacity, m_Allocator);
-            m_HashByOwner = new NativeMultiHashMap<int, Hash128>(capacity, m_Allocator);
+            m_HashByOwner = new NativeParallelMultiHashMap<int, Hash128>(capacity, m_Allocator);
             m_CacheStats = new NativeList<int>(2, m_Allocator);
             m_CacheStats.Add(0);
             m_CacheStats.Add(0);
@@ -58,7 +58,10 @@ namespace Unity.Entities
             get { return m_BlobAssets.IsCreated; }
         }
 
-        internal int BlobAssetCount
+        /// <summary>
+        /// Returns the number of BlobAssetReferences added to the store.
+        /// </summary>
+        public int BlobAssetCount
         {
             get { return m_BlobAssets.IsCreated ? m_BlobAssets.Count() : 0; }
         }
@@ -75,6 +78,7 @@ namespace Unity.Entities
                 {
                     for (int i = 0; i < blobDataArray.Length; i++)
                     {
+                        blobDataArray[i].UnprotectAgainstDisposal();
                         blobDataArray[i].Dispose();
                     }
                 }
@@ -360,6 +364,8 @@ namespace Unity.Entities
                     m_RefCounterPerBlobHash[fullHash]++;
                 return false;
             }
+
+            blobAssetReference.m_data.ProtectAgainstDisposal();
             m_BlobAssets.Add(fullHash, blobAssetReference.m_data);
             m_RefCounterPerBlobHash.Add(fullHash, updateRefCount ? 1 : 0);
             return true;
@@ -447,6 +453,7 @@ namespace Unity.Entities
                 return false;
             }
 
+            blobData.UnprotectAgainstDisposal();
             var res = m_BlobAssets.Remove(fullHash);
 
             if (releaseBlobAsset)

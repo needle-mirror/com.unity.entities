@@ -1,9 +1,12 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Burst.Intrinsics;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
+using Unity.Entities;
 using Unity.Entities.CodeGeneratedJobForEach;
+using Unity.Entities.Tests;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 
@@ -28,8 +31,12 @@ namespace Unity.Entities
         }
 
         public EntityQueryBuilder WithAll<T>() => this;
+        public EntityQueryBuilder WithAllRW<T>() => this;
         public EntityQueryBuilder WithAny<T>() => this;
         public EntityQueryBuilder WithNone<T>() => this;
+        public EntityQueryBuilder WithDisabled<T>() => this;
+        public EntityQueryBuilder WithAbsent<T>() => this;
+        public EntityQueryBuilder WithAspect<T>() => this;
         public EntityQueryBuilder WithOptions() => this;
         public EntityQueryBuilder AddAdditionalQuery() => this;
         public EntityQuery Build(ref SystemState systemState) => default;
@@ -67,14 +74,69 @@ namespace Unity.Entities
 
     public interface IJobEntity{}
 
+    public sealed class WithAllAttribute : Attribute
+    {
+        public WithAllAttribute(params Type[] types){}
+    }
+
+    public static class IJobEntityExtensions
+    {
+        public static JobHandle Schedule<T>(this T jobData, JobHandle dependsOn)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => default;
+        public static JobHandle ScheduleByRef<T>(this ref T jobData, JobHandle dependsOn)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => default;
+        public static JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => default;
+        public static JobHandle ScheduleByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => default;
+        public static void Schedule<T>(this T jobData)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  {}
+        public static void ScheduleByRef<T>(this ref T jobData)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  {}
+        public static void Schedule<T>(this T jobData, EntityQuery query)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  {}
+        public static void ScheduleByRef<T>(this ref T jobData, EntityQuery query)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  {}
+        public static JobHandle ScheduleParallel<T>(this T jobData, JobHandle dependsOn)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => default;
+        public static JobHandle ScheduleParallelByRef<T>(this ref T jobData, JobHandle dependsOn)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => default;
+        public static JobHandle ScheduleParallel<T>(this T jobData, EntityQuery query, JobHandle dependsOn)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => default;
+        public static JobHandle ScheduleParallelByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  => default;
+        public static void ScheduleParallel<T>(this T jobData)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  {}
+        public static void ScheduleParallelByRef<T>(this ref T jobData)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  {}
+        public static void ScheduleParallel<T>(this T jobData, EntityQuery query)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged  {}
+        public static void ScheduleParallelByRef<T>(this ref T jobData, EntityQuery query)
+            where T : unmanaged, IJobEntity, InternalCompilerInterface.IIsFullyUnmanaged {}
+        public static void Run<T>(this T jobData)
+            where T : struct, IJobEntity  {}
+        public static void RunByRef<T>(this ref T jobData)
+            where T : struct, IJobEntity  {}
+        public static void Run<T>(this T jobData, EntityQuery query)
+            where T : struct, IJobEntity  {}
+        public static void RunByRef<T>(this ref T jobData, EntityQuery query)
+            where T : struct, IJobEntity  {}
+    }
+
     public readonly struct RefRW<T> : IQueryTypeParameter where T : struct, IComponentData
     {
         public unsafe RefRW(NativeArray<T> componentDatas, int index){}
+        public unsafe ref readonly T ValueRO => throw new NotImplementedException();
+        public unsafe ref T ValueRW => throw new NotImplementedException();
+        public unsafe bool IsValid => default;
+        public static RefRW<T> Optional(NativeArray<T> componentDataNativeArray, int index) => default;
     }
 
     public readonly struct RefRO<T> : IQueryTypeParameter where T : struct, IComponentData
     {
         public unsafe RefRO(NativeArray<T> componentDatas, int index){}
+        public unsafe ref readonly T ValueRO => throw new NotImplementedException();
+        public unsafe bool IsValid => default;
     }
 
     public readonly struct SafeBitRef
@@ -124,20 +186,31 @@ namespace Unity.Entities
         public unsafe void Update(ref SystemState state) {}
         public unsafe void Update(SystemBase system) {}
     }
+
+    public struct SharedComponentTypeHandle<T>
+    {
+        public unsafe void Update(ref SystemState state) {}
+        public unsafe void Update(SystemBase system) {}
+    }
+
+    public struct BufferTypeHandle<T>
+    {
+        public unsafe void Update(ref SystemState state) {}
+        public unsafe void Update(SystemBase system) {}
+    }
+
     public struct EnabledMask
     {
-
-        public unsafe EnabledRefRW<T> GetComponentEnabledRefRW<T>(int index)
+        public unsafe EnabledRefRW<T> GetEnabledRefRW<T>(int index)
             where T : unmanaged, IComponentData, IEnableableComponent => default;
-        public EnabledRefRO<T> GetComponentEnabledRefRO<T>(int index)
-            where T : unmanaged, IComponentData, IEnableableComponent => default;
-
-        public unsafe EnabledRefRW<T> GetOptionalComponentEnabledRefRW<T>(int index)
+        public EnabledRefRO<T> GetEnabledRefRO<T>(int index)
             where T : unmanaged, IComponentData, IEnableableComponent => default;
 
-        public EnabledRefRO<T> GetOptionalComponentEnabledRefRO<T>(int index)
+        public unsafe EnabledRefRW<T> GetOptionalEnabledRefRW<T>(int index)
             where T : unmanaged, IComponentData, IEnableableComponent => default;
 
+        public EnabledRefRO<T> GetOptionalEnabledRefRO<T>(int index)
+            where T : unmanaged, IComponentData, IEnableableComponent => default;
     }
     public unsafe struct ArchetypeChunk : IEquatable<ArchetypeChunk>
     {
@@ -146,11 +219,21 @@ namespace Unity.Entities
         public bool Equals(ArchetypeChunk other) => true;
         public override bool Equals(object obj) => true;
         public override int GetHashCode() => default;
+        public NativeArray<Entity> GetNativeArray(EntityTypeHandle chunkComponentTypeHandle) => default;
         public NativeArray<T> GetNativeArray<T>(ref ComponentTypeHandle<T> chunkComponentTypeHandle) where T : unmanaged, IComponentData => default;
-
+        public readonly BufferAccessor<T> GetBufferAccessor<T>(ref BufferTypeHandle<T> bufferTypeHandle)
+            where T : unmanaged, IBufferElementData => default;
         public EnabledMask GetEnabledMask<T>(ref ComponentTypeHandle<T> chunkComponentTypeHandle)
             where T : unmanaged, IComponentData, IEnableableComponent
             => default;
+
+        public T GetSharedComponent<T>(SharedComponentTypeHandle<T> aspect2EcsTestSharedCompScAc) => default;
+    }
+
+    public unsafe struct BufferAccessor<T>
+        where T : unmanaged, IBufferElementData
+    {
+        public DynamicBuffer<T> this[int index] => default;
     }
 
     public enum ScheduleGranularity
@@ -183,12 +266,14 @@ namespace Unity.Entities
         public EnabledRefRO<T2> GetEnabledRefROOptional<T2>(Entity entity)
             where T2 : unmanaged, IComponentData, IEnableableComponent => default;
         public T this[Entity e] => default;
+        public bool HasComponent(Entity entity) => true;
     }
 
     public unsafe struct BufferLookup<T> where T : unmanaged, IBufferElementData
     {
         public void Update(ref SystemState systemState){}
-        public T this[Entity e] => default;
+        public DynamicBuffer<T> this[Entity e] => default;
+        public bool HasBuffer(Entity entity) => default;
     }
 
     public unsafe struct EntityStorageInfoLookup
@@ -196,6 +281,14 @@ namespace Unity.Entities
         public void Update(SystemBase system) { }
         public void Update(ref SystemState systemState) { }
         public bool Exists(Entity entity) => default;
+
+        public EntityStorageInfo this[Entity entity] => default;
+    }
+
+    public struct EntityStorageInfo
+    {
+        public ArchetypeChunk Chunk;
+        public int IndexInChunk;
     }
 
     public abstract unsafe partial class ComponentSystemBase
@@ -209,25 +302,34 @@ namespace Unity.Entities
         protected ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly) => default;
         public ComponentLookup<T> GetComponentLookup<T>(bool isReadOnly = false)
             where T : unmanaged, IComponentData => default;
+        public BufferLookup<T> GetBufferLookup<T>(bool isReadOnly = false)
+            where T : unmanaged, IBufferElementData => default;
         public EntityManager EntityManager => throw default;
     }
 
     public abstract unsafe class SystemBase : ComponentSystemBase
     {
+        protected void CompleteDependency() { }
         protected abstract void OnUpdate();
         protected internal ref SystemState CheckedStateRef => throw new Exception();
         protected new JobHandle Dependency { get; set; }
         protected internal ForEachLambdaJobDescription Entities => new ForEachLambdaJobDescription();
         protected internal LambdaSingleJobDescription Job => new LambdaSingleJobDescription();
+
         protected internal T GetComponent<T>(Entity entity) where T : unmanaged, IComponentData => default;
         protected internal void SetComponent<T>(Entity entity, T component) where T : unmanaged, IComponentData{}
+        protected internal bool HasComponent<T>(Entity entity) where T : unmanaged, IComponentData => true;
 
-        public DynamicBuffer<T> GetBuffer<T>(Entity entity, bool isReadOnly = false) where T : unmanaged, IBufferElementData
-            => default;
+        public DynamicBuffer<T> GetBuffer<T>(Entity entity, bool isReadOnly = false) where T : unmanaged, IBufferElementData => default;
+        protected internal bool HasBuffer<T>(Entity entity) where T : struct, IBufferElementData => true;
 
         public new ComponentLookup<T> GetComponentLookup<T>(bool isReadOnly = false)
             where T : unmanaged, IComponentData => default;
 
+        public new BufferLookup<T> GetBufferLookup<T>(bool isReadOnly = false)
+            where T : unmanaged, IBufferElementData => default;
+
+        public bool Exists(Entity entity) => true;
         public ref readonly TimeData Time => throw default;
         public World World => default;
     }
@@ -247,14 +349,9 @@ namespace Unity.Entities
 
     public interface ISystem
     {
-        void OnUpdate(ref SystemState state);
-    }
-
-    public class LambdaSingleJobDescription
-    {
-        public LambdaSingleJobDescription WithCode(Action action) => this;
-        public JobHandle Schedule() => default;
-        public JobHandle ScheduleParallel() => default;
+        void OnUpdate(ref SystemState state) {}
+        void OnCreate(ref SystemState state) {}
+        void OnDestroy(ref SystemState state) {}
     }
 
     public interface IComponentData : IQueryTypeParameter { }
@@ -266,22 +363,28 @@ namespace Unity.Entities
 
     public interface IBufferElementData { }
 
-    public struct DynamicBuffer<T> where T : unmanaged { }
+    public struct DynamicBuffer<T> where T : unmanaged
+    {
+        public ref T this[int i] => throw new NotImplementedException();
+    }
 
     public struct SystemState
     {
         public EntityQuery GetEntityQuery(ComponentType a) => default;
         public EntityQuery GetEntityQuery(params EntityQueryDesc[] queryDesc) => default;
         public ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : struct, IComponentData => default;
-
+        public BufferTypeHandle<T> GetBufferTypeHandle<T>(bool isReadOnly = false)
+            where T : unmanaged, IBufferElementData => default;
         public ComponentLookup<T> GetComponentLookup<T>(bool isReadOnly = false)
             where T : struct, IComponentData => default;
-
+        public BufferLookup<T> GetBufferLookup<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData =>
+            default;
         public void CompleteDependency(){}
-
         public EntityTypeHandle GetEntityTypeHandle() => default;
-
         public EntityManager EntityManager => default;
+        public EntityStorageInfoLookup GetEntityStorageInfoLookup() => default;
+        public JobHandle Dependency { get; set; }
+        public SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>() => default;
     }
 
     public struct ComponentType
@@ -297,6 +400,12 @@ namespace Unity.Entities
         public EntityQueryMask GetEntityQueryMask(EntityQuery query) => default;
         public RefRW<T> GetSingletonRW<T>() where T : unmanaged, IComponentData => throw new Exception();
         public T GetSingleton<T>() where T : unmanaged, IComponentData => default;
+        public void SetChangedVersionFilter(ComponentType componentType) {}
+        public void SetChangedVersionFilter(ComponentType[] componentType) {}
+    }
+
+    public static class EntityQueryExtentions {
+        public static T GetSingleton<T>(this EntityQuery query) where T : class, IComponentData => default;
     }
 
     public struct SystemAPIQueryBuilder
@@ -304,12 +413,17 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAll<T1>() => default;
         public SystemAPIQueryBuilder WithAny<T1>() => default;
         public SystemAPIQueryBuilder WithNone<T1>() => default;
+        public SystemAPIQueryBuilder WithDisabled<T1>() => default;
+        public SystemAPIQueryBuilder WithAbsent<T1>() => default;
         public SystemAPIQueryBuilder WithOptions(EntityQueryOptions options) => default;
         public EntityQuery Build() => default;
     }
 
     public static class SystemAPI
     {
+        public static ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : unmanaged, IComponentData => default;
+        public static BufferTypeHandle<T> GetBufferTypeHandle<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData => default;
+
         // Query builder
         public static SystemAPIQueryBuilder QueryBuilder() => default;
 
@@ -323,7 +437,7 @@ namespace Unity.Entities
             where T2 : struct, IQueryTypeParameter
             => default;
 
-        public static QueryEnumerable<global::System.ValueTuple<T1, T2>> Query<T1, T2, T3>()
+        public static QueryEnumerable<global::System.ValueTuple<T1, T2, T3>> Query<T1, T2, T3>()
             where T1 : struct, IQueryTypeParameter
             where T2 : struct, IQueryTypeParameter
             where T3 : struct, IQueryTypeParameter
@@ -359,14 +473,17 @@ namespace Unity.Entities
             public static T GetComponent<T>(Entity entity) where T : class => default;
             public static T GetSingleton<T>() where T : class => throw new Exception();
         }
+
+        public static bool HasSingleton<T>() where T : unmanaged => throw new Exception();
     }
 
     public struct QueryEnumerable<T> : IEnumerable<T> where T : struct
     {
         public QueryEnumerable<T> WithAll<TComponent>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithAny<TComponent>() => throw ThrowCodeGenException();
-
         public QueryEnumerable<T> WithNone<TComponent>() => throw ThrowCodeGenException();
+        public QueryEnumerable<T> WithDisabled<TComponent>() => throw ThrowCodeGenException();
+        public QueryEnumerable<T> WithAbsent<TComponent>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithSharedComponentFilter<T1>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithSharedComponentFilter<T1, T2>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithChangeFilter<T1>() => throw ThrowCodeGenException();
@@ -383,6 +500,16 @@ namespace Unity.Entities
 
         static InvalidOperationException ThrowCodeGenException() => throw new InvalidOperationException();
 
+        public QueryEnumerableWithEntity<T> WithEntityAccess() => default;
+    }
+
+    public readonly struct QueryEnumerableWithEntity<T1> : IEnumerable<(T1, Entity)>
+    {
+        public QueryEnumerableWithEntity(T1 item1, Entity entity){}
+
+        public IEnumerator<(T1, Entity)> GetEnumerator() => default;
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        public void Deconstruct(out T1 item1, out Entity entity) => throw new NotImplementedException();
     }
 
     public interface IQueryTypeParameter {}
@@ -391,6 +518,8 @@ namespace Unity.Entities
     public interface IAspectCreate<T> : IQueryTypeParameter where T : IAspect
     {
         T CreateAspect(Entity entity, ref SystemState system, bool isReadOnly);
+        void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, ref UnsafeList<ComponentType> any, ref UnsafeList<ComponentType> none,
+            ref UnsafeList<ComponentType> disabled, ref UnsafeList<ComponentType> absent, bool isReadOnly);
     }
 
     public interface ISystemCompilerGenerated
@@ -404,7 +533,11 @@ namespace Unity.Entities
         public DOTSCompilerPatchedMethodAttribute(string targetMethodName) { }
     }
 
-    public sealed class EntityIndexInQuery : Attribute {}
+    public class EntityIndexInChunk : Attribute {}
+    public class EntityIndexInQuery : Attribute {}
+    public class ChunkIndexInQuery : Attribute {}
+    public class OptionalAttribute : Attribute{}
+    public class DisableGenerationAttribute : Attribute{}
 
     [Flags]
     public enum EntityQueryOptions
@@ -415,6 +548,7 @@ namespace Unity.Entities
         FilterWriteGroup = 4,
         IgnoreEnabledBits = 8,
         IncludeSystems = 16,
+        IncludeDisabledEntities
     }
     public unsafe struct EntityQueryEnumerator : IDisposable
     {
@@ -437,6 +571,16 @@ namespace Unity.Entities
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         public bool MoveNextColdLoop(out ArchetypeChunk chunk) => true;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNextEntityRange(out bool movedToNewChunk, out ArchetypeChunk chunk, out int entityStartIndex, out int entityCount)
+        {
+            movedToNewChunk = false;
+            chunk = default;
+            entityStartIndex = -1;
+            entityCount = -1;
+            return false;
+        }
     }
 
     public class EntityQueryDesc : IEquatable<EntityQueryDesc>
@@ -444,6 +588,8 @@ namespace Unity.Entities
         public ComponentType[] Any = Array.Empty<ComponentType>();
         public ComponentType[] None = Array.Empty<ComponentType>();
         public ComponentType[] All = Array.Empty<ComponentType>();
+        public ComponentType[] Disabled = Array.Empty<ComponentType>();
+        public ComponentType[] Absent = Array.Empty<ComponentType>();
         public EntityQueryOptions Options = EntityQueryOptions.Default;
 
         public bool Equals(EntityQueryDesc other) => true;
@@ -453,12 +599,44 @@ namespace Unity.Entities
 
     public static class JobChunkExtensions
     {
+        public static unsafe void Run<T>(this T jobData, EntityQuery query)
+            where T : struct, IJobChunk {}
         public static unsafe JobHandle ScheduleParallel<T>(this T jobData, EntityQuery query, JobHandle dependsOn)
             where T : struct, IJobChunk => default;
     }
 
     public static partial class InternalCompilerInterface
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe RefRW<T> GetRefRW<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData => default;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe RefRO<T> GetRefRO<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData => default;
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe IntPtr UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<T>(in ArchetypeChunk chunk, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData => default;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe IntPtr UnsafeGetChunkNativeArrayIntPtrWithoutChecks<T>(in ArchetypeChunk chunk, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData => default;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static UncheckedRefRO<T> UnsafeGetUncheckedRefRO<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData => default;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static UncheckedRefRW<T> UnsafeGetUncheckedRefRW<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData => default;
+
+        public readonly struct UncheckedRefRO<T> : IComponentData where T : unmanaged, IComponentData
+        {
+            public T ValueRO => default;
+        }
+
+        public readonly struct UncheckedRefRW<T> where T : unmanaged, IComponentData
+        {
+            public T ValueRW => default;
+            public T ValueRO => default;
+        }
+
         public static JobRunWithoutJobSystemDelegate BurstCompile(JobRunWithoutJobSystemDelegate d) => default;
         public static JobChunkRunWithoutJobSystemDelegate BurstCompile(JobChunkRunWithoutJobSystemDelegate d) => default;
         public static JobChunkRunWithoutJobSystemDelegateLimitEntities BurstCompile(JobChunkRunWithoutJobSystemDelegateLimitEntities d) => default;
@@ -494,6 +672,11 @@ namespace Unity.Entities
         }
 
         public interface IIsFullyUnmanaged {}
+
+        public static void UnsafeRunJobChunk<T>(ref T jobData, EntityQuery query,
+            JobChunkRunWithoutJobSystemDelegate functionPointer) where T : struct, IJobChunk {}
+
+        public static void CombineComponentType(ref UnsafeList<ComponentType> all, ComponentType readOnly) {}
     }
 
     public struct EntityTypeHandle
@@ -524,6 +707,12 @@ namespace Unity.Entities
         public EntityQuery CreateEntityQuery(params ComponentType[] requiredComponents) => default;
         public void CompleteDependencyBeforeRW<T>(){}
         public void CompleteDependencyBeforeRO<T>(){}
+
+        public T GetAspect<T>(Entity entity) where T : struct, IAspect => default;
+        public T GetAspectRO<T>(Entity entity) where T : struct, IAspect => default;
+
+        public void AddComponent<T>(EntityQuery query) {}
+        public void AddComponentData<T>(Entity entity, T componentData) where T : class, IComponentData {}
     }
 
     public static class EnabledBitUtility
@@ -575,6 +764,12 @@ namespace Unity.Collections
     }
 }
 
+namespace Unity.Collections.LowLevel.Unsafe
+{
+    public unsafe struct UnsafeList<T>
+        where T : unmanaged{}
+}
+
 namespace Unity.Jobs
 {
     public struct JobHandle : IEquatable<JobHandle>
@@ -588,6 +783,11 @@ namespace Unity.Jobs
 
     namespace LowLevel.Unsafe
     {
+        public static class JobsUtility
+        {
+            public static bool JobCompilerEnabled { get; set; }
+        }
+
         public sealed class JobProducerTypeAttribute : Attribute
         {
             public JobProducerTypeAttribute(Type producerType) { }

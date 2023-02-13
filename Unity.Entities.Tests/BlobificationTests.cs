@@ -609,6 +609,8 @@ public partial class BlobTests : ECSTestsFixture
 
 #if !UNITY_DOTSRUNTIME && !UNITY_GAMECORE // (disabled as gamecore has permission issues DOTS-7038)
     [Test]
+    // Unstable on PS4: https://jira.unity3d.com/browse/DOTS-7693
+    [UnityEngine.TestTools.UnityPlatform(exclude = new [] { RuntimePlatform.PS4 })]
     public void BlobAssetReferenceTryRead()
     {
         string fileName = "BlobAssetReferenceIOTestData.blob";
@@ -778,4 +780,65 @@ public partial class BlobTests : ECSTestsFixture
 
         Assert.Throws<InvalidOperationException>(() => blobRef.Value.ToArray(), "No exception was thrown when creating array copy from BlobArray<BlobPtr<>>.");
     }
+
+#if !UNITY_DOTSRUNTIME
+    // Not running on DOTS runtime because the temp allocator isn't predictably generating contiguous allocations
+    // and only contiguous allocations can trigger the issue that this regression test is guarding against
+    [Test]
+    public void BlobBuilder_RegressionTestDOTS7887()
+    {
+        // note that the size of the internal chunks used by the builder is set to 64 bytes
+        // nothing special with 64 but there's no reason to use large chunks (default is 64k)
+        var blobBuilder = new BlobBuilder(Allocator.Temp, 64);
+
+        // constructing the root creates the first chunk (1st allocation)
+        ref var root = ref blobBuilder.ConstructRoot<BlobArray<BlobArray<BlobString>>>();
+
+        // an array is 8 bytes (4 bytes offset + 4 bytes length)
+        // adding an array of 7 elements after the root array gets us to exactly 64 bytes
+        var arrayOfArraysBuilder = blobBuilder.Allocate(ref root, 7);
+
+        // next we allocate a very large array (strings are arrays)
+        // because it's larger than a chunk it requires its own allocation (2nd allocation)
+        // because it's larger than what the temp allocator can provide, it goes to the fallback allocator
+        // the size of the array is 128 MB to ensure a fallback on every platform (cf. kBlockSizeMax)
+        blobBuilder.Allocate(ref arrayOfArraysBuilder[0], 16 * 1024 * 1024);
+
+        // finally we allocate a small array (that fits a chunk)
+        // this creates a 2nd chunk (3rd allocation)
+        var secondStringArrayBuilder = blobBuilder.Allocate(ref arrayOfArraysBuilder[1], 8);
+
+        unsafe
+        {
+            // ensure that the two small chunks are consecutive
+            // this is the expected behaviour when using the temp allocator
+            // the fallback allocation is in a different address range
+            var alloc1 = (IntPtr)arrayOfArraysBuilder.GetUnsafePtr() - 8;
+            var alloc3 = (IntPtr)secondStringArrayBuilder.GetUnsafePtr();
+
+            // if this assert fails, it doesn't mean there's anything wrong with the code
+            // but that the test is not testing the right thing and needs to be updated
+            Assert.AreEqual(alloc1 + 64, alloc3);
+        }
+
+        // adding a string as the first element of the second array
+        // this string registers a patch instruction to update the array offset which
+        // is located at the very beginning of the second chunk (3rd allocation)
+        blobBuilder.AllocateString(ref secondStringArrayBuilder[0], "Hello World");
+
+        // creating the final blob, which concatenates the three allocations in the order they've been created
+        // but the patches are processed in address order, since the 2nd allocation is in a different range
+        // the allocations will be handled in the order 1st, 3rd, 2nd OR 2nd, 1st, 3rd but NOT 1st, 2nd, 3rd
+        using var blobRef = blobBuilder.CreateBlobAssetReference<BlobArray<BlobArray<BlobString>>>(Allocator.Persistent);
+
+        // because of an off by one error, the array offset for the string was handled as if it was just past the
+        // end of the first chunk. But because the 2nd allocation is between the two chunks in the blob,
+        // the string offset would end up being patched at the beginning of the large array instead.
+        Assert.AreEqual("Hello World", blobRef.Value[1][0].ToString());
+
+        // This error would not happen without the large allocation. Because when two chunks have consecutive
+        // addresses, they usually end up after each other in the finalized blob, causing the off by one error
+        // to be completely harmless.
+    }
+#endif
 }

@@ -2231,9 +2231,9 @@ namespace Unity.Scenes.Editor.Tests
         }
 
 #if !ENABLE_TRANSFORM_V1
-        protected static readonly IEnumerable<Type> k_DefaultEntitySceneComponentsBaking = new[] { typeof(EntityGuid), typeof(EditorRenderData), typeof(SceneSection), typeof(SceneTag), typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform), typeof(Simulate), typeof(TransformAuthoringCopyForTest)};
+        protected static readonly IEnumerable<Type> k_DefaultEntitySceneComponentsBaking = new[] { typeof(EntityGuid), typeof(SceneSection), typeof(SceneTag), typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform), typeof(Simulate), typeof(TransformAuthoringCopyForTest)};
 #else
-        protected static readonly IEnumerable<Type> k_DefaultEntitySceneComponentsBaking = new[] { typeof(EntityGuid), typeof(EditorRenderData), typeof(SceneSection), typeof(SceneTag), typeof(Translation), typeof(Rotation), typeof(LocalToWorld), typeof(Simulate), typeof(TransformAuthoringCopyForTest) };
+        protected static readonly IEnumerable<Type> k_DefaultEntitySceneComponentsBaking = new[] { typeof(EntityGuid), typeof(SceneSection), typeof(SceneTag), typeof(Translation), typeof(Rotation), typeof(LocalToWorld), typeof(Simulate), typeof(TransformAuthoringCopyForTest) };
 #endif
 
         [UnityTest]
@@ -5255,6 +5255,72 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [UnityTest]
+        public IEnumerator IncrementalBaking_GetComponent_Transform([Values]Mode mode, [Values(1,2,3)] int reparent)
+        {
+            // reparent = 1, change parent to my parent.parent
+            // reparent = 2, change parent to root gameobject
+            // reparent = 3, change parent to null
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(GetComponentTransformBaker));
+
+            GameObject root;
+            GameObject lastChild = null;
+            int depth = 4;
+            SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    root = new GameObject("TestGameObject");
+                    lastChild = BakerTestsHierarchyHelper.CreateParentHierarchy(depth, root);
+
+                    // Add a position to every GO in the hierarchy
+                    var current = lastChild.transform;
+                    while (current != null)
+                    {
+                        current.localPosition = Vector3.one;
+                        current = current.parent;
+                    }
+
+                    lastChild.AddComponent<TestComponentAuthoring>();
+                    return new List<GameObject> {root};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+            {
+                var w = GetLiveConversionWorld(mode);
+
+                yield return UpdateEditorAndWorld(w);
+
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                var worldBaking = GetBakingWorld(w, subScene.SceneGUID);
+
+                // Pre-test to check the components were added correctly
+                var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<GetComponentTransformBaker.Vector3Element>().Build(worldBaking.EntityManager);
+                Assert.AreEqual(1, query.CalculateEntityCount(), "Components were not correctly added to the entities");
+
+
+                // Choose new parent
+                var current = lastChild.transform.parent;
+                for (int index = 0; index < reparent; ++index)
+                {
+                    current = current.parent;
+                }
+
+                Undo.SetTransformParent(lastChild.transform, current, false, "Changing Parents" );
+                Undo.FlushUndoRecordObjects();
+
+                yield return UpdateEditorAndWorld(w);
+
+                using var entities = query.ToEntityArray(Allocator.TempJob);
+                var childEntity = entities[0];
+                var position = worldBaking.EntityManager.GetComponentData<GetComponentTransformBaker.Vector3Element>(childEntity);
+                Assert.AreEqual(position.Value.x, (float)(depth - reparent));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator IncrementalBaking_GetComponentsInParent_Swap([Values] BakerTestsHierarchyHelper.ParentHierarchyMaskTests mask, [Values]Mode mode)
         {
             List<GameObject> goList = null;
@@ -6435,7 +6501,64 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator IncrementalBaking_MultipleTryGetRefcountingRemoval()
+        {
+            using var overrideBake = new BakerDataUtility.OverrideBakers(true, typeof(MultipleTryGetRefCountingBaker));
+            SubScene subScene;
+            {
+                subScene = CreateEmptySubScene("TestSubScene", true);
 
+                var a = new GameObject("A");
+                var aComponent = a.AddComponent<BlobAssetAddTestAuthoring>();
+                aComponent.blobValue = 5;
+
+                SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
+            }
+
+            yield return GetEnterPlayMode(TestWithEditorLiveConversion.Mode.Edit);
+            {
+                var w = GetLiveConversionWorld(TestWithEditorLiveConversion.Mode.Edit);
+
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                var blobAssetStore = bakingSystem.BlobAssetStore;
+                Assert.IsNotNull(blobAssetStore);
+
+                // We test that if one Baker calls TryGet 5 times,
+                // it only increases the refcount by 1 in both the Baker and BlobAssetStore
+                var testBlobAssetQuery =
+                    w.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<BlobAssetGetReference>());
+
+                Assert.AreEqual(1, testBlobAssetQuery.CalculateEntityCount(),
+                    "The Blob Asset Reference Component was not added correctly");
+
+                var entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Temp);
+                var component = w.EntityManager.GetComponentData<BlobAssetGetReference>(entityArray[0]);
+
+                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(component.blobHash));
+                var blobHash = component.blobHash;
+                var typeHash = (uint) typeof(int).GetHashCode();
+
+                // Remove the authoring and check that the BlobAssetStore refcounting is correctly updated
+                var a = GameObject.Find("A");
+                var authoringA = a.GetComponent<BlobAssetAddTestAuthoring>();
+
+                Undo.RecordObject(authoringA, "Delete gameobject A's Blob Asset");
+                Undo.DestroyObjectImmediate(authoringA);
+                Undo.FlushUndoRecordObjects();
+
+                // Three are necessary to circumvent FramesToRetainBlobAssets
+                yield return UpdateEditorAndWorld(w);
+                yield return UpdateEditorAndWorld(w);
+                yield return UpdateEditorAndWorld(w);
+
+                // Check that the refcount for the BlobAsset is 0 (removed as many as added)
+                Assert.IsFalse(blobAssetStore.Contains<int>(blobHash),
+                    "The BlobAsset refCount for creation and removal are not equal.");
+            }
+        }
 
         [UnityTest]
         public IEnumerator IncrementalBaking_BlobAssetsRemoveFromBaker_BlobAssetDisposedCorrectly()
@@ -6613,6 +6736,123 @@ namespace Unity.Scenes.Editor.Tests
                 Assert.IsFalse(mockBodyQuery.IsEmpty, "No MockBody component found");
                 Assert.IsFalse(requiredComponentQuery.IsEmpty, "No RequiredComponent component found");
                 Assert.AreEqual(nameof(MockBodyComponent), requiredComponentQuery.GetSingleton<RequiredComponent>().AddedBy);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator LiveConversion_TestSectionCrossReferences()
+        {
+            GameObject go0 = null;
+            {
+                CreateSubSceneFromObjects("TestSubScene", false, () =>
+                {
+                    go0 = new GameObject("Section0");
+                    // Just adding this component to identify the root entity
+                    go0.AddComponent<TestComponentAuthoring>();
+
+                    // Creating an object in section 1 with a parent reference to object in section 0. It shoudl be valid.
+                    var go1 = new GameObject("Section1");
+                    go1.transform.SetParent(go0.transform);
+                    var sectionComponent = go1.AddComponent<SceneSectionComponent>();
+                    sectionComponent.SectionIndex = 1;
+
+                    // Adding a null reference to check that Entity.Null doesn't get lost during serialisation.
+                    var entityReference = go1.AddComponent<EntityRefTestDataAuthoring>();
+                    entityReference.Value = null;
+                    entityReference.AdditionalEntityCount = 0;
+                    entityReference.DeclareLinkedEntityGroup = false;
+
+                    // Creating an object in section 2 with a parent reference to object in section 1. It should be null.
+                    var go2 = new GameObject("Section2");
+                    go2.transform.SetParent(go1.transform);
+                    sectionComponent = go2.AddComponent<SceneSectionComponent>();
+                    sectionComponent.SectionIndex = 2;
+
+                    return new List<GameObject> {go0};
+                });
+            }
+
+            yield return GetEnterPlayMode(Mode.Play);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Play);
+                var manager = w.EntityManager;
+
+                var sceneSystem = w.GetExistingSystem<SceneSystem>();
+                var subScene = Object.FindObjectOfType<SubScene>();
+
+                var sceneEntity = SceneSystem.GetSceneEntity(w.Unmanaged, subScene.SceneGUID);
+                Assert.AreNotEqual(Entity.Null, sceneEntity);
+
+                int timeout = 1000;
+                while (SceneSystem.GetSceneStreamingState(w.Unmanaged, sceneEntity) == SceneSystem.SceneStreamingState.Loading)
+                {
+                    yield return UpdateEditorAndWorld(w);
+                    --timeout;
+                    if (timeout <= 0)
+                    {
+                        UnityEngine.Debug.LogError("Scene not loaded sucessfully");
+                        break;
+                    }
+                }
+
+                Assert.AreEqual(SceneSystem.SceneStreamingState.LoadedSuccessfully, SceneSystem.GetSceneStreamingState(w.Unmanaged, sceneEntity));
+
+                var rootQuery = w.EntityManager.CreateEntityQuery(
+                   typeof(TestComponentAuthoring.UnmanagedTestComponent));
+
+               var rootArray = rootQuery.ToEntityArray(Allocator.Temp);
+               Assert.AreEqual(1, rootArray.Length);
+               var rootEntity = rootArray[0];
+
+               var sceneQuery = w.EntityManager.CreateEntityQuery(
+                    typeof(SceneSection),
+                    typeof(Parent));
+
+                var entities = sceneQuery.ToEntityArray(Allocator.Temp);
+                var parents = sceneQuery.ToComponentDataArray<Parent>(Allocator.Temp);
+
+                bool foundSection1Entity = false;
+                bool foundSection2Entity = false;
+
+                for (int index = 0; index < entities.Length; ++index)
+                {
+                    var section = manager.GetSharedComponent<SceneSection>(entities[index]).Section;
+                    if (section == 1)
+                    {
+                        // Check that the parent is not Entity.Null and it's the right value
+                        Assert.AreNotEqual(Entity.Null, parents[index].Value);
+                        Assert.AreEqual(rootEntity, parents[index].Value);
+                        foundSection1Entity = true;
+
+                        // Check that the null reference is still null and hasn't got a wrong value assigned
+                        var entityRef = manager.GetComponentData<EntityRefTestData>(entities[index]);
+                        Assert.AreEqual(Entity.Null, entityRef.Value);
+                    }
+                    else if (section == 2)
+                    {
+                        // Check that the parent is Entity.Null
+                        Assert.AreEqual(Entity.Null, parents[index].Value);
+                        foundSection2Entity = true;
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.LogError($"Entity with unexpected section {section}");
+                    }
+                }
+
+                // Check that entities in section 1 and 2 were found
+                Assert.AreEqual(true, foundSection1Entity);
+                Assert.AreEqual(true, foundSection2Entity);
+
+                sceneQuery.Dispose();
+                rootQuery.Dispose();
+
+                yield return UpdateEditorAndWorld(w);
+
+                entities.Dispose();
+                parents.Dispose();
+                rootArray.Dispose();
             }
         }
     }

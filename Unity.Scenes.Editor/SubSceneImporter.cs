@@ -164,6 +164,50 @@ namespace Unity.Scenes.Editor
                 DestroyImmediate(objRefs);
         }
 
+        void GetBuildConfigurationOrDotsSettings(SceneWithBuildConfigurationGUIDs sceneWithBuildConfiguration,
+            out IEntitiesPlayerSettings settingsAsset
+#if USING_PLATFORMS_PACKAGE
+            , out BuildConfiguration buildConfig
+#endif
+            )
+        {
+            settingsAsset = null;
+#if USING_PLATFORMS_PACKAGE            
+            buildConfig = null;
+            buildConfig = BuildConfiguration.LoadAsset(sceneWithBuildConfiguration.BuildConfiguration);
+            if (buildConfig != null)
+                return;
+            // If we failed to load a BuildConfiguration asset, let's try to load a IEntitiesPlayerSettings one
+#endif
+            if (sceneWithBuildConfiguration.BuildConfiguration.IsValid)
+            {
+                settingsAsset = DotsGlobalSettings.Instance.GetSettingsAsset(sceneWithBuildConfiguration.BuildConfiguration);
+                if (settingsAsset == null)
+                {
+                    // the build configuration ID is not a default configuration stored in the ProjectSettings
+                    // attempt to load it using the AssetDatabase
+                    var path = AssetDatabase.GUIDToAssetPath(sceneWithBuildConfiguration.BuildConfiguration);
+                    settingsAsset = AssetDatabase.LoadMainAssetAtPath(path) as IEntitiesPlayerSettings;
+                }
+            }
+            if (settingsAsset == null)
+            {
+                // ensure the settings objects are updated and contain the latest changes from the editor
+                DotsGlobalSettings.Instance.ReloadSettingsObjects();
+                // if the build config could not be resolved, default to the standard entities client settings asset
+                switch (DotsGlobalSettings.Instance.GetPlayerType())
+                {
+                    case DotsGlobalSettings.PlayerType.Server:
+                        settingsAsset = DotsGlobalSettings.Instance.GetServerSettingAsset();
+                        break;
+                    case DotsGlobalSettings.PlayerType.Client:
+                    default:
+                        settingsAsset = DotsGlobalSettings.Instance.GetClientSettingAsset();
+                        break;
+                }
+            }
+        }
+
         public override void OnImportAsset(AssetImportContext ctx)
         {
 #if ENABLE_CLOUD_SERVICES_ANALYTICS
@@ -177,45 +221,14 @@ namespace Unity.Scenes.Editor
                 EditorEntityScenes.AddEntityBinaryFileDependencies(ctx, sceneWithBuildConfiguration.BuildConfiguration);
                 EditorEntityScenes.DependOnSceneGameObjects(sceneWithBuildConfiguration.SceneGUID, ctx);
 
-                IEntitiesPlayerSettings settingsAsset = null;
+                GetBuildConfigurationOrDotsSettings(sceneWithBuildConfiguration, out var settingsAsset
 #if USING_PLATFORMS_PACKAGE
-                BuildConfiguration buildConfig = BuildConfiguration.LoadAsset(sceneWithBuildConfiguration.BuildConfiguration);
-                // If we failed to load a BuildConfiguration asset, let's try to load a IEntitiesPlayerSettings one
-                if (buildConfig == null)
-                {
-                    if (sceneWithBuildConfiguration.BuildConfiguration.IsValid)
-                    {
-                        settingsAsset = DotsGlobalSettings.Instance.GetSettingsAsset(sceneWithBuildConfiguration.BuildConfiguration);
-                        if (settingsAsset == null)
-                        {
-                            // the build configuration ID is not a default configuration stored in the ProjectSettings
-                            // attempt to load it using the AssetDatabase
-                            var path = AssetDatabase.GUIDToAssetPath(sceneWithBuildConfiguration.BuildConfiguration);
-                            settingsAsset = AssetDatabase.LoadMainAssetAtPath(path) as IEntitiesPlayerSettings;
-                        }
-                    }
-
-                    if (settingsAsset == null)
-                    {
-                        // ensure the settings objects are updated and contain the latest changes from the editor
-                        DotsGlobalSettings.Instance.ReloadSettingsObjects();
-                        // if the build config could not be resolved, default to the standard entities client settings asset
-                        switch (DotsGlobalSettings.Instance.GetPlayerType())
-                        {
-                            case DotsGlobalSettings.PlayerType.Server:
-                                settingsAsset = DotsGlobalSettings.Instance.GetServerSettingAsset();
-                                break;
-                            case DotsGlobalSettings.PlayerType.Client:
-                            default:
-                                settingsAsset = DotsGlobalSettings.Instance.GetClientSettingAsset();
-                                break;
-                        }
-
-                    }
-
-                    ctx.DependsOnCustomDependency(settingsAsset.CustomDependency);
-                }
+                    , out var buildConfig
 #endif
+                );
+                if(settingsAsset != null)
+                    ctx.DependsOnCustomDependency(settingsAsset.CustomDependency);
+
                 var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneWithBuildConfiguration.SceneGUID);
 
                 UnityEngine.SceneManagement.Scene scene;

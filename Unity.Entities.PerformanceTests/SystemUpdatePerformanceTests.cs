@@ -13,6 +13,7 @@ using Unity.PerformanceTesting;
 
 namespace Unity.Entities.PerformanceTests
 {
+    using static AspectUtils;
     readonly partial struct PerfTestAspect : IAspect
     {
         readonly public RefRW<EcsTestFloatData3> Output;
@@ -258,9 +259,6 @@ namespace Unity.Entities.PerformanceTests
 
             private EntityQuery _Query;
 
-            public void OnDestroy(ref SystemState state)
-            { }
-
             BufferTypeHandle<EcsFloatElement> _FloatBufferHandle;
             ComponentTypeHandle<EcsTestFloatData> _ComponentFloatHandle;
             public void OnCreate(ref SystemState state)
@@ -320,9 +318,6 @@ namespace Unity.Entities.PerformanceTests
                 LoopsPerSystem = loopsPerSystem;
                 Mode = mode;
             }
-            public void OnDestroy(ref SystemState state)
-            { }
-
             ComponentTypeHandle<EcsTestFloatData3> _RotationTypeHandle;
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
             public void OnCreate(ref SystemState state)
@@ -384,12 +379,6 @@ namespace Unity.Entities.PerformanceTests
                 LoopsPerSystem = loopsPerSystem;
                 Mode = mode;
             }
-            public void OnDestroy(ref SystemState state)
-            { }
-
-            public void OnCreate(ref SystemState state)
-            { }
-
             public void OnStartRunning(ref SystemState state)
             {
                 if (Mode == EnabledBitsMode.NoEnableableComponents)
@@ -442,9 +431,6 @@ namespace Unity.Entities.PerformanceTests
                 LoopsPerSystem = loopsPerSystem;
                 Mode = mode;
             }
-            public void OnDestroy(ref SystemState state)
-            { }
-
             ComponentTypeHandle<EcsTestFloatData3> _RotationTypeHandle;
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
             public void OnCreate(ref SystemState state)
@@ -511,9 +497,6 @@ namespace Unity.Entities.PerformanceTests
                 LoopsPerSystem = loopsPerSystem;
                 Mode = mode;
             }
-            public void OnDestroy(ref SystemState state)
-            { }
-
             ComponentTypeHandle<EcsTestFloatData3> _RotationTypeHandle;
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
             public void OnCreate(ref SystemState state)
@@ -578,9 +561,6 @@ namespace Unity.Entities.PerformanceTests
                 LoopsPerSystem = loopsPerSystem;
                 Mode = mode;
             }
-            public void OnDestroy(ref SystemState state)
-            { }
-
             public void OnCreate(ref SystemState state)
             {
                 _TypeHandle = new PerfTestAspect.TypeHandle(ref state, false);
@@ -590,9 +570,9 @@ namespace Unity.Entities.PerformanceTests
             public void OnStartRunning(ref SystemState state)
             {
                 if (Mode == EnabledBitsMode.NoEnableableComponents)
-                    _Query = state.GetEntityQuery(PerfTestAspect.RequiredComponents);
+                    _Query = state.GetEntityQuery(GetRequiredComponents<PerfTestAspect>(isReadOnly: false));
                 else
-                    _Query = state.GetEntityQuery(ComponentType.Combine(PerfTestAspect.RequiredComponents, new ComponentType[] { ComponentType.ReadOnly<EcsTestDataEnableable>() } ));
+                    _Query = state.GetEntityQuery(ComponentType.Combine(GetRequiredComponents<PerfTestAspect>(isReadOnly: false), new ComponentType[] { ComponentType.ReadOnly<EcsTestDataEnableable>() } ));
             }
 
             public void OnStopRunning(ref SystemState state)
@@ -662,9 +642,6 @@ namespace Unity.Entities.PerformanceTests
                 LoopsPerSystem = loopsPerSystem;
                 Mode = mode;
             }
-            public void OnDestroy(ref SystemState state)
-            { }
-
             public void OnCreate(ref SystemState state)
             {
                 _TypeHandle = new PerfTestAspect.TypeHandle(ref state, false);
@@ -674,9 +651,9 @@ namespace Unity.Entities.PerformanceTests
             public void OnStartRunning(ref SystemState state)
             {
                 if (Mode == EnabledBitsMode.NoEnableableComponents)
-                    _Query = state.GetEntityQuery(PerfTestAspect.RequiredComponents);
+                    _Query = state.GetEntityQuery(GetRequiredComponents<PerfTestAspect>(isReadOnly: false));
                 else
-                    _Query = state.GetEntityQuery(ComponentType.Combine(PerfTestAspect.RequiredComponents, new ComponentType[] { ComponentType.ReadOnly<EcsTestDataEnableable>() } ));
+                    _Query = state.GetEntityQuery(ComponentType.Combine(GetRequiredComponents<PerfTestAspect>(isReadOnly: false), new ComponentType[] { ComponentType.ReadOnly<EcsTestDataEnableable>() } ));
             }
 
             public void OnStopRunning(ref SystemState state)
@@ -719,9 +696,6 @@ namespace Unity.Entities.PerformanceTests
                 LoopsPerSystem = loopsPerSystem;
                 Mode = mode;
             }
-            public void OnDestroy(ref SystemState state)
-            { }
-
             ComponentTypeHandle<EcsTestFloatData3> _RotationTypeHandle;
             ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
             public void OnCreate(ref SystemState state)

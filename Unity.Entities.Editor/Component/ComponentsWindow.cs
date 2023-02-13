@@ -162,6 +162,7 @@ namespace Unity.Entities.Editor
         {
             Resources.Templates.ContentProvider.ComponentsWindow.Clone(rootVisualElement);
             m_ListView = rootVisualElement.Q<ListView>(className:"components-window__list-view");
+            m_ListView.fixedItemHeight = Constants.ListView.ItemHeight;
 
             m_ListView.makeItem = () => new ComponentTypeView();
             m_ListView.bindItem = (element, i) =>

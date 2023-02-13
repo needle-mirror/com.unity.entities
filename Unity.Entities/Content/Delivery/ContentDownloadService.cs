@@ -220,11 +220,11 @@ namespace Unity.Entities.Content
         /// <summary>
         /// Construct a download service.
         /// </summary>
-        /// <param name="name">The download service name. Each service name must be unique.</param>
+        /// <param name="name">The name of the service. Each name must be unique.</param>
         /// <param name="cacheDir">The root directory of the local cache.</param>
-        /// <param name="priority">The priority of the service. Higher values will place it at the front of the service list.</param>
-        /// <param name="maxActiveDownloads">The maximum allowed concurrent downloads.  When there are more requests than can be run concurrently, they are queued until some fo the active operations complete.</param>
-        /// <param name="createDownloadOpFunc">Allows for specifying a custom type of DownloadOperation.  By default, this will use UnityWebRequest.</param>
+        /// <param name="priority">The priority of the service. Higher values are placed at the front of the service list.</param>
+        /// <param name="maxActiveDownloads">The maximum allowed concurrent downloads. When there are more requests than can be run concurrently, they are queued until some of the active operations complete.</param>
+        /// <param name="createDownloadOpFunc">Allows for specifying a custom type of DownloadOperation. By default, this will use UnityWebRequest.</param>
         public ContentDownloadService(string name, string cacheDir, int priority = 1, int maxActiveDownloads = 5, Func<DownloadOperation> createDownloadOpFunc = null)
         {
             Name = name;

@@ -80,8 +80,8 @@ namespace Unity.Entities
         {
             queryManager->m_DependencyManager = dependencyManager;
             queryManager->m_EntityQueryDataChunkAllocator = new BlockAllocator(AllocatorManager.Persistent, 16 * 1024 * 1024); // 16MB should be enough
-            ref var entityQueryCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeMultiHashMap<int, int>>(ref queryManager->m_EntityQueryDataCacheUntyped);
-            entityQueryCache = new UnsafeMultiHashMap<int, int>(1024, Allocator.Persistent);
+            ref var entityQueryCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeParallelMultiHashMap<int, int>>(ref queryManager->m_EntityQueryDataCacheUntyped);
+            entityQueryCache = new UnsafeParallelMultiHashMap<int, int>(1024, Allocator.Persistent);
             queryManager->m_EntityQueryDatas = new UnsafePtrList<EntityQueryData>(0, Allocator.Persistent);
             queryManager->m_EntityQueryMasksAllocated = 0;
         }
@@ -93,7 +93,7 @@ namespace Unity.Entities
 
         void Dispose()
         {
-            ref var entityQueryCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityQueryDataCacheUntyped);
+            ref var entityQueryCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeParallelMultiHashMap<int, int>>(ref m_EntityQueryDataCacheUntyped);
             entityQueryCache.Dispose();
             for (var g = 0; g < m_EntityQueryDatas.Length; ++g)
             {
@@ -221,6 +221,8 @@ namespace Unity.Entities
             var allTypes = new UnsafeList<ComponentType>(32, Allocator.Temp);
             var anyTypes = new UnsafeList<ComponentType>(32, Allocator.Temp);
             var noneTypes = new UnsafeList<ComponentType>(32, Allocator.Temp);
+            var disabledTypes = new UnsafeList<ComponentType>(32, Allocator.Temp);
+            var absentTypes = new UnsafeList<ComponentType>(32, Allocator.Temp);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             var entityTypeIndex = TypeManager.GetTypeIndex<Entity>();
 #endif
@@ -263,8 +265,31 @@ namespace Unity.Entities
                     }
                 }
 
+                {
+                    var typesDisabled = queryData[q].Disabled;
+                    for (int i = typesDisabled.Index; i < typesDisabled.Index + typesDisabled.Count; i++)
+                    {
+                        disabledTypes.Add(types[i]);
+                    }
+                }
+
+                {
+                    var typesAbsent = queryData[q].Absent;
+                    for (int i = typesAbsent.Index; i < typesAbsent.Index + typesAbsent.Count; i++)
+                    {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                        var type = types[i];
+                        // Can not use Assert.AreEqual here because it uses the (object, object) overload which
+                        // boxes the enums being compared, and that can not be burst compiled.
+                        Assert.IsTrue(ComponentType.AccessMode.ReadOnly == type.AccessModeType, "EntityQueryBuilder.Absent must convert ComponentType.AccessMode to ReadOnly");
+#endif
+                        absentTypes.Add(types[i]);
+                    }
+                }
+
+
                 // Validate the queryBuilder has components declared in a consistent way
-                EntityQueryBuilder.Validate(allTypes, anyTypes, noneTypes);
+                EntityQueryBuilder.Validate(allTypes, anyTypes, noneTypes, disabledTypes, absentTypes);
 
                 var isFilterWriteGroup = (queryData[q].Options & EntityQueryOptions.FilterWriteGroup) != 0;
                 if (isFilterWriteGroup)
@@ -272,16 +297,21 @@ namespace Unity.Entities
                     // Each ReadOnly<type> in any or all
                     //   if has WriteGroup types,
                     //   - Recursively add to any (if not explictly mentioned)
-
-                    var explicitList = new UnsafeList<ComponentType>(allTypes.Length + anyTypes.Length + noneTypes.Length + 16, Allocator.Temp);
+                    var explicitList = new UnsafeList<ComponentType>(allTypes.Length + anyTypes.Length +
+                                                                     noneTypes.Length + disabledTypes.Length +
+                                                                     absentTypes.Length + 16, Allocator.Temp);
                     explicitList.AddRange(allTypes);
                     explicitList.AddRange(anyTypes);
                     explicitList.AddRange(noneTypes);
+                    explicitList.AddRange(disabledTypes);
+                    explicitList.AddRange(absentTypes);
 
                     for (int i = 0; i < anyTypes.Length; i++)
                         IncludeDependentWriteGroups(anyTypes[i], ref explicitList);
                     for (int i = 0; i < allTypes.Length; i++)
                         IncludeDependentWriteGroups(allTypes[i], ref explicitList);
+                    for (int i = 0; i < disabledTypes.Length; i++)
+                        IncludeDependentWriteGroups(disabledTypes[i], ref explicitList);
 
                     // Each ReadWrite<type> in any or all
                     //   if has WriteGroup types,
@@ -291,27 +321,35 @@ namespace Unity.Entities
                         ExcludeWriteGroups(anyTypes[i], ref noneTypes, explicitList);
                     for (int i = 0; i < allTypes.Length; i++)
                         ExcludeWriteGroups(allTypes[i], ref noneTypes, explicitList);
+                    for (int i = 0; i < disabledTypes.Length; i++)
+                        ExcludeWriteGroups(disabledTypes[i], ref noneTypes, explicitList);
                     explicitList.Dispose();
                 }
 
                 ConstructTypeArray(ref unsafeScratchAllocator, noneTypes, out outQuery[q].None,
                     out outQuery[q].NoneAccessMode, out outQuery[q].NoneCount);
-
                 ConstructTypeArray(ref unsafeScratchAllocator, allTypes, out outQuery[q].All,
                     out outQuery[q].AllAccessMode, out outQuery[q].AllCount);
-
                 ConstructTypeArray(ref unsafeScratchAllocator, anyTypes, out outQuery[q].Any,
                     out outQuery[q].AnyAccessMode, out outQuery[q].AnyCount);
+                ConstructTypeArray(ref unsafeScratchAllocator, disabledTypes, out outQuery[q].Disabled,
+                    out outQuery[q].DisabledAccessMode, out outQuery[q].DisabledCount);
+                ConstructTypeArray(ref unsafeScratchAllocator, absentTypes, out outQuery[q].Absent,
+                    out outQuery[q].AbsentAccessMode, out outQuery[q].AbsentCount);
 
                 allTypes.Clear();
                 anyTypes.Clear();
                 noneTypes.Clear();
+                disabledTypes.Clear();
+                absentTypes.Clear();
                 outQuery[q].Options = queryData[q].Options;
             }
 
             allTypes.Dispose();
             anyTypes.Dispose();
             noneTypes.Dispose();
+            disabledTypes.Dispose();
+            absentTypes.Dispose();
             return outQuery;
         }
 
@@ -357,6 +395,10 @@ namespace Unity.Entities
                     return false;
                 if (!CompareQueryArray(queryBuilder, q.Any, archetypeQuery.Any, archetypeQuery.AnyAccessMode, archetypeQuery.AnyCount))
                     return false;
+                if (!CompareQueryArray(queryBuilder, q.Disabled, archetypeQuery.Disabled, archetypeQuery.DisabledAccessMode, archetypeQuery.DisabledCount))
+                    return false;
+                if (!CompareQueryArray(queryBuilder, q.Absent, archetypeQuery.Absent, archetypeQuery.AbsentAccessMode, archetypeQuery.AbsentCount))
+                    return false;
                 if (q.Options != archetypeQuery.Options)
                     return false;
             }
@@ -364,7 +406,7 @@ namespace Unity.Entities
             return true;
         }
 
-        private int IntersectSortedComponentIndexArrays(TypeIndex* arrayA, byte* accessArrayA, int arrayACount, TypeIndex* arrayB, byte* accessArrayB, int arrayBCount, TypeIndex* outArray, byte* outAccessArray)
+        private int IntersectSortedComponentIndexArrays(ComponentType* arrayA, int arrayACount, ComponentType* arrayB, int arrayBCount, ComponentType* outArray)
         {
             var intersectionCount = 0;
 
@@ -379,7 +421,6 @@ namespace Unity.Entities
                 else
                 {
                     outArray[intersectionCount] = arrayB[j];
-                    outAccessArray[intersectionCount] = accessArrayB[j];
                     intersectionCount++;
                     i++;
                     j++;
@@ -389,35 +430,63 @@ namespace Unity.Entities
             return intersectionCount;
         }
 
-        // Calculates the intersection of "All" queriesDesc
+        // Calculates the intersection of "All" and "Disabled" arrays from the provided ArchetypeQuery objects
         private ComponentType* CalculateRequiredComponentsFromQuery(ref UnsafeScratchAllocator allocator, ArchetypeQuery* queries, int queryCount, out int outRequiredComponentsCount)
         {
             var maxIntersectionCount = 0;
             for (int queryIndex = 0; queryIndex < queryCount; ++queryIndex)
-                maxIntersectionCount = math.max(maxIntersectionCount, queries[queryIndex].AllCount);
+                maxIntersectionCount = math.max(maxIntersectionCount, queries[queryIndex].AllCount + queries[queryIndex].DisabledCount);
 
-            // allocate index array and r/w permissions array
-            var intersection = (TypeIndex*)allocator.Allocate<TypeIndex>(maxIntersectionCount);
-            UnsafeUtility.MemCpy(intersection, queries[0].All, sizeof(TypeIndex) * queries[0].AllCount);
+            // Populate and sort a combined array of all+disabled component types and their access modes from the first ArchetypeQuery
+            var outRequiredComponents = (ComponentType*)allocator.Allocate<ComponentType>(maxIntersectionCount+1);
+            // The first required component is always Entity.
+            outRequiredComponents[0] = ComponentType.ReadWrite<Entity>();
+            var intersection = outRequiredComponents + 1;
+            for (int j = 0; j < queries[0].AllCount; ++j)
+            {
+                intersection[j] = new ComponentType
+                {
+                    TypeIndex = queries[0].All[j],
+                    AccessModeType = (ComponentType.AccessMode)queries[0].AllAccessMode[j],
+                };
+            }
+            for (int j = 0; j < queries[0].DisabledCount; ++j)
+            {
+                intersection[j+queries[0].AllCount] = new ComponentType
+                {
+                    TypeIndex = queries[0].Disabled[j],
+                    AccessModeType = (ComponentType.AccessMode)queries[0].DisabledAccessMode[j],
+                };
+            }
+            NativeSortExtension.Sort(intersection, maxIntersectionCount);
 
-            var access = (byte*)allocator.Allocate<byte>(maxIntersectionCount);
-            UnsafeUtility.MemCpy(access, queries[0].AllAccessMode, sizeof(byte) * queries[0].AllCount);
-
+            // For each additional ArchetypeQuery, create the same sorted array of component types, and reduce the
+            // original array to the intersection of these two arrays.
             var intersectionCount = maxIntersectionCount;
+            var queryRequiredTypes = (ComponentType*)allocator.Allocate<ComponentType>(maxIntersectionCount);
             for (int i = 1; i < queryCount; ++i)
             {
-                intersectionCount = IntersectSortedComponentIndexArrays(intersection, access, intersectionCount,
-                    queries[i].All, queries[i].AllAccessMode, queries[i].AllCount, intersection, access);
+                int queryRequiredCount = queries[i].AllCount + queries[i].DisabledCount;
+                for (int j = 0; j < queries[i].AllCount; ++j)
+                {
+                    queryRequiredTypes[j] = new ComponentType
+                    {
+                        TypeIndex = queries[i].All[j],
+                        AccessModeType = (ComponentType.AccessMode)queries[i].AllAccessMode[j],
+                    };
+                }
+                for (int j = 0; j < queries[i].DisabledCount; ++j)
+                {
+                    queryRequiredTypes[j+queries[i].AllCount] = new ComponentType
+                    {
+                        TypeIndex = queries[i].Disabled[j],
+                        AccessModeType = (ComponentType.AccessMode)queries[i].DisabledAccessMode[j],
+                    };
+                }
+                NativeSortExtension.Sort(queryRequiredTypes, queryRequiredCount);
+                intersectionCount = IntersectSortedComponentIndexArrays(intersection, intersectionCount,
+                    queryRequiredTypes, queryRequiredCount, intersection);
             }
-
-            var outRequiredComponents = (ComponentType*)allocator.Allocate<ComponentType>(intersectionCount + 1);
-            outRequiredComponents[0] = ComponentType.ReadWrite<Entity>();
-            for (int i = 0; i < intersectionCount; ++i)
-            {
-                outRequiredComponents[i + 1] = ComponentType.FromTypeIndex(intersection[i]);
-                outRequiredComponents[i + 1].AccessModeType = (ComponentType.AccessMode)access[i];
-            }
-
             outRequiredComponentsCount = intersectionCount + 1;
             return outRequiredComponents;
         }
@@ -440,6 +509,14 @@ namespace Unity.Entities
                 {
                     builder.WithNone(noneTypes, desc.None.Length);
                 }
+                fixed (ComponentType* disabledTypes = desc.Disabled)
+                {
+                    builder.WithDisabled(disabledTypes, desc.Disabled.Length);
+                }
+                fixed (ComponentType* absentTypes = desc.Absent)
+                {
+                    builder.WithAbsent(absentTypes, desc.Absent.Length);
+                }
 
                 builder.WithOptions(desc.Options);
                 builder.FinalizeQueryInternal();
@@ -450,8 +527,8 @@ namespace Unity.Entities
         {
             query.FinalizeQueryInternal();
 
-            var buffer = stackalloc byte[1024];
-            var scratchAllocator = new UnsafeScratchAllocator(buffer, 1024);
+            var buffer = stackalloc byte[2048];
+            var scratchAllocator = new UnsafeScratchAllocator(buffer, 2048);
             var archetypeQuery = CreateArchetypeQueries(ref scratchAllocator, query);
 
             var indexData = query._builderDataPtr->_indexData;
@@ -510,7 +587,7 @@ namespace Unity.Entities
             for (var i = 0; i < archetypeQueryCount; ++i)
                 hash = hash * 397 ^ archetypeQueries[i].GetHashCode();
             EntityQueryData* queryData = null;
-            ref var entityQueryCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityQueryDataCacheUntyped);
+            ref var entityQueryCache = ref UnsafeUtility.As<UntypedUnsafeParallelHashMap, UnsafeParallelMultiHashMap<int, int>>(ref m_EntityQueryDataCacheUntyped);
 
             if (entityQueryCache.TryGetFirstValue(hash, out var entityQueryIndex, out var iterator))
             {
@@ -543,8 +620,9 @@ namespace Unity.Entities
                 int totalComponentCount = 0;
                 for (int iAQ = 0; iAQ < archetypeQueryCount; ++iAQ)
                 {
-                    totalComponentCount += archetypeQueries[iAQ].AllCount + archetypeQueries[iAQ].NoneCount +
-                                           archetypeQueries[iAQ].NoneCount;
+                    totalComponentCount += archetypeQueries[iAQ].AllCount + archetypeQueries[iAQ].AnyCount +
+                                           archetypeQueries[iAQ].NoneCount + archetypeQueries[iAQ].DisabledCount +
+                                           archetypeQueries[iAQ].AbsentCount;
                 }
 
                 var allEnableableTypeIndices = new NativeList<TypeIndex>(totalComponentCount, Allocator.Temp);
@@ -556,18 +634,27 @@ namespace Unity.Entities
                         if (aq.All[i].IsEnableable)
                             allEnableableTypeIndices.Add(aq.All[i]);
                     }
-
                     for (int i = 0; i < aq.NoneCount; ++i)
                     {
                         if (aq.None[i].IsEnableable)
                             allEnableableTypeIndices.Add(aq.None[i]);
                     }
-
                     for (int i = 0; i < aq.AnyCount; ++i)
                     {
                         if (aq.Any[i].IsEnableable)
                             allEnableableTypeIndices.Add(aq.Any[i]);
                     }
+                    for (int i = 0; i < aq.DisabledCount; ++i)
+                    {
+                        // All "Disabled" types must be enableable. We'll enforce that elsewhere.
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                        if (!aq.Disabled[i].IsEnableable)
+                            throw new InvalidOperationException($"Component type {aq.Disabled[i]} passed with WithDisabled() is not an enableable component");
+#endif
+                        allEnableableTypeIndices.Add(aq.Disabled[i]);
+                    }
+                    // absent components are never present in a matching archetype, so it doesn't matter if they're
+                    // enableable or not.
                 }
                 // eliminate duplicate type indices
                 if (allEnableableTypeIndices.Length > 0)
@@ -603,9 +690,13 @@ namespace Unity.Entities
                     queryData->ArchetypeQueries[i].All = (TypeIndex*)ChunkAllocate<TypeIndex>(queryData->ArchetypeQueries[i].AllCount, archetypeQueries[i].All);
                     queryData->ArchetypeQueries[i].Any = (TypeIndex*)ChunkAllocate<TypeIndex>(queryData->ArchetypeQueries[i].AnyCount, archetypeQueries[i].Any);
                     queryData->ArchetypeQueries[i].None = (TypeIndex*)ChunkAllocate<TypeIndex>(queryData->ArchetypeQueries[i].NoneCount, archetypeQueries[i].None);
+                    queryData->ArchetypeQueries[i].Disabled = (TypeIndex*)ChunkAllocate<TypeIndex>(queryData->ArchetypeQueries[i].DisabledCount, archetypeQueries[i].Disabled);
+                    queryData->ArchetypeQueries[i].Absent = (TypeIndex*)ChunkAllocate<TypeIndex>(queryData->ArchetypeQueries[i].AbsentCount, archetypeQueries[i].Absent);
                     queryData->ArchetypeQueries[i].AllAccessMode = (byte*)ChunkAllocate<byte>(queryData->ArchetypeQueries[i].AllCount, archetypeQueries[i].AllAccessMode);
                     queryData->ArchetypeQueries[i].AnyAccessMode = (byte*)ChunkAllocate<byte>(queryData->ArchetypeQueries[i].AnyCount, archetypeQueries[i].AnyAccessMode);
                     queryData->ArchetypeQueries[i].NoneAccessMode = (byte*)ChunkAllocate<byte>(queryData->ArchetypeQueries[i].NoneCount, archetypeQueries[i].NoneAccessMode);
+                    queryData->ArchetypeQueries[i].DisabledAccessMode = (byte*)ChunkAllocate<byte>(queryData->ArchetypeQueries[i].DisabledCount, archetypeQueries[i].DisabledAccessMode);
+                    queryData->ArchetypeQueries[i].AbsentAccessMode = (byte*)ChunkAllocate<byte>(queryData->ArchetypeQueries[i].AbsentCount, archetypeQueries[i].AbsentAccessMode);
                 }
 
                 var ecs = access->EntityComponentStore;
@@ -765,9 +856,21 @@ namespace Unity.Entities
                     }
                 }
             }
+
+            var enableableDisabledCount = 0;
+            typeComponentIndex = 0;
+            for (var i = 0; i < query->ArchetypeQueries->DisabledCount; ++i)
+            {
+                var typeIndex = query->ArchetypeQueries->Disabled[i];
+                if (TypeManager.IsEnableable(typeIndex))
+                {
+                    typeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
+                    Assert.AreNotEqual(-1, typeComponentIndex);
+                    match->EnableableIndexInArchetype_Disabled[enableableDisabledCount++] = typeComponentIndex;
+                }
+            }
         }
 
-        //@TODO: All this could be much faster by having all ComponentType pre-sorted to perform a single search loop instead two nested for loops...
         static bool IsMatchingArchetype(Archetype* archetype, EntityQueryData* query)
         {
             for (int i = 0; i != query->ArchetypeQueryCount; i++)
@@ -781,19 +884,20 @@ namespace Unity.Entities
 
         static bool IsMatchingArchetype(Archetype* archetype, ArchetypeQuery* query)
         {
-            if (!TestMatchingArchetypeAll(archetype, query->All, query->AllCount, query->Options))
-                return false;
-            if (!TestMatchingArchetypeNone(archetype, query->None, query->NoneCount))
-                return false;
-            if (!TestMatchingArchetypeAny(archetype, query->Any, query->AnyCount))
-                return false;
-
-            return true;
+            //TODO(DOTS-7717): The nested for loops in these methods can be rewritten to take advantage of the fact that the component type arrays are sorted.
+            return
+                TestMatchingArchetypeAll(archetype, query->All, query->AllCount, query->Options)
+                && TestMatchingArchetypeNone(archetype, query->None, query->NoneCount)
+                && TestMatchingArchetypeAny(archetype, query->Any, query->AnyCount)
+                // TODO: can we reuse existing methods for the two new arrays? (None for Absent, and All for Disabled)?
+                && TestMatchingArchetypeAbsent(archetype, query->Absent, query->AbsentCount)
+                && TestMatchingArchetypeDisabled(archetype, query->Disabled, query->DisabledCount);
         }
 
         static bool TestMatchingArchetypeAny(Archetype* archetype, TypeIndex* anyTypes, int anyCount)
         {
-            if (anyCount == 0) return true;
+            if (anyCount == 0)
+                return true;
 
             var componentTypes = archetype->Types;
             var componentTypesCount = archetype->TypesCount;
@@ -821,11 +925,56 @@ namespace Unity.Entities
                 for (var j = 0; j < noneCount; j++)
                 {
                     var noneTypeIndex = noneTypes[j];
-                    if (componentTypeIndex == noneTypeIndex && !TypeManager.IsEnableable(componentTypeIndex)) return false;
+
+                    if (componentTypeIndex == noneTypeIndex)
+                    {
+                        if (!TypeManager.IsEnableable(componentTypeIndex))
+                            return false;
+                    }
                 }
             }
 
             return true;
+        }
+
+        static bool TestMatchingArchetypeAbsent(Archetype* archetype, TypeIndex* absentTypes, int absentTypeCount)
+        {
+            var types = archetype->Types;
+            var typeCount = archetype->TypesCount;
+
+            for (var i = 0; i < typeCount; i++)
+            {
+                var typeIndex = types[i].TypeIndex;
+                for (var j = 0; j < absentTypeCount; j++)
+                {
+                    var absentTypeIndex = absentTypes[j];
+                    if (typeIndex == absentTypeIndex) // The archetype contains at least 1 component that ought to be absent.
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        // Disabled components MUST be present in the archetype.
+        static bool TestMatchingArchetypeDisabled(Archetype* archetype, TypeIndex* disabledTypes, int disabledCount)
+        {
+            var types = archetype->Types;
+            var typeCount = archetype->TypesCount;
+
+            int presentButDisabledTypeCount = 0;
+
+            for (var i = 0; i < typeCount; i++)
+            {
+                var typeIndex = types[i].TypeIndex;
+
+                for (var j = 0; j < disabledCount; j++)
+                {
+                    var disabledComponentTypeIndex = disabledTypes[j];
+                    if (disabledComponentTypeIndex == typeIndex)
+                        presentButDisabledTypeCount++;
+                }
+            }
+            return presentButDisabledTypeCount == disabledCount;
         }
 
         static bool TestMatchingArchetypeAll(Archetype* archetype, TypeIndex* allTypes, int allCount, EntityQueryOptions options)
@@ -837,7 +986,7 @@ namespace Unity.Entities
             var prefabTypeIndex = TypeManager.GetTypeIndex<Prefab>();
             var systemInstanceTypeIndex = TypeManager.GetTypeIndex<SystemInstance>();
             var chunkHeaderTypeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
-            var includeInactive = (options & EntityQueryOptions.IncludeDisabledEntities) != 0;
+            var includeDisabledEntities = (options & EntityQueryOptions.IncludeDisabledEntities) != 0;
             var includePrefab = (options & EntityQueryOptions.IncludePrefab) != 0;
             var includeSystems = (options & EntityQueryOptions.IncludeSystems) != 0;
             var includeChunkHeader = false;
@@ -849,7 +998,7 @@ namespace Unity.Entities
                 {
                     var allTypeIndex = allTypes[j];
                     if (allTypeIndex == disabledTypeIndex)
-                        includeInactive = true;
+                        includeDisabledEntities = true;
                     if (allTypeIndex == prefabTypeIndex)
                         includePrefab = true;
                     if (allTypeIndex == chunkHeaderTypeIndex)
@@ -861,13 +1010,13 @@ namespace Unity.Entities
                 }
             }
 
-            if (archetype->Disabled && (!includeInactive))
+            if (archetype->Disabled && !includeDisabledEntities)
                 return false;
-            if (archetype->Prefab && (!includePrefab))
+            if (archetype->Prefab && !includePrefab)
                 return false;
-            if (archetype->HasSystemInstanceComponents && (!includeSystems))
+            if (archetype->HasSystemInstanceComponents && !includeSystems)
                 return false;
-            if (archetype->HasChunkHeader && (!includeChunkHeader))
+            if (archetype->HasChunkHeader && !includeChunkHeader)
                 return false;
 
             return foundCount == allCount;
@@ -929,6 +1078,8 @@ namespace Unity.Entities
         public int EnableableComponentsCount_All;
         public int EnableableComponentsCount_None;
         public int EnableableComponentsCount_Any;
+        public int EnableableComponentsCount_Disabled; // TODO(DOTS-7809): the None and Disabled lists can be combined here, as they're treated identically in all cases.
+        // No need to count enableable absent components, since they're not in the archetype (by definition)
 
         public fixed int IndexInArchetype[1];
 
@@ -962,7 +1113,16 @@ namespace Unity.Entities
                 }
             }
         }
-
+        public int* EnableableIndexInArchetype_Disabled
+        {
+            get
+            {
+                fixed (int* basePtr = IndexInArchetype)
+                {
+                    return basePtr + RequiredComponentCount + EnableableComponentsCount_All + EnableableComponentsCount_None + EnableableComponentsCount_Any;
+                }
+            }
+        }
         public static int CalculateMatchingArchetypeEnableableTypeIntersectionCount(Archetype* archetype, TypeIndex* queryComponents, int queryComponentCount)
         {
             var intersectionCount = 0;
@@ -989,7 +1149,8 @@ namespace Unity.Entities
             var enableableAllCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->All, query->ArchetypeQueries->AllCount);
             var enableableNoneCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->None, query->ArchetypeQueries->NoneCount);
             var enableableAnyCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->Any, query->ArchetypeQueries->AnyCount);
-            var totalEnableableTypeCount = enableableAllCount + enableableNoneCount + enableableAnyCount;
+            var enableableDisabledCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->Disabled, query->ArchetypeQueries->DisabledCount);
+            var totalEnableableTypeCount = enableableAllCount + enableableNoneCount + enableableAnyCount + enableableDisabledCount;
             var match = (MatchingArchetype*)allocator.Allocate(GetAllocationSize(query->RequiredComponentsCount, totalEnableableTypeCount), 8);
             match->Archetype = archetype;
 
@@ -997,6 +1158,7 @@ namespace Unity.Entities
             match->EnableableComponentsCount_All = enableableAllCount;
             match->EnableableComponentsCount_None = enableableNoneCount;
             match->EnableableComponentsCount_Any = enableableAnyCount;
+            match->EnableableComponentsCount_Disabled = enableableDisabledCount;
 
             return match;
         }
@@ -1084,6 +1246,14 @@ namespace Unity.Entities
         public byte*        NoneAccessMode;
         public int          NoneCount;
 
+        public TypeIndex*   Disabled;
+        public byte*        DisabledAccessMode;
+        public int          DisabledCount;
+
+        public TypeIndex*   Absent;
+        public byte*        AbsentAccessMode;
+        public int          AbsentCount;
+
         public EntityQueryOptions  Options;
 
         public bool Equals(ArchetypeQuery other)
@@ -1094,6 +1264,10 @@ namespace Unity.Entities
                 return false;
             if (NoneCount != other.NoneCount)
                 return false;
+            if (DisabledCount != other.DisabledCount)
+                return false;
+            if (AbsentCount != other.AbsentCount)
+                return false;
             if (AnyCount > 0 && UnsafeUtility.MemCmp(Any, other.Any, sizeof(int) * AnyCount) != 0 &&
                 UnsafeUtility.MemCmp(AnyAccessMode, other.AnyAccessMode, sizeof(byte) * AnyCount) != 0)
                 return false;
@@ -1102,6 +1276,12 @@ namespace Unity.Entities
                 return false;
             if (NoneCount > 0 && UnsafeUtility.MemCmp(None, other.None, sizeof(int) * NoneCount) != 0 &&
                 UnsafeUtility.MemCmp(NoneAccessMode, other.NoneAccessMode, sizeof(byte) * NoneCount) != 0)
+                return false;
+            if (DisabledCount > 0 && UnsafeUtility.MemCmp(Disabled, other.Disabled, sizeof(int) * DisabledCount) != 0 &&
+                UnsafeUtility.MemCmp(DisabledAccessMode, other.DisabledAccessMode, sizeof(byte) * DisabledCount) != 0)
+                return false;
+            if (AbsentCount > 0 && UnsafeUtility.MemCmp(Absent, other.Absent, sizeof(int) * AbsentCount) != 0 &&
+                UnsafeUtility.MemCmp(AbsentAccessMode, other.AbsentAccessMode, sizeof(byte) * AbsentCount) != 0)
                 return false;
             if (Options != other.Options)
                 return false;
@@ -1113,16 +1293,22 @@ namespace Unity.Entities
         {
             unchecked
             {
-                var hashCode =                  (AnyCount + 1);
+                var hashCode = AnyCount + 1;
                 hashCode = 397 * hashCode ^ (AllCount + 1);
                 hashCode = 397 * hashCode ^ (NoneCount + 1);
+                hashCode = 397 * hashCode ^ (DisabledCount + 1);
+                hashCode = 397 * hashCode ^ (AbsentCount + 1);
                 hashCode = 397 * hashCode ^ (int)Options;
                 hashCode = (int)math.hash(Any, sizeof(int) * AnyCount, (uint)hashCode);
                 hashCode = (int)math.hash(All, sizeof(int) * AllCount, (uint)hashCode);
                 hashCode = (int)math.hash(None, sizeof(int) * NoneCount, (uint)hashCode);
+                hashCode = (int)math.hash(Disabled, sizeof(int) * DisabledCount, (uint)hashCode);
+                hashCode = (int)math.hash(Absent, sizeof(int) * AbsentCount, (uint)hashCode);
                 hashCode = (int)math.hash(AnyAccessMode, sizeof(byte) * AnyCount, (uint)hashCode);
                 hashCode = (int)math.hash(AllAccessMode, sizeof(byte) * AllCount, (uint)hashCode);
                 hashCode = (int)math.hash(NoneAccessMode, sizeof(byte) * NoneCount, (uint)hashCode);
+                hashCode = (int)math.hash(DisabledAccessMode, sizeof(byte) * DisabledCount, (uint)hashCode);
+                hashCode = (int)math.hash(AbsentAccessMode, sizeof(byte) * AbsentCount, (uint)hashCode);
                 return hashCode;
             }
         }

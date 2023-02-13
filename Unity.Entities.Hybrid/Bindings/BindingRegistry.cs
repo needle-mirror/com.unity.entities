@@ -12,39 +12,31 @@ using UnityEngine.Assertions;
 
 namespace Unity.Entities
 {
-    /* Builds a static registry of bindings between a runtime field with an authoring field. Multiple different runtime
-     fields can be associated with a same authoring field.
-
-     Only primitive types of int, bool, and float, in addition to Unity.Mathematics variants of these primitives
-     (e.g. int2, float4) will be added to the BindingRegistry. Other types will be silently ignored.
-     */
-
     // TODO: Support IBufferElementData
 
+    /// <summary>
+    /// Builds a static registry of bindings between a runtime field with an authoring field. Multiple different runtime
+    /// fields can be associated with a same authoring field.
+    /// Only primitive types of int, bool, and float, in addition to Unity.Mathematics variants of these primitives
+    /// (e.g. int2, float4) will be added to the BindingRegistry. Other types will be silently ignored.
+    /// </summary>
     [InitializeOnLoad]
     public static class BindingRegistry
     {
-        const BindingFlags k_FieldFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-        //can't use NativeArray since Type is nullable. Would using Dots typemanager work here?
-        private static readonly Type[] kBindingSupportedTypes =
-        {
-            typeof(float), typeof(bool), typeof(int),
-            typeof(float2),typeof(int2),typeof(bool2),
-            typeof(float3),typeof(int3),typeof(bool3),
-            typeof(float4),typeof(int4),typeof(bool4),
-            typeof(Vector3), typeof(quaternion)
-        };
-
-        internal struct RuntimeFieldProperties
+        /// <summary>
+        /// Properties of a runtime field.
+        /// </summary>
+        public struct RuntimeFieldProperties
         {
             public int FieldOffset;
             public int FieldSize;
             public Type FieldType;
         }
 
-        // Binds a runtime field property to an authoring field name
-        internal struct ReverseBinding
+        /// <summary>
+        /// Binds a runtime field property to an authoring field name
+        /// </summary>
+        public struct ReverseBinding
         {
             public string AuthoringFieldName;
             public TypeIndex ComponentTypeIndex;
@@ -97,25 +89,53 @@ namespace Unity.Entities
             var registeredFields = TypeCache.GetFieldsWithAttribute<RegisterBindingAttribute>();
             foreach (var field in registeredFields)
             {
-                if(field.IsPrivate || !Array.Exists(kBindingSupportedTypes,type => type == field.FieldType))
-                    continue;
 
                 // We need to do that because an authoring field can be bound to several runtime fields.
                 var attrs = field.GetCustomAttributes<RegisterBindingAttribute>();
                 foreach (var attr in attrs)
                 {
                     var authoringField = field.Name;
+                    if (!string.IsNullOrEmpty(attr.AuthoringField))
+                        authoringField += $".{attr.AuthoringField}";
+
+                    if (!BindingRegistryUtility.TryGetBindingPaths(field.DeclaringType, authoringField, out var authoringPaths))
+                        continue;
+
+                    if (field.IsPrivate && !field.GetCustomAttributes<SerializeField>().Any())
+                        continue;
+
                     //fragile: assumption that the only generated support types are bool/int/float 2/3/4
+                    if (!BindingRegistryUtility.TryGetBindingPaths(attr.ComponentType, attr.ComponentField, out var runtimePaths))
+                        continue;
 
                     if (attr.Generated)
+                    {
                         authoringField += attr.ComponentField.Substring(attr.ComponentField.IndexOf('.'));
-
-                    Register(attr.ComponentType, attr.ComponentField, field.DeclaringType, authoringField);
+                        Register(attr.ComponentType, runtimePaths[0], field.DeclaringType, authoringField);
+                    }
+                    // Mapping an authoring field with sub components to a runtime field with sub components.
+                    else
+                    {
+                        var numberOfBindings = math.min(authoringPaths.Length, runtimePaths.Length);
+                        for (int i = 0; i < numberOfBindings; ++i)
+                        {
+                            Register(
+                                attr.ComponentType, runtimePaths[i],
+                                field.DeclaringType, authoringPaths[i]);
+                        }
+                    }
                 }
             }
         }
 
-        // Register binding of a runtime field with an authoring field
+        /// <summary>
+        /// Register binding of a runtime field with an authoring field
+        /// </summary>
+        /// <param name="runtimeComponent">Type of the runtime component. Must implement IComponentData.</param>
+        /// <param name="runtimeField">Name of the runtime field.</param>
+        /// <param name="authoringComponent">Type of the authoring component. Must derive from UnityEngine.Component.</param>
+        /// <param name="authoringField">Name of the authoring field.</param>
+        /// <exception cref="InvalidOperationException">Thrown if registering the same runtime field more than once.</exception>
         public static void Register(Type runtimeComponent, string runtimeField, Type authoringComponent,
             string authoringField)
         {
@@ -188,7 +208,11 @@ namespace Unity.Entities
             }
         }
 
-        // Checks if a runtime type has any authoring bindings
+        /// <summary>
+        /// Checks if a runtime type has any authoring bindings.
+        /// </summary>
+        /// <param name="componentType">Type of the runtime component. Must implement IComponentData.</param>
+        /// <returns>Returns true if component type is registered. False otherwise.</returns>
         public static bool HasBindings(Type componentType)
         {
             if (!typeof(IComponentData).IsAssignableFrom(componentType))
@@ -197,8 +221,13 @@ namespace Unity.Entities
             return s_RuntimeFieldNames.ContainsKey(componentType);
         }
 
-        // Return authoring binding for a given runtime type and field name
-        public static (Type, string) GetBinding(Type type, string fieldName)
+        /// <summary>
+        /// Return authoring binding for a given runtime type and field name.
+        /// </summary>
+        /// <param name="componentType">Type of the runtime component. Must implement IComponentData.</param>
+        /// <param name="fieldName">Field name.</param>
+        /// <returns>Returns a runtime type and a field name.</returns>
+        public static (Type Type, string FieldName) GetBinding(Type type, string fieldName)
         {
             Assert.IsTrue(typeof(IComponentData).IsAssignableFrom(type));
             if (s_RuntimeToAuthoringFieldMap.TryGetValue((type, fieldName), out var authoringValue))
@@ -207,7 +236,12 @@ namespace Unity.Entities
             return (null, string.Empty);
         }
 
-        internal static List<ReverseBinding> GetReverseBindings(Type authoringType)
+        /// <summary>
+        /// Returns all associated runtime bindings for a given authoring type.
+        /// </summary>
+        /// <param name="authoringType">Type of the authoring component. Must derive from UnityEngine.Component.</param>
+        /// <returns>Returns a list of ReverseBinding.</returns>
+        public static List<ReverseBinding> GetReverseBindings(Type authoringType)
         {
             Assert.IsTrue(typeof(Component).IsAssignableFrom(authoringType));
 
@@ -216,8 +250,11 @@ namespace Unity.Entities
             return null;
         }
 
-
-        // Get all registered fields of a runtime type
+        /// <summary>
+        /// Gets all registered fields of a runtime type.
+        /// </summary>
+        /// <param name="type">Type of the runtime component. Must implement IComponentData.</param>
+        /// <returns>Returns a HashSet of field names.</returns>
         public static HashSet<string> GetFields(Type type)
         {
             Assert.IsTrue(typeof(IComponentData).IsAssignableFrom(type));
@@ -227,7 +264,13 @@ namespace Unity.Entities
             return fieldSet;
         }
 
-        // Get runtime field size in bytes
+        /// <summary>
+        /// Gets the runtime field size in bytes.
+        /// </summary>
+        /// <param name="type">Type of the runtime component. Must implement IComponentData.</param>
+        /// <param name="fieldName">Runtime field.</param>
+        /// <returns>Returns the number of bytes of the runtime field.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the runtime field was not registered.</exception>
         public static int GetFieldSize(Type type, string fieldName)
         {
             Assert.IsTrue(typeof(IComponentData).IsAssignableFrom(type));
@@ -239,7 +282,13 @@ namespace Unity.Entities
                 $"Field [{fieldName}] from component type [{type}] has not been registered.");
         }
 
-        // Get runtime field offset in bytes
+        /// <summary>
+        /// Gets the runtime field offset in bytes
+        /// </summary>
+        /// <param name="type">Type of the runtime component. Must implement IComponentData.</param>
+        /// <param name="fieldName">Runtime field.</param>
+        /// <returns>Returns the offset in bytes of the runtime field.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the runtime field was not registered.</exception>
         public static int GetFieldOffset(Type type, string fieldName)
         {
             Assert.IsTrue(typeof(IComponentData).IsAssignableFrom(type));
@@ -262,7 +311,7 @@ namespace Unity.Entities
 
             foreach (var name in field.Item2.Split('.'))
             {
-                var fieldInfo = type.GetField(name, k_FieldFlags);
+                var fieldInfo = type.GetField(name, BindingRegistryUtility.FieldFlags);
                 if (fieldInfo == null)
                     return false;
 
@@ -274,6 +323,114 @@ namespace Unity.Entities
             data.FieldType = type;
 
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Utility class for BindingRegistry.
+    /// </summary>
+    public static class BindingRegistryUtility
+    {
+        internal const BindingFlags FieldFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+        static readonly string[] k_XYZWComponents4D = { "x", "y", "z", "w" };
+        static readonly string[] k_XYZWComponents3D = k_XYZWComponents4D.Take(3).ToArray();
+        static readonly string[] k_XYZWComponents2D = k_XYZWComponents4D.Take(2).ToArray();
+
+        static readonly string[] k_RGBAComponents = { "r", "g", "b", "a" };
+
+        static readonly string[] k_QuaternionComponents = { "value.x", "value.y", "value.z", "value.w" };
+
+        static readonly HashSet<Type> k_SupportedUnmanagedTypes = new HashSet<Type>
+        {
+            typeof(int),
+            typeof(float),
+            typeof(bool)
+        };
+
+        static readonly Dictionary<Type, string[]> k_SupportedVectorTypes = new Dictionary<Type, string[]>()
+        {
+            {typeof(float2), k_XYZWComponents2D},
+            {typeof(int2), k_XYZWComponents2D},
+            {typeof(bool2), k_XYZWComponents2D},
+            {typeof(Vector2), k_XYZWComponents2D},
+            {typeof(Vector2Int), k_XYZWComponents2D},
+            {typeof(float3), k_XYZWComponents3D},
+            {typeof(int3), k_XYZWComponents3D},
+            {typeof(bool3), k_XYZWComponents3D},
+            {typeof(Vector3), k_XYZWComponents3D},
+            {typeof(Vector3Int), k_XYZWComponents3D},
+            {typeof(float4), k_XYZWComponents4D},
+            {typeof(int4), k_XYZWComponents4D},
+            {typeof(bool4), k_XYZWComponents4D},
+            {typeof(Vector4), k_XYZWComponents4D},
+            {typeof(quaternion), k_QuaternionComponents},
+            {typeof(Quaternion), k_XYZWComponents4D},
+            {typeof(Color), k_RGBAComponents}
+        };
+
+        /// <summary>
+        /// Retrieves individual property paths from a given component type.
+        /// For vector type fields like float4 or int4, this will retrieve all sub components.
+        /// </summary>
+        /// <param name="type">Type of authoring or runtime component.</param>
+        /// <param name="fieldName">Field name.</param>
+        /// <param name="resultingPaths">Array of supported fields for <paramref name="fieldName"/>.</param>
+        /// <returns>Returns true if specified field property is supported by the BindingRegistry. False otherwise.</returns>
+        public static bool TryGetBindingPaths(Type type, string fieldName, out string[] resultingPaths)
+        {
+            var field = ExtractFieldInfoFromPath(type, fieldName);
+            if (field == null)
+            {
+                resultingPaths = null;
+                return false;
+            }
+
+            if (field.FieldType.IsEnum)
+            {
+                resultingPaths = new[] { fieldName };
+                return true;
+            }
+
+            if (k_SupportedUnmanagedTypes.Contains(field.FieldType))
+            {
+                resultingPaths = new[] { fieldName };
+                return true;
+            }
+
+            if (k_SupportedVectorTypes.TryGetValue(field.FieldType, out var components))
+            {
+                resultingPaths = components.Select(component => $"{fieldName}.{component}").ToArray();
+                return true;
+            }
+
+            resultingPaths = null;
+            return false;
+        }
+
+        static FieldInfo ExtractFieldInfoFromPath(Type type, string path)
+        {
+            FieldInfo fieldInfo = null;
+
+            foreach (var fieldName in path.Split ("."))
+            {
+                // Parse fields and inherited fields.
+                var typeIter = type;
+                while (typeIter != null)
+                {
+                    fieldInfo = typeIter.GetField(fieldName, FieldFlags);
+                    if (fieldInfo != null)
+                        break;
+                    typeIter = typeIter.BaseType;
+                }
+
+                if (fieldInfo == null)
+                    break;
+
+                type = fieldInfo.FieldType;
+            }
+
+            return fieldInfo;
         }
     }
 }

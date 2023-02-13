@@ -31,7 +31,7 @@ You can also optionally implement the interface [`ISystemStartStop`](xref:Unity.
 
 All system events run on the main thread. It's best practice to use the `OnUpdate` method to schedule jobs to perform most of the work. To schedule a job from a system, use one of the following:
 
-* [`IJobEntity`](iterating-data-ijobentity.md): Iterates over component data in multiple systems.
+* [`IJobEntity`](iterating-data-ijobentity.md): Iterates over component data in multiple entities, which you can reuse across systems.
 * [`IJobChunk`](xref:Unity.Entities.IJobChunk): Iterates over data by [archetype chunk](concepts-archetypes.md#archetype-chunks).
 
 ## Callback method order

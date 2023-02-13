@@ -208,8 +208,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         {
             if (_lambdaJobDescription.SystemDescription.SemanticModel.GetOperation(originalNode) is IInvocationOperation invocationOperation)
             {
-                var isEcbMethod = invocationOperation.TargetMethod.ContainingType.ToFullName() == "Unity.Entities.EntityCommandBuffer"
-                                  || invocationOperation.TargetMethod.ContainingType.ToFullName() == "Unity.Entities.EntityCommandBufferManagedComponentExtensions";
+                var isEcbMethod = invocationOperation.TargetMethod.ContainingType.Is("global::Unity.Entities.EntityCommandBuffer")
+                                  || invocationOperation.TargetMethod.ContainingType.Is("Unity.Entities.EntityCommandBufferManagedComponentExtensions");
 
                 if (!isEcbMethod)
                 {
@@ -219,7 +219,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 if (originalNode.Expression is MemberAccessExpressionSyntax {Expression: IdentifierNameSyntax identifierNameSyntax}
                     && _lambdaJobDescription.SystemDescription.SemanticModel.GetOperation(identifierNameSyntax) is IParameterReferenceOperation)
                 {
-                    bool isSupportedInEntitiesForEach = invocationOperation.TargetMethod.GetAttributes().Any(a => a.AttributeClass.ToFullName() == "Unity.Entities.SupportedInEntitiesForEach");
+                    bool isSupportedInEntitiesForEach = invocationOperation.TargetMethod.GetAttributes().Any(a => a.AttributeClass.Is("Unity.Entities.SupportedInEntitiesForEach"));
 
                     if (!isSupportedInEntitiesForEach)
                     {
@@ -254,10 +254,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
         bool CanRunOutsideOfMainThread(IInvocationOperation operation)
         {
-            if (operation.TargetMethod.ContainingType.ToFullName() == "Unity.Entities.EntityCommandBufferManagedComponentExtensions")
+            if (operation.TargetMethod.ContainingType.Is("Unity.Entities.EntityCommandBufferManagedComponentExtensions"))
                 return false;
 
-            return !operation.TargetMethod.Parameters.Any(p => p.Type.ToFullName() == "Unity.Entities.EntityQuery");
+            return !operation.TargetMethod.Parameters.Any(p => p.Type.Is("Unity.Entities.EntityQuery"));
         }
 
         void HandleStatement(StatementSyntax statementSyntax)

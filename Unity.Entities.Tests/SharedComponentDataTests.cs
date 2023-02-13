@@ -2,6 +2,8 @@ using System;
 using NUnit.Framework;
 using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Burst;
 
 namespace Unity.Entities.Tests
 {
@@ -472,6 +474,141 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, unique.Count);
             Assert.AreEqual(default(SharedData1).value, unique[0].value);
         }
+
+        [Test]
+        public void GetAllUniqueSharedComponents_Unmanaged_ReturnsCorrectValues()
+        {
+            m_Manager.GetAllUniqueSharedComponents<SharedData1>(out var unique, Allocator.Temp);
+
+            Assert.AreEqual(1, unique.Length);
+            Assert.AreEqual(default(SharedData1).value, unique[0].value);
+
+            var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
+            Entity e = m_Manager.CreateEntity(archetype);
+            m_Manager.SetSharedComponent(e, new SharedData1(17));
+
+            unique.Dispose();
+
+            m_Manager.GetAllUniqueSharedComponents<SharedData1>(out unique, Allocator.Temp);
+
+            Assert.AreEqual(2, unique.Length);
+            Assert.AreEqual(default(SharedData1).value, unique[0].value);
+            Assert.AreEqual(17, unique[1].value);
+
+            m_Manager.SetSharedComponent(e, new SharedData1(34));
+
+            unique.Dispose();
+            m_Manager.GetAllUniqueSharedComponents<SharedData1>(out unique, Allocator.Temp);
+
+            Assert.AreEqual(2, unique.Length);
+            Assert.AreEqual(default(SharedData1).value, unique[0].value);
+            Assert.AreEqual(34, unique[1].value);
+
+            m_Manager.DestroyEntity(e);
+
+            unique.Dispose();
+            m_Manager.GetAllUniqueSharedComponents<SharedData1>(out unique, Allocator.Temp);
+
+            Assert.AreEqual(1, unique.Length);
+            Assert.AreEqual(default(SharedData1).value, unique[0].value);
+        }
+
+        [BurstCompile]
+        public struct TestAllocator : Unity.Collections.AllocatorManager.IAllocator
+        {
+            long AllocatedBytes;
+            long FreedBytes;
+
+            public AllocatorManager.AllocatorHandle m_handle;
+
+            public void ResetCounters()
+            {
+                AllocatedBytes = FreedBytes = 0;
+            }
+            public AllocatorManager.AllocatorHandle Handle { get { return m_handle; } set { m_handle = value; } }
+
+            public Allocator ToAllocator { get { return m_handle.ToAllocator; } }
+
+            public bool IsCustomAllocator { get { return m_handle.IsCustomAllocator; } }
+
+            public void Initialize()
+            {
+                ResetCounters();
+            }
+
+            public int Try(ref AllocatorManager.Block block)
+            {
+                if (block.Range.Pointer != IntPtr.Zero)
+                {
+                    FreedBytes += block.AllocatedBytes;
+                }
+
+                var temp = block.Range.Allocator;
+                block.Range.Allocator = AllocatorManager.Persistent;
+                var error = AllocatorManager.Try(ref block);
+                block.Range.Allocator = temp;
+                if (error != 0)
+                    return error;
+
+                if (block.Range.Pointer != IntPtr.Zero) // if we allocated or reallocated...
+                {
+                    AllocatedBytes += block.AllocatedBytes;
+                }
+
+                return 0;
+            }
+
+            [BurstCompile]
+            [MonoPInvokeCallback(typeof(AllocatorManager.TryFunction))]
+            public static unsafe int Try(IntPtr state, ref AllocatorManager.Block block)
+            {
+                return ((TestAllocator*)state)->Try(ref block);
+            }
+
+            public AllocatorManager.TryFunction Function => Try;
+            public void Dispose()
+            {
+                m_handle.Dispose();
+            }
+
+            public void AssertNoLeaks()
+            {
+                Assert.AreEqual(AllocatedBytes, FreedBytes);
+            }
+        }
+
+        [Test]
+        public void GetAllUniqueSharedComponents_Unmanaged_DoesNotLeak()
+        {
+            AllocatorManager.Initialize();
+            var allocatorHelper = new AllocatorHelper<TestAllocator>(AllocatorManager.Temp);
+            ref var allocator = ref allocatorHelper.Allocator;
+            allocator.Initialize();
+
+            m_Manager.GetAllUniqueSharedComponents<SharedData1>(out var unique, allocator.Handle);
+
+            Assert.AreEqual(1, unique.Length);
+            Assert.AreEqual(default(SharedData1).value, unique[0].value);
+
+            unique.Dispose();
+            allocator.AssertNoLeaks();
+
+            const int kNumSharedComponents = 1000;
+            for (int i = 0; i < kNumSharedComponents; i++)
+            {
+                var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
+                Entity e = m_Manager.CreateEntity(archetype);
+                m_Manager.SetSharedComponent(e, new SharedData1(i));
+            }
+
+            m_Manager.GetAllUniqueSharedComponents<SharedData1>(out unique, allocator.Handle);
+
+            Assert.AreEqual(kNumSharedComponents, unique.Length); // ++1 for the default value
+
+            unique.Dispose();
+            allocator.AssertNoLeaks();
+        }
+
         [Test]
         public unsafe void GetAllUniqueSharedComponents_ReturnsCorrectIndices()
         {

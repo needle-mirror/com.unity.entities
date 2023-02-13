@@ -1,22 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+      <NoWarn>RS2007</NoWarn>
+      <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>8.0</LangVersion>
         <PublishDir>..\..</PublishDir>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference ExcludeAssets="runtime" Include="Microsoft.CodeAnalysis.CSharp" Version="3.8.0" />
+      <PackageReference ExcludeAssets="runtime" Include="Microsoft.CodeAnalysis.CSharp" Version="4.0.1" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Common\Unity.Entities.SourceGen.Common.csproj" />
+      <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+      <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
     </ItemGroup>
 
     <Target Name="CustomAfterBuild" AfterTargets="Build">
       <ItemGroup>
-        <_FilesToCopy Include="$(OutputPath)**\$(AssemblyName).dll"/><_FilesToCopy Include="$(OutputPath)**\$(AssemblyName).pdb"/>
+        <_FilesToCopy Include="$(OutputPath)**\$(AssemblyName).dll" /><_FilesToCopy Include="$(OutputPath)**\$(AssemblyName).pdb" />
       </ItemGroup>
       <Copy SourceFiles="@(_FilesToCopy)" DestinationFolder="$(OutputPath)..\..\..\..\.." />
     </Target>

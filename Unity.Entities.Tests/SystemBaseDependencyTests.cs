@@ -110,7 +110,8 @@ namespace Unity.Entities.Tests
             WriteSystem ws = World.GetOrCreateSystemManaged<WriteSystem>();
             ReadSystem2 rs2 = World.GetOrCreateSystemManaged<ReadSystem2>();
 
-            LogAssert.Expect(LogType.Error, "The system Unity.Entities.Tests.SystemBaseDependencyTests+ReadSystem2 reads Unity.Entities.Tests.EcsTestData via ReadSystem2:ReadSystem2_7AD410AF_LambdaJob_1_Job but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.");
+            LogAssert.Expect(LogType.Error,
+                new Regex(@"The system Unity\.Entities\.Tests\.SystemBaseDependencyTests\+ReadSystem2 reads Unity\.Entities\.Tests\.EcsTestData via ReadSystem2:ReadSystem2_.*_LambdaJob_1_Job but that type was not assigned to the Dependency property\. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method\."));
 
             rs2.returnWrongJob = true;
 
@@ -996,15 +997,10 @@ namespace Unity.Entities.Tests
                 for (int i = 0; i < NumEntities/2; ++i)
                     EntityManager.CreateEntity(typeof(EcsTestData), typeof(Discriminator2));
 
-                entityQuery = GetEntityQuery(new EntityQueryDesc()
-                    {
-                        All = new[] { ComponentType.ReadOnly<EcsTestData>() },
-                        Any = new[]
-                        {
-                            ComponentType.ReadOnly<Discriminator1>(), ComponentType.ReadOnly<Discriminator2>()
-                        }
-                    }
-                );
+                entityQuery = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAllRW<EcsTestData>()
+                    .WithAny<Discriminator1, Discriminator2>()
+                    .Build(this);
             }
 
             protected override void OnDestroy()

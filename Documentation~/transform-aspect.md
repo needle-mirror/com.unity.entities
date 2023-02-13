@@ -22,16 +22,6 @@ using Unity.Transforms;
 partial struct TurretRotationSystem : ISystem
 {
     [BurstCompile]
-    public void OnCreate(ref SystemState state)
-    {
-    }
-
-    [BurstCompile]
-    public void OnDestroy(ref SystemState state)
-    {
-    }
-
-    [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         // The amount of rotation around Y required to do 360 degrees in 2 seconds.

@@ -8,19 +8,19 @@ internal interface IFirstKeyJobCallback<TKey, TValue>
     where TKey : unmanaged, IEquatable<TKey>
     where TValue : unmanaged
 {
-    public void ExecuteFirst(int threadIndex, in UnsafeMultiHashMap<TKey, TValue> hashMap, in TKey key, in TValue firstValue, ref NativeMultiHashMapIterator<TKey> it );
+    public void ExecuteFirst(int threadIndex, in UnsafeParallelMultiHashMap<TKey, TValue> hashMap, in TKey key, in TValue firstValue, ref NativeParallelMultiHashMapIterator<TKey> it );
 }
 
 internal interface IKeyValueJobCallback<TKey, TValue>
     where TKey : unmanaged, IEquatable<TKey>
     where TValue : unmanaged
 {
-    public void ProcessEntry(int threadIndex, in UnsafeMultiHashMap<TKey, TValue> hashMap, in TKey key, in TValue value);
+    public void ProcessEntry(int threadIndex, in UnsafeParallelMultiHashMap<TKey, TValue> hashMap, in TKey key, in TValue value);
 }
 
 internal struct DependenciesHashMapHelper
 {
-    public static void ExecuteOnEntries<THandler, TKey, TValue>(THandler handler, UnsafeMultiHashMap<TKey, TValue> hashmap, int threadIndex, int i)
+    public static void ExecuteOnEntries<THandler, TKey, TValue>(THandler handler, UnsafeParallelMultiHashMap<TKey, TValue> hashmap, int threadIndex, int i)
         where THandler : unmanaged, IKeyValueJobCallback<TKey, TValue>
         where TKey : unmanaged, IEquatable<TKey>
         where TValue : unmanaged
@@ -46,7 +46,7 @@ internal struct DependenciesHashMapHelper
         }
     }
 
-    public static void ExecuteOnFirstKey<THandler, TKey, TValue>(THandler handler, UnsafeMultiHashMap<TKey, TValue> hashmap, int threadIndex, int i)
+    public static void ExecuteOnFirstKey<THandler, TKey, TValue>(THandler handler, UnsafeParallelMultiHashMap<TKey, TValue> hashmap, int threadIndex, int i)
             where THandler : unmanaged, IFirstKeyJobCallback<TKey, TValue>
         where TKey : unmanaged, IEquatable<TKey>
         where TValue : unmanaged
@@ -75,7 +75,7 @@ internal struct DependenciesHashMapHelper
         }
     }
 
-    public static int GetBucketSize<TKey, TValue>(UnsafeMultiHashMap<TKey, TValue> hashmap)
+    public static int GetBucketSize<TKey, TValue>(UnsafeParallelMultiHashMap<TKey, TValue> hashmap)
         where TKey : unmanaged, IEquatable<TKey>
         where TValue : unmanaged
     {

@@ -17,10 +17,48 @@ namespace Unity.Entities
         /// <param name="description">The target object</param>
         /// <returns>The target object, suitable for chaining multiple methods</returns>
         [AllowMultipleInvocations]
-        public static ForEachLambdaJobDescription WithNone<T>(this ForEachLambdaJobDescription description) => description;
+        public static ForEachLambdaJobDescription WithAbsent<T>(this ForEachLambdaJobDescription description) => description;
 
         /// <summary>
         /// Add qualification to the generated query that it should only return entities that do not have the specified component types.
+        /// </summary>
+        /// <typeparam name="T1">First type of component</typeparam>
+        /// <typeparam name="T2">Second type of component</typeparam>
+        /// <param name="description">The target object</param>
+        /// <returns>The target object, suitable for chaining multiple methods</returns>
+        [AllowMultipleInvocations]
+        public static ForEachLambdaJobDescription WithAbsent<T1,T2>(this ForEachLambdaJobDescription description) => description;
+
+        /// <summary>
+        /// Add qualification to the generated query that it should only return entities that have the specified DISABLED component type.
+        /// </summary>
+        /// <typeparam name="T">Type of component</typeparam>
+        /// <param name="description">The target object</param>
+        /// <returns>The target object, suitable for chaining multiple methods</returns>
+        [AllowMultipleInvocations]
+        public static ForEachLambdaJobDescription WithDisabled<T>(this ForEachLambdaJobDescription description) => description;
+
+        /// <summary>
+        /// Add qualification to the generated query that it should only return entities that have the specified DISABLED component types.
+        /// </summary>
+        /// <typeparam name="T1">First type of component</typeparam>
+        /// <typeparam name="T2">Second type of component</typeparam>
+        /// <param name="description">The target object</param>
+        /// <returns>The target object, suitable for chaining multiple methods</returns>
+        [AllowMultipleInvocations]
+        public static ForEachLambdaJobDescription WithDisabled<T1,T2>(this ForEachLambdaJobDescription description) => description;
+
+        /// <summary>
+        /// Add qualification to the generated query that it should only return entities that either 1) do not have the specified component type OR 2) have the specified DISABLED component type.
+        /// </summary>
+        /// <typeparam name="T">Type of component</typeparam>
+        /// <param name="description">The target object</param>
+        /// <returns>The target object, suitable for chaining multiple methods</returns>
+        [AllowMultipleInvocations]
+        public static ForEachLambdaJobDescription WithNone<T>(this ForEachLambdaJobDescription description) => description;
+
+        /// <summary>
+        /// Add qualification to the generated query that it should only return entities that either 1) do not have the specified component types OR 2) have the specified DISABLED component types.
         /// </summary>
         /// <typeparam name="T1">First type of component</typeparam>
         /// <typeparam name="T2">Second type of component</typeparam>
@@ -218,7 +256,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="componentTypes">The type of components to add.</param>
         /// <param name="description">The target object</param>
-        public static void AddComponent(this ForEachLambdaJobDescription description, ComponentTypeSet componentTypes) => ThrowCodeGenException_ForEachLambdaJobDescription();
+        public static void AddComponent(this ForEachLambdaJobDescription description, in ComponentTypeSet componentTypes) => ThrowCodeGenException_ForEachLambdaJobDescription();
 
         /// <summary>
         /// Adds a component to a set of entities selected by the query you have defined using WithAny/WithAll/WithNone
@@ -279,7 +317,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="componentTypes">The types of components to add.</param>
         /// <param name="description">The target object</param>
-        public static void RemoveComponent(this ForEachLambdaJobDescription description, ComponentTypeSet componentTypes) => ThrowCodeGenException_ForEachLambdaJobDescription();
+        public static void RemoveComponent(this ForEachLambdaJobDescription description, in ComponentTypeSet componentTypes) => ThrowCodeGenException_ForEachLambdaJobDescription();
 
         /// <summary>
         /// Removes a component from a set of entities selected by the query you have defined using

@@ -25,57 +25,61 @@ namespace Unity.Entities
     /// </remarks>
     [GenerateTestsForBurstCompatibility]
     [DebuggerTypeProxy(typeof(ComponentTypeSetDebugView))]
-    public unsafe struct ComponentTypeSet
+    public unsafe readonly struct ComponentTypeSet
     {
-        FixedList64Bytes<TypeIndex> m_sorted;
-        internal struct Masks
+        readonly FixedList64Bytes<TypeIndex> _sorted;
+        internal readonly struct Masks
         {
-            public UInt16 m_BufferMask;
-            public UInt16 m_CleanupComponentMask;
-            public UInt16 m_SharedComponentMask;
-            public UInt16 m_ZeroSizedMask;
+            public readonly UInt16 BufferMask;
+            public readonly UInt16 CleanupComponentMask;
+            public readonly UInt16 SharedComponentMask;
+            public readonly UInt16 ZeroSizedMask;
+
+            public Masks(in FixedList64Bytes<TypeIndex> sortedTypeIndices)
+            {
+                BufferMask = 0;
+                CleanupComponentMask = 0;
+                SharedComponentMask = 0;
+                ZeroSizedMask = 0;
+                for (var i = 0; i < sortedTypeIndices.Length; ++i)
+                {
+                    var typeIndex = sortedTypeIndices[i];
+                    var mask = (UInt16)(1 << i);
+                    if (typeIndex.IsBuffer)
+                        BufferMask |= mask;
+                    if (typeIndex.IsCleanupComponent)
+                        CleanupComponentMask |= mask;
+                    if (typeIndex.IsSharedComponentType)
+                        SharedComponentMask |= mask;
+                    if (typeIndex.IsZeroSized)
+                        ZeroSizedMask |= mask;
+                }
+            }
 
             public bool IsSharedComponent(int index)
             {
-                return (m_SharedComponentMask & (1 << index)) != 0;
+                return (SharedComponentMask & (1 << index)) != 0;
             }
 
             public bool IsZeroSized(int index)
             {
-                return (m_ZeroSizedMask & (1 << index)) != 0;
+                return (ZeroSizedMask & (1 << index)) != 0;
             }
 
-            public int Buffers => math.countbits((UInt32)m_BufferMask);
-            public int CleanupComponents => math.countbits((UInt32)m_CleanupComponentMask);
-            public int SharedComponents => math.countbits((UInt32)m_SharedComponentMask);
-            public int ZeroSizeds => math.countbits((UInt32)m_ZeroSizedMask);
+            public int Buffers => math.countbits((UInt32)BufferMask);
+            public int CleanupComponents => math.countbits((UInt32)CleanupComponentMask);
+            public int SharedComponents => math.countbits((UInt32)SharedComponentMask);
+            public int ZeroSizeds => math.countbits((UInt32)ZeroSizedMask);
         }
 
-        internal Masks m_masks;
-
-        private void ComputeMasks()
-        {
-            for (var i = 0; i < m_sorted.Length; ++i)
-            {
-                var typeIndex = m_sorted[i];
-                var mask = (UInt16)(1 << i);
-                if (typeIndex.IsBuffer)
-                    m_masks.m_BufferMask |= mask;
-                if (typeIndex.IsCleanupComponent)
-                    m_masks.m_CleanupComponentMask |= mask;
-                if (typeIndex.IsSharedComponentType)
-                    m_masks.m_SharedComponentMask |= mask;
-                if (typeIndex.IsZeroSized)
-                    m_masks.m_ZeroSizedMask |= mask;
-            }
-        }
+        internal readonly Masks m_masks;
 
         /// <summary>
         /// The component type count
         /// </summary>
         public int Length
         {
-            get => m_sorted.Length;
+            get => _sorted.Length;
         }
 
         /// <summary>
@@ -85,17 +89,23 @@ namespace Unity.Entities
         /// <returns>The type index of the component type at the specified index</returns>
         public TypeIndex GetTypeIndex(int index)
         {
-            return m_sorted[index];
+            return _sorted[index];
         }
 
-        internal TypeIndex* Types => (TypeIndex*)m_sorted.Buffer;
+        /// <summary>
+        /// Get a pointer to the internal array of type indices.
+        /// </summary>
+        /// <remarks>
+        /// This pointer should only be used for read-only access
+        /// </remarks>
+        internal TypeIndex* UnsafeTypesPtrRO => (TypeIndex*)_sorted.Buffer;
 
         internal int ChunkComponentCount
         {
             get
             {
                 int count = 0;
-                for (int i = 0; i < m_sorted.Length; i++)
+                for (int i = 0; i < _sorted.Length; i++)
                 {
                     if (GetComponentType(i).IsChunkComponent)
                     {
@@ -114,7 +124,7 @@ namespace Unity.Entities
         /// The returned ComponentType always has access mode ReadWrite.</returns>
         public ComponentType GetComponentType(int index)
         {
-            return ComponentType.FromTypeIndex(m_sorted[index]);
+            return ComponentType.FromTypeIndex(_sorted[index]);
         }
 
         /// <summary>
@@ -123,10 +133,9 @@ namespace Unity.Entities
         /// <param name="a">A component type</param>
         public ComponentTypeSet(ComponentType a)
         {
-            m_sorted = new FixedList64Bytes<TypeIndex>();
-            m_masks = new Masks();
-            m_sorted.Add(a.TypeIndex);
-            ComputeMasks();
+            _sorted = new FixedList64Bytes<TypeIndex>();
+            _sorted.Add(a.TypeIndex);
+            m_masks = new Masks(_sorted);
         }
 
         /// <summary>
@@ -136,13 +145,12 @@ namespace Unity.Entities
         /// <param name="b">A component type</param>
         public ComponentTypeSet(ComponentType a, ComponentType b)
         {
-            m_sorted = new FixedList64Bytes<TypeIndex>();
-            m_masks = new Masks();
-            m_sorted.Add(a.TypeIndex);
-            m_sorted.Add(b.TypeIndex);
+            _sorted = new FixedList64Bytes<TypeIndex>();
+            _sorted.Add(a.TypeIndex);
+            _sorted.Add(b.TypeIndex);
+            _sorted.Sort();
+            m_masks = new Masks(_sorted);
             CheckForDuplicates();
-            m_sorted.Sort();
-            ComputeMasks();
         }
 
         /// <summary>
@@ -153,14 +161,13 @@ namespace Unity.Entities
         /// <param name="c">A component type</param>
         public ComponentTypeSet(ComponentType a, ComponentType b, ComponentType c)
         {
-            m_sorted = new FixedList64Bytes<TypeIndex>();
-            m_masks = new Masks();
-            m_sorted.Add(a.TypeIndex);
-            m_sorted.Add(b.TypeIndex);
-            m_sorted.Add(c.TypeIndex);
-            m_sorted.Sort();
+            _sorted = new FixedList64Bytes<TypeIndex>();
+            _sorted.Add(a.TypeIndex);
+            _sorted.Add(b.TypeIndex);
+            _sorted.Add(c.TypeIndex);
+            _sorted.Sort();
+            m_masks = new Masks(_sorted);
             CheckForDuplicates();
-            ComputeMasks();
         }
 
         /// <summary>
@@ -172,15 +179,14 @@ namespace Unity.Entities
         /// <param name="d">A component type</param>
         public ComponentTypeSet(ComponentType a, ComponentType b, ComponentType c, ComponentType d)
         {
-            m_sorted = new FixedList64Bytes<TypeIndex>();
-            m_masks = new Masks();
-            m_sorted.Add(a.TypeIndex);
-            m_sorted.Add(b.TypeIndex);
-            m_sorted.Add(c.TypeIndex);
-            m_sorted.Add(d.TypeIndex);
-            m_sorted.Sort();
+            _sorted = new FixedList64Bytes<TypeIndex>();
+            _sorted.Add(a.TypeIndex);
+            _sorted.Add(b.TypeIndex);
+            _sorted.Add(c.TypeIndex);
+            _sorted.Add(d.TypeIndex);
+            _sorted.Sort();
+            m_masks = new Masks(_sorted);
             CheckForDuplicates();
-            ComputeMasks();
         }
 
         /// <summary>
@@ -193,16 +199,15 @@ namespace Unity.Entities
         /// <param name="e">A component type</param>
         public ComponentTypeSet(ComponentType a, ComponentType b, ComponentType c, ComponentType d, ComponentType e)
         {
-            m_sorted = new FixedList64Bytes<TypeIndex>();
-            m_masks = new Masks();
-            m_sorted.Add(a.TypeIndex);
-            m_sorted.Add(b.TypeIndex);
-            m_sorted.Add(c.TypeIndex);
-            m_sorted.Add(d.TypeIndex);
-            m_sorted.Add(e.TypeIndex);
-            m_sorted.Sort();
+            _sorted = new FixedList64Bytes<TypeIndex>();
+            _sorted.Add(a.TypeIndex);
+            _sorted.Add(b.TypeIndex);
+            _sorted.Add(c.TypeIndex);
+            _sorted.Add(d.TypeIndex);
+            _sorted.Add(e.TypeIndex);
+            _sorted.Sort();
+            m_masks = new Masks(_sorted);
             CheckForDuplicates();
-            ComputeMasks();
         }
 
         /// <summary>
@@ -213,17 +218,16 @@ namespace Unity.Entities
         [ExcludeFromBurstCompatTesting("Takes managed array")]
         public ComponentTypeSet(ComponentType[] types)
         {
-            m_sorted = new FixedList64Bytes<TypeIndex>();
+            _sorted = new FixedList64Bytes<TypeIndex>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (types.Length > m_sorted.Capacity)
-                throw new ArgumentException($"A ComponentTypes value cannot have more than {m_sorted.Capacity} types.");
+            if (types.Length > _sorted.Capacity)
+                throw new ArgumentException($"A ComponentTypes value cannot have more than {_sorted.Capacity} types.");
 #endif
-            m_masks = new Masks();
             for (var i = 0; i < types.Length; ++i)
-                m_sorted.Add(types[i].TypeIndex);
-            m_sorted.Sort();
+                _sorted.Add(types[i].TypeIndex);
+            _sorted.Sort();
+            m_masks = new Masks(_sorted);
             CheckForDuplicates();
-            ComputeMasks();
         }
 
         /// <summary>
@@ -233,27 +237,26 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if the length of <paramref name="types"/> exceeds the maximum ComponentTypes capacity (15).</exception>
         public ComponentTypeSet(in FixedList128Bytes<ComponentType> types)
         {
-            m_sorted = new FixedList64Bytes<TypeIndex>();
+            _sorted = new FixedList64Bytes<TypeIndex>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (types.Length > m_sorted.Capacity)
-                throw new ArgumentException($"A ComponentTypes value cannot have more than {m_sorted.Capacity} types.");
+            if (types.Length > _sorted.Capacity)
+                throw new ArgumentException($"A ComponentTypes value cannot have more than {_sorted.Capacity} types.");
 #endif
-            m_masks = new Masks();
             for (var i = 0; i < types.Length; ++i)
-                m_sorted.Add(types[i].TypeIndex);
-            m_sorted.Sort();
+                _sorted.Add(types[i].TypeIndex);
+            _sorted.Sort();
+            m_masks = new Masks(_sorted);
             CheckForDuplicates();
-            ComputeMasks();
         }
 
-        // Assumes m_sorted has already been sorted.
+        // Assumes _sorted has already been sorted.
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        private void CheckForDuplicates()
+        private readonly void CheckForDuplicates()
         {
-            var prev = m_sorted[0];
-            for (int i = 1; i < m_sorted.Length; i++)
+            var prev = _sorted[0];
+            for (int i = 1; i < _sorted.Length; i++)
             {
-                var current = m_sorted[i];
+                var current = _sorted[i];
                 if (prev == current)
                 {
                     throw new ArgumentException(

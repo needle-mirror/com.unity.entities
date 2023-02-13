@@ -878,7 +878,7 @@ namespace Unity.Entities
             data->ComponentSize = 0;
         }
 
-        internal void AddEntityComponentTypesCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, ComponentTypeSet t)
+        internal void AddEntityComponentTypesCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, in ComponentTypeSet t)
         {
             var sizeNeeded = Align(sizeof(EntityMultipleComponentsCommand), ALIGN_64_BIT);
 
@@ -1232,7 +1232,7 @@ namespace Unity.Entities
         }
 
         internal bool AppendMultipleEntitiesMultipleComponentsCommand(EntityCommandBufferChain* chain, int sortKey,
-            ECBCommand op, EntityQuery entityQuery, ComponentTypeSet t)
+            ECBCommand op, EntityQuery entityQuery, in ComponentTypeSet t)
         {
             var entities = entityQuery.ToEntityArray(m_Allocator.ToAllocator); // disposed in playback
             if (entities.Length == 0)
@@ -1248,7 +1248,7 @@ namespace Unity.Entities
             return result;
         }
         internal bool AppendMultipleEntitiesMultipleComponentsCommand(EntityCommandBufferChain* chain, int sortKey,
-            ECBCommand op, Entity* entities, int entityCount, bool mayContainDeferredEntities, ComponentTypeSet t)
+            ECBCommand op, Entity* entities, int entityCount, bool mayContainDeferredEntities, in ComponentTypeSet t)
         {
             var sizeNeeded = Align(sizeof(MultipleEntitiesAndComponentsCommand), ALIGN_64_BIT);
 
@@ -1351,8 +1351,11 @@ namespace Unity.Entities
         internal byte* Reserve(EntityCommandBufferChain* chain, int sortKey, int size)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            Assert.AreEqual(Align(size, ALIGN_64_BIT), size, $"Misaligned size. Expected alignment of {ALIGN_64_BIT}. Unaligned access can cause crashes on ARM.");
+            var align = Align(size, ALIGN_64_BIT);
+            if(align != size)
+                Assert.IsTrue(false, $"Misaligned size. Expected alignment of {ALIGN_64_BIT} but was {align}. Unaligned access can cause crashes on platforms such as ARM.");
 #endif
+
             int newSortKey = sortKey;
             if (newSortKey < chain->m_LastSortKey)
             {
@@ -1693,9 +1696,7 @@ namespace Unity.Entities
                 return;
             }
 
-            CleanupManaged(chain);
-            if (chain->m_Cleanup->CleanupList != null)
-                throw new ArgumentException("Managed object cleanup failed, are you Disposing an EntityCommandBuffer that had managed commands from bursted code?");
+            ECBInterop.CleanupManaged(chain);
 
             // Buffers played in ecbs which can be played back more than once are always copied during playback.
             if (playbackPolicy == PlaybackPolicy.MultiPlayback || !didPlayback)
@@ -1739,24 +1740,11 @@ namespace Unity.Entities
             }
         }
 
-        [BurstDiscard]
-        private static void CleanupManaged(EntityCommandBufferChain* chain)
-        {
-            var cleanup_list = chain->m_Cleanup->CleanupList;
-            while (cleanup_list != null)
-            {
-                cleanup_list->BoxedObject.Free();
-                cleanup_list = cleanup_list->Prev;
-            }
-
-            chain->m_Cleanup->CleanupList = null;
-        }
-
         internal int MainThreadSortKey => Int32.MaxValue;
         private const bool kBatchableCommand = true;
 
         /// <summary>Records a command to create an entity with specified archetype.</summary>
-        /// <remarks>Behavior at Playback: This command will throw an error if the archetype contains the <see cref="Prefab"/> tag.</remarks>
+        /// <remarks>At playback, this command throws an error if the archetype contains the <see cref="Prefab"/> tag.</remarks>
         /// <param name="archetype">The archetype of the new entity.</param>
         /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
         /// <exception cref="ArgumentException">Throws if the archetype is null.</exception>
@@ -1790,8 +1778,9 @@ namespace Unity.Entities
         }
 
         /// <summary>Records a command to create an entity with specified entity prefab.</summary>
-        /// <remarks>An instantiated entity will have the same components and component values as the prefab entity, minus the Prefab tag component.
-        /// Behavior at Playback: This command will throw an error if the source entity was destroyed before playback.</remarks>
+        /// <remarks>An instantiated entity has the same components and component values as the
+        /// prefab entity, minus the Prefab tag component.
+        /// If the source entity was destroyed before playback, this command throws an error.</remarks>
         /// <param name="e">The entity prefab.</param>
         /// <returns>An entity that is deferred and will be fully realized when this EntityCommandBuffer is played back.</returns>
         /// <exception cref="ArgumentNullException"> Thrown if Entity e is null and if safety checks are enabled.</exception>
@@ -1810,8 +1799,8 @@ namespace Unity.Entities
         }
 
         /// <summary>Records a command to create a NativeArray of entities with specified entity prefab.</summary>
-        /// <remarks>An instantiated entity will have the same components and component values as the prefab entity, minus the Prefab tag component.
-        /// Behavior at Playback: This command will throw an error if the source entity was destroyed before playback.</remarks>
+        /// <remarks>An instantiated entity has the same components and component values as the prefab entity, minus the Prefab tag component.
+        /// If the source entity was destroyed before playback, this command throws an error.</remarks>
         /// <param name="e">The entity prefab.</param>
         /// <param name="entities">The NativeArray of entities that will be populated with realized entities when this EntityCommandBuffer is played back.</param>
         /// <exception cref="ArgumentNullException"> Thrown if Entity e is null and if safety checks are enabled.</exception>
@@ -1835,8 +1824,9 @@ namespace Unity.Entities
         }
 
         /// <summary>Records a command to destroy an entity.</summary>
-        /// <remarks>Behavior at Playback: This command will throw an error if the entity is still deferred or was destroyed between recording and playback,
-        /// or if the entity has the <see cref="Prefab"/> tag.</remarks>
+        /// <remarks>At playback, this command throws an error if the entity is
+        /// [deferred](xref:systems-entity-command-buffers), or was destroyed between recording and playback, or if the entity
+        /// has the <see cref="Prefab"/> tag.</remarks>
         /// <param name="e">The entity to destroy.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
@@ -1849,9 +1839,10 @@ namespace Unity.Entities
         }
 
         /// <summary>Records a command to destroy a NativeArray of entities.</summary>
-        /// <remarks>Behavior at Playback: This command will do nothing if entities has a count of 0.
-        /// This command will throw an error if any of the entities are still deferred, were destroyed between recording and playback,
-        /// or if any of the entities have the <see cref="Prefab"/> tag.</remarks>
+        /// <remarks>At playback, this command only runs if the entity count is greater than 0.
+        /// This command throws an error if any of the entities [are deferred](xref:systems-entity-command-buffers),
+        /// were destroyed between recording and playback, or if any of the entities have
+        /// the <see cref="Prefab"/> tag.</remarks>
         /// <param name="entities">The NativeArray of entities to destroy.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
@@ -1866,10 +1857,10 @@ namespace Unity.Entities
         }
 
         /// <summary>Records a command to add a dynamic buffer to an entity.</summary>
-        /// <remarks>At playback, if the entity already has this type of dynamic buffer, 
-        /// this method sets the dynamic buffer contents. If the entity doesn't have a 
-        /// <see cref="DynamicBuffer{T}"/> component that stores elements of type T, then 
-        /// this method adds a DynamicBuffer component with the provided contents. If the 
+        /// <remarks>At playback, if the entity already has this type of dynamic buffer,
+        /// this method sets the dynamic buffer contents. If the entity doesn't have a
+        /// <see cref="DynamicBuffer{T}"/> component that stores elements of type T, then
+        /// this method adds a DynamicBuffer component with the provided contents. If the
         /// entity is destroyed before playback, or is deferred, an error is thrown.</remarks>
         /// <param name="e">The entity to add the dynamic buffer to.</param>
         /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
@@ -1889,8 +1880,10 @@ namespace Unity.Entities
         }
 
         /// <summary>Records a command to set a dynamic buffer on an entity.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
+        /// <remarks>At playback this command throws an error if the entity is destroyed
+        /// before playback, or if [it's deferred](xref:systems-entity-command-buffers),
+        /// or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component that
+        /// stores elements of type T.</remarks>
         /// <param name="e">The entity to set the dynamic buffer on.</param>
         /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
         /// <returns>The <see cref="DynamicBuffer{T}"/> that will be set when the command plays back.</returns>
@@ -1909,8 +1902,10 @@ namespace Unity.Entities
         }
 
         /// <summary>Records a command to append a single element to the end of a dynamic buffer component.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
+        /// <remarks>At playback this command throws an error if the entity is destroyed
+        /// before playback, or if [it's deferred](xref:systems-entity-command-buffers),
+        /// or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component that
+        /// stores elements of type T.</remarks>
         /// <param name="e">The entity to which the dynamic buffer belongs.</param>
         /// <param name="element">The new element to add to the <see cref="DynamicBuffer{T}"/> component.</param>
         /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
@@ -1925,9 +1920,9 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add component of type T to an entity. </summary>
-        /// <remarks>Behavior at Playback: If the entity already has this type of component, the value will just be set.
-        /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-        /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
+        /// <remarks>At playback, if the entity already has this type of component, the value will just be set.
+        /// Throws an error if this entity is destroyed before playback, if this entity is still [deferred](xref:systems-entity-command-buffers),
+        /// if T is type Entity or <see cref="Prefab"/>, or adding this component type makes the archetype too large.</remarks>
         /// <param name="e"> The entity to have the component added. </param>
         /// <param name="component">The value to add on the new component in playback for the entity.</param>
         /// <typeparam name="T"> The type of component to add. </typeparam>
@@ -1942,9 +1937,9 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
-        /// <remarks>Behavior at Playback: If any entity already has this type of component, the value will just be set.
-        /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-        /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
+        /// <remarks>At playback, if any entity already has this type of component, the value will just be set.
+        /// Throws an error if any entity is destroyed before playback, if any entity is still [deferred](xref:systems-entity-command-buffers),
+        /// if T is type Entity or <see cref="Prefab"/>, or adding this component type makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component added. </param>
         /// <param name="component">The value to add on the new component in playback for all entities in the NativeArray.</param>
         /// <typeparam name="T"> The type of component to add. </typeparam>
@@ -1961,9 +1956,9 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add component of type T to an entity. </summary>
-        /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
-        /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-        /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
+        /// <remarks>At playback, this command does nothing if the entity already has the component.
+        /// Throws an error if this entity is destroyed before playback, if this entity is still [deferred](xref:systems-entity-command-buffers),
+        /// if T is type Entity or <see cref="Prefab"/>, or adding this component type makes the archetype too large.</remarks>
         /// <param name="e"> The entity to have the component added. </param>
         /// <typeparam name="T"> The type of component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -1977,9 +1972,9 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
-        /// <remarks>Behavior at Playback: If an entity already has this component, it will be skipped.
-        /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-        /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
+        /// <remarks>At playback, if an entity already has this component, it is skipped.
+        /// Throws an error if any entity is destroyed before playback, or if any entity is still [deferred](xref:systems-entity-command-buffers),
+        /// if T is type Entity or <see cref="Prefab"/>, or adding this component type makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component added. </param>
         /// <typeparam name="T"> The type of component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -1995,9 +1990,9 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add a component to an entity. </summary>
-        /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
-        /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-        /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
+        /// <remarks>At playback, this command does nothing if the entity already has the component.
+        /// Throws an error if any entity is destroyed before playback, or if any entity is still [deferred](xref:systems-entity-command-buffers),
+        /// if component is type Entity or <see cref="Prefab"/>, or adding this component type makes the archetype too large.</remarks>
         /// <param name="e"> The entity to get the additional component. </param>
         /// <param name="componentType"> The type of component to add. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -2011,9 +2006,9 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add a component to an entity. </summary>
-        /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
-        /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
-        /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
+        /// <remarks>At playback, this command does nothing if the entity already has the component.
+        /// Throws an error if any entity is destroyed before playback, or if any entity is still [deferred](xref:systems-entity-command-buffers),
+        /// if component is type Entity or <see cref="Prefab"/>, or adding this component type makes the archetype too large.</remarks>
         /// <param name="typeIndex"> The TypeIndex of the component being set. </param>
         /// <param name="typeSize"> The Size of the type of the component being set. </param>
         /// <param name="componentDataPtr"> The pointer to the data of the component to be copied. </param>
@@ -2028,9 +2023,9 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add a component to a NativeArray of entities. </summary>
-        /// <remarks>Behavior at Playback: If an entity already has this component, it will be skipped.
-        /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
-        /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
+        /// <remarks>At playback, if an entity already has this component, it is skipped.
+        /// Throws an error if any entity is destroyed before playback, or if any entity is still [deferred](xref:systems-entity-command-buffers),
+        /// if component is type Entity or <see cref="Prefab"/>, or adding this component type makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component added. </param>
         /// <param name="componentType"> The type of component to add. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -2047,15 +2042,15 @@ namespace Unity.Entities
 
 
         /// <summary> Records a command to add one or more components to an entity. </summary>
-        /// <remarks>Behavior at Playback: It is not an error to include a component type that the entity already has.
-        /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
+        /// <remarks>At playback, you can include a component type that the entity already has.
+        /// Throws an error if this entity is destroyed before playback, if this entity is still [deferred](xref:systems-entity-command-buffers),
         /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
         /// <param name="e"> The entity to get additional components. </param>
         /// <param name="componentTypeSet"> The types of components to add. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponent(Entity e, ComponentTypeSet componentTypeSet)
+        public void AddComponent(Entity e, in ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2063,15 +2058,15 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add one or more components to a NativeArray of entities. </summary>
-        /// <remarks>Behavior at Playback: It is not an error to include a component type that any of the entities already have.
-        /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
+        /// <remarks>At playback, you can include a component type that any of the entities already have.
+        /// Throws an error if this entity is destroyed before playback, if this entity is still [deferred](xref:systems-entity-command-buffers),
         /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the components added. </param>
         /// <param name="componentTypeSet"> The types of components to add. </param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponent(NativeArray<Entity> entities, ComponentTypeSet componentTypeSet)
+        public void AddComponent(NativeArray<Entity> entities, in ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2081,8 +2076,8 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to set a component value on an entity.</summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
-        /// if this entity is still deferred, if the entity doesn't have the component type,
+        /// <remarks> At playback, this command throws an error if the entity is destroyed before playback,
+        /// if this entity is still [deferred](xref:systems-entity-command-buffers), if the entity doesn't have the component type,
         /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
         /// <param name="e"> The entity to set the component value of. </param>
         /// <param name="component"> The component value to set. </param>
@@ -2098,7 +2093,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to set a component value on an entity.</summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if the entity doesn't have the component type,
         /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
         /// <param name="e"> The entity to set the component value of. </param>
@@ -2121,7 +2116,7 @@ namespace Unity.Entities
         ///
         /// If the entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component, the entire group will be enabled or disabled.
         /// </summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if the entity has the <see cref="Prefab"/> tag, or if this entity is still deferred.</remarks>
         /// <param name="e">The entity whose component should be enabled or disabled.</param>
         /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
@@ -2139,7 +2134,7 @@ namespace Unity.Entities
         /// does not cause a structural change, or affect the value of the component. For the purposes
         /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
         /// </summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
         /// <typeparam name="T">The component type to enable or disable. This type must implement the
         /// <see cref="IEnableableComponent"/> interface.</typeparam>
@@ -2159,7 +2154,7 @@ namespace Unity.Entities
         /// does not cause a structural change, or affect the value of the component. For the purposes
         /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
         /// </summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
         /// <param name="e">The entity whose component should be enabled or disabled.</param>
         /// <param name="componentType">The component type to enable or disable. This type must implement the
@@ -2175,7 +2170,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to set a name of an entity if Debug Names is enabled.</summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the EntityNameStore has reached its limit.</remarks>
         /// <param name="e"> The entity to set the name value of. </param>
         /// <param name="name"> The name to set. </param>
@@ -2192,7 +2187,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to remove component of type T from an entity. </summary>
-        /// <remarks> Behavior at Playback: It is not an error if the entity doesn't have component T.
+        /// <remarks> At playback, it's not an error if the entity doesn't have component T.
         /// Will throw an error if this entity is destroyed before playback,
         /// if this entity is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="e"> The entity to have the component removed. </param>
@@ -2206,7 +2201,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to remove component of type T from a NativeArray of entities. </summary>
-        /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have component T.
+        /// <remarks>At playback, it's not an error if any entity doesn't have component T.
         /// Will throw an error if one of these entities is destroyed before playback,
         /// if one of these entities is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component removed. </param>
@@ -2220,7 +2215,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to remove a component from an entity. </summary>
-        /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have the component type.
+        /// <remarks>At playback, it's not an error if the entity doesn't have the component type.
         /// Will throw an error if this entity is destroyed before playback,
         /// if this entity is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="e"> The entity to have the component removed. </param>
@@ -2237,7 +2232,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to remove one or more components from a NativeArray of entities. </summary>
-        /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have the component type.
+        /// <remarks>At playback, it's not an error if any entity doesn't have the component type.
         /// Will throw an error if one of these entities is destroyed before playback,
         /// if one of these entities is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="entities"> The NativeArray of entities to have the component removed. </param>
@@ -2255,7 +2250,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to remove one or more components from an entity. </summary>
-        /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have one of the component types.
+        /// <remarks>At playback, it's not an error if the entity doesn't have one of the component types.
         /// Will throw an error if this entity is destroyed before playback,
         /// if this entity is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="e"> The entity to have components removed. </param>
@@ -2263,7 +2258,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void RemoveComponent(Entity e, ComponentTypeSet componentTypeSet)
+        public void RemoveComponent(Entity e, in ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2272,7 +2267,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to remove one or more components from a NativeArray of entities. </summary>
-        /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have one of the component types.
+        /// <remarks>At playback, it's not an error if any entity doesn't have one of the component types.
         /// Will throw an error if one of these entities is destroyed before playback,
         /// if one of these entities is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
         /// <param name="entities"> The NativeArray of entities to have components removed. </param>
@@ -2280,7 +2275,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void RemoveComponent(NativeArray<Entity> entities, ComponentTypeSet componentTypeSet)
+        public void RemoveComponent(NativeArray<Entity> entities, in ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2289,7 +2284,7 @@ namespace Unity.Entities
                 ECBCommand.RemoveMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, componentTypeSet);
         }
 
-        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery, ComponentType)"/> instead.</summary>
+        /// <summary>Obsolete. Use <see cref="AddComponent"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
         /// <param name="componentType">The type of component to add.</param>
         [SupportedInEntitiesForEach]
@@ -2302,7 +2297,7 @@ namespace Unity.Entities
         ///
         /// Does not affect entities which already have the component.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
@@ -2331,7 +2326,7 @@ namespace Unity.Entities
         ///
         /// Does not affect entities which already have the component.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
@@ -2358,7 +2353,7 @@ namespace Unity.Entities
         ///
         /// Entities which already have the component type will have the component set to the value.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
@@ -2375,12 +2370,12 @@ namespace Unity.Entities
                 ECBCommand.AddComponentForMultipleEntities, entityQuery, value);
         }
 
-        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery, ComponentTypeSet)"/> instead.</summary>
+        /// <summary>Obsolete. Use <see cref="AddComponent"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities to which the components are added. </param>
         /// <param name="componentTypeSet">The types of components to add.</param>
         [SupportedInEntitiesForEach]
         [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent(*)")]
-        public void AddComponentForEntityQuery(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+        public void AddComponentForEntityQuery(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
             => AddComponent(entityQuery, componentTypeSet);
 
         /// <summary>Records a command to add multiple components to all entities matching a query.</summary>
@@ -2388,7 +2383,7 @@ namespace Unity.Entities
         ///
         /// Some matching entities may already have some or all of the specified components. After this operation, all matching entities will have all of the components.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities to which the components are added. </param>
@@ -2396,7 +2391,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponent(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+        public void AddComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2409,7 +2404,7 @@ namespace Unity.Entities
         ///
         /// Entities which already have the component type will have the component set to the value.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
@@ -2467,7 +2462,7 @@ namespace Unity.Entities
         ///
         /// Entities which already have the component type will have the component set to the value.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
@@ -2512,7 +2507,7 @@ namespace Unity.Entities
         /// <summary> Records a command to add a hybrid component and set its value for all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback.
+        /// At playback, this command throws an error if one of these entities is destroyed before playback.
         /// Entities which already have the component type will have the component set to the value.
         /// </remarks>
         /// <exception cref="InvalidOperationException">Thrown in playback if one or more of the entities has been destroyed. (With safety checks disabled,
@@ -2549,7 +2544,7 @@ namespace Unity.Entities
         /// <summary> Records a command to set a hybrid component value for all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback,
         /// if any entity has the <see cref="Prefab"/> tag, or if any entity does not have the component type at playback.
         /// Playback Entities which already have the component type will have the component set to the value.</remarks>
         /// <exception cref="InvalidOperationException">Thrown in playback if one or more of the entities does not have the component type or has been destroyed. (With safety checks disabled,
@@ -2589,7 +2584,7 @@ namespace Unity.Entities
         ///
         /// Fails if any of the entities do not have the type of shared component. [todo: should it be required that the component type is included in the query?]
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback or
+        /// At playback, this command throws an error if one of these entities is destroyed before playback or
         /// if any entity has the <see cref="Prefab"/> tag. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
@@ -2645,7 +2640,7 @@ namespace Unity.Entities
         ///
         /// Fails if any of the entities do not have the type of shared component. [todo: should it be required that the component type is included in the query?]
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback or
+        /// At playback, this command throws an error if one of these entities is destroyed before playback or
         /// if any entity has the <see cref="Prefab"/> tag. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
@@ -2691,7 +2686,7 @@ namespace Unity.Entities
         ///
         /// Does not affect entities already missing the component.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities from which the component is removed. </param>
@@ -2720,7 +2715,7 @@ namespace Unity.Entities
         ///
         /// Does not affect entities already missing the component.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities from which the component is removed. </param>
@@ -2733,12 +2728,12 @@ namespace Unity.Entities
             RemoveComponent(entityQuery, ComponentType.ReadWrite<T>());
         }
 
-        /// <summary>Obsolete. Use <see cref="RemoveComponent(Unity.Entities.EntityQuery,Unity.Entities.ComponentTypeSet)"/> instead.</summary>
+        /// <summary>Obsolete. Use <see cref="RemoveComponent"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
         /// <param name="componentTypeSet">The types of components to remove.</param>
         [SupportedInEntitiesForEach]
         [Obsolete("Use RemoveComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> RemoveComponent(*)")]
-        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
             => RemoveComponent(entityQuery, componentTypeSet);
 
         /// <summary>Records a command to remove multiple components from all entities matching a query.</summary>
@@ -2746,7 +2741,7 @@ namespace Unity.Entities
         ///
         /// Some matching entities may already be missing some or all of the specified components. After this operation, all matching entities will have none of the components.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
@@ -2754,7 +2749,7 @@ namespace Unity.Entities
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void RemoveComponent(EntityQuery entityQuery, ComponentTypeSet componentTypeSet)
+        public void RemoveComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2772,7 +2767,7 @@ namespace Unity.Entities
         /// <summary>Records a command to destroy all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
         ///
-        /// Behavior at Playback: Will throw an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
+        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
         /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities to destroy.</param>
@@ -2806,7 +2801,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add a possibly-managed shared component value on an entity.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks>At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
         /// or adding a component type makes the archetype too large.</remarks>
         /// <param name="e"> The entity to add the shared component value to. </param>
@@ -2847,7 +2842,7 @@ namespace Unity.Entities
 
 
         /// <summary> Records a command to add an unmanaged shared component value on an entity.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks>At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
         /// or adding a component type makes the archetype too large.</remarks>
         /// <param name="e"> The entity to add the shared component value to. </param>
@@ -2873,7 +2868,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add a possibly-managed shared component value on a NativeArray of entities.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+        /// <remarks>At playback, this command throws an error if any entity is destroyed before playback,
         /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
         /// or adding a component type makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to add the shared component value to. </param>
@@ -2918,7 +2913,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add an unmanaged shared component value on a NativeArray of entities.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+        /// <remarks>At playback, this command throws an error if any entity is destroyed before playback,
         /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
         /// or adding a component type makes the archetype too large.</remarks>
         /// <param name="entities"> The NativeArray of entities to add the shared component value to. </param>
@@ -2948,7 +2943,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to set a possibly-managed shared component value on an entity.</summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
         /// <param name="e"> The entity to set the shared component value of. </param>
         /// <param name="sharedComponent"> The shared component value to set. </param>
@@ -3033,7 +3028,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to set an unmanaged shared component value on an entity.</summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
         /// <param name="e"> The entity to set the shared component value of. </param>
         /// <param name="sharedComponent"> The shared component value to set. </param>
@@ -3059,7 +3054,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to set a possibly-managed shared component value on a NativeArray of entities.</summary>
-        /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if any entity is destroyed before playback,
         /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
         /// <param name="entities"> The NativeArray of entities to set the shared component value of. </param>
         /// <param name="sharedComponent"> The shared component value to set. </param>
@@ -3105,7 +3100,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to set an unmanaged shared component value on a NativeArray of entities.</summary>
-        /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if any entity is destroyed before playback,
         /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
         /// <param name="entities"> The NativeArray of entities to set the shared component value of. </param>
         /// <param name="sharedComponent"> The shared component value to set. </param>
@@ -3136,7 +3131,7 @@ namespace Unity.Entities
 
         /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
         /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+        /// <remarks>At playback, this command throws an error if the entity is destroyed before playback,
         /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
         /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
         /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
@@ -3157,7 +3152,7 @@ namespace Unity.Entities
 
         /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
         /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+        /// <remarks>At playback, this command throws an error if the entity is destroyed before playback,
         /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
         /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
         /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
@@ -3175,7 +3170,7 @@ namespace Unity.Entities
 
         /// <summary>Records a command that sets a component for an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
         /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+        /// <remarks>At playback, this command throws an error if the entity is destroyed before playback,
         /// if the entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if any of the matching linked entities do not already have the component.</remarks>
         /// <param name="e">The entity whose LinkedEntityGroup will be modified by this command.</param>
         /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to set the component for.
@@ -3196,7 +3191,7 @@ namespace Unity.Entities
 
         /// <summary>Records a command that replaces a component value for an entity's <see cref="LinkedEntityGroup"/>.
         /// Entities in the <see cref="LinkedEntityGroup"/> that don't have the component will be skipped safely.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback or
+        /// <remarks>At playback, this command throws an error if the entity is destroyed before playback or
         /// if the entity is still deferred.</remarks>
         /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
         /// <param name="component"> The component value to set. </param>
@@ -3782,22 +3777,7 @@ namespace Unity.Entities
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 var componentTypes = cmd->TypeSet;
 
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                if (Burst.CompilerServices.Hint.Unlikely(mgr->EntityComponentStore->m_RecordToJournal != 0))
-                    mgr->JournalAddRecord_RemoveComponent(in originSystem, &entity, 1, componentTypes.Types, componentTypes.Length);
-#endif
-
-#if ENABLE_PROFILER
-                if (StructuralChangesProfiler.Enabled)
-                    StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in mgr->m_WorldUnmanaged);
-#endif
-                // TODO(DOTS-4174): Go through EntityDataAccess, Add EntitiesJournaling call
-                mgr->EntityComponentStore->RemoveMultipleComponentsWithValidation(entity, componentTypes);
-
-#if ENABLE_PROFILER
-                if (StructuralChangesProfiler.Enabled)
-                    StructuralChangesProfiler.End();
-#endif
+                mgr->RemoveComponentDuringStructuralChange(entity, componentTypes, in originSystem);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -3842,24 +3822,7 @@ namespace Unity.Entities
                 var cmd = (EntityMultipleComponentsCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 var componentTypes = cmd->TypeSet;
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                if (Burst.CompilerServices.Hint.Unlikely(mgr->EntityComponentStore->m_RecordToJournal != 0))
-                    mgr->JournalAddRecord_AddComponent(in originSystem, &entity, 1, componentTypes.Types, componentTypes.Length);
-#endif
-
-#if ENABLE_PROFILER
-                if (StructuralChangesProfiler.Enabled)
-                    StructuralChangesProfiler.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in mgr->m_WorldUnmanaged);
-#endif
-
-                // TODO(DOTS-4174): Go through EntityDataAccess, Add EntitiesJournaling call
-                mgr->EntityComponentStore->AddMultipleComponentsWithValidation(entity, componentTypes);
-
-#if ENABLE_PROFILER
-                if (StructuralChangesProfiler.Enabled)
-                    StructuralChangesProfiler.End();
-#endif
+                mgr->AddMultipleComponentsDuringStructuralChange(entity, componentTypes);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -3985,10 +3948,11 @@ namespace Unity.Entities
             {
                 var cmd = (EntityComponentCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
+
                 CheckBufferExistsOnEntity(mgr->EntityComponentStore, entity, cmd);
 
-                // TODO(DOTS-4174): Go through EntityDataAccess
-                BufferHeader* bufferHeader = (BufferHeader*)mgr->EntityComponentStore->GetComponentDataWithTypeRW(entity, cmd->ComponentTypeIndex, mgr->EntityComponentStore->GlobalSystemVersion);
+                BufferHeader* bufferHeader =
+                    (BufferHeader*)mgr->GetComponentDataRW_AsBytePointer(entity, cmd->ComponentTypeIndex);
 
                 ref readonly var typeInfo = ref TypeManager.GetTypeInfo(cmd->ComponentTypeIndex);
                 var alignment = typeInfo.AlignmentInBytes;
@@ -4008,10 +3972,11 @@ namespace Unity.Entities
 
                 var cmd = (EntityComponentCommand*)header;
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
+
                 CheckBufferExistsOnEntity(mgr->EntityComponentStore, entity, cmd);
 
-                // TODO(DOTS-4174): Go through EntityDataAccess
-                BufferHeader* bufferHeader = (BufferHeader*)mgr->EntityComponentStore->GetComponentDataWithTypeRW(entity, cmd->ComponentTypeIndex, mgr->EntityComponentStore->GlobalSystemVersion);
+                BufferHeader* bufferHeader =
+                    (BufferHeader*)mgr->GetComponentDataRW_AsBytePointer(entity, cmd->ComponentTypeIndex);
 
                 ref readonly var typeInfo = ref TypeManager.GetTypeInfo(cmd->ComponentTypeIndex);
                 var alignment = typeInfo.AlignmentInBytes;
@@ -4422,7 +4387,7 @@ namespace Unity.Entities
                     entities,
                     cmd->ComponentTypeIndex,
                     cmd->HashCode,
-                    cmd + 1);
+                    cmd->IsDefault == 1 ? null : cmd + 1);
             }
 
             public ECBProcessorType ProcessorType => ECBProcessorType.PlaybackProcessor;
@@ -4674,7 +4639,7 @@ namespace Unity.Entities
             private EntityCommandBufferChain* ThreadChain => (m_ThreadIndex >= 0) ? &m_Data->m_ThreadedChains[m_ThreadIndex] : &m_Data->m_MainThreadChain;
 
             /// <summary>Records a command to create an entity with specified archetype.</summary>
-            /// <remarks>Behavior at Playback: This command will throw an error if the archetype contains the <see cref="Prefab"/> tag.</remarks>
+            /// <remarks>At playback, this command will throw an error if the archetype contains the <see cref="Prefab"/> tag.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
             /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
@@ -4724,7 +4689,7 @@ namespace Unity.Entities
 
             /// <summary>Records a command to create an entity with specified entity prefab.</summary>
             /// <remarks>An instantiated entity will have the same components and component values as the prefab entity, minus the Prefab tag component.
-            /// Behavior at Playback: This command will throw an error if the source entity was destroyed before playback.</remarks>
+            /// At playback, this command will throw an error if the source entity was destroyed before playback.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
             /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
@@ -4747,7 +4712,7 @@ namespace Unity.Entities
 
             /// <summary>Records a command to create a NativeArray of entities with specified entity prefab.</summary>
             /// <remarks>An instantiated entity will have the same components and component values as the prefab entity, minus the Prefab tag component.
-            /// Behavior at Playback: This command will throw an error if the source entity was destroyed before playback.</remarks>
+            /// At playback, this command will throw an error if the source entity was destroyed before playback.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
             /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
@@ -4774,7 +4739,7 @@ namespace Unity.Entities
 
 
             /// <summary>Records a command to destroy an entity.</summary>
-            /// <remarks>Behavior at Playback: This command will throw an error if any of the entities are still deferred or were destroyed between recording and playback,
+            /// <remarks>At playback, this command will throw an error if any of the entities are still deferred or were destroyed between recording and playback,
             /// or if the entity has the <see cref="Prefab"/> tag.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -4790,7 +4755,7 @@ namespace Unity.Entities
             }
 
             /// <summary>Records a command to destroy a NativeArray of entities.</summary>
-            /// <remarks>Behavior at Playback: This command will do nothing if entities has a count of 0.
+            /// <remarks>At playback, this command will do nothing if entities has a count of 0.
             /// This command will throw an error if any of the entities are still deferred or were destroyed between recording and playback,
             /// or if any of the entities have the <see cref="Prefab"/> tag.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4808,7 +4773,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add component of type T to an entity. </summary>
-            /// <remarks>Behavior at Playback: If the entity already has this type of component, the value will just be set.
+            /// <remarks>At playback, if the entity already has this type of component, the value will just be set.
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4827,7 +4792,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add a component to an entity. </summary>
-            /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
+            /// <remarks>At playback, this command will do nothing if the entity already has the component.
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4847,7 +4812,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
-            /// <remarks>Behavior at Playback: If any entity already has this type of component, the value will just be set.
+            /// <remarks>At playback, if any entity already has this type of component, the value will just be set.
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
             /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4868,7 +4833,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add component of type T to an entity. </summary>
-            /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
+            /// <remarks>At playback, this command will do nothing if the entity already has the component.
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4886,7 +4851,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
-            /// <remarks>Behavior at Playback: If an entity already has this component, it will be skipped.
+            /// <remarks>At playback, if an entity already has this component, it will be skipped.
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
             /// if T is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4907,7 +4872,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add a component to an entity. </summary>
-            /// <remarks>Behavior at Playback: This command will do nothing if the entity already has the component.
+            /// <remarks>At playback, this command will do nothing if the entity already has the component.
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4925,7 +4890,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add a component to a NativeArray of entities. </summary>
-            /// <remarks>Behavior at Playback: If an entity already has this component, it will be skipped.
+            /// <remarks>At playback, if an entity already has this component, it will be skipped.
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
             /// if component type is type Entity or <see cref="Prefab"/>, or adding this componentType makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4945,7 +4910,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add one or more components to an entity. </summary>
-            /// <remarks>Behavior at Playback: It is not an error to include a component type that the entity already has.
+            /// <remarks>At playback, it's not an error to include a component type that the entity already has.
             /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
             /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4955,7 +4920,7 @@ namespace Unity.Entities
             /// <param name="e"> The entity to get additional components. </param>
             /// <param name="typeSet"> The types of components to add. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddComponent(int sortKey, Entity e, ComponentTypeSet typeSet)
+            public void AddComponent(int sortKey, Entity e, in ComponentTypeSet typeSet)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -4963,7 +4928,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add one or more components to a NativeArray of entities. </summary>
-            /// <remarks>Behavior at Playback: It is not an error to include a component type that any of the entities already have.
+            /// <remarks>At playback, it's not an error to include a component type that any of the entities already have.
             /// Will throw an error if any entity is destroyed before playback, if any entity is still deferred,
             /// if any component type is type Entity or <see cref="Prefab"/>, or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -4973,7 +4938,7 @@ namespace Unity.Entities
             /// <param name="entities"> The NativeArray of entities to have the components added. </param>
             /// <param name="typeSet"> The types of components to add. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void AddComponent(int sortKey, NativeArray<Entity> entities, ComponentTypeSet typeSet)
+            public void AddComponent(int sortKey, NativeArray<Entity> entities, in ComponentTypeSet typeSet)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -4983,11 +4948,12 @@ namespace Unity.Entities
             }
 
             /// <summary>Records a command to add a dynamic buffer to an entity.</summary>
-            /// <remarks>At playback, if the entity already has this type of dynamic buffer, 
-            /// this method sets the dynamic buffer contents. If the entity doesn't have a 
-            /// <see cref="DynamicBuffer{T}"/> component that stores elements of type T, then 
-            /// this method adds a DynamicBuffer component with the provided contents. If the 
-            /// entity is destroyed before playback, or is deferred, an error is thrown.</remarks>
+            /// <remarks>At playback, if the entity already has this type of dynamic buffer,
+            /// this method sets the dynamic buffer contents. If the entity doesn't have a
+            /// <see cref="DynamicBuffer{T}"/> component that stores elements of type T, then
+            /// this method adds a DynamicBuffer component with the provided contents. If the
+            /// entity is destroyed before playback, or [is deferred](xref:systems-entity-command-buffers),
+            /// an error is thrown.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
             /// <see cref="IJobEntity"/> is an appropriate value to use for this parameter. In an <see cref="IJobChunk"/>
@@ -5008,7 +4974,7 @@ namespace Unity.Entities
             }
 
             /// <summary>Records a command to set a dynamic buffer on an entity.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks>At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5030,7 +4996,7 @@ namespace Unity.Entities
             }
 
             /// <summary>Records a command to append a single element to the end of a dynamic buffer component.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks>At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if the entity doesn't have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5050,7 +5016,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to set a component value on an entity.</summary>
-            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity doesn't have the component type,
             /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5069,7 +5035,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to set a component value on an entity.</summary>
-            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity doesn't have the component type,
             /// if the entity has the <see cref="Prefab"/> tag, or if T is zero sized.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5095,7 +5061,7 @@ namespace Unity.Entities
             ///
             /// If the entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component, the entire group will be enabled or disabled.
             /// </summary>
-            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
             /// if the entity has the <see cref="Prefab"/> tag, or if this entity is still deferred.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5116,7 +5082,7 @@ namespace Unity.Entities
             /// does not cause a structural change, or affect the value of the component. For the purposes
             /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
             /// </summary>
-            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
             /// <typeparam name="T">The component type to enable or disable. This type must implement the
             /// <see cref="IEnableableComponent"/> interface.</typeparam>
@@ -5139,7 +5105,7 @@ namespace Unity.Entities
             /// does not cause a structural change, or affect the value of the component. For the purposes
             /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
             /// </summary>
-            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5158,7 +5124,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to set a name of an entity if Debug Names is enabled.</summary>
-            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the EntityNameStore has reached its limit.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5175,7 +5141,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to remove component of type T from an entity. </summary>
-            /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have component T.
+            /// <remarks>At playback, it's not an error if the entity doesn't have component T.
             /// Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5191,7 +5157,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to remove component of type T from a NativeArray of entities. </summary>
-            /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have component T.
+            /// <remarks>At playback, it's not an error if any entity doesn't have component T.
             /// Will throw an error if one of these entities is destroyed before playback,
             /// if one of these entities is still deferred, or if T is type Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5207,7 +5173,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to remove a component from an entity. </summary>
-            /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have the component type.
+            /// <remarks>At playback, it's not an error if the entity doesn't have the component type.
             /// Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5225,7 +5191,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to remove one or more components from a NativeArray of entities. </summary>
-            /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have the component type.
+            /// <remarks>At playback, it's not an error if any entity doesn't have the component type.
             /// Will throw an error if one of these entities is destroyed before playback,
             /// if one of these entities is still deferred, or if the component type is Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5245,7 +5211,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to remove one or more components from an entity. </summary>
-            /// <remarks>Behavior at Playback: It is not an error if the entity doesn't have one of the component types.
+            /// <remarks>At playback, it's not an error if the entity doesn't have one of the component types.
             /// Will throw an error if this entity is destroyed before playback,
             /// if this entity is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5255,7 +5221,7 @@ namespace Unity.Entities
             /// <param name="e"> The entity to have the components removed. </param>
             /// <param name="typeSet"> The types of components to remove. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void RemoveComponent(int sortKey, Entity e, ComponentTypeSet typeSet)
+            public void RemoveComponent(int sortKey, Entity e, in ComponentTypeSet typeSet)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -5263,7 +5229,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to remove one or more components from a NativeArray of entities. </summary>
-            /// <remarks>Behavior at Playback: It is not an error if any entity doesn't have one of the component types.
+            /// <remarks>At playback, it's not an error if any entity doesn't have one of the component types.
             /// Will throw an error if one of these entities is destroyed before playback,
             /// if one of these entities is still deferred, or if any of the component types are Entity or <see cref="Prefab"/>.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5273,7 +5239,7 @@ namespace Unity.Entities
             /// <param name="entities"> The NativeArray of entities to have components removed. </param>
             /// <param name="typeSet"> The types of components to remove. </param>
             /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-            public void RemoveComponent(int sortKey, NativeArray<Entity> entities, ComponentTypeSet typeSet)
+            public void RemoveComponent(int sortKey, NativeArray<Entity> entities, in ComponentTypeSet typeSet)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
@@ -5283,7 +5249,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add a shared component value on an entity.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks>At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5307,7 +5273,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add an unmanaged shared component value on an entity.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks>At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5334,7 +5300,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add a possibly-managed shared component value on a NativeArray of entities.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+            /// <remarks>At playback, this command throws an error if any entity is destroyed before playback,
             /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5382,7 +5348,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to add an unmanaged shared component value on a NativeArray of entities.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+            /// <remarks>At playback, this command throws an error if any entity is destroyed before playback,
             /// if any entity is still deferred, if adding this shared component exceeds the maximum number of shared components,
             /// or adding a component type makes the archetype too large.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
@@ -5416,7 +5382,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to set a shared component value on an entity.</summary>
-            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5459,7 +5425,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to set an unmanaged shared component value on an entity.</summary>
-            /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
             /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5512,7 +5478,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to set a shared component value on a NativeArray of entities.</summary>
-            /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if any entity is destroyed before playback,
             /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5558,7 +5524,7 @@ namespace Unity.Entities
             }
 
             /// <summary> Records a command to set a shared component value on a NativeArray of entities.</summary>
-            /// <remarks> Behavior at Playback: Will throw an error if any entity is destroyed before playback,
+            /// <remarks> At playback, this command throws an error if any entity is destroyed before playback,
             /// if any entity is still deferred, if any entity has the <see cref="Prefab"/> tag, or if any entity doesn't have the shared component type.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5592,7 +5558,7 @@ namespace Unity.Entities
 
             /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
             /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+            /// <remarks>At playback, this command throws an error if the entity is destroyed before playback,
             /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5617,7 +5583,7 @@ namespace Unity.Entities
 
             /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
             /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+            /// <remarks>At playback, this command throws an error if the entity is destroyed before playback,
             /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5640,7 +5606,7 @@ namespace Unity.Entities
 
             /// <summary>Records a command that sets a component for an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
             /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback,
+            /// <remarks>At playback, this command throws an error if the entity is destroyed before playback,
             /// if the entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if any of the matching linked entities do not already have the component.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5665,7 +5631,7 @@ namespace Unity.Entities
 
             /// <summary>Records a command that replaces a component value for an entity's <see cref="LinkedEntityGroup"/>.
             /// Entities in the <see cref="LinkedEntityGroup"/> that don't have the component will be skipped safely.</summary>
-            /// <remarks>Behavior at Playback: Will throw an error if the entity is destroyed before playback or
+            /// <remarks>At playback, this command throws an error if the entity is destroyed before playback or
             /// if the entity is still deferred.</remarks>
             /// <param name="sortKey">A unique index for each set of commands added to this EntityCommandBuffer
             /// across all parallel jobs writing commands to this buffer. The <see cref="ChunkIndexInQuery"/> provided by
@@ -5694,7 +5660,7 @@ namespace Unity.Entities
     public static unsafe class EntityCommandBufferManagedComponentExtensions
     {
         /// <summary> Records a command to add and set a managed component for an entity.</summary>
-        /// <remarks>Behavior at Playback: If the entity already has this type of component, the value will just be set.
+        /// <remarks>At playback, if the entity already has this type of component, the value will just be set.
         /// Will throw an error if this entity is destroyed before playback, if this entity is still deferred,
         /// or adding this componentType makes the archetype too large.</remarks>
         /// <param name="ecb"> This entity command buffer.</param>
@@ -5712,7 +5678,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add a managed component for an entity.</summary>
-        /// <remarks>Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks>At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, or adding this componentType makes the archetype too large.</remarks>
         /// <param name="ecb"> This entity command buffer.</param>
         /// <param name="e"> The entity to set the component value on.</param>
@@ -5728,7 +5694,7 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to set a managed component for an entity.</summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
         /// <param name="ecb"> This entity command buffer.</param>
         /// <param name="e"> The entity to set the component value on.</param>
@@ -5749,7 +5715,7 @@ namespace Unity.Entities
         /// does not cause a structural change, or affect the value of the component. For the purposes
         /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
         /// </summary>
-        /// <remarks> Behavior at Playback: Will throw an error if this entity is destroyed before playback,
+        /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the component type.</remarks>
         /// <typeparam name="T">The component type to enable or disable. This type must implement the
         /// <see cref="IEnableableComponent"/> interface.</typeparam>

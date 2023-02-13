@@ -6,7 +6,7 @@ namespace Unity.Entities.SourceGen.SystemGeneratorCommon
 {
     public enum QueryType
     {
-        All, None, Any, ChangeFilter
+        All, None, Any, ChangeFilter, Disabled, Absent
     }
 
     public struct Query : IEquatable<Query>
@@ -24,7 +24,7 @@ namespace Unity.Entities.SourceGen.SystemGeneratorCommon
         {
             unchecked
             {
-                var hashCode = TypeSymbol != null ? TypeSymbol.GetHashCode() : 0;
+                var hashCode = TypeSymbol != null ? SymbolEqualityComparer.Default.GetHashCode(TypeSymbol) : 0;
                 hashCode = (hashCode * 397) ^ IsReadOnly.GetHashCode();
                 return hashCode;
             }

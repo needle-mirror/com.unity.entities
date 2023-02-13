@@ -17,10 +17,51 @@ To upgrade from Entities 0.51 to 1.0, you need to do the following:
 * [Change system update code](#change-system-update-code)
 * [Rename EntityQueryDescBuilder](#rename-entityquerydescbuilder)
 * [Update SystemBase.Time and SystemState.Time](#update-systembasetime-and-systemstatetime)
+* [Update SystemBase helper methods to SystemAPI](#update-systembase-helper-methods-to-systemapi)
 * [Add the Entities Graphics package to your project](#add-the-entities-graphics-package-to-your-project)
+* [Modify blob assets that use new or default](#modify-blob-assets-that-use-new-or-default)
 
-**Removed**
-* [Auto Generate Lighting mode removed](#auto-generate-lighting-mode-removed)
+## ISystem changes
+ISystem now uses C#'s default implemented methods. So you don't have to implement every function.
+```cs
+// Before
+partial struct MySystem : ISystem {
+    public void OnCreate(ref SystemState state){}
+    public void OnUpdate(ref SystemState state){
+        // code goes here...
+    }
+    public void OnDestroy(ref SystemState state){}
+}
+
+// After
+partial struct MySystem : ISystem {
+    public void OnUpdate(ref SystemState state){
+        // code goes here...
+    }
+}
+```
+
+
+You now no longer need to put `[BurstCompile]` on the struct of an `ISystem`.
+While it is still needed on your `OnCreate`, `OnStartRunning`, `OnUpdate`, `OnStopRunning` and `OnDestroy`. You now no longer need to put `BurstCompile` on the struct itself.
+```cs
+// Before
+[BurstCompile]
+partial struct MySystem : ISystem {
+    [BurstCompile]
+    public void OnUpdate(ref SystemState state){
+        // code goes here...
+    }
+}
+
+// After
+partial struct MySystem : ISystem {
+    [BurstCompile]
+    public void OnUpdate(ref SystemState state){
+        // code goes here...
+    }
+}
+```
 
 ## Update Transforms in your project
 
@@ -242,7 +283,7 @@ To migrate without losing the data in the scenes, you need to write the MonoBeha
 
 Previously, World methods for accessing particular systems would return a direct reference to the system instance. This includes `GetExistingSystem`, `GetOrCreateSystem`, and `CreateSystem`.
 
-They now they return a `SystemHandle` rather than a direct reference. 
+They now return a `SystemHandle` rather than a direct reference. 
 
 If you have code that accesses system data directly, you should move system-associated data into a component. These components can exist in either a singleton entity, or they can belong to a system-associated entity through `EntityManager.GetComponentData<T>(SystemHandle)` and similar methods. The latter is recommended when data lifetime should be tied to the system lifetime. 
 
@@ -486,7 +527,7 @@ Systems have been changed so that they update by default.
 
 Previously, systems would early-out before calling `OnUpdate` if none of the entity queries created by the system matched any entities (as determined by calling `EntityQuery.IsEmptyNoFilter`), unless you used the `AlwaysUpdateSystem` attribute.
 
-If you con't make any changes to your code, some systems might call `OnUpdate` when they wouldn't before. This causes a decrease in performance, because the early-out is used to avoid overhead of updating a system when it hasn't any work to do. It might also cause exceptions if the implementation of these systems assumes that certain components exist, based on the previous behavior.
+If you don't make any changes to your code, some systems might call `OnUpdate` when they wouldn't before. This causes a decrease in performance, because the early-out is used to avoid overhead of updating a system when it hasn't any work to do. It might also cause exceptions if the implementation of these systems assumes that certain components exist, based on the previous behavior.
 
 To maintain the previous behavior, review each system:
 
@@ -549,10 +590,13 @@ var query2 = new EntityQueryBuilder(Allocator.Temp)
 `SystemBase.Time` and `SystemState.Time` are now deprecated and you should use `SystemAPI.Time `instead. Previously `SystemBase.Time` and `SystemState.Time` acted as aliases for `World.Time`. You should now use`SystemAPI.Time` which works in both `ISystem` and `SystemBase`. In cases where you can’t do that, because you’re outside a system, get hold of the world instead either as `World` or `WorldUnmanged`, which both have a `Time` property.
 
 ## Update SystemBase helper methods to SystemAPI
-SystemBase helpers like `GetComponent`, `SetComponent`, `GetSingleton` etc. has been marked for deprecation. Instead use `SystemAPI` inside systems. This also works for `Entities.ForEach` 
 
-In places where `SystemAPI` does not work, you can do the two following things.
-1. For singleton APIs you can get an EntityQuery and use their equating function. Here's an example of one such conversion:
+SystemBase helpers like `GetComponent`, `SetComponent`, `GetSingleton` have been marked for deprecation. Instead use [`SystemAPI`](xref:Unity.Entities.SystemAPI) inside systems. This also works for `Entities.ForEach` 
+
+In places where `SystemAPI` doesn't work, you can do the following things:
+
+For singleton APIs you can get an `EntityQuery` and use their equating method:
+
 ```csharp
 // Before
 void MyMethod(SystemBase mySystem) {
@@ -566,7 +610,9 @@ void MyMethod(SystemBase mySystem) {
     var mySingleton = myQuery.GetSingleton<MySingleton>();
 }
 ```
-2. For `GetComponent`, `SetComponent`, `HasComponent`, `GetBuffer` and `Exists`, you can either use the equating EntityManager functions, or cache your own lookups, akin to what SystemAPI does.
+
+For `GetComponent`, `SetComponent`, `HasComponent`, `GetBuffer` and `Exists`, you can either use the equating `EntityManager` methods, or cache your own lookups:
+
 ```csharp
 // Before
 void MyMethod(SystemBase mySystem, Entity e) {
@@ -583,8 +629,9 @@ void MyMethod(SystemBase mySystem, Entity e, ComponentLookup<MyComponent> alread
     var myComponent = alreadyUpdatedLookupOfMyComponent[e];
 }
 ```
-`GetBuffer` in SystemAPI also currently does not take in a bool of whether or not it's readonly. Therefore it assume it's always ReadWrite.
-Meaning you might have to do the following to convert:
+
+`GetBuffer` in `SystemAPI` doesn't take in a bool of whether or not it's read only. Therefore it assumes it's always ReadWrite. To convert to read only, do the following:
+
 ```csharp
 // Before
 var readonlyBuffer = this.GetBuffer<MyElement>(e, true);
@@ -593,6 +640,7 @@ var readonlyBuffer = this.GetBuffer<MyElement>(e, true);
 EntityManager.CompleteDependencyBeforeRO<MyElement>(); // Lookups don't cause syncing so this is needed for giving the exact same effect as before.
 var readonlyBuffer = SystemAPI.GetBufferLookup<MyElement>(true)[e];
 ```
+
 ## Add the Entities Graphics package to your project
 
 The Hybrid Rendering package (com.unity.rendering.hybrid) has been renamed to Entities Graphics (com.unity.entities.graphics) for consistency. The Hybrid Renderer still exists as an empty utility package with a dependency on Entities Graphics so you won't encounter any problem. However, you should add the Entities Graphics package to your project directly to avoid any errors in the future when the Hybrid Renderer package is removed completely.
@@ -601,25 +649,20 @@ If your project uses stock hybrid rendering you don't need to change your code. 
 
 For further information upgrading to Entities Graphics, see the [Entities Graphics upgrade guide](https://docs.unity3d.com/Packages/com.unity.entities.graphics@1.0/manual/upgrade-guide.html). 
 
-## Auto Generate Lighting mode removed
+## Modify blob assets that use new or default
 
-From Unity Editor version 2022.2 and later, the **Auto Generate** mode in the Lighting window is unavailable with the Entities package. 
+Blob assets created with `new` or `default` now produce an error. To fix this, do the following:
 
-This is because when you generate lighting in a project, the Unity Editor opens all loaded subscenes, which might slow down Editor performance. On demand baking is still available and is the recommended way of generating lighting.
 
-## Blob Asset Analysis is now more restrictive
-With the added restrictions you now get a warning when you try to `new` or `default` a blobasset. 
-As a result please instead modify the blobasset.
-e.g.
 ```cs
+/// Before
 var myBlob = new MyBlob(...);
 
 struct MyBlob {
     public MyBlob(...){...}
 }
-```
-Now becomes:
-```cs
+
+/// After
 ref var myBlob = ref builder.ConstructRoot<MyBlob>();
 myBlob.Setup(...);
 
@@ -628,16 +671,18 @@ struct MyBlob {
 }
 ```
 
-It's now not possible to use the `fixed type varName[n]` syntax inside a field on a blob. As that will create a pointer. Pointers are illegal in blobs.
+You can't use `fixed type varName[n]` syntax inside a field on a blob because it creates a pointer, which you can't use in blob assets. To fix this, do the following:
+
 ```cs
+
+/// Before
 unsafe struct MyBlob {
     public fixed bool Values[128];
 }
 ref var blob = ...; // construct it
 blob.Values[0] = true;
-```
-Now becomes:
-```cs
+
+/// After
 using Unity.Collections.LowLevel.Unsafe;
 
 unsafe struct MyBlob {

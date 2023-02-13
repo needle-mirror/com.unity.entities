@@ -249,6 +249,27 @@ namespace Unity.Entities
                         }
                     }
                 }
+
+                var sharedComponentValues = chunk->SharedComponentValues;
+                for (var i = 0; i < archetype->NumSharedComponents; i++)
+                {
+                    var sharedComponentIndex = sharedComponentValues[i];
+                    if (!TypeManager.GetTypeInfo(EntityComponentStore.GetComponentTypeFromSharedComponentIndex(sharedComponentIndex)).HasBlobAssetRefs)
+                        continue;
+
+                    if (!EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
+                        continue;
+
+                    var typeIndex = EntityComponentStore.GetComponentTypeFromSharedComponentIndex(sharedComponentIndex);
+                    ref readonly var ct = ref TypeManager.GetTypeInfo(typeIndex);
+                    var blobAssetRefCount = ct.BlobAssetRefOffsetCount;
+                    if (blobAssetRefCount <= 0)
+                        continue;
+
+                    var dataPtr = (byte*)entityComponentStore->GetSharedComponentDataAddr_Unmanaged(sharedComponentIndex, typeIndex);
+                    var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
+                    AddBlobAssetsWithDistinctHash(dataPtr, blobAssetRefOffsets, blobAssetRefCount, blobAssetsWithDistinctHash);
+                }
             }
 
             for (var chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
@@ -260,14 +281,13 @@ namespace Unity.Entities
                 for (var i = 0; i < archetype->NumSharedComponents; i++)
                 {
                     var sharedComponentIndex = sharedComponentValues[i];
-                    object sharedComponentValue;
                     if (!TypeManager.GetTypeInfo(EntityComponentStore.GetComponentTypeFromSharedComponentIndex(sharedComponentIndex)).HasBlobAssetRefs)
                         continue;
 
                     if (EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
-                        sharedComponentValue = entityComponentStore->GetSharedComponentDataObject_Unmanaged(sharedComponentIndex, EntityComponentStore.GetComponentTypeFromSharedComponentIndex(sharedComponentIndex));
-                    else
-                        sharedComponentValue = managedComponentStore.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndex);
+                        continue;
+
+                    var sharedComponentValue = managedComponentStore.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndex);
 
                     managedObjectBlobs.GatherBlobAssetReferences(sharedComponentValue, managedObjectBlobAssets, managedObjectBlobAssetsMap);
                 }
@@ -277,19 +297,16 @@ namespace Unity.Entities
             {
                 var blobAssetPtr = managedObjectBlobAssets[i];
 
-                void* validationPtr = null;
                 try
                 {
-                    // Try to read ValidationPtr, this might throw if the memory has been unmapped
-                    validationPtr = blobAssetPtr.Header->ValidationPtr;
+                    // This might throw if the memory has been unmapped
+                    var data = new BlobAssetReferenceData { m_Ptr = (byte*)blobAssetPtr.Data };
+                    data.ValidateNotNull();
                 }
                 catch (Exception)
                 {
-                    // Ignored
-                }
-
-                if (validationPtr != blobAssetPtr.Data)
                     continue;
+                }
 
                 blobAssetsWithDistinctHash.TryAdd(blobAssetPtr);
             }
@@ -321,19 +338,15 @@ namespace Unity.Entities
                 if (blobAssetRefPtr->m_Ptr == null)
                     continue;
 
-                void* validationPtr = null;
                 try
                 {
                     // Try to read ValidationPtr, this might throw if the memory has been unmapped
-                    validationPtr = blobAssetRefPtr->Header->ValidationPtr;
+                    blobAssetRefPtr->ValidateNotNull();
                 }
                 catch (Exception)
                 {
-                    // Ignored
-                }
-
-                if (validationPtr != blobAssetRefPtr->m_Ptr)
                     continue;
+                }
 
                 blobAssets.TryAdd(new BlobAssetPtr(blobAssetRefPtr->Header));
             }

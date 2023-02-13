@@ -112,13 +112,6 @@ namespace Unity.Scenes
                     objectReferences[i] = objRefs.Array[i];
             }
 
-#if UNITY_EDITOR && !UNITY_DISABLE_MANAGED_COMPONENTS
-            foreach (var companionIndex in objRefs.CompanionObjectIndices)
-            {
-                var source = (UnityEngine.GameObject) objectReferences[companionIndex];
-                CompanionGameObjectUtility.MoveToCompanionScene(source, false);
-            }
-#else
             // Companion Objects
             // When using bundles, the Companion GameObjects cannot be directly used (prefabs), so we need to instantiate everything.
             var sourceToInstance = new Dictionary<UnityEngine.GameObject, UnityEngine.GameObject>();
@@ -128,6 +121,11 @@ namespace Unity.Scenes
                 var instance = UnityEngine.Object.Instantiate(source);
                 objectReferences[companionIndex] = instance;
                 sourceToInstance.Add(source, instance);
+#if UNITY_EDITOR && !UNITY_DISABLE_MANAGED_COMPONENTS
+                source.hideFlags = HideFlags.HideAndDontSave;
+                source.gameObject.SetActive(false);
+                CompanionGameObjectUtility.MoveToCompanionScene(instance, false);
+#endif
             }
 
             for (int i = 0; i != objectReferences.Length; i++)
@@ -137,7 +135,6 @@ namespace Unity.Scenes
                     objectReferences[i] = sourceToInstance[component.gameObject].GetComponent(component.GetType());
                 }
             }
-#endif
         }
     }
 }
