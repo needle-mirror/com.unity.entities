@@ -412,6 +412,8 @@ namespace Unity.Entities
             s_SystemAttributes.Add(list);
             Assertions.Assert.IsTrue(systemTypeIndex == s_SystemAttributes.Length - 1);
         }
+
+//need to implement UnsafeUtility.IsUnmanaged in dotsrt for this to work
 #if !UNITY_DOTSRUNTIME
         private static int GetSystemTypeFlags(Type systemType)
         {
@@ -438,7 +440,7 @@ namespace Unity.Entities
                 throw new ArgumentException($"'{systemType.FullName}' cannot be constructed as it does not inherit from ComponentSystemBase");
 
             // In cases where we are dealing with generic types, we may need to calculate typeinformation that wasn't collected upfront
-            AddSystemTypeToTables(systemType);
+            AddSystemTypeToTablesAfterInit(systemType);
 
             return (ComponentSystemBase)Activator.CreateInstance(systemType);
 #else
@@ -542,7 +544,7 @@ namespace Unity.Entities
 
 
 #if !NET_DOTS
-        internal static void AddSystemTypeToTables(Type systemType)
+        internal static void AddSystemTypeToTablesAfterInit(Type systemType)
         {
             if (systemType == null || s_ManagedSystemTypeToIndex.ContainsKey(systemType))
                 return;
@@ -566,6 +568,8 @@ namespace Unity.Entities
 
             var filterFlags = default(WorldSystemFilterFlags);
             AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
+
+            AddSystemAttributesToTable(systemType);
         }
 #endif
 
@@ -825,7 +829,7 @@ namespace Unity.Entities
             SystemAttributeKind kind)
         {
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
-            
+
             var ret = new FixedList128Bytes<SystemAttribute>(); 
             var attributesList = (UnsafeList<SystemAttribute>*)SharedSystemAttributes.Ref.Data;
 

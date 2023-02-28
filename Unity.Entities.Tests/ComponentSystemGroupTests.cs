@@ -998,7 +998,7 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(new TestSystemBase[] {child2, child1}, childGroup.Systems);
         }
 
-        class NoSortGroup : ComponentSystemGroup
+        internal partial class NoSortGroup : ComponentSystemGroup
         {
             public NoSortGroup()
             {
@@ -1170,6 +1170,50 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < expectedUpdateList.Length; ++i)
             {
                 Assert.AreEqual(expectedUpdateList[i], noSortGroup.m_MasterUpdateList[i]);
+            }
+        }
+
+        [UpdateAfter(typeof(EmptySystem))]
+        public partial class GenericSystemThatDoesNotExistAtCompileTime<T> : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+
+        public static SystemBase MakeGenericSystem<T>(World world)
+        {
+            return world.CreateSystemManaged<GenericSystemThatDoesNotExistAtCompileTime<T>>();
+        }
+
+        [Test]
+        public void ComponentSystemGroup_SortsCorrectly_WithGenericSystemType_ConstructedAtRuntime()
+        {
+            var parentGroup = World.CreateSystemManaged<NoSortGroup>();
+            parentGroup.SetSortingEnabled(false);
+
+            var genericSystem = MakeGenericSystem<float>(World);
+            parentGroup.AddSystemToUpdateList(sys: genericSystem);
+            var emptySystem = World.CreateSystemManaged<EmptySystem>();
+            parentGroup.AddSystemToUpdateList(emptySystem);
+            
+            CollectionAssert.AreEqual(new [] {genericSystem, emptySystem}, parentGroup.Systems);
+
+            parentGroup.SetSortingEnabled(true);
+            parentGroup.SortSystems();
+
+            parentGroup.Update();
+            var expectedUpdateList = new[]
+            {
+                new UpdateIndex(0, true),
+                new UpdateIndex(1, true)
+            };
+            CollectionAssert.AreEqual(new [] {emptySystem, genericSystem}, parentGroup.Systems);
+
+            for (int i = 0; i < expectedUpdateList.Length; ++i)
+            {
+                Assert.AreEqual(expectedUpdateList[i], parentGroup.m_MasterUpdateList[i]);
             }
         }
     }

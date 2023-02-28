@@ -10,6 +10,7 @@ using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.CompilationPipeline.Common.ILPostProcessing;
+using UnityEngine.Scripting;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen")]
 namespace Unity.Entities.CodeGen
@@ -54,6 +55,12 @@ namespace Unity.Entities.CodeGen
                 {
                     using (marker.CreateChildMarker("GetAllComponentTypes"))
                         componentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where(type => type.IsComponentSystem()).ToArray();
+                    // Make sure IL2CPP doesn't strip systems
+                    if (componentSystemTypes.Length > 0) {
+                        var alwaysLinkAssemblyAttributeConstructors = typeof(AlwaysLinkAssemblyAttribute).GetConstructors();
+                        var alwaysLinkAssemblyAttribute = new CustomAttribute(assemblyDefinition.MainModule.ImportReference(alwaysLinkAssemblyAttributeConstructors[0]));
+                        assemblyDefinition.MainModule.Assembly.CustomAttributes.Add(alwaysLinkAssemblyAttribute);
+                    }
                 }
                 catch (FoundErrorInUserCodeException e)
                 {

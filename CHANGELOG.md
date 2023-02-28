@@ -4,6 +4,14 @@ uid: changelog
 
 # Changelog
 
+## [1.0.0-pre.47] - 2023-02-28
+
+### Fixed
+
+* Stripping (e.g. on il2cpp) now won't strip whole assemblies that have important systems, like graphics.
+* Generic systems created at runtime no longer break sorting functionality.
+
+
 ## [1.0.0-pre.44] - 2023-02-13
 
 ### Added
