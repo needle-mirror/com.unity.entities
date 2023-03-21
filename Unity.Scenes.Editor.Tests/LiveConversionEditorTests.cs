@@ -102,6 +102,12 @@ namespace Unity.Scenes.Editor.Tests
 
         protected IEnumerator UpdateEditorAndWorld(World w) => LiveConversionTest.UpdateEditorAndWorld(w);
 
+        public static void SetTransformUsageFlags(GameObject go, TransformUsageFlags flags)
+        {
+            var component = go.AddComponent<AddTransformUsageFlag>();
+            component.flags = flags;
+        }
+
         [UnityTest]
         public IEnumerator OpenSubScene_StaysOpen_WhenEnteringPlayMode()
         {
@@ -1264,6 +1270,7 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [UnityTest]
+        [Ignore("CI Instability DOTS-8126")]
         public IEnumerator LiveConversion_ChangingAssetInPrefab_Doesnt_Throw()
         {
             var subScene = CreateEmptySubScene("TestSubScene3", true);
@@ -1799,6 +1806,7 @@ namespace Unity.Scenes.Editor.Tests
                 var subScene = CreateEmptySubScene("TestSubScene", true);
 
                 var a = new GameObject("Root");
+                SetTransformUsageFlags(a, TransformUsageFlags.Dynamic);
                 SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
             }
 
@@ -1841,9 +1849,14 @@ namespace Unity.Scenes.Editor.Tests
                 var subScene = CreateEmptySubScene("TestSubScene", true);
 
                 var a = new GameObject("Root");
+                SetTransformUsageFlags(a, TransformUsageFlags.Dynamic);
                 var c = new GameObject("Child");
+                SetTransformUsageFlags(c, TransformUsageFlags.Dynamic);
                 c.transform.SetParent(a.transform);
-                new GameObject("ChildChild").transform.SetParent(c.transform);
+                var d = new GameObject("ChildChild");
+                d.transform.SetParent(c.transform);
+                SetTransformUsageFlags(d, TransformUsageFlags.Dynamic);
+
                 SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
             }
 
@@ -2230,11 +2243,7 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-#if !ENABLE_TRANSFORM_V1
-        protected static readonly IEnumerable<Type> k_DefaultEntitySceneComponentsBaking = new[] { typeof(EntityGuid), typeof(SceneSection), typeof(SceneTag), typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform), typeof(Simulate), typeof(TransformAuthoringCopyForTest)};
-#else
-        protected static readonly IEnumerable<Type> k_DefaultEntitySceneComponentsBaking = new[] { typeof(EntityGuid), typeof(SceneSection), typeof(SceneTag), typeof(Translation), typeof(Rotation), typeof(LocalToWorld), typeof(Simulate), typeof(TransformAuthoringCopyForTest) };
-#endif
+        protected static readonly IEnumerable<Type> k_DefaultEntitySceneComponentsBaking = new[] { typeof(EntityGuid), typeof(SceneSection), typeof(SceneTag), typeof(LocalToWorld), typeof(LocalTransform), typeof(Simulate), typeof(TransformAuthoringCopyForTest)};
 
         [UnityTest]
         public IEnumerator IncrementalConversion_DefaultEntitySceneComponents()
@@ -2243,6 +2252,7 @@ namespace Unity.Scenes.Editor.Tests
                 var subScene = CreateEmptySubScene("TestSubScene", true);
 
                 var a = new GameObject("Root");
+                SetTransformUsageFlags(a, TransformUsageFlags.Dynamic);
                 SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
             }
 
@@ -2310,6 +2320,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var subScene = CreateEmptySubScene("TestSubScene", true);
                 var a = new GameObject("A");
+                SetTransformUsageFlags(a, TransformUsageFlags.Dynamic);
                 var aAuthoring = a.AddComponent<CompanionComponentTestAuthoring>();
                 aAuthoring.Value = 16;
                 SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
@@ -2362,6 +2373,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var subScene = CreateEmptySubScene("TestSubScene", true);
                 var a = new GameObject("A");
+                SetTransformUsageFlags(a, TransformUsageFlags.Dynamic);
                 var aAuthoring = a.AddComponent<CompanionComponentTestAuthoring>();
                 aAuthoring.Value = 16;
                 SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
@@ -2518,8 +2530,10 @@ namespace Unity.Scenes.Editor.Tests
 
             // Let's change the transform of the entities.
 
-            w.EntityManager.GetAspect<TransformAspect>(entityA).LocalPosition = new float3(2, 3, 4);
-            w.EntityManager.GetAspect<TransformAspect>(entityB).LocalPosition = new float3(6, 7, 8);
+            w.EntityManager.SetComponentData(entityA,
+                w.EntityManager.GetComponentData<LocalTransform>(entityA).WithPosition(new float3(2,3,4)));
+            w.EntityManager.SetComponentData(entityB,
+                w.EntityManager.GetComponentData<LocalTransform>(entityB).WithPosition(new float3(6,7,8)));
 
             // Without a world update, the transforms shouldn't be propagated and remain unchanged.
 
@@ -2560,8 +2574,10 @@ namespace Unity.Scenes.Editor.Tests
 
             // Let's change the transform of the entities again.
 
-            w.EntityManager.GetAspect<TransformAspect>(entityA).LocalPosition = new float3(3, 4, 5);
-            w.EntityManager.GetAspect<TransformAspect>(entityB).LocalPosition = new float3(7, 8, 9);
+            w.EntityManager.SetComponentData(entityA,
+                w.EntityManager.GetComponentData<LocalTransform>(entityA).WithPosition(new float3(3,4,5)));
+            w.EntityManager.SetComponentData(entityB,
+                w.EntityManager.GetComponentData<LocalTransform>(entityB).WithPosition(new float3(7,8,9)));
 
             // Without a world update, the transforms shouldn't be propagated and remain unchanged.
 
@@ -2733,6 +2749,15 @@ namespace Unity.Scenes.Editor.Tests
                 Fuzz.UpdateFrameCommand(),
                 Fuzz.MoveToSubSceneCommand(0),
                 Fuzz.ReparentCommand(1, 0),
+                Fuzz.UpdateFrameCommand(),
+            }),
+            ("MoveToRootScene_ThenCreate", new List<Fuzz.Command>
+            {
+                Fuzz.CreateGameObjectCommand(0, 0),
+                Fuzz.UpdateFrameCommand(),
+                Fuzz.MoveToRootSceneCommand(0),
+                Fuzz.UpdateFrameCommand(),
+                Fuzz.CreateGameObjectCommand(1, 0),
                 Fuzz.UpdateFrameCommand(),
             }),
             ("MoveBetweenScenes_ThenAddChild", new List<Fuzz.Command>
@@ -3981,21 +4006,12 @@ namespace Unity.Scenes.Editor.Tests
 
                 yield return UpdateEditorAndWorld(w);
 
-#if !ENABLE_TRANSFORM_V1
                 var testActiveQuery = w.EntityManager.CreateEntityQuery(new EntityQueryDesc{All = new ComponentType[]{typeof(LocalTransform), typeof(TestComponentAuthoring.UnmanagedTestComponent)}});
                 Assert.AreEqual(totalUpdate, testActiveQuery.CalculateEntityCount(), $"Expected {totalUpdate} Entity");
 
                 var localTransforms = testActiveQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
                 foreach (var localTransform in localTransforms)
                     Assert.AreEqual(10f, localTransform.Position.x, "Local position should match between ECS and the gameobject");
-#else
-                var testActiveQuery = w.EntityManager.CreateEntityQuery(new EntityQueryDesc{All = new ComponentType[]{typeof(Translation), typeof(TestComponentAuthoring.UnmanagedTestComponent)}});
-                Assert.AreEqual(totalUpdate, testActiveQuery.CalculateEntityCount(), $"Expected {totalUpdate} Entity");
-
-                var localTranslations = testActiveQuery.ToComponentDataArray<Translation>(Allocator.Temp);
-                foreach (var localTranslation in localTranslations)
-                    Assert.AreEqual(10f, localTranslation.Value.x, "Local position should match between ECS and the gameobject");
-#endif
             }
         }
 
@@ -4437,8 +4453,8 @@ namespace Unity.Scenes.Editor.Tests
         {
             public override void Bake(Authoring_WithGameObjectField authoring)
             {
-                GetEntity(authoring.GameObjectField);
-                GetEntity(authoring.GameObjectField);
+                GetEntity(authoring.GameObjectField, TransformUsageFlags.None);
+                GetEntity(authoring.GameObjectField, TransformUsageFlags.None);
 
                 DependsOn(authoring.GameObjectField);
                 DependsOn(authoring.GameObjectField);
@@ -4610,16 +4626,72 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator IncrementalBaking_Prefabs_RootNotStripped()
+        {
+            using var overrideBake = new BakerDataUtility.OverrideBakers(true, typeof(MockDataAuthoringBaker), typeof(BakerTests.BakerWithPrefabReference));
+
+            var prefabObject = default(GameObject);
+            var prefabPath = LiveConversionTest.Assets.GetNextPath("Test.prefab");
+
+            // Parent with no components, so technically unused. But it will be preserved because it will be a root for a prefab
+            var newObject = new GameObject("Prefab");
+
+            var child = new GameObject($"Child");
+            child.transform.parent = newObject.transform;
+
+            var childCom = child.AddComponent<MockDataAuthoring>();
+            childCom.Value = 42;
+            SetTransformUsageFlags(child, TransformUsageFlags.Dynamic);
+
+            prefabObject = PrefabUtility.SaveAsPrefabAsset(newObject, prefabPath);
+
+            var subScene = CreateEmptySubScene("TestSubScene", true);
+            var sceneObject = new GameObject("SceneObject");
+            var aAuthoring = sceneObject.AddComponent<Authoring_WithGameObjectField>();
+            aAuthoring.GameObjectField = prefabObject;
+            SceneManager.MoveGameObjectToScene(sceneObject, subScene.EditingScene);
+
+            yield return GetEnterPlayMode(TestWithEditorLiveConversion.Mode.Edit);
+
+            {
+                var w = GetLiveConversionWorld(TestWithEditorLiveConversion.Mode.Edit);
+
+                yield return UpdateEditorAndWorld(w);
+
+                // Verify it baked first
+                var testQuery = w.EntityManager.CreateEntityQuery(new EntityQueryDesc{All = new ComponentType[]{typeof(LinkedEntityGroup)}, None = new ComponentType[]{typeof(MockData)}, Options = EntityQueryOptions.IncludePrefab});
+                Assert.AreEqual(1, testQuery.CalculateEntityCount(), "Expected a game object to be converted");
+
+                var testQueryChild = w.EntityManager.CreateEntityQuery(new EntityQueryDesc{All = new ComponentType[]{typeof(MockData)}, None = new ComponentType[]{typeof(LinkedEntityGroup)}, Options = EntityQueryOptions.IncludePrefab});
+                Assert.AreEqual(1, testQueryChild.CalculateEntityCount(), "Expected a game object to be converted");
+
+                var rootEntity = testQuery.GetSingletonEntity();
+                var childEntity = testQueryChild.GetSingletonEntity();
+                Assert.AreEqual(42, w.EntityManager.GetComponentData<MockData>(childEntity).Value);
+
+                // Prefab LinkedEntityGroup should contain all children + itself
+                // Checking in this test to ensure even deep hierarchies are correctly linked
+                var linkedEntityGroup = w.EntityManager.GetBuffer<LinkedEntityGroup>(rootEntity);
+                Assert.AreEqual(2, linkedEntityGroup.Length);
+
+                // Make sure first entry in group is the prefab entity itself
+                Assert.AreEqual(rootEntity, linkedEntityGroup[0].Value);
+                Assert.AreEqual(childEntity, linkedEntityGroup[1].Value);
+            }
+        }
+
         [UnityTest, TestMustExpectAllLogs]
         public IEnumerator IncrementalBaking_RectTransform_HierarchyValid()
         {
-            using var overrideBake = new BakerDataUtility.OverrideBakers(true, typeof(DefaultGameObjectBaker), typeof(MockDataAuthoringBaker), typeof(BakerTests.BakerWithPrefabReference));
+            using var overrideBake = new BakerDataUtility.OverrideBakers(true, typeof(DefaultGameObjectBaker), typeof(AddTransformUsageFlag.Baker), typeof(MockDataAuthoringBaker), typeof(BakerTests.BakerWithPrefabReference));
 
             var prefabObject = default(GameObject);
             var prefabPath = LiveConversionTest.Assets.GetNextPath("Test.prefab");
             var newObject = new GameObject("Prefab");
             newObject.AddComponent<RectTransform>();
             var com = newObject.AddComponent<MockDataAuthoring>();
+            SetTransformUsageFlags(newObject, TransformUsageFlags.Dynamic);
             com.Value = 42;
 
             void AddChildrenRecursive(GameObject parent, int maxDepth, int currentDepth)
@@ -4627,10 +4699,12 @@ namespace Unity.Scenes.Editor.Tests
                 var child1 = new GameObject($"Child1{currentDepth}");
                 child1.AddComponent<RectTransform>();
                 child1.transform.SetParent(parent.transform);
+                SetTransformUsageFlags(child1, TransformUsageFlags.Dynamic);
 
                 var child2 = new GameObject($"Child2{currentDepth}");
                 child2.AddComponent<RectTransform>();
                 child2.transform.SetParent(parent.transform);
+                SetTransformUsageFlags(child2, TransformUsageFlags.Dynamic);
 
                 var childCom = child1.AddComponent<MockDataAuthoring>();
                 childCom.Value = currentDepth;
@@ -4647,6 +4721,7 @@ namespace Unity.Scenes.Editor.Tests
             var subScene = CreateEmptySubScene("TestSubScene", true);
             var sceneObject = new GameObject("SceneObject");
             var aAuthoring = sceneObject.AddComponent<Authoring_WithGameObjectField>();
+            SetTransformUsageFlags(sceneObject, TransformUsageFlags.Dynamic);
             aAuthoring.GameObjectField = prefabObject;
             SceneManager.MoveGameObjectToScene(sceneObject, subScene.EditingScene);
 
@@ -4973,9 +5048,9 @@ namespace Unity.Scenes.Editor.Tests
             // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
             using var baking = new BakerDataUtility.OverrideBakers(true, typeof(TransformUsageBaker), typeof(TransformUsageBaker2));
 
-            TransformUsageBaker.Flags = TransformUsageFlags.Default;
+            TransformUsageBaker.Flags = TransformUsageFlags.Dynamic;
             TransformUsageBaker.Enabled = false;
-            TransformUsageBaker2.Flags = TransformUsageFlags.ReadGlobalTransform;
+            TransformUsageBaker2.Flags = TransformUsageFlags.NonUniformScale;
             TransformUsageBaker2.Enabled = false;
 
             GameObject a;
@@ -4996,7 +5071,7 @@ namespace Unity.Scenes.Editor.Tests
             Assert.AreEqual(0, anyConvertedEntities.CalculateEntityCount());
 
 
-            // Enable both TransformUsageFlags.Default & TransformUsageFlags.ReadGlobalTransform baker => Both usages are combined
+            // Enable both TransformUsageFlags.Dynamic & TransformUsageFlags.NonUniformScale baker => Both usages are combined
             {
                 Undo.RegisterCompleteObjectUndo(a.transform, "");
                 TransformUsageBaker.Enabled = true;
@@ -5004,16 +5079,16 @@ namespace Unity.Scenes.Editor.Tests
                 yield return UpdateEditorAndWorld(w);
 
                 Assert.AreEqual(1, transformAuthoringQuery.CalculateEntityCount());
-                Assert.AreEqual(TransformUsageFlags.ReadGlobalTransform | TransformUsageFlags.Default, transformAuthoringQuery.GetSingleton<TransformAuthoringCopyForTest>().RuntimeTransformUsage);
+                Assert.AreEqual(RuntimeTransformComponentFlags.LocalToWorld | RuntimeTransformComponentFlags.LocalTransform | RuntimeTransformComponentFlags.PostTransformMatrix, transformAuthoringQuery.GetSingleton<TransformAuthoringCopyForTest>().RuntimeTransformUsage);
             }
 
-            // Disable TransformUsageFlags.Default baker => Just ReadGlobalTransform remains
+            // Disable TransformUsageFlags.Default baker => Just NonUniformScale remains
             {
                 TransformUsageBaker.Enabled = false;
                 Undo.RegisterCompleteObjectUndo(a.transform, "");
                 yield return UpdateEditorAndWorld(w);
                 Assert.AreEqual(1, transformAuthoringQuery.CalculateEntityCount());
-                Assert.AreEqual(TransformUsageFlags.ReadGlobalTransform , transformAuthoringQuery.GetSingleton<TransformAuthoringCopyForTest>().RuntimeTransformUsage);
+                Assert.AreEqual(RuntimeTransformComponentFlags.LocalToWorld | RuntimeTransformComponentFlags.PostTransformMatrix, transformAuthoringQuery.GetSingleton<TransformAuthoringCopyForTest>().RuntimeTransformUsage);
             }
 
             // Disable Both bakers => Entities get deleted
@@ -5024,10 +5099,1099 @@ namespace Unity.Scenes.Editor.Tests
                 yield return UpdateEditorAndWorld(w);
                 Assert.AreEqual(0, transformAuthoringQuery.CalculateEntityCount());
                 Assert.AreEqual(0, anyConvertedEntities.CalculateEntityCount());
-
             }
         }
 
+        [UnityTest]
+        public IEnumerator IncrementalBaking_TransformUsage_HierarchyDynamicStaticSwap([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(AssignTransformUsageBaker));
+            AssignTransformUsageBaker.Flags.Clear();
+            AssignTransformUsageBaker.AddManualComponents.Clear();
+
+            GameObject a = null;
+            GameObject b = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    a = new GameObject("Root");
+                    b = new GameObject("Child");
+
+                    a.transform.localPosition = new float3(1f, 1f, 1f);
+                    a.transform.localRotation = quaternion.Euler(45f,45f,45f);
+                    a.transform.localScale = new float3(0.5f, 0.5f, 0.5f);
+                    b.transform.localPosition = new float3(2f, 2f, 2f);
+                    b.transform.localRotation = quaternion.Euler(10f,10f,10f);
+                    b.transform.localScale = new float3(4f, 4f, 4f);
+                    b.transform.SetParent(a.transform, false);
+
+                    return new List<GameObject> {a};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                var aEntity = bakingSystem.GetEntity(a);
+                var bEntity = bakingSystem.GetEntity(b);
+                Assert.AreNotEqual(Entity.Null, bEntity);
+
+                // Renderable/Renderable
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Dynamic/Renderable
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Dynamic/Dynamic
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Renderable/Dynamic
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+            }
+        }
+
+        // TODO: This test fails because of an incremental bug. This test should be reenabled once that is fixed. (DOTS-8025)
+        //[UnityTest]
+        public IEnumerator IncrementalBaking_TransformUsage_ManualOverrideSwap([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(AssignTransformUsageBaker));
+            AssignTransformUsageBaker.Flags.Clear();
+            AssignTransformUsageBaker.AddManualComponents.Clear();
+
+            GameObject a = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    a = new GameObject("Root");
+
+                    a.transform.localPosition = new float3(1f, 1f, 1f);
+                    a.transform.localRotation = quaternion.Euler(45f,45f,45f);
+                    a.transform.localScale = new float3(0.5f, 0.5f, 0.5f);
+
+                    return new List<GameObject> {a};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                var aEntity = bakingSystem.GetEntity(a);
+                Assert.AreNotEqual(Entity.Null, aEntity);
+
+                // Dynamic
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // ManualOverride
+                ChangeFlag(a, TransformUsageFlags.ManualOverride);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.Nothing );
+
+                // Dynamic
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // ManualOverride
+                AssignTransformUsageBaker.AddManualComponents[a] = RuntimeTransformComponentFlags.LocalTransform;
+                ChangeFlag(a, TransformUsageFlags.ManualOverride);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld );
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_TransformUsage_HierarchyIntermediateNones([Values]Mode mode, [Values(1,2)]int noneCount)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(AssignTransformUsageBaker));
+            AssignTransformUsageBaker.Flags.Clear();
+            AssignTransformUsageBaker.AddManualComponents.Clear();
+
+            GameObject a = null;
+            List<GameObject> intermediates = new List<GameObject>();
+            GameObject b = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    a = new GameObject("Root");
+                    var previous = a;
+
+                    for (int index = 0; index < noneCount; ++index)
+                    {
+                        var intermediate = new GameObject($"Intermediate {index}");
+                        intermediate.transform.localPosition = new float3(1f, 1f, 1f);
+                        intermediate.transform.localRotation = quaternion.Euler(45f,45f,45f);
+                        intermediate.transform.localScale = new float3(0.5f, 0.5f, 0.5f);
+                        intermediate.transform.SetParent(previous.transform, false);
+                        previous = intermediate;
+                        intermediates.Add(intermediate);
+                    }
+
+                    b = new GameObject("Child");
+
+                    a.transform.localPosition = new float3(1f, 1f, 1f);
+                    a.transform.localRotation = quaternion.Euler(45f,45f,45f);
+                    a.transform.localScale = new float3(0.5f, 0.5f, 0.5f);
+                    b.transform.localPosition = new float3(2f, 2f, 2f);
+                    b.transform.localRotation = quaternion.Euler(10f,10f,10f);
+                    b.transform.localScale = new float3(4f, 4f, 4f);
+                    b.transform.SetParent(previous.transform, false);
+
+                    return new List<GameObject> {a};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                var aEntity = bakingSystem.GetEntity(a);
+                List<Entity> intermediateEntities = new List<Entity>();
+                foreach (var intermediate in intermediates)
+                {
+                    intermediateEntities.Add(bakingSystem.GetEntity(intermediate));
+                }
+                var bEntity = bakingSystem.GetEntity(b);
+                Assert.AreNotEqual(Entity.Null, bEntity);
+
+                // Renderable/Renderable
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                ChangeFlag(intermediates, TransformUsageFlags.None);
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.Nothing);
+
+                // Dynamic/Renderable
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                                                                                                                    ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                                                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                                                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // Dynamic/Dynamic
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                                                                                                                    ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                                                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                                                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // Renderable/Dynamic
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.Nothing);
+
+                // Dynamic/Dynamic
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // Null/Dynamic
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                ChangeParent(b, null);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.Nothing);
+
+                // Dynamic/Dynamic
+                ChangeParent(b, intermediates[intermediates.Count - 1]);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // Dynamic/None
+                ChangeFlag(b, TransformUsageFlags.None);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.Nothing);
+
+                // Dynamic/Dynamic
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // Dynamic/None
+                ChangeFlag(a, TransformUsageFlags.None);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.Nothing);
+
+                // Dynamic/Dynamic
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // TODO: There is an incremental bug with manual override that prevents testing these last cases
+                // These need to be reenabled once that bug is fixed. (DOTS-8025)
+                /*
+                // Dynamic/ManualOverride
+                ChangeFlag(b, TransformUsageFlags.ManualOverride);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // Dynamic/Dynamic
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // ManualOverride/Dynamic
+                ChangeFlag(a, TransformUsageFlags.ManualOverride);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // ManualOverride/ManualOverride
+                ChangeFlag(b, TransformUsageFlags.ManualOverride);
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);*/
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_TransformUsage_HierarchyParentSwap([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(AssignTransformUsageBaker));
+            AssignTransformUsageBaker.Flags.Clear();
+            AssignTransformUsageBaker.AddManualComponents.Clear();
+
+            GameObject a = null;
+            GameObject a2 = null;
+            GameObject b = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    a = new GameObject("Root");
+                    a2 = new GameObject("Root2");
+                    b = new GameObject("Child");
+
+                    a.transform.localPosition = new float3(1f, 1f, 1f);
+                    a.transform.localRotation = quaternion.Euler(45f,45f,45f);
+                    a.transform.localScale = new float3(0.5f, 0.5f, 0.5f);
+                    a2.transform.localPosition = new float3(1.5f, 1.5f, 1.5f);
+                    a2.transform.localRotation = quaternion.Euler(40f,40f,40f);
+                    a2.transform.localScale = new float3(1.5f, 1.5f, 1.5f);
+                    b.transform.localPosition = new float3(2f, 2f, 2f);
+                    b.transform.localRotation = quaternion.Euler(10f,10f,10f);
+                    b.transform.localScale = new float3(4f, 4f, 4f);
+                    b.transform.SetParent(a.transform, false);
+
+                    return new List<GameObject> {a, a2};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                var aEntity = bakingSystem.GetEntity(a);
+                var a2Entity = bakingSystem.GetEntity(a2);
+                var bEntity = bakingSystem.GetEntity(b);
+                Assert.AreNotEqual(Entity.Null, bEntity);
+
+                // Renderable A / Renderable
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+
+                // NULL / Renderable
+                ChangeParent(b, null);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, null, b, Entity.Null, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+
+                // Renderable A2 / Renderable
+                ChangeParent(b, a2);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a2, b, a2Entity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasWorldSpaceData);
+
+                // Dynamic A/Renderable
+                ChangeParent(b, a);
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // NULL / Renderable
+                ChangeParent(b, null);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, null, b, Entity.Null, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasWorldSpaceData);
+
+                // Renderable A2 / Renderable
+                ChangeParent(b, a2);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a2, b, a2Entity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasWorldSpaceData);
+
+                // Dynamic A/Renderable
+                ChangeParent(b, a);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Dynamic A2 / Renderable
+                ChangeFlag(a2, TransformUsageFlags.Dynamic);
+                ChangeParent(b, a2);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a2, b, a2Entity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Dynamic A/Dynamic
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                ChangeParent(b, a);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Null/Dynamic
+                ChangeParent(b, null);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, null, b, Entity.Null, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Dynamic A2/Dynamic
+                ChangeFlag(a2, TransformUsageFlags.Dynamic);
+                ChangeParent(b, a2);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a2, b, a2Entity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Renderable A /Dynamic
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                ChangeParent(b, a);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+
+                // NULL /Dynamic
+                ChangeParent(b, null);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, null, b, Entity.Null, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+
+                // Renderable A /Dynamic
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                ChangeParent(b, a);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+
+                // Renderable A2 /Dynamic
+                ChangeFlag(a2, TransformUsageFlags.Renderable);
+                ChangeParent(b, a2);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a2, b, a2Entity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_TransformUsage_HierarchyWorldSwap([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(AssignTransformUsageBaker));
+            AssignTransformUsageBaker.Flags.Clear();
+            AssignTransformUsageBaker.AddManualComponents.Clear();
+
+            GameObject a = null;
+            GameObject b = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    a = new GameObject("Root");
+                    b = new GameObject("Child");
+
+                    a.transform.localPosition = new float3(1f, 1f, 1f);
+                    a.transform.localRotation = quaternion.Euler(45f,45f,45f);
+                    a.transform.localScale = new float3(0.5f, 0.5f, 0.5f);
+                    b.transform.localPosition = new float3(2f, 2f, 2f);
+                    b.transform.localRotation = quaternion.Euler(10f,10f,10f);
+                    b.transform.localScale = new float3(4f, 4f, 4f);
+                    b.transform.SetParent(a.transform, false);
+
+                    return new List<GameObject> {a};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                var aEntity = bakingSystem.GetEntity(a);
+                var bEntity = bakingSystem.GetEntity(b);
+                Assert.AreNotEqual(Entity.Null, bEntity);
+
+                // Renderable/Renderable
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable World
+                ChangeFlag(b, TransformUsageFlags.Renderable | TransformUsageFlags.WorldSpace);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Dynamic/Renderable
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Dynamic/Renderable World
+                ChangeFlag(b, TransformUsageFlags.Renderable | TransformUsageFlags.WorldSpace);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld  |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Dynamic/Renderable
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasLocalTransform );
+
+
+                // Dynamic/Dynamic
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Dynamic/Dynamic World
+                ChangeFlag(b, TransformUsageFlags.Dynamic | TransformUsageFlags.WorldSpace);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Dynamic/Dynamic
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // Renderable/Dynamic
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic World
+                ChangeFlag(b, TransformUsageFlags.Dynamic | TransformUsageFlags.WorldSpace);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_TransformUsage_HierarchyNonUniformScale([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(AssignTransformUsageBaker));
+            AssignTransformUsageBaker.Flags.Clear();
+            AssignTransformUsageBaker.AddManualComponents.Clear();
+
+            GameObject a = null;
+            GameObject b = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    a = new GameObject("Root");
+                    b = new GameObject("Child");
+
+                    a.transform.localPosition = new float3(1f, 1f, 1f);
+                    a.transform.localRotation = quaternion.Euler(45f,45f,45f);
+                    a.transform.localScale = new float3(0.5f, 0.5f, 0.5f);
+                    b.transform.localPosition = new float3(2f, 2f, 2f);
+                    b.transform.localRotation = quaternion.Euler(10f,10f,10f);
+                    b.transform.localScale = new float3(4f, 4f, 4f);
+                    b.transform.SetParent(a.transform, false);
+
+                    return new List<GameObject> {a};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                var aEntity = bakingSystem.GetEntity(a);
+                var bEntity = bakingSystem.GetEntity(b);
+                Assert.AreNotEqual(Entity.Null, bEntity);
+
+                // First Set Renderable/Renderable
+                #region Renderable_Renderable
+                // Renderable/Renderable
+                ChangeFlag(a, TransformUsageFlags.Renderable);
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable NUS
+                ChangeLocalScale(b, new float3(1f, 2f, 3f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable NUS & NUS FLAG
+                ChangeFlag(b, TransformUsageFlags.Renderable | TransformUsageFlags.NonUniformScale);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable & NUS FLAG
+                ChangeLocalScale(b, new float3(1f, 1f, 1f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable & NUS FLAG
+                ChangeFlag(b, TransformUsageFlags.Renderable | TransformUsageFlags.NonUniformScale);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable NUS & NUS FLAG
+                ChangeLocalScale(b, new float3(1f, 2f, 3f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable NUS
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Renderable
+                ChangeLocalScale(b, new float3(1f, 1f, 1f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable NUS/Renderable
+                ChangeLocalScale(a, new float3(1f, 2f, 3f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                #endregion
+                // Second Set Renderable/Dynamic
+                #region Renderable_Dynamic
+                ChangeLocalScale(a, new float3(1f, 1f, 1f));
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic NUS
+                ChangeLocalScale(b, new float3(1f, 2f, 3f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData|
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic NUS & NUS FLAG
+                ChangeFlag(b, TransformUsageFlags.Dynamic | TransformUsageFlags.NonUniformScale);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic & NUS FLAG
+                ChangeLocalScale(b, new float3(1f, 1f, 1f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic & NUS FLAG
+                ChangeFlag(b, TransformUsageFlags.Dynamic | TransformUsageFlags.NonUniformScale);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic NUS & NUS FLAG
+                ChangeLocalScale(b, new float3(1f, 2f, 3f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic NUS
+                ChangeFlag(b, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData|
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable/Dynamic
+                ChangeLocalScale(b, new float3(1f, 1f, 1f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                // Renderable NUS/Dynamic
+                ChangeLocalScale(a, new float3(1f, 2f, 3f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasWorldSpaceData );
+
+                #endregion
+                // Third Set Dynamic/Renderable
+                #region Dynamic_Renderable
+                // Dynamic NUS/Renderable
+                ChangeLocalScale(a, new float3(1f, 2f, 3f));
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                     ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                                     ExpectedConvertedTransformResults.HasNonUniformScale );
+
+                // Dynamic NUS/Renderable NUS
+                ChangeLocalScale(b, new float3(1f, 2f, 3f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                     ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                                     ExpectedConvertedTransformResults.HasNonUniformScale );
+
+                // Dynamic NUS/Renderable NUS & NUS FLAG
+                ChangeFlag(b, TransformUsageFlags.Renderable | TransformUsageFlags.NonUniformScale);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                     ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                                     ExpectedConvertedTransformResults.HasNonUniformScale );
+
+                // Dynamic NUS/Renderable & NUS FLAG
+                ChangeLocalScale(b, new float3(1f, 1f, 1f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                     ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                                     ExpectedConvertedTransformResults.HasNonUniformScale );
+
+                // Dynamic NUS/Renderable
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                     ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                                     ExpectedConvertedTransformResults.HasNonUniformScale );
+
+                // Dynamic NUS/Renderable & NUS FLAG
+                ChangeFlag(b, TransformUsageFlags.Renderable | TransformUsageFlags.NonUniformScale);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                     ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                                     ExpectedConvertedTransformResults.HasNonUniformScale );
+
+                // Dynamic NUS/Renderable NUS & NUS FLAG
+                ChangeLocalScale(b, new float3(1f, 2f, 3f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                     ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                                     ExpectedConvertedTransformResults.HasNonUniformScale );
+
+                // Dynamic NUS/Renderable NUS
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                                                                              ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                              ExpectedConvertedTransformResults.HasNonUniformScale);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                     ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                                     ExpectedConvertedTransformResults.HasNonUniformScale );
+
+                // Dynamic NUS/Renderable
+                ChangeLocalScale(b, new float3(1f, 1f, 1f));
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                                     ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                                     ExpectedConvertedTransformResults.HasPostTransformMatrix |
+                                                                                     ExpectedConvertedTransformResults.HasNonUniformScale );
+                #endregion
+            }
+        }
+
+        void ChangeLocalPosition(GameObject obj, float3 position)
+        {
+            Undo.RecordObject(obj.transform, "Changing local position");
+            obj.transform.localPosition = position;
+            Undo.FlushUndoRecordObjects();
+        }
+
+        void ChangeLocalScale(GameObject obj, float3 scale)
+        {
+            Undo.RecordObject(obj.transform, "Changing local scale");
+            obj.transform.localScale = scale;
+            Undo.FlushUndoRecordObjects();
+        }
+
+        void ChangeLocalScale(List<GameObject> objs, float3 scale)
+        {
+            foreach (var obj in objs)
+            {
+                Undo.RecordObject(obj.transform, "Changing local scale");
+                obj.transform.localScale = scale;
+                Undo.FlushUndoRecordObjects();
+            }
+        }
+
+        void ChangeParent(GameObject obj, GameObject parent)
+        {
+            var parentTransform = parent != null ? parent.transform : null;
+            Undo.SetTransformParent(obj.transform, parentTransform, "");
+            obj.transform.SetParent(parentTransform, false);
+        }
+
+        void ChangeFlag(List<GameObject> objs, TransformUsageFlags flags)
+        {
+            foreach (var obj in objs)
+            {
+                AssignTransformUsageBaker.Flags[obj] = flags;
+                Undo.RegisterCompleteObjectUndo(obj.transform, "");
+            }
+        }
+
+        void ChangeFlag(GameObject obj, TransformUsageFlags flags)
+        {
+            AssignTransformUsageBaker.Flags[obj] = flags;
+            Undo.RegisterCompleteObjectUndo(obj.transform, "");
+        }
+
+        void TestTransformUsageChangeIntermediates(World bakingWorld, GameObject rootGo, List<GameObject> intermediates, Entity rootEntity, List<Entity> intermediateEntities, ExpectedConvertedTransformResults expectedIntermediateDescription)
+        {
+            var parentEntity = rootEntity;
+            var parent = rootGo;
+            for (int index = 0; index < intermediates.Count; ++index)
+            {
+                var intermediate = intermediates[index];
+                var intermediateEntity = intermediateEntities[index];
+
+                TestTransformUsageChange(bakingWorld, parent, intermediate, parentEntity, intermediateEntity, expectedIntermediateDescription);
+
+                // Prepare the next loop
+                parent = intermediate;
+                parentEntity = intermediateEntity;
+            }
+        }
+
+        void TestTransformUsageChange(World bakingWorld, GameObject parentGo, GameObject childGo, Entity parentEntity, Entity childEntity, ExpectedConvertedTransformResults expectedDescriptionChild)
+        {
+            var bTransformAuthoring = bakingWorld.EntityManager.GetComponentData<TransformAuthoring>(childEntity);
+
+            TestTransformUsageFlagsHelper.VerifyBakedTransformData(bakingWorld.EntityManager, expectedDescriptionChild, childGo.transform, bTransformAuthoring, childEntity, parentEntity);
+        }
 
         public World GetBakingWorld(World w, Unity.Entities.Hash128 sceneGUID)
         {
@@ -6120,11 +7284,7 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-        private Unity.Entities.Hash128 CalculateBlobHash(int value)
-        {
-            var customHash = value.GetHashCode();
-            return new Unity.Entities.Hash128((uint) customHash, 1, 2, 3);
-        }
+        Entities.Hash128 CalculateBlobHash(int value) => CustomHashHelpers.Compute(value);
 
         [UnityTest]
         public IEnumerator IncrementalBaking_AddAndUpdateBlobAssetRefCount_BakerAndSystem([Values]Mode mode)
@@ -6161,11 +7321,12 @@ namespace Unity.Scenes.Editor.Tests
                 var hash1 = CalculateBlobHash(1);
                 var hash2 = CalculateBlobHash(2);
                 var hash3 = CalculateBlobHash(3);
-                var hash4 = CalculateBlobHash(4);
 
-                // Check that hash1 and hash2 has initially one reference
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(hash2));
+                // Only hash1 and hash2 should initially exist
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(2, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash1));
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash2));
 
                 // Change both blobs to the same value to make sure that the old ones get deleted and the new one has 2 references
                 var bakerComponent = root.GetComponent<BlobAssetAddTestAuthoring>();
@@ -6175,45 +7336,57 @@ namespace Unity.Scenes.Editor.Tests
                 systemComponent.blobValue = 3;
                 Undo.FlushUndoRecordObjects();
                 yield return UpdateEditorAndWorld(w);
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash2));
-                Assert.AreEqual(2, blobAssetStore.GetBlobAssetRefCounter<int>(hash3));
+
+                // Only hash3 should exist (referenced twice), hash1 and hash2 aren't used anymore
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash3));
 
                 // Change the baker blob so the hash3 has again one ref
                 Undo.RecordObjects(new Object[]{bakerComponent}, "Changed values for blobs");
                 bakerComponent.blobValue = 1;
                 Undo.FlushUndoRecordObjects();
                 yield return UpdateEditorAndWorld(w);
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash2));
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(hash3));
+
+                // Only hash1 and hash3 should exist (referenced once each)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(2, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash1));
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash3));
 
                 // Change back to the same blob value
                 Undo.RecordObjects(new Object[]{bakerComponent}, "Changed values for blobs");
                 bakerComponent.blobValue = 3;
                 Undo.FlushUndoRecordObjects();
                 yield return UpdateEditorAndWorld(w);
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash2));
-                Assert.AreEqual(2, blobAssetStore.GetBlobAssetRefCounter<int>(hash3));
+
+                // Only hash3 should exist (referenced twice)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash3));
 
                 // Change the system blob so the hash3 has again one refs
                 Undo.RecordObjects(new Object[]{systemComponent}, "Changed values for blobs");
                 systemComponent.blobValue = 2;
                 Undo.FlushUndoRecordObjects();
                 yield return UpdateEditorAndWorld(w);
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(hash2));
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(hash3));
 
-                // Change back  system blob so the hash3 has again 2 refs
+                // Only hash2 and hash3 should exist (referenced once each)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(2, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash2));
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash3));
+
+                // Change back system blob so the hash3 has again 2 refs
                 Undo.RecordObjects(new Object[]{systemComponent}, "Changed values for blobs");
                 systemComponent.blobValue = 3;
                 Undo.FlushUndoRecordObjects();
                 yield return UpdateEditorAndWorld(w);
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash2));
-                Assert.AreEqual(2, blobAssetStore.GetBlobAssetRefCounter<int>(hash3));
+
+                // Only hash3 should exist (referenced twice)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash3));
 
                 // Change both to the same blob together from the same blob
                 Undo.RecordObjects(new Object[]{bakerComponent, systemComponent}, "Changed values for blobs");
@@ -6221,9 +7394,11 @@ namespace Unity.Scenes.Editor.Tests
                 systemComponent.blobValue = 1;
                 Undo.FlushUndoRecordObjects();
                 yield return UpdateEditorAndWorld(w);
-                Assert.AreEqual(2, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash2));
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash3));
+
+                // Only hash1 should exist (referenced twice)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash1));
             }
         }
 
@@ -6262,74 +7437,91 @@ namespace Unity.Scenes.Editor.Tests
                 Assert.AreEqual(2, testBlobAssetQuery.CalculateEntityCount(), "The Blob Asset Reference Component was not added correctly");
 
                 var entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
-                var componentArray = new NativeArray<BlobAssetReference>(entityArray.Length, Allocator.Persistent)
+
                 {
-                    [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
-                    [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
-                };
+                    var componentArray = new NativeArray<BlobAssetReference>(entityArray.Length, Allocator.Temp)
+                    {
+                        [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
+                        [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
+                    };
 
-                Assert.AreEqual(componentArray[0].blobHash, componentArray[1].blobHash, "The references do not point to the same Blob Asset");
-                Assert.AreEqual(componentArray[0].blobValue, componentArray[1].blobValue, "The references do not point to the same Blob Asset");
-                Assert.AreEqual(componentArray[0].blobReference, componentArray[1].blobReference, "The references do not point to the same Blob Asset");
-                Assert.DoesNotThrow(() => _ = componentArray[0].blobReference.Value, "The Blob Asset Reference is invalid");
+                    Assert.AreEqual(componentArray[0].blobHash, componentArray[1].blobHash, "The references do not point to the same Blob Asset");
+                    Assert.AreEqual(componentArray[0].blobValue, componentArray[1].blobValue, "The references do not point to the same Blob Asset");
+                    Assert.AreEqual(componentArray[0].blobReference, componentArray[1].blobReference, "The references do not point to the same Blob Asset");
+                    Assert.DoesNotThrow(() => _ = componentArray[0].blobReference.Value, "The Blob Asset Reference is invalid");
 
-                Assert.AreEqual(2, blobAssetStore.GetBlobAssetRefCounter<int>(componentArray[0].blobHash));
-                var originalHash = componentArray[0].blobHash;
+                    // Only one blob should exist (referenced twice)
+                    blobAssetStore.GarbageCollection(w.EntityManager);
+                    Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                    Assert.AreEqual(componentArray[0].blobHash, componentArray[1].blobHash);
+                    Assert.IsTrue(blobAssetStore.Contains<int>(componentArray[0].blobHash));
 
-                // If entity A no longer uses the Blob Asset the Blob Asset should still exist for entity B
-                // In addition, a new Blob Asset has to be added for entity A
-                var a = GameObject.Find("A");
-                var authoringA = a.GetComponent<BlobAssetAddTestAuthoring>();
+                    // If entity A no longer uses the Blob Asset the Blob Asset should still exist for entity B
+                    // In addition, a new Blob Asset has to be added for entity A
+                    var a = GameObject.Find("A");
+                    var authoringA = a.GetComponent<BlobAssetAddTestAuthoring>();
 
-                Undo.RecordObject(authoringA, "change gameobject A's Blob Asset");
-                authoringA.blobValue = 1;
-                Undo.FlushUndoRecordObjects();
+                    Undo.RecordObject(authoringA, "change gameobject A's Blob Asset");
+                    authoringA.blobValue = 1;
+                    Undo.FlushUndoRecordObjects();
+                }
+
                 yield return UpdateEditorAndWorld(w);
 
-                Assert.AreEqual(2, testBlobAssetQuery.CalculateEntityCount(), "The Blob Asset Reference Component was not added correctly");
-
-                entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
-                componentArray = new NativeArray<BlobAssetReference>(entityArray.Length, Allocator.Persistent)
                 {
-                    [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
-                    [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
-                };
+                    // The two blobs should exist (each referenced once)
+                    blobAssetStore.GarbageCollection(w.EntityManager);
+                    Assert.AreEqual(2, blobAssetStore.BlobAssetCount);
+                    Assert.AreEqual(2, testBlobAssetQuery.CalculateEntityCount(), "The Blob Asset Reference Component was not added correctly");
 
-                Assert.AreNotEqual(componentArray[0].blobHash, componentArray[1].blobHash, "The references still point to the same Blob Asset");
-                Assert.AreNotEqual(componentArray[0].blobValue, componentArray[1].blobValue, "The references still point to the same Blob Asset");
-                Assert.AreNotEqual(componentArray[0].blobReference, componentArray[1].blobReference, "The references still point to the same Blob Asset");
-                Assert.DoesNotThrow(() => _ = componentArray[0].blobReference.Value, "The original Blob Asset Reference is invalid");
-                Assert.DoesNotThrow(() => _ = componentArray[1].blobReference.Value, "The new Blob Asset Reference is invalid");
+                    entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
+                    var componentArray = new NativeArray<BlobAssetReference>(entityArray.Length, Allocator.Temp)
+                    {
+                        [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
+                        [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
+                    };
 
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(componentArray[0].blobHash));
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(componentArray[1].blobHash));
+                    Assert.IsTrue(blobAssetStore.Contains<int>(componentArray[0].blobHash));
+                    Assert.IsTrue(blobAssetStore.Contains<int>(componentArray[1].blobHash));
 
-                // If none of the entities uses the old Blob Asset, the old Blob Asset refCount should be removed from the BlobAssetStore
-                var b = GameObject.Find("B");
-                var authoringB = b.GetComponent<BlobAssetAddTestAuthoring>();
+                    Assert.AreNotEqual(componentArray[0].blobHash, componentArray[1].blobHash, "The references still point to the same Blob Asset");
+                    Assert.AreNotEqual(componentArray[0].blobValue, componentArray[1].blobValue, "The references still point to the same Blob Asset");
+                    Assert.AreNotEqual(componentArray[0].blobReference, componentArray[1].blobReference, "The references still point to the same Blob Asset");
+                    Assert.DoesNotThrow(() => _ = componentArray[0].blobReference.Value, "The original Blob Asset Reference is invalid");
+                    Assert.DoesNotThrow(() => _ = componentArray[1].blobReference.Value, "The new Blob Asset Reference is invalid");
 
-                Undo.RecordObject(authoringB, "change gameobject B's Blob Asset");
-                authoringB.blobValue = 1;
-                Undo.FlushUndoRecordObjects();
+                    // If none of the entities uses the old Blob Asset, the old Blob Asset refCount should be removed from the BlobAssetStore
+                    var b = GameObject.Find("B");
+                    var authoringB = b.GetComponent<BlobAssetAddTestAuthoring>();
+
+                    Undo.RecordObject(authoringB, "change gameobject B's Blob Asset");
+                    authoringB.blobValue = 1;
+                    Undo.FlushUndoRecordObjects();
+                }
+
                 yield return UpdateEditorAndWorld(w);
 
-                Assert.AreEqual(2, testBlobAssetQuery.CalculateEntityCount(), "The Blob Asset Reference Component was not added correctly");
-
-                entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
-                componentArray = new NativeArray<BlobAssetReference>(entityArray.Length, Allocator.Persistent)
                 {
-                    [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
-                    [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
-                };
+                    // Only one blob should exist (referenced twice)
+                    blobAssetStore.GarbageCollection(w.EntityManager);
+                    Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
 
-                Assert.AreEqual(componentArray[0].blobHash, componentArray[1].blobHash, "The references do not point to the same Blob Asset");
-                Assert.AreEqual(componentArray[0].blobValue, componentArray[1].blobValue, "The references do not point to the same Blob Asset");
-                Assert.AreEqual(componentArray[0].blobReference, componentArray[1].blobReference, "The references do not point to the same Blob Asset");
-                Assert.DoesNotThrow(() => _ = componentArray[0].blobReference.Value, "The Blob Asset Reference is invalid");
+                    Assert.AreEqual(2, testBlobAssetQuery.CalculateEntityCount(), "The Blob Asset Reference Component was not added correctly");
 
-                Assert.AreEqual(2, blobAssetStore.GetBlobAssetRefCounter<int>(componentArray[0].blobHash));
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(originalHash));
+                    entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
+                    var componentArray = new NativeArray<BlobAssetReference>(entityArray.Length, Allocator.Temp)
+                    {
+                        [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
+                        [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
+                    };
 
+                    Assert.IsTrue(blobAssetStore.Contains<int>(componentArray[0].blobHash));
+
+                    Assert.AreEqual(componentArray[0].blobHash, componentArray[1].blobHash, "The references do not point to the same Blob Asset");
+                    Assert.AreEqual(componentArray[0].blobValue, componentArray[1].blobValue, "The references do not point to the same Blob Asset");
+                    Assert.AreEqual(componentArray[0].blobReference, componentArray[1].blobReference, "The references do not point to the same Blob Asset");
+                    Assert.DoesNotThrow(() => _ = componentArray[0].blobReference.Value, "The Blob Asset Reference is invalid");
+                }
             }
         }
 
@@ -6352,7 +7544,6 @@ namespace Unity.Scenes.Editor.Tests
                 SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
                 SceneManager.MoveGameObjectToScene(b, subScene.EditingScene);
             }
-
 
             yield return GetEnterPlayMode(TestWithEditorLiveConversion.Mode.Edit);
             {
@@ -6385,8 +7576,11 @@ namespace Unity.Scenes.Editor.Tests
                 Assert.DoesNotThrow(() => _ = componentArray[0].blobReference.Value, "The Blob Asset Reference is invalid");
 
                 Assert.AreEqual(hash5, componentArray[0].blobHash);
-                Assert.AreEqual(2, blobAssetStore.GetBlobAssetRefCounter<int>(hash5));
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
+
+                // Only one blob should exist (referenced twice)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash5));
 
                 // If entity A no longer uses the Blob Asset the Blob Asset should still exist for entity B
                 // In addition, a new Blob Asset has to be added for entity A
@@ -6416,8 +7610,12 @@ namespace Unity.Scenes.Editor.Tests
 
                 Assert.AreEqual(hash5, componentArray[0].blobHash);
                 Assert.AreEqual(hash1, componentArray[1].blobHash);
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(hash5));
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
+
+                // Only two blobs should exist (referenced once each)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(2, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash1));
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash5));
 
                 // If none of the entities uses the old Blob Asset, the old Blob Asset refCount should be removed from the BlobAssetStore
                 var b = GameObject.Find("B");
@@ -6443,8 +7641,11 @@ namespace Unity.Scenes.Editor.Tests
                 Assert.DoesNotThrow(() => _ = componentArray[0].blobReference.Value, "The Blob Asset Reference is invalid");
 
                 Assert.AreEqual(hash1, componentArray[0].blobHash);
-                Assert.AreEqual(0, blobAssetStore.GetBlobAssetRefCounter<int>(hash5));
-                Assert.AreEqual(2, blobAssetStore.GetBlobAssetRefCounter<int>(hash1));
+
+                // Only one blob should exist (referenced twice)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(hash1));
             }
         }
 
@@ -6497,7 +7698,10 @@ namespace Unity.Scenes.Editor.Tests
                 Assert.AreEqual(componentArrayAdd.blobReference, componentArrayGet.blobReference, "The references do not point to the same Blob Asset");
                 Assert.DoesNotThrow(() => _ = componentArrayAdd.blobReference.Value, "The Blob Asset Reference is invalid");
 
-                Assert.AreEqual(2, blobAssetStore.GetBlobAssetRefCounter<int>(componentArrayAdd.blobHash));
+                // Only one blob should exist (referenced twice)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(componentArrayAdd.blobHash));
             }
         }
 
@@ -6537,9 +7741,12 @@ namespace Unity.Scenes.Editor.Tests
                 var entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Temp);
                 var component = w.EntityManager.GetComponentData<BlobAssetGetReference>(entityArray[0]);
 
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(component.blobHash));
+                // Only one blob should exist (referenced once)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(component.blobHash));
+
                 var blobHash = component.blobHash;
-                var typeHash = (uint) typeof(int).GetHashCode();
 
                 // Remove the authoring and check that the BlobAssetStore refcounting is correctly updated
                 var a = GameObject.Find("A");
@@ -6593,10 +7800,14 @@ namespace Unity.Scenes.Editor.Tests
                 var entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Temp);
                 var component = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]);
 
-                Assert.AreEqual(1, blobAssetStore.GetBlobAssetRefCounter<int>(component.blobHash));
+                // Only one blob should exist (referenced once)
+                blobAssetStore.GarbageCollection(w.EntityManager);
+                Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
+                Assert.IsTrue(blobAssetStore.Contains<int>(component.blobHash));
+
                 Assert.DoesNotThrow(() => _ = component.blobReference.Value, "The Blob Asset Reference is invalid");
 
-                blobAssetStore.TryGet<int>(component.blobHash, out var bakerBlobAssetReference, false);
+                blobAssetStore.TryGet<int>(component.blobHash, out var bakerBlobAssetReference);
                 var runtimeBlobAssetReference = component.blobReference;
 
                 // If entity A no longer uses the Blob Asset the Blob Asset should still exist for entity B
@@ -6747,11 +7958,13 @@ namespace Unity.Scenes.Editor.Tests
                 CreateSubSceneFromObjects("TestSubScene", false, () =>
                 {
                     go0 = new GameObject("Section0");
+                    SetTransformUsageFlags(go0, TransformUsageFlags.Dynamic);
                     // Just adding this component to identify the root entity
                     go0.AddComponent<TestComponentAuthoring>();
 
                     // Creating an object in section 1 with a parent reference to object in section 0. It shoudl be valid.
                     var go1 = new GameObject("Section1");
+                    SetTransformUsageFlags(go1, TransformUsageFlags.Renderable);
                     go1.transform.SetParent(go0.transform);
                     var sectionComponent = go1.AddComponent<SceneSectionComponent>();
                     sectionComponent.SectionIndex = 1;
@@ -6764,6 +7977,7 @@ namespace Unity.Scenes.Editor.Tests
 
                     // Creating an object in section 2 with a parent reference to object in section 1. It should be null.
                     var go2 = new GameObject("Section2");
+                    SetTransformUsageFlags(go2, TransformUsageFlags.Renderable);
                     go2.transform.SetParent(go1.transform);
                     sectionComponent = go2.AddComponent<SceneSectionComponent>();
                     sectionComponent.SectionIndex = 2;

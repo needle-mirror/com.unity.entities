@@ -8,6 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 using ListView = UnityEngine.UIElements.ListView;
+using Unity.Editor.Bridge;
 
 namespace Unity.Entities.Editor
 {
@@ -161,6 +162,7 @@ namespace Unity.Entities.Editor
         void Build()
         {
             Resources.Templates.ContentProvider.ComponentsWindow.Clone(rootVisualElement);
+            Resources.Templates.DotsEditorCommon.AddStyles(rootVisualElement);
             m_ListView = rootVisualElement.Q<ListView>(className:"components-window__list-view");
             m_ListView.fixedItemHeight = Constants.ListView.ItemHeight;
 
@@ -199,6 +201,7 @@ namespace Unity.Entities.Editor
             });
             m_SearchElement.value = m_State.SearchString;
             m_SearchElement.Search();
+            m_SearchElement.parent.Add(SearchUtils.CreateJumpButton(() => ComponentSearchProvider.OpenProvider(m_SearchElement.value)));
 
             SetSelection();
         }

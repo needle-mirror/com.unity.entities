@@ -13,7 +13,7 @@ namespace Unity.Entities
         public override void Bake(UnityEngine.GameObject authoring)
         {
             // Force the object to be used to preserve the GameObject hierarchy.
-            AddTransformUsageFlags(TransformUsageFlags.Default);
+            //AddTransformUsageFlags(TransformUsageFlags.None);
 
             if (IsStatic())
                 AddComponent(GetEntityWithoutDependency(),new Static());

@@ -21,7 +21,8 @@ namespace Unity.Entities.Hybrid.Tests.Baking.SeparateAssembly
     {
         public override void Bake(ComponentInAssemblyAuthoring authoring)
         {
-            AddComponent(new ComponentInAssemblyBakerC
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new ComponentInAssemblyBakerC
             {
                 value = authoring.value
             });

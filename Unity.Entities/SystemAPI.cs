@@ -204,6 +204,31 @@ namespace Unity.Entities
         public static T GetComponent<T>(Entity entity) where T : unmanaged, IComponentData => throw InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
+        /// Gets a reference to a component for an entity, for read/write access.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="isReadOnly">True if only read-only access to the component is required. In most cases, this should be false.</param>
+        /// <typeparam name="T">The type of component to retrieve.</typeparam>
+        /// <returns>A read/write reference to component T.</returns>
+        /// <remarks>
+        /// Use this method to look up data in another entity using its <see cref="Entity"/> object. For example, if you
+        /// have a component that contains an Entity field, you can look up the component data for the referenced
+        /// entity using this method.
+        ///
+        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, do not use this method to access data of the
+        /// current entity in the set. This function is much slower than accessing the data directly (by passing the
+        /// component containing the data to your lambda iteration function as a parameter).
+        ///
+        /// When you call this method it gets replaced with component access methods through <see cref="ComponentLookup{T}"/>.
+        ///
+        /// This lookup method results in a slower, indirect memory access. When possible, organize your
+        /// data to minimize the need for indirect lookups.
+        /// </remarks>
+        /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
+        /// <remarks> Not working in IJobEntity, Utility methods, and Aspects </remarks>
+        public static RefRW<T> GetComponentRW<T>(Entity entity, bool isReadOnly) where T : unmanaged, IComponentData => throw InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
         /// Sets the value of a component of an entity.
         /// </summary>
         /// <param name="entity">The entity.</param>
@@ -299,7 +324,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="systemHandle">The system handle.</param>
         /// <typeparam name="T">The type of component to retrieve.</typeparam>
-        /// <returns>A struct of type T containing the component value.</returns>
+        /// <returns>A read/write reference to component T.</returns>
         /// <remarks>
         /// Use this method to look up data in another system owned entity using its <see cref="SystemHandle"/> object.
         ///

@@ -2,6 +2,7 @@
     "name": "Unity.Entities.Hybrid.EndToEnd.Tests",
     "references": [
         "Unity.Scenes",
+        "Unity.Collections",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
         "Unity.Transforms",

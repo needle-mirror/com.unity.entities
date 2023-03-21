@@ -14,7 +14,6 @@ using Unity.IO.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 // Remove this once DOTSRuntime can use Unity.Properties
-[assembly: InternalsVisibleTo("Unity.TinyConversion")]
 [assembly: InternalsVisibleTo("Unity.Entities.Runtime.Build")]
 
 namespace Unity.Entities.Serialization
@@ -169,7 +168,7 @@ namespace Unity.Entities.Serialization
             int i = 0;
             for (int iType = 1; iType < archetype->TypesCount; ++iType)
             {
-                int orderedIndex = archetype->TypeMemoryOrder[iType] - archetype->FirstSharedComponent;
+                int orderedIndex = archetype->TypeMemoryOrderIndexToIndexInArchetype[iType] - archetype->FirstSharedComponent;
                 if (0 <= orderedIndex && orderedIndex < archetype->NumSharedComponents)
                     destValues[orderedIndex] = remappedIndices[sourceValues[i++]];
             }
@@ -186,7 +185,7 @@ namespace Unity.Entities.Serialization
             var entityCount = chunk->Count;
             for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
             {
-                var ti = archetype->TypeMemoryOrder[unordered_ti];
+                var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
                 var type = archetype->Types[ti];
                 if (type.IsZeroSized)
                     continue;
@@ -533,7 +532,7 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        internal static unsafe UnsafePtrList<Archetype> GetAllArchetypes(EntityComponentStore* entityComponentStore, Allocator allocator)
+        internal static unsafe UnsafePtrList<Archetype> GetAllArchetypes(EntityComponentStore* entityComponentStore, AllocatorManager.AllocatorHandle allocator)
         {
             int count = 0;
             for (var i = 0; i < entityComponentStore->m_Archetypes.Length; ++i)
@@ -1451,11 +1450,7 @@ namespace Unity.Entities.Serialization
 
                 archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp);
 
-                var typeHashToIndexMap = new UnsafeParallelHashMap<ulong, int>(1024, Allocator.Temp);
-#if !UNITY_DOTSRUNTIME
-                var validatedComponentTypes = new UnsafeHashSet<TypeIndex>(1024, Allocator.Temp);
-                var validTypes = new HashSet<Type>();
-#endif
+                var typeHashToIndexMap = new UnsafeHashMap<ulong, int>(archetypeArray.Length * 8, Allocator.Temp);
                 for (int i = 0; i != archetypeArray.Length; i++)
                 {
                     var archetype = archetypeArray.Ptr[i];
@@ -1464,10 +1459,9 @@ namespace Unity.Entities.Serialization
                         var typeIndex = archetype->Types[iType].TypeIndex;
                         var typeInfo = TypeManager.GetTypeInfo(typeIndex);
                         var hash = typeInfo.StableTypeHash;
-#if !UNITY_DOTSRUNTIME
-                        if (validatedComponentTypes.Add(typeIndex))
-                            ValidateTypeForSerialization(typeInfo, validTypes);
-#endif
+
+                        ValidateTypeForSerialization(typeInfo);
+
                         typeHashToIndexMap.TryAdd(hash, i);
                     }
                 }
@@ -1498,7 +1492,7 @@ namespace Unity.Entities.Serialization
         {
             for (int i = 0; i < archetype->NumManagedComponents; ++i)
             {
-                var index = archetype->TypeMemoryOrder[i + archetype->FirstManagedComponent];
+                var index = archetype->TypeMemoryOrderIndexToIndexInArchetype[i + archetype->FirstManagedComponent];
                 var managedComponentIndices = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, index);
                 for (int ei = 0; ei < chunk->Count; ++ei)
                 {
@@ -1575,7 +1569,7 @@ namespace Unity.Entities.Serialization
 
                     for (int i = 0; i < archetype->NumManagedComponents; ++i)
                     {
-                        var index = archetype->TypeMemoryOrder[i + archetype->FirstManagedComponent];
+                        var index = archetype->TypeMemoryOrderIndexToIndexInArchetype[i + archetype->FirstManagedComponent];
                         var managedComponentIndices = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, index);
                         ref readonly var cType = ref TypeManager.GetTypeInfo(archetype->Types[index].TypeIndex);
 
@@ -1803,53 +1797,27 @@ namespace Unity.Entities.Serialization
 
             return true;
         }
-
-        private static void ValidateTypeForSerialization(in TypeManager.TypeInfo typeInfo, HashSet<Type> validTypes)
-        {
-            // Shared Components are expected to be handled specially and are not required to be blittable
-
-            if (typeInfo.Category == TypeManager.TypeCategory.ISharedComponentData)
-            {
-                if (TypeManager.HasEntityReferences(typeInfo.TypeIndex))
-                {
-                    throw new ArgumentException(
-                        $"Shared component type '{TypeManager.GetType(typeInfo.TypeIndex)}' might contain a (potentially nested) Entity field. " +
-                        $"Serializing of shared components with Entity fields is not supported");
-                }
-            }
-
-            if (!IsTypeValidForSerialization(typeInfo.Type, validTypes))
-            {
-
-                throw new ArgumentException($"Blittable component type '{TypeManager.GetType(typeInfo.TypeIndex)}' contains a (potentially nested) pointer field. " +
-                                            $"Serializing bare pointers will likely lead to runtime errors. Remove this field and consider serializing the data " +
-                                            $"it points to another way such as by using a BlobAssetReference or a [Serializable] ISharedComponent. If for whatever " +
-                                            $"reason the pointer field should in fact be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
-            }
-
-            //managed components can override to opt out of certain patching operations as an optimization. Check here to ensure this is really the case
-            var type = TypeManager.GetType(typeInfo.TypeIndex);
-            var typeOverride = type.GetCustomAttribute<TypeManager.TypeOverridesAttribute>();
-            if (typeOverride != null)
-            {
-                EntityRemapUtility.HasEntityReferencesManaged(type, out var actuallyHasEntityRefs,out var actuallyHasBlobRefs,null,128);
-                if (typeOverride.HasNoEntityReferences && actuallyHasEntityRefs == EntityRemapUtility.HasRefResult.HasRef)
-                {
-                    throw new ArgumentException(
-                        $"Component type '{type}' has a TypeOverrides field " +
-                        $"for Entity References, but contains a (potentially nested) Entity reference.");
-                }
-
-                if (typeOverride.HasNoBlobReferences && actuallyHasBlobRefs == EntityRemapUtility.HasRefResult.HasRef)
-                {
-                    throw new ArgumentException(
-                        $"Component type '{type}' has a TypeOverrides field " +
-                        $"for BlobAsset References, but contains a (potentially nested) BlobAsset reference.");
-                }
-            }
-        }
-
 #endif // !UNITY_DOTSRUNTIME
+
+        [BurstDiscard]
+        private static void ValidateTypeForSerialization(TypeManager.TypeInfo typeInfo)
+        {
+            if (typeInfo.TypeIndex.IsChunkSerializable)
+                return;
+
+            if (typeInfo.Category == TypeManager.TypeCategory.ISharedComponentData && typeInfo.TypeIndex.HasEntityReferences)
+            {
+                throw new ArgumentException(
+                    $"Shared component type '{typeInfo.Type}' might contain a (potentially nested) Entity field. " +
+                    $"Serializing of shared components with Entity fields is not supported as Entity references are not patched when deserializing. " +
+                    $"If for whatever reason this component should still be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
+            }
+
+            throw new ArgumentException($"Blittable component type '{typeInfo.Type}' contains a (potentially nested) pointer field. " +
+                                        $"Serializing bare pointers will likely lead to runtime errors. Remove this field and consider serializing the data " +
+                                        $"it points to another way such as by using a BlobAssetReference or a [Serializable] ISharedComponent. If for whatever " +
+                                        $"reason the pointer field should in fact be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
+        }
 
         static int ReadSharedComponentMetadata(BinaryReader reader, out NativeArray<SharedComponentRecord> sharedComponentRecordArray)
         {
@@ -1885,7 +1853,7 @@ namespace Unity.Entities.Serialization
                     var entityCount = chunk->Count;
                     for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
                     {
-                        var ti = archetype->TypeMemoryOrder[unordered_ti];
+                        var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
                         var type = archetype->Types[ti];
                         if (type.IsZeroSized || type.IsManagedComponent)
                             continue;
@@ -1985,7 +1953,7 @@ namespace Unity.Entities.Serialization
 
                     for (var unorderedTypeIndexInArchetype = 0; unorderedTypeIndexInArchetype < archetype->NumManagedComponents; ++unorderedTypeIndexInArchetype)
                     {
-                        var typeIndexInArchetype = archetype->TypeMemoryOrder[archetype->FirstManagedComponent + unorderedTypeIndexInArchetype];
+                        var typeIndexInArchetype = archetype->TypeMemoryOrderIndexToIndexInArchetype[archetype->FirstManagedComponent + unorderedTypeIndexInArchetype];
                         var managedComponentIndices = (int*) ChunkDataUtility.GetComponentDataRO(chunk, 0, typeIndexInArchetype);
                         ref readonly var typeInfo = ref TypeManager.GetTypeInfo(archetype->Types[typeIndexInArchetype].TypeIndex);
 
@@ -2039,7 +2007,7 @@ namespace Unity.Entities.Serialization
             var entityCount = chunk->Count;
             for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
             {
-                var ti = archetype->TypeMemoryOrder[unordered_ti];
+                var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
                 var type = archetype->Types[ti];
                 if (type.IsZeroSized || type.IsManagedComponent)
                     continue;
@@ -2103,7 +2071,7 @@ namespace Unity.Entities.Serialization
             var entityCount = originalChunk->Count;
             for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
             {
-                var ti = archetype->TypeMemoryOrder[unordered_ti];
+                var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
                 var type = archetype->Types[ti];
                 if (type.IsZeroSized || type.IsManagedComponent)
                     continue;
@@ -2174,7 +2142,7 @@ namespace Unity.Entities.Serialization
             // Find all buffer pointer locations and work out how much memory the deserializer must allocate on load.
             for (int ti = 0; ti < archetype->TypesCount; ++ti)
             {
-                int index = archetype->TypeMemoryOrder[ti];
+                int index = archetype->TypeMemoryOrderIndexToIndexInArchetype[ti];
                 var type = archetype->Types[index];
 
                 if (type.IsBuffer)
@@ -2209,7 +2177,7 @@ namespace Unity.Entities.Serialization
             int i = 0;
             for (int iType = 1; iType < archetype->TypesCount; ++iType)
             {
-                int orderedIndex = archetype->TypeMemoryOrder[iType] - archetype->FirstSharedComponent;
+                int orderedIndex = archetype->TypeMemoryOrderIndexToIndexInArchetype[iType] - archetype->FirstSharedComponent;
                 if (0 <= orderedIndex && orderedIndex < archetype->NumSharedComponents)
                     remapArray[i++] = orderedIndex;
             }
@@ -2292,7 +2260,7 @@ namespace Unity.Entities.Serialization
             return ((byte*)ptr) + offset;
         }
 
-        static unsafe void WriteArchetypes(BinaryWriter writer, UnsafePtrList<Archetype> archetypeArray, UnsafeParallelHashMap<ulong, int> typeHashToIndexMap)
+        static unsafe void WriteArchetypes(BinaryWriter writer, UnsafePtrList<Archetype> archetypeArray, UnsafeHashMap<ulong, int> typeHashToIndexMap)
         {
             writer.Write(archetypeArray.Length);
 

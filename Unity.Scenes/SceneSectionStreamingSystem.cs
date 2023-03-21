@@ -22,7 +22,7 @@ namespace Unity.Scenes
     /// </summary>
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
-    public class ProcessAfterLoadGroup : ComponentSystemGroup
+    public partial class ProcessAfterLoadGroup : ComponentSystemGroup
     {
     }
 
@@ -245,7 +245,7 @@ namespace Unity.Scenes
             group.SortSystems();
         }
 
-        static unsafe NativeArray<Entity> GetExternalRefEntities(EntityManager manager, Allocator allocator)
+        static unsafe NativeArray<Entity> GetExternalRefEntities(EntityManager manager, AllocatorManager.AllocatorHandle allocator)
         {
             var type = ComponentType.ReadOnly<ExternalEntityRefInfo>();
             using (var group = manager.CreateEntityQuery(&type, 1))
@@ -254,9 +254,10 @@ namespace Unity.Scenes
             }
         }
 
-        static NativeArray<SceneTag> ExternalRefToSceneTag(NativeArray<ExternalEntityRefInfo> externalEntityRefInfos, Entity sceneEntity, EntityQuery sectionDataQuery, Allocator allocator)
+        static NativeArray<SceneTag> ExternalRefToSceneTag(NativeArray<ExternalEntityRefInfo> externalEntityRefInfos, Entity sceneEntity, EntityQuery sectionDataQuery, AllocatorManager.AllocatorHandle allocator)
         {
-            var sceneTags = new NativeArray<SceneTag>(externalEntityRefInfos.Length, allocator);
+            // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
+            var sceneTags = new NativeArray<SceneTag>(externalEntityRefInfos.Length, allocator.ToAllocator);
 
             using (var sectionDataEntities = sectionDataQuery.ToEntityArray(Allocator.TempJob))
             using (var sectionData = sectionDataQuery.ToComponentDataArray<SceneSectionData>(Allocator.TempJob))

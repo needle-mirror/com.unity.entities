@@ -421,6 +421,12 @@ namespace Unity.Entities
                     // We might be a prefab, so we can just remove from the Prefab data with the key
                     _PrefabStates.Remove(gameObject);
                     //Debug.Log($"ApplyInstruction - DestroyEntity: {entity} GameObject: {gameObject})");
+
+                    if (_AuthoringIDToBakerState.TryGetValue(gameObject, out var bakerState))
+                    {
+                        using (s_RevertDependencies.Auto())
+                            BakeDependencies.ResetBakerDependencies(gameObject, ref dependencies, ref bakerState.Dependencies);
+                    }
                 }
             }
 
@@ -686,12 +692,13 @@ namespace Unity.Entities
                                             }
                                         }
                                     }
+                                }
 
-                                    using (s_RegisterDependencies.Auto())
-                                    {
-                                        UpdateDependencies(ref dependencies, instanceID, ref bakerState,
-                                            ref tempDependencies, ref tempUsage);
-                                    }
+                                // We need to update the dependencies even if the component is disabled
+                                using (s_RegisterDependencies.Auto())
+                                {
+                                    UpdateDependencies(ref dependencies, instanceID, ref bakerState,
+                                        ref tempDependencies, ref tempUsage);
                                 }
                             }
                             // Added baker for the first time, can just add.
@@ -872,6 +879,7 @@ namespace Unity.Entities
             public NativeList<Entity> Add;
 
             [ReadOnly] public UnsafeParallelHashMap<Entity, TransformUsageFlagCounters> ReferencedEntities;
+            [ReadOnly] public ComponentTypeHandle<TransformAuthoring> TransformAuthoringTypeHandle;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -879,9 +887,12 @@ namespace Unity.Entities
                 var hasRemoveEntityInBake = HasRemoveEntityInBake.MatchesIgnoreFilter(chunk);
 
                 var entities = chunk.GetNativeArray(Entities);
-                foreach (var e in entities)
+                var transformAuthoring = chunk.GetNativeArray(ref TransformAuthoringTypeHandle);
+                for (int index = 0; index < entities.Length; ++index)
                 {
-                    var shouldRemoveEntityInBake = !ReferencedEntities.TryGetValue(e, out var usage) || usage.IsUnused;
+                    var e = entities[index];
+                    var shouldRemoveEntityInBake = (!ReferencedEntities.TryGetValue(e, out var usage) || usage.IsUnused) &&
+                                                   transformAuthoring[index].RuntimeTransformUsage == RuntimeTransformComponentFlags.None;
 
                     if (shouldRemoveEntityInBake != hasRemoveEntityInBake)
                     {
@@ -907,7 +918,8 @@ namespace Unity.Entities
                 HasRemoveEntityInBake = _HasRemoveEntityInBake.GetEntityQueryMask(),
                 Add = new NativeList<Entity>(Allocator.TempJob),
                 Remove = new NativeList<Entity>(Allocator.TempJob),
-                ReferencedEntities = _ReferencedEntities
+                ReferencedEntities = _ReferencedEntities,
+                TransformAuthoringTypeHandle = _EntityManager.GetComponentTypeHandle<TransformAuthoring>(true)
             };
             job.Run(_AllBakedQuery);
 
@@ -1007,6 +1019,11 @@ namespace Unity.Entities
             var instanceId = prefab.GetInstanceID();
             var entity = CreateEntityForGameObject(prefab, 0, _DefaultArchetypePrefab, 0);
             _GameObjectToEntity[instanceId] = entity;
+
+            // Make sure prefab root is dynamic
+            var counters = new TransformUsageFlagCounters();
+            counters.Add(TransformUsageFlags.Dynamic);
+            _ReferencedEntities.Add(entity, counters);
 
             // Now register the Prefab for lazy baking
             _AdditionalGameObjectsToBake.Add(instanceId);

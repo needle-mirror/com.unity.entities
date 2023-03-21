@@ -222,12 +222,12 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, UpdateData.UpdateCount);
         }
 
-        private class SnoopGroup : ComponentSystemGroup
+        private partial class SnoopGroup : ComponentSystemGroup
         {
         }
 
         [BurstCompile]
-        private struct SnoopSystem : ISystem, ISystemStartStop
+        private partial struct SnoopSystem : ISystem, ISystemStartStop
         {
             [Flags]
             public enum CallFlags

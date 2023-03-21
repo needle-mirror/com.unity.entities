@@ -153,6 +153,8 @@ namespace Unity.Entities.Editor.Tests
 
             var go = new GameObject("go");
             var comp = go.AddComponent<MissingConversionMonobehaviourTest>();
+            var transformUsageFlagComponent = go.AddComponent<AddTransformUsageFlag>();
+            transformUsageFlagComponent.flags = TransformUsageFlags.Dynamic;
 
             SceneManager.MoveGameObjectToScene(go, subscene.EditingScene);
 

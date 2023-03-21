@@ -326,14 +326,14 @@ namespace Doc.CodeSamples.Tests
         protected override void OnUpdate()
         {
             #region lambda-params
-
             Entities.ForEach(
                 (Entity entity,
                     int entityInQueryIndex,
                     ref ObjectPosition translation,
                     in Movement move) => { /* .. */})
-                #endregion
+            #endregion
                 .Run();
+             
         }
     }
 }

@@ -269,11 +269,13 @@ namespace Unity.Entities
                 ComponentType_[] result = new ComponentType_[archetype->TypesCount];
                 for (var i = 0; i < archetype->TypesCount; ++i)
                 {
+                    int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[i];
                     var componentType = archetype->Types[i].ToComponentType();
                     result[i].Type = componentType;
                     result[i].Version = chunk->GetChangeVersion(i);
                     result[i].IsEnableable = TypeManager.IsEnableable(componentType.TypeIndex);
-                    result[i].NumDisabledEntitiesInChunk = chunk->Archetype->Chunks.GetChunkDisabledCountForType(i, chunk->ListIndex);
+                    result[i].NumDisabledEntitiesInChunk =
+                        chunk->Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, chunk->ListIndex);
                 }
 
                 return result;
@@ -451,18 +453,39 @@ namespace Unity.Entities
             }
         }
 
-        public unsafe int[] TypeMemoryOrder
+        public unsafe ComponentType[] TypesInMemoryOrder
         {
             get
             {
                 var archetype = m_EntityArchetype.Archetype;
                 if (archetype == null)
-                    return new int[0];
-                int[] result = new int[archetype->TypesCount];
-                Marshal.Copy((IntPtr)archetype->TypeMemoryOrder, result, 0, archetype->TypesCount);
+                    return new ComponentType[0];
+                var result = new ComponentType[archetype->TypesCount];
+                for (int typeMemoryOrderIndex = 0; typeMemoryOrderIndex < archetype->TypesCount; ++typeMemoryOrderIndex)
+                {
+                    int indexInArchetype = archetype->TypeMemoryOrderIndexToIndexInArchetype[typeMemoryOrderIndex];
+                    result[typeMemoryOrderIndex] = archetype->Types[indexInArchetype].ToComponentType();
+                }
                 return result;
             }
         }
+        public unsafe Dictionary<TypeIndex,int> TypeMemoryOrderIndex
+        {
+            get
+            {
+                var archetype = m_EntityArchetype.Archetype;
+                if (archetype == null)
+                    return new Dictionary<TypeIndex, int>(0);
+                var result = new Dictionary<TypeIndex, int>(archetype->TypesCount);
+                for (int indexInArchetype = 0; indexInArchetype < archetype->TypesCount; ++indexInArchetype)
+                {
+                    result[archetype->Types[indexInArchetype].TypeIndex] =
+                        archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInArchetype];
+                }
+                return result;
+            }
+        }
+
 #endif //!NET_DOTS
     }
 

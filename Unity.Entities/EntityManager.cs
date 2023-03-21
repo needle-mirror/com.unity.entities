@@ -14,7 +14,6 @@ using Unity.Profiling;
 using UnityEngine.Scripting;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]
-[assembly: InternalsVisibleTo("Unity.Tiny.Core")]
 
 namespace Unity.Entities
 {
@@ -215,7 +214,6 @@ namespace Unity.Entities
         internal void Initialize(World world)
         {
             TypeManager.Initialize();
-            ChunkIterationUtility.Initialize();
             ECBInterop.Initialize();
             EntityQueryImpl.Initialize();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -701,7 +699,7 @@ namespace Unity.Entities
             var access = GetCheckedEntityDataAccess();
             access->AssertQueryIsValid(query);
             var queryData = query._GetImpl()->_QueryData;
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -788,7 +786,7 @@ namespace Unity.Entities
             var access = GetCheckedEntityDataAccess();
             access->AssertQueryIsValid(query);
             var queryData = query._GetImpl()->_QueryData;
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -1749,7 +1747,7 @@ namespace Unity.Entities
 
             access->AssertMainThread();
             var queryData = entityQuery._GetImpl()->_QueryData;
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -1791,7 +1789,7 @@ namespace Unity.Entities
             access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
             var queryData = queryImpl->_QueryData;
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -1830,7 +1828,7 @@ namespace Unity.Entities
                 return;
 
             var queryData = entityQuery._GetImpl()->_QueryData;
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -2272,7 +2270,7 @@ namespace Unity.Entities
             var queryData = queryImpl->_QueryData;
             access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -2319,7 +2317,7 @@ namespace Unity.Entities
 
             access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -2876,7 +2874,7 @@ namespace Unity.Entities
             var componentType = ComponentType.ReadWrite<T>();
             var queryData = entityQuery._GetImpl()->_QueryData;
             var defaultValue = default(T);
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -2972,7 +2970,7 @@ namespace Unity.Entities
             var componentType = ComponentType.ReadWrite<T>();
             var queryData = entityQuery._GetImpl()->_QueryData;
             var defaultValue = default(T);
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -3241,6 +3239,48 @@ namespace Unity.Entities
                 access->DependencyManager->CompleteReadAndWriteDependency(typeIndex);
             access->SetComponentEnabled(entity, typeIndex, value);
         }
+
+        /// <summary>
+        /// Sets or clears the "is enabled" bit for the provided component on all entities in all chunks matched by the
+        /// query.</summary>
+        /// <typeparam name="T">The component type which should be enabled or disabled on all matching chunks. This type
+        /// must be included in the query's required types, and must implement <see cref="IEnableableComponent"/>.</typeparam>
+        /// <param name="query">The query to match by.</param>
+        /// <param name="value">If true, the component <typeparamref name="T"/> will be enabled on all entities in all
+        /// matching chunks. Otherwise, the component will be disabled on all components in all chunks.</param>
+        /// <remarks>The current value of the bits are ignored; this function will enable disabled components on
+        /// entities, even if the component being disabled would cause the entity to not match the query. If any jobs
+        /// are currently running which read or write the target component, this function will block until they complete
+        /// before performing the requested operation.</remarks>
+        /// <seealso cref="IsComponentEnabled(Entity,ComponentType)"/>
+        /// <seealso cref="ComponentLookup{T}.SetComponentEnabled(Entity,bool)"/>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
+        public void SetComponentEnabled<T>(EntityQuery query, bool value) where T:
+#if UNITY_DISABLE_MANAGED_COMPONENTS
+            unmanaged,
+#endif
+            IEnableableComponent
+        {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            query._GetImpl()->SetEnabledBitsOnAllChunks(typeIndex, value);
+        }
+
+        /// <summary>
+        /// Sets or clears the "is enabled" bit for the provided component on all entities in all chunks matched by the
+        /// query.</summary>
+        /// <param name="componentType">The component type which should be enabled or disabled on all matching chunks. This type
+        /// must be included in the query's required types, and must implement <see cref="IEnableableComponent"/>.</param>
+        /// <param name="value">If true, the component <typeparamref name="T"/> will be enabled on all entities in all
+        /// matching chunks. Otherwise, the component will be disabled on all components in all chunks.</param>
+        /// <remarks>The current value of the bits are ignored; this function will enable disabled components on
+        /// entities, even if the component being disabled would cause the entity to not match the query. If any jobs
+        /// are currently running which read or write the target component, this function will block until they complete
+        /// before performing the requested operation.</remarks>
+        /// <seealso cref="IsComponentEnabled(Entity,ComponentType)"/>
+        /// <seealso cref="ComponentLookup{T}.SetComponentEnabled(Entity,bool)"/>
+        public void SetComponentEnabled(EntityQuery query, ComponentType componentType, bool value)
+            => query._GetImpl()->SetEnabledBitsOnAllChunks(componentType.TypeIndex, value);
+
         /// <summary>
         /// Enable or disable <see cref="ComponentType"/> on the specified <see cref="Entity"/>.
         /// </summary>
@@ -3373,7 +3413,7 @@ namespace Unity.Entities
         /// with the given archetype.
         /// </returns>
         [StructuralChangeMethod]
-        public NativeArray<Entity> CreateEntity(EntityArchetype archetype, int entityCount, Allocator allocator)
+        public NativeArray<Entity> CreateEntity(EntityArchetype archetype, int entityCount, AllocatorManager.AllocatorHandle allocator)
         {
             var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, allocator);
             var access = GetCheckedEntityDataAccess();
@@ -3424,7 +3464,7 @@ namespace Unity.Entities
             access->AssertQueryIsValid(entityQuery);
             var queryImpl = entityQuery._GetImpl();
             var queryData = queryImpl->_QueryData;
-            if (queryData->DoesQueryRequireBatching != 0)
+            if (queryData->HasEnableableComponents != 0)
             {
                 // Complete jobs that may be writing to any enableable types in this query
                 for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
@@ -3589,7 +3629,7 @@ namespace Unity.Entities
         /// <param name="allocator">How the created native array should be allocated.</param>
         /// <returns>A [NativeArray](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html) of entities.</returns>
         [StructuralChangeMethod]
-        public NativeArray<Entity> Instantiate(Entity srcEntity, int instanceCount, Allocator allocator)
+        public NativeArray<Entity> Instantiate(Entity srcEntity, int instanceCount, AllocatorManager.AllocatorHandle allocator)
         {
             var access = GetCheckedEntityDataAccess();
 
@@ -3733,6 +3773,19 @@ namespace Unity.Entities
             access->CheckIsAdditiveArchetypeStructuralChangePossible(result.Archetype);
             access->EndStructuralChanges(ref changes);
             return result;
+        }
+
+        /// <summary>
+        /// Creates an archetype from a set of component types.
+        /// </summary>
+        /// <remarks>
+        /// Creates a new archetype in the ECS framework's internal type registry, unless the archetype already exists.
+        /// </remarks>
+        /// <param name="types">The component types to include as part of the archetype.</param>
+        /// <returns>The EntityArchetype object for the archetype.</returns>
+        internal EntityArchetype CreateArchetypeWithoutSimulateComponent(NativeArray<ComponentType> types)
+        {
+            return CreateArchetypeWithoutSimulateComponent((ComponentType*)types.GetUnsafeReadOnlyPtr(), types.Length);
         }
 
         internal EntityArchetype CreateArchetypeWithoutSimulateComponent(ComponentType* types, int count)
@@ -4064,7 +4117,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="allocator">The type of memory allocation to use when creating the array.</param>
         /// <returns>An array containing a no-op identity transformation for each entity.</returns>
-        public NativeArray<EntityRemapUtility.EntityRemapInfo> CreateEntityRemapArray(Allocator allocator)
+        public NativeArray<EntityRemapUtility.EntityRemapInfo> CreateEntityRemapArray(AllocatorManager.AllocatorHandle allocator)
         {
             var access = GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
@@ -4294,6 +4347,18 @@ namespace Unity.Entities
         /// <returns>An array of ComponentType containing all the types of components associated with the entity.</returns>
         public NativeArray<ComponentType> GetComponentTypes(Entity entity, Allocator allocator = Allocator.Temp)
         {
+            return GetComponentTypes(entity, (AllocatorManager.AllocatorHandle)allocator);
+        }
+
+        /// <summary>
+        /// Gets an entity's component types.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="allocator">The type of allocation for creating the NativeArray to hold the ComponentType
+        /// objects.</param>
+        /// <returns>An array of ComponentType containing all the types of components associated with the entity.</returns>
+        public NativeArray<ComponentType> GetComponentTypes(Entity entity, AllocatorManager.AllocatorHandle allocator)
+        {
             var access = GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
 
@@ -4310,6 +4375,18 @@ namespace Unity.Entities
         /// objects.</param>
         /// <returns>An array of ComponentType containing all the types of components associated with the entity.</returns>
         public NativeArray<ComponentType> GetComponentTypes(SystemHandle system, Allocator allocator = Allocator.Temp)
+        {
+            return GetComponentTypes(system, (AllocatorManager.AllocatorHandle)allocator);
+        }
+
+        /// <summary>
+        /// Gets a system entity's component types.
+        /// </summary>
+        /// <param name="system">The system handle.</param>
+        /// <param name="allocator">The type of allocation for creating the NativeArray to hold the ComponentType
+        /// objects.</param>
+        /// <returns>An array of ComponentType containing all the types of components associated with the entity.</returns>
+        public NativeArray<ComponentType> GetComponentTypes(SystemHandle system, AllocatorManager.AllocatorHandle allocator)
         {
             var access = GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
@@ -4415,6 +4492,23 @@ namespace Unity.Entities
         /// <returns>An array of ArchetypeChunk objects referring to all the chunks in the <see cref="World"/>.</returns>
         public NativeArray<ArchetypeChunk> GetAllChunks(Allocator allocator = Allocator.TempJob)
         {
+            return GetAllChunks((AllocatorManager.AllocatorHandle) allocator);
+        }
+
+        /// <summary>
+        /// Gets all the chunks managed by this EntityManager.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before getting the chunk. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
+        /// </remarks>
+        /// <param name="allocator">The type of allocation for creating the NativeArray to hold the ArchetypeChunk
+        /// objects.</param>
+        /// <returns>An array of ArchetypeChunk objects referring to all the chunks in the <see cref="World"/>.</returns>
+        public NativeArray<ArchetypeChunk> GetAllChunks(AllocatorManager.AllocatorHandle allocator)
+        {
             var access = GetCheckedEntityDataAccess();
             var query = access->m_UniversalQuery;
             return query.ToArchetypeChunkArray(allocator);
@@ -4434,19 +4528,36 @@ namespace Unity.Entities
         /// <returns>An array of ArchetypeChunk objects referring to all the chunks in the <see cref="World"/>.</returns>
         public NativeArray<ArchetypeChunk> GetAllChunksAndMetaChunks(Allocator allocator = Allocator.TempJob)
         {
+            return GetAllChunksAndMetaChunks((AllocatorManager.AllocatorHandle) allocator);
+        }
+
+        /// <summary>
+        /// Gets all the chunks managed by this EntityManager, including the meta chunks (containing chunk components).
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before getting the chunk. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
+        /// </remarks>
+        /// <param name="allocator">The type of allocation for creating the NativeArray to hold the ArchetypeChunk
+        /// objects.</param>
+        /// <returns>An array of ArchetypeChunk objects referring to all the chunks in the <see cref="World"/>.</returns>
+        public NativeArray<ArchetypeChunk> GetAllChunksAndMetaChunks(AllocatorManager.AllocatorHandle allocator)
+        {
             var access = GetCheckedEntityDataAccess();
             var query = access->m_UniversalQueryWithChunks;
             return query.ToArchetypeChunkArray(allocator);
         }
 
-        NativeArray<ArchetypeChunk> GetAllChunksAndMetaChunksWithSystems(Allocator allocator)
+        NativeArray<ArchetypeChunk> GetAllChunksAndMetaChunksWithSystems(AllocatorManager.AllocatorHandle allocator)
         {
             var access = GetCheckedEntityDataAccess();
             var query = access->m_UniversalQueryWithChunksAndSystems;
             return query.ToArchetypeChunkArray(allocator);
         }
 
-        NativeArray<ArchetypeChunk> GetAllChunksWithSystems(Allocator allocator)
+        NativeArray<ArchetypeChunk> GetAllChunksWithSystems(AllocatorManager.AllocatorHandle allocator)
         {
             var access = GetCheckedEntityDataAccess();
             var query = access->m_UniversalQueryWithSystems;
@@ -5557,9 +5668,10 @@ namespace Unity.Entities
                     sizeof(int) * srcChunkCount);
 
                 // Copy enabled bits
-                var srcEnabledBits = srcArchetype->Chunks.GetComponentEnabledArrayForArchetype();
-                var dstEnabledBits = dstArchetype->Chunks.GetComponentEnabledArrayForArchetypeAndChunkOffset(dstChunkCount);
-                dstEnabledBits.Copy(0, ref srcEnabledBits, 0, srcEnabledBits.Length);
+                var srcEnabledBits = srcArchetype->Chunks.GetPointerToComponentEnabledArrayForArchetype();
+                var dstEnabledBits = (byte*)dstArchetype->Chunks.GetComponentEnabledMaskArrayForChunk(dstChunkCount);
+                long srcEnabledBitsSize = (long)srcArchetype->Chunks.ComponentEnabledBitsSizeTotalPerChunk * srcChunkCount;
+                UnsafeUtility.MemCpy(dstEnabledBits, srcEnabledBits, srcEnabledBitsSize);
 
                 // Adjust enabled bits hierarchical values
                 for (int srcChunkIndex = 0; srcChunkIndex < srcChunkCount; ++srcChunkIndex)
@@ -5570,10 +5682,11 @@ namespace Unity.Entities
                     for (int t = 0; t < dstArchetype->EnableableTypesCount; ++t)
                     {
                         var dstIndexInArchetype = dstArchetype->EnableableTypeIndexInArchetype[t];
-                        var dstEnabledBitsForChunk = dstArchetype->Chunks.GetEnabledArrayForTypeInChunk(dstIndexInArchetype, dstChunkIndex);
+                        int dstMemoryOrderIndexInArchetype = dstArchetype->TypeIndexInArchetypeToMemoryOrderIndex[dstIndexInArchetype];
+                        var dstEnabledBitsForChunk = dstArchetype->Chunks.GetEnabledArrayForTypeInChunk(dstMemoryOrderIndexInArchetype, dstChunkIndex);
 
                         var disabledCount = chunkEntityCount - dstEnabledBitsForChunk.CountBits(0, chunkEntityCount);
-                        dstArchetype->Chunks.SetChunkDisabledCountForType(dstIndexInArchetype, dstChunkIndex, disabledCount);
+                        dstArchetype->Chunks.SetChunkDisabledCountForType(dstMemoryOrderIndexInArchetype, dstChunkIndex, disabledCount);
                     }
                 }
 

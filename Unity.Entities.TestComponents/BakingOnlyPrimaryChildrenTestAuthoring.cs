@@ -28,15 +28,17 @@ namespace Unity.Entities.Tests
                 {
                     Value = authoring.SelfValue
                 };
-                AddComponent(component);
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, component);
 
-                var childrenBuffer = AddBuffer<ChildrenTestComponent>();
+                var childrenBuffer = AddBuffer<ChildrenTestComponent>(entity);
 
                 foreach (var transform in GetComponentsInChildren<Transform>())
                 {
                     if (transform == authoring.transform)
                         continue;
-                    childrenBuffer.Add(new ChildrenTestComponent() {entity = GetEntity(transform)});
+                    childrenBuffer.Add(new ChildrenTestComponent() {entity = GetEntity(transform, TransformUsageFlags.None)});
                 }
             }
         }

@@ -7,10 +7,12 @@ namespace Unity.Scenes.Editor
     {
         public override void Bake(SubScene authoring)
         {
-            AddComponent(new SceneReference() {SceneGUID = authoring.SceneGUID});
+            // Subscene components don't require any transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new SceneReference() {SceneGUID = authoring.SceneGUID});
             if (authoring.AutoLoadScene)
             {
-                AddComponent(new RequestSceneLoaded());
+                AddComponent(entity, new RequestSceneLoaded());
             }
         }
     }

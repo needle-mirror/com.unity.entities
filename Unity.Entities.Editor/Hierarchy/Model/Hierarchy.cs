@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -64,6 +64,8 @@ namespace Unity.Entities.Editor
         /// A flag to disable considering unnamed nodes when searching. This will accelerate performance.
         /// </summary>
         [CreateProperty] public bool ExcludeUnnamedNodesForSearch = false;
+
+        [CreateProperty] public bool AdvancedSearch = true;
     }
 
     /// <summary>
@@ -287,6 +289,9 @@ namespace Unity.Entities.Editor
         /// </summary>
         HierarchyFilter m_Filter;
 
+        internal Allocator Allocator => m_Allocator;
+        internal HierarchySearch HierarchySearch => m_Search;
+
         internal readonly SubSceneMap SubSceneMap;
 
         /// <summary>
@@ -381,14 +386,16 @@ namespace Unity.Entities.Editor
         /// <param name="tokens">Optional; pre processed set of tokens by a search backend.</param>
         public void SetSearchQuery(string searchString, ICollection<string> tokens)
         {
-            m_Filter?.Dispose();
-
-            // Construct a hierarchy filter based on the given search parameters.
-            m_Filter = !string.IsNullOrEmpty(searchString)
+            var filter = !string.IsNullOrEmpty(searchString)
                 ? m_Search.CreateHierarchyFilter(searchString, tokens, m_Allocator)
                 : null;
+            SetFilter(filter);
+        }
 
-            // Set the 'view' nodes filter. This is filtering that will be applied after the fact on the nodes.
+        internal void SetFilter(HierarchyFilter filter)
+        {
+            m_Filter?.Dispose();
+            m_Filter = filter;
             m_HierarchyNodes.SetFilter(m_Filter);
         }
 

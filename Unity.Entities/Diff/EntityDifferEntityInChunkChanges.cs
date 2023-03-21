@@ -51,7 +51,7 @@ namespace Unity.Entities
             public EntityInChunkChanges(
                 EntityManager afterEntityManager,
                 EntityManager beforeEntityManager,
-                Allocator allocator)
+                AllocatorManager.AllocatorHandle allocator)
             {
                 AfterEntityManager = afterEntityManager;
                 BeforeEntityManager = beforeEntityManager;
@@ -229,11 +229,12 @@ namespace Unity.Entities
         (
             EntityManager entityManager,
             ArchetypeChunkChangeSet archetypeChunkChangeSet,
-            Allocator allocator,
+            AllocatorManager.AllocatorHandle allocator,
             out JobHandle jobHandle,
             JobHandle dependsOn = default)
         {
-            var entities = new NativeArray<EntityInChunkWithGuid>(archetypeChunkChangeSet.TotalEntityCount, allocator, NativeArrayOptions.UninitializedMemory);
+            // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
+            var entities = new NativeArray<EntityInChunkWithGuid>(archetypeChunkChangeSet.TotalEntityCount, allocator.ToAllocator, NativeArrayOptions.UninitializedMemory);
 
             var gatherEntitiesByChunk = new GatherEntityInChunkWithGuid
             {
@@ -264,7 +265,7 @@ namespace Unity.Entities
             EntityManager beforeEntityManager,
             NativeArray<EntityInChunkWithGuid> afterEntities,
             NativeArray<EntityInChunkWithGuid> beforeEntities,
-            Allocator allocator,
+            AllocatorManager.AllocatorHandle allocator,
             out JobHandle jobHandle,
             JobHandle dependsOn = default)
         {

@@ -6,8 +6,9 @@ This section explains how to use aspects within your project.
 
 |**Topic**|**Description**|
 |---|---|
-|[Aspect overview](aspects-concepts.md)|Overview of aspects.|
-|[Create an aspect](aspects-create.md)|How to create an aspect with the `IAspect` interface.|
+|[Aspect overview](aspects-concepts.md)|Understand how aspects work.|
+|[Create an aspect](aspects-create.md)|Create an aspect with the `IAspect` interface.|
+|[Aspect source generation](aspects-source-generation.md)|Use aspect source generators.|
 
 ## Further information
 

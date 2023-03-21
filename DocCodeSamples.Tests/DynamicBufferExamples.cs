@@ -186,9 +186,9 @@ namespace Doc.CodeSamples.Tests
     {
         [ReadOnly] public BufferLookup<ExampleBufferComponent> BufferLookup;
         public void Execute()
-		{
+        {
             // ...
-		}
+        }
     }
     #endregion
 
@@ -203,7 +203,7 @@ namespace Doc.CodeSamples.Tests
 
             Entities.ForEach((DynamicBuffer<MyBufferElement> buffer) =>
             {
-                for(int i = 0; i < buffer.Length; i++)
+                for (int i = 0; i < buffer.Length; i++)
                 {
                     sum += buffer[i].Value;
                 }
@@ -230,7 +230,7 @@ namespace Doc.CodeSamples.Tests
             public void Execute()
             {
                 int sum = 0;
-                for(int i = 0; i < sums.Length; i++)
+                for (int i = 0; i < sums.Length; i++)
                 {
                     sum += sums[i];
                 }
@@ -252,7 +252,7 @@ namespace Doc.CodeSamples.Tests
             Entities
                 .WithStoreEntityQueryInField(ref query)
                 .ForEach((int entityInQueryIndex, Entity entity, in DynamicBuffer<MyBufferElement> buffer) => {
-                    for(int i = 0; i < buffer.Length; i++)
+                    for (int i = 0; i < buffer.Length; i++)
                     {
                         intermediateSums[entityInQueryIndex] += buffer[i].Value;
                     }
@@ -267,7 +267,7 @@ namespace Doc.CodeSamples.Tests
                 .WithDisposeOnCompletion(intermediateSums)
                 .WithCode(() =>
                 {
-                    for(int i = 0; i < intermediateSums.Length; i++)
+                    for (int i = 0; i < intermediateSums.Length; i++)
                     {
                         sum[0] += intermediateSums[i];
                     }
@@ -354,11 +354,11 @@ namespace Doc.CodeSamples.Tests
                 ChunkEntityEnumerator enumerator =
                     new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
 
-                while(enumerator.NextEntityIndex(out var e))
+                while (enumerator.NextEntityIndex(out var e))
                 {
                     //An individual dynamic buffer for a specific entity
                     DynamicBuffer<MyBufferElement> buffer = buffers[e];
-                    for(int i = 0; i < buffer.Length; i++)
+                    for (int i = 0; i < buffer.Length; i++)
                     {
                         sums[e] += buffer[i].Value;
                     }
@@ -373,7 +373,7 @@ namespace Doc.CodeSamples.Tests
             public NativeArray<int> result;
             public void Execute()
             {
-                for(int i  = 0; i < sums.Length; i++)
+                for (int i = 0; i < sums.Length; i++)
                 {
                     result[0] += sums[i];
                 }
@@ -424,7 +424,7 @@ namespace Doc.CodeSamples.Tests
 
         public static implicit operator FloatBufferElement(float e)
         {
-            return new FloatBufferElement {Value = e};
+            return new FloatBufferElement { Value = e };
         }
     }
 
@@ -436,7 +436,7 @@ namespace Doc.CodeSamples.Tests
 
             Entities.ForEach((DynamicBuffer<FloatBufferElement> buffer) =>
             {
-                for(int i = 0; i < buffer.Length; i++)
+                for (int i = 0; i < buffer.Length; i++)
                 {
                     sum += buffer[i].Value;
                 }
@@ -463,7 +463,7 @@ namespace Doc.CodeSamples.Tests
 
             #region dynamicbuffer.addrange
 
-            int[] source = {1, 2, 3, 4, 5};
+            int[] source = { 1, 2, 3, 4, 5 };
             NativeArray<int> newElements = new NativeArray<int>(source, Allocator.Persistent);
             buffer.AddRange(newElements);
 
@@ -471,7 +471,7 @@ namespace Doc.CodeSamples.Tests
 
             #region dynamicbuffer.asnativearray
 
-            int[] intArray = {1, 2, 3, 4, 5};
+            int[] intArray = { 1, 2, 3, 4, 5 };
             NativeArray<int>.Copy(intArray, buffer.AsNativeArray());
 
             #endregion
@@ -494,7 +494,7 @@ namespace Doc.CodeSamples.Tests
 
             #region dynamicbuffer.copyfrom.nativearray
 
-            int[] sourceArray = {1, 2, 3, 4, 5};
+            int[] sourceArray = { 1, 2, 3, 4, 5 };
             NativeArray<int> nativeArray = new NativeArray<int>(source, Allocator.Persistent);
             buffer.CopyFrom(nativeArray);
 
@@ -509,7 +509,7 @@ namespace Doc.CodeSamples.Tests
 
             #region dynamicbuffer.copyfrom.array
 
-            int[] integerArray = {1, 2, 3, 4, 5};
+            int[] integerArray = { 1, 2, 3, 4, 5 };
             buffer.CopyFrom(integerArray);
 
             #endregion
@@ -619,4 +619,51 @@ namespace Doc.CodeSamples.Tests
             #endregion
         }
     }
+
+    /// Entity command buffer example code
+    public class DynamicBufferECB
+    {
+        [InternalBufferCapacity(16)]
+        public struct MyElement : IBufferElementData
+        {
+            public int Value;
+        }
+
+        #region dynamicbuffer.ecb
+
+        private void Example(Entity e, Entity otherEntity)
+        {
+            EntityCommandBuffer ecb = new(Allocator.TempJob);
+
+            // Record a command to remove the MyElement dynamic buffer from an entity.
+            ecb.RemoveComponent<MyElement>(e);
+
+            // Record a command to add a MyElement dynamic buffer to an existing entity.
+            // This doesn't fail if the target entity already contains the buffer component.
+            // The data of the returned DynamicBuffer is stored in the EntityCommandBuffer, 
+            // so changes to the returned buffer are also recorded changes. 
+            DynamicBuffer<MyElement> myBuff = ecb.AddBuffer<MyElement>(e);
+
+            // After playback, the entity will have a MyElement buffer with 
+            // Length 20 and these recorded values.
+            myBuff.Length = 20;
+            myBuff[0] = new MyElement { Value = 5 };
+            myBuff[3] = new MyElement { Value = -9 };
+
+            // SetBuffer is like AddBuffer, but safety checks will throw an exception at playback if 
+            // the entity doesn't already have a MyElement buffer. 
+            DynamicBuffer<MyElement> otherBuf = ecb.SetBuffer<MyElement>(otherEntity);
+
+            // Records a MyElement value to append to the buffer. Throws an exception at 
+            // playback if the entity doesn't already have a MyElement buffer. 
+            // ecb.AddComponent<MyElement>(otherEntity) is a safe way to ensure a buffer 
+            // exists before appending to it.
+            ecb.AppendToBuffer(otherEntity, new MyElement { Value = 12 });
+        }
+
+        #endregion
+
+    }
+
+    
 }

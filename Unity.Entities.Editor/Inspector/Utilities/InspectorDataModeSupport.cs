@@ -230,7 +230,7 @@ namespace Unity.Entities.Editor
                     => typeof(InvalidEntityEditor),
 
                 DataMode.Runtime
-                    when context is null && (Selection.activeGameObject == null || Selection.activeGameObject.scene.isSubScene)
+                    when context is null && (Selection.activeGameObject != null && Selection.activeGameObject.scene.isSubScene)
                     => typeof(InvalidEntityEditor),
 
                 // Anything else: show the default inspector.

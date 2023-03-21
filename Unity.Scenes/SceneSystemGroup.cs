@@ -9,7 +9,7 @@ namespace Unity.Scenes
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.Streaming,
         WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.Streaming)]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
-    public class SceneSystemGroup : ComponentSystemGroup
+    public partial class SceneSystemGroup : ComponentSystemGroup
     {
     }
 }

@@ -149,47 +149,62 @@ namespace Unity.Entities
         /// <param name="entityOffsets">The offsets of the fields of type <see cref="Entity"/>.</param>
         /// <param name="blobOffsets">The offsets of the fields of type <see cref="BlobAssetReferenceData"/>.</param>
         /// <param name="weakAssetRefOffsets">The offsets of the fields of type <see cref="UntypedWeakReferenceId"/>.</param>
+        /// <param name="cache">Cache to accelerate type inspection codepaths when calling this function multiple times.</param>
         public static void CalculateFieldOffsetsUnmanaged(Type type,
             out bool hasEntityRefs,
             out bool hasBlobRefs,
             out bool hasWeakAssetRefs,
             ref NativeList<EntityOffsetInfo> entityOffsets,
             ref NativeList<EntityOffsetInfo> blobOffsets,
-            ref NativeList<EntityOffsetInfo> weakAssetRefOffsets)
+            ref NativeList<EntityOffsetInfo> weakAssetRefOffsets,
+            HashSet<Type> cache = null)
         {
+            if(cache == null)
+                cache = new HashSet<Type>();
+
             int entityOffsetsCount = entityOffsets.Length;
             int blobOffsetsCount = blobOffsets.Length;
             int weakAssetRefCount = weakAssetRefOffsets.Length;
-            CalculateOffsetsRecurse(ref entityOffsets, ref blobOffsets, ref weakAssetRefOffsets, type, 0);
+            CalculateOffsetsRecurse(ref entityOffsets, ref blobOffsets, ref weakAssetRefOffsets, type, 0, cache);
 
             hasEntityRefs = entityOffsets.Length != entityOffsetsCount;
             hasBlobRefs = blobOffsets.Length != blobOffsetsCount;
             hasWeakAssetRefs = weakAssetRefOffsets.Length != weakAssetRefCount;
         }
 
-        static void CalculateOffsetsRecurse(ref NativeList<EntityOffsetInfo> entityOffsets, ref NativeList<EntityOffsetInfo> blobOffsets, ref NativeList<EntityOffsetInfo> weakAssetRefOffsets, Type type, int baseOffset)
+        static bool CalculateOffsetsRecurse(ref NativeList<EntityOffsetInfo> entityOffsets, ref NativeList<EntityOffsetInfo> blobOffsets, ref NativeList<EntityOffsetInfo> weakAssetRefOffsets, Type type, int baseOffset, HashSet<Type> noOffsetTypes)
         {
+            if (noOffsetTypes.Contains(type))
+                return false;
+
             if (type == typeof(Entity))
             {
                 entityOffsets.Add(new EntityOffsetInfo { Offset = baseOffset });
+                return true;
             }
             else if (type == typeof(BlobAssetReferenceData))
             {
                 blobOffsets.Add(new EntityOffsetInfo { Offset = baseOffset });
+                return true;
             }
             else if (type == typeof(UntypedWeakReferenceId))
             {
                 weakAssetRefOffsets.Add(new EntityOffsetInfo { Offset = baseOffset });
+                return true;
             }
-            else
+
+            bool foundOffset = false;
+            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            foreach (var field in fields)
             {
-                var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                foreach (var field in fields)
-                {
-                    if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive)
-                        CalculateOffsetsRecurse(ref entityOffsets, ref blobOffsets, ref weakAssetRefOffsets, field.FieldType, baseOffset + UnsafeUtility.GetFieldOffset(field));
-                }
+                if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive)
+                    foundOffset |= CalculateOffsetsRecurse(ref entityOffsets, ref blobOffsets, ref weakAssetRefOffsets, field.FieldType, baseOffset + UnsafeUtility.GetFieldOffset(field), noOffsetTypes);
             }
+
+            if (!foundOffset)
+                noOffsetTypes.Add(type);
+
+            return foundOffset;
         }
 
         /// <summary>

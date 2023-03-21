@@ -1,5 +1,4 @@
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
@@ -9,12 +8,10 @@ using System.Reflection;
 using System.Threading;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using Microsoft.CodeAnalysis.Text;
-using Unity.Entities.SourceGen.SystemGeneratorCommon;
-using Unity.Entities.SourceGen.SystemGenerator;
 
 namespace Unity.Entities.SourceGen.Common
 {
-    public static partial class SourceGenHelpers
+    public static class SourceGenHelpers
     {
         public const string TrackedNodeAnnotationUsedByRoslyn = "Id";
 
@@ -33,38 +30,71 @@ namespace Unity.Entities.SourceGen.Common
 
         public static bool CanWriteToProjectPath => !string.IsNullOrEmpty(s_ProjectPath);
 
-        public static IncrementalValueProvider<(string projectPath, bool performSafetyChecks, bool outputSourceGenFiles)> GetProjectPathProvider(IncrementalGeneratorInitializationContext context)
+        public struct SourceGenConfig
         {
-            var projectPathIsInsideText0Provider = context.ParseOptionsProvider.Select((options, token) =>
-            {
-                var outputSourceGenFiles = false;
-                var performSafetyChecks = false;
-                // Is Unity 2021.1+ and not dots runtime
-                var inUnity2021OrNewer = false;
-                var isDotsRuntime = false;
-                foreach (var symbolName in options.PreprocessorSymbolNames)
+            public string projectPath;
+            public bool performSafetyChecks;
+            public bool outputSourceGenFiles;
+        }
+
+        public struct ParseOptionConfig
+        {
+            public bool PathIsInFirstAdditionalTextItem;
+            public bool performSafetyChecks;
+            public bool outputSourceGenFiles;
+        }
+
+        public static IncrementalValueProvider<SourceGenConfig>
+            GetSourceGenConfigProvider(IncrementalGeneratorInitializationContext context)
+        {
+            // Generate provider that lazily provides options based off of context's parse options
+            var parseOptionConfigProvider = context.ParseOptionsProvider.Select((options, token) =>
                 {
-                    isDotsRuntime |= symbolName == "UNITY_DOTSRUNTIME";
-                    inUnity2021OrNewer |= symbolName == "UNITY_2021_1_OR_NEWER";
-                    performSafetyChecks |= symbolName == "ENABLE_UNITY_COLLECTIONS_CHECKS";
-                    outputSourceGenFiles |= symbolName == "DOTS_OUTPUT_SOURCEGEN_FILES";
-                }
-                return (pathIsInsideText0: inUnity2021OrNewer && !isDotsRuntime, performSafetyChecks, outputSourceGenFiles);
+                    var parseOptionsConfig = new ParseOptionConfig();
+
+                    // Is Unity 2021.1+ and not dots runtime
+                    var inUnity2021OrNewer = false;
+                    var isDotsRuntime = false;
+
+                    foreach (var symbolName in options.PreprocessorSymbolNames)
+                    {
+                        isDotsRuntime |= symbolName == "UNITY_DOTSRUNTIME";
+                        inUnity2021OrNewer |= symbolName == "UNITY_2021_1_OR_NEWER";
+                        parseOptionsConfig.performSafetyChecks |= symbolName == "ENABLE_UNITY_COLLECTIONS_CHECKS";
+                        parseOptionsConfig.outputSourceGenFiles |= symbolName == "DOTS_OUTPUT_SOURCEGEN_FILES";
+                    }
+
+                    parseOptionsConfig.PathIsInFirstAdditionalTextItem = inUnity2021OrNewer && !isDotsRuntime;
+
+                    return parseOptionsConfig;
+                });
+
+            // Combine the AdditionalTextsProvider with the provider constructed above to provide all SourceGenConfig options lazily
+            var sourceGenConfigProvider = context.AdditionalTextsProvider.Collect()
+                .Combine(parseOptionConfigProvider)
+                .Select((lTextsRIsInsideText, token) =>
+            {
+                var config = new SourceGenConfig();
+
+                config.performSafetyChecks = lTextsRIsInsideText.Right.performSafetyChecks;
+                config.outputSourceGenFiles = lTextsRIsInsideText.Right.outputSourceGenFiles;
+
+                if (Environment.GetEnvironmentVariable("SOURCEGEN_DISABLE_PROJECT_PATH_OUTPUT") == "1")
+                    return config;
+
+                var texts = lTextsRIsInsideText.Left;
+                var projectPathIsInFirstAdditionalTextItem = lTextsRIsInsideText.Right.PathIsInFirstAdditionalTextItem;
+
+                if (texts.Length == 0 || string.IsNullOrEmpty(texts[0].Path))
+                    return config;
+
+                var path = projectPathIsInFirstAdditionalTextItem ? texts[0].GetText(token)?.ToString() : texts[0].Path;
+                config.projectPath = path?.Replace('\\', '/');
+
+                return config;
             });
 
-            return context.AdditionalTextsProvider.Collect().Combine(projectPathIsInsideText0Provider).Select((lTextsRIsInsideText, token) =>
-            {
-                var performSafetyChecks = lTextsRIsInsideText.Right.performSafetyChecks;
-                var outputSourceGenFiles = lTextsRIsInsideText.Right.outputSourceGenFiles;
-                if (Environment.GetEnvironmentVariable("SOURCEGEN_DISABLE_PROJECT_PATH_OUTPUT") == "1")
-                    return (null, performSafetyChecks, outputSourceGenFiles);
-                var texts = lTextsRIsInsideText.Left;
-                var projectPathIsInsideText0 = lTextsRIsInsideText.Right.pathIsInsideText0;
-                if (texts.Length == 0 || string.IsNullOrEmpty(texts[0].Path))
-                    return (null, performSafetyChecks, outputSourceGenFiles);
-                var path = projectPathIsInsideText0 ? texts[0].GetText(token)?.ToString() : texts[0].Path;
-                return (path?.Replace('\\', '/'), performSafetyChecks, outputSourceGenFiles);
-            });
+            return sourceGenConfigProvider;
         }
 
         public static void Setup(GeneratorExecutionContext context)
@@ -104,6 +134,7 @@ namespace Unity.Entities.SourceGen.Common
         {
             if (!CanWriteToProjectPath)
                 return;
+
             // Ignore IO exceptions in case there is already a lock, could use a named mutex but don't want to eat the performance cost
             try
             {
@@ -178,9 +209,9 @@ namespace Unity.Entities.SourceGen.Common
             }
         }
 
+        // Output as generated source file for debugging/inspection
         public static void OutputSourceToFile(GeneratorExecutionContext context, string generatedSourceFilePath, SourceText sourceTextForNewClass)
         {
-            // Output as generated source file for debugging/inspection
             if (!CanWriteToProjectPath)
                 return;
 
@@ -197,9 +228,9 @@ namespace Unity.Entities.SourceGen.Common
             }
         }
 
+        // Output as generated source file for debugging/inspection
         public static void OutputSourceToFile(SourceProductionContext context, Location locationToErrorAt, string generatedSourceFilePath, SourceText sourceTextForNewClass)
         {
-            // Output as generated source file for debugging/inspection
             if (!CanWriteToProjectPath)
                 return;
 
@@ -215,48 +246,7 @@ namespace Unity.Entities.SourceGen.Common
             }
         }
 
-        public static bool TryGetAllTypeArgumentSymbolsOfMethod(SystemDescription systemDescription, SyntaxNode node, string methodName, QueryType resultsShouldHaveThisQueryType, out List<Query> result)
-        {
-            result = new List<Query>();
-
-            var isValid = true;
-            var semanticModel = systemDescription.SemanticModel;
-            var methodInvocations = node.GetMethodInvocations();
-            var location = node.GetLocation();
-
-            if (!methodInvocations.ContainsKey(methodName))
-                return true;
-
-            var symbols = methodInvocations[methodName]
-                .Select(methodInvocation => (IMethodSymbol) semanticModel.GetSymbolInfo(methodInvocation).Symbol)
-                .Where(symbol => symbol != null);
-
-            foreach (var symbol in symbols)
-            {
-                foreach (var argumentType in symbol.TypeArguments.OfType<ITypeParameterSymbol>())
-                {
-                    SystemGeneratorErrors.DC0051(systemDescription, location, argumentType.Name, methodName);
-                    isValid = false;
-                }
-
-                foreach (var argumentType in symbol.TypeArguments.OfType<INamedTypeSymbol>())
-                {
-                    if (argumentType.IsGenericType)
-                    {
-                        SystemGeneratorErrors.DC0051(systemDescription, location, argumentType.Name, methodName);
-                        isValid = false;
-                        continue;
-                    }
-                    result.Add(new Query { IsReadOnly = true, Type = resultsShouldHaveThisQueryType, TypeSymbol = argumentType});
-                }
-            }
-
-            return isValid;
-        }
-
-
         /// <summary>
-        ///
         /// Returns true if running as part of csc.exe, otherwise we are likely running in the IDE.
         /// Skipping Source Generation in the IDE can be a considerable performance win as source
         /// generators can be run multiple times per keystroke. If the user doesn't rely on generated types

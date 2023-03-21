@@ -19,18 +19,18 @@ namespace Doc.CodeSamples.Tests
         public readonly Entity Self;
 
         // Aspects can contain other aspects.
-        readonly TransformAspect Transform;
 
         // A RefRW field provides read write access to a component. If the aspect is taken as an "in"
         // parameter, the field behaves as if it was a RefRO and throws exceptions on write attempts.
+        readonly RefRW<LocalTransform> Transform;
         readonly RefRW<CannonBall> CannonBall;
 
         // Properties like this aren't mandatory. The Transform field can be public instead.
         // But they improve readability by avoiding chains of "aspect.aspect.aspect.component.value.value".
         public float3 Position
         {
-            get => Transform.LocalPosition;
-            set => Transform.LocalPosition = value;
+            get => Transform.ValueRO.Position;
+            set => Transform.ValueRW.Position = value;
         }
 
         public float3 Speed
@@ -46,9 +46,9 @@ namespace Doc.CodeSamples.Tests
     {
         public void OnUpdate(ref SystemState state)
         {
-            foreach (var transform in SystemAPI.Query<TransformAspect>())
+            foreach (var cannonball in SystemAPI.Query<CannonBallAspect>())
             {
-                // use transform aspect here
+                // use cannonball aspect here
             }
         }
     }

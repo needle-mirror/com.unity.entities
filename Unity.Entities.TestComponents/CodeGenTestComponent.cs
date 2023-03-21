@@ -32,13 +32,15 @@ namespace Unity.Entities.Tests
             public override void Bake(CodeGenTestComponentAuthoring authoring)
             {
                 Unity.Entities.Tests.CodeGenTestComponent component = default(Unity.Entities.Tests.CodeGenTestComponent);
-                component.Entity = GetEntity(authoring.Entity);
+                component.Entity = GetEntity(authoring.Entity, TransformUsageFlags.None);
                 component.Float = authoring.Float;
                 component.Int = authoring.Int;
                 component.Bool = authoring.Bool;
                 component.Enum = authoring.Enum;
                 component.Char = authoring.Char;
-                AddComponent(component);
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, component);
             }
         }
     }

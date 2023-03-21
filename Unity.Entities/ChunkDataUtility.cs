@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
+using Unity.Burst.Intrinsics;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
@@ -218,7 +219,8 @@ namespace Unity.Entities
         {
             var archetype = chunk->Archetype;
             var chunks = archetype->Chunks;
-            return chunks.GetEnabledArrayForTypeInChunk(indexInTypeArray, chunk->ListIndex);
+            int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInTypeArray];
+            return chunks.GetEnabledArrayForTypeInChunk(memoryOrderIndexInArchetype, chunk->ListIndex);
         }
 
         public static UnsafeBitArray GetEnabledRefRW(Chunk* chunk, int indexInTypeArray,
@@ -232,8 +234,9 @@ namespace Unity.Entities
 
             var archetype = chunk->Archetype;
             var chunks = archetype->Chunks;
-            ptrChunkDisabledCount = chunks.GetPointerToChunkDisabledCountForType(indexInTypeArray, chunk->ListIndex);
-            return chunks.GetEnabledArrayForTypeInChunk(indexInTypeArray, chunk->ListIndex);
+            int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInTypeArray];
+            ptrChunkDisabledCount = chunks.GetPointerToChunkDisabledCountForType(memoryOrderIndexInArchetype, chunk->ListIndex);
+            return chunks.GetEnabledArrayForTypeInChunk(memoryOrderIndexInArchetype, chunk->ListIndex);
         }
 
         public static void Copy(Chunk* srcChunk, int srcIndex, Chunk* dstChunk, int dstIndex, int count)
@@ -298,8 +301,8 @@ namespace Unity.Entities
                     continue;
                 dstTypeIndexInArchetype = result;
 
-                var srcBits = srcArch->Chunks.GetEnabledArrayForTypeInChunk(srcTypeIndexInArchetype, srcChunkIndexInArchetype);
-                var dstBits = dstArch->Chunks.GetEnabledArrayForTypeInChunk(dstTypeIndexInArchetype, dstChunkIndexInArchetype);
+                var srcBits = srcArch->Chunks.GetEnabledArrayForTypeInChunk(srcArch->TypeIndexInArchetypeToMemoryOrderIndex[srcTypeIndexInArchetype], srcChunkIndexInArchetype);
+                var dstBits = dstArch->Chunks.GetEnabledArrayForTypeInChunk(dstArch->TypeIndexInArchetypeToMemoryOrderIndex[dstTypeIndexInArchetype], dstChunkIndexInArchetype);
                 dstBits.Copy(dstEntityIndexInChunk, ref srcBits, srcEntityIndexInChunk, entityCount);
             }
         }
@@ -310,25 +313,28 @@ namespace Unity.Entities
             var srcArch = srcChunk->Archetype;
             var dstArch = dstChunk->Archetype;
             var srcEnableableTypesCount = srcArch->EnableableTypesCount;
-            var dstTypeIndex = 0;
+            int dstIndexInArchetype = 0;
 
             for (var t = 0; t < srcEnableableTypesCount; t++)
             {
                 var srcIndexInArchetype = srcArch->EnableableTypeIndexInArchetype[t];
-                var srcBits = srcArch->Chunks.GetEnabledArrayForTypeInChunk(srcIndexInArchetype, srcChunk->ListIndex);
+                int srcMemoryOrderIndexInArchetype = srcArch->TypeIndexInArchetypeToMemoryOrderIndex[srcIndexInArchetype];
+                var srcBits = srcArch->Chunks.GetEnabledArrayForTypeInChunk(srcMemoryOrderIndexInArchetype, srcChunk->ListIndex);
                 var srcValue = srcBits.IsSet(srcIndex);
 
-                dstTypeIndex = GetNextIndexInTypeArray(dstArch, srcArch->Types[srcIndexInArchetype].TypeIndex, dstTypeIndex);
-                if (dstTypeIndex < 0)
+                int result = GetNextIndexInTypeArray(dstArch, srcArch->Types[srcIndexInArchetype].TypeIndex, dstIndexInArchetype);
+                if (result < 0)
                     continue;
+                dstIndexInArchetype = result;
 
-                var dstBits = dstArch->Chunks.GetEnabledArrayForTypeInChunk(dstTypeIndex, dstChunk->ListIndex);
+                int dstMemoryOrderIndexInArchetype = dstArch->TypeIndexInArchetypeToMemoryOrderIndex[dstIndexInArchetype];
+                var dstBits = dstArch->Chunks.GetEnabledArrayForTypeInChunk(dstMemoryOrderIndexInArchetype, dstChunk->ListIndex);
                 dstBits.SetBits(dstIndex, srcValue, count);
 
                 // If the src value is disabled, adjust the hierarchical data
                 if (!srcValue)
                 {
-                    dstArch->Chunks.AdjustChunkDisabledCountForType(dstTypeIndex, dstChunk->ListIndex, count);
+                    dstArch->Chunks.AdjustChunkDisabledCountForType(dstMemoryOrderIndexInArchetype, dstChunk->ListIndex, count);
                 }
             }
         }
@@ -340,31 +346,41 @@ namespace Unity.Entities
         public static void MoveEnabledBits(Archetype* srcArchetype, int srcChunkIndex, Archetype* dstArchetype, int dstChunkIndex, int srcEntityCount)
         {
             Assert.IsTrue(srcArchetype == dstArchetype || srcArchetype->Chunks[srcChunkIndex] == dstArchetype->Chunks[dstChunkIndex]);
-            var srcEnableableTypesCount = srcArchetype->EnableableTypesCount;
-            var dstTypeIndex = 0;
-
-            for (var t = 0; t < srcEnableableTypesCount; t++)
+            var dstEnableableTypesCount = dstArchetype->EnableableTypesCount;
+            var srcTypeIndexInArchetype = 0;
+            for (var t = 0; t < dstEnableableTypesCount; t++)
             {
-                var srcIndexInArchetype = srcArchetype->EnableableTypeIndexInArchetype[t];
-                var srcBits = srcArchetype->Chunks.GetEnabledArrayForTypeInChunk(srcIndexInArchetype, srcChunkIndex);
-
-                dstTypeIndex = GetNextIndexInTypeArray(dstArchetype, srcArchetype->Types[srcIndexInArchetype].TypeIndex, dstTypeIndex);
-                if (dstTypeIndex < 0)
-                    continue;
-
-                var dstBits = dstArchetype->Chunks.GetEnabledArrayForTypeInChunk(dstTypeIndex, dstChunkIndex);
-                // clear destination bits & bit count in preparation for new values
+                var dstTypeIndexInArchetype = dstArchetype->EnableableTypeIndexInArchetype[t];
+                int dstMemoryOrderIndexInArchetype = dstArchetype->TypeIndexInArchetypeToMemoryOrderIndex[dstTypeIndexInArchetype];
+                var dstBits = dstArchetype->Chunks.GetEnabledArrayForTypeInChunk(dstMemoryOrderIndexInArchetype, dstChunkIndex);
+                // Clear destination bits & bit count in preparation for new values.
+                // This is technically redundant, as the previous call to InitializeBitsForNewChunk() should already
+                // zero-initialize this data.
                 dstBits.Clear();
-                dstArchetype->Chunks.SetChunkDisabledCountForType(dstTypeIndex, dstChunkIndex, 0);
-                // Copy src bits to dst bits
-                dstBits.Copy(0, ref srcBits, 0, srcEntityCount);
-                // Copy enabled bit count to destination
-                var newDisabledCount = srcArchetype->Chunks.GetChunkDisabledCountForType(srcIndexInArchetype, srcChunkIndex);
-                dstArchetype->Chunks.SetChunkDisabledCountForType(dstTypeIndex, dstChunkIndex, newDisabledCount);
-                // Clear the source bits because we're doing a full move
-                srcBits.Clear();
-                srcArchetype->Chunks.SetChunkDisabledCountForType(srcIndexInArchetype, srcChunkIndex, 0);
+                dstArchetype->Chunks.SetChunkDisabledCountForType(dstMemoryOrderIndexInArchetype, dstChunkIndex, 0);
+
+                int result = GetNextIndexInTypeArray(srcArchetype, dstArchetype->Types[dstTypeIndexInArchetype].TypeIndex, srcTypeIndexInArchetype);
+                if (result < 0)
+                {
+                    // If this type was not in srcArchetype, then it should default to enabled for all entities in the chunk.
+                    dstBits.SetBits(0, true, srcEntityCount);
+                    // The disabled count is already set to 0 earlier in this function, so no need to set it again.
+                }
+                else
+                {
+                    // If the type is in both srcArchetype and dstArchetype, copy its bits & count from srcChunk to dstChunk.
+                    srcTypeIndexInArchetype = result;
+                    int srcMemoryOrderIndexInArchetype = srcArchetype->TypeIndexInArchetypeToMemoryOrderIndex[srcTypeIndexInArchetype];
+                    var srcBits = srcArchetype->Chunks.GetEnabledArrayForTypeInChunk(srcMemoryOrderIndexInArchetype, srcChunkIndex);
+                    // Copy src bits to dst bits
+                    dstBits.Copy(0, ref srcBits, 0, srcEntityCount);
+                    // Copy enabled bit count to destination
+                    var srcDisabledCount = srcArchetype->Chunks.GetChunkDisabledCountForType(srcMemoryOrderIndexInArchetype, srcChunkIndex);
+                    dstArchetype->Chunks.SetChunkDisabledCountForType(dstMemoryOrderIndexInArchetype, dstChunkIndex, srcDisabledCount);
+                }
             }
+            // Clear the source bits and counts, because we're doing a full move.
+            InitializeBitsForNewChunk(srcArchetype, srcChunkIndex);
         }
 
         public static void ClearPaddingBits(Chunk* chunk, int startIndex, int count)
@@ -375,15 +391,17 @@ namespace Unity.Entities
             for (var t = 0; t < enableableTypesCount; t++)
             {
                 var indexInArchetype = archetype->EnableableTypeIndexInArchetype[t];
-                var bits = archetype->Chunks.GetEnabledArrayForTypeInChunk(indexInArchetype, chunk->ListIndex);
+                int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInArchetype];
+                var bits = archetype->Chunks.GetEnabledArrayForTypeInChunk(memoryOrderIndexInArchetype, chunk->ListIndex);
                 bits.SetBits(startIndex, false, count);
             }
         }
 
         public static void InitializeBitsForNewChunk(Archetype* archetype, int chunkIndex)
         {
-            var enabledBits = archetype->Chunks.GetComponentEnabledArrayForChunk(chunkIndex);
-            enabledBits.Clear(); // All bits set to zero by default for new chunks
+            // all bits for all components on all entities are set to zero by default on new chunks
+            var enabledBits = archetype->Chunks.GetComponentEnabledMaskArrayForChunk(chunkIndex);
+            UnsafeUtility.MemClear(enabledBits, (long)archetype->Chunks.ComponentEnabledBitsSizeTotalPerChunk);
 
             archetype->Chunks.InitializeDisabledCountForChunk(chunkIndex);
         }
@@ -396,10 +414,11 @@ namespace Unity.Entities
             for (var t = 0; t < enableableTypesCount; t++)
             {
                 var indexInArchetype = archetype->EnableableTypeIndexInArchetype[t];
-                var bits = archetype->Chunks.GetEnabledArrayForTypeInChunk(indexInArchetype, chunk->ListIndex);
+                int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInArchetype];
+                var bits = archetype->Chunks.GetEnabledArrayForTypeInChunk(memoryOrderIndexInArchetype, chunk->ListIndex);
 
                 var removedDisabledCount = count - bits.CountBits(startIndex, count);
-                archetype->Chunks.AdjustChunkDisabledCountForType(indexInArchetype, chunk->ListIndex, -removedDisabledCount);
+                archetype->Chunks.AdjustChunkDisabledCountForType(memoryOrderIndexInArchetype, chunk->ListIndex, -removedDisabledCount);
             }
         }
 
@@ -524,7 +543,8 @@ namespace Unity.Entities
             for (var t = 0; t != enableableTypeCount; t++)
             {
                 var indexInArchetype = arch->EnableableTypeIndexInArchetype[t];
-                var bits = arch->Chunks.GetEnabledArrayForTypeInChunk(indexInArchetype, dstChunk->ListIndex);
+                int memoryOrderIndexInArchetype = arch->TypeIndexInArchetypeToMemoryOrderIndex[indexInArchetype];
+                var bits = arch->Chunks.GetEnabledArrayForTypeInChunk(memoryOrderIndexInArchetype, dstChunk->ListIndex);
                 bits.SetBits(dstIndex, true, count);
             }
 
@@ -592,7 +612,8 @@ namespace Unity.Entities
                     // Newly-added enableable components should be enabled by default
                     if (dstType.IsEnableable)
                     {
-                        var bits = dstArch->Chunks.GetEnabledArrayForTypeInChunk(dstI, dstChunk->ListIndex);
+                        int dstMemoryOrderIndexInArchetype = dstArch->TypeIndexInArchetypeToMemoryOrderIndex[dstI];
+                        var bits = dstArch->Chunks.GetEnabledArrayForTypeInChunk(dstMemoryOrderIndexInArchetype, dstChunk->ListIndex);
                         bits.SetBits(dstIndex, true, count);
                     }
                     --dstI;
@@ -629,7 +650,8 @@ namespace Unity.Entities
                     // Newly-added enableable components should be enabled by default
                     if (dstType.IsEnableable)
                     {
-                        var bits = dstArch->Chunks.GetEnabledArrayForTypeInChunk(dstI, dstChunk->ListIndex);
+                        int dstMemoryOrderIndexInArchetype = dstArch->TypeIndexInArchetypeToMemoryOrderIndex[dstI];
+                        var bits = dstArch->Chunks.GetEnabledArrayForTypeInChunk(dstMemoryOrderIndexInArchetype, dstChunk->ListIndex);
                         bits.SetBits(dstIndex, true, count);
                     }
                     --dstTagI;
@@ -707,9 +729,9 @@ namespace Unity.Entities
             // Clear chunk data stream padding
             for (int i = 0; i < arch->TypesCount - 1; ++i)
             {
-                var index = arch->TypeMemoryOrder[i];
+                var index = arch->TypeMemoryOrderIndexToIndexInArchetype[i];
 
-                var nextIndex = arch->TypeMemoryOrder[i + 1];
+                var nextIndex = arch->TypeMemoryOrderIndexToIndexInArchetype[i + 1];
                 var componentSize = arch->SizeOfs[index];
                 var startOffset = arch->Offsets[index] + count * componentSize;
                 var endOffset = arch->Offsets[nextIndex];
@@ -720,7 +742,7 @@ namespace Unity.Entities
 
                 UnsafeUtility.MemSet(buffer + startOffset, value, endOffset - startOffset);
             }
-            var lastIndex = arch->TypeMemoryOrder[arch->TypesCount - 1];
+            var lastIndex = arch->TypeMemoryOrderIndexToIndexInArchetype[arch->TypesCount - 1];
             var lastStartOffset = arch->Offsets[lastIndex] + count * arch->SizeOfs[lastIndex];
             var bufferSize = Chunk.GetChunkBufferSize();
             UnsafeUtility.MemSet(buffer + lastStartOffset, value, bufferSize - lastStartOffset);

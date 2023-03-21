@@ -348,7 +348,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void IJobChunk_WithNoBatching_HasCorrectIndices(
+        public void IJobChunk_WithNoEnableable_HasCorrectIndices(
             [Values(ScheduleMode.Parallel, ScheduleMode.Single, ScheduleMode.Run, ScheduleMode.RunWithoutJobs)] ScheduleMode scheduleMode)
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));

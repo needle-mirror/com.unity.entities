@@ -31,8 +31,10 @@ namespace Unity.Entities.TestComponents
         {
             public override void Bake(EnableableTestAuthoring authoring)
             {
-                AddComponent(new EmptyEnableableComponent());
-                AddComponent(new EnableableComponent {Value = authoring.value});
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new EmptyEnableableComponent());
+                AddComponent(entity, new EnableableComponent {Value = authoring.value});
 
                 var bufferData = new NativeArray<EnableableBuffer>(authoring.value, Allocator.Temp);
                 for (int i = 0; i < authoring.value; i++)
@@ -40,12 +42,12 @@ namespace Unity.Entities.TestComponents
                     bufferData[i] = new EnableableBuffer {Value = i};
                 }
 
-                var buffer = AddBuffer<EnableableBuffer>();
+                var buffer = AddBuffer<EnableableBuffer>(entity);
                 buffer.AddRange(bufferData);
 
-                SetComponentEnabled<EmptyEnableableComponent>(GetEntity(), authoring.emptyEnableComponent);
-                SetComponentEnabled<EnableableComponent>(GetEntity(), authoring.enableComponent);
-                SetComponentEnabled<EnableableBuffer>(GetEntity(), authoring.enableBuffer);
+                SetComponentEnabled<EmptyEnableableComponent>(entity, authoring.emptyEnableComponent);
+                SetComponentEnabled<EnableableComponent>(entity, authoring.enableComponent);
+                SetComponentEnabled<EnableableBuffer>(entity, authoring.enableBuffer);
             }
         }
     }

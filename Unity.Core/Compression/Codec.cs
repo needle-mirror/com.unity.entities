@@ -43,6 +43,20 @@ namespace Unity.Core.Compression
         /// <returns></returns>
         static public unsafe int Compress(Codec codec, in byte* src, int srcSize, out byte* dst, Allocator allocator = Allocator.Temp)
         {
+            return Compress(codec, src, srcSize, out dst, (AllocatorManager.AllocatorHandle) allocator);
+        }
+
+        /// <summary>
+        /// Compresses the passed in `src` data into newly allocated `dst` buffer. Users must free `dst` manually after calling `Compress`
+        /// </summary>
+        /// <param name="codec"></param>
+        /// <param name="src"></param>
+        /// <param name="size"></param>
+        /// <param name="dst"></param>
+        /// <param name="allocator"></param>
+        /// <returns></returns>
+        static public unsafe int Compress(Codec codec, in byte* src, int srcSize, out byte* dst, AllocatorManager.AllocatorHandle allocator)
+        {
             int boundedSize = CompressUpperBound(codec, srcSize);
             dst = (byte*)Memory.Unmanaged.Allocate(boundedSize, 16, allocator);
 

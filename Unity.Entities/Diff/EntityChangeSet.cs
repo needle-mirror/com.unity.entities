@@ -178,6 +178,13 @@ namespace Unity.Entities
         }
     }
 
+    public struct FilteredArchetype
+    {
+        public int EntityCount;
+        public UnsafeList<int> PackedEntityIndices;
+        public UnsafeList<TypeIndex> TypeIndices;
+    }
+
     /// <summary>
     /// Represents a packed component within an <see cref="EntityChangeSet"/>
     /// </summary>
@@ -461,6 +468,11 @@ namespace Unity.Entities
         public readonly NativeArray<PackedComponent> AddComponents;
 
         /// <summary>
+        /// A set of all archetype created in this change-set.
+        /// </summary>
+        public readonly NativeArray<FilteredArchetype> AddArchetypes;
+
+        /// <summary>
         /// A set of all component removals in this change-set.
         /// </summary>
         public readonly NativeArray<PackedComponent> RemoveComponents;
@@ -543,6 +555,7 @@ namespace Unity.Entities
         /// <param name="names">Changed names including created and destroyed entities in this change-set.</param>
         /// <param name="nameChangedEntityGuids">Entities of which names changed in this change-set, not including created and destroyed entities.</param>
         /// <param name="addComponents">A set of all component additions in this change-set.</param>
+        /// <param name="addArchetypes">A set of all archetype additions in this change-set.</param>
         /// <param name="removeComponents">A set of all component removals in this change-set.</param>
         /// <param name="setComponents">A set of all component data modifications in this change-set.</param>
         /// <param name="componentData">Data payload for all component changes specified in <see cref="SetComponents"/>.</param>
@@ -565,6 +578,7 @@ namespace Unity.Entities
             NativeArray<FixedString64Bytes> names,
             NativeArray<EntityGuid> nameChangedEntityGuids,
             NativeArray<PackedComponent> addComponents,
+            NativeArray<FilteredArchetype> addArchetypes,
             NativeArray<PackedComponent> removeComponents,
             NativeArray<PackedComponentDataChange> setComponents,
             NativeArray<byte> componentData,
@@ -587,6 +601,7 @@ namespace Unity.Entities
             Names = names;
             NameChangedEntityGuids = nameChangedEntityGuids;
             AddComponents = addComponents;
+            AddArchetypes = addArchetypes;
             RemoveComponents = removeComponents;
             SetManagedComponents = setManagedComponents;
             SetComponents = setComponents;
@@ -618,6 +633,7 @@ namespace Unity.Entities
             bool hasChange = CreatedEntityCount != 0 ||
             DestroyedEntityCount != 0 ||
             AddComponents.Length != 0 ||
+            AddArchetypes.Length != 0 ||
             RemoveComponents.Length != 0 ||
             SetComponents.Length != 0 ||
             ComponentData.Length != 0 ||
@@ -675,6 +691,12 @@ namespace Unity.Entities
             Names.Dispose();
             NameChangedEntityGuids.Dispose();
             AddComponents.Dispose();
+            foreach (var arch in AddArchetypes)
+            {
+                arch.TypeIndices.Dispose();
+                arch.PackedEntityIndices.Dispose();
+            }
+            AddArchetypes.Dispose();
             RemoveComponents.Dispose();
             SetComponents.Dispose();
             ComponentData.Dispose();
@@ -712,10 +734,11 @@ namespace Unity.Entities
             internal NativeArray<Entity> NameChangedEntities;
             internal bool IsCreated;
 
-            internal NameInfoSet(int namesLength, int nameChangedEntitiesLength, Allocator allocator)
+            internal NameInfoSet(int namesLength, int nameChangedEntitiesLength, AllocatorManager.AllocatorHandle allocator)
             {
-                Names = new NativeArray<FixedString64Bytes>(namesLength, allocator);
-                NameChangedEntities = new NativeArray<Entity>(nameChangedEntitiesLength, allocator);
+                // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
+                Names = new NativeArray<FixedString64Bytes>(namesLength, allocator.ToAllocator);
+                NameChangedEntities = new NativeArray<Entity>(nameChangedEntitiesLength, allocator.ToAllocator);
                 IsCreated = true;
             }
 
@@ -785,7 +808,7 @@ namespace Unity.Entities
             EntityManager entityManager,
             EntityChangeSet changeSet,
             NameInfoSet nameInfoSet,
-            Allocator allocator)
+            AllocatorManager.AllocatorHandle allocator)
         {
             var entityQuery = entityManager.CreateEntityQuery(EntityGuidQueryDesc);
             var entityCount = entityQuery.CalculateEntityCount();
@@ -830,7 +853,7 @@ namespace Unity.Entities
         static NameInfoSet BuildEntityNames(
             EntityManager targetEntityManager,
             EntityChangeSet changeSet,
-            Allocator allocator)
+            AllocatorManager.AllocatorHandle allocator)
         {
             var nameLength = changeSet.Entities.Length;
             var nameChangedEntitiesLength = changeSet.NameChangedCount;
@@ -876,6 +899,8 @@ namespace Unity.Entities
                 sb.AppendLine("\tEntity references changed: " + changeSet.EntityReferenceChanges.Length);
             if (changeSet.AddComponents.Length > 0)
                 sb.AppendLine("\tComponents added: " + changeSet.AddComponents.Length);
+            if (changeSet.AddArchetypes.Length > 0)
+                sb.AppendLine("\tComponents added: " + changeSet.AddArchetypes.Length);
             if (changeSet.RemoveComponents.Length > 0)
                 sb.AppendLine("\tComponents removed: " + changeSet.RemoveComponents.Length);
             if (changeSet.SetComponents.Length > 0)

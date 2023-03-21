@@ -1,38 +1,47 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.AspectGenerator", "AspectGenerator\Unity.Entities.SourceGen.AspectGenerator.csproj", "{B5BE583B-2613-4C0C-B9A3-CA9349609B18}"
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33205.214
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.AspectGenerator", "AspectGenerator\Unity.Entities.SourceGen.AspectGenerator.csproj", "{B5BE583B-2613-4C0C-B9A3-CA9349609B18}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.Common", "Common\Unity.Entities.SourceGen.Common.csproj", "{A4E2BD63-8220-49FF-A2EE-4D481E0CB912}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.Common", "Common\Unity.Entities.SourceGen.Common.csproj", "{A4E2BD63-8220-49FF-A2EE-4D481E0CB912}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.EntityQuery", "EntityQuery\Unity.Entities.SourceGen.EntityQuery.csproj", "{F72A3E86-40A0-49EC-8835-678AA2B761D9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.SystemGenerator.EntityQueryBulkOperations", "SystemGenerator.EntityQueryBulkOperations\Unity.Entities.SourceGen.SystemGenerator.EntityQueryBulkOperations.csproj", "{F72A3E86-40A0-49EC-8835-678AA2B761D9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.IdiomaticCSharpForEach", "IdiomaticCSharpForEach\Unity.Entities.SourceGen.IdiomaticCSharpForEach.csproj", "{6B299371-AD2C-4C78-8644-B41638ED8244}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query", "SystemGenerator.SystemAPI.Query\Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query.csproj", "{6B299371-AD2C-4C78-8644-B41638ED8244}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.JobEntity", "JobEntity\Unity.Entities.SourceGen.JobEntity.csproj", "{983DC9C5-96F8-450E-BCEE-C36CEEB7C60C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.JobEntityGenerator", "JobEntityGenerator\Unity.Entities.SourceGen.JobEntityGenerator.csproj", "{983DC9C5-96F8-450E-BCEE-C36CEEB7C60C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.LambdaJobs", "LambdaJobs\Unity.Entities.SourceGen.LambdaJobs.csproj", "{3D96E430-7446-47A5-9217-3273AD16D305}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.SystemGenerator.LambdaJobs", "SystemGenerator.LambdaJobs\Unity.Entities.SourceGen.SystemGenerator.LambdaJobs.csproj", "{3D96E430-7446-47A5-9217-3273AD16D305}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.SystemContextSystemModule", "SystemContextSystemModule\Unity.Entities.SourceGen.SystemContextSystemModule.csproj", "{6A23DEFF-EBF0-4D7F-8392-3AA950EE983D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.SystemGenerator.SystemAPI", "SystemGenerator.SystemAPI\Unity.Entities.SourceGen.SystemGenerator.SystemAPI.csproj", "{6A23DEFF-EBF0-4D7F-8392-3AA950EE983D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.SystemGenerator", "SystemGenerator\Unity.Entities.SourceGen.SystemGenerator.csproj", "{6A00B542-F7B0-4F93-8B53-30F45CA5C43F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.SystemGenerator", "SystemGenerator\Unity.Entities.SourceGen.SystemGenerator.csproj", "{6A00B542-F7B0-4F93-8B53-30F45CA5C43F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.Tests", "SystemGeneratorTests\Unity.Entities.SourceGen.Tests.csproj", "{7A0501AE-DA3A-4891-B5D1-46A1E48DE3EC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.Tests", "SystemGeneratorTests\Unity.Entities.SourceGen.Tests.csproj", "{7A0501AE-DA3A-4891-B5D1-46A1E48DE3EC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.Mock", "Unity.Entities.Mock\Unity.Entities.Mock.csproj", "{BF2A4634-0159-4100-9DA2-6708AEBF1650}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.Mock", "Mock\Unity.Entities.Mock\Unity.Entities.Mock.csproj", "{BF2A4634-0159-4100-9DA2-6708AEBF1650}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Burst.Mock", "Unity.Burst.Mock\Unity.Burst.Mock.csproj", "{52D2A513-8F5E-401C-87E0-5D3AEE18B43F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Burst.Mock", "Mock\Unity.Burst.Mock\Unity.Burst.Mock.csproj", "{52D2A513-8F5E-401C-87E0-5D3AEE18B43F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.Hybrid.Mock", "Unity.Entities.Hybrid.Mock\Unity.Entities.Hybrid.Mock.csproj", "{8AE5D2AF-28B6-4407-A8C2-78B5EEB842E5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.Hybrid.Mock", "Mock\Unity.Entities.Hybrid.Mock\Unity.Entities.Hybrid.Mock.csproj", "{8AE5D2AF-28B6-4407-A8C2-78B5EEB842E5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.SystemAPIQueryBuilder", "SystemAPIQueryBuilder\Unity.Entities.SourceGen.SystemAPIQueryBuilder.csproj", "{C9D3A8AD-EDFF-4A8E-B8C9-DAB26535E273}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.SourceGen.SystemGenerator.SystemAPI.QueryBuilder", "SystemGenerator.SystemAPI.QueryBuilder\Unity.Entities.SourceGen.SystemGenerator.SystemAPI.QueryBuilder.csproj", "{C9D3A8AD-EDFF-4A8E-B8C9-DAB26535E273}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Analyzer", "Analyzer", "{B058AFF0-8F03-4030-9A9E-1385580F73EA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.Analyzer", "EntitiesAnalyzer\EntitiesAnalyzer\Unity.Entities.Analyzer\Unity.Entities.Analyzer.csproj", "{DDB7E9E6-B101-4FD4-8568-4213BFF6EA0E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.Analyzer", "EntitiesAnalyzer\Unity.Entities.Analyzer\Unity.Entities.Analyzer.csproj", "{DDB7E9E6-B101-4FD4-8568-4213BFF6EA0E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.Analyzer.CodeFixes", "EntitiesAnalyzer\EntitiesAnalyzer\Unity.Entities.Analyzer.CodeFixes\Unity.Entities.Analyzer.CodeFixes.csproj", "{E1A0E54C-1227-487F-8087-C5852ED73089}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.Analyzer.CodeFixes", "EntitiesAnalyzer\Unity.Entities.Analyzer.CodeFixes\Unity.Entities.Analyzer.CodeFixes.csproj", "{E1A0E54C-1227-487F-8087-C5852ED73089}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.Analyzer.Test", "EntitiesAnalyzer\EntitiesAnalyzer\Unity.Entities.Analyzer.Test\Unity.Entities.Analyzer.Test.csproj", "{7B68F988-2F97-408C-B65C-6AB12A1DB1DB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.Entities.Analyzer.Test", "EntitiesAnalyzer\Unity.Entities.Analyzer.Test\Unity.Entities.Analyzer.Test.csproj", "{7B68F988-2F97-408C-B65C-6AB12A1DB1DB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Collections.Mock", "Mock\Unity.Collections.Mock\Unity.Collections.Mock.csproj", "{9854F6B0-FEB6-419A-BFB8-7A310FAD4EF5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Mock", "Mock", "{7F298D28-F1FF-4C71-ABF4-12190D49EE25}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Entities.SourceGen.SystemGenerator.Common", "SystemGenerator.Common\Unity.Entities.SourceGen.SystemGenerator.Common.csproj", "{641776AE-607F-48F1-9752-32DE0F35D027}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -104,10 +113,28 @@ Global
 		{7B68F988-2F97-408C-B65C-6AB12A1DB1DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7B68F988-2F97-408C-B65C-6AB12A1DB1DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7B68F988-2F97-408C-B65C-6AB12A1DB1DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9854F6B0-FEB6-419A-BFB8-7A310FAD4EF5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9854F6B0-FEB6-419A-BFB8-7A310FAD4EF5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9854F6B0-FEB6-419A-BFB8-7A310FAD4EF5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9854F6B0-FEB6-419A-BFB8-7A310FAD4EF5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{641776AE-607F-48F1-9752-32DE0F35D027}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{641776AE-607F-48F1-9752-32DE0F35D027}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{641776AE-607F-48F1-9752-32DE0F35D027}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{641776AE-607F-48F1-9752-32DE0F35D027}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{DDB7E9E6-B101-4FD4-8568-4213BFF6EA0E} = {B058AFF0-8F03-4030-9A9E-1385580F73EA}
 		{E1A0E54C-1227-487F-8087-C5852ED73089} = {B058AFF0-8F03-4030-9A9E-1385580F73EA}
 		{7B68F988-2F97-408C-B65C-6AB12A1DB1DB} = {B058AFF0-8F03-4030-9A9E-1385580F73EA}
+		{52D2A513-8F5E-401C-87E0-5D3AEE18B43F} = {7F298D28-F1FF-4C71-ABF4-12190D49EE25}
+		{9854F6B0-FEB6-419A-BFB8-7A310FAD4EF5} = {7F298D28-F1FF-4C71-ABF4-12190D49EE25}
+		{8AE5D2AF-28B6-4407-A8C2-78B5EEB842E5} = {7F298D28-F1FF-4C71-ABF4-12190D49EE25}
+		{BF2A4634-0159-4100-9DA2-6708AEBF1650} = {7F298D28-F1FF-4C71-ABF4-12190D49EE25}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A99D2755-EF12-447E-AF59-727189AF3728}
 	EndGlobalSection
 EndGlobal

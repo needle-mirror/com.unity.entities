@@ -26,7 +26,9 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(BindingRegistryIntComponentAuthoring authoring)
             {
-                AddComponent(new BindingRegistryIntComponent
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new BindingRegistryIntComponent
                 {
                     Int1 = authoring.Int1,
                     Int2 = authoring.Int2,

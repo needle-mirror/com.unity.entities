@@ -144,7 +144,7 @@ namespace Unity.Entities
             var filteredChunkCount = 0;
             var matchingArchetypesPtr = MatchingArchetypes.Ptr;
             var requiresFilter = Filter.RequiresMatchesFilter;
-            var requiresBatching = QueryContainsEnableableComponents == 1;
+            var hasEnableableComponents = QueryContainsEnableableComponents == 1;
             var cachedChunksPtr = ChunkCache.Ptr;
             var chunkMatchingArchetypeIndexPtr = ChunkCache.PerChunkMatchingArchetypeIndex->Ptr;
             var chunkIndexInArchetypePtr = ChunkCache.ChunkIndexInArchetype->Ptr;
@@ -164,7 +164,7 @@ namespace Unity.Entities
             }
 #endif
             // Fast path if no filtering at all is required
-            if (!requiresFilter && !requiresBatching)
+            if (!requiresFilter && !hasEnableableComponents)
             {
                 for (int chunkIndexInCache = 0; chunkIndexInCache < cachedChunkCount; ++chunkIndexInCache)
                 {
@@ -172,7 +172,7 @@ namespace Unity.Entities
                 }
                 filteredChunkCount = cachedChunkCount;
             }
-            else if (requiresBatching)
+            else if (hasEnableableComponents)
             {
                 // per-entity + per-chunk filtering
                 for (int chunkIndexInCache = 0; chunkIndexInCache < cachedChunkCount; ++chunkIndexInCache)
@@ -218,6 +218,7 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
+    [Obsolete("Only used by obsolete code paths. (RemovedAfter Entities 1.0)")]
     unsafe struct GatherEntitiesToArrayJob : IJobChunk
     {
         [NativeDisableUnsafePtrRestriction] public byte* Entities;

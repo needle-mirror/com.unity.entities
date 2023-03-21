@@ -2861,41 +2861,35 @@ namespace Unity.Entities.Tests
         }
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 
-        [TypeManager.TypeOverrides(true, false)]
-        public struct TypeOverridesSerializeInCorrectEntity : IComponentData
+        public struct SharedComponentWithEntityReference : ISharedComponentData
         {
-            public Entity entity;
+            public Entity Entity;
         }
 
-        [TypeManager.TypeOverrides(false, true)]
-        public struct TypeOverridesSerializeInCorrectBlob : IComponentData
+        [ChunkSerializable]
+        public struct SerializableSharedComponentWithEntityReference : ISharedComponentData
         {
-            public BlobAssetReference<float> blobFloat;
+            public Entity Entity;
         }
 
         [Test]
-        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently - missing UnsafeUtility.IsUnmanaged")]
-        public void TypeOverride_SerializeEntities_BlobOverrideThrows()
+        public void SerializeEntities_SharedComponentWithEntityThrows()
         {
-            var blobArchetype = m_Manager.CreateArchetype(typeof(TypeOverridesSerializeInCorrectBlob));
+            var blobArchetype = m_Manager.CreateArchetype(typeof(SharedComponentWithEntityReference)); 
             m_Manager.CreateEntity(blobArchetype);
 
             var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
-            Assert.Throws<ArgumentException>((() => SerializeUtility.SerializeWorld(m_Manager, writer)));
-
+            Assert.Throws<ArgumentException>(() => SerializeUtility.SerializeWorld(m_Manager, writer));
         }
 
-        //Validation code in SerializeUtility doesn't run in DOTS Runtime due to missing features in UnsafeUtility
         [Test]
-        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently - missing UnsafeUtility.IsUnmanaged")]
-        public void TypeOverride_SerializeEntities_EntityOverrideThrows()
+        public void SerializeEntities_SerializableSharedComponentWithEntityDoesNotThrow()
         {
-            var entityreferenceArchetype = m_Manager.CreateArchetype(typeof(TypeOverridesSerializeInCorrectEntity));
-            m_Manager.CreateEntity(entityreferenceArchetype);
+            var blobArchetype = m_Manager.CreateArchetype(typeof(SerializableSharedComponentWithEntityReference));
+            m_Manager.CreateEntity(blobArchetype);
 
             var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
-            Assert.Throws<ArgumentException>((() => SerializeUtility.SerializeWorld(m_Manager, writer)));
-
+            Assert.DoesNotThrow(() => SerializeUtility.SerializeWorld(m_Manager, writer));
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -2943,43 +2937,6 @@ namespace Unity.Entities.Tests
 
                 Assert.AreEqual(123 + 234, a + b);
             }
-        }
-
-        [TypeManager.TypeOverrides(true,false)]
-        public class TypeOverridesSerializeInCorrectEntity_Managed: IComponentData
-        {
-            public Entity entity;
-        }
-
-        [TypeManager.TypeOverrides(false,true)]
-        public class TypeOverridesSerializeInCorrectBlob_Managed : IComponentData
-        {
-            public BlobAssetReference<float> blobFloat;
-        }
-
-        [Test]
-        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently - missing UnsafeUtility.IsUnmanaged")]
-        public void TypeOverride_SerializeEntities_BlobOverrideThrows_ManagedComponent()
-        {
-            var blobArchetype = m_Manager.CreateArchetype(typeof(TypeOverridesSerializeInCorrectBlob_Managed));
-            m_Manager.CreateEntity(blobArchetype);
-
-            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
-            Assert.Throws<ArgumentException>((() => SerializeUtility.SerializeWorld(m_Manager, writer)));
-
-        }
-
-        //Validation code in SerializeUtility doesn't run in DOTS Runtime due to missing features in UnsafeUtility
-        [Test]
-        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently - missing UnsafeUtility.IsUnmanaged")]
-        public void TypeOverride_SerializeEntities_EntityOverrideThrows_ManagedComponent()
-        {
-            var entityreferenceArchetype = m_Manager.CreateArchetype(typeof(TypeOverridesSerializeInCorrectEntity_Managed));
-            m_Manager.CreateEntity(entityreferenceArchetype);
-
-            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
-            Assert.Throws<ArgumentException>((() => SerializeUtility.SerializeWorld(m_Manager, writer)));
-
         }
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
     }

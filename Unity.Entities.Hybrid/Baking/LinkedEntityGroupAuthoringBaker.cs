@@ -20,14 +20,16 @@ namespace Unity.Entities.Hybrid.Baking
             //Retrieve all children and add their primary entities to the LinkedEntityGroup buffer
             var childrenGameObjects = GetChildren(true);
 
-            var rootEntity = GetEntity(authoring);
+            // Link entity groups don't require any Transform component on the root of the link entity group
+            var rootEntity = GetEntity(authoring, TransformUsageFlags.None);
 
             var buffer = AddBuffer<LinkedEntityGroupBakingData>(rootEntity);
             buffer.Add(rootEntity);
 
             foreach (var childGameObject in childrenGameObjects)
             {
-                var childEntity = GetEntity(childGameObject);
+                // Link entity groups don't require any Transform component on the entities belonging to the link entity group
+                var childEntity = GetEntity(childGameObject, TransformUsageFlags.None);
                 buffer.Add(childEntity);
             }
         }

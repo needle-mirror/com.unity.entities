@@ -19,19 +19,7 @@ namespace Unity.Transforms.PerformanceTests
             TransformSystems = new List<SystemHandle>
             {
                 World.GetOrCreateSystem<ParentSystem>(),
-#if !ENABLE_TRANSFORM_V1
                 World.GetOrCreateSystem<LocalToWorldSystem>(),
-#else
-                World.GetOrCreateSystem<RotationEulerSystem>(),
-                World.GetOrCreateSystem<CompositeScaleSystem>(),
-                World.GetOrCreateSystem<CompositeRotationSystem>(),
-                World.GetOrCreateSystem<PostRotationEulerSystem>(),
-                World.GetOrCreateSystem<TRSToLocalToWorldSystem>(),
-                World.GetOrCreateSystem<ParentScaleInverseSystem>(),
-                World.GetOrCreateSystem<TRSToLocalToParentSystem>(),
-                World.GetOrCreateSystem<LocalToParentSystem>(),
-                World.GetOrCreateSystem<WorldToLocalSystem>(),
-#endif
             };
         }
 
@@ -124,31 +112,17 @@ namespace Unity.Transforms.PerformanceTests
         public void ParentSystem_ChangeParents()
         {
             int childEntityCount = 10000;
-#if !ENABLE_TRANSFORM_V1
-            var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform));
-            var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(WorldTransform),
-                typeof(LocalTransform), typeof(Parent), typeof(Prefab));
-#else
-            var rootArchetype = m_Manager.CreateArchetype(typeof(Translation), typeof(Rotation), typeof(Scale), typeof(LocalToWorld));
-            var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToParent),
-                typeof(Translation), typeof(Rotation), typeof(Scale), typeof(Parent), typeof(Prefab));
-#endif
+            var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform));
+            var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform), typeof(Parent), typeof(Prefab));
 
             var root0 = m_Manager.CreateEntity(rootArchetype);
             var root1 = m_Manager.CreateEntity(rootArchetype);
-#if !ENABLE_TRANSFORM_V1
+
             m_Manager.SetComponentData(root0,
                 LocalTransform.FromPositionRotationScale(new float3(1,2,3), quaternion.RotateX(1.0f), 0.5f));
             m_Manager.SetComponentData(root1,
                     LocalTransform.FromPositionRotationScale(new float3(4,5,6), quaternion.RotateY(1.0f), 1.5f));
-#else
-            m_Manager.SetComponentData(root0, new Translation { Value = new float3(1, 2, 3) });
-            m_Manager.SetComponentData(root0, new Rotation { Value = quaternion.RotateX(1.0f) });
-            m_Manager.SetComponentData(root0, new Scale { Value = 0.5f });
-            m_Manager.SetComponentData(root1, new Translation { Value = new float3(4, 5, 6) });
-            m_Manager.SetComponentData(root1, new Rotation { Value = quaternion.RotateX(1.0f) });
-            m_Manager.SetComponentData(root1, new Scale { Value = 0.5f });
-#endif
+
             var childPrefab = m_Manager.CreateEntity(childArchetype);
             var rng = new Random(17);
             using (var children = new NativeArray<Entity>(childEntityCount, Allocator.Persistent))
@@ -162,19 +136,17 @@ namespace Unity.Transforms.PerformanceTests
                         foreach (var t in children)
                         {
                             m_Manager.SetComponentData(t, new Parent { Value = parent });
-#if !ENABLE_TRANSFORM_V1
                             m_Manager.SetComponentData(t,
                                 LocalTransform.FromPositionRotationScale(
                                     rng.NextFloat3(),
                                     rng.NextQuaternionRotation(),
                                     0.1f + rng.NextFloat()));
-#endif
                         }
                     })
                     .CleanUp(() =>
                     {
                         World.UpdateAllocator.Rewind();
-#if !ENABLE_TRANSFORM_V1
+
                         // Expensive validation code -- significantly increases this test's running time
                         //var expectedP2w = m_Manager.GetComponentData<WorldTransform>(rootIndex == 0 ? root0 : root1);
                         //foreach (var t in children)
@@ -187,7 +159,7 @@ namespace Unity.Transforms.PerformanceTests
                         //    var actual = m_Manager.GetComponentData<WorldTransform>(t);
                         //    Assert.AreEqual(expected, actual);
                         //}
-#endif
+
                         rootIndex ^= 1;
                     })
                     .WarmupCount(1)
@@ -209,7 +181,6 @@ namespace Unity.Transforms.PerformanceTests
             protected override void OnUpdate()
             {
                 Entities
-#if !ENABLE_TRANSFORM_V1
                 .ForEach((ref LocalTransform transform, ref LocalToWorld l2w, ref ExpectedLocalToWorld expected, ref RngComponent rng) =>
                 {
                     transform.Position = rng.Rng.NextFloat3();
@@ -218,16 +189,6 @@ namespace Unity.Transforms.PerformanceTests
                     l2w.Value = float4x4.identity;
                     expected.Value = transform.ToMatrix();
                 }).ScheduleParallel(default).Complete();
-#else
-                .ForEach((ref Translation trans, ref Rotation rot, ref Scale scale, ref LocalToWorld l2w, ref ExpectedLocalToWorld expected, ref RngComponent rng) =>
-                {
-                    trans.Value = rng.Rng.NextFloat3();
-                    rot.Value = rng.Rng.NextQuaternionRotation();
-                    scale.Value = rng.Rng.NextFloat();
-                    l2w.Value = float4x4.identity;
-                    expected.Value = math.mul(new float4x4(rot.Value, trans.Value), float4x4.Scale(new float3(scale.Value)));
-                }).ScheduleParallel(default).Complete();
-#endif
             }
         }
 
@@ -237,13 +198,7 @@ namespace Unity.Transforms.PerformanceTests
         public void TransformSystemGroup_Flat([Values] bool dirtyTransforms)
         {
             int entityCount = 10000;
-#if !ENABLE_TRANSFORM_V1
-            var archetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform),
-                typeof(RngComponent), typeof(ExpectedLocalToWorld));
-#else
-            var archetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Translation), typeof(Rotation),
-                typeof(Scale), typeof(RngComponent), typeof(ExpectedLocalToWorld));
-#endif
+            var archetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform), typeof(RngComponent), typeof(ExpectedLocalToWorld));
 
             using(var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.Persistent))
             {
@@ -293,43 +248,27 @@ namespace Unity.Transforms.PerformanceTests
         public void TransformSystemGroup_OneRootManyChildren([Values] bool dirtyRootTransform)
         {
             int childEntityCount = 10000;
-#if !ENABLE_TRANSFORM_V1
-            var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform));
-            var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(WorldTransform),
-                typeof(LocalTransform), typeof(Parent));
-#else
-            var rootArchetype = m_Manager.CreateArchetype(typeof(Translation), typeof(Rotation), typeof(Scale), typeof(LocalToWorld));
-            var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Translation), typeof(Rotation),
-                typeof(Scale), typeof(LocalToParent), typeof(Parent));
-#endif
+            var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform));
+            var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform), typeof(Parent));
+
             var rng = new Random(17);
             var rootEnt = m_Manager.CreateEntity(rootArchetype);
-#if !ENABLE_TRANSFORM_V1
+
             m_Manager.SetComponentData(rootEnt, LocalTransform.FromPositionRotationScale(
                 rng.NextFloat3(),
                 rng.NextQuaternionRotation(),
                 rng.NextFloat()));
-#else
-            m_Manager.SetComponentData(rootEnt, new Translation { Value = rng.NextFloat3() });
-            m_Manager.SetComponentData(rootEnt, new Rotation { Value = rng.NextQuaternionRotation() });
-            m_Manager.SetComponentData(rootEnt, new Scale { Value = rng.NextFloat() });
-#endif
+
             using(var entities = m_Manager.CreateEntity(childArchetype, childEntityCount, Allocator.Persistent))
             {
                 for(int i=0; i < entities.Length; ++i)
                 {
                     m_Manager.SetComponentData(entities[i], new Parent {Value = rootEnt});
-#if !ENABLE_TRANSFORM_V1
                     m_Manager.SetComponentData(entities[i], LocalTransform.FromPositionRotationScale(
                         rng.NextFloat3(),
                         rng.NextQuaternionRotation(),
                         rng.NextFloat()));
 
-#else
-                    m_Manager.SetComponentData(entities[i], new Translation { Value = rng.NextFloat3() });
-                    m_Manager.SetComponentData(entities[i], new Rotation { Value = rng.NextQuaternionRotation() });
-                    m_Manager.SetComponentData(entities[i], new Scale { Value = rng.NextFloat() });
-#endif
                 }
                 // One tick to prime the results
                 UpdateTransformSystems_All();
@@ -343,16 +282,11 @@ namespace Unity.Transforms.PerformanceTests
                             if (dirtyRootTransform)
                             {
                                 // Move root entity, to force the children to update
-#if !ENABLE_TRANSFORM_V1
                                 m_Manager.SetComponentData(rootEnt, LocalTransform.FromPositionRotationScale(
                                     rng.NextFloat3(),
                                     rng.NextQuaternionRotation(),
                                     rng.NextFloat()));
-#else
-                                m_Manager.SetComponentData(rootEnt, new Translation { Value = rng.NextFloat3() });
-                                m_Manager.SetComponentData(rootEnt, new Rotation { Value = rng.NextQuaternionRotation() });
-                                m_Manager.SetComponentData(rootEnt, new Scale { Value = rng.NextFloat() });
-#endif
+
                                 UpdateTransformSystems_Setup(measureSystemIndex);
                             }
                         })
@@ -360,7 +294,7 @@ namespace Unity.Transforms.PerformanceTests
                         {
                             UpdateTransformSystems_Cleanup();
                             World.UpdateAllocator.Rewind();
-#if !ENABLE_TRANSFORM_V1
+
                             // Only for validation; enabling will significantly affect performance test results
                             //var rootL2w = m_Manager.GetComponentData<WorldTransform>(rootEnt);
                             //for (int i = 0; i < entities.Length; ++i)
@@ -369,7 +303,6 @@ namespace Unity.Transforms.PerformanceTests
                             //    var actual = m_Manager.GetComponentData<LocalToWorld>(entities[i]).Value;
                             //    Assert.AreEqual(expected, actual);
                             //}
-#endif
                         })
                         .SampleGroup(new SampleGroup(measureSystemName, SampleUnit.Microsecond))
                         .WarmupCount(1)
@@ -385,16 +318,12 @@ namespace Unity.Transforms.PerformanceTests
         {
             int rootEntityCount = 1000;
             int childEntityCountPerRoot = 10;
-#if !ENABLE_TRANSFORM_V1
+
             var rootArchetype =
-                m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform));
-            var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(WorldTransform),
+                m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform));
+            var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform),
                 typeof(LocalTransform), typeof(Parent));
-#else
-            var rootArchetype = m_Manager.CreateArchetype(typeof(Translation), typeof(Rotation), typeof(Scale), typeof(LocalToWorld));
-            var childArchetype = m_Manager.CreateArchetype(typeof(Translation), typeof(Rotation), typeof(Scale),
-                typeof(LocalToWorld), typeof(LocalToParent), typeof(Parent));
-#endif
+
             var rng = new Random(17);
             using var allChildEntities = new NativeList<Entity>(rootEntityCount * (childEntityCountPerRoot + 1),
                 Allocator.Persistent);
@@ -402,16 +331,11 @@ namespace Unity.Transforms.PerformanceTests
             void AddChild(Entity parent, int depth)
             {
                 var childEntity = m_Manager.CreateEntity(childArchetype);
-#if !ENABLE_TRANSFORM_V1
                 m_Manager.SetComponentData(childEntity, LocalTransform.FromPositionRotationScale(
                     rng.NextFloat3(),
                     rng.NextQuaternionRotation(),
                     0.1f + rng.NextFloat()));
-#else
-                m_Manager.SetComponentData(childEntity, new Translation { Value = rng.NextFloat3() });
-                m_Manager.SetComponentData(childEntity, new Rotation { Value = rng.NextQuaternionRotation() });
-                m_Manager.SetComponentData(childEntity, new Scale { Value = 0.1f + rng.NextFloat() });
-#endif
+
                 allChildEntities.Add(childEntity);
 
                 m_Manager.SetComponentData(childEntity, new Parent { Value = parent });
@@ -425,17 +349,11 @@ namespace Unity.Transforms.PerformanceTests
             {
                 for (int i = 0; i < rootEntities.Length; i++)
                 {
-
-#if !ENABLE_TRANSFORM_V1
                     m_Manager.SetComponentData(rootEntities[i], LocalTransform.FromPositionRotationScale(
                         rng.NextFloat3(),
                         rng.NextQuaternionRotation(),
                         0.1f + rng.NextFloat()));
-#else
-                    m_Manager.SetComponentData(rootEntities[i], new Translation { Value = rng.NextFloat3() });
-                    m_Manager.SetComponentData(rootEntities[i], new Rotation { Value = rng.NextQuaternionRotation() });
-                    m_Manager.SetComponentData(rootEntities[i], new Scale { Value = 0.1f + rng.NextFloat() });
-#endif
+
                     AddChild(rootEntities[i], 0);
                 }
             }
@@ -455,16 +373,10 @@ namespace Unity.Transforms.PerformanceTests
                             // move all child entities
                             foreach (var childEnt in allChildEntities)
                             {
-#if !ENABLE_TRANSFORM_V1
                                 m_Manager.SetComponentData(childEnt, LocalTransform.FromPositionRotationScale(
                                     rng.NextFloat3(),
                                     rng.NextQuaternionRotation(),
                                     0.1f + rng.NextFloat()));
-#else
-                                m_Manager.SetComponentData(childEnt, new Translation { Value = rng.NextFloat3() });
-                                m_Manager.SetComponentData(childEnt, new Rotation { Value = rng.NextQuaternionRotation() });
-                                m_Manager.SetComponentData(childEnt, new Scale { Value = 0.1f + rng.NextFloat() });
-#endif
                             }
                         }
                         UpdateTransformSystems_Setup(measureSystemIndex);
@@ -473,8 +385,11 @@ namespace Unity.Transforms.PerformanceTests
                     {
                         UpdateTransformSystems_Cleanup();
                         World.UpdateAllocator.Rewind();
-#if !ENABLE_TRANSFORM_V1
+
                         // Only for validation; enabling will significantly affect performance test results
+                        //var localTransformLookup = World.EntityManager.GetComponentLookup<LocalTransform>(true);
+                        //var parentLookup = World.EntityManager.GetComponentLookup<Parent>(true);
+                        //var postTransformMatrixLookup = World.EntityManager.GetComponentLookup<PostTransformMatrix>(true);
                         //for(int i=0; i<allChildEntities.Length; ++i)
                         //{
                         //    var childEnt = allChildEntities[i];
@@ -490,13 +405,98 @@ namespace Unity.Transforms.PerformanceTests
                         //    var childWorldTransform = m_Manager.GetComponentData<WorldTransform>(childEnt);
                         //    var childLocalToWorld = m_Manager.GetComponentData<LocalToWorld>(childEnt);
                         //    Assert.IsTrue(AreNearlyEqual(childWorldTransform.ToMatrix(), childLocalToWorld.Value, 0.00001f));
+                        //    LocalTransform.ComputeWorldTransformMatrix(childEnt,
+                        //        out var childLocalToWorldSync,
+                        //        ref localTransformLookup, ref parentLookup, ref postTransformMatrixLookup);
+                        //    Assert.AreEqual(childLocalToWorld.Value, childLocalToWorldSync);
                         //}
-#endif
+
                         iteration++;
                     })
                     .SampleGroup(new SampleGroup(measureSystemName, SampleUnit.Microsecond))
                     .WarmupCount(1)
                     .MeasurementCount(10)
+                    .Run();
+            }
+        }
+
+        [Test, Performance]
+        public void ComputeWorldTransformMatrix_Perf([Values] bool useNonUniformScale)
+        {
+            var rootArchetype =
+                m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform));
+            var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalTransform), typeof(Parent));
+            var rng = new Random(17);
+            int hierarchyDepth = 100;
+            using var allEntities = new NativeList<Entity>(hierarchyDepth+1, Allocator.Persistent);
+            // Create root
+            Entity parentEntity = m_Manager.CreateEntity(rootArchetype);
+            m_Manager.SetComponentData(parentEntity, LocalTransform.FromPositionRotationScale(
+                rng.NextFloat3(),
+                rng.NextQuaternionRotation(),
+                useNonUniformScale ? 1.0f : 0.1f + rng.NextFloat()));
+            if (useNonUniformScale)
+            {
+                m_Manager.AddComponentData(parentEntity, new PostTransformMatrix{
+                    Value = float4x4.Scale(rng.NextFloat3() + new float3(0.1f, 0.1f, 0.1f))
+                });
+            }
+            allEntities.Add(parentEntity);
+            // Create children
+            for (int i = 0; i < hierarchyDepth; ++i)
+            {
+                Entity childEntity = m_Manager.CreateEntity(childArchetype);
+                m_Manager.SetComponentData(childEntity, new Parent { Value = parentEntity });
+                m_Manager.SetComponentData(childEntity, LocalTransform.FromPositionRotationScale(
+                    rng.NextFloat3(),
+                    rng.NextQuaternionRotation(),
+                    useNonUniformScale ? 1.0f : 0.1f + rng.NextFloat()));
+                if (useNonUniformScale)
+                {
+                    m_Manager.AddComponentData(childEntity, new PostTransformMatrix{
+                        Value = float4x4.Scale(rng.NextFloat3() + new float3(0.1f, 0.1f, 0.1f))
+                    });
+                }
+                allEntities.Add(childEntity);
+                parentEntity = childEntity;
+            }
+
+            // One tick to prime the results
+            UpdateTransformSystems_All();
+
+            var localTransformLookup = m_Manager.GetComponentLookup<LocalTransform>(true);
+            var parentLookup = m_Manager.GetComponentLookup<Parent>(true);
+            var scaleLookup = m_Manager.GetComponentLookup<PostTransformMatrix>(true);
+            string scaleMode = useNonUniformScale ? "NonUniformScale" : "UniformScale";
+            foreach (var d in new[] { 0, 1, 10, 100 })
+            {
+                Entity e = allEntities[d];
+                float4x4 expectedLocalToWorld = m_Manager.GetComponentData<LocalToWorld>(e).Value;
+                float4x4 worldTransformMatrix = default;
+                int callsPerMeasure = 100;
+                Measure
+                    .Method(() =>
+                    {
+                        // Note that this function is a ton of random memory access; calling it 100s of times in a row
+                        // on the exact same inputs does not give a realistic indication of its absolute performance.
+                        // The goal here is to see how that performance scales with hierarchy depth and/or non-uniform scale.
+                        for (int i = 0; i < callsPerMeasure; ++i)
+                        {
+                            Helpers.ComputeWorldTransformMatrix(e, out worldTransformMatrix,
+                                ref localTransformLookup, ref parentLookup, ref scaleLookup);
+                        }
+                    })
+                    .SetUp(() =>
+                    {
+                        worldTransformMatrix = float4x4.identity;
+                    })
+                    .CleanUp(() =>
+                    {
+                        Assert.AreEqual(expectedLocalToWorld, worldTransformMatrix);
+                    })
+                    .SampleGroup(new SampleGroup($"{scaleMode}_{callsPerMeasure}x_Depth_{d}", SampleUnit.Microsecond))
+                    .WarmupCount(1)
+                    .MeasurementCount(100)
                     .Run();
             }
         }

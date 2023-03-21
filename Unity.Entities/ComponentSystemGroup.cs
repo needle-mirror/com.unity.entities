@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections;
 using Unity.Burst;
@@ -381,7 +382,7 @@ namespace Unity.Entities
                 }
             }
         }
-
+        
         private void GenerateMasterUpdateList()
         {
             RemovePending();
@@ -430,22 +431,28 @@ namespace Unity.Entities
             var nativeHashMap =
                 (NativeHashMap<int, int>*)UnsafeUtility.AddressOf(ref lookupDictionary);
 
-            var badTypeIndices = new UnsafeList<int>(16, Allocator.Temp);
+            var badTypeIndices = new NativeHashSet<int>(16, Allocator.Temp);
+            
             // Find & validate constraints between systems in the group
+            var badTypeIndicesPtr = (NativeHashSet<int>*)UnsafeUtility.AddressOf(ref badTypeIndices);
             ComponentSystemSorter.FindConstraints(groupTypeIndex,
                 (UnsafeList<ComponentSystemSorter.SystemElement>*)UnsafeUtility.AddressOf(ref allElems),
                 nativeHashMap,
                 TypeManager.SystemAttributeKind.UpdateAfter,
                 TypeManager.SystemAttributeKind.UpdateBefore,
-                (UnsafeList<int>*)UnsafeUtility.AddressOf(ref badTypeIndices));
+                badTypeIndicesPtr);
 
-            if (badTypeIndices.Length > 0)
+            if (badTypeIndices.Count > 0)
             {
-                for (int i = 0; i < badTypeIndices.Length; i++)
+                var enumerator = badTypeIndices.GetEnumerator();
+
+                foreach (var badTypeIndex in badTypeIndices)
                 {
-                    ComponentSystemSorter.WarnAboutAnySystemAttributeBadness(badTypeIndices[i], this);
+                    ComponentSystemSorter.WarnAboutAnySystemAttributeBadness(badTypeIndex, this);
                 }
+                enumerator.Dispose();
             }
+            badTypeIndices.Clear();
 
             // Build three lists of systems
             var elemBuckets = new []
@@ -474,8 +481,6 @@ namespace Unity.Entities
                     ComponentSystemSorter.Sort(
                         (UnsafeList<ComponentSystemSorter.SystemElement>*)UnsafeUtility.AddressOf(ref systemElements),
                         nativeHashMap);
-                    
-                    //TODO: check for circular dependencies here and throw if we find one
                 }
             }
 

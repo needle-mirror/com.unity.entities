@@ -20,7 +20,9 @@ namespace Unity.Entities.Tests
                 var blobReference = BlobAssetUtility.CreateBlobAsset(authoring.Version);
                 AddBlobAsset(ref blobReference, out Hash128 _);
 
-                AddComponent(new Component
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new Component
                 {
                     BlobAssetRef = blobReference
                 });

@@ -100,6 +100,14 @@ namespace Unity.Entities
         /// True if any of the fields in the component type are type <see cref="Entity"/>
         /// </summary>
         public bool HasEntityReferences => TypeIndex.HasEntityReferences;
+        /// <summary>
+        /// The component type contains a <seealso cref="NativeContainerAttribute"/> decorated member. NativeContainer members found in nested member types will also cause this property to return true.
+        /// </summary>
+        public bool HasNativeContainer => TypeIndex.HasNativeContainer;
+        /// <summary>
+        /// True if the component type is appropriate for chunk serialization. Such types are blittable without containing pointer types or have been decorated with <seealso cref="ChunkSerializableAttribute"/>.
+        /// </summary>
+        public bool IsChunkSerializable => TypeIndex.IsChunkSerializable;
 
         /// <summary>
         /// Returns a <see cref="ComponentType"/> with <see cref="AccessMode.ReadWrite"/> based on the generic type T.
@@ -516,41 +524,38 @@ namespace Unity.Entities
             return TypeIndex.GetHashCode();
         }
     }
-    
+
     public static partial class InternalCompilerInterface
     {
-        /// <summary>
-        /// Combine a component type into an UnsafeList of component types. No duplicate are added to the list.
-        /// Useful for creating queries during initialization of systems.
-        /// Called by the generated code from the Aspect Generator
-        /// </summary>
-        /// <param name="into">List to combine component types into</param>
-        /// <param name="componentType">The component type to combine into the list</param>
-        /// <exception cref="ArgumentException">if the component type conflict with any component types in the UnsafeList.</exception>
         [BurstCompile]
-        public static void CombineComponentType(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> into, in ComponentType componentType)
+        public static void MergeWith(ref UnsafeList<ComponentType> mergeThese, ref UnsafeList<ComponentType> withThese)
         {
-            for (int i = 0; i != into.Length; i++)
+            mergeThese.AddRange(withThese);
+            var componentTypeToAccessMode = new NativeHashMap<int, ComponentType.AccessMode>(initialCapacity: mergeThese.Length, Allocator.Temp);
+
+            foreach (var componentType in mergeThese)
             {
-                if (into[i].TypeIndex == componentType.TypeIndex)
+                if (!componentTypeToAccessMode.TryGetValue(componentType.TypeIndex, out var accessMode))
+                    componentTypeToAccessMode.Add(componentType.TypeIndex, componentType.AccessModeType);
+                else
                 {
-                    if (into[i].AccessModeType == ComponentType.AccessMode.Exclude &&
-                        componentType.AccessModeType != ComponentType.AccessMode.Exclude)
-                        throw new ArgumentException(
-                            $"ComponentType.Combine {into[i]} and {componentType} are conflicting.");
-                    into[i] = new ComponentType
+                    if ((accessMode == ComponentType.AccessMode.Exclude && componentType.AccessModeType != ComponentType.AccessMode.Exclude)
+                        || (accessMode != ComponentType.AccessMode.Exclude && componentType.AccessModeType == ComponentType.AccessMode.Exclude))
                     {
-                        TypeIndex = into[i].TypeIndex,
-                        AccessModeType = into[i].AccessModeType == ComponentType.AccessMode.ReadWrite ||
-                                         componentType.AccessModeType == ComponentType.AccessMode.ReadWrite
-                            ? ComponentType.AccessMode.ReadWrite
-                            : ComponentType.AccessMode.ReadOnly
-                    };
-                    return;
+                        throw new ArgumentException("A component cannot be both excluded and included.");
+                    }
+
+                    if (componentType.AccessModeType == ComponentType.AccessMode.ReadWrite)
+                        componentTypeToAccessMode[componentType.TypeIndex] = ComponentType.AccessMode.ReadWrite;
                 }
             }
 
-            into.Add(componentType);
+            mergeThese.Clear();
+
+            foreach (var kvp in componentTypeToAccessMode)
+                mergeThese.Add(new ComponentType { TypeIndex = kvp.Key, AccessModeType = kvp.Value });
+
+            componentTypeToAccessMode.Dispose();
         }
     }
 }

@@ -256,10 +256,10 @@ namespace Unity.Entities
                 s_ApplyDestroyEntitiesProfilerMarker.End();
 
                 s_ApplyCreateEntitiesProfilerMarker.Begin();
-                ApplyCreateEntities(
+                ApplyCreateEntitiesWithArchetypes(
                     entityManager,
                     packedEntities,
-                    changeSet.CreatedEntityCount);
+                    changeSet.AddArchetypes);
                 s_ApplyCreateEntitiesProfilerMarker.End();
 
                 s_ApplyRemoveComponentsProfilerMarker.Begin();
@@ -294,6 +294,7 @@ namespace Unity.Entities
                     changeSet.Entities,
                     packedEntities,
                     packedTypes);
+
 
                 ApplySetComponents(
                     entityManager,
@@ -477,18 +478,47 @@ namespace Unity.Entities
         /// </remarks>
         [GenerateTestsForBurstCompatibility]
         [BurstCompile]
-        internal static void ApplyCreateEntities(
+        internal static void ApplyCreateEntitiesWithArchetypes(
             in EntityManager entityManager,
             in NativeParallelMultiHashMap<int, Entity> packedEntities,
-            int createdEntityCount)
+            in NativeArray<FilteredArchetype> createdArchetypes)
         {
-            var entityGuidArchetype = entityManager.CreateArchetypeWithoutSimulateComponent(null, 0);
-            using (var entities = new NativeArray<Entity>(createdEntityCount, Allocator.Temp))
+            var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
+            for (int i = 0; i < createdArchetypes.Length; i++)
             {
-                entityManager.CreateEntity(entityGuidArchetype, entities);
-                for (var i = 0; i < createdEntityCount; ++i)
+                bool hasLinkedEntityGroup = false;
+                var filteredArchetype = createdArchetypes[i];
+
+                // Convert ComponentType Indices to ComponentTypes and create a ComponentTypeSet
+                var typeSet = new NativeArray<ComponentType>(filteredArchetype.TypeIndices.Length, Allocator.Temp);
+                for (int j = 0; j < typeSet.Length; j++)
                 {
-                    packedEntities.Add(i, entities[i]);
+                    typeSet[j] = ComponentType.ReadOnly(filteredArchetype.TypeIndices[j]);
+                    if (typeSet[j].TypeIndex == linkedEntityGroupTypeIndex)
+                        hasLinkedEntityGroup = true;
+                }
+
+                // Create the archetype
+                var entityGuidArchetype = entityManager.CreateArchetypeWithoutSimulateComponent(typeSet);
+
+                using (var entities = new NativeArray<Entity>(filteredArchetype.EntityCount, Allocator.Temp))
+                {
+                    entityManager.CreateEntity(entityGuidArchetype, entities);
+                    for (var j = 0; j < filteredArchetype.EntityCount; ++j)
+                    {
+                        // PackedEntityIndices stores the indices of the Entities that have this archetype in the PackedTypes
+                        // By adding the Entity to that index, it lines up with the components in PackedTypes used in ApplyAddComponents
+                        packedEntities.Add(filteredArchetype.PackedEntityIndices[j], entities[j]);
+
+                        // By convention, the first entity in a LinkedEntityGroup dynamic buffer is the entity that owns it.
+                        // This convention is relied on later in the patching process by BuildPrefabAndLinkedEntityGroupLookups
+                        // and in particular the BuildLinkedEntityGroupHashMap job.
+                        if (hasLinkedEntityGroup)
+                        {
+                            var buffer = entityManager.GetBuffer<LinkedEntityGroup>(entities[j]);
+                            buffer.Add(new LinkedEntityGroup() {Value = entities[j]});
+                        }
+                    }
                 }
             }
         }
@@ -646,18 +676,7 @@ namespace Unity.Entities
                 {
                     if (!store->HasComponent(entity, component.TypeIndex))
                     {
-                        // magic is required to force the first entity in the LinkedEntityGroup to be the entity
-                        // that owns the component. this magic doesn't seem to exist at a lower level, so let's
-                        // shim it in here. we'll probably need to move the magic lower someday.
-                        if (component.TypeIndex == LinkedEntityGroupTypeIndex)
-                        {
-                            ecb.AddComponent(index, entity, component);
-                            ecb.AppendToBuffer(index, entity, new LinkedEntityGroup(){Value = entity});
-                        }
-                        else
-                        {
-                            ecb.AddComponent(index, entity, component);
-                        }
+                        ecb.AddComponent(index, entity, component);
                     }
                     else
                     {

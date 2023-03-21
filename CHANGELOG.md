@@ -1,14 +1,95 @@
----
-uid: changelog
----
-
 # Changelog
 
-## [1.0.0-pre.47] - 2023-02-28
+## [1.0.0-pre.65] - 2023-03-21
+
+### Added
+
+* Added support for automatic data mode switching to the Entities Hierarchy window and the Inspector window.
+* Added BlobAsset safety check for passing blob assets into methods without using `ref`.
+* Added the `LocalTransform.ComputeWorldTransformMatrix()` which synchronously computes an entity's world-space transform matrix, in the rare cases where an accurate world transform is needed in simulation code and is otherwise be unavailable.
+* Added `RefRW<T> SystemAPI.GetComponentRW<T>(Entity,bool)`
+* Bulk SetComponentEnabled operations on EntityManager: `EntityManager.SetComponentEnabled<T>(EntityQuery, bool)` and `EntityManager.SetComponentEnabled(EntityQuery, ComponentType, bool)`.
+* A `Unity.Transforms.Helpers` class with assorted transform-related helper functions:
+  * A simple `float4x4` extension methods for field extraction, such as `.Up()`, `.Forward()` and `.Translation()`
+  * Added utilities to apply a transformation matrix to a `float3` point or direction, or to a `quaternion` rotation
+  * A method to synchronously compute an entity's world-space transform, `.ComputeWorldTransformMatrix()`
+  * A method to compute the "LookAt" `quaternion` rotation for a position that would cause its "forward" direction to point towards some target.
+* `TypeIndex.IsChunkSerializable` property has been added to identify if a component type is valid in a chunk that is intended to be serialized. If `SerializeUtility.SerializeWorld` (such as might be called while exporting a subscene) is used to serialize chunks that contain components whose `TypeIndex.IsChunkSerializable` returns false, an exception will be thrown telling you why the component type is inappropriate for serialization.
+* Added `WeakSceneReference Unload(Scene scene)` method to unload the scene instance and release its resources.
+* Added guidance to GetSingleton error message
+* Transform Usage Flags
+* Added support for managed (shared) components serialization in DOTS runtime.
+
+### Changed
+
+* Moved the tool for adding missing `partial` keywords to system and job types from Edit &gt; Preferences &gt; Entities into a Roslyn codefix. Your IDE of choice should now be able to fix this for you, and give you a red squiggly line if it's missing.
+* IJobEntity no longer gives a compile error if you have a reference type field. This improves iteration time, and has the added benefit that you can now write managed code in an IJobEntity. Simply add a managed component to your IJE's Execute (that forces running without the jobsystem). Your job can now validly use that field. If you try to schedule this job rather than running it on the main thread, you'll correctly get thrown a runtime error for having a reference type in your job.
+* Improved performance of IJobEntity generator, speeding up compile times. Attributes like WithAll, WithAny etc. now use syntax information directly. This mean that you can't make your own attribute on an IJobEntity named `WithAll` `WithAny`, `WithNone`, `WithDisabled`, `WithAbsent`, `WithOptions`, or `WithChangeFilter`.
+* Updated Burst dependency version to 1.8.3.
+* What was PostTransformScale as a float3x3 is now PostTransformMatrix as a float4x4. This is more general and offers maximum flexibility. You can, for example, use it to scale from a secondary pivot.
+* ParentSystem removes the Parent component if said component points to an entity that doesn't exist anymore.
+* Refactored how additive scenes are handled within the Runtime Content Manager. A scene is now returned, and that is used as the key to unload. This change required some API changes.
+* Changed `WeakObjectSceneReference.LoadAsync` to return the Scene instance, which should be used to check the loading status and for unloading.
+* Changed `RuntimeContentManager.UnloadScene` method to take the Scene instance as the only parameter.
+* The BlobAssetStore used during baking now uses garbage collection instead of an explicit refcount. It is not required anymore to register blobs with authoring GameObjects nor to do explicit cleanup in incremental baking systems.
+* Source generators for Systems and Aspects no longer default to outputting generated files in `Temp/GeneratedCode/***`. To turn it on, add `DOTS_OUTPUT_SOURCEGEN_FILES` to your Scripting Defines in Player Settings. Turning it on will cost compilation time. (The source generator for IJobEntity already made this change earlier.)
+* Moved InternalCompilerInterface, EntityQueryEnumerator (now InternalEntityQueryEnumerator) and some other types and methods to the Unity.Entities.Internal namespace.  These types and methods are not intended for use by user code. We would make them internal, but source generators won't work correctly that way unfortunately.
+
+### Deprecated
+
+* Deprecated `WeakSceneReference` Release method. Unload should now be used and the scene instance returned by LoadAsync needs to be passed in as a ref.
+* `RegisterBindingAttribute(Type runtimeComponent, string runtimeField, bool generated)`. Vector type fields can now be registered automatically without the `generated` option.
+* SceneSystem.UnloadParameters and the overload of SceneSystem.UnloadScene receiving SceneSystem.UnloadParameters as parameters.
+* `EntityQuery.SetEnabledBitsOnAllChunks` as the only bulk operation on EntityQuery instead of EntityManager. Use the newly added bulk `SetComponentEnabled` overloads instead.
+* WeakSceneReference properties LoadingStatus, SceneResult, SceneFileResult.
+* RuntimeContentManager methods GetSceneLoadingStatus, GetSceneFileValue, GetSceneValue
+
+### Removed
+
+* `ENABLE_TRANSFORM_V1` define and existing transform v1 code. Transform v2 is now the only transform system.
+* Tooling to re-write user files to add missing partial keywords to systems.
+* The `TransformAspect` struct was removed. Recent changes to the Entities transform systems made the current implementation of `TransformAspect` much less useful, and we've decided to remove it from the package until we can provide a more valuable abstraction over the DOTS transform components.
+* The `EntityQueryEnumerator.EntityCount` field has been removed from the public API. Note that `EntityQueryEnumerator` is only intended for use by DOTS source generators.
+* `BlobAssetComputationContext` made internal.
 
 ### Fixed
 
-* Stripping (e.g. on il2cpp) now won't strip whole assemblies that have important systems, like graphics.
+* Baker IEntitiesPlayerSettings were not setup correctly if the com.unity.platforms package was not installed/present in the project.
+* IJobEntity now no longer caches the default query when scheduling with a dynamic query. For example. `new MyJob().Schedule();` will use the query matching its execute signature whereas `new MyJob().Schedule(myQuery)` will now only use myQuery. This is useful in cases like RequireMatchingQueriesForUpdate, where you don't want to accidentally create extra queries.
+* Jobs implementing IJobEntity can now be created in one assembly and scheduled in another.
+* The `[WithDisabled]` attribute when applied to a job implementing `IJobEntity` now overrides the implicit `All` query defined by the signature of `Execute`. E.g. `Execute(MyComp a)` and `[WithDisabled(typeof(MyComp))]` now defines a query of EntityQuery(all={}, disabled=MyComp). This is useful in cases where you want to enable all components of type X which are present, but disabled.
+* `WriteGroup` support in transform v2 `LocalToWorldSystem` code should now work correctly.
+* Fixed compilation issue with 23.1/23.2*
+* Detection of circular ordering dependencies between systems is now correct.
+* Chaining `EntityQuery` methods with bulk operation methods is now supported.
+* Docs and samples for ECB systems now accurately reflect recommended usage. Fixed issue during `TypeManager.Initialize` where managed components with a field containing a circular type definition may throw `ArgumentException: An item with the same key has already been added.`
+* Calling Release on a `WeakObjectReference<GameObject>` will no longer log errors in the editor.
+* Zero-sized ("tag") enableable components were not always correctly enabled by default, when added to an entire chunk (such as via `EntityManager.AddComponent<EnableableTag>(query)`).
+* Fixed issue with DotsGlobalSettings reporting the incorrect PlayType when switching from DedicatedServer to another standalone build target.
+* Fixed TypeManager initialization causing a crash in the Entities Hierarchy.
+* If you schedule an `IJobEntity` instance with a custom query that doesn't contain the components required for the `Execute()` method to run, a readable and actionable runtime exception is now thrown when safety checks are enabled.
+* `EntityCommandBuffer.Dispose()` can no longer trigger a stack overflow when disposing large command buffers.
+* Throw a readable, actionable compile-time error informing users that `RefRO<T>`, `RefRW<T>`, `EnabledRefRO<T>`,  `EnabledRefRW<T>`, `DynamicBuffer<T>` and `UnityEngineComponent<T>` may not be used with generic types.
+* A `foreach` iterating over an `EntityQuery` with enableable components now iterates over the correct entities.
+* Re-added obsolete baker functions
+* The accidental exposure of package internals to "Assembly-CSharp" was reverted.
+* Default the build system to use the client settings if the package com.unity.netcode is not installed when the active  platform is dedicated server.
+* `Entities.WithStructuralChanges().ForEach()` now correctly handles enableable components.
+* Allow components to contain nested native containers. Previously the TypeManager would throw during initialization if a component contained a a nested NativeContainer field. Note: NativeContainers still cannot be verified to be safely accessed when used in jobs. So, if a component contains a nested NativeContainer field, that component can only be accessed from the main thread.
+* Entities Hierarchy correctly selects the subscenes
+* Invalid entity warning in Inspector window with runtime data mode is only applied to entities or game objects that can be converted to entities.
+* Issue with IJobEntity source-generators not getting re-run in IDE. This could cause Rider and Visual Studio to not be able to find/debug generated code for IJobEntity types.
+* Adding managed components to entities via an `EntityCommandBuffer` on the main thread no longer triggers the `NullReferenceException`.
+* Fixed an issue where entities with enableable components loaded from a subscene could reference the wrong component's enabled/disabled state.
+* Fixed an issue where idiomatic foreach (IFE) would not iterate over all entities that matched its query, if the query contains enableable components
+* Issue where recompilation would retrigger baking unnecessarily.
+
+
+## [1.0.0-pre.47] - 2023-03-01
+
+### Fixed
+
+* Stripping (e.g. on IL2CPP) now won't strip whole assemblies that have important systems, like graphics.
 * Generic systems created at runtime no longer break sorting functionality.
 
 
@@ -17,11 +98,11 @@ uid: changelog
 ### Added
 
 * Added `RegisterBindingAttribute(string authoringField, Type runtimeComponent, string runtimeField)` to provide better control when registering nested types in authoring components.
-* RuntimeContentSystem.LoadContentCatalog allows for starting the content delivery and update process when ENABLE_CONTENT_DELIVERY is defined.   The automatic update is no longer triggered when the applications starts.
+* RuntimeContentSystem.LoadContentCatalog allows for starting the content delivery and update process when ENABLE_CONTENT_DELIVERY is defined. The automatic update is no longer triggered when the applications starts.
 * Streaming samples.
-* RemoteContentCatalogBuildUtility.BuildContent helper method added to allow building player content without having to rebuild the player.  This is needed in order for developers to create their own publishing workflow for remote content delivery.
+* RemoteContentCatalogBuildUtility.BuildContent helper method added to allow building player content without having to rebuild the player. This is needed in order for developers to create their own publishing workflow for remote content delivery.
 * Added missing SceneSystem.UnloadScene prototype.
-* Generic IJobEntity jobs are not yet supported.  Added a proper error to indicate this instead of a compiler error.
+* Generic IJobEntity jobs are not yet supported. Added a proper error to indicate this instead of a compiler error.
 * SceneSystem.UnloadScene(WorldUnmanaged world, Entity sceneEntity, bool fullyUnload)
 * `ManagedAPI.GetComponentTypeHandle` now let's you get a typehandle to `Class IComponentData`.
 * Baking systems from the excluded baking assemblies are also filtered out during baking.
@@ -32,7 +113,7 @@ uid: changelog
 * WorldSystemFilter to the runtime version of ResolveSceneReferenceSystem.
 * DependsOnLightBaking can be called from bakers to register a dependency against light mapping data.
 * Added support for managed (shared) components serialization in DOTS runtime.
-* debug only check to prevent disposal of blob assets managed by a blob asset store.
+* Debug only check to prevent disposal of blob assets managed by a blob asset store.
 
 ### Changed
 
@@ -41,16 +122,15 @@ uid: changelog
 * Upgraded to use Roslyn 4.0.1
 * Added better support for vector type fields in `BindingRegistry`.
 * Unmanaged shared components are serialized as blittable data.
-* `ISystem` now doesn't need `BurstCompile` on the struct. Thus bursting a system simply means to put BurstCompile on either `OnCreate`, `OnStartRunning`, `OnUpdate`, `OnStopRunning`, or `OnDestroy`.
+* `ISystem` now doesn't need `BurstCompile` on the struct. To Burst compile a system, put BurstCompile on either `OnCreate`, `OnStartRunning`, `OnUpdate`, `OnStopRunning`, or `OnDestroy`.
 * The "a system could not be added to group" error message now contains the name of the World affected for easier debugging
 * Nested native containers are protected against in any type attributed with [NativeContainer]
 * Unmanaged shared components are no longer boxed when collecting BlobAssetReferences.
-* EditorEntityScenes.GetSubScenes was made public in order to gather subscenes to pass to the BuildContent API.
+* `EditorEntityScenes.GetSubScenes` was made public in order to gather subscenes to pass to the BuildContent API.
 * `EntityManager.GetAllUniqueSharedComponents` now takes an `AllocatorManager.AllocatorHandle` instead of an `Allocator` enum parameter allowing for custom allocators to be used when allocating the `NativeList<T>` return value. `Allocator` implicitly converts to `AllocatorManager.AllocatorHandle` so no action is required to call the changed API.
 * IJobEntity refactored to IncrementalGenerator.
-* IJobEntity now doesn't default to outputting generated files in `Temp/GeneratedCode/***`. To turn it on use `DOTS_OUTPUT_SOURCEGEN_FILES`. Turning it on will cost Compilation Time.
+* IJobEntity now doesn't default to outputting generated files in `Temp/GeneratedCode/`. To turn it on use `DOTS_OUTPUT_SOURCEGEN_FILES`. Turning it on costs compilation time.
 * Replaced .Name with .FullName for duplicated component message in baking.
-* Removed `IIsFullyUnmanaged` due to obtrusiveness when compilation fails. Instead gives runtime error when incorrectly scheduling managed IJobEntity.
 * ManagedComponents and Shared Managed Components can now be Scheduled in IJobEntity (ScheduleParallel still not allowed. Runtime error will be thrown if you try.)
 * Invalid entities now show their index and version when viewed in the inspector
 * In Bakers AddTransformUsageFlags now takes an entity instead of a GameObject or a Component.
@@ -67,6 +147,7 @@ uid: changelog
 * SourceGen no longer outputs .cs files in `Temp/GeneratedCode` by default, because most IDEs such as Rider and Visual Studio support SourceGen output. If you want to emit the output (at the cost of significant compilation time), use the `DOTS_OUTPUT_SOURCEGEN_FILES` define.
 * From Unity Editor version 2022.2 and later, the **Auto Generate** mode in the Lighting window is unavailable with the Entities package. This is because when you generate lighting in a project, the Unity Editor opens all loaded subscenes, which might slow down Editor performance. On demand baking is still available and is the recommended way of generating lighting.
 * Tooling to re-write user files to add missing partial keywords to systems.
+* Removed `IIsFullyUnmanaged` due to obtrusiveness when compilation fails. Instead gives runtime error when incorrectly scheduling managed IJobEntity.
 
 ### Fixed
 
@@ -117,18 +198,17 @@ uid: changelog
 * `EntityManager.RemoveComponent(Entity, ComponentTypeSet)` and `EntityCommandBuffer.RemoveComponent(Entity, ComponentTypeSet)` no longer throw an exception if the target entity is invalid, for consistency with other RemoveComponent functions.
 * Entities Hierarchy: Potential crash caused by race condition when gathering the changes to update the Entities Hierarchy.
 * Entities Hierarchy potential crash when receiving GameObjects' OrderChanged events out of order.
-* entities structural changes profiler module should no longer cause memory corruption (and crash) when recording from jobs using exclusive entity transactions.
+* The Entities Structural Changes Profiler module should no longer cause memory corruption (and crash) when recording from jobs using exclusive entity transactions.
 * The number for buffer count in Entity Inspector is not cut anymore.
 * Primary entity is secured to be the first to show in the Preview window.
 * Potentially incorrect remapping of references when using BlobBuilder to create large blobs. This would lead to corrupted blob data in rare cases.
-
 
 
 ## [1.0.0-pre.15] - 2022-11-16
 
 ### Added
 
-* Support serializing UnityEngine.AnimationCurves in managed components.
+* Support for serializing UnityEngine.AnimationCurves in managed components.
 * Changing shared component data (managed or unmanaged) is now tracked by the entities structural changes profiler module.
 * WorldUnmanaged.GetAllSystems
 * Support for enabling or disabling components in the entity inspector, for components that derives from the `IEnableableComponent` interface.
@@ -136,13 +216,12 @@ uid: changelog
 * Missing docs for Scratchpad and UpdateAllocator public APIs.
 * `ComponentTypeSet` now has a debugger type proxy, to show the list of components it contains.
 * DotsPlayerSettings can provide their own set of custom scripting defines.
-*
 * UnityObjectRef<T> now implements IEquatable<UnityObjectRef<T>>.
 * Support for `RefRW<T>`, `RefRO<T>`, `EnabledRefRW<T>` and `EnabledRefRO<T>` parameters in `IJobEntity.Execute()`.
 * Added convenience methods for adding Chunk Components to an EntityQueryBuilder.
 * Docs to provide an overview of prebuilt custom allocators.
 * `SystemAPI.ManagedAPI.HasComponent`, `SystemAPI.ManagedAPI.GetComponent`, `SystemAPI.ManagedAPI.TryGetComponent`, `SystemAPI.ManagedAPI.GetSingleton`, `SystemAPI.ManagedAPI.TryGetSingleton`.
-* managed `EntityQuery.TryGetSingleton`
+* Managed `EntityQuery.TryGetSingleton`
 * `SystemAPI.Query<ManagedAPI.UnityEngineComponent<MyUnityEngineComp>>` support.
 * `EntityQuery.TryGetSingletonRW` and `SystemAPI.TryGetSingletonRW`
 * Workflow for preparing builds for publishing
@@ -153,7 +232,7 @@ uid: changelog
 * `SystemAPI.SetComponentEnabled`, `SystemAPI.SetBufferEnabled`, `SystemAPI.ManagedAPI.SetComponentEnabled` to set component enabledness from an entity. To do this in jobs, do so in ComponentLookup/BufferLookup.
 * `RequireForUpdateWithSystemComponent` to SystemBase and ISystem to help explain that system components won't normally partake in queries without explicitly mentioning it.
 * EntityQueryBuilder ChunkComponent calls to SystemAPI.EntityQueryBuilder for better symmetry.
-* ArchetypeChunk.Has<T> and ArchetypeChunk.HasChunkComponent<T> for ease of checking (useful for `IJobEntityChunkBeginEnd`)
+* `ArchetypeChunk.Has<T>` and `ArchetypeChunk.HasChunkComponent<T>` for ease of checking (useful for `IJobEntityChunkBeginEnd`)
 * `IJobEntityChunkBeginEnd` - allowing you to run code at the start and end of chunk iteration.
 * `SystemAPI.GetXTypeHandle` to easily get cached and `.Update`'d handles :3
 * Added `EntityCommandBuffer.ParallelWriter.SetEnabled(Entity,bool)` method, for parity with the main-thread interface.
@@ -166,6 +245,7 @@ uid: changelog
 * Using `RefRO<T>` and `RefRW<T>` parameters in `IJobEntity.Execute()` with zero-sized components is now supported.
 * Added support for sticky data mode to the Entities Hierarchy window and the Inspector window.
 * Added support for automatic data mode switching to the Entities Hierarchy window and the Inspector window.
+
 
 ### Changed
 
@@ -182,10 +262,10 @@ uid: changelog
 * Moved the baking options to the DOTS Editor preferences page.
 * EntityQueries created via EntityManager.CreateEntityQuery or EntityQueryBuilder.Build(EntityManager) will be owned by the EntityManager and be disposed by the EntityManager when it is destroyed.
 * RuntimeContentManager API for loading and managing Unity engine objects loaded from Content Archives.
-* WeakObjectReference<T> can be used to manage weak objects at runtime.
-* Asset bundles are no longer build and loaded for referenced unity objects.  AssetBundleManager class has been removed.
+* `WeakObjectReference<T>` can be used to manage weak objects at runtime.
+* Asset bundles are no longer build and look for referenced Unity objects. AssetBundleManager class has been removed.
 * Bakers for base component types and decorated with `[BakeDerivedTypes]` are evaluated before bakers for derived component types.
-* Renamed `EntityCommandBuffer.*ForEntityQuery` methods to be their singular overload equivalents `EntityCommandBuffer.*`. E.g. `EntityCommandBuffer.DestroyEntitiesForEntityQuery` is now an overload in `EntityCommandBuffer.DestroyEntity`. EntityCommandBuffer is now more in line with EntityManager!.
+* Renamed `EntityCommandBuffer.*ForEntityQuery` methods to be their singular overload equivalents `EntityCommandBuffer.*`. E.g. `EntityCommandBuffer.DestroyEntitiesForEntityQuery` is now an overload in `EntityCommandBuffer.DestroyEntity`. EntityCommandBuffer is now more in line with EntityManager.
 * `EntityQuery.CalculateEntityCount(NativeArray<Entity>)`
 * `EntityQuery.CalculateEntityCountWithoutFiltering(NativeArray<Entity>)`
 * `EntityQuery.MatchesAny(NativeArray<Entity>)`
@@ -198,14 +278,12 @@ uid: changelog
 * Renamed `BlobAssetStore.Remove` to `BlobAssetStore.TryRemove`, to better convey its functionality, as it only removes the BlobAsset if it is present.
 * Renamed `SystemAPI.QueryBuilder` to `SystemAPI.EntityQueryBuilder` to better indicate that it is just caching a `Unity.Entities.EntityQueryBuilder`
 * Baked primary entities no longer have an implicit dependency on the Transform component.
-* Removed the inner TransformData struct from WorldTransform, LocalTransform and ParentTransform (and instead use extension methods and properties).  Position/Rotation/Scale can now be accessed directly on the transform type itself.
 * ContentDeliverySystem to ContentDeliveryGlobalState.  The state is now updated from the RuntimeContentSystem.
 * All generic methods handling generic components with the constraint of `where T : class, IComponentData` has been changed to `where T : class, IComponentData, new()` to better indicate that all managed `IComponentData` types must be default constructable.
 * `ComponentTypeHandle`, `BufferTypeHandle`, `DynamicComponentTypeHandle`, and `DynamicSharedComponentTypeHandle` arguments to `ArchetypeChunk` methods are now passed by `ref` instead of by value. This facilitates a caching optimization that will be implemented in a future release.
 * Implement ISystem methods (OnCreate/OnUpdate/OnDestroy) as default interface methods.  These no longer need to be defined in the struct implementing the ISystem interface if they are not used.
 * Searching the Entities hierarchy using the component filter now treats multiple entries as AND rather than OR.
 * Renamed the PostTransformMatrix component to PostTransformScale, and changed its value type to float3x3.
-* Updated transform documentation.
 * It's now a compile error to schedule with managed code (for IJobEntity and IJobChunk)
 * EntityCommandBufferSystem.RegisterSingleton uses the system's entity rather than creating a custom singleton entity with the name of MyEcbSystem
 * Improved performance of `EntityManager.DestroyEntity(EntityQuery)`
@@ -219,7 +297,7 @@ uid: changelog
 
 ### Deprecated
 
-* rename `EntityManager.CompleteAllJobs` to `EntityManager.CompleteAllTrackedJobs`, to more accuractly describe what it is doing.
+* Renamed `EntityManager.CompleteAllJobs` to `EntityManager.CompleteAllTrackedJobs`, to more accurately describe what it is doing.
 * SystemState.Time and SystemBase.Time has been deprecated in favor of World.Time and SystemAPI.Time
 * `[WithEntityQueryOptions]` for IJobEntity becomes `[WithOptions]` to be consistent with `EntityQueryBuilder` and `SystemAPI.QueryBuilder`
 * `SystemAPI.Query.WithEntityQueryOptions` becomes `SystemAPI.Query.WithOptions` to be consistent with `EntityQueryBuilder` and `SystemAPI.QueryBuilder`
@@ -227,7 +305,6 @@ uid: changelog
 * SystemAPI duplicated API in `ComponentSystemBase`. `HasSingleton`, `GetSingleton`, `GetSingletonRW`, `GetSingletonBuffer`, `TryGetSingleton`, `TryGetSingletonBuffer`, `SetSingleton`, `GetSingletonEntity`, `TryGetSingletonEntity`. Use SystemAPI alternatives instead.
 * SystemAPI duplicated API in `ComponentSystemBaseManagedComponentExtensions`. `GetSingleton`, `GetSingletonRW`, `SetSingleton`. Use SystemAPI alternatives instead.
 * SystemAPI duplicated API in `SystemBase`. `GetComponent`, `SetComponent`, `HasComponent`, `GetBuffer` and `Exists`. Use SystemAPI alternatives instead.
-
 
 ### Removed
 
@@ -244,6 +321,7 @@ uid: changelog
 * Removed the `DotsPlayerSettings` type.
 * Removed `View All Components` label for Aspects tab in Inspector.
 * Dependencies on `com.unity.platforms`package has been removed.
+* Removed the inner TransformData struct from WorldTransform, LocalTransform and ParentTransform (and instead use extension methods and properties).  Position/Rotation/Scale can now be accessed directly on the transform type itself.
 
 ### Fixed
 
@@ -256,7 +334,7 @@ uid: changelog
 * Entity inspector no longer throws index out of range exception when modifying the content of integer fields.
 * Systems window no longer throws exceptions when encountering invalid worlds.
 * Using WithChangeFilter on Entities.ForEach or SystemAPI.Query would add the component type as ReadWrite. It now adds ReadOnly.
-* Subscene entity names are trucated to 64 characters during incremental baking.
+* Subscene entity names are truncated to 64 characters during incremental baking.
 * Components with `long` or `ulong` enum fields will no longer cause an exception when displayed in entity inspector. As temporary measure until 64 bit integers are supported by `UnityEngine.UIElements.EnumFlagsField`, a text field with the numerical value of the enum will be displayed.
 * Change API name from `SetAllocatorHandle` to `SetAllocator` for entity command buffer allocator.
 * RectTransform components are no longer skipped when baking transform hierarchies.
@@ -264,7 +342,7 @@ uid: changelog
 * NetCodeClientSetting should not add FRONTEND_PLAYER_BUILD scripting define.
 * EntityQueryBuilder will correctly emit error when used without constructing with an Allocator.
 * `EntityQuery.ResetFilter()` now resets order version filtering to its default value (disabled) as well.
-* BlobArray<T>.ToArray() throws if the element type T contains nested BlobArray or BlobPtr fields.
+* `BlobArray<T>.ToArray()` throws if the element type T contains nested BlobArray or BlobPtr fields.
 * IJobEntity scheduling calls no longer ignores calls to `JobHandle.CombineDependencies()` passed as its `dependsOn` parameter.
 * IJobEntity scheduling calls now can contain calls to SystemAPI calls and other JobEntity scheduling
 * IJobEntity scheduling calls now ensure they only add automatic dependency assignment, when jobhandle is explicitly passed to scheduling functions.
@@ -276,7 +354,7 @@ uid: changelog
 * Fixed a performance issue in the Entities Hierarchy when it's docked behind another window while GameObject events happen.
 * blob asset references would infrequently become invalid after a live baking pass.
 * Entities Hierarchy: Dynamically loaded subscenes are now correctly displayed in the hierarchy
-* An exception that occurs when opening properties window from the Entities Hierarchy "Properties ..." context menu item.
+* An exception that occurs when opening properties window from the Entities Hierarchy Properties context menu item.
 * `SystemAPI.GetBuffer` to get BufferLookup as ReadWrite (as to be consistent with rest of GetBuffer methods.)
 * `SystemAPI.Query<RefRO<MyTag>>` where MyTag is a zero-size component, will now return `default(MyTag)` instead of throwing.
 * Drag n drop issue that can cause the Editor to enter an infinite loop
@@ -308,18 +386,17 @@ uid: changelog
 * Under Relationships tab of Entity Inspector, systems with same name will display with added namespace for distinguishment.
 * Entities Hierarchy now properly retrieves subscenes' asset names.
 
-
 ## [1.0.0-exp.12] - 2022-10-19
 
 ### Changed
-* updates to package dependencies
+* Updates to package dependencies
 
 
 ## [1.0.0-exp.8] - 2022-09-21
 
 ### Added
 
-* new `GetSingletonBuffer(bool isReadOnly)` method on `ComponentSystemBase` and `EntityQuery`, for use with singleton `DynamicBuffer`s. No `SetSingletonBuffer()` is needed; once you have a copy of the buffer, its contents can be modified directly.
+* `GetSingletonBuffer(bool isReadOnly)` method on `ComponentSystemBase` and `EntityQuery`, for use with singleton `DynamicBuffer`s. No `SetSingletonBuffer()` is needed; once you have a copy of the buffer, its contents can be modified directly.
 * `IJobEntityBatch` and `IJobEntityBatchWithIndex` now have `RunWithoutJobs()` and `RunByRefWithoutJobs()` extension methods.
 * Documentation on EntityCommandBuffer public functions including ParallelWriter and EntityCommandBufferManagedComponentExtensions.
 *  GetOrCreateUnamangedSystemsAndLogException that allow to create unmanaged systems in batches like the equivalent GetOrCreateSystemsAndLogException.
@@ -330,7 +407,6 @@ uid: changelog
 * `EntityManager.MoveComponent` is available as a way for managed components to properly transfer to other entities
 * `public bool HasBuffer<T>(Entity entity) where T : struct, IBufferElementData` to `EntityManager`, which can be used to check whether an entity has a dynamic buffer of a given `IBufferElementData` type
 * `protected internal bool HasBuffer<T>(Entity entity) where T : struct, IBufferElementData` to `SystemBase`, which can be used to check whether an entity has a dynamic buffer of a given `IBufferElementData` type
-* Hybrid assemblies will not be included in DOTS Runtime builds.
 * DynamicBuffer.Resize(int length, NativeArrayOptions options);
 * DynamicBufferHandle.Update(ref SystemState) matching the same methods on ComponentTypeHandle to improve main thread performance
 * EntityManager.EntityManagerDebug.GetLastWriterSystemName. This is useful for debugging out which system last touched component data in a chunk
@@ -338,8 +414,6 @@ uid: changelog
 * EntityArchetype.ToString reports all types on the archetype
 * `EntityManager.AddComponent(NativeArray<Entity>, ComponentTypes)` and `EntityManager.RemoveComponent(NativeArray<Entity>, ComponentTypes)` in order to perform batch component operations on a specific set of entities
 * New command in the EntityCommandBuffer to SetEnabled(Entity e, bool value).
-* If a component implements `IEnableableComponent`, viewing an Entity within a debugger will now display whether a component is enabled or disabled.
-* When viewing an ArchetypeChunk's ComponentTypes within a debugger, a `ComponentType` that implements `IEnableableComponent` will now display how many disabled components there are within a chunk.
 * Added property `UpdateAllocatorEnableBlockFree` in `World` to enable or disable world update allocator to free individual block when no memory is allocated in that block.
 * More detailed error descriptions for Job.WithCode
 * More detailed error descriptions for .this capture inside Entities.ForEach and LambdaJobs, now specifies whether it's Entities.ForEach or Job.WithCode additionally it specifies that you might be using a system's field, property or method as you're capturing 'this' system.
@@ -348,9 +422,8 @@ uid: changelog
 * Support for GetStorageInfoFromEntity inside E.FE
 * New commands in EntityCommandBuffer to modify components (add/set/replace) of an entity's LinkedEntityGroup based on an EntityQueryMask.
 * `ComponentType` now provides a `ToFixedString` method to allow for a BurstCompatible way of generating a component's name and accessmode.
-* ISystem Entities.ForEach lambdas may access system state through Systems proxy type
-* Interface Unity.Entities.IAspect<T> used for declaring aspects.
-* Unity.Entities.ComponentDataRef<T>. Used inside an aspect struct declaration as a proxy to the component data. It is also used during the generation of aspect code to identify the composition of the aspect.
+* `Interface Unity.Entities.IAspect<T>` used for declaring aspects.
+* `Unity.Entities.ComponentDataRef<T>`. Used inside an aspect struct declaration as a proxy to the component data. It is also used during the generation of aspect code to identify the composition of the aspect.
 * Class Unity.Entities.OptionalAttribute used for declaring optional component inside the aspect declaration.
 * Class Unity.Entities.DisableGenerationAttribute  used to disable the source generation of aspect declarations.
 * Methods Unity.Entities.ComponentDataFromEntity.GetDataRef and GetDataRefOptional used to create ComponentDataRef<T> from entity.
@@ -371,7 +444,7 @@ uid: changelog
 * BlobAssetStore now checks if the blob was allocated with the correct allocator and throws if it wasn't
 * `BufferFromEntity.Update`, allowing users to update a reference within a system instead of constructing a new buffer every frame.
 * relaxed entity creation structural safety checks.
-* `[CreateBefore]` and `[CreateAfter]` attributes to control the explict ordering for when systems `OnCreate` method is invoked relative to other systems.
+* `[CreateBefore]` and `[CreateAfter]` attributes to control the explicit ordering for when systems `OnCreate` method is invoked relative to other systems.
 * `static AspectQueryEnumerable<T> Query<T>() where T : struct` in the `SystemAPI` class, allowing users to perform `foreach` iteration through a query without having to manually set up any arguments beforehand. This method may only be used inside methods in `ISystem` types.
 * IJobEntity supports Aspects in `Execute` parameters.
 * EntityManagerDebug.GetSystemProfilerMarkerName is a method useful for extracting the name of a systems profiler marker. This is used in our own test rigs for extracting performance data from systems.
@@ -380,22 +453,16 @@ uid: changelog
 * `Update(SystemBase)` and `Update(SystemState)` to  `DynamicComponentTypeHandle`, `SharedComponentHandle`, `DynamicSharedCompoentHandle`, and `EntityTypeHandle`, in order to allow for incremental updates.
 * `SetComponentEnabled()` to allow setting a component enabled by `DynamicComponentTypeHandle`
 * `GetComponentEnabledRO` to allow the retrieval of the enabledbits bitarray on a `Chunk`
-* new menu item for exporting entities journaling data to CSV.
+* New menu item for exporting entities journaling data to CSV.
 * Importance scaling: Custom entry for per chunk tile data.
 * TypeManager.HasDescendants(), TypeManager.IsDescendantOf(), TypeManager.GetDescendantCount() for checking the inheritance relationship between types.
 * `ComponentSystemBaseManagedComponentExtensions.GetSingletonRW<T>` and `ComponentSystemBase.GetSingletonRW<T>()` to access singletons by reference in systems, with read/write access to the data.
 * `EntityQuery.GetSingletonRW<T>()` to access singletons by reference from an EntityQuery, with read/write access to the data.
 * `EntityQuery.TryGetSingleton<T>(out T)`, `EntityQuery.HasSingleton<T>()`, `EntityQuery.TryGetSingletonBuffer<T>(out DynamicBuffer<T>)`, and `EntityQuery.TryGetSingletonEntity<T>(out Entity)`
 * SystemAPI for: `HasSingleton<T>()`, `GetSingleton<T>()`, `GetSingletonBuffer<T>(bool)`, `TryGetSingleton<T>(out T)`, `TryGetSingletonBuffer<T>(out DynamicBuffer<T>)`, `SetSingleton<T>(T value)`, `GetSingletonEntity<T>()`, `TryGetSingletonEntity<T>(out Entity)`, and `GetSingletonRW<T>()`. All of which are now supported inside Systems.
-* Baker's now support declaring TransformUsageFlags which specifies how the transform component will be used at runtime
-* optimized performance of `IJobEntityBatch` and `Entities.ForEach`
-* Some extra `EntityCommandBuffer` checks can now be enabled during playback, by setting `EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION` to true.
-* `QueryEnumerable<T> SystemAPI.Query<T>()` can now accept up to 8 type arguments, i.e. `QueryEnumerable<(T1, T2)> Query<T1, T2>()`, `QueryEnumerable<(T1, T2, T3)> Query<T1, T2, T3>()`, and so forth. The maximum number of type arguments is set to 8, and correspondingly the maximum number of elements in the returned tuple is 8. This is in accordance with [current C# convention](https://docs.microsoft.com/en-us/dotnet/api/system.tuple-8?view=net-6.0).
-* SystemBase.GetBuffer takes an optional isReadOnly parameter.
 * `.WithFilter(NativeArray entities)` to the `QueryEnumerablee` class. This allows users to supply an array of entities to a query over aspects/components in a `foreach` iteration. Entities without the specified aspects/components will be ignored.
 * Idiomatic `foreach` iteration through aspects/components is now supported inside `SystemBase` types.
 * `GetEntityDataPtrRO()`, `GetRequiredComponentDataPtrRO()`, and `GetRequiredComponentDataPtrRW()` methods to `ArchetypeChunk` (mostly for internal use, to provide efficient access to a Chunk's `Entity` array for generated job code).
-* The DOTS Hierarchy content is now filtered based on the currently selected DataMode
 * `RefRO<IComponentData>` is added as a read-only counterpart to `RefRW<IComponentData>`.
 * Added an indicator to the items in the DOTS Hierarchy when they are in the Runtime DataMode to differentiate them from items in the Authoring DataMode.
 * Added netcode aware WorldSystemFilterFlags and WorldFlags.
@@ -442,8 +509,8 @@ uid: changelog
 * Implicit syncing in SystemAPI for Systems. So calls to, GetComponent, SetComponent, HasComponent, GetBuffer, GetBufferFromEntity, HasBuffer and GetComponentDataFromEntity will complete other systems if they have that component.
 * `Aspect.CompleteDependencyBefore[RO|RW](ref SystemState)` for explicit Aspect syncing so that when on MainThread you can use GetAspect and GetAspectRO and it will complete that dependency.
 * SystemAPI now provides `GetAspectRW` and `GetAspectRO` methods in SystemBase and ISystem.
-* EntityQueryBuilder WithAll<T>, WithAny<T>, WithNone<T> fluent APIs that accept up to seven type arguments and can be chained together to create an EntityQueryBuilder.
-* EntityQueryBuilder.WithAllRW<T> and WithAnyRW<T> that accept up to two type arguments.
+* `EntityQueryBuilder WithAll<T>`, `WithAny<T>`, `WithNone<T> `fluent APIs that accept up to seven type arguments and can be chained together to create an EntityQueryBuilder.
+* `EntityQueryBuilder.WithAllRW<T>` and `WithAnyRW<T> `that accept up to two type arguments.
 * EntityQueryBuilder WithAll, WithAny, WithNone methods that accept an INativeList for bulk changes, or ComponentTypes that can only be known at runtime. These are compatible with NativeList and FixedList32Bytes et. al.
 * EntityQueryBuilder Build(SystemBase), Build(SystemState) and Build(EntityManager) each return a new EntityQuery, owned by the argument passed.
 * `SystemAPI.QueryBuilder()` to support building a query easily using fluent syntax inside `ISystem` and `SystemBase` types.
@@ -465,18 +532,17 @@ uid: changelog
 ### Changed
 
 * **API-Breaking Change:** `IJobChunk.Execute()` now takes additional parameters to support per-component enable bits. These extra parameters contain information about which entities in the chunk should be processed or skipped (based on whether the relevant components are enabled or disabled). As a temporary workaround when converting existing `IJobChunk` implementations, we recommend adding a call to `Assert.IsFalse(useEnabledMask)` to their `Execute()` methods.
-* Removed `IJobForEach`, due to long notice of deprecation
 * Changed `LiveLinkPatcher` and `LiveLinkPlayerSystem` to use `IJobEntityBatch`, due to removal of `IJobForeach`
 * Changed docs from `IJobForeach` and `IJobChunk` to refer to `IJobEntity`, and `IJobEntityBatch` respectivly
 * Changed IJE out of `DOTS_EXPERIMENTAL`
 * Improve Entity, System and Component inspector relationship tabs with dedicated message when there is nothing to show.
 * `IJobEntityBatchExtensions.RunWithoutJobs()` and `IJobEntityBatchWithIndexExtensions.RunWithoutJobs()` now pass their `jobData` parameter by value, for consistency with existing Run/Schedule methods. To pass by reference, use `RunByRefWithoutJobs()` instead.
-* DOTS Hierarchy now display SubScenes' state (opened, livelinked, closed or not loaded).
+* DOTS Hierarchy now displays SubScenes' state (opened, livelinked, closed or not loaded).
 * Make `ScratchpadAllocator` inherit `IAllocator`.
-* both managed and unmanged systems instances are created before their respective OnCreate method are called.
+* Both managed and unmanged systems instances are created before their respective OnCreate method are called.
 * When using `EntityManager.SetName` with a managed `string` as a parameter, if a string longer than 61 characters is used, the string will be truncated to fit within an `EntityName`,
 * Subscene nodes in DOTS Hierarchy now have a similar style as in the GameObject Hierarchy.
-* Unity.Transforms systems are fully burst compiled now
+* Unity.Transforms systems are fully Burst compiled now
 * Updated Emscripten from version 1.38.28.2-unity to 2.0.19-unity.
 * `EntityQuery.ToComponentDataArray` can be used with managed component as a generic parameter
 * `TypeManager.GetTypeIndexFromStableTypeHash` is now Burst compatible and can be called from Bursted functions.
@@ -484,13 +550,13 @@ uid: changelog
 * Added support for `EntityQuery q = Entities.WithAll<Foo>().ToQuery();`
 * No longer write out to files in Unity 2021+ from entities source generators.
 * Improved the performance of the `EntityQuery` matching chunk cache in applications with many empty archetypes.
-*EntityTypeHandle is now marked as a readonly container since the data is never writable. This means is no longer required (But still correct & possible) to mark the EntityTypeHandle as [ReadOnly] in jobs.
-* World.AddSystem for ISystem has been renamed  to World.CreateSystem.  This matches the managed system API.
+* EntityTypeHandle is now marked as a readonly container since the data is never writable. This means is no longer required (But still correct & possible) to mark the EntityTypeHandle as [ReadOnly] in jobs.
+* World.AddSystem for ISystem has been renamed to World.CreateSystem. This matches the managed system API.
 * World.DestroyUnmanagedSystem is now World.DestroySystem. This matches the managed system API.
 * ComponentSystemGroup.AddUnmanagedSystemToUpdateList has been renamed to AddSystemToUpdateList.  This matches the managed system API.
-* ComponentSystemGroup.RemoveUnmanagedSystemFromUpdateList.  This matches the managed system API.
+* ComponentSystemGroup.RemoveUnmanagedSystemFromUpdateList. This matches the managed system API.
 * `EntityCommandBufferSystem.CreateCommandBuffer()` now uses the `World.UpdateAllocator` to allocate command buffers instead of `Allocator.TempJob`. Allocations from this allocator have a fixed lifetime of two full World Update cycles, rather than being tied to the display frame rate.
-* World.Dispose and World.DestroySystem can no longer be  called while any system is executing (OnCreate / OnDestroy / OnUpdate) on the same world. This prevents a variety of corner cases where incorrect API usage would lead to a corrupted internal state.
+* World.Dispose and World.DestroySystem can no longer be called while any system is executing (OnCreate / OnDestroy / OnUpdate) on the same world. This prevents a variety of corner cases where incorrect API usage would lead to a corrupted internal state.
 * World.GetExistingUnmanagedSystem no longer throws if the system couldn't be found but returns a null SystemHandle. (This matches the managed system behaviour of GetExistingSystem, which returns null)
 * Throwing an exception in OnDestroy now throws the exception in user code as opposed to just logging the exception. This matches the behaviour of SystemBase
 * `TypeManager.TypeInfo.DebugTypeName` now returns a `NativeText.ReadOnly` type allowing for burst compatible way to get a type name, reduces garbage and avoids string copies via string interning.
@@ -500,7 +566,7 @@ uid: changelog
 * EntityManager.Version has been renamed to EntityManager.OrderVersion
 * Improved debug visualizers for EntityManager, Entity, Archetype and Chunk
 * Static safety ID creation is burst compatible, moving towards more Entities.ForEach job schedule sites burst compatibility.
-* synchronous EntityQuery methods (`.ToEntityArray()`, `ToComponentDataArray()`, and `CopyFromComponentDataArray()`) are no longer implemented in terms of scheduling jobs. For asynchronous job-based implementations (which may be more efficient with extremely large workloads), use the variants of these methods with the `Async()` suffix.
+* Synchronous EntityQuery methods (`.ToEntityArray()`, `ToComponentDataArray()`, and `CopyFromComponentDataArray()`) are no longer implemented in terms of scheduling jobs. For asynchronous job-based implementations (which may be more efficient with extremely large workloads), use the variants of these methods with the `Async()` suffix.
 * Updated docs explaining how to use IJobEntity.
 * CheckDisposed method in EntityQueryEnumerator is now public
 * The Current property for a generated Aspect Enumerator now has a conditional CheckDisposed call to identify when the property is being accessed with a disposed enumerator instance
@@ -522,7 +588,7 @@ uid: changelog
 * `ComponentDataRef<IComponentData>` is renamed to `RefRW<IComponentData>`, and its property `Value` is likewise renamed to `ValueRW` in the name of explicitness.
 * Make initial memory block size of scratchpad allocator configurable.
 * Improved performance of `EntityManager.GetallUniqueSharedComponents` in IL2CPP builds
-* Significantly improved the performance of `EntityQuery.CalculateEntityCount()
+* Significantly improved the performance of `EntityQuery.CalculateEntityCount()`
 * Significantly improved the performance of `EntityQuery.IsEmpty`.
 * Global system version is now also incremented after a system update in addition to before a system update, so that changes made outside of systems also have their own version number.
 * The meaning of WorldSystemFilterFlags.Default can be changed by parent groups.
@@ -570,17 +636,29 @@ uid: changelog
 * `ComponentDataFromEntity<T>` was renamed to `ComponentLookup<T>`, and `GetComponentDataFromEntity<T>()` was renamed to `GetComponentLookup<T>()`.
 * `BufferFromEntity<T>` was renamed to `BufferLookup<T>`, and `GetBufferFromEntity<T>()` was renamed to `GetBufferLookup<T>()`. In addition, the `HasComponent()` method on this type was renamed to `HasBuffer()`.
 * `StorageInfoFromEntity` was renamed to `EntityStorageInfoLookup`, and `GetStorageInfoFromEntity()` was renamed to `GetEntityStorageInfoLookup()`.
-* T XXXSystem<T> renamed to T XXXSystemManaged<T> for managed system types
+* `T XXXSystem<T>` renamed to `T XXXSystemManaged<T>` for managed system types
 * SystemHandleUntyped renamed to SystemHandle
 * T XXXSystem(Type) renamed to T XXXSystemManaged(Type)
 * SystemHandle.Update(WorldUnmanaged) works for managed systems too
 * the LoadSceneAsync overload that uses weak scene reference is now static.
+* Hybrid assemblies will not be included in DOTS Runtime builds.
+* If a component implements `IEnableableComponent`, viewing an Entity within a debugger will now display whether a component is enabled or disabled.
+* When viewing an ArchetypeChunk's ComponentTypes within a debugger, a `ComponentType` that implements `IEnableableComponent` will now display how many disabled components there are within a chunk.
+* ISystem Entities.ForEach lambdas may access system state through Systems proxy type
+* Bakers now support declaring TransformUsageFlags which specifies how the transform component will be used at runtime
+* Optimized performance of `IJobEntityBatch` and `Entities.ForEach`
+* Some extra `EntityCommandBuffer` checks can now be enabled during playback, by setting `EntityCommandBuffer.ENABLE_PRE_PLAYBACK_VALIDATION` to true.
+* `QueryEnumerable<T> SystemAPI.Query<T>()` can now accept up to 8 type arguments, i.e. `QueryEnumerable<(T1, T2)> Query<T1, T2>()`, `QueryEnumerable<(T1, T2, T3)> Query<T1, T2, T3>()`, and so forth. The maximum number of type arguments is set to 8, and correspondingly the maximum number of elements in the returned tuple is 8. This is in accordance with [current C# convention](https://docs.microsoft.com/en-us/dotnet/api/system.tuple-8?view=net-6.0).
+* SystemBase.GetBuffer takes an optional isReadOnly parameter.
+* The DOTS Hierarchy content is now filtered based on the currently selected DataMode
+* When creating an authoring compoenent and the movedfromAttribute is used, now we make sure to add "Authoring" string to the MovedFrom Class parameter.
+* Removed the the default JobHandle parameter (it now must be passed in explicitly to match EFE scheduling with the built-in Dependency property).
 
 ### Deprecated
 
-* EntityManager.GetEntityQueryMask(EntityQuery) has been deprecated uses EntityQuery.GetEntityQueryMask() instead.
+* EntityManager.GetEntityQueryMask(EntityQuery) has been deprecated. Use EntityQuery.GetEntityQueryMask() instead.
 * Use of `[ExecuteAlways]` on systems is now deprecated (it's still supported on MonoBehaviours). Please use `[WorldSystemFilter(WorldSystemFilterFlags.Editor)]` instead to ensure your system is added and runs in the Editor's default world. If you'd like to ensure your system always updates, please use the [AlwaysUpdateSystemAttribute]` instead
-* RequireSingletonForUpdate<T>() has been renamed to RequireForUpdate<T>() and no longer requires only a single component to exist.
+* `RequireSingletonForUpdate<T>()` has been renamed to `RequireForUpdate<T>()` and no longer requires only a single component to exist.
 * AlwaysUpdateSystem has been deprecated and systems will now always update by default.
 * The `EntityQuery.ToEntityArrayAsync()`, `.ToComponentDataArrayAsync()`, and `.CopyFromComponentDataArrayAsync()` methods have been deprecated, as they do not correctly support enableable components and are prone to safety errors. They should be replaced with calls to the new `.ToEntityListAsync()`, `.ToComponentDataListAsync()`, and `.CopyFromComponentDataListAsync()` methods.
 * `EntityQuery.CreateArchetypeChunkArray()` was renamed to `EntityQuery.ToArchetypeChunkArray()`. The new function is also significantly faster.
@@ -591,17 +669,19 @@ uid: changelog
 * The `EntityManager.AddComponents(Entity, ComponentTypes)` method has been renamed `AddComponent`, for consistency with all other `AddComponent` and `RemoveComponent` variants.
 * EntityQueryDescBuilder AddAll, AddAny, AddNone, and FinalizeQuery are all Obsolete now.
 * The `IJobEntityBatch` and `IJobEntityBatchWithIndex` job types have been deprecated, and will be removed before the 1.0 package release. New and current implementations of these job types should be conversion to `IJobChunk`, which handles enableable components much more efficiently. Note that the interface to `IJobChunk` has changed since previous DOTS releases; see the upgrade guide for migration tips covering the most common use cases.
+* SystemGenerator and LambdaJobs: handling aspect as parameters to lambda jobs in our System Entities.ForEach.
+* Correctly cache BufferTypeHandle for any DynamicBuffer used in Entities.ForEach
 
 ### Removed
 
-* Remove the LiveLink feature and its build component.
+* Removed the LiveLink feature and its build component.
 * ComponentTypes.m_Masks & ComponentTypes.Masks are now internal. This implementation detail was accidentally made public.
 * Removed element `EnableBlockFree` in enum `WorldFlags` because `EnableBlockFree` does not align with the usage of `WorldFlags`.
-* DOTS Compiler Inspector.  Functionality is now available via viewing generated code directly from Temp/GeneratedCode in the project directory.
+* DOTS Compiler Inspector. Functionality is now available via viewing generated code directly from Temp/GeneratedCode in the project directory.
 * Entity Debugger (replaced by Entity Inspector, Systems window, DOTS Hierarchy, and Entities Profiler Modules)
 * Remove slow singleton API's from SystemState, that do too much when called in OnUpdate. Instead we are going to put those API's into SystemAPI where they can be efficiently code-generated
 * Removed GameObjectEntity
-* Dependency on com.unity.roslyn package.   This is no longer needed as Unity 2022 has built-in support for source-generators.
+* Dependency on com.unity.roslyn package. This is no longer needed as Unity 2022 has built-in support for source-generators.
 * The `ArchetypeChunkIterator` type has been removed. To iterate over the chunks that match a query, call `query.CreateArchetypeChunkArray()` and iterate over the output array.
 * Removed the following deprecated methods: `BlobAssetReference.TryRead()`, `EntityQuery.CompareQuery(EntityQueryDesc[] queryDesc)`, `ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop()`, `ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop()`, `ScriptBehaviourUpdateOrder.AppendSystemToPlayerLoopList()`, and `MemoryBinaryReader.MemoryBinaryReader(byte* content)`.
 * ComponentSystem, EntityQueryBuilder, EntityQueryCache and the old ForEach methods, along with their tests.
@@ -614,7 +694,8 @@ uid: changelog
 * The ability to schedule managed components in IJobEntity was removed due to safety concerns, instead use .Run.
 * Removed Entities.ForEach.WithFilter as this does not work correctly with enabled components.  This feature will need to be implement in user code going forward.
 * The following `EntityQuery` methods have been removed: `ToEntityArray(NativeArray<Entity>, Allocator)`, `ToComponentDataArray(NativeArray<Entity>, Allocator)`, `CalculateEntityCount(NativeArray<Entity>)`, `CalculateEntityCountWithoutFiltering(NativeArray<Entity>)`, `MatchesAny(NativeArray<Entity>)`, and `MatchesAnyIgnoreFilter(NativeArray<Entity>)`. They are significantly slower than other overloads that do not limit processing to an array of entities, do not work with enableable components, and are prone to false positives. If an application requires these features, it's possible to implement them as wrappers around the remaining overloads, using a `NativeHashSet<Entity>` of the desired entities as a post-processing step.
-* SystemHandle<T> and SystemRef
+* `SystemHandle<T>` and `SystemRef`
+* Removed `IJobForEach`, due to long notice of deprecation
 
 ### Fixed
 
@@ -625,7 +706,7 @@ uid: changelog
 * Bug with EntityCommandBuffer removing multiple components from multiple entities when the number of entities was more than 10.
 * Defining `UNITY_DOTS_DEBUG` in standalone builds no longer triggers false positives from `AssertValidArchetype()`.
 * OnCreateForCompiler is called before the OnCreate for unmanaged systems.
-* unloading subscenes could sometimes result in an error about a query not including a member of LinkedEntityGroup
+* Unloading subscenes could sometimes result in an error about a query not including a member of LinkedEntityGroup
 * When setting many long strings using `EntityManager.SetName`, the editor will properly handle the storage of these names.
 * `EntityQuery.ToComponentDataArray<T>()` and `EntityQuery.CopyFromComponentDataArray<T>()` now detect potential race conditions against running jobs which access the component `T`. These jobs must be completed before the `EntityQuery` methods are called.
 * `EntityQuery.CalculateEntityCountWithoutFiltering()` now gives correct results when the query includes enableable types.
@@ -648,7 +729,7 @@ uid: changelog
 * Component inspector relationship tab being refreshed too often.
 * Dangling files left after a build using buildconfigs under certain circumstances
 * Freeing Chunks now occurs in constant time, and not linear time.
-* codegen for `WithEntityQueryOptions` now works with multiple `EntityQueryOptions`.
+* Codegen for `WithEntityQueryOptions` now works with multiple `EntityQueryOptions`.
 * DOTS Runtime now correctly sorts systems by creation order when calling TypeManager.GetSystems
 * Fixed Bug where GetSingleton and friends with a query that has more than 1 required component was returning the wrong component data
 * Certain usage patterns of `ComponentDataFromEntity` and `BufferFromEntity` no longer give incorrect results due to inconsistent `LookupCache` state.
@@ -657,17 +738,17 @@ uid: changelog
 * `Entities.ForEach` calls that make use of an `Entity` parameter should no longer cause a warning to be logged  (due to generated code)
 * `ExclusiveEntityTransaction.AddComponent` and `ExclusiveEntityTransaction.RemoveComponent` will no longer throw  with the error message of `Must be called from the main thread`
 * Improved performance of Source Generators when run in IDEs.
-* Fix Create -> ECS -> System template.
+* Fix Create &gt; ECS &gt; System template.
 * `IJobEntity` inside nested struct now works.
 * `IJobEntity` now works inside namespaces that have `using` statements.
 * "System" in namespace causing issues with Entities.ForEach and other codegen.
-* use of WithDisposeOnCompletion with Job.WithCode if a `using System.Collections` is missing.
+* Use of WithDisposeOnCompletion with Job.WithCode if a `using System.Collections` is missing.
 * `EntityQuery.CopyFromComponentDataArray<T>()` and `EntityQuery.CopyFromComponentDataArrayAsync<T>()` now correctly set the change version of any chunks they write to.
 * System in System code.
 * Nested replacements, like GetComponent(SetComponent);
 * `SystemAPI.GetComponentDataFromEntity`, `SystemAPI.GetBufferFromEntity`, `SystemAPI.GetBuffer`, `SystemAPI.TryGetBuffer`, `SystemAPI.TryGetComponent`.
 * `SystemAPI.Time` now stores a copy of TimeData, making it deterministic in `Entities.ForEach` again.
-* Fixes Issue where UnityEngine.Component, UnityEngine.GameObject, and UnityEngine.ScriptableObject didn't work as ManagedComponents for IJobEntity.
+* Fixed an issue where UnityEngine.Component, UnityEngine.GameObject, and UnityEngine.ScriptableObject didn't work as ManagedComponents for IJobEntity.
 * Many additional debug checks are now run in standalone builds when `UNITY_DOTS_DEBUG` is defined.
 * IJobEntity now has support for Managed and Unmanaged SharedComponents in both ISystem and SystemBase
 * Entities profiler modules will no longer waste time recording data if they are not active in the profiler window.
@@ -698,29 +779,269 @@ uid: changelog
 * Entities.ForEach in method with nullable parameter types.
 * SetComponent in Entities.ForEach with argument that has an element accessor.
 
-### Security
+## [0.51.1] - 2022-06-27
+
+### Changed
+
+* Package Dependencies
+  * `com.unity.jobs` to version `0.51.1`
+  * `com.unity.platforms` to version `0.51.1`
+  * `com.unity.collections` to version `1.4.0`
+  * `com.unity.jobs` to version `0.70.0`
+
+### Fixed
+
+* An issue with source generator that was causing a compilation error when the generator was unable to create the temporary output folder.
+* An issue with netcode source generator that was trying to run on assembly that did not have the right references and also when the project path was not assigned, making impossible to load the templates files.
+* Entities.ForEach in method with nullable parameter types.
+* SetComponent in Entities.ForEach with argument that has an element accessor.
 
 
-### Change
 
-* SystemGenerator and LambdaJobs: handling aspect as parameters to lambda jobs in our System Entities.ForEach.
+## [0.51.0] - 2022-05-04
 
-### Removed/Deprecated/Changed
+### Changed
 
-* Each bullet should be prefixed with Added, Fixed, Removed, Deprecated, or Changed to indicate where the entry should go.
-* Correctly cache BufferTypeHandle for any DynamicBuffer used in Entities.ForEach
+* Package Dependencies
+  * `com.unity.jobs` to version `0.51.0`
+  * `com.unity.platforms` to version `0.51.0`
+  * `com.unity.mathematics` to version `1.2.6`
+  * `com.unity.collections` to version `1.3.1`
+  * `com.unity.burst` to version `1.6.6`
+* Increased the maximum number of shared components per entity from 8 to 16.
+* Updated dependency on version of com.unity.roslyn package that will work with both Unity 2020 and Unity 2021.
 
-### Modified
+### Fixed
 
-* When creating an authoring compoenent and the movedfromAttribute is used, now we make sure to add "Authoring" string to the MovedFrom Class parameter.
+* DOTS Entities throws a compilation error when using named arguments.
+* Fix Create &gt; ECS &gt; System template now adds partial keyword.
+* Fixed a possible memory stomp triggered by specific sequences of `ComponentDataFromEntity` or `BufferFromEntity` calls.
+* EntityQuery.CopyFromComponentDataArray<T>() and EntityQuery.CopyFromComponentDataArrayAsync<T>() now correctly set the change version of any chunks they write to.
+* If the value of the Parent component of an entity is changed while the previous parent entity was destroyed at the same time, an exception could be thrown during the next update of the transform system.
+* Changes to ComponentData made outside of Systems will be properly detected by EntityQueries with changed version filters.
+* `EntityQuery` objects are consistently compared, regardless of which version of `GetEntityQuery` is called.
 
-### Removed/Changed
+### Added
 
-* Removed the the default JobHandle parameter (it now must be passed in explicitly to match EFE scheduling with the built-in Dependency property).
+* New `BufferTypeHandle.Update()` method. Rather than creating new type handles every frame in `OnUpdate()`, it is more efficient to create the handle once in a system's `OnCreate()`, cache it as a member on the system, and call its `.Update()` method from `OnUpdate()` before using the handle.
+* SystemBase.GetEntityQuery can now take an EntityQueryDescBuilder.
 
-### Note
 
-* All Systems inside other classes/structs, need to have their parents marked with partial as well.
+
+## [0.50.1-preview.3] - 2022-04-28
+
+### Changed
+
+Release preparations, no functional changes.
+
+## [0.50.1-preview.2] - 2022-04-20
+
+### Changed
+
+Release preparations, no functional changes.
+
+
+## [0.50.1-preview.1] - 2022-04-07
+
+### Added
+
+* Documentation on EntityCommandBuffer public functions including ParallelWriter and EntityCommandBufferManagedComponentExtensions.
+* Hybrid assemblies will not be included in DOTS Runtime builds.
+* `[WithAll]` Attribute that can be added to a struct that implements IJobEntity. Adding additional required components to the existing execute parameter required components.
+* `[WithNone]` Attribute that can be added to a struct that implements IJobEntity. Specifying which components shouldn't be on the entity found by the query.
+* `[WithAny]` Attribute that can be added to a struct that implements IJobEntity. Specifying that the entity found by this query should have at least one of these components.
+* `[WithChangeFilter]` Attribute that can be added to a struct that implements IJobEntity, as well as on component parameters within the signature of the execute method. This makes it so that the query only runs on entities, which has marked a change on the component specified by the `[WithChangeFilter]`.
+* `[WithEntityQueryOptions]` Attribute that can be added to a struct that implements IJobEntity. Enabling you to query on disabled entities, prefab entities, and use write groups on entities.
+* Diagnostic suppressor to ignore specific generation of CS0282 warnings due to codegen.
+* SystemBase.GetBuffer takes an optional isReadOnly parameter.
+
+### Changed
+
+* DOTS Hierarchy now display SubScenes' state (opened, livelinked, closed or not loaded).
+* When using `EntityManager.SetName` with a managed `string` as a parameter, if a string longer than 61 characters is used, the string will be truncated to fit within an `EntityName`,
+* Improved the performance of the `EntityQuery` matching chunk cache in applications with many empty archetypes.
+* Removed `IJobForeach`, due to long notice of deprecation
+* Changed `LiveLinkPatcher` and `LiveLinkPlayerSystem` to use `IJobEntityBatch`, due to removal of `IJobForeach`
+* Changed docs from `IJobForeach` and `IJobChunk` to refer to `IJobEntity`, and `IJobEntityBatch` respectivly
+* Changed IJE out of `DOTS_EXPERIMENTAL`
+* Update dependency on com.unity.roslyn to 0.1.3-preview (no longer ignore CS0282 warnings globally).
+* Updated docs explaining how to use IJobEntity.
+* Updated com.unity.roslyn to `0.2.1-preview`
+* CheckDisposed method in EntityQueryEnumerator is now public
+* The Current property for a generated Aspect Enumerator now has a conditional CheckDisposed call to identify when the property is being accessed with a disposed enumerator instance
+* SystemBase.GetBuffer registers a job dependency for the IBufferElementData type specified.
+
+### Removed
+
+* Remove the LiveLink feature and its build component.
+* DOTS Compiler Inspector. Functionality is now available via viewing generated code directly from Temp/GeneratedCode in the project directory.
+
+### Fixed
+
+* Bug with EntityCommandBuffer removing multiple components from multiple entities when the number of entities was more than 10.
+* Defining `UNITY_DOTS_DEBUG` in standalone builds no longer triggers false positives from `AssertValidArchetype()`.
+* When setting many long strings using `EntityManager.SetName`, the editor will properly handle the storage of these names.
+* `EntityQuery.ToComponentDataArray<T>()` and `EntityQuery.CopyFromComponentDataArray<T>()` now detect potential race conditions against running jobs which access the component `T`. These jobs must be completed before the `EntityQuery` methods are called.
+* WorldSystemFilter, DisableAutoCreation, and AlwaysUpdateSystem attributes working with ISystem systems
+* Interface implemented execute methods now work with IJobEntity. Before this point you couldn't make an interface of `interface ITranslationExecute { void Execute(ref Translation translation) }` and implement it in an IJobEntity: `partial struct TranslationJob : IJobEntity, ITranslationExecute { void Execute(ref Translation translation) {} }`
+* `.Schedule` and `.ScheduleParallel` Invocations for IJobEntity without a jobhandle now matches Entities.ForEach automatic  chain `SystemBase.Dependency` handling
+* Dangling files left after a build using buildconfigs under certain circumstances
+* Remove the double registers of world allocator when creating a world.
+* Improved performance of Source Generators when run in IDEs.
+* `ExclusiveEntityTransaction.AddComponent` and `ExclusiveEntityTransaction.RemoveComponent` will no longer throw  with the error message of `Must be called from the main thread`
+* SGICE002 Issue with nesting `SetComponent(GetComponent)` for replaced syntax in Entities.ForEach.
+* "System" in namespace causing issues with Entities.ForEach and other codegen.
+* use of WithDisposeOnCompletion with Job.WithCode if a `using System.Collections` is missing.
+* `EntityQuery.Singleton` methods work correctly when the query has multiple required component data
+* `EntityQuery.ToEntityArray()`, `EntityQuery.ToComponentDataArray<T>()` and `EntityQuery.CopyFromComponentDataArray<T>()` now complete any jobs running against the query's component types before performing the requested operation. This fixes a race condition introduced in Entities 0.17 (and present in Entities 0.50).
+* `IJobEntity` inside nested struct now works.
+* `IJobEntity` now works inside namespaces that have `using` statements.
+* Fixes Issue where UnityEngine.Component didn't work as ManagedComponents for IJobEntity.
+
+
+## [0.50.0] - 2021-09-17
+
+### Added
+
+* **Window > DOTS > Entities** window to show all Entities in a world in real time, with ability to search, select each, and inspect it via the Inspector.
+* **Window > DOTS > Components** window to show all Component types, with ability to search, select each, and inspect it via the Inspector.
+* **Window > DOTS > Systems** window to show all Systems running in a world, categorized by System Group, with ability to search, select each, and inspect it via the Inspector.
+* Introduced two new ECS specific **Window > Analysis > Profiler** modules:   * **Entities Structural Changes** profiler module can record which world/system produced a structural change, and how much time it cost per frame.   * **Entities Memory** profiler module can record which world/system allocates memory chunks, with additional details per archetype.
+* `ArchetypeChunk.GetComponentDataPtrRO()` and `ArchetypeChunk.GetComponentDataPtrRW()` provide unsafe raw access to a chunk's component data, as a lower-overhead alternative to `ArchetypeChunk.GetNativeArray()`
+* `ComponentTypeHandle.Update()` allows `ComponentTypeHandle`s to be created once at system creation time, and incrementally updated each frame before use.
+* Adds clearer message when TypeManager hasn't been initialized yet, instead of only reporting a component type we don't know about has been requested.
+* Disabled entities in Entity Window now have the same style as the disabled gameobjects in the gameobject hierarchy
+* Go-to button to update Inspector content to reflect selected system and highlight the system in the Systems window if there is one open.
+* It's now possible to specify an alignment when allocating an array with BlobBuilder
+* Upgraded to burst 1.5.2
+* Added go-to buttons to update Inspector content to reflect selected component and highlight the component in the Components window if there is one open.
+* Routines to create unmanaged systems on worlds were made available for public use
+* It's now possible for a scene to contain weak asset references to other scenes and prefabs. All referenced scenes and prefabs will automatically be included in a player build. The sample in "EntitiesSamples/Assets/Advanced/WeakAssetReferences" shows how to use weak asset references to scenes and prefabs.
+* Incremental conversion now tracks GameObject names to rename Entities when they change.
+* New method `CanBeginExclusiveEntityTransaction` on `EntityManager` to check whether or not a new exclusive entity transaction can be made.
+* Wrapper functions are added in CollectionHelper to create/allocate NativeArray from custom allocator
+* Entities.ForEach() will now accept a lambda with no parameters.
+* WithSharedComponentFilter now also works with two shared component parameters.
+* `EntityCommandBuffer` has an `IsEmpty` property, which returns true if at least one command has been successfully recorded.
+* TryGetComponent in ComponentDataFromEntity
+* TryGetBuffer in BufferFromEntity
+* Entities journaling, which can record ECS past events and inspected from the static class `EntitiesJournaling` properties.
+* Allow for easier viewing of `EntityCommandBuffer` within an IDE through a new debug proxy.
+* Within an `EntityCommandBufferDebugView`, each command will have a summary of the action performed before expanding the command.
+* SystemRef<T>.Update to allow updating unmanaged systems manually.
+* Support WithScheduleGranularity with Entities.ForEach to allow per-entity scheduling
+* `EntityCommandBuffer.Instantiate()` can now instantiate more than one `Entity` in a single command, writing the resulting entities to a `NativeArray<Entity>`.
+* Support for fully-bursted Entities.ForEach.Run in ISystemBase systems.
+* RateUtils.VariableRateManager to facilitate update rate
+* DefaultWorld.BeginVariableRateSimulationEntityCommandBufferSystem
+* DefaultWorld.VariableRateSimulationSystemGroup
+* DefaultWorld.EndVariableRateSimulationEntityCommandBufferSystem
+* Element EnableBlockFree is added to enum WorldFlags to indicate whether World.UpdateAllocator is enabled to free individual memory block.
+* `ComponentTypes` has a new constructor variant that takes a `FixedList128Bytes<ComponentType>`, suitable for use in Burst-compiled code.
+* `EntityCommandBuffer` has several new variants that target a `NativeArray<Entity>`, which may be more efficient in many cases than recording individual commands for individual entities.
+* New Archetypes window that can display current archetype memory usage.
+* IJob* types use SharedStatic so they can be burst compiled eventually
+* Add ability to add missing partials during generation if `DOTS_ADD_PARTIAL_KEYWORD` scripting define is set.
+
+### Changed
+
+* Added a fast path for `IJobEntityBatch.RunWithoutJobs()` and `IJobEntityBatchWithIndex.RunWithoutJobs()` where query filtering is disabled, resulting up to a 30% reduction in performance overhead.
+* Merged `com.unity.dots.editor` package into `com.unity.entities` package, effectively deprecating the DOTS Editor as a standalone package. All the DOTS Editor package functionality is now included when referencing the Entities package.
+* DOTS Runtime now uses source generators for codegen.
+* Make parts of EntityPatcher burst compatible to prepare for burst compilation of EntityPatcher for its performance improvement.
+* `Entity.Equals(object compare)` now returns false if the `compare` object is null, rather than throwing a `NullReferenceException`.
+* Made `DynamicBuffer` an always blittable type (even in the Editor with safety checks on), so that it can be passed by reference to Burst function pointers.
+* BlobAssetStore.ComputeKeyAndTypeHash hash calculation reduced chance of collision
+* Capped the maximum number of previewable GameObjects to 100 in the Entity Conversion Preview.
+* Capped the maximum number of additional entities shown to 250 in the Entity Conversion Preview.
+* Improved overall performance of the Entity Conversion Preview.
+* Source generators are now used as the default mode of codegen for Entities.ForEach and Generated Authoring Component.  These can be disabled with `SYSTEM_SOURCEGEN_DISABLED` and `AUTHORINGCOMPONENT_SOURCEGEN_DISABLED` scripting defines if necessary.  The largest change is that generated code can now be inspected and debugged (when not bursted).  Generated code lives in Temp/GeneratedCode and can be stepped into with both Visual Studio and Rider.
+* Documentation to highlight necessary prerequisites in the Build Configuration for making a profilable build.
+* Entities window now shows prefab entities with a style similar to the one in the GameObject hierarchy
+* Systems in the Entity inspector relationships tab are now sorted by scheduling order instead of creation order.
+* Subscene headers are now loaded asynchronously and will no longer stall the main thread while loading.
+* Performance of LiveTweaking has been improved.
+* EntityDiffer capture entity changes when only entity's name is changed.
+* With an IDE debugger, EntityQuery will present more information related to it. The raw view
+* Debugging output for a `ComponentType` will present clearer info.
+* The `batchesPerChunk` parameter to `IJobEntityBatch.ScheduleParallel()` has been replaced with a new `ScheduleGranularity` enum. Pass `ScheduleGranularity.Chunk` to distribute work to worker threads at the level of entire chunks (the default behavior). Pass `ScheduleGranularity.Entity` to distribute individual entities to each worker thread. This can improve load balancing in jobs that perform a large amount of work on a small number of entities.
+*Make generate linker xml files deterministic in order.
+* Within an IDE debugger, `ComponentSystemGroup` will present more relevant information. The raw view will be available for those who need the precise makeup of the class.
+* `ComponentSystemGroup.RemoveSystemFromUpdateList` and `ComponentSystemGroup.RemoveUnmanagedSystemFromUpdateList` can now be used when `ComponentSystemGroup.EnableSystemSorting` is set to false
+* Add debug checks to detect "placeholder" Entities created by one `EntityCommandBuffer` from being passed into a different `EntityCommandBuffer`.
+* Clarified error message when calling `.Dispose()` on an `EntityQuery` created by `GetEntityQuery()`. This is always an error; these queries belong to the associated system, and should never be manually disposed. They will be cleaned up along with the system itself.
+* Within an IDE debugger, `ArchetypeChunk` will present more relevant information. The raw view will be available for those who need the precise makeup of the struct.
+* Within an IDE debugger, `EntityArchetype` will present more relevant information. The raw view will be available for those who need the precise makeup of the struct.
+* IJobEntityBatch batchIndex parameter has been renamed to batchId. Documentation regarding what values to expect from this parameter have been updated accordingly.
+* Changed: Within an IDE debugger, `EntityManager` will present more relevant information. The raw view will be available for those who need the precise makeup of the struct.
+* Changed: Within an IDE debugger, an `ArchetypeChunk`'s OrderVersion and ChangeVersions per ComponentType will be easier to view.
+* Changed: Within an IDE debugger, `SystemState` will present more relevant information. The raw view will be available for those who need the precise makeup of the struct.
+* Changed: Within an IDE debugger, `World` will present more relevant information. The raw view will be available for those who need the precise makeup of the struct.
+* `EntityCommandBufferSystem.CreateCommandBuffer()` now uses the `World.UpdateAllocator` to allocate command buffers instead of `Allocator.TempJob`. Allocations from this allocator have a fixed lifetime of two full World Update cycles, rather than being tied to the display frame rate.
+* `EntityCommandBuffer.AddComponentForEntityQuery<T>()` now asserts if the provided `T` value contains a reference to a temporary `Entity` created earlier in the same command buffer; these Entities are not yet correctly patched with the correct final Entity during playback. This patching will be implemented in a future change.
+*Removed `ComponentSystemBaseManagedComponentExtensions.HasSingleton{T}` - `ComponentSystemBase.HasSingleton{T}` already handles managed components.
+* ISystemBase to ISystem
+* New Query Window design.
+* FixedRateUtils renamed to RateUtils
+* IFixedRateManager renamed to IRateManager
+* Records in the EntitiesJournaling feature now have OriginSystem that will be populated for which system requested the change. This information is helpful to determine where a deferred EntityCommandBuffer was recorded from.
+* Improved diagnostic when a SubScene section entity does not meet one of the constraints during GameObject conversion.
+
+### Deprecated
+
+* In a future release, `IJobEntityBatch.RunWithoutJobsInternal()` and `IJobEntityBatchWithIndex.RunWithoutJobsInternal()` will be removed from the public API; as the names indicate, they are for internal use only. User code should use the non-`Internal()` variants of these functions.
+* Several public functions in the EntityDataAccess have been deprecated. The new functions follow this convention <FunctionName>DuringStructuralChange(...)
+* Entity Debugger has been marked as deprecated and will be removed in a future release. See new windows under **Window > DOTS**.
+
+### Removed
+
+* Deprecated functions in the EntityCommandBuffer for EntityQueries that were processed at Playback.
+* GI Light baking in Closed SubScenes for now to remain consistent with Entity mesh renderers.
+* `Unity.Entities.RegisterGenericJobTypeAttribute` has been moved to Unity.Jobs as `Unity.Jobs.RegisterGenericJobTypeAttribute`.
+* StreamBinaryReader and StreamBinaryWriter are now internal
+* Removed JobComponentSystem.  It has been replaced by SystemBase, which it much better tested and supported.  The Entities 0.5 upgrade guide explains how to upgrade from JobComponentSystem to SystemBase.
+* IJobBurstSchedulable
+* Job reflection data ILPP
+
+### Fixed
+
+* Fixed bug that caused compiler errors when users wrote multiple parts of the same partial type.
+* Fixed a minor typo when generating the name of a conversion World.
+* `[DisableAutoCreation]` is no longer inherited by subclasses, as documented.
+* Improved the Entity inspector responsiveness.
+* In Burst 1.5.0, fixed some player-build warnings that were caused by some entities code that contained `throw` statements not within `[Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]` guarded functions.
+* Performance of system safety checks greatly improved
+* Systems window, Entities window and Components window all use the same minimum size.
+* Systems window style issue in minimum size.
+* Incremental conversion issue where children of disabled gameobjects are not properly re-enabled when parent is re-enabled.
+* Fixed multiple inspectors issue with Entity Inspector where contents are duplicated in the existing inspectors.
+* Fixed multiple inspectors issue with System Inspector where only the latest inspector has content while the rests are empty.
+* We now use the TypeCache in TypeManager when initializing, which is about twice as fast as previously.
+* Sometimes redundant error messages were logged, now fixed
+* `EntityQuery` methods which limit their processing to a specific `NativeArray<Entity>` now work correctly if the `EntityQuery` uses chunk filtering.
+* Certain code paths of `IJobEntityBatchWithIndex` were not storing the per-batch base entity indices at the correct byte offset.
+* `IJobEntityBatchWithIndex.ScheduleInternal()` did not always work correctly with `EntityQuery` chunk filtering and `limitToEntityArray` both enabled.
+* The variant of `IJobEntityBatchWithIndex.Run()` that took a `limitToEntityArray` parameter no longer asserts.
+* `IJobEntityBatch` was redundantly applying chunk filtering at both schedule-time and execute-time.
+* `EntityCommandBuffer` no longer leaks embedded entity arrays whose commands are never played back.
+* Methods that take an `EntityQuery` now validate the query's validity.
+* Add missing bounds checks for `EntityManager` methods.
+* A `ComponentSystemGroup` that disables automatic system sorting no longer sets its "sort order is dirty" flag on every update.
+* `EntityQuery.SetSingleton<T>()` will now throw an exception if the query only requested read-only access to type `T`.
+* `EntityQuery.GetSingleton<T>()` and `EntityQuery.SetSingleton<T>()` now assert if `T` is a zero-sized component, avoiding a potential out-of-bounds memory access.
+* Creating an `EntityQuery` with a non-empty list of `None` types will now match return a reference to an existing query if possible, instead of always creating a new query.
+* `EntityCommandBuffer` playback of `*ForEntityQuery()` commands no longer leaks `AtomicSafetyHandle` allocations when collections checks are enabled
+* Memory leak in BlobAssets when a World was disposed that had BlobAssets. Primarily seen when entering and exiting Playmode in the Editor.
+* XXHash3 could potentially throw exceptions if Burst compilation was disabled. This is no longer that case.
+* variant checkbox in GhostAuthoringComponent inspector was disabled if no variants for that component were present, not letting the user select the DoNotSerialize variation.
+* SendToOwner not handled correctly by the client. Now both server and client do not send/receive the component only if the ghost present a GhostOwnerComponent.
+* Baked lightmaps for SubScenes will no longer appear black due to lack of compiled shader features
+* Clamp compute shader support detection to disallow GL < 4.3
+* If you update multiple packages, create a new section with a new header for the other package.
+* EntityDiffer no longer patches BlobAsset or Entity references from `UnityEngine.Object` types.
+* Debugging of source-generated Entities.ForEach
+* Some main-threads `EntityCommandBuffer` methods were missing the necessary safety checks.
+* StructuralChangeProfiler should now have the proper scope when making changes through the EntityCommandBuffer and EntityManager.
 
 
 
@@ -921,12 +1242,6 @@ uid: changelog
 * SDF fonts are now rendered with correct anti-aliasing on WASM
 
 
-### Removed/Deprecated/Changed
-
-* Each bullet should be prefixed with Added, Fixed, Removed, Deprecated, or Changed to indicate where the entry should go.
-
-
-
 ## [0.18.0] - 2021-01-26
 
 ### Added
@@ -1018,13 +1333,6 @@ uid: changelog
 * EntityManagerDebugView now also displays meta entities (for chunk components) and shared components.
 * using `BlobBuilder` in generic methods no longer raises a safety error
 * Many methods that use `IJob` were marked as `[NotBurstCompatible]` to reflect their true Burst compatibility.
-
-
-### Removed/Deprecated/Changed
-
-* Each bullet should be prefixed with Added, Fixed, Removed, Deprecated, or Changed to indicate where the entry should go.
-
-
 
 ## [0.17.0] - 2020-11-13
 
@@ -1198,11 +1506,6 @@ uid: changelog
 * Corrected inverted test in `IJobEntityBatchWithIndex` if EntityQuery filtering is enabled.
 * `EntityManger.AddComponent<T>(EntityQuery entityQuery)` and `EntityManger.AddComponentData<T>(EntityQuery entityQuery, NativeArray<T> componentArray)` is 2x faster.
 * Reduced overhead of `IJobEntityBatch` execution by 5-10% if `batchesPerChunk` is 1.
-
-### Security
-
-
-
 
 ## [0.15.0] - 2020-08-26
 
@@ -1586,10 +1889,6 @@ NotSupportedException: To marshal a managed method, please add an attribute name
 
 * System groups do not currently apply to systems running as part of `EntitySceneOptimizations`
 
-### Known Issues
-
-* System groups do not currently apply to systems running as part of `EntitySceneOptimizations`
-
 
 ## [0.8.0] - 2020-03-12
 
@@ -1607,8 +1906,6 @@ NotSupportedException: To marshal a managed method, please add an attribute name
 * LiveLink: Editor no longer freezes when sending LiveLink assets to a LiveLinked player.
 * LiveLink: No longer includes every Asset from builtin_extra to depend on a single Asset, and sends only what is used. This massively speeds up the first-time LiveLink to a Player.
 * Upgraded Burst to fix multiple issues and introduced native debugging feature.
-
-### Deprecated
 
 ### Fixed
 

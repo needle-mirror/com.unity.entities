@@ -34,6 +34,12 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="allocatorIn">The allocator to use</param>
         public void SetAllocator(Allocator allocatorIn);
+
+        /// <summary>
+        /// Set the allocator that command buffers created with this singleton should be allocated with.
+        /// </summary>
+        /// <param name="allocatorIn">The allocator to use</param>
+        public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn) => SetAllocator(allocatorIn.ToAllocator);
     }
 
     /// <summary>
@@ -294,7 +300,7 @@ namespace Unity.Entities
         /// <returns>Returns the command buffer</returns>
         public static EntityCommandBuffer CreateCommandBuffer(
             ref UnsafeList<EntityCommandBuffer> pendingBuffers,
-            Allocator allocator,
+            AllocatorManager.AllocatorHandle allocator,
             WorldUnmanaged world)
         {
             var cmds = new EntityCommandBuffer(allocator, PlaybackPolicy.SinglePlayback);

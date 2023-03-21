@@ -22,8 +22,11 @@ namespace Unity.Entities.Tests
     {
         public override void Bake(TempBakingPerformanceAuthoring authoring)
         {
-            AddSharedComponent(new TempBakingPerformanceSharedComp() { value = authoring.Field });
-            AddComponent(new TempBakingPerformanceComponent() { component = authoring });
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+
+            AddSharedComponent(entity, new TempBakingPerformanceSharedComp() { value = authoring.Field });
+            AddComponent(entity, new TempBakingPerformanceComponent() { component = authoring });
         }
     }
 }

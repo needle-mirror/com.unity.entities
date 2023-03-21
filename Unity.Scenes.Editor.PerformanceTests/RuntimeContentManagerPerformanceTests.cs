@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Entities.Content;
 using Unity.Entities.Serialization;
+using Unity.Loading;
 using Unity.Mathematics;
 using Unity.PerformanceTesting;
 using Unity.Scenes.Editor;
@@ -34,11 +35,6 @@ namespace Unity.Entities.Tests.Content
                 return obj;
             }
 
-            public Scene GetScene(UntypedWeakReferenceId sceneReferenceId)
-            {
-                throw new System.NotImplementedException();
-            }
-
             public bool LoadObject(UntypedWeakReferenceId referenceId)
             {
                 LoadedCount++;
@@ -58,6 +54,16 @@ namespace Unity.Entities.Tests.Content
             public ObjectLoadingStatus GetObjectLoadStatus(UntypedWeakReferenceId referenceId)
             {
                 return ObjectLoadingStatus.Completed;
+            }
+
+            public Scene LoadScene(UntypedWeakReferenceId sceneReferenceId, ContentSceneParameters loadParams)
+            {
+                throw new System.NotImplementedException();
+            }
+
+            public void UnloadScene(ref Scene scene)
+            {
+                throw new System.NotImplementedException();
             }
         }
 

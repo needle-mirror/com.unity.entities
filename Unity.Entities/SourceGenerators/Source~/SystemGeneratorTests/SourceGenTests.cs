@@ -17,6 +17,7 @@ using Microsoft.CodeAnalysis.Testing.Verifiers;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities.Hybrid;
 
 namespace Unity.Entities.SourceGenerators.Test
@@ -50,7 +51,8 @@ namespace Unity.Entities.SourceGenerators.Test
             => await VerifySourceGeneratorAsync(source, expected, new []{
             typeof(EntitiesMock).Assembly,
             typeof(EntitiesHybridMock).Assembly,
-            typeof(BurstMock).Assembly
+            typeof(BurstMock).Assembly,
+            typeof(CollectionsMock).Assembly
         }, checksGeneratedSource, generatedFolderName, expectedFileNames);
 
         static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, IEnumerable<Assembly> additionalAssembliesOverride, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)

@@ -20,7 +20,9 @@ namespace Unity.Entities.Hybrid.PerformanceTests
     {
         public override void Bake(ConversionTestCompanionComponent authoring)
         {
-            AddComponentObject(authoring);
+            // This test might require transform components
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponentObject(entity, authoring);
         }
     }
 
@@ -82,11 +84,7 @@ namespace Unity.Entities.Hybrid.PerformanceTests
             for (int i = 0; i < entities.Length; i++)
             {
                 m_DefaultWorld.World.EntityManager.SetComponentData(entities[i],
-#if !ENABLE_TRANSFORM_V1
                     LocalTransform.FromPosition(0.0f, 42f, 0.0f));
-#else
-                    new Translation {Value = new float3(0.0f, 42f, 0.0f)});
-#endif
             }
 
             var companionGameObjectUpdateTransformSystem =

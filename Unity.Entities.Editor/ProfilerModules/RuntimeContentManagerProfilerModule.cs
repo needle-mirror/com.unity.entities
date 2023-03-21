@@ -24,6 +24,9 @@ class RuntimeContentManagerProfilerModule : ProfilerModule
         new ProfilerCounterDescriptor(RuntimeContentManagerProfiler.k_ReleaseObjectRequestsCounterName, ProfilerCategory.Loading),
         new ProfilerCounterDescriptor(RuntimeContentManagerProfiler.k_ObjectRefsCounterName, ProfilerCategory.Loading),
         new ProfilerCounterDescriptor(RuntimeContentManagerProfiler.k_ProcessCommandsFrameTimeCounterName, ProfilerCategory.Loading),
+        new ProfilerCounterDescriptor(RuntimeContentManagerProfiler.k_UnloadSceneRequestsCounterName, ProfilerCategory.Loading),
+        new ProfilerCounterDescriptor(RuntimeContentManagerProfiler.k_LoadedScenesCounterName, ProfilerCategory.Loading),
+        new ProfilerCounterDescriptor(RuntimeContentManagerProfiler.k_LoadSceneRequestsCounterName, ProfilerCategory.Loading),
     };
 
     public RuntimeContentManagerProfilerModule() : base(k_Counters) { }

@@ -87,7 +87,6 @@ namespace Unity.Entities.SourceGen.Common
         public static List<MemberDeclarationSyntax> GetReplacedRootNodes(SyntaxTree syntaxTree, IDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> originalToReplaced)
         {
             var newRootNodes = new List<MemberDeclarationSyntax>();
-            var originalToPartialSyntaxDictionary = originalToReplaced.ToDictionary(entry => (SyntaxNode) entry.Key, entry => (SyntaxNode) entry.Value);
             var allOriginalNodesAlsoInReplacedTree = originalToReplaced.Keys.SelectMany(node => node.AncestorsAndSelf()).ToImmutableHashSet();
 
             foreach (var childNode in syntaxTree.GetRoot().ChildNodes())
@@ -98,7 +97,7 @@ namespace Unity.Entities.SourceGen.Common
                     case ClassDeclarationSyntax _:
                     case StructDeclarationSyntax _:
                     {
-                        var newRootNode = ConstructReplacedTree(childNode, originalToPartialSyntaxDictionary, allOriginalNodesAlsoInReplacedTree);
+                        var newRootNode = ConstructReplacedTree(childNode, originalToReplaced, allOriginalNodesAlsoInReplacedTree);
                         if (newRootNode != null)
                             newRootNodes.Add(newRootNode);
                         break;
@@ -123,7 +122,7 @@ namespace Unity.Entities.SourceGen.Common
         /// </exception>
         /// <remarks> Uses Downwards Recursion. </remarks>
         static MemberDeclarationSyntax ConstructReplacedTree(SyntaxNode currentNode,
-            IDictionary<SyntaxNode, SyntaxNode> originalToReplacedNode,
+            IDictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> originalToReplacedNode,
             ImmutableHashSet<SyntaxNode> replacementNodeCandidates)
         {
             // If this node shouldn't exist in replaced tree, early out
@@ -147,9 +146,8 @@ namespace Unity.Entities.SourceGen.Common
                         .WithModifiers(namespaceNode.Modifiers)
                         .WithUsings(namespaceNode.Usings),
 
-                TypeDeclarationSyntax typeNode when originalToReplacedNode.ContainsKey(currentNode) =>
-                    (originalToReplacedNode[currentNode] as TypeDeclarationSyntax)?
-                        .AddMembers(replacedChildren),
+                TypeDeclarationSyntax typeNode when originalToReplacedNode.ContainsKey(typeNode) =>
+                    originalToReplacedNode[typeNode]?.AddMembers(replacedChildren),
 
                 ClassDeclarationSyntax classNode =>
                     SyntaxFactory.ClassDeclaration(classNode.Identifier)

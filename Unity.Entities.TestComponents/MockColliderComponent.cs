@@ -13,12 +13,14 @@ namespace Unity.Entities.TestComponents
         {
             public override void Bake(MockColliderComponent authoring)
             {
+                // A collider test might use transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
                 var body = GetComponent<MockBodyComponent>();
                 if (body == null || !body.enabled)
                 {
-                    AddComponent(new RequiredComponent {AddedBy = nameof(MockColliderComponent)});
+                    AddComponent(entity, new RequiredComponent {AddedBy = nameof(MockColliderComponent)});
                 }
-                AddComponent<MockCollider>();
+                AddComponent<MockCollider>(entity);
             }
         }
     }

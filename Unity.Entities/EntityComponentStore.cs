@@ -144,7 +144,7 @@ namespace Unity.Entities
         }
 
         public void PatchEntitiesForPrefab(Archetype* archetype, Chunk* chunk, int indexInChunk, int allocatedCount,
-            Entity* remapSrc, Entity* remapDst, int remappingCount, Allocator allocator)
+            Entity* remapSrc, Entity* remapDst, int remappingCount, AllocatorManager.AllocatorHandle allocator)
         {
             // We are deferring the patching so we need a copy of the remapping info since we can't be certain of its lifetime.
             // We will free this ptr in the ManagedComponentStore.PatchEntitiesForPrefab call
@@ -186,7 +186,7 @@ namespace Unity.Entities
             CommandBuffer.Add<int>(allocatedCount);
             CommandBuffer.Add<int>(remappingCount);
             CommandBuffer.Add<int>(archetype->NumManagedComponents);
-            CommandBuffer.Add<int>((int)allocator);
+            CommandBuffer.Add<int>(allocator.Value);
         }
 
         public void AddReference(int index, int numRefs = 1)
@@ -277,7 +277,7 @@ namespace Unity.Entities
         internal int Capacity;
         internal AllocatorManager.AllocatorHandle Allocator;
 
-        internal ComponentTypeList(int sizeOf, int alignOf, int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) : this()
+        internal ComponentTypeList(int sizeOf, int alignOf, int initialCapacity, AllocatorManager.AllocatorHandle allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) : this()
         {
             Allocator = allocator;
             Ptr = null;
@@ -1797,7 +1797,7 @@ namespace Unity.Entities
             void* defaultValue,
             out ComponentTypeList sharedComponentValues,
             out UnsafeList<int> sharedComponentIndices,
-            Allocator allocator)
+            AllocatorManager.AllocatorHandle allocator)
         {
             var components = CheckGetSharedComponentList(typeIndex);
             var infos = CheckGetSharedComponentInfo(typeIndex);
@@ -1990,7 +1990,7 @@ namespace Unity.Entities
         }
 
         internal bool CreateEntityBatchList(NativeArray<Entity> entities, int nSharedComponentsToAdd,
-            Allocator allocator, out NativeList<EntityBatchInChunk> entityBatchList)
+            AllocatorManager.AllocatorHandle allocator, out NativeList<EntityBatchInChunk> entityBatchList)
         {
             if (entities.Length == 0)
             {
@@ -2471,7 +2471,8 @@ namespace Unity.Entities
             ChunkAllocate<int>(&dstArchetype->Offsets, count);
             ChunkAllocate<int>(&dstArchetype->SizeOfs, count);
             ChunkAllocate<int>(&dstArchetype->BufferCapacities, count);
-            ChunkAllocate<int>(&dstArchetype->TypeMemoryOrder, count);
+            ChunkAllocate<int>(&dstArchetype->TypeMemoryOrderIndexToIndexInArchetype, count);
+            ChunkAllocate<int>(&dstArchetype->TypeIndexInArchetypeToMemoryOrderIndex, count);
             ChunkAllocate<EntityRemapUtility.EntityPatchInfo>(&dstArchetype->ScalarEntityPatches, scalarEntityPatchCount);
             ChunkAllocate<EntityRemapUtility.BufferEntityPatchInfo>(&dstArchetype->BufferEntityPatches, bufferEntityPatchCount);
 
@@ -2589,8 +2590,8 @@ namespace Unity.Entities
             }
 
             // Having memory order depend on type flags has the advantage that
-            // TypeMemoryOrder is stable within component types
-            // i.e. if Types[X] is a buffer component then Types[TypeMemoryOrder[X]] is also a buffer component
+            // TypeMemoryOrderIndexToIndexInArchetype is stable within component types
+            // i.e. if Types[X] is a buffer component then Types[TypeMemoryOrderIndexToIndexInArchetype[X]] is also a buffer component
             // this simplifies iterating types in memory order (mainly serialization code)
             bool MemoryOrderCompare(int lhs, int rhs)
             {
@@ -2602,25 +2603,29 @@ namespace Unity.Entities
             for (int i = 0; i < count; ++i)
             {
                 int index = i;
-                while (index > 1 && MemoryOrderCompare(i, dstArchetype->TypeMemoryOrder[index - 1]))
+                while (index > 1 && MemoryOrderCompare(i, dstArchetype->TypeMemoryOrderIndexToIndexInArchetype[index - 1]))
                 {
-                    dstArchetype->TypeMemoryOrder[index] = dstArchetype->TypeMemoryOrder[index - 1];
+                    dstArchetype->TypeMemoryOrderIndexToIndexInArchetype[index] = dstArchetype->TypeMemoryOrderIndexToIndexInArchetype[index - 1];
                     --index;
                 }
-                dstArchetype->TypeMemoryOrder[index] = i;
+                dstArchetype->TypeMemoryOrderIndexToIndexInArchetype[index] = i;
+            }
+            for (int i = 0; i < count; ++i)
+            {
+                dstArchetype->TypeIndexInArchetypeToMemoryOrderIndex[dstArchetype->TypeMemoryOrderIndexToIndexInArchetype[i]] = i;
             }
 
             var usedBytes = 0;
-            for (var i = 0; i < count; ++i)
+            for (var typeMemoryOrderIndex = 0; typeMemoryOrderIndex < count; ++typeMemoryOrderIndex)
             {
-                var index = dstArchetype->TypeMemoryOrder[i];
-                var sizeOf = dstArchetype->SizeOfs[index];
+                var indexInArchetype = dstArchetype->TypeMemoryOrderIndexToIndexInArchetype[typeMemoryOrderIndex];
+                var sizeOf = dstArchetype->SizeOfs[indexInArchetype];
 
                 // align usedBytes upwards (eating into alignExtraSpace) so that
                 // this component actually starts at its required alignment.
                 // Assumption is that the start of the entire data segment is at the
                 // maximum possible alignment.
-                dstArchetype->Offsets[index] = usedBytes;
+                dstArchetype->Offsets[indexInArchetype] = usedBytes;
                 usedBytes += GetComponentArraySize(sizeOf, dstArchetype->ChunkCapacity);
             }
 
@@ -2669,7 +2674,7 @@ namespace Unity.Entities
                 dstArchetype->EntityComponentStore = entityComponentStore;
             }
 
-            dstArchetype->StableHash = CalculateStableHash(types, dstArchetype->TypeMemoryOrder, count);
+            dstArchetype->StableHash = CalculateStableHash(types, dstArchetype->TypeMemoryOrderIndexToIndexInArchetype, count);
 
 #if ENABLE_PROFILER
             EntitiesProfiler.ArchetypeAdded(dstArchetype);

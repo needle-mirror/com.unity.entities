@@ -31,7 +31,9 @@ namespace Unity.Entities.TestComponents
                 Debug.Log("Retrieve blobasset from store");
             }
 
-            AddComponent(new BlobAssetStore_Test_Component() {BlobData = blobAssetReference});
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new BlobAssetStore_Test_Component() {BlobData = blobAssetReference});
         }
     }
 }

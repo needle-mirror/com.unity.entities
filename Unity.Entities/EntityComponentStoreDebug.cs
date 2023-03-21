@@ -45,6 +45,12 @@ namespace Unity.Entities
                 int managedTypeEnd = archetype->ManagedComponentsEnd;
                 Assert.AreEqual((IntPtr)selfPtr, (IntPtr)archetype->EntityComponentStore);
 
+                for (int indexInArchetype = 0; indexInArchetype < archetype->TypesCount; ++indexInArchetype)
+                {
+                    int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInArchetype];
+                    Assert.AreEqual(indexInArchetype, archetype->TypeMemoryOrderIndexToIndexInArchetype[memoryOrderIndexInArchetype]);
+                }
+
                 var countInArchetype = 0;
                 for (var j = 0; j < archetype->Chunks.Count; ++j)
                 {
@@ -771,13 +777,14 @@ namespace Unity.Entities
                 for (int enableableTypeIndex = 0; enableableTypeIndex < archetype->EnableableTypesCount; ++enableableTypeIndex)
                 {
                     var typeIndexInArchetype = archetype->EnableableTypeIndexInArchetype[enableableTypeIndex];
+                    int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[typeIndexInArchetype];
 
-                    v128 mask = *archetype->Chunks.GetComponentEnabledMaskArrayForTypeInChunk(typeIndexInArchetype, chunkIndex);
+                    v128 mask = *archetype->Chunks.GetComponentEnabledMaskArrayForTypeInChunk(memoryOrderIndexInArchetype, chunkIndex);
                     var paddingBits = EnabledBitUtility.ShiftRight(mask, chunk->Count);
                     int enabledCount = EnabledBitUtility.countbits(paddingBits);
                     if (enabledCount != 0)
                         Assert.AreEqual(0, enabledCount,
-                        $"enabled bits padding check failed: chunk={chunkIndex} type={typeIndexInArchetype} mask={mask.ULong1:X16}:{mask.ULong0:X16} entityCount={chunk->Count} archetype={*archetype}");
+                        $"enabled bits padding check failed: chunk={chunkIndex} memoryOrderIndex={memoryOrderIndexInArchetype} mask={mask.ULong1:X16}:{mask.ULong0:X16} entityCount={chunk->Count} archetype={*archetype}");
                 }
             }
         }
@@ -792,12 +799,13 @@ namespace Unity.Entities
                 for (int enableableTypeIndex = 0; enableableTypeIndex < archetype->EnableableTypesCount; ++enableableTypeIndex)
                 {
                     var typeIndexInArchetype = archetype->EnableableTypeIndexInArchetype[enableableTypeIndex];
-                    v128 mask = *archetype->Chunks.GetComponentEnabledMaskArrayForTypeInChunk(typeIndexInArchetype, chunkIndex);
-                    int storedDisabledCount = archetype->Chunks.GetChunkDisabledCountForType(typeIndexInArchetype, chunkIndex);
+                    int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[typeIndexInArchetype];
+                    v128 mask = *archetype->Chunks.GetComponentEnabledMaskArrayForTypeInChunk(memoryOrderIndexInArchetype, chunkIndex);
+                    int storedDisabledCount = archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, chunkIndex);
                     int actualDisabledCount = chunk->Count - EnabledBitUtility.countbits(mask);
                     if (actualDisabledCount != storedDisabledCount)
                         Assert.AreEqual(actualDisabledCount, storedDisabledCount,
-                        $"enabled bits hierarchical mismatch: chunk={chunkIndex} type={typeIndexInArchetype} mask={mask.ULong1:X16}:{mask.ULong0:X16} entityCount={chunk->Count} storedCount={storedDisabledCount} archetype={*archetype}");
+                        $"enabled bits hierarchical mismatch: chunk={chunkIndex} memoryOrderIndex={memoryOrderIndexInArchetype} mask={mask.ULong1:X16}:{mask.ULong0:X16} entityCount={chunk->Count} storedCount={storedDisabledCount} archetype={*archetype}");
                 }
             }
         }
@@ -811,7 +819,7 @@ namespace Unity.Entities
         {
             if (Hint.Unlikely(typeIndex.IsZeroSized))
                 throw new System.ArgumentException(
-                    "This operation can not be called with a zero sized component.");
+                    $"This operation can not be called with a zero sized component ({typeIndex}).");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -819,7 +827,7 @@ namespace Unity.Entities
         {
             if (Hint.Unlikely(TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size))
                 throw new System.ArgumentException(
-                    "SetComponentData can not be called with a zero sized component and must have same size as sizeof(T).");
+                    $"SetComponentData can not be called with a zero sized component ({typeIndex}) and must have same size as sizeof(T).");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -827,7 +835,7 @@ namespace Unity.Entities
         {
             if (Hint.Unlikely(!typeIndex.IsEnableable))
                 throw new System.ArgumentException(
-                    "Component Enabled Bits APIs (SetComponentEnabled, IsComponentEnabled, etc) can not be called with a component type that does not implement IEnableableComponent");
+                    $"Component Enabled Bits APIs (SetComponentEnabled, IsComponentEnabled, etc) can not be called with a component type ({typeIndex}) that does not implement IEnableableComponent");
         }
 
         internal static string AppendDestroyedEntityRecordError(Entity e)

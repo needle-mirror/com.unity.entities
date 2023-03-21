@@ -92,7 +92,7 @@ namespace Unity.Entities
             public EntityQueryFilter Filter;
 
             public int IsParallel;
-            public int SkipSubChunkBatching;
+            public int QueryHasEnableableComponents;
         }
 
         /// <summary>
@@ -236,7 +236,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             queryImpl->_Access->DependencyManager->ForEachStructuralChange.BeginIsInForEach(queryImpl);
 #endif
-            if (query.HasFilter() || queryImpl->_QueryData->DoesQueryRequireBatching != 0)
+            if (query.HasFilter() || queryImpl->_QueryData->HasEnableableComponents != 0)
             {
                 // Complete any running jobs that would affect which chunks/entities match the query.
                 // This sync may not be strictly necessary, if the caller doesn't care about filtering the query results.
@@ -247,14 +247,14 @@ namespace Unity.Entities
                 int chunkIndex = -1;
                 v128 chunkEnabledMask = default;
                 while (chunkCache.MoveNextChunk(ref chunkIndex, out var archetypeChunk, out _,
-                           out byte chunkRequiresBatching, ref chunkEnabledMask))
+                           out byte useEnabledMask, ref chunkEnabledMask))
                 {
-                    jobData.Execute(archetypeChunk, chunkIndex, chunkRequiresBatching != 0, chunkEnabledMask);
+                    jobData.Execute(archetypeChunk, chunkIndex, useEnabledMask != 0, chunkEnabledMask);
                 }
             }
             else
             {
-                // Fast path for queries with no filtering and no batching
+                // Fast path for queries with no filtering and no enableable components
                 var cachedChunkList = queryImpl->_QueryData->GetMatchingChunkCache();
                 var chunkPtr = cachedChunkList.Ptr;
                 int chunkCount = cachedChunkList.Length;
@@ -302,7 +302,7 @@ namespace Unity.Entities
                 JobData = jobData,
                 IsParallel = isParallel ? 1 : 0,
 
-                SkipSubChunkBatching = queryData->DoesQueryRequireBatching == 0 ? 1 : 0
+                QueryHasEnableableComponents = queryData->HasEnableableComponents == 0 ? 1 : 0
             };
             JobChunkProducer<T>.Initialize();
             var reflectionData = JobChunkProducer<T>.reflectionData.Data;
@@ -365,7 +365,7 @@ namespace Unity.Entities
             {
                 var chunks = jobWrapper.CachedChunks;
                 var chunkCache = new UnsafeChunkCache(jobWrapper.Filter,
-                    jobWrapper.SkipSubChunkBatching == 0,
+                    jobWrapper.QueryHasEnableableComponents == 0,
                     jobWrapper.CachedChunks, jobWrapper.MatchingArchetypes.Ptr);
 
                 bool isParallel = jobWrapper.IsParallel == 1;
@@ -389,7 +389,7 @@ namespace Unity.Entities
                     }
 
                     // Do the actual user work.
-                    if (jobWrapper.SkipSubChunkBatching != 0 && !isFiltering)
+                    if (jobWrapper.QueryHasEnableableComponents != 0 && !isFiltering)
                     {
                         var chunkPtr = chunks.Ptr;
                         ArchetypeChunk chunk = new ArchetypeChunk(null, chunks.EntityComponentStore);
@@ -417,7 +417,7 @@ namespace Unity.Entities
 
                         v128 chunkEnabledMask = default;
                         while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
-                                   out byte chunkRequiresBatching, ref chunkEnabledMask))
+                                   out byte useEnabledMask, ref chunkEnabledMask))
                         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                             if (Hint.Unlikely(jobWrapper.ChunkBaseEntityIndices != null))
@@ -427,7 +427,7 @@ namespace Unity.Entities
                                     UnsafeUtility.AddressOf(ref jobWrapper), chunkBaseEntityIndex, chunk.Count);
                             }
 #endif
-                            jobWrapper.JobData.Execute(chunk, chunkIndex, chunkRequiresBatching != 0,
+                            jobWrapper.JobData.Execute(chunk, chunkIndex, useEnabledMask != 0,
                                 chunkEnabledMask);
                         }
                     }

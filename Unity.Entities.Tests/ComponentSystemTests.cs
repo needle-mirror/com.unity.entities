@@ -12,7 +12,7 @@ namespace Unity.Entities.Tests
 {
     partial class ComponentSystemTests : ECSTestsFixture
     {
-        class TestGroup : ComponentSystemGroup
+        partial class TestGroup : ComponentSystemGroup
         {
         }
 
@@ -35,14 +35,14 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class DerivedTestSystem : TestSystem
+        partial class DerivedTestSystem : TestSystem
         {
             protected override void OnUpdate()
             {
             }
         }
 
-        class ThrowExceptionSystem : TestSystem
+        partial class ThrowExceptionSystem : TestSystem
         {
             protected override void OnCreate()
             {
@@ -1078,7 +1078,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class WithRequireAnyForUpdateParams : UpdateCountSystem
+        partial class WithRequireAnyForUpdateParams : UpdateCountSystem
         {
             protected override void OnCreate()
             {
@@ -1088,7 +1088,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class WithRequireAnyForUpdateNativeArray : UpdateCountSystem
+        partial class WithRequireAnyForUpdateNativeArray : UpdateCountSystem
         {
             protected override void OnCreate()
             {
@@ -1101,7 +1101,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        unsafe class WithRequireAnyForUpdateSystemStateParams : UpdateCountSystem
+        unsafe partial class WithRequireAnyForUpdateSystemStateParams : UpdateCountSystem
         {
             protected override void OnCreate()
             {
@@ -1111,7 +1111,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class WithRequireAnyAndRequiredTagForUpdate : UpdateCountSystem
+        partial class WithRequireAnyAndRequiredTagForUpdate : UpdateCountSystem
         {
             protected override void OnCreate()
             {

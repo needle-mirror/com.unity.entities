@@ -29,8 +29,8 @@ namespace Unity.Entities
         public UnsafePtrList<Chunk> ChunksWithEmptySlots;
 
         public ChunkListMap FreeChunksBySharedComponents;
-        public ComponentTypeInArchetype* Types;
-        public int* EnableableTypeIndexInArchetype;
+        public ComponentTypeInArchetype* Types; // Array with TypeCount elements
+        public int* EnableableTypeIndexInArchetype; // Array with EnableableTypesCount elements
 
         // back pointer to EntityQueryData(s), used for chunk list caching
         public UnsafeList<IntPtr> MatchingQueryData;
@@ -49,14 +49,21 @@ namespace Unity.Entities
         public int BufferEntityPatchCount;
         public ulong StableHash;
 
-        // Index matches archetype types
-        public int*    Offsets;
-        public ushort* SizeOfs;
-        public int*    BufferCapacities;
+        // The order that per-component-type data is stored in memory within an archetype does not necessarily match
+        // the order that types are stored in the Types/Offsets/SizeOfs/etc. arrays. The memory order of types is stable across
+        // runs; the Types array is sorted by TypeIndex, and the TypeIndex <-> ComponentType mapping is *not* guaranteed to
+        // be stable across runs.
+        // These two arrays each have TypeCount elements, and are used to convert between these two orderings.
+        // - MemoryOrderIndex is the order an archetype's component data is actually stored in memory. This is stable across runs.
+        // - IndexInArchetype is the order that types appear in the archetype->Types[] array. This is *not* necessarily stable across runs.
+        //   (also called IndexInTypeArray in some APIs)
+        public int* TypeMemoryOrderIndexToIndexInArchetype; // The Nth element is the IndexInArchetype of the type with MemoryOrderIndex=N
+        public int* TypeIndexInArchetypeToMemoryOrderIndex; // The Nth element is the MemoryOrderIndex of the type with IndexInArchetype=N
 
-        // TypesCount indices into Types/Offsets/SizeOfs in the order that the
-        // components are laid out in memory.
-        public int* TypeMemoryOrder;
+        // These arrays each have TypeCount elements, ordered by IndexInArchetype (the same order as the Types array)
+        public int*    Offsets; // Byte offset of each component type's data within this archetype's chunk buffer.
+        public ushort* SizeOfs; // Size in bytes of each component type
+        public int*    BufferCapacities; // For IBufferElementData components, the buffer capacity of each component. Not meaningful for non-buffer components.
 
         // Order of components in the types array is always:
         // Entity, native component data, buffer components, managed component data, tag component, shared components, chunk components

@@ -11,5 +11,5 @@ namespace Unity.Entities
     ///
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
-    public class PostBakingSystemGroup : ComponentSystemGroup { }
+    public partial class PostBakingSystemGroup : ComponentSystemGroup { }
 }

@@ -107,30 +107,22 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UncheckedRefRO<T> UnsafeGetUncheckedRefRO<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
-        {
-            return new UncheckedRefRO<T>(ptr, index, typeHandle.m_Safety);
-        }
+            => new(ptr + UnsafeUtility.SizeOf<T>() * index, typeHandle.m_Safety);
 #else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UncheckedRefRO<T> UnsafeGetUncheckedRefRO<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
-        {
-            return new UncheckedRefRO<T>(ptr, index);
-        }
+            => new(ptr + UnsafeUtility.SizeOf<T>() * index);
 #endif
 
 // `UnsafeGetUncheckedRefRW<T>()` is called from within source-generated code for `foreach` iterations
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UncheckedRefRW<T> UnsafeGetUncheckedRefRW<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
-        {
-            return new UncheckedRefRW<T>(ptr, index, typeHandle.m_Safety);
-        }
+            => new(ptr + UnsafeUtility.SizeOf<T>() * index, typeHandle.m_Safety);
 #else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UncheckedRefRW<T> UnsafeGetUncheckedRefRW<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
-        {
-            return new UncheckedRefRW<T>(ptr, index);
-        }
+            => new(ptr + UnsafeUtility.SizeOf<T>() * index);
 #endif
 
 // `GetRefRO<T>()` is called from within source-generated `IJobChunk`s
@@ -170,25 +162,19 @@ namespace Unity.Entities
         public readonly unsafe struct UncheckedRefRO<T> where T : unmanaged, IComponentData
         {
             private readonly IntPtr _ptr;
-            private readonly int _index;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             private readonly AtomicSafetyHandle _safety;
 
-            public UncheckedRefRO(IntPtr ptr, int index, AtomicSafetyHandle safety)
+            public UncheckedRefRO(IntPtr ptr, AtomicSafetyHandle safety)
             {
                 _ptr = ptr;
-                _index = index;
                 _safety = safety;
             }
 #else
-            public UncheckedRefRO(IntPtr ptr, int index)
-            {
-                _ptr = ptr;
-                _index = index;
-            }
+            public UncheckedRefRO(IntPtr ptr) => _ptr = ptr;
 #endif
-            public ref readonly T ValueRO => ref *((T*)_ptr + _index);
+            public ref readonly T ValueRO => ref *(T*)_ptr;
 
             public static implicit operator RefRO<T>(UncheckedRefRO<T> @unchecked)
             {
@@ -207,27 +193,21 @@ namespace Unity.Entities
         public readonly unsafe struct UncheckedRefRW<T> where T : unmanaged, IComponentData
         {
             private readonly IntPtr _ptr;
-            private readonly int _index;
 
     #if ENABLE_UNITY_COLLECTIONS_CHECKS
             private readonly AtomicSafetyHandle _safety;
 
-            public UncheckedRefRW(IntPtr ptr, int index, AtomicSafetyHandle safety)
+            public UncheckedRefRW(IntPtr ptr, AtomicSafetyHandle safety)
             {
                 _ptr = ptr;
-                _index = index;
                 _safety = safety;
             }
     #else
-            public UncheckedRefRW(IntPtr ptr, int index)
-            {
-                _ptr = ptr;
-                _index = index;
-            }
+            public UncheckedRefRW(IntPtr ptr) => _ptr = ptr;
     #endif
 
-            public ref T ValueRW => ref *((T*)_ptr + _index);
-            public ref readonly T ValueRO => ref *((T*)_ptr + _index);
+            public ref T ValueRW => ref *(T*)_ptr;
+            public ref readonly T ValueRO => ref *(T*)_ptr;
 
             public static implicit operator RefRW<T>(UncheckedRefRW<T> @unchecked)
             {
@@ -251,6 +231,13 @@ namespace Unity.Entities
             ref UnsafeUtility.AsRef<T>((T*) nativeArrayPtr + elementIndex);
 
         public static unsafe ref SystemState UnsafeGetSystemStateRef(IntPtr statePtr) => ref *(SystemState*) statePtr;
+
+        public static class EntityQueryInterface
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public static bool HasComponentsRequiredForExecuteMethodToRun(ref EntityQuery userDefinedQuery, ref UnsafeList<ComponentType> componentsUsedInExecuteMethod) =>
+                userDefinedQuery.HasComponentsRequiredForExecuteMethodToRun(ref componentsUsedInExecuteMethod);
+        }
 
         public static class JobChunkInterface
         {

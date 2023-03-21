@@ -110,8 +110,8 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent authoring)
         {
-            AddComponentObject(GetEntity(authoring), new ManagedComponent() { Field = 2});
-            AddComponentObject(CreateAdditionalEntity(), new ManagedComponent(){Field = 4});
+            AddComponentObject(GetEntity(authoring, TransformUsageFlags.None), new ManagedComponent() { Field = 2});
+            AddComponentObject(CreateAdditionalEntity(TransformUsageFlags.None), new ManagedComponent(){Field = 4});
         }
     }
 #endif
@@ -149,7 +149,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_AddComponentByComponentType_PrimaryEntity component)
         {
-            AddComponent(ComponentType.ReadWrite<ComponentTest1>());
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, ComponentType.ReadWrite<ComponentTest1>());
         }
     }
 
@@ -161,7 +163,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_AddComponentByComponentType_SecondaryValidEntity component)
         {
-            AddComponent(CreateAdditionalEntity(), ComponentType.ReadWrite<ComponentTest1>());
+            AddComponent(CreateAdditionalEntity(TransformUsageFlags.None), ComponentType.ReadWrite<ComponentTest1>());
         }
     }
 
@@ -183,7 +185,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_AddComponentGeneric_PrimaryValidEntity component)
         {
-            AddComponent<ComponentTest1>(new ComponentTest1() {Field = 3});
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest1>(entity, new ComponentTest1() {Field = 3});
         }
     }
 
@@ -195,7 +199,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
-            AddComponent<ComponentTest1>(CreateAdditionalEntity(), new ComponentTest1() {Field = 3});
+            AddComponent<ComponentTest1>(CreateAdditionalEntity(TransformUsageFlags.None), new ComponentTest1() {Field = 3});
         }
     }
 
@@ -217,8 +221,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             ComponentTypeSet componentTypeSet = new ComponentTypeSet(ComponentType.ReadWrite<ComponentTest1>(), ComponentType.ReadWrite<ComponentTest2>());
-            AddComponent(componentTypeSet);
+            AddComponent(entity, componentTypeSet);
         }
     }
 
@@ -231,7 +237,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public override void Bake(Authoring_AddComponentByMultipleComponentTypes_SecondaryValidEntity component)
         {
             ComponentTypeSet componentTypeSet = new ComponentTypeSet(ComponentType.ReadWrite<ComponentTest1>(), ComponentType.ReadWrite<ComponentTest2>());
-            AddComponent(CreateAdditionalEntity(), componentTypeSet);
+            AddComponent(CreateAdditionalEntity(TransformUsageFlags.None), componentTypeSet);
         }
     }
 
@@ -254,7 +260,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
-            AddComponent(ComponentType.ChunkComponent<ComponentTest1>());
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, ComponentType.ChunkComponent<ComponentTest1>());
         }
     }
 
@@ -266,7 +274,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_AddChunkComponentGeneric_SecondaryValidEntity component)
         {
-            AddComponent(CreateAdditionalEntity(), ComponentType.ChunkComponent<ComponentTest1>());
+            AddComponent(CreateAdditionalEntity(TransformUsageFlags.None), ComponentType.ChunkComponent<ComponentTest1>());
         }
     }
 
@@ -288,7 +296,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
-            AddSharedComponentManaged<UnmanagedSharedComponent>(new UnmanagedSharedComponent { Field = 1 });
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddSharedComponentManaged<UnmanagedSharedComponent>(entity, new UnmanagedSharedComponent { Field = 1 });
         }
     }
 
@@ -300,7 +310,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_AddSharedComponentGeneric_SecondaryValidEntity component)
         {
-            AddSharedComponentManaged<UnmanagedSharedComponent>(CreateAdditionalEntity(), new UnmanagedSharedComponent { Field = 3 });
+            AddSharedComponentManaged<UnmanagedSharedComponent>(CreateAdditionalEntity(TransformUsageFlags.None), new UnmanagedSharedComponent { Field = 3 });
         }
     }
 
@@ -322,7 +332,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
-            AddSharedComponent<UnmanagedSharedComponent>(new UnmanagedSharedComponent { Field = 1 });
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddSharedComponent<UnmanagedSharedComponent>(entity, new UnmanagedSharedComponent { Field = 1 });
         }
     }
 
@@ -334,7 +346,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_AddUnmanagedSharedComponentGeneric_SecondaryValidEntity component)
         {
-            AddSharedComponent<UnmanagedSharedComponent>(CreateAdditionalEntity(), new UnmanagedSharedComponent { Field = 3 });
+            AddSharedComponent<UnmanagedSharedComponent>(CreateAdditionalEntity(TransformUsageFlags.None), new UnmanagedSharedComponent { Field = 3 });
         }
     }
 
@@ -356,10 +368,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
-            AddBuffer<IntElement>();
-            AppendToBuffer(new IntElement{Value = 1});
-            AppendToBuffer(new IntElement{Value = 2});
-            AppendToBuffer(new IntElement{Value = 3});
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddBuffer<IntElement>(entity);
+            AppendToBuffer(entity, new IntElement{Value = 1});
+            AppendToBuffer(entity, new IntElement{Value = 2});
+            AppendToBuffer(entity, new IntElement{Value = 3});
         }
     }
 
@@ -371,7 +385,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_AddBufferGeneric_SecondaryValidEntity component)
         {
-            var entity = CreateAdditionalEntity();
+            var entity = CreateAdditionalEntity(TransformUsageFlags.None);
             AddBuffer<IntElement>(entity);
             AppendToBuffer(entity, new IntElement{Value = 1});
             AppendToBuffer(entity, new IntElement{Value = 2});
@@ -399,8 +413,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
-            AddBuffer<IntElement>();
-            DynamicBuffer<IntElement> buffer = SetBuffer<IntElement>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddBuffer<IntElement>(entity);
+            DynamicBuffer<IntElement> buffer = SetBuffer<IntElement>(entity);
             buffer.CopyFrom(new IntElement[] { 1, 2, 3 });
         }
     }
@@ -413,7 +429,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_AddBufferGeneric_SecondaryValidEntity component)
         {
-            var entity = CreateAdditionalEntity();
+            var entity = CreateAdditionalEntity(TransformUsageFlags.None);
             AddBuffer<IntElement>(entity);
             DynamicBuffer<IntElement> buffer = SetBuffer<IntElement>(entity);
             buffer.CopyFrom(new IntElement[] { 1, 2, 3 });
@@ -439,7 +455,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             buffer.CopyFrom(new IntElement[] { 1, 2, 3 });
         }
     }
@@ -452,7 +470,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_AddBufferGeneric_SecondaryValidEntity component)
         {
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(CreateAdditionalEntity());
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(CreateAdditionalEntity(TransformUsageFlags.None));
             buffer.CopyFrom(new IntElement[] { 1, 2, 3 });
         }
     }
@@ -476,8 +494,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
-            AddComponent<ComponentTest1>(new ComponentTest1() {Field = 3});
-            AddComponent<ComponentTest1>(new ComponentTest1() {Field = 4});
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest1>(entity, new ComponentTest1() {Field = 3});
+            AddComponent<ComponentTest1>(entity, new ComponentTest1() {Field = 4});
         }
     }
 
@@ -487,8 +507,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponent<Collider>();
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -502,8 +524,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponent<Collider>(component);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -517,8 +541,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponent<Collider>(component.gameObject);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -532,9 +558,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             var found = GetComponent<Collider>(nullComponent);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -548,9 +576,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGo = null;
             var found = GetComponent<Collider>(nullGo);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -564,10 +594,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponents<Collider>();
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -581,10 +613,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponents<Collider>(component);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -598,10 +632,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponents<Collider>(component.gameObject);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -615,11 +651,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GetComponents<Collider>(found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -633,11 +671,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GetComponents<Collider>(component, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -651,11 +691,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GetComponents<Collider>(component.gameObject, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -669,12 +711,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GameObject nullGo = null;
             GetComponents<Collider>(nullGo, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -688,12 +732,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             Component nullComponent = null;
             GetComponents<Collider>(nullComponent, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -707,12 +753,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GameObject nullGo = null;
             GetComponents<Collider>(nullGo, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -726,12 +774,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             Component nullComponent = null;
             GetComponents<Collider>(nullComponent, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -745,8 +795,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentInParent<Collider>();
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -760,8 +812,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentInParent<Collider>(component);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -775,8 +829,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentInParent<Collider>(component.gameObject);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -790,9 +846,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             var found = GetComponentInParent<Collider>(nullComponent);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -806,9 +864,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGameObject = null;
             var found = GetComponentInParent<Collider>(nullGameObject);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -822,10 +882,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentsInParent<Collider>();
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -839,10 +901,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentsInParent<Collider>(component);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -856,10 +920,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentsInParent<Collider>(component.gameObject);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -873,11 +939,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             var found = GetComponentsInParent<Collider>(nullComponent);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -893,9 +961,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             GameObject nullGameObject = null;
             var found = GetComponentsInParent<Collider>(nullGameObject);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -909,11 +979,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GetComponentsInParent<Collider>(found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -927,11 +999,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GetComponentsInParent<Collider>(component, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -945,11 +1019,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GetComponentsInParent<Collider>(component.gameObject, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -963,12 +1039,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             List<Collider> found = new List<Collider>();
             GetComponentsInParent<Collider>(nullComponent, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -982,12 +1060,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGameObject = null;
             List<Collider> found = new List<Collider>();
             GetComponentsInParent<Collider>(nullGameObject, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1001,8 +1081,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentInChildren<Collider>();
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1016,8 +1098,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentInChildren<Collider>(component);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1032,7 +1116,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public override void Bake(DefaultAuthoringComponent component)
         {
             var found = GetComponentInChildren<Collider>(component.gameObject);
-            AddComponent(new GetComponentTest1()
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1046,9 +1132,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             var found = GetComponentInChildren<Collider>(nullComponent);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1062,9 +1150,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGo = null;
             var found = GetComponentInChildren<Collider>(nullGo);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1078,10 +1168,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentsInChildren<Collider>();
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1095,10 +1187,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentsInChildren<Collider>(component.gameObject);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1112,10 +1206,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetComponentsInChildren<Collider>(component);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1129,11 +1225,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGo = null;
             var found = GetComponentsInChildren<Collider>(nullGo);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1147,11 +1245,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             var found = GetComponentsInChildren<Collider>(nullComponent);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1165,11 +1265,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GetComponentsInChildren<Collider>(found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1183,11 +1285,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GetComponentsInChildren<Collider>(component.gameObject, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1201,11 +1305,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<Collider> found = new List<Collider>();
             GetComponentsInChildren<Collider>(component, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1219,12 +1325,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGo = null;
             List<Collider> found = new List<Collider>();
             GetComponentsInChildren<Collider>(nullGo, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1238,12 +1346,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             List<Collider> found = new List<Collider>();
             GetComponentsInChildren<Collider>(nullComponent, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1257,8 +1367,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetParent();
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1272,8 +1384,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetParent(component);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1287,8 +1401,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetParent(component.gameObject);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1302,9 +1418,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             var found = GetParent(nullComponent);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1318,9 +1436,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGameObject = null;
             var found = GetParent(nullGameObject);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = (found != null ? 1 : 0),
                 GUID = found != null ? found.GetInstanceID() : 0
@@ -1334,10 +1454,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetParents();
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1351,10 +1473,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetParents(component);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1368,10 +1492,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetParents(component.gameObject);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1385,11 +1511,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             var found = GetParents(nullComponent);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1403,11 +1531,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGameObject = null;
             var found = GetParents(nullGameObject);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1421,11 +1551,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<GameObject> found = new List<GameObject>();
             GetParents(found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1439,11 +1571,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<GameObject> found = new List<GameObject>();
             GetParents(component, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1457,11 +1591,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<GameObject> found = new List<GameObject>();
             GetParents(component.gameObject, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1475,12 +1611,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             List<GameObject> found = new List<GameObject>();
             GetParents(nullComponent, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1494,12 +1632,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGameObject = null;
             List<GameObject> found = new List<GameObject>();
             GetParents(nullGameObject, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1514,8 +1654,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static int QueryIndex;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             int count = GetChildCount();
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = count,
                 GUID = count > 0 ? GetChild(QueryIndex).GetInstanceID() : 0
@@ -1530,8 +1672,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static int QueryIndex;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             int count = GetChildCount(component.gameObject);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = count,
                 GUID = count > 0 ? GetChild(component.gameObject, QueryIndex).GetInstanceID() : 0
@@ -1546,8 +1690,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static int QueryIndex;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             int count = GetChildCount(component);
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = count,
                 GUID = count > 0 ? GetChild(component, QueryIndex).GetInstanceID() : 0
@@ -1561,8 +1707,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGo = null;
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = GetChildCount(),
                 GUID = GetChild(nullGo, 0).GetInstanceID()
@@ -1576,8 +1724,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
-            AddComponent(new GetComponentTest1()
+            AddComponent(entity, new GetComponentTest1()
             {
                 Field = GetChildCount(),
                 GUID = GetChild(nullComponent, 0).GetInstanceID()
@@ -1592,10 +1742,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static bool Recursive;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetChildren(Recursive);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1610,10 +1762,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static bool Recursive;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetChildren(component.gameObject, Recursive);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1628,10 +1782,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static bool Recursive;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             var found = GetChildren(component, Recursive);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1645,11 +1801,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGo = null;
             var found = GetChildren(nullGo);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1664,11 +1822,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static bool Recursive;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             var found = GetChildren(nullComponent);
-            AddComponent(new ComponentTest1() {Field = found.Length});
+            AddComponent(entity, new ComponentTest1() {Field = found.Length});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1683,11 +1843,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static bool Recursive;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<GameObject> found = new List<GameObject>();
             GetChildren(found, Recursive);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1702,11 +1864,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static bool Recursive;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<GameObject> found = new List<GameObject>();
             GetChildren(component.gameObject, found, Recursive);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1721,11 +1885,13 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public static bool Recursive;
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             List<GameObject> found = new List<GameObject>();
             GetChildren(component, found, Recursive);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1739,12 +1905,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             GameObject nullGo = null;
             List<GameObject> found = new List<GameObject>();
             GetChildren(nullGo, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1758,12 +1926,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(DefaultAuthoringComponent component)
         {
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             Component nullComponent = null;
             List<GameObject> found = new List<GameObject>();
             GetChildren(nullComponent, found);
-            AddComponent(new ComponentTest1() {Field = found.Count});
+            AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             foreach (var obj in found)
             {
                 buffer.Add(obj.GetInstanceID());
@@ -1778,7 +1948,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_BaseClass component)
         {
-            AddComponent<ComponentTest1>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest1>(entity);
         }
     }
 
@@ -1788,7 +1960,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_DerivedFromBaseClass component)
         {
-            AddComponent<ComponentTest2>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest2>(entity);
         }
     }
 
@@ -1798,7 +1972,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_DerivedFromDerivedClass component)
         {
-            AddComponent<ComponentTest3>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest3>(entity);
         }
     }
 
@@ -1809,7 +1985,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_BaseClass component)
         {
-            AddComponent<ComponentTest1>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest1>(entity);
         }
     }
 
@@ -1820,7 +1998,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_DerivedFromBaseClass component)
         {
-            AddComponent<ComponentTest2>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest2>(entity);
         }
     }
 
@@ -1830,7 +2010,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_Abstract component)
         {
-            AddComponent<ComponentTest1>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest1>(entity);
         }
     }
 
@@ -1840,7 +2022,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_DerivedFromAbstract component)
         {
-            AddComponent<ComponentTest2>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest2>(entity);
         }
     }
 
@@ -1851,7 +2035,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
     {
         public override void Bake(Authoring_Abstract component)
         {
-            AddComponent<ComponentTest1>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent<ComponentTest1>(entity);
         }
     }
 
@@ -1950,7 +2136,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(Authoring_WithGameObjectField authoring)
             {
-                GetEntity(authoring.GameObjectField);
+                GetEntity(authoring.GameObjectField, TransformUsageFlags.None);
             }
         }
 
@@ -2408,7 +2594,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent authoring)
             {
-                AddComponent(ComponentType.ReadWrite<ComponentTest1>());
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, ComponentType.ReadWrite<ComponentTest1>());
             }
         }
 
@@ -2416,7 +2604,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent authoring)
             {
-                AddComponent(ComponentType.ReadWrite<ComponentTest2>());
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, ComponentType.ReadWrite<ComponentTest2>());
             }
         }
 
@@ -2424,7 +2614,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent authoring)
             {
-                AddComponent(ComponentType.ReadWrite<ComponentTest2>());
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, ComponentType.ReadWrite<ComponentTest2>());
             }
         }
 
@@ -2432,7 +2624,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent authoring)
             {
-                AddComponent(ComponentType.ReadWrite<ComponentTest2>());
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, ComponentType.ReadWrite<ComponentTest2>());
             }
         }
 
@@ -2490,7 +2684,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AddComponent(GetEntity(), new ComponentTest1{Field = component.Field});
+                AddComponent(GetEntity(TransformUsageFlags.None), new ComponentTest1{Field = component.Field});
             }
         }
 
@@ -2499,7 +2693,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AddSharedComponent(GetEntity(), new SharedComponentTest1{Field = component.Field});
+                AddSharedComponent(GetEntity(TransformUsageFlags.None), new SharedComponentTest1{Field = component.Field});
             }
         }
 
@@ -2508,7 +2702,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                SetComponent(GetEntity(), new ComponentTest1 { Field = 5});
+                SetComponent(GetEntity(TransformUsageFlags.None), new ComponentTest1 { Field = 5});
             }
         }
 
@@ -2517,12 +2711,14 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override unsafe void Bake(DefaultAuthoringComponent authoring)
             {
-                AddComponent<ComponentTest1>(GetEntity());
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent<ComponentTest1>(entity);
 
                 var component = new ComponentTest1 {Field = 5};
                 var typeIndex = TypeManager.GetTypeIndex<ComponentTest1>();
                 var typeSize = TypeManager.GetTypeInfo(typeIndex).TypeSize;
-                UnsafeSetComponent(GetEntity(), typeIndex, typeSize, &component);
+                UnsafeSetComponent(entity, typeIndex, typeSize, &component);
             }
         }
 
@@ -2531,10 +2727,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override unsafe void Bake(DefaultAuthoringComponent authoring)
             {
+                var entity = GetEntity(TransformUsageFlags.None);
+
                 var component = new ComponentTest1 {Field = 5};
                 var typeIndex = TypeManager.GetTypeIndex<ComponentTest1>();
                 var typeSize = TypeManager.GetTypeInfo(typeIndex).TypeSize;
-                UnsafeAddComponent(GetEntity(), typeIndex, typeSize, &component);
+                UnsafeAddComponent(entity, typeIndex, typeSize, &component);
             }
         }
 
@@ -2559,7 +2757,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                SetSharedComponent(GetEntity(), new SharedComponentTest1() { Field = 5});
+                SetSharedComponent(GetEntity(TransformUsageFlags.None), new SharedComponentTest1() { Field = 5});
             }
         }
 
@@ -2587,8 +2785,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AddSharedComponent(GetEntity(), new SharedComponentTest1());
-                SetSharedComponent(GetEntity(), new SharedComponentTest1() { Field = 5});
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddSharedComponent(entity, new SharedComponentTest1());
+                SetSharedComponent(entity, new SharedComponentTest1() { Field = 5});
             }
         }
         [Test]
@@ -2612,8 +2812,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AddComponent(GetEntity(), new ComponentTest1());
-                SetComponent(GetEntity(), new ComponentTest1 { Field = 5});
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new ComponentTest1());
+                SetComponent(entity, new ComponentTest1 { Field = 5});
             }
         }
         [Test]
@@ -2634,8 +2836,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AddComponent(new EcsTestDataEnableable());
-                SetComponentEnabled<EcsTestDataEnableable>(GetEntity(), false);
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new EcsTestDataEnableable());
+                SetComponentEnabled<EcsTestDataEnableable>(entity, false);
             }
         }
         [Test]
@@ -2659,8 +2863,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AddComponent(new EcsTestDataEnableable());
-                SetComponentEnabled<EcsTestDataEnableable>(false);
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new EcsTestDataEnableable());
+                SetComponentEnabled<EcsTestDataEnableable>(entity, false);
             }
         }
         [Test]
@@ -2684,7 +2890,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AddComponent(new EcsTestDataEnableable());
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new EcsTestDataEnableable());
             }
         }
 
@@ -2708,7 +2916,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                SetComponentEnabled<EcsTestDataEnableable>(GetEntity(), false);
+                SetComponentEnabled<EcsTestDataEnableable>(GetEntity(TransformUsageFlags.None), false);
             }
         }
 
@@ -2735,7 +2943,9 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                var buffer = SetBuffer<IntElement>();
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                var buffer = SetBuffer<IntElement>(entity);
                 buffer.Add(new IntElement {Value = 4});
                 buffer.Add(new IntElement {Value = 5});
                 buffer.Add(new IntElement {Value = 6});
@@ -2768,8 +2978,10 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AddBuffer<IntElement>();
-                var buffer = SetBuffer<IntElement>();
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddBuffer<IntElement>(entity);
+                var buffer = SetBuffer<IntElement>(entity);
                 buffer.Add(new IntElement {Value = 1});
                 buffer.Add(new IntElement {Value = 2});
                 buffer.Add(new IntElement {Value = 3});
@@ -2800,9 +3012,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AppendToBuffer(new IntElement {Value = 4});
-                AppendToBuffer(new IntElement {Value = 5});
-                AppendToBuffer(new IntElement {Value = 6});
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AppendToBuffer(entity, new IntElement {Value = 4});
+                AppendToBuffer(entity, new IntElement {Value = 5});
+                AppendToBuffer(entity, new IntElement {Value = 6});
             }
         }
 
@@ -2832,10 +3046,12 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent component)
             {
-                AddBuffer<IntElement>();
-                AppendToBuffer(new IntElement {Value = 1});
-                AppendToBuffer(new IntElement {Value = 2});
-                AppendToBuffer(new IntElement {Value = 3});
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddBuffer<IntElement>(entity);
+                AppendToBuffer(entity, new IntElement {Value = 1});
+                AppendToBuffer(entity, new IntElement {Value = 2});
+                AppendToBuffer(entity, new IntElement {Value = 3});
             }
         }
 
@@ -3433,7 +3649,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             {
                 for (int i = 0; i < AdditionalEntityCount; ++i)
                 {
-                    var entity = CreateAdditionalEntity();
+                    var entity = CreateAdditionalEntity(TransformUsageFlags.None);
                     AddComponent<AdditionalEntity>(entity);
                 }
             }
@@ -3505,9 +3721,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent authoring)
             {
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
                 var blobRef = BlobAssetUtility.CreateBlobAsset(authoring.Field);
                 AddBlobAsset(ref blobRef, out _);
-                AddComponent(new TestComponentWithBlobAssetReference { Value = blobRef });
+                AddComponent(entity, new TestComponentWithBlobAssetReference { Value = blobRef });
             }
         }
 

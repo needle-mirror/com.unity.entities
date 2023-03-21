@@ -323,7 +323,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="sourceBuffer">Original source values.</param>
         /// <param name="allocator">The NativeArray allocation type.</param>
-        public NativeArraySharedInt(NativeArray<int> sourceBuffer, Allocator allocator)
+        public NativeArraySharedInt(NativeArray<int> sourceBuffer, AllocatorManager.AllocatorHandle allocator)
         {
             m_SourceBuffer = sourceBuffer;
             m_SourceIndexBySortedSourceIndex = CollectionHelper.CreateNativeArray<int>(sourceBuffer.Length, allocator);

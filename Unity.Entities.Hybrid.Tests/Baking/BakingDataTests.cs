@@ -40,7 +40,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         {
             public override void Bake(DefaultAuthoringComponent authoring)
             {
-                CreateAdditionalEntity();
+                CreateAdditionalEntity(TransformUsageFlags.None);
             }
         }
 

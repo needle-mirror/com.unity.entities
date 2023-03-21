@@ -6,7 +6,6 @@
 using System;
 using System.Text;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -374,13 +373,6 @@ namespace Unity.Entities.SourceGen.Aspect
                             // Report Aspect errors (try to report as many as possible(
                             foreach (var node in aspectDef.SourceSyntaxNodes)
                             {
-                                // All instance of the aspect must be declared 'partial'
-                                if (!node.HasTokenOfKind(SyntaxKind.PartialKeyword))
-                                {
-                                    AspectErrors.SGA0003(node.GetLocation(), aspectDef.Name);
-                                    valid = false;
-                                }
-
                                 // Aspects must be readonly otherwise they don't work well with foreach enumerators
                                 // (can't have setters on the foreach value, unless it is marked read-only)
                                 if (!node.HasTokenOfKind(SyntaxKind.ReadOnlyKeyword))
@@ -400,7 +392,6 @@ namespace Unity.Entities.SourceGen.Aspect
                                     if(node.Parent is TypeDeclarationSyntax typeDec
                                        && typeDec.Modifiers.All(x => x.Kind() != SyntaxKind.PartialKeyword))
                                     {
-                                        AspectErrors.SGA0010(node.GetLocation());
                                         valid = false;
                                     }
                                 }

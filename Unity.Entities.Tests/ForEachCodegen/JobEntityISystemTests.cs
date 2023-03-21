@@ -1,7 +1,7 @@
 using System;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities.Tests.InAnotherAssembly;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -30,11 +30,11 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 ComponentType.ReadWrite<EcsTestTagEnableable>());
 
             TestEntity = m_Manager.CreateEntity(myArch);
-            m_Manager.SetComponentData(TestEntity, new EcsTestData { value = 3});
-            m_Manager.SetComponentData(TestEntity, new EcsTestData2 { value0 = 4});
+            m_Manager.SetComponentData(TestEntity, new EcsTestData { value = 3 });
+            m_Manager.SetComponentData(TestEntity, new EcsTestData2 { value0 = 4 });
             var buffer = m_Manager.GetBuffer<EcsIntElement>(TestEntity);
-            buffer.Add(new EcsIntElement {Value = 18});
-            buffer.Add(new EcsIntElement {Value = 19});
+            buffer.Add(new EcsIntElement { Value = 18 });
+            buffer.Add(new EcsIntElement { Value = 19 });
             m_Manager.SetSharedComponentManaged(TestEntity, new EcsTestSharedComp { value = 5 });
             m_Manager.SetSharedComponentManaged(TestEntity, new EcsTestSharedComp2 { value0 = 11, value1 = 13 });
 
@@ -74,6 +74,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void SimplestCase() => GetTestSystemUnsafe().SimplestCase(ref GetSystemStateRef());
 
         [Test]
+        public void SimplestCaseInAnotherAssembly() => GetTestSystemUnsafe().SimplestCaseInAnotherAssembly(ref GetSystemStateRef());
+
+        [Test]
         public void WithTagComponent() => GetTestSystemUnsafe().WithTagComponent(ref GetSystemStateRef());
 
         [Test]
@@ -86,20 +89,32 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void WithDisabled() => GetTestSystemUnsafe().WithDisabled(ref GetSystemStateRef());
 
         [Test]
+        public void EnableDisabled() => GetTestSystemUnsafe().EnableDisabled(ref GetSystemStateRef());
+
+        [Test]
         public void WithAbsent() => GetTestSystemUnsafe().WithAbsent(ref GetSystemStateRef());
 
         [Test]
         public void WithAny_DoesntExecute_OnEntityWithoutThatComponent() => GetTestSystemUnsafe().WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref GetSystemStateRef());
 
         #region SharedComponent
+
         [Test]
         public void WithAllSharedComponent() => GetTestSystemUnsafe().WithAllSharedComponentData(ref GetSystemStateRef());
+
         [Test]
         public void SharedComponent() => GetTestSystemUnsafe().TestSharedComponent(ref GetSystemStateRef());
-        #if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void ManagedSharedComponent() => GetTestSystemUnsafe().TestManagedSharedComponent(ref GetSystemStateRef());
-        #endif
+
+        [Test]
+        public void JobEntityWithManagedField() => GetTestSystemUnsafe().JobEntityWithManagedField(ref GetSystemStateRef());
+
+        [Test]
+        public void JobEntityWithManagedFieldAndManagedComponent() => GetTestSystemUnsafe().JobEntityWithManagedFieldAndManagedComponent(ref GetSystemStateRef());
+#endif
+
         #endregion
 
         [Test]
@@ -119,6 +134,15 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         [Test]
         public void Schedule_CombineDependencies_Works() => GetTestSystemUnsafe().Schedule_CombineDependencies_Works(ref GetSystemStateRef());
+
+        [Test]
+        public void EntityQueryDoesntUseDefaultQuery()
+        {
+            var system = World.GetOrCreateSystem<DefaultJobEntityQueryNotAddedAsQueryOfSystem>();
+            system.Update(World.Unmanaged);
+            var singleton = m_Manager.GetComponentData<DefaultJobEntityQueryNotAddedAsQueryOfSystem.Singleton>(system);
+            Assert.False(singleton.HasRunOnUpdate);
+        }
 
         // Todo: add back when IJE supports .DisposeOnCompletion like IJobChunk
         // [Test]
@@ -191,6 +215,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public int disabledValue;
 
         void Execute(ref EcsTestData e1) => e1.value = disabledValue;
+    }
+
+    [WithDisabled(typeof(EcsTestDataEnableable))]
+    partial struct EnableDisabledJob : IJobEntity
+    {
+        void Execute(EnabledRefRW<EcsTestDataEnableable> e1) => e1.ValueRW = true;
     }
 
     [WithAbsent(typeof(EcsTestData3))]
@@ -280,6 +310,16 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(7, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
         }
 
+        public void SimplestCaseInAnotherAssembly(ref SystemState state)
+        {
+            state.EntityManager.AddComponentData(JobEntityISystemTests.TestEntity, new EcsTestDataInAnotherAssembly { value = 3 });
+            state.EntityManager.AddComponentData(JobEntityISystemTests.TestEntity, new EcsTestData2InAnotherAssembly { value0 = 4 });
+            new SimplestCaseJobInAnotherAssembly().Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(7, state.EntityManager.GetComponentData<EcsTestDataInAnotherAssembly>(JobEntityISystemTests.TestEntity).value);
+        }
+
+
         public void WithTagComponent(ref SystemState state)
         {
             new WithTagComponentJob().Schedule();
@@ -306,6 +346,16 @@ namespace Unity.Entities.Tests.ForEachCodegen
             new WithDisabledJob{ disabledValue = 1 }.Schedule();
             state.Dependency.Complete();
             Assert.AreEqual(1, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
+        public void EnableDisabled(ref SystemState state)
+        {
+            Assert.AreEqual(1, SystemAPI.QueryBuilder().WithDisabled<EcsTestDataEnableable>().Build().CalculateEntityCount());
+            Assert.AreEqual(0, SystemAPI.QueryBuilder().WithAll<EcsTestDataEnableable>().Build().CalculateEntityCount());
+            new EnableDisabledJob{}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(0, SystemAPI.QueryBuilder().WithDisabled<EcsTestDataEnableable>().Build().CalculateEntityCount());
+            Assert.AreEqual(1, SystemAPI.QueryBuilder().WithAll<EcsTestDataEnableable>().Build().CalculateEntityCount());
         }
 
         public void WithAbsent(ref SystemState state)
@@ -360,6 +410,41 @@ namespace Unity.Entities.Tests.ForEachCodegen
             new ManagedSharedComponentJob().Run();
             Assert.AreEqual(3+5, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
         }
+
+        public void JobEntityWithManagedField(ref SystemState state)
+        {
+            try
+            {
+                new JobEntityWithManagedFieldJob { JobName = "MyThrustJob" }.Run();
+            }
+            catch (InvalidOperationException ex)
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                Assert.That(ex.Message, Is.EqualTo("JobEntityWithManagedFieldJob.JobData.JobName is not a value type. Job structs may not contain any reference types."));
+#else
+                Assert.That(ex.Message, Is.EqualTo("JobEntityWithManagedFieldJob is not a value type. Job structs may not contain any reference types."));
+#endif
+            }
+        }
+
+        partial struct JobEntityWithManagedFieldJob : IJobEntity
+        {
+            public string JobName;
+            public void Execute() => Assert.AreEqual("MyThrustJob", JobName);
+        }
+
+        public void JobEntityWithManagedFieldAndManagedComponent(ref SystemState state)
+        {
+            new JobEntityWithManagedFieldAndManagedComponentJob { JobName = "MyThrustJob" }.Run();
+        }
+
+        // Note if a job has a managed component it will run without the job system
+        partial struct JobEntityWithManagedFieldAndManagedComponentJob : IJobEntity
+        {
+            public string JobName;
+            public void Execute(EcsTestManagedComponent _) => Assert.AreEqual("MyThrustJob", JobName);
+        }
+
         #endif
 
         #endregion
@@ -439,5 +524,29 @@ namespace Unity.Entities.Tests.ForEachCodegen
         //
         //     Assert.IsTrue(timesMatch);
         // }
+    }
+
+    [RequireMatchingQueriesForUpdate]
+    partial struct DefaultJobEntityQueryNotAddedAsQueryOfSystem : ISystem
+    {
+        partial struct JobWithPassingDefaultQuery : IJobEntity
+        {
+            void Execute(EcsTestData data) {}
+        }
+
+        public struct Singleton : IComponentData
+        {
+            public bool HasRunOnUpdate;
+        }
+
+        public void OnCreate(ref SystemState state) =>
+            state.EntityManager.AddComponentData(state.SystemHandle, new Singleton());
+
+        public void OnUpdate(ref SystemState state)
+        {
+            // Only set if passed in query is present, not if IJobEntity query is.
+            state.EntityManager.SetComponentData(state.SystemHandle, new Singleton{HasRunOnUpdate = true});
+            new JobWithPassingDefaultQuery().Schedule(SystemAPI.QueryBuilder().WithAll<EcsTestData, EcsTestData4>().Build());
+        }
     }
 }

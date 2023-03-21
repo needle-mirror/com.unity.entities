@@ -94,7 +94,7 @@ namespace Unity.Entities.Editor
             }
         }
 
-        static unsafe bool MemCmp<T>(NativeArray<T> lhs, NativeArray<T> rhs)
+        internal static unsafe bool MemCmp<T>(NativeArray<T> lhs, NativeArray<T> rhs)
             where T : unmanaged
         {
             if (lhs.Length != rhs.Length)

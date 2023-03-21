@@ -2,6 +2,7 @@
 
 To upgrade from Entities 0.51 to 1.0, you need to do the following:
 
+* [Update ISystem](#update-isystem)
 * [Update Transforms in your project](#update-transforms-in-your-project)
 * [Update conversions in your project](#update-conversions-in-your-project)
 * [Remove GenerateAuthoringComponent](#remove-generateauthoringcomponent)
@@ -20,10 +21,13 @@ To upgrade from Entities 0.51 to 1.0, you need to do the following:
 * [Update SystemBase helper methods to SystemAPI](#update-systembase-helper-methods-to-systemapi)
 * [Add the Entities Graphics package to your project](#add-the-entities-graphics-package-to-your-project)
 * [Modify blob assets that use new or default](#modify-blob-assets-that-use-new-or-default)
+* [Update partials in your project](#update-partials-in-your-project)
 
-## ISystem changes
-ISystem now uses C#'s default implemented methods. So you don't have to implement every function.
-```cs
+## Update ISystem
+
+ISystem now uses C#'s default implemented methods, so you don't have to implement every function:
+
+```c#
 // Before
 partial struct MySystem : ISystem {
     public void OnCreate(ref SystemState state){}
@@ -41,10 +45,9 @@ partial struct MySystem : ISystem {
 }
 ```
 
+You now no longer need to put `[BurstCompile]` on the struct of an `ISystem`, but it's still needed on `OnCreate`, `OnStartRunning`, `OnUpdate`, `OnStopRunning` and `OnDestroy`. For example:
 
-You now no longer need to put `[BurstCompile]` on the struct of an `ISystem`.
-While it is still needed on your `OnCreate`, `OnStartRunning`, `OnUpdate`, `OnStopRunning` and `OnDestroy`. You now no longer need to put `BurstCompile` on the struct itself.
-```cs
+```c#
 // Before
 [BurstCompile]
 partial struct MySystem : ISystem {
@@ -67,26 +70,19 @@ partial struct MySystem : ISystem {
 
 The way that Transforms work in Entities 1.0 has changed. This section contains information on how to upgrade your project to work with the new Transforms. For further information on how Transforms work in Entities, see the [Transforms in Entities](transforms-intro.md) documentation. 
 
-The Transform system is under active development and subject to change up until the 1.0 release. The original, deprecated transform system is available via the `ENABLE_TRANSFORM_V1` define until then.
+Note: The Transform system is under active development and subject to change up until the 1.0 release.
 
 ### LocalTransform
-There are three new transform components. See the [Using Transforms](transforms-using.md) document. For upgrade purposes, however, the only new component of importance is `LocalTransform`:
+The three components `Translation`, `Rotation`, and `Scale` have been combined into one component, named `LocalTransform`.
 
 ```c#
-public struct LocalTransform : IComponentData, ITransformData
+public struct LocalTransform : IComponentData
 {
-    public float3 Position;
-    public float Scale;
+    public float3     Position;
+    public float      Scale;
     public quaternion Rotation;
 }
 ```
-
-### Equivalence
-What was once a threesome of components has now been combined into one component, named `LocalTransform`.
-
-* Translation: `LocalTransform.Position`
-* Rotation: `LocalTransform.Rotation`
-* Scale: `LocalTransform.Scale`
 
 The following is an example of how to convert your code to use the `LocalTransform` component:
 
@@ -103,16 +99,19 @@ void Execute(ref LocalTransform transform)
     transform.Position += math.up();
 }
 ```
+Other transform components (`CompositeRotation`, `RotationPivotTranslation`, `RotationPivot`, `PostRotation`, `CompositeRotation`, `RotationEulerXYZ` (etc), `PostRotationEulerXYZ` (etc), `NonUniformScale`, `ScalePivot`, `ScalePivotTranslation`, `CompositeScale`, `ParentScaleInverse`) have been removed.
 
 ### Scale
 
-The `NonUniformScale` component has been removed, and there isn't an equivalent. Non-uniform scaling isn't supported in the transform hierarchy. To non-uniformly scale the geometry, use a [`PostTransformScale`](xref:Unity.Transforms.PostTransformScale) before it's passed on to rendering.
+`LocalTransform` has a single uniform scale property. The `NonUniformScale` component has been removed. To non-uniformly scale the geometry, use a [`PostTransformMatrix`](xref:Unity.Transforms.PostTransformMatrix). For example:
+
+```c#
+EntityManager.AddComponent(myEntity, new PostTransformMatrix { Value = float4x4.Scale(1, 2, 3) });
+```
 
 ### Relativity
 
-The `LocalTransform` component is relative to its parent. If there is no [`Parent`](xref:Unity.Transforms.Parent) component, `LocalTransform` will be relative to the origin of the world. In contrast, `WorldTransform` is always relative to the world origin. It is computed and written by `LocalToWorldSystem`. Therefore, `WorldTransform` has a derived value, and writing to it has no effect.
-
-Note that `WorldTransform` is updated by a system, so it won't reflect changes made in `LocalTransform` until that system has run.
+The `LocalTransform` component is relative to its parent. If there is no [`Parent`](xref:Unity.Transforms.Parent) component, `LocalTransform` is relative to the origin of the world.
 
 ### Initialization
 
@@ -125,25 +124,25 @@ var r = new Rotation { Value = quaternion.RotateZ(1) };
 var s = new Scale { Value = 2 }
 
 // AFTER
-var t = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateZ(1), 2);
+var transform = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateZ(1), 2);
 ```
 
-To see the full list of initializer variations available, see the API documentation for [`LocalTransform`](xref:Unity.Transforms.LocalTransform). All initializers begin with "From".
+To see the full list of initializer variations available, see the API documentation for [`LocalTransform`](xref:Unity.Transforms.LocalTransform). All initializers begin with `From`.
 
-You must initialize all transforms. The C# default behavior is to initialize a struct with all zeroes, and that is an invalid transform. Where necessary, use [`LocalTransform.Identity`](xref:Unity.Transforms.LocalTransform.Identity) as a default value, like so:
+You must initialize all transforms. The C# default behavior is to initialize a struct with all zeroes, and that's an invalid transform. Where necessary, use [`LocalTransform.Identity`](xref:Unity.Transforms.LocalTransform.Identity) as a default value, like so:
 
 ```c#
 var t = LocalTransform.Identity;
 ```
 ### Changing an individual transform property
 
-To create a new transform that differs in only one property, helper functions are available. For example, to modify only the position, leaving rotation and scale at their original value:
+You may set the Position, Rotation, and Scale components of `LocalTransform` directly. The `LocalTransform` API also includes helper functions to create a new transform with one or more properties changed. For example, to create a new transform with a new position, leaving rotation and scale at their original value, you could:
 
 ```c#
-t = t.WithPosition(1, 2, 3);
+SomeFunction(myTransform.WithPosition(1, 2, 3));
 ```
 
-To see the full list of modifier variations available, see the API documentation for [`TransformDataHelpers`](xref:Unity.Transforms.TransformDataHelpers).
+To see the full list of modifier variations available, see the API documentation for [`LocalTransform`](xref:Unity.Transforms.LocalTransform).
 
 ## Update conversions in your project
 
@@ -597,7 +596,7 @@ In places where `SystemAPI` doesn't work, you can do the following things:
 
 For singleton APIs you can get an `EntityQuery` and use their equating method:
 
-```csharp
+```c#
 // Before
 void MyMethod(SystemBase mySystem) {
     var mySingleton = mySystem.GetSingleton<MySingleton>();
@@ -613,7 +612,7 @@ void MyMethod(SystemBase mySystem) {
 
 For `GetComponent`, `SetComponent`, `HasComponent`, `GetBuffer` and `Exists`, you can either use the equating `EntityManager` methods, or cache your own lookups:
 
-```csharp
+```c#
 // Before
 void MyMethod(SystemBase mySystem, Entity e) {
     var myComponent = mySystem.GetComponent<MyComponent>(e);
@@ -632,7 +631,7 @@ void MyMethod(SystemBase mySystem, Entity e, ComponentLookup<MyComponent> alread
 
 `GetBuffer` in `SystemAPI` doesn't take in a bool of whether or not it's read only. Therefore it assumes it's always ReadWrite. To convert to read only, do the following:
 
-```csharp
+```c#
 // Before
 var readonlyBuffer = this.GetBuffer<MyElement>(e, true);
 
@@ -654,7 +653,7 @@ For further information upgrading to Entities Graphics, see the [Entities Graphi
 Blob assets created with `new` or `default` now produce an error. To fix this, do the following:
 
 
-```cs
+```c#
 /// Before
 var myBlob = new MyBlob(...);
 
@@ -673,7 +672,7 @@ struct MyBlob {
 
 You can't use `fixed type varName[n]` syntax inside a field on a blob because it creates a pointer, which you can't use in blob assets. To fix this, do the following:
 
-```cs
+```c#
 
 /// Before
 unsafe struct MyBlob {
@@ -700,4 +699,19 @@ unsafe struct MyBlob {
 }
 ref var blob = ...; // construct it
 blob.Values[0] = true;
+```
+
+## Update partials in your project
+
+Unity now generates a backing partial for `ISystem`, and `SystemBase` in most cases, and for `IAspect` and `IJobEntity` in all cases. Previously, every generator had their own `Missing Partial` error message implementation. This error message has been replaced with an analyzer that throws `EA0007`. This makes it easier to maintain, and means that you can disable specific sections. However, it also means that it's more conservative because it can't always detect when a generator does actually need the partial. As a result, `ISystem` and `SystemBase` now always has to have a partial. 
+
+To fix this, you can use Roslyn. In Rider and Visual Studio you can hover over a snippet that needs fixing, then select **Add partial**. You should see the replaced snippet along with options to apply the fix for your entire document, project, solution or containing type.
+
+If you want to disallow sourcegen in a specific system, you can use the following syntax:
+
+```c#
+using Unity.Entities;
+#pragma warning disable EA0007 // Force no sourcegen to take place for this system. E.g. SystemAPI, and IJobEntity scheduling will not be avaiable in this system.
+struct ManualSystem : ISystem {}
+#pragma warning enable EA0007
 ```

@@ -27,7 +27,7 @@ namespace Unity.Entities
     /// If a BlobAsset is no longer used by any UnityObject, it will be disposed.
     /// Thread-safety: main thread only.
     /// </remarks>
-    public struct BlobAssetComputationContext<TS, TB> : IDisposable where TS : unmanaged where TB : unmanaged
+    struct BlobAssetComputationContext<TS, TB> : IDisposable where TS : unmanaged where TB : unmanaged
     {
         /// <summary>
         /// Initializes and returns an instance of BlobAssetComputationContext.
@@ -43,7 +43,6 @@ namespace Unity.Entities
             m_BlobAssetStore = blobAssetStore;
             m_ToCompute = new NativeParallelHashMap<Hash128, TS>(initialCapacity, allocator);
             m_Computed = new NativeParallelHashMap<Hash128, BlobAssetReference<TB>>(initialCapacity, allocator);
-            m_BlobPerUnityObject = new NativeParallelMultiHashMap<int, Hash128>(initialCapacity, allocator);
             m_BlobAssetStoreTypeHash = BlobAssetStore.ComputeTypeHash(typeof(TB));
         }
 
@@ -56,7 +55,6 @@ namespace Unity.Entities
         private BlobAssetStore m_BlobAssetStore;
         private NativeParallelHashMap<Hash128, TS> m_ToCompute;
         private NativeParallelHashMap<Hash128, BlobAssetReference<TB>> m_Computed;
-        private NativeParallelMultiHashMap<int, Hash128> m_BlobPerUnityObject;
         private uint m_BlobAssetStoreTypeHash;
 
         /// <summary>
@@ -79,37 +77,8 @@ namespace Unity.Entities
                 return;
             }
 
-            UpdateBlobStore();
-
             m_ToCompute.Dispose();
             m_Computed.Dispose();
-            m_BlobPerUnityObject.Dispose();
-        }
-
-        /// <summary>
-        /// Declare the BlobAsset being associated with the given UnityObject
-        /// </summary>
-        /// <param name="hash">The hash associated to the BlobAsset</param>
-        /// <param name="unityObject">The UnityObject associated with the BlobAsset</param>
-        /// <remarks>
-        /// One of the role of the <see cref="BlobAssetComputationContext{TS,TB}"/> is to track the new association between Authoring UnityObject and BlobAsset and report them to the <see cref="BlobAssetStore"/> to automatically track the life-time of the <see cref="BlobAssetReference{T}"/> and release the instances that are no longer used.
-        /// </remarks>
-        public void AssociateBlobAssetWithUnityObject(Hash128 hash, UnityObject unityObject)
-        {
-            m_BlobPerUnityObject.Add(unityObject.GetInstanceID(), hash);
-        }
-
-        /// <summary>
-        /// Declare the BlobAsset being associated with the given UnityObject
-        /// </summary>
-        /// <param name="hash">The hash associated to the BlobAsset</param>
-        /// <param name="unityObjectInstanceID">The instance ID of the UnityObject associated with the BlobAsset</param>
-        /// <remarks>
-        /// One of the role of the <see cref="BlobAssetComputationContext{TS,TB}"/> is to track the new association between Authoring UnityObject and BlobAsset and report them to the <see cref="BlobAssetStore"/> to automatically track the life-time of the <see cref="BlobAssetReference{T}"/> and release the instances that are no longer used.
-        /// </remarks>
-        public void AssociateBlobAssetWithUnityObject(Hash128 hash, int unityObjectInstanceID)
-        {
-            m_BlobPerUnityObject.Add(unityObjectInstanceID, hash);
         }
 
         /// <summary>
@@ -142,7 +111,7 @@ namespace Unity.Entities
         /// <param name="blob">The BlobAsset to add</param>
         public void AddComputedBlobAsset(Hash128 hash, BlobAssetReference<TB> blob)
         {
-            if (!m_Computed.TryAdd(hash, blob) || !m_BlobAssetStore.TryAdd(hash, m_BlobAssetStoreTypeHash, ref blob, false))
+            if (!m_Computed.TryAdd(hash, blob) || !m_BlobAssetStore.TryAdd(hash, m_BlobAssetStoreTypeHash, ref blob))
             {
                 throw new ArgumentException($"There is already a BlobAsset with the hash: {hash} in the Store or the Computed list. You should add a newly computed BlobAsset only once.");
             }
@@ -156,44 +125,7 @@ namespace Unity.Entities
         /// <returns>true if the blob asset was found, false otherwise</returns>
         public bool GetBlobAsset(Hash128 hash, out BlobAssetReference<TB> blob)
         {
-            return m_Computed.TryGetValue(hash, out blob) || m_BlobAssetStore.TryGet(hash, m_BlobAssetStoreTypeHash, out blob, false);
-        }
-
-        /// <summary>
-        /// Update the store with the recorded BlobAsset/UnityObject associations.
-        /// </summary>
-        /// <remarks>
-        /// User don't have to call this method because <see cref="Dispose"/> will do it.
-        /// This method can be called multiple times, on the first one will matter.
-        /// </remarks>
-        public void UpdateBlobStore()
-        {
-            var keys = m_BlobPerUnityObject.GetUniqueKeyArray(Allocator.Temp);
-            using (keys.Item1)
-            {
-                for (var k = 0; k < keys.Item2; ++k)
-                {
-                    var key = keys.Item1[k];
-                    var valueCount = m_BlobPerUnityObject.CountValuesForKey(key);
-                    var valueArray = new NativeArray<Hash128>(valueCount, Allocator.Temp);
-                    var i = 0;
-                    if (m_BlobPerUnityObject.TryGetFirstValue(key, out var value, out var iterator))
-                    {
-                        do
-                        {
-                            valueArray[i++] = value;
-                        }
-                        while (m_BlobPerUnityObject.TryGetNextValue(out value, ref iterator));
-
-                        valueArray.Sort();
-                    }
-
-                    m_BlobAssetStore.UpdateBlobAssetForUnityObject<TB>(key, valueArray);
-                    valueArray.Dispose();
-                }
-            }
-
-            m_BlobPerUnityObject.Clear();
+            return m_Computed.TryGetValue(hash, out blob) || m_BlobAssetStore.TryGet(hash, m_BlobAssetStoreTypeHash, out blob);
         }
     }
 }

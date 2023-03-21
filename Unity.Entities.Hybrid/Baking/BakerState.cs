@@ -26,7 +26,6 @@ namespace Unity.Entities
 #if UNITY_EDITOR
         internal UnsafeParallelHashSet<int>                    ReferencedPrefabs;
 #endif
-        internal UnsafeParallelHashSet<(uint, Hash128)>        ReferencedBlobAssets;
 
         internal BakeDependencies.RecordedDependencies Dependencies;
         internal BakerEntityUsage                      Usage;
@@ -40,7 +39,6 @@ namespace Unity.Entities
 #if UNITY_EDITOR
             ReferencedPrefabs = new UnsafeParallelHashSet<int>(1, allocator);
 #endif
-            ReferencedBlobAssets = new UnsafeParallelHashSet<(uint, Hash128)>(1, allocator);
             Dependencies = new BakeDependencies.RecordedDependencies(0, allocator);
 
             Usage = new BakerEntityUsage(entity, 0, allocator);
@@ -82,15 +80,6 @@ namespace Unity.Entities
             ReferencedPrefabs.Clear();
 #endif
 
-            var enumeratorBlob = ReferencedBlobAssets.GetEnumerator();
-            while (enumeratorBlob.MoveNext())
-            {
-                var blobHash = enumeratorBlob.Current;
-                blobAssetStore.TryRemove(blobHash.Item2, blobHash.Item1, true);
-            }
-            enumeratorBlob.Dispose();
-            ReferencedBlobAssets.Clear();
-
             AddedComponents.Clear();
             PrimaryEntity = newPrimaryEntity;
             Entities.Clear();
@@ -102,7 +91,6 @@ namespace Unity.Entities
             AddedComponents.Dispose();
             Entities.Dispose();
             Dependencies.Dispose();
-            ReferencedBlobAssets.Dispose();
 
 #if UNITY_EDITOR
             ReferencedPrefabs.Dispose();

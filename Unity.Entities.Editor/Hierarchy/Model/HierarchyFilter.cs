@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Profiling;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 
 namespace Unity.Entities.Editor
@@ -30,6 +31,8 @@ namespace Unity.Entities.Editor
 
         readonly int m_EntityIndex;
 
+        readonly NodeKind m_Kind;
+
         /// <summary>
         /// Gets the current active <see cref="FilterQueryDesc"/>.
         /// </summary>
@@ -46,19 +49,48 @@ namespace Unity.Entities.Editor
         public bool IsValid => m_QueryResult.IsValid;
 
         /// <summary>
-        /// Returns the name of the invalid component type encountered during filtering.
+        /// Returns why the filter is invalid.
         /// </summary>
-        public string ErrorComponentType => m_QueryResult.ErrorComponentType;
+        public string ErrorMsg { get; set; }
+
+        public string ErrorCategory { get; set; }
+
+        static readonly string k_ComponentTypeNotFoundTitle = L10n.Tr("Type not found");
+        static readonly string k_ComponentTypeNotFoundContent = L10n.Tr("\"{0}\" is not a component type");
 
         internal HierarchyFilter(HierarchySearch hierarchySearch, string searchString, ICollection<string> tokens, Allocator allocator)
+            : this(hierarchySearch, HierarchyQueryBuilder.BuildQuery(searchString), tokens, -1, NodeKind.None, allocator, true)
+        {
+        }
+
+        internal HierarchyFilter(HierarchySearch hierarchySearch, HierarchyQueryBuilder.Result result, ICollection<string> tokens, int entityIndex, NodeKind nodeKind, Allocator allocator, bool parseTokensForFilter)
         {
             m_HierarchySearch = hierarchySearch;
-            m_QueryResult = HierarchyQueryBuilder.BuildQuery(searchString);
-            m_Tokens = new NativeList<FixedString64Bytes>(tokens?.Count ?? 1, allocator);
-            m_EntityIndex = -1;
+            m_QueryResult = result;
 
-            if (null != tokens)
-                PreProcessTokens(tokens, m_Tokens, ref m_EntityIndex);
+            if (!string.IsNullOrEmpty(m_QueryResult.ErrorComponentType))
+            {
+                ErrorCategory = k_ComponentTypeNotFoundTitle;
+                ErrorMsg = string.Format(k_ComponentTypeNotFoundContent, m_QueryResult.ErrorComponentType);
+            }
+
+            m_Tokens = new NativeList<FixedString64Bytes>(tokens?.Count ?? 1, allocator);
+            m_EntityIndex = entityIndex;
+            m_Kind = nodeKind;
+
+            if (tokens != null)
+            {
+                if (parseTokensForFilter)
+                {
+                    PreProcessTokens(tokens, m_Tokens, ref m_EntityIndex, ref m_Kind);
+                }
+                else
+                {
+                    foreach (var t in tokens)
+                        m_Tokens.Add(ProcessToken(t));
+                    ProcessSearchValueTokens(m_Tokens);
+                }
+            }
         }
 
         public void Dispose()
@@ -66,7 +98,7 @@ namespace Unity.Entities.Editor
             m_Tokens.Dispose();
         }
 
-        static void PreProcessTokens(IEnumerable<string> inputTokens, NativeList<FixedString64Bytes> processedTokens, ref int targetIndex)
+        void PreProcessTokens(IEnumerable<string> inputTokens, NativeList<FixedString64Bytes> processedTokens, ref int targetIndex, ref NodeKind kind)
         {
             using var marker = k_PreProcessTokensMarker.Auto();
 
@@ -79,8 +111,7 @@ namespace Unity.Entities.Editor
                 // Component
                 if (token.StartsWith(Constants.ComponentSearch.TokenOp, StringComparison.OrdinalIgnoreCase))
                     continue;
-                
-                if (token.StartsWith(Constants.Hierarchy.EntityIndexTokenOpEqual, StringComparison.OrdinalIgnoreCase))
+                else if (token.StartsWith(Constants.Hierarchy.EntityIndexTokenOpEqual, StringComparison.OrdinalIgnoreCase))
                 {
                     var startIndex = Constants.Hierarchy.EntityIndexTokenOpEqual.Length;
                     var length = token.Length - startIndex;
@@ -93,9 +124,22 @@ namespace Unity.Entities.Editor
                     if (int.TryParse(value, out targetIndex))
                         continue;
                 }
+                else if (token.StartsWith(Constants.Hierarchy.NodeKindOpEqual, StringComparison.OrdinalIgnoreCase))
+                {
+                    var startIndex = Constants.Hierarchy.NodeKindOpEqual.Length;
+                    var length = token.Length - startIndex;
+                    if (length == 0)
+                        continue;
 
-                // Strip the "" from multi-word tokens
-                if (token.StartsWith("\"", StringComparison.Ordinal) && token.EndsWith("\"", StringComparison.Ordinal))
+                    var value = token.Substring(startIndex, token.Length - startIndex).ToLowerInvariant();
+                    foreach(var k in Enum.GetValues(typeof(NodeKind)))
+                    {
+                        if (k.ToString().ToLowerInvariant() == value)
+                            kind = (NodeKind)k;
+                        continue;
+                    }
+                }
+                else if (token.StartsWith("\"", StringComparison.Ordinal) && token.EndsWith("\"", StringComparison.Ordinal)) 
                 {
                     // Discard single quote or empty double quotes
                     if (token.Length > 2)
@@ -103,16 +147,26 @@ namespace Unity.Entities.Editor
                 }
                 else
                 {
-                    var truncatedToken = token.Length > FixedString64Bytes.UTF8MaxLengthInBytes ? token.Substring(0, FixedString64Bytes.UTF8MaxLengthInBytes) : token;
-
-                    // Use the fixed string to-lower variant to be compatible with filtering. 
-                    processedTokens.Add(FixedStringUtility.ToLower(truncatedToken));
+                    processedTokens.Add(ProcessToken(token));
                 }
             }
 
             if (processedTokens.Length <= 1)
                 return;
 
+            ProcessSearchValueTokens(processedTokens);
+        }
+
+        static FixedString64Bytes ProcessToken(string token)
+        {
+            var truncatedToken = token.Length > FixedString64Bytes.UTF8MaxLengthInBytes ? token.Substring(0, FixedString64Bytes.UTF8MaxLengthInBytes) : token;
+
+            // Use the fixed string to-lower variant to be compatible with filtering. 
+            return FixedStringUtility.ToLower(truncatedToken);
+        }
+
+        void ProcessSearchValueTokens(NativeList<FixedString64Bytes> processedTokens)
+        {
             // Factor out repeats by removing short strings contained in longer strings
             // e.g.: [GameObject, Object, a, z] -> [GameObject, z]
             for (var i = processedTokens.Length - 1; i >= 0; --i)
@@ -163,6 +217,8 @@ namespace Unity.Entities.Editor
             m_HierarchySearch.ApplyEntityQueryFilter(nodes, m_QueryResult.EntityQueryDesc, mask);
             m_HierarchySearch.ApplyNameFilter(nodes, m_Tokens, mask);
             m_HierarchySearch.ApplyIncludeSubSceneFilter(nodes, mask);
+            if (m_Kind != NodeKind.None)
+                m_HierarchySearch.ApplyNodeKindFilter(nodes, m_Kind, mask);
 
             if (PrefabStageUtility.GetCurrentPrefabStage() != null)
                 m_HierarchySearch.ApplyPrefabStageFilter(nodes, mask);

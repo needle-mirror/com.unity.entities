@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("Unity.TinyConversion")]
 [assembly: InternalsVisibleTo("Unity.Entities.Runtime.Build")]
 [assembly: InternalsVisibleTo("Unity.Entities.Editor")]
 [assembly: InternalsVisibleTo("Unity.Entities.Editor.Tests")]
@@ -15,3 +14,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Entities.Baking.PerformanceTests")]
 [assembly: InternalsVisibleTo("Unity.Environment.Baking")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.Tests")]
+[assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Playmode")]
+[assembly: InternalsVisibleTo("Tests.Playmode")]

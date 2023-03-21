@@ -10,9 +10,9 @@ These interfaces include:
 * [`IJobParallelForExtensions`](https://docs.unity3d.com/ScriptReference/Unity.Jobs.IJobParallelForExtensions.html): Provides extension methods to run `IJobParallelFor` jobs.
 * [`JobHandle`](https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.html): A handle to access a scheduled job. You can also use `JobHandle` instances to specify dependencies between jobs.
 
-For an overview of the jobs system see [C# Job System](https://docs.unity3d.com/Manual/JobSystemSafetySystem.html) in the Unity User Manual.
+For an overview of the jobs system see the [Job system](xref:JobSystem) documentation in the Unity User Manual.
 
-The [Jobs package](https://docs.unity3d.com/Packages/com.unity.jobs@latest) extends the job system to support ECS. It contains:
+The [Collections package](https://docs.unity3d.com/Packages/com.unity.collections@latest) extends the job system to support ECS. It contains:
 
 * [`IJobParallelForDeferExtensions`](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/api/Unity.Jobs.IJobParallelForDeferExtensions.html)
 * [`IJobFilter`](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/api/Unity.Jobs.IJobFilter.html)

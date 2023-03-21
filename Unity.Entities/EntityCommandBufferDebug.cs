@@ -1085,7 +1085,7 @@ namespace Unity.Entities
         {
             public UnsafePtrList<BasicCommand> commands;
 
-            public void Init(Allocator allocator)
+            public void Init(AllocatorManager.AllocatorHandle allocator)
             {
                 commands = new UnsafePtrList<BasicCommand>(INITIAL_COMMANDS_CAPACITY, allocator);
             }
@@ -1370,18 +1370,18 @@ namespace Unity.Entities
             public EntityNode Entities;
             public int EntitiesCount;
             public bool SkipDeferredEntityLookup;
-            public Allocator Allocator;
+            public AllocatorManager.AllocatorHandle Allocator;
 
             public MultipleEntitiesCommandView()
             {
                 Entities = new EntityNode();
                 EntitiesCount = 0;
-                Allocator = Allocator.Invalid;
+                Allocator = Unity.Collections.Allocator.Invalid;
                 SkipDeferredEntityLookup = false;
             }
 
             public MultipleEntitiesCommandView(ECBCommand commandType, int sortKey, int totalSize, EntityNode entities, int entitiesCount,
-                bool skipDeferredEntityLookup, Allocator allocator)
+                bool skipDeferredEntityLookup, AllocatorManager.AllocatorHandle allocator)
             {
                 CommandType = commandType;
                 SortKey = sortKey;
@@ -1405,7 +1405,7 @@ namespace Unity.Entities
             public object ComponentValue;
 
             public MultipleEntitiesComponentCommandView(ECBCommand commandType, int sortKey, int totalSize,
-                EntityNode entities, int entitiesCount, bool skipDeferredEntityLookup, Allocator allocator, TypeIndex componentTypeIndex, int componentSize,
+                EntityNode entities, int entitiesCount, bool skipDeferredEntityLookup, AllocatorManager.AllocatorHandle allocator, TypeIndex componentTypeIndex, int componentSize,
                 byte* componentValue)
             {
                 CommandType = commandType;
@@ -1453,7 +1453,7 @@ namespace Unity.Entities
             }
 
             public MultipleEntitiesComponentCommandWithObjectView(ECBCommand commandType, int sortKey, int totalSize, EntityNode entities, int entitiesCount,
-                bool skipDeferredEntityLookup, Allocator allocator, TypeIndex componentTypeIndex, int hashCode, EntityComponentGCNode gcNode)
+                bool skipDeferredEntityLookup, AllocatorManager.AllocatorHandle allocator, TypeIndex componentTypeIndex, int hashCode, EntityComponentGCNode gcNode)
             {
                 CommandType = commandType;
                 SortKey = sortKey;
@@ -1487,7 +1487,7 @@ namespace Unity.Entities
             public ComponentTypeSet TypeSet;
 
             public MultipleEntitiesAndComponentsCommandView(ECBCommand commandType, int sortKey, int totalSize, EntityNode entities, int entitiesCount,
-                bool skipDeferredEntityLookup, Allocator allocator, in ComponentTypeSet typeSet)
+                bool skipDeferredEntityLookup, AllocatorManager.AllocatorHandle allocator, in ComponentTypeSet typeSet)
             {
                 CommandType = commandType;
                 SortKey = sortKey;
@@ -1844,7 +1844,7 @@ namespace Unity.Entities
                 EntityNode entities,
                 bool skipDeferredEntityLookup,
                 int entitiesCount,
-                Allocator allocator,
+                AllocatorManager.AllocatorHandle allocator,
                 TypeIndex componentTypeIndex,
                 int componentSize,
                 byte* componentValue)

@@ -13,7 +13,7 @@ namespace Unity.Entities.Editor
 {
     partial class EntitiesJournalingWindow : DOTSEditorWindow
     {
-        class ComponentDataValuesVisitor : IPropertyBagVisitor, IPropertyVisitor
+        internal class ComponentDataValuesVisitor : IPropertyBagVisitor, IPropertyVisitor
         {
             readonly HashSet<string> m_Values = new HashSet<string>();
 
@@ -57,21 +57,21 @@ namespace Unity.Entities.Editor
             }
         }
 
-        const string k_RecordIndexToken = "ri";
-        const string k_RecordTypeToken = "rt";
-        const string k_FrameIndexToken = "f";
-        const string k_WorldNameToken = "w";
-        const string k_WorldIndexToken = "wi";
-        const string k_SystemToken = "s";
-        const string k_ExecutingSystemToken = "es";
-        const string k_OriginSystemToken = "os";
-        const string k_EntityNameToken = "e";
-        const string k_EntityIndexToken = "ei";
-        const string k_EntityCountToken = "ec";
-        const string k_ComponentTypeNameToken = "c";
-        const string k_ComponentTypeIndexToken = "ci";
-        const string k_ComponentCountToken = "cc";
-        const string k_ComponentDataValueToken = "v";
+        internal const string k_RecordIndexToken = "ri";
+        internal const string k_RecordTypeToken = "rt";
+        internal const string k_FrameIndexToken = "f";
+        internal const string k_WorldNameToken = "w";
+        internal const string k_WorldIndexToken = "wi";
+        internal const string k_SystemToken = "s";
+        internal const string k_ExecutingSystemToken = "es";
+        internal const string k_OriginSystemToken = "os";
+        internal const string k_EntityNameToken = "e";
+        internal const string k_EntityIndexToken = "ei";
+        internal const string k_EntityCountToken = "ec";
+        internal const string k_ComponentTypeNameToken = "c";
+        internal const string k_ComponentTypeIndexToken = "ci";
+        internal const string k_ComponentCountToken = "cc";
+        internal const string k_ComponentDataValueToken = "v";
 
         const string k_RecordIndexColumn = "record-index";
         const string k_RecordTypeColumn = "record-type";
@@ -207,6 +207,9 @@ namespace Unity.Entities.Editor
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<int>>(k_ComponentTypeIndexToken, r => r.ComponentTypes.Select(t => t.TypeIndex.Value), s_ComponentTypeIndex, "", defaultSearchOptions, "=");
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, int>(k_ComponentCountToken, r => r.ComponentTypes.Length, s_ComponentCount, "", defaultSearchOptions, "=");
             searchElement.AddSearchFilterCallbackWithPopupItem<RecordView, IEnumerable<string>>(k_ComponentDataValueToken, GetComponentDataText, s_ComponentDataValue);
+
+            var jump = toolbar.Q<Button>("jump");
+            SearchUtils.SetupJumpButton(jump, () => JournalSearchProvider.OpenProvider(searchElement.value));
 
             var detailsButton = toolbar.Q<Button>("details");
             detailsButton.tooltip = s_DetailsTooltip;
@@ -403,7 +406,7 @@ namespace Unity.Entities.Editor
             label.text = value;
         }
 
-        string[] GetComponentDataText(RecordView record)
+        internal string[] GetComponentDataText(RecordView record)
         {
             return TryGetRecordDataAsComponentDataArrayBoxed(record, out var componentDataArray) ? GetComponentDataValues(componentDataArray) : Array.Empty<string>();
         }
@@ -414,7 +417,7 @@ namespace Unity.Entities.Editor
             return m_ComponentDataValuesVisitor.GetValues();
         }
 
-        static string GetSummaryText(RecordView record)
+        internal static string GetSummaryText(RecordView record)
         {
             switch (record.RecordType)
             {
@@ -451,14 +454,14 @@ namespace Unity.Entities.Editor
             }
         }
 
-        static string GetRecordIndexText(RecordView record) => FormattingUtility.CountToString(record.Index);
-        static string GetRecordTypeText(RecordView record) => record.RecordType.ToString();
-        static string GetFrameIndexText(RecordView record) => FormattingUtility.CountToString(record.FrameIndex);
-        static string GetWorldName(RecordView record) => record.World.Name;
-        static string GetExecutingSystemName(RecordView record) => record.ExecutingSystem.Name;
-        static string GetOriginSystemName(RecordView record) => record.OriginSystem.Name;
+        internal static string GetRecordIndexText(RecordView record) => FormattingUtility.CountToString(record.Index);
+        internal static string GetRecordTypeText(RecordView record) => record.RecordType.ToString();
+        internal static string GetFrameIndexText(RecordView record) => FormattingUtility.CountToString(record.FrameIndex);
+        internal static string GetWorldName(RecordView record) => record.World.Name;
+        internal static string GetExecutingSystemName(RecordView record) => record.ExecutingSystem.Name;
+        internal static string GetOriginSystemName(RecordView record) => record.OriginSystem.Name;
 
-        static string GetEntitiesText(RecordView record)
+        internal static string GetEntitiesText(RecordView record)
         {
             var entities = record.Entities;
             if (entities.Length == 0)
@@ -471,7 +474,7 @@ namespace Unity.Entities.Editor
             return text;
         }
 
-        static string GetComponentTypesText(RecordView record)
+        internal static string GetComponentTypesText(RecordView record)
         {
             var componentTypes = record.ComponentTypes;
             if (componentTypes.Length == 0)
@@ -484,7 +487,7 @@ namespace Unity.Entities.Editor
             return text;
         }
 
-        static string GetRecordDataSystemName(RecordView record)
+        internal static string GetRecordDataSystemName(RecordView record)
         {
             return TryGetRecordDataAsSystemView(record, out var systemView) ? systemView.Name : string.Empty;
         }

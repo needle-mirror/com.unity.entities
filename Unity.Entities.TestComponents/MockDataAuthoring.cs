@@ -13,7 +13,9 @@ namespace Unity.Entities.Tests
     {
         public override void Bake(MockDataAuthoring authoring)
         {
-            AddComponent(new MockData{Value = authoring.Value});
+            // This test might require transform components
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponent(entity, new MockData{Value = authoring.Value});
         }
     }
 
@@ -22,10 +24,12 @@ namespace Unity.Entities.Tests
     {
         public override void Bake(MockDataAuthoring authoring)
         {
-            AddComponent(new MockData{Value = authoring.Value});
+            // This test might require transform components
+            var mainEntity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponent(mainEntity, new MockData{Value = authoring.Value});
             for (int i = 0; i < authoring.Value; i++)
             {
-                var entity = CreateAdditionalEntity();
+                var entity = CreateAdditionalEntity(TransformUsageFlags.Dynamic);
                 AddComponent(entity, new MockData{Value = i+1});
             }
         }

@@ -10,10 +10,10 @@ namespace Unity.Entities
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup), OrderFirst = true)]
-    public class BeginInitializationEntityCommandBufferSystem : EntityCommandBufferSystem
+    public partial class BeginInitializationEntityCommandBufferSystem : EntityCommandBufferSystem
     {
         /// <summary>
-        /// Call <see cref="SystemAPI.GetSingletonRW{T}"/> to get this component for this system, and then call
+        /// Call <see cref="SystemAPI.GetSingleton{T}"/> to get this component for this system, and then call
         /// <see cref="CreateCommandBuffer"/> on this singleton to create an ECB to be played back by this system.
         /// </summary>
         /// <remarks>
@@ -23,7 +23,7 @@ namespace Unity.Entities
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
             internal UnsafeList<EntityCommandBuffer>* pendingBuffers;
-            internal Allocator allocator;
+            internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
             /// Create a command buffer for the parent system to play back.
@@ -36,6 +36,7 @@ namespace Unity.Entities
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
+
             /// <summary>
             /// Sets the list of command buffers to play back when this system updates.
             /// </summary>
@@ -47,11 +48,21 @@ namespace Unity.Entities
             {
                 pendingBuffers = (UnsafeList<EntityCommandBuffer>*)UnsafeUtility.AddressOf(ref buffers);
             }
+
             /// <summary>
             /// Set the allocator that command buffers created with this singleton should be allocated with.
             /// </summary>
             /// <param name="allocatorIn">The allocator to use</param>
             public void SetAllocator(Allocator allocatorIn)
+            {
+                allocator = allocatorIn;
+            }
+
+            /// <summary>
+            /// Set the allocator that command buffers created with this singleton should be allocated with.
+            /// </summary>
+            /// <param name="allocatorIn">The allocator to use</param>
+            public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
             }
@@ -70,10 +81,10 @@ namespace Unity.Entities
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup), OrderLast = true)]
-    public class EndInitializationEntityCommandBufferSystem : EntityCommandBufferSystem
+    public partial class EndInitializationEntityCommandBufferSystem : EntityCommandBufferSystem
     {
         /// <summary>
-        /// Call <see cref="SystemAPI.GetSingletonRW{T}"/> to get this component for this system, and then call
+        /// Call <see cref="SystemAPI.GetSingleton{T}"/> to get this component for this system, and then call
         /// <see cref="CreateCommandBuffer"/> on this singleton to create an ECB to be played back by this system.
         /// </summary>
         /// <remarks>
@@ -83,7 +94,7 @@ namespace Unity.Entities
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
             internal UnsafeList<EntityCommandBuffer>* pendingBuffers;
-            internal Allocator allocator;
+            internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
             /// Create a command buffer for the parent system to play back.
@@ -96,6 +107,7 @@ namespace Unity.Entities
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
+
             /// <summary>
             /// Sets the list of command buffers to play back when this system updates.
             /// </summary>
@@ -107,11 +119,21 @@ namespace Unity.Entities
             {
                 pendingBuffers = (UnsafeList<EntityCommandBuffer>*)UnsafeUtility.AddressOf(ref buffers);
             }
+
             /// <summary>
             /// Set the allocator that command buffers created with this singleton should be allocated with.
             /// </summary>
             /// <param name="allocatorIn">The allocator to use</param>
             public void SetAllocator(Allocator allocatorIn)
+            {
+                allocator = allocatorIn;
+            }
+
+            /// <summary>
+            /// Set the allocator that command buffers created with this singleton should be allocated with.
+            /// </summary>
+            /// <param name="allocatorIn">The allocator to use</param>
+            public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
             }
@@ -128,7 +150,7 @@ namespace Unity.Entities
     /// <summary>
     /// The earliest of the default system groups to run in each frame. Contains systems related to setting up each new frame.
     /// </summary>
-    public class InitializationSystemGroup : ComponentSystemGroup
+    public partial class InitializationSystemGroup : ComponentSystemGroup
     {
         /// <summary>
         /// Default constructor
@@ -153,10 +175,10 @@ namespace Unity.Entities
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup), OrderFirst = true)]
-    public class BeginFixedStepSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
+    public partial class BeginFixedStepSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
     {
         /// <summary>
-        /// Call <see cref="SystemAPI.GetSingletonRW{T}"/> to get this component for this system, and then call
+        /// Call <see cref="SystemAPI.GetSingleton{T}"/> to get this component for this system, and then call
         /// <see cref="CreateCommandBuffer"/> on this singleton to create an ECB to be played back by this system.
         /// </summary>
         /// <remarks>
@@ -166,7 +188,7 @@ namespace Unity.Entities
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
             internal UnsafeList<EntityCommandBuffer>* pendingBuffers;
-            internal Allocator allocator;
+            internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
             /// Create a command buffer for the parent system to play back.
@@ -179,6 +201,7 @@ namespace Unity.Entities
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
+
             /// <summary>
             /// Sets the list of command buffers to play back when this system updates.
             /// </summary>
@@ -190,11 +213,21 @@ namespace Unity.Entities
             {
                 pendingBuffers = (UnsafeList<EntityCommandBuffer>*)UnsafeUtility.AddressOf(ref buffers);
             }
+
             /// <summary>
             /// Set the allocator that command buffers created with this singleton should be allocated with.
             /// </summary>
             /// <param name="allocatorIn">The allocator to use</param>
             public void SetAllocator(Allocator allocatorIn)
+            {
+                allocator = allocatorIn;
+            }
+
+            /// <summary>
+            /// Set the allocator that command buffers created with this singleton should be allocated with.
+            /// </summary>
+            /// <param name="allocatorIn">The allocator to use</param>
+            public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
             }
@@ -213,10 +246,10 @@ namespace Unity.Entities
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup), OrderLast = true)]
-    public class EndFixedStepSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
+    public partial class EndFixedStepSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
     {
         /// <summary>
-        /// Call <see cref="SystemAPI.GetSingletonRW{T}"/> to get this component for this system, and then call
+        /// Call <see cref="SystemAPI.GetSingleton{T}"/> to get this component for this system, and then call
         /// <see cref="CreateCommandBuffer"/> on this singleton to create an ECB to be played back by this system.
         /// </summary>
         /// <remarks>
@@ -226,7 +259,7 @@ namespace Unity.Entities
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
             internal UnsafeList<EntityCommandBuffer>* pendingBuffers;
-            internal Allocator allocator;
+            internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
             /// Create a command buffer for the parent system to play back.
@@ -239,6 +272,7 @@ namespace Unity.Entities
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
+
             /// <summary>
             /// Sets the list of command buffers to play back when this system updates.
             /// </summary>
@@ -250,11 +284,21 @@ namespace Unity.Entities
             {
                 pendingBuffers = (UnsafeList<EntityCommandBuffer>*)UnsafeUtility.AddressOf(ref buffers);
             }
+
             /// <summary>
             /// Set the allocator that command buffers created with this singleton should be allocated with.
             /// </summary>
             /// <param name="allocatorIn">The allocator to use</param>
             public void SetAllocator(Allocator allocatorIn)
+            {
+                allocator = allocatorIn;
+            }
+
+            /// <summary>
+            /// Set the allocator that command buffers created with this singleton should be allocated with.
+            /// </summary>
+            /// <param name="allocatorIn">The allocator to use</param>
+            public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
             }
@@ -282,7 +326,7 @@ namespace Unity.Entities
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
     [UpdateAfter(typeof(BeginSimulationEntityCommandBufferSystem))]
-    public class FixedStepSimulationSystemGroup : ComponentSystemGroup
+    public partial class FixedStepSimulationSystemGroup : ComponentSystemGroup
     {
         /// <summary>
         /// Set the timestep use by this group, in seconds. The default value is 1/60 seconds.
@@ -314,10 +358,10 @@ namespace Unity.Entities
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(VariableRateSimulationSystemGroup), OrderFirst = true)]
-    public class BeginVariableRateSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
+    public partial class BeginVariableRateSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
     {
         /// <summary>
-        /// Call <see cref="SystemAPI.GetSingletonRW{T}"/> to get this component for this system, and then call
+        /// Call <see cref="SystemAPI.GetSingleton{T}"/> to get this component for this system, and then call
         /// <see cref="CreateCommandBuffer"/> on this singleton to create an ECB to be played back by this system.
         /// </summary>
         /// <remarks>
@@ -327,7 +371,7 @@ namespace Unity.Entities
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
             internal UnsafeList<EntityCommandBuffer>* pendingBuffers;
-            internal Allocator allocator;
+            internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
             /// Create a command buffer for the parent system to play back.
@@ -340,6 +384,7 @@ namespace Unity.Entities
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
+
             /// <summary>
             /// Sets the list of command buffers to play back when this system updates.
             /// </summary>
@@ -351,11 +396,21 @@ namespace Unity.Entities
             {
                 pendingBuffers = (UnsafeList<EntityCommandBuffer>*)UnsafeUtility.AddressOf(ref buffers);
             }
+
             /// <summary>
             /// Set the allocator that command buffers created with this singleton should be allocated with.
             /// </summary>
             /// <param name="allocatorIn">The allocator to use</param>
             public void SetAllocator(Allocator allocatorIn)
+            {
+                allocator = allocatorIn;
+            }
+
+            /// <summary>
+            /// Set the allocator that command buffers created with this singleton should be allocated with.
+            /// </summary>
+            /// <param name="allocatorIn">The allocator to use</param>
+            public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
             }
@@ -374,10 +429,10 @@ namespace Unity.Entities
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(VariableRateSimulationSystemGroup), OrderLast = true)]
-    public class EndVariableRateSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
+    public partial class EndVariableRateSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
     {
         /// <summary>
-        /// Call <see cref="SystemAPI.GetSingletonRW{T}"/> to get this component for this system, and then call
+        /// Call <see cref="SystemAPI.GetSingleton{T}"/> to get this component for this system, and then call
         /// <see cref="CreateCommandBuffer"/> on this singleton to create an ECB to be played back by this system.
         /// </summary>
         /// <remarks>
@@ -387,7 +442,7 @@ namespace Unity.Entities
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
             internal UnsafeList<EntityCommandBuffer>* pendingBuffers;
-            internal Allocator allocator;
+            internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
             /// Create a command buffer for the parent system to play back.
@@ -400,6 +455,7 @@ namespace Unity.Entities
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
+
             /// <summary>
             /// Sets the list of command buffers to play back when this system updates.
             /// </summary>
@@ -411,11 +467,21 @@ namespace Unity.Entities
             {
                 pendingBuffers = (UnsafeList<EntityCommandBuffer>*)UnsafeUtility.AddressOf(ref buffers);
             }
+
             /// <summary>
             /// Set the allocator that command buffers created with this singleton should be allocated with.
             /// </summary>
             /// <param name="allocatorIn">The allocator to use</param>
             public void SetAllocator(Allocator allocatorIn)
+            {
+                allocator = allocatorIn;
+            }
+
+            /// <summary>
+            /// Set the allocator that command buffers created with this singleton should be allocated with.
+            /// </summary>
+            /// <param name="allocatorIn">The allocator to use</param>
+            public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
             }
@@ -440,7 +506,7 @@ namespace Unity.Entities
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
     [UpdateAfter(typeof(BeginSimulationEntityCommandBufferSystem))]
-    public class VariableRateSimulationSystemGroup : ComponentSystemGroup
+    public partial class VariableRateSimulationSystemGroup : ComponentSystemGroup
     {
         /// <summary>
         /// The timestep use by this group, in seconds. This value will reflect the total elapsed time since the last update.
@@ -465,10 +531,10 @@ namespace Unity.Entities
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
-    public class BeginSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
+    public partial class BeginSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
     {
         /// <summary>
-        /// Call <see cref="SystemAPI.GetSingletonRW{T}"/> to get this component for this system, and then call
+        /// Call <see cref="SystemAPI.GetSingleton{T}"/> to get this component for this system, and then call
         /// <see cref="CreateCommandBuffer"/> on this singleton to create an ECB to be played back by this system.
         /// </summary>
         /// <remarks>
@@ -478,7 +544,7 @@ namespace Unity.Entities
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
             internal UnsafeList<EntityCommandBuffer>* pendingBuffers;
-            internal Allocator allocator;
+            internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
             /// Create a command buffer for the parent system to play back.
@@ -491,6 +557,7 @@ namespace Unity.Entities
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
+
             /// <summary>
             /// Sets the list of command buffers to play back when this system updates.
             /// </summary>
@@ -502,11 +569,21 @@ namespace Unity.Entities
             {
                 pendingBuffers = (UnsafeList<EntityCommandBuffer>*)UnsafeUtility.AddressOf(ref buffers);
             }
+
             /// <summary>
             /// Set the allocator that command buffers created with this singleton should be allocated with.
             /// </summary>
             /// <param name="allocatorIn">The allocator to use</param>
             public void SetAllocator(Allocator allocatorIn)
+            {
+                allocator = allocatorIn;
+            }
+
+            /// <summary>
+            /// Set the allocator that command buffers created with this singleton should be allocated with.
+            /// </summary>
+            /// <param name="allocatorIn">The allocator to use</param>
+            public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
             }
@@ -525,10 +602,10 @@ namespace Unity.Entities
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
-    public class EndSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
+    public partial class EndSimulationEntityCommandBufferSystem : EntityCommandBufferSystem
     {
         /// <summary>
-        /// Call <see cref="SystemAPI.GetSingletonRW{T}"/> to get this component for this system, and then call
+        /// Call <see cref="SystemAPI.GetSingleton{T}"/> to get this component for this system, and then call
         /// <see cref="CreateCommandBuffer"/> on this singleton to create an ECB to be played back by this system.
         /// </summary>
         /// <remarks>
@@ -538,7 +615,7 @@ namespace Unity.Entities
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
             internal UnsafeList<EntityCommandBuffer>* pendingBuffers;
-            internal Allocator allocator;
+            internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
             /// Create a command buffer for the parent system to play back.
@@ -551,6 +628,7 @@ namespace Unity.Entities
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
+
             /// <summary>
             /// Sets the list of command buffers to play back when this system updates.
             /// </summary>
@@ -562,11 +640,21 @@ namespace Unity.Entities
             {
                 pendingBuffers = (UnsafeList<EntityCommandBuffer>*)UnsafeUtility.AddressOf(ref buffers);
             }
+
             /// <summary>
             /// Set the allocator that command buffers created with this singleton should be allocated with.
             /// </summary>
             /// <param name="allocatorIn">The allocator to use</param>
             public void SetAllocator(Allocator allocatorIn)
+            {
+                allocator = allocatorIn;
+            }
+
+            /// <summary>
+            /// Set the allocator that command buffers created with this singleton should be allocated with.
+            /// </summary>
+            /// <param name="allocatorIn">The allocator to use</param>
+            public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
             }
@@ -587,12 +675,12 @@ namespace Unity.Entities
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     [UpdateBefore(typeof(EndSimulationEntityCommandBufferSystem))]
-    public class LateSimulationSystemGroup : ComponentSystemGroup {}
+    public partial class LateSimulationSystemGroup : ComponentSystemGroup {}
 
     /// <summary>
     /// Default system group that contains systems that update the simulated world for a new frame.
     /// </summary>
-    public class SimulationSystemGroup : ComponentSystemGroup
+    public partial class SimulationSystemGroup : ComponentSystemGroup
     {
         /// <summary>
         /// Default constructor
@@ -608,10 +696,10 @@ namespace Unity.Entities
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(PresentationSystemGroup), OrderFirst = true)]
-    public class BeginPresentationEntityCommandBufferSystem : EntityCommandBufferSystem
+    public partial class BeginPresentationEntityCommandBufferSystem : EntityCommandBufferSystem
     {
         /// <summary>
-        /// Call <see cref="SystemAPI.GetSingletonRW{T}"/> to get this component for this system, and then call
+        /// Call <see cref="SystemAPI.GetSingleton{T}"/> to get this component for this system, and then call
         /// <see cref="CreateCommandBuffer"/> on this singleton to create an ECB to be played back by this system.
         /// </summary>
         /// <remarks>
@@ -621,7 +709,7 @@ namespace Unity.Entities
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
             internal UnsafeList<EntityCommandBuffer>* pendingBuffers;
-            internal Allocator allocator;
+            internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
             /// Create a command buffer for the parent system to play back.
@@ -634,6 +722,7 @@ namespace Unity.Entities
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
+
             /// <summary>
             /// Sets the list of command buffers to play back when this system updates.
             /// </summary>
@@ -645,11 +734,21 @@ namespace Unity.Entities
             {
                 pendingBuffers = (UnsafeList<EntityCommandBuffer>*)UnsafeUtility.AddressOf(ref buffers);
             }
+
             /// <summary>
             /// Set the allocator that command buffers created with this singleton should be allocated with.
             /// </summary>
             /// <param name="allocatorIn">The allocator to use</param>
             public void SetAllocator(Allocator allocatorIn)
+            {
+                allocator = allocatorIn;
+            }
+
+            /// <summary>
+            /// Set the allocator that command buffers created with this singleton should be allocated with.
+            /// </summary>
+            /// <param name="allocatorIn">The allocator to use</param>
+            public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
             }
@@ -667,7 +766,7 @@ namespace Unity.Entities
     /// The system group containing systems related to rendering the simulated world.
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Presentation, WorldSystemFilterFlags.Presentation)]
-    public class PresentationSystemGroup : ComponentSystemGroup
+    public partial class PresentationSystemGroup : ComponentSystemGroup
     {
         /// <summary>
         /// Default constructor

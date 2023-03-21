@@ -21,7 +21,7 @@ namespace Unity.Entities.Tests
     {
         private EntityCommandsParameterInForEach_TestSystem EntityCommandsInForEachTestSystem => World.GetOrCreateSystemManaged<EntityCommandsParameterInForEach_TestSystem>();
 
-        private class TestEntityCommandBufferSystem : EntityCommandBufferSystem{}
+        private partial class TestEntityCommandBufferSystem : EntityCommandBufferSystem{}
 
         protected partial class EntityCommandsParameterInForEach_TestSystem : SystemBase
         {

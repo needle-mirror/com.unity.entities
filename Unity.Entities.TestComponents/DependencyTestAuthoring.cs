@@ -17,7 +17,9 @@ namespace Unity.Entities.Tests
             {
                 DependsOn(authoring.Asset);
                 DependsOn(authoring.GameObject);
-                AddComponent(new ConversionDependencyData
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new ConversionDependencyData
                 {
                     MaterialColor = DependsOn(authoring.Material) != null ? authoring.Material.color : default,
                     HasMaterial = DependsOn(authoring.Material) != null,

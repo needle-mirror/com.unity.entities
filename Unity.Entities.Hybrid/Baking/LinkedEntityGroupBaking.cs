@@ -32,7 +32,7 @@ namespace Unity.Entities.Hybrid.Baking
                 .Build(this);
 
             _NoBakeOnlyQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithNone<BakingOnlyEntity>()
+                .WithNone<BakingOnlyEntity, RemoveUnusedEntityInBake>()
                 .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
                 .Build(this);
             Assert.IsFalse(_NoBakeOnlyQuery.HasFilter(), "The use of EntityQueryMask in this job will not respect the query's active filter settings.");

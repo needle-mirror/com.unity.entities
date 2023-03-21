@@ -524,7 +524,7 @@ namespace Unity.Entities.PerformanceTests
         }
     }
 
-    public class PlaybackSystem : EntityCommandBufferSystem
+    public partial class PlaybackSystem : EntityCommandBufferSystem
     {
     }
 

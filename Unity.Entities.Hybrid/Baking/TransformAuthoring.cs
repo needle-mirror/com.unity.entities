@@ -60,7 +60,7 @@ namespace Unity.Entities
         /// <summary>
         /// <see cref="TransformUsageFlags"/> value applied to this entity.
         /// </summary>
-        public TransformUsageFlags   RuntimeTransformUsage;
+        internal RuntimeTransformComponentFlags   RuntimeTransformUsage;
 
         /// <summary>
         /// Version number to detect changes to this component.

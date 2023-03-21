@@ -25,10 +25,12 @@ namespace Unity.Scenes.Editor.Tests
     {
         public override void Bake(SubSceneLoadTestBufferAuthoring authoring)
         {
-            var buf = AddBuffer<SubSceneLoadTestBufferComponent>(GetEntity(authoring));
+            // This test shouldn't require transform components
+            var mainEntity = GetEntity(TransformUsageFlags.None);
+            var buf = AddBuffer<SubSceneLoadTestBufferComponent>(mainEntity);
             for (int i = 0; i < authoring.Ints.Count; i++)
             {
-                var entity = GetEntity(authoring.Entities[i]);
+                var entity = GetEntity(authoring.Entities[i], TransformUsageFlags.None);
                 buf.Add(new SubSceneLoadTestBufferComponent
                 {
                     Entity = entity,

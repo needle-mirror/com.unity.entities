@@ -1,6 +1,5 @@
 namespace Doc.CodeSamples.Tests
 {
-#if !ENABLE_TRANSFORM_V1
     #region example
     using Unity.Entities;
     using Unity.Transforms;
@@ -41,5 +40,4 @@ namespace Doc.CodeSamples.Tests
         }
     }
     #endregion
-#endif
 }

@@ -241,7 +241,6 @@ namespace Unity.Entities.Editor
                 public const string Category = k_Base + "-category";
                 public const string Menu = k_Base + "-menu";
                 public const string AspectIcon = "aspect-icon";
-                public const string TransformAspectIcon = "transform-aspect-icon";
                 public const string Shrink = "shrink";
             }
 

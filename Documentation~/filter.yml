@@ -83,3 +83,12 @@ apiRules:
   - exclude:
       uidRegex: ^Unity\.Entities\.FastEquality
       type: Type
+  - exclude:
+      uidRegex: ^Unity\.Entities\.FilteredArchetype
+      type: Type
+  - exclude:
+      uidRegex: ^Unity\.Entities\.ComponentSystemBase\.OnCreateForCompiler
+      type: Method
+  - exclude:
+      uidRegex: ^Unity\.Entities\.ISystemCompilerGenerated
+      type: Interface

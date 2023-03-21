@@ -17,17 +17,11 @@ namespace Unity.Entities.Tests
             where T : IAspect, IAspectCreate<T>
         {
             var all = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            var any = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            var none = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            var disabled = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            var absent = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            default(T).AddComponentRequirementsTo(ref all, ref any, ref none, ref disabled, ref absent, isReadOnly);
+            default(T).AddComponentRequirementsTo(ref all, isReadOnly);
             var arrayAll = new ComponentType[all.Length];
             for (int i = 0; i < all.Length; i++)
                 arrayAll[i] = all[i];
             all.Dispose();
-            any.Dispose();
-            none.Dispose();
             return arrayAll;
         }
 
@@ -165,8 +159,7 @@ namespace Unity.Entities.Tests
     {
         public AspectDisableGeneration CreateAspect(Entity entity, ref SystemState system, bool isReadOnly) => default;
 
-        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, ref UnsafeList<ComponentType> any, ref UnsafeList<ComponentType> none,
-            ref UnsafeList<ComponentType> disabled, ref UnsafeList<ComponentType> absent, bool isReadOnly)
+        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, bool isReadOnly)
         {
             all.Add(ComponentType.ReadWrite<EcsTestData>());
         }
@@ -862,41 +855,19 @@ namespace Unity.Entities.Tests
             public IEnumerator<T> GetEnumerator() => List.GetEnumerator();
             IEnumerator IEnumerable.GetEnumerator() => List.GetEnumerator();
         }
-        public void TestAspectAddComponentRequirementsTo<TAspect>(ComponentType[] all, ComponentType[] any, ComponentType[] none,
-            ComponentType[] disabled, ComponentType[] absent, bool isReadOnly)
+
+        void TestAspectAddComponentRequirementsTo<TAspect>(IReadOnlyCollection<ComponentType> expectedAll, bool isReadOnly)
             where TAspect : struct, IAspect, IAspectCreate<TAspect>
         {
-            var allList = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            var anyList = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            var noneList = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            var disabledList = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            var absentList = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            default(TAspect).AddComponentRequirementsTo(ref allList, ref anyList, ref noneList, ref disabledList, ref absentList, isReadOnly);
-            Assert.AreEqual(all.Length, allList.Length, $"AddComponentRequirementsTo length of '{nameof(all)}' list is unexpected for aspect '{typeof(TAspect).Name}'");
-            Assert.AreEqual(any.Length, anyList.Length, $"AddComponentRequirementsTo length of '{nameof(any)}' list is unexpected for aspect '{typeof(TAspect).Name}'");
-            Assert.AreEqual(none.Length, noneList.Length, $"AddComponentRequirementsTo length of '{nameof(none)}' list is unexpected for aspect '{typeof(TAspect).Name}'");
-            Assert.AreEqual(disabled.Length, disabledList.Length, $"AddComponentRequirementsTo length of '{nameof(disabled)}' list is unexpected for aspect '{typeof(TAspect).Name}'");
-            Assert.AreEqual(absent.Length, absentList.Length, $"AddComponentRequirementsTo length of '{nameof(absent)}' list is unexpected for aspect '{typeof(TAspect).Name}'");
-            Assert.IsFalse(
-                all.Zip(EnumUnsafeList.ToEnumerable(allList), (a, b) => a == b).Any(areEqual => !areEqual),
-                $"AddComponentRequirementsTo fails on '{typeof(TAspect).Name}' {nameof(all)} list");
-            Assert.IsFalse(
-                any.Zip(EnumUnsafeList.ToEnumerable(anyList), (a, b) => a == b).Any(areEqual => !areEqual),
-                $"AddComponentRequirementsTo fails on '{typeof(TAspect).Name}' {nameof(any)} list");
-            Assert.IsFalse(
-                none.Zip(EnumUnsafeList.ToEnumerable(noneList), (a, b) => a == b).Any(areEqual => !areEqual),
-                $"AddComponentRequirementsTo fails on '{typeof(TAspect).Name}' {nameof(none)} list");
-            Assert.IsFalse(
-                disabled.Zip(EnumUnsafeList.ToEnumerable(disabledList), (a, b) => a == b).Any(areEqual => !areEqual),
-                $"AddComponentRequirementsTo fails on '{typeof(TAspect).Name}' {nameof(disabled)} list");
-            Assert.IsFalse(
-                absent.Zip(EnumUnsafeList.ToEnumerable(absentList), (a, b) => a == b).Any(areEqual => !areEqual),
-                $"AddComponentRequirementsTo fails on '{typeof(TAspect).Name}' {nameof(absent)} list");
-            allList.Dispose();
-            anyList.Dispose();
-            noneList.Dispose();
-            disabledList.Dispose();
-            absentList.Dispose();
+            var actualAll = new UnsafeList<ComponentType>(8, Allocator.Temp);
+            default(TAspect).AddComponentRequirementsTo(ref actualAll, isReadOnly);
+
+            Assert.AreEqual(expectedAll.Count, actualAll.Length, $"Expected {expectedAll.Count} components; found {actualAll.Length} components instead.");
+
+            foreach (var expected in expectedAll)
+                Assert.IsTrue(actualAll.Contains(expected), $"Expected but did not find component with type index {expected.TypeIndex}.");
+
+            actualAll.Dispose();
         }
         #endregion
 
@@ -905,10 +876,6 @@ namespace Unity.Entities.Tests
         {
             TestAspectAddComponentRequirementsTo<MyAspect>(
                 new []{ComponentType.ReadWrite<EcsTestData>()},
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
                 isReadOnly: false
             );
 
@@ -920,10 +887,6 @@ namespace Unity.Entities.Tests
                     ComponentType.ReadWrite<EcsTestData3>(),
                     ComponentType.ReadOnly<EcsTestData4>(),
                 },
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
                 isReadOnly: false
             );
         }
@@ -933,10 +896,6 @@ namespace Unity.Entities.Tests
         {
             // An aspect with only optional components is a valid empty aspect.
             TestAspectAddComponentRequirementsTo<AspectWithOnlyOptionalComponent>(
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
                 Array.Empty<ComponentType>(),
                 isReadOnly: false
             );
@@ -952,10 +911,6 @@ namespace Unity.Entities.Tests
         {
             // An aspect with only optional nested aspects is a valid empty aspect.
             TestAspectAddComponentRequirementsTo<AspectWithOnlyOptionalComponent>(
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
-                Array.Empty<ComponentType>(),
                 Array.Empty<ComponentType>(),
                 isReadOnly: false
             );

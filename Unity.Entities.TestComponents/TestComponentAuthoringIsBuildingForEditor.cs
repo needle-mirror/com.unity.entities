@@ -12,12 +12,15 @@ namespace Unity.Entities.Tests
         public override void Bake(TestComponentAuthoringIsBuildingForEditor authoring)
         {
 #if UNITY_EDITOR
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
             if (IsBakingForEditor())
-                AddComponent(new IntTestData(1));
+                AddComponent(entity, new IntTestData(1));
             else
-                AddComponent(new IntTestData(2));
+                AddComponent(entity, new IntTestData(2));
 #else
-            AddComponent(new IntTestData(3));
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new IntTestData(3));
 #endif
         }
     }

@@ -46,7 +46,9 @@ namespace Unity.Scenes.Editor.Tests
     {
         public override void Bake(SubSceneLoadTestSharedAuthoring authoring)
         {
-            AddSharedComponentManaged(new SubSceneLoadTestSharedComponent()
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddSharedComponentManaged(entity, new SubSceneLoadTestSharedComponent()
             {
                 Int = authoring.Int,
                 Asset = authoring.Asset,

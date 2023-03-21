@@ -29,7 +29,9 @@ namespace Unity.Entities.Tests
                 component.Float2 = authoring.Float2;
                 component.Float3 = authoring.Float3;
                 component.Float4 = authoring.Float4;
-                AddComponent(component);
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, component);
             }
         }
     }

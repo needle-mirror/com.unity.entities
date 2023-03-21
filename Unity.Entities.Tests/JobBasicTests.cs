@@ -382,7 +382,7 @@ namespace Unity.Entities.Tests
             public void Execute(int i)
             {
                 result.TryAdd(i, 17);
-                threadMap.TryAdd(threadMap.m_ThreadIndex, true);
+                threadMap.TryAdd(threadMap.ThreadIndex, true);
             }
         }
 
@@ -421,7 +421,7 @@ namespace Unity.Entities.Tests
             public void Execute(int i)
             {
                 result.Add(i, 17);
-                threadMap.TryAdd(threadMap.m_ThreadIndex, true);
+                threadMap.TryAdd(threadMap.ThreadIndex, true);
             }
         }
 

@@ -76,9 +76,10 @@ namespace Unity.Entities
             /// Convert array to native array.
             /// </summary>
             /// <param name="allocator">The Allocator of the NativeArray.</param>
-            public NativeArray<RecordView> ToNativeArray(Allocator allocator)
+            public NativeArray<RecordView> ToNativeArray(AllocatorManager.AllocatorHandle allocator)
             {
-                var array = new NativeArray<RecordView>(m_RecordsLength, allocator);
+                // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
+                var array = new NativeArray<RecordView>(m_RecordsLength, allocator.ToAllocator);
                 for (var i = 0; i < m_RecordsLength; ++i)
                     array[i] = this[i];
                 return array;

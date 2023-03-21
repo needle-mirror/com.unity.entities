@@ -59,7 +59,7 @@ namespace Unity.Entities
 
         static NativeList<DuplicateEntityGuid> GetDuplicateEntityGuids(
             NativeArray<EntityInChunkWithGuid> sortedEntitiesWithGuid,
-            Allocator allocator,
+            AllocatorManager.AllocatorHandle allocator,
             out JobHandle jobHandle,
             JobHandle dependsOn = default)
         {

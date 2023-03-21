@@ -29,11 +29,9 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Playmode")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Editmode.Content")]
-[assembly: InternalsVisibleTo("Unity.Tiny.Animation")]
 [assembly: InternalsVisibleTo("Unity.Transforms.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.Transforms.Tests")]
 [assembly: InternalsVisibleTo("Unity.Transforms.PerformanceTests")]
-[assembly: InternalsVisibleTo("Unity.Tiny.Image2D")]
 [assembly: InternalsVisibleTo("Unity.Entities.Baking.PerformanceTests")]
 // This adds internal access for UNSUPPORTED package that is currently in the Monorepo
 [assembly: InternalsVisibleTo("Unity.StableID.Hybrid")]

@@ -425,13 +425,13 @@ namespace Unity.Entities.Tests
                 TotalSystemCount = World.Systems.Count;
             }
         }
-        public class MultiPhaseTestSystem1 : MultiPhaseTestSystem
+        public partial class MultiPhaseTestSystem1 : MultiPhaseTestSystem
         {
         }
-        public class MultiPhaseTestSystem2 : MultiPhaseTestSystem
+        public partial class MultiPhaseTestSystem2 : MultiPhaseTestSystem
         {
         }
-        public class MultiPhaseTestSystem3 : MultiPhaseTestSystem
+        public partial class MultiPhaseTestSystem3 : MultiPhaseTestSystem
         {
         }
 

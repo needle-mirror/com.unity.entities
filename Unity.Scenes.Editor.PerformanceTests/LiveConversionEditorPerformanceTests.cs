@@ -641,11 +641,7 @@ namespace Unity.Scenes.Editor.Tests
                         var entity = CreateAdditionalEntity(TransformUsageFlags.ManualOverride);
 
                         float3 localPosition = (axisX * i);
-#if !ENABLE_TRANSFORM_V1
                         AddComponent(entity, LocalTransform.FromPosition(localPosition));
-#else
-                        AddComponent(entity, new Translation { Value = localPosition });
-#endif
                         AddComponent<LocalToWorld>(entity);
                     }
                 }

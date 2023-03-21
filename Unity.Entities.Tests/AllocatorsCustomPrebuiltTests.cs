@@ -108,7 +108,7 @@ internal class ExampleSystemGroupAllocator
     #region system-group-allocator
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup), OrderFirst = true)]
-    public class ExampleFixedStepSimulationSystemGroup : ComponentSystemGroup
+    public partial class ExampleFixedStepSimulationSystemGroup : ComponentSystemGroup
     {
         // Set the timestep use by this group, in seconds. The default value is 1/60 seconds.
         // This value will be clamped to the range [0.0001f ... 10.0f].

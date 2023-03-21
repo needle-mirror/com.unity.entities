@@ -13,6 +13,8 @@ namespace Unity.Entities.Tests.EntityQuerySourceGen
             Entity _entityWithEcsTestData3;
             Entity _entityWithEcsTestData4AndChunkComponentData;
             Entity _entityWithEcsTestDatas123;
+            Entity _entityWithSharedComponent_Value1;
+            Entity _entityWithSharedComponent_Value2;
 
             protected override void OnUpdate() {}
 
@@ -25,12 +27,36 @@ namespace Unity.Entities.Tests.EntityQuerySourceGen
                 _entityWithEcsTestData3 = EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData3>());
                 _entityWithEcsTestData4AndChunkComponentData = EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData4>(), ComponentType.ChunkComponent<EcsTestData5>());
                 _entityWithEcsTestDatas123 = EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>(), ComponentType.ReadWrite<EcsTestData3>());
+
+                _entityWithSharedComponent_Value1 = EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+                EntityManager.AddSharedComponent(_entityWithSharedComponent_Value1, new SharedData1(1));
+
+                _entityWithSharedComponent_Value2 = EntityManager.CreateEntity(ComponentType.ReadWrite<EcsTestData>());
+                EntityManager.AddSharedComponent(_entityWithSharedComponent_Value1, new SharedData1(2));
+            }
+
+            public void ChainedWithEntityQueryMethods()
+            {
+                Assert.AreEqual(expected: 2, actual: Entities.WithAll<EcsTestData, EcsTestData2>().ToQuery().GetQueryTypes().Length);
+            }
+
+            public void WithSharedComponentFilter()
+            {
+                Entities.WithAll<EcsTestData>().WithSharedComponentFilter(new SharedData1(1)).AddComponent<EcsTestData5>();
+
+                Assert.IsTrue(EntityManager.HasComponent<EcsTestData5>(_entityWithSharedComponent_Value1));
+
+                Assert.IsFalse(EntityManager.HasComponent<EcsTestData5>(_entityWithSharedComponent_Value2));
+                Assert.IsFalse(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestData1));
+                Assert.IsFalse(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestData2));
+                Assert.IsFalse(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestData3));
+                Assert.IsFalse(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestDatas123));
+                Assert.IsFalse(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestData4AndChunkComponentData));
             }
 
             public void WithAll()
             {
                 Entities.WithAll<EcsTestData, EcsTestData2>().AddComponent<EcsTestData5>();
-
                 Assert.IsTrue(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestDatas123));
 
                 Assert.IsFalse(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestData1));
@@ -136,12 +162,15 @@ namespace Unity.Entities.Tests.EntityQuerySourceGen
 
             public void AddComponentData()
             {
-                var ecsTestData5s = new NativeArray<EcsTestData5>(new[] { new EcsTestData5(), new EcsTestData5() }, Allocator.Temp);
+                var ecsTestData5s = new NativeArray<EcsTestData5>(new[] { new EcsTestData5(), new EcsTestData5(), new EcsTestData5(), new EcsTestData5() }, Allocator.Temp);
 
                 Entities.WithAll<EcsTestData>().AddComponentData(ecsTestData5s);
 
                 Assert.IsTrue(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestData1));
                 Assert.IsTrue(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestDatas123));
+
+                Assert.IsTrue(EntityManager.HasComponent<EcsTestData5>(_entityWithSharedComponent_Value1));
+                Assert.IsTrue(EntityManager.HasComponent<EcsTestData5>(_entityWithSharedComponent_Value2));
 
                 Assert.IsFalse(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestData2));
                 Assert.IsFalse(EntityManager.HasComponent<EcsTestData5>(_entityWithEcsTestData3));
@@ -203,7 +232,7 @@ namespace Unity.Entities.Tests.EntityQuerySourceGen
             public void ToQuery()
             {
                 var entityQuery = Entities.WithAll<EcsTestData>().ToQuery();
-                Assert.AreEqual(expected: 2, actual: entityQuery.CalculateEntityCount());
+                Assert.AreEqual(expected: 4, actual: entityQuery.CalculateEntityCount());
             }
 
             public void DestroyEntity()
@@ -227,6 +256,12 @@ namespace Unity.Entities.Tests.EntityQuerySourceGen
             _testSystem = World.GetOrCreateSystemManaged<MyTestSystem>();
             _testSystem.SetUp();
         }
+
+        [Test]
+        public void ChainedWithEntityQueryMethods() => _testSystem.ChainedWithEntityQueryMethods();
+
+        [Test]
+        public void WithSharedComponentFilter() => _testSystem.WithSharedComponentFilter();
 
         [Test]
         public void WithAll() => _testSystem.WithAll();

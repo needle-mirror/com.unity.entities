@@ -23,9 +23,11 @@ namespace Unity.Scenes.Editor.Tests
     {
         public override void Bake(SubSceneLoadTestUnmanagedAuthoring authoring)
         {
-            AddComponent(new SubSceneLoadTestUnmanagedComponent()
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new SubSceneLoadTestUnmanagedComponent()
             {
-                Entity = GetEntity(),
+                Entity = entity,
                 Int = authoring.Int,
                 BlobAsset = SubSceneLoadTestBlobAsset.Make(authoring.Int, authoring.Int + 1, authoring.gameObject.name, SubSceneLoadTestBlobAsset.MakeStrings(1))
             });

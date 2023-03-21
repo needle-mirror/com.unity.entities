@@ -16,10 +16,6 @@ namespace Unity.Transforms
     /// </remarks>
     /// <seealso cref="Child"/>
     [Serializable]
-#if !ENABLE_TRANSFORM_V1
-#else
-    [WriteGroup(typeof(LocalToWorld))]
-#endif
     public struct Parent : IComponentData
     {
         /// <summary>
@@ -58,10 +54,6 @@ namespace Unity.Transforms
     /// </remarks>
     [Serializable]
     [InternalBufferCapacity(8)]
-#if !ENABLE_TRANSFORM_V1
-#else
-    [WriteGroup(typeof(ParentScaleInverse))]
-#endif
     public struct Child : ICleanupBufferElementData
     {
         /// <summary>

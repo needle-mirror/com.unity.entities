@@ -31,4 +31,4 @@ To continue to create and optimize the spawner system, follow the next task in t
 ## Additional resources
 
 - [Understand the ECS workflow](ecs-workflow-intro.md)
-- [Subscene](scripting-loading-scenes.md)
+- [Subscene overview](conversion-subscenes.md)

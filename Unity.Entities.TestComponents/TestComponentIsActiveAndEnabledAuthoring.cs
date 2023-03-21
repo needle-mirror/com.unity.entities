@@ -22,14 +22,17 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(TestComponentIsActiveAndEnabledAuthoring authoring)
             {
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+
                 var component = GetComponent<TestComponentEnableAuthoring>(authoring.go);
                 if (IsActiveAndEnabled(component))
                 {
-                    AddComponent<ActiveAndEnabled>();
+                    AddComponent<ActiveAndEnabled>(entity);
                 }
                 else
                 {
-                    AddComponent<NoActiveAndEnabled>();
+                    AddComponent<NoActiveAndEnabled>(entity);
                 }
             }
         }

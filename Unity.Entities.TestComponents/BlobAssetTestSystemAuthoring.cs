@@ -5,7 +5,7 @@ namespace Unity.Entities.TestComponents
 {
     public class BlobAssetTestSystemAuthoring : MonoBehaviour
     {
-        public int blobValue = 0;
+        public int blobValue;
     }
 
     [TemporaryBakingType]
@@ -13,7 +13,11 @@ namespace Unity.Entities.TestComponents
     {
         public int blobValue;
         public Hash128 blobHash;
-        public int gameObjectId;
+    }
+
+    public struct BlobAssetReferenceFromTestSystem : IComponentData
+    {
+        public BlobAssetReference<int> blobReference;
     }
 
     [DisableAutoCreation]
@@ -21,15 +25,17 @@ namespace Unity.Entities.TestComponents
     {
         public override void Bake(BlobAssetTestSystemAuthoring authoring)
         {
-            var customHash = authoring.blobValue.GetHashCode();
-            var customCustomHash = new Hash128((uint) customHash, 1, 2, 3);
+            var customCustomHash = CustomHashHelpers.Compute(authoring.blobValue);
 
-            AddComponent(new TempBlobAssetData()
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new TempBlobAssetData()
             {
                 blobValue = authoring.blobValue,
                 blobHash = customCustomHash,
-                gameObjectId = authoring.gameObject.GetInstanceID()
             });
+
+            AddComponent<BlobAssetReferenceFromTestSystem>(entity);
         }
     }
 
@@ -43,11 +49,9 @@ namespace Unity.Entities.TestComponents
             var blobAssetStore = bakingSystem.BlobAssetStore;
             using (var context = new BlobAssetComputationContext<int, int>(blobAssetStore, 16, Allocator.Temp))
             {
-                Entities.ForEach((in TempBlobAssetData blobData) =>
+                Entities.ForEach((ref BlobAssetReferenceFromTestSystem blobRefComponent, in TempBlobAssetData blobData) =>
                 {
-                    // Create the blob
-                    context.AssociateBlobAssetWithUnityObject(blobData.blobHash, blobData.gameObjectId);
-                    if (context.NeedToComputeBlobAsset(blobData.blobHash))
+                    if(!context.GetBlobAsset(blobData.blobHash, out blobRefComponent.blobReference))
                     {
                         context.AddBlobAssetToCompute(blobData.blobHash, 0);
 
@@ -58,12 +62,11 @@ namespace Unity.Entities.TestComponents
                         var blobAssetReference = builder.CreateBlobAssetReference<int>(Allocator.Persistent);
                         builder.Dispose();
 
+                        blobRefComponent.blobReference = blobAssetReference;
+
                         context.AddComputedBlobAsset(blobData.blobHash, blobAssetReference);
                     }
                 }).Run();
-
-                // Force to update the blob store
-                context.UpdateBlobStore();
             }
         }
     }

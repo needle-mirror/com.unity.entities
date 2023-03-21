@@ -43,15 +43,8 @@ namespace Unity.Entities
         /// Add the query component requirements of this aspect to NativeLists.
         /// </summary>
         /// <param name="all">The UnsafeList to add the "All" ComponentTypes requirements to</param>
-        /// <param name="any">The UnsafeList to add the "Any" ComponentTypes requirements to</param>
-        /// <param name="none">The UnsafeList to add the "None" ComponentTypes requirements to</param>
-        /// <param name="disabled">The UnsafeList to add the "Disabled" ComponentTypes requirements to</param>
-        /// <param name="absent">The UnsafeList to add the "Absent" ComponentTypes requirements to</param>
         /// <param name="isReadOnly">Force read-only access</param>
-        void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, ref UnsafeList<ComponentType> any, ref UnsafeList<ComponentType> none,
-            ref UnsafeList<ComponentType> disabled, ref UnsafeList<ComponentType> absent, bool isReadOnly);
-
-
+        void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, bool isReadOnly);
     }
 
     /// <summary>

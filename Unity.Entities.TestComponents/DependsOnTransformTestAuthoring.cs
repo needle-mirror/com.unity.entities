@@ -23,7 +23,9 @@ namespace Unity.Entities.Tests
 
                 if (authoring.Dependency == null)
                     return;
-                AddComponent(new Component
+                // This test might require transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponent(entity, new Component
                 {
                     LocalToWorld = authoring.Dependency.localToWorldMatrix
                 });

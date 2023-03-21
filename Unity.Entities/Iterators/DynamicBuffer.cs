@@ -577,7 +577,7 @@ namespace Unity.Entities
         /// <param name="allocator">The type of memory allocation to use when creating the
         /// native array.</param>
         /// <returns>A native array containing copies of the buffer elements.</returns>
-        public NativeArray<T> ToNativeArray(Allocator allocator)
+        public NativeArray<T> ToNativeArray(AllocatorManager.AllocatorHandle allocator)
         {
             return CollectionHelper.CreateNativeArray<T>(AsNativeArray(), allocator);
         }

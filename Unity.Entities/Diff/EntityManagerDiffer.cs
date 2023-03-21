@@ -33,7 +33,7 @@ namespace Unity.Entities
         /// <param name="sourceEntityManager">The EntityManager to associate with this differ.</param>
         /// <param name="allocator">The allocator to use for any internal memory allocations for this object.</param>
         /// <param name="entityQueryDesc">If non-null, the differ limits its change-tracking to the entities that this query matches.</param>
-        public EntityManagerDiffer(EntityManager sourceEntityManager, Allocator allocator, EntityQueryDesc entityQueryDesc = null)
+        public EntityManagerDiffer(EntityManager sourceEntityManager, AllocatorManager.AllocatorHandle allocator, EntityQueryDesc entityQueryDesc = null)
         {
             m_CachedComponentChanges = new EntityDiffer.CachedComponentChanges(1024);
             m_SourceEntityManager = sourceEntityManager;
@@ -71,7 +71,7 @@ namespace Unity.Entities
         /// <param name="options">A set of options which can be toggled.</param>
         /// <param name="allocator">The allocator to use for the results object.</param>
         /// <returns>A set of changes for the world since the last fast-forward.</returns>
-        public EntityChanges GetChanges(EntityManagerDifferOptions options, Allocator allocator)
+        public EntityChanges GetChanges(EntityManagerDifferOptions options, AllocatorManager.AllocatorHandle allocator)
         {
             var changes = EntityDiffer.GetChanges(
                 ref m_CachedComponentChanges,

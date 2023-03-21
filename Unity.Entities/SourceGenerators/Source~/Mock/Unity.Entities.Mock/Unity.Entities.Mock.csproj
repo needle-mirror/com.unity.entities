@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+        <AssemblyName>Unity.Entities</AssemblyName>
+        <RootNamespace>Unity.Entities</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Unity.Burst.Mock\Unity.Burst.Mock.csproj" />
+      <ProjectReference Include="..\Unity.Collections.Mock\Unity.Collections.Mock.csproj" />
+    </ItemGroup>
+
+</Project>

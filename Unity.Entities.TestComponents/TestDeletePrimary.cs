@@ -20,7 +20,10 @@ public class TestDeletePrimaryBaker : Baker<TestDeletePrimary>
 {
     public override void Bake(TestDeletePrimary authoring)
     {
-        AddComponent(new TestDeletePrimaryComponent(){
+        // This test shouldn't require transform components
+        var entity = GetEntity(TransformUsageFlags.None);
+
+        AddComponent(entity, new TestDeletePrimaryComponent(){
             value = authoring.value,
             delete = authoring.delete
         });

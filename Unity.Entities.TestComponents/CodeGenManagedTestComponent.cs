@@ -22,9 +22,11 @@ namespace Unity.Entities.Tests
                 Unity.Entities.Tests.CodeGenManagedTestComponent component = new Unity.Entities.Tests.CodeGenManagedTestComponent();
                 component.Entities = new Entity[authoring.Entities.Length];
                 for (var i = 0; i < component.Entities.Length; ++i)
-                    component.Entities[i] = GetEntity(authoring.Entities[i]);
+                    component.Entities[i] = GetEntity(authoring.Entities[i], TransformUsageFlags.None);
                 component.String = authoring.String;
-                AddComponentObject(component);
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponentObject(entity, component);
             }
         }
     }

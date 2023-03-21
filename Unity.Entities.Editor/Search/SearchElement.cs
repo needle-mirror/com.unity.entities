@@ -106,7 +106,7 @@ namespace Unity.Entities.Editor
             {
                 base.Init(element, attributes, context);
 
-                var search = (SearchElement) element;
+                var search = (SearchElement)element;
 
                 search.m_SearchEngine.Clear();
                 search.m_FilterPopupElementItems.Clear();
@@ -327,6 +327,7 @@ namespace Unity.Entities.Editor
             public string Text;
             public string Tooltip;
             public string DefaultOperator;
+            public bool isCompleteFilter;
         }
 
         /// <summary>
@@ -363,7 +364,7 @@ namespace Unity.Entities.Editor
             }
 
             // ReSharper disable once ParameterHidesMember
-            public void AddPopupItem(string token, string filterText, string filterTooltip = "", string defaultOperator = ":")
+            public void AddPopupItem(string token, string filterText, string filterTooltip = "", string defaultOperator = ":", bool isCompleteFilter = false)
             {
                 m_ElementCount++;
 
@@ -387,12 +388,19 @@ namespace Unity.Entities.Editor
                 // Setup event handlers.
                 choiceButton.clickable.clicked += () =>
                 {
-                    // Since this is an incomplete filter no need to trigger a search.
-                    m_SearchElement.SetValueWithoutNotify(tokenStr);
-
-                    // However we do need to manually update the controls and re-focus.
-                    m_SearchElement.UpdateControls();
-                    m_SearchElement.FocusSearchString();
+                    var newQuery = $"{m_SearchElement.value} {tokenStr}";
+                    if (isCompleteFilter)
+                    {
+                        m_SearchElement.value = newQuery;
+                    }
+                    else
+                    {
+                        // Since this is an incomplete filter no need to trigger a search.
+                        m_SearchElement.SetValueWithoutNotify(newQuery);
+                        // However we do need to manually update the controls and re-focus.
+                        m_SearchElement.UpdateControls();
+                        m_SearchElement.FocusSearchString();
+                    }
 
                     // Close the window.
                     Close();
@@ -576,7 +584,7 @@ namespace Unity.Entities.Editor
                 var filterDropdown = new FilterPopupElement(this, FilterPopupWidth);
 
                 foreach (var item in m_FilterPopupElementItems)
-                    filterDropdown.AddPopupItem(item.Token, item.Text, item.Tooltip, item.DefaultOperator);
+                    filterDropdown.AddPopupItem(item.Token, item.Text, item.Tooltip, item.DefaultOperator, item.isCompleteFilter);
 
                 filterDropdown.ShowAtPosition(m_AddFilterButton.worldBound);
             };
@@ -737,16 +745,26 @@ namespace Unity.Entities.Editor
         /// <param name="token">The token for the filter. This should NOT include the operator.</param>
         /// <param name="filterText">The text or name to display to the user.</param>
         /// <param name="filterTooltip">An optional tooltip.</param>
-        public void AddSearchFilterPopupItem(string token, string filterText, string filterTooltip = "", string defaultOperator = ":")
+        public void AddSearchFilterPopupItem(string token, string filterText, string filterTooltip = "", string defaultOperator = ":", bool isCompleteFilter = false)
         {
             m_FilterPopupElementItems.Add(new FilterPopupElementChoice
             {
                 Token = token,
-                Text =  filterText,
+                Text = filterText,
                 Tooltip = filterTooltip,
-                DefaultOperator = defaultOperator
+                DefaultOperator = defaultOperator,
+                isCompleteFilter = isCompleteFilter
             });
 
+            UpdateControls();
+        }
+
+        /// <summary>
+        /// Clears all filter from popup menu.
+        /// </summary>
+        internal void ClearSearchFilterPopupItem()
+        {
+            m_FilterPopupElementItems.Clear();
             UpdateControls();
         }
 
@@ -998,7 +1016,7 @@ namespace Unity.Entities.Editor
             var isSearchStringNullOrEmpty = string.IsNullOrEmpty(m_SearchStringTextField.text);
 
             SetCancelButtonEnabled(!isSearchStringNullOrEmpty);
-            SetAddFilterButtonEnabled(isSearchStringNullOrEmpty && m_FilterPopupElementItems.Count > 0);
+            SetAddFilterButtonEnabled(m_FilterPopupElementItems.Count > 0);
         }
 
         void SetCancelButtonEnabled(bool enabled)

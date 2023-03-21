@@ -27,6 +27,15 @@ namespace Unity.Entities
         static ref TypeIndex s_EntityTypeIndex => ref SharedEntityTypeIndex.Ref.Data;
         static ref JournalingState s_State => ref SharedState.Ref.Data;
 
+        public enum JournalingOperationType
+        {
+            StartRecording,
+            StopRecording,
+            ClearResults
+        }
+
+        public static event Action<JournalingOperationType> s_JournalingOperationExecuted;
+
         /// <summary>
         /// Whether or not entities journaling events are recorded.
         /// </summary>
@@ -48,6 +57,8 @@ namespace Unity.Entities
                 // Reset record session caches
                 s_RecordDataMap.Clear();
                 s_State.ClearSystemVersionBuffers();
+
+                s_JournalingOperationExecuted?.Invoke(value ? JournalingOperationType.StartRecording : JournalingOperationType.StopRecording);
             }
         }
 
@@ -103,6 +114,8 @@ namespace Unity.Entities
 
             s_RecordDataMap.Clear();
             s_State.Clear();
+
+            s_JournalingOperationExecuted?.Invoke(JournalingOperationType.ClearResults);
         }
 
         [ExcludeFromBurstCompatTesting("Managed collections")]

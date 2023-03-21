@@ -20,7 +20,9 @@ namespace Unity.Scenes.Hybrid.Tests
     {
         public override void Bake(AuthoringWithUnmanaged authoring)
         {
-            AddComponent(new RuntimeUnmanaged{ Value = authoring.Value});
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new RuntimeUnmanaged{ Value = authoring.Value});
         }
     }
 }

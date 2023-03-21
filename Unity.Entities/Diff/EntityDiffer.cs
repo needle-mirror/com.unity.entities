@@ -208,7 +208,7 @@ namespace Unity.Entities
             EntityManagerDifferOptions options,
             EntityQueryDesc entityQueryDesc,
             BlobAssetCache blobAssetCache,
-            Allocator allocator)
+            AllocatorManager.AllocatorHandle allocator)
         {
             var changes = default(EntityChanges);
 

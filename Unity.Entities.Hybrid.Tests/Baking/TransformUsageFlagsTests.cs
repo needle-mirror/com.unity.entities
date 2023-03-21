@@ -8,21 +8,21 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public void UsageFlagAddWorks()
         {
             var usageFlags = new TransformUsageFlagCounters();
-            usageFlags.Add(TransformUsageFlags.Default);
-            usageFlags.Add(TransformUsageFlags.ReadGlobalTransform);
-            Assert.AreEqual(TransformUsageFlags.Default | TransformUsageFlags.ReadGlobalTransform, usageFlags.Flags);
+            usageFlags.Add(TransformUsageFlags.Dynamic);
+            usageFlags.Add(TransformUsageFlags.NonUniformScale);
+            Assert.AreEqual(TransformUsageFlags.Dynamic | TransformUsageFlags.NonUniformScale, usageFlags.Flags);
         }
 
         [Test]
         public void UsageFlagRemoveWorks()
         {
             var usageFlags = new TransformUsageFlagCounters();
-            usageFlags.Add(TransformUsageFlags.Default | TransformUsageFlags.ReadGlobalTransform);
-            usageFlags.Add(TransformUsageFlags.Default);
-            usageFlags.Remove(TransformUsageFlags.Default);
-            Assert.AreEqual(TransformUsageFlags.Default | TransformUsageFlags.ReadGlobalTransform, usageFlags.Flags);
-            usageFlags.Remove(TransformUsageFlags.Default);
-            Assert.AreEqual(TransformUsageFlags.ReadGlobalTransform, usageFlags.Flags);
+            usageFlags.Add(TransformUsageFlags.Dynamic | TransformUsageFlags.NonUniformScale);
+            usageFlags.Add(TransformUsageFlags.Dynamic);
+            usageFlags.Remove(TransformUsageFlags.Dynamic);
+            Assert.AreEqual(TransformUsageFlags.Dynamic | TransformUsageFlags.NonUniformScale, usageFlags.Flags);
+            usageFlags.Remove(TransformUsageFlags.Dynamic);
+            Assert.AreEqual(TransformUsageFlags.NonUniformScale, usageFlags.Flags);
         }
 
         [Test]

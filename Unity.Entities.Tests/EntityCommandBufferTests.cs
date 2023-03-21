@@ -109,6 +109,20 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void Cleanup_ManyChains_NoStackOverflow()
+        {
+            // Create an ECB with a pathologically large number of chains
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.SinglePlayback);
+            var ecbp = ecb.AsParallelWriter();
+            for (int sortKey = 10000; sortKey > 0; --sortKey)
+            {
+                ecbp.CreateEntity(sortKey, archetype);
+            }
+            Assert.DoesNotThrow(() => ecb.Dispose());
+        }
+
+        [Test]
         public void Playback_WithSinglePlaybackSuccess_DisposesCapturedEntityArrays()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -163,7 +177,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        internal class TestEntityCommandBufferSystem : EntityCommandBufferSystem
+        internal partial class TestEntityCommandBufferSystem : EntityCommandBufferSystem
         {
             public unsafe struct Singleton : IComponentData, IECBSingleton
             {
@@ -192,7 +206,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class TestECBPlaybackSystem : EntityCommandBufferSystem {}
+        partial class TestECBPlaybackSystem : EntityCommandBufferSystem {}
 
         partial class TestECBRecordingSystem : SystemBase
         {
@@ -5701,7 +5715,7 @@ namespace Unity.Entities.Tests
         }
 
         [BurstCompile]
-        internal struct TestECBSystem : ISystem
+        internal partial struct TestECBSystem : ISystem
         {
             private EntityCommandBuffer ecb;
 
@@ -5744,7 +5758,7 @@ namespace Unity.Entities.Tests
         }
 
         [BurstCompile]
-        internal struct ECBWithPrefabSystem : ISystem
+        internal partial struct ECBWithPrefabSystem : ISystem
         {
             private EntityCommandBuffer ecb;
 
@@ -5824,7 +5838,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        internal class TestPlaybackWithTraceECBPlaybackSystem : EntityCommandBufferSystem {}
+        internal partial class TestPlaybackWithTraceECBPlaybackSystem : EntityCommandBufferSystem {}
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]

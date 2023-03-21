@@ -1,5 +1,3 @@
-#if !ENABLE_TRANSFORM_V1
-using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.Tests;
@@ -211,4 +209,3 @@ namespace Unity.Transforms.PerformanceTests
         }
     }
 }
-#endif

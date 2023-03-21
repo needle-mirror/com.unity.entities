@@ -120,7 +120,7 @@ namespace Unity.Entities.Editor.Tests
 
         public class UpdateSystemGraph : IEditModeTestYieldInstruction
         {
-            const int k_WaitFrames = 1000;
+            const int k_WaitFrames = 6000;
             readonly SystemScheduleWindow m_SystemScheduleWindow;
             readonly Type m_GivenSystemType;
             int m_Count;

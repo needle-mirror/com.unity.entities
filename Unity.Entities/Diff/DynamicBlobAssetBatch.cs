@@ -15,7 +15,7 @@ namespace Unity.Entities
         public NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> BlobAssetRemap;
         public DynamicBlobAssetBatch* BlobAssetBatch;
 
-        public BlobAssetCache(Allocator allocator)
+        public BlobAssetCache(AllocatorManager.AllocatorHandle allocator)
         {
             BlobAssetBatch = DynamicBlobAssetBatch.Allocate(allocator);
             BlobAssetRemap = new NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr>(1, allocator);
@@ -31,11 +31,11 @@ namespace Unity.Entities
 
     unsafe struct DynamicBlobAssetBatch
     {
-        Allocator m_Allocator;
+        AllocatorManager.AllocatorHandle m_Allocator;
         int m_FramesToRetainBlobAssets;
         UnsafeList<BlobAssetPtr>* m_BlobAssets;
 
-        public static DynamicBlobAssetBatch* Allocate(Allocator allocator)
+        public static DynamicBlobAssetBatch* Allocate(AllocatorManager.AllocatorHandle allocator)
         {
             var batch = (DynamicBlobAssetBatch*)Memory.Unmanaged.Allocate(sizeof(DynamicBlobAssetBatch), UnsafeUtility.AlignOf<DynamicBlobAssetBatch>(), allocator);
             batch->m_FramesToRetainBlobAssets = 1;
@@ -60,7 +60,7 @@ namespace Unity.Entities
             m_FramesToRetainBlobAssets = framesToRetainBlobAssets;
         }
 
-        public NativeList<BlobAssetPtr> ToNativeList(Allocator allocator)
+        public NativeList<BlobAssetPtr> ToNativeList(AllocatorManager.AllocatorHandle allocator)
         {
             var list = new NativeList<BlobAssetPtr>(m_BlobAssets->Length, allocator);
             list.ResizeUninitialized(m_BlobAssets->Length);

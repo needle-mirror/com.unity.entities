@@ -40,7 +40,8 @@ namespace Unity.Entities.Tests
                 foreach (var t in types)
                 {
                     var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype.Archetype, t.TypeIndex);
-                    Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                    int memoryOrderIndexInArchetype = archetype.Archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInTypeArray];
+                    Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
                     foreach (var ent in entities)
                     {
                         Assert.IsTrue(m_Manager.IsComponentEnabled(ent, t), $"Component {t} in Entity {ent} is should be enabled, but isn't");
@@ -70,17 +71,18 @@ namespace Unity.Entities.Tests
                 foreach (var t in types)
                 {
                     var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype.Archetype, t.TypeIndex);
+                    int memoryOrderIndexInArchetype = archetype.Archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInTypeArray];
                     foreach (var ent in entities)
                     {
                         m_Manager.SetComponentEnabled(ent, t, false);
                         Assert.IsFalse(m_Manager.IsComponentEnabled(ent, t), $"Component {t} in Entity {ent} is should be disabled, but isn't");
 
-                        Assert.AreEqual(1, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                        Assert.AreEqual(1, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
 
                         m_Manager.SetComponentEnabled(ent, t, true);
                         Assert.IsTrue(m_Manager.IsComponentEnabled(ent, t), $"Component {t} in Entity {ent} is should be enabled, but isn't");
 
-                        Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                        Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
                     }
                 }
 
@@ -88,17 +90,18 @@ namespace Unity.Entities.Tests
                 {
                     var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype.Archetype,
                         TypeManager.GetTypeIndex<EcsTestDataEnableable>());
+                    int memoryOrderIndexInArchetype = archetype.Archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInTypeArray];
                     foreach (var ent in entities)
                     {
                         m_Manager.SetComponentEnabled<EcsTestDataEnableable>(ent, false);
                         Assert.IsFalse(m_Manager.IsComponentEnabled<EcsTestDataEnableable>(ent),
                             $"Component {nameof(EcsTestDataEnableable)} in Entity {ent} is should be disabled, but isn't");
-                        Assert.AreEqual(1, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                        Assert.AreEqual(1, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
 
                         m_Manager.SetComponentEnabled<EcsTestDataEnableable>(ent, true);
                         Assert.IsTrue(m_Manager.IsComponentEnabled<EcsTestDataEnableable>(ent),
                             $"Component {nameof(EcsTestDataEnableable)} in Entity {ent} is should be enabled, but isn't");
-                        Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                        Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
                     }
                 }
             }
@@ -146,7 +149,8 @@ namespace Unity.Entities.Tests
                 foreach (var t in types)
                 {
                     var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype.Archetype, t.TypeIndex);
-                    Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                    int memoryOrderIndexInArchetype = archetype.Archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInTypeArray];
+                    Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
                     foreach (var ent in entities)
                     {
                         Assert.IsTrue(m_Manager.IsComponentEnabled(ent, t), $"Component {t} in Entity {ent} is should be enabled, but isn't");
@@ -177,17 +181,18 @@ namespace Unity.Entities.Tests
                 foreach (var t in types)
                 {
                     var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype.Archetype, t.TypeIndex);
+                    int memoryOrderIndexInArchetype = archetype.Archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInTypeArray];
                     foreach (var ent in entities)
                     {
                         m_Manager.SetComponentEnabled(ent, t, false);
                         Assert.IsFalse(m_Manager.IsComponentEnabled(ent, t), $"Component {t} in Entity {ent} is should be disabled, but isn't");
 
-                        Assert.AreEqual(1, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                        Assert.AreEqual(1, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
 
                         m_Manager.SetComponentEnabled(ent, t, true);
                         Assert.IsTrue(m_Manager.IsComponentEnabled(ent, t), $"Component {t} in Entity {ent} is should be enabled, but isn't");
 
-                        Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                        Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
                     }
                 }
 
@@ -195,17 +200,18 @@ namespace Unity.Entities.Tests
                 {
                     var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype.Archetype,
                         TypeManager.GetTypeIndex<EcsTestManagedComponentEnableable>());
+                    int memoryOrderIndexInArchetype = archetype.Archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInTypeArray];
                     foreach (var ent in entities)
                     {
                         m_Manager.SetComponentEnabled<EcsTestManagedComponentEnableable>(ent, false);
                         Assert.IsFalse(m_Manager.IsComponentEnabled<EcsTestManagedComponentEnableable>(ent),
                             $"Component {nameof(EcsTestManagedComponentEnableable)} in Entity {ent} is should be disabled, but isn't");
-                        Assert.AreEqual(1, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                        Assert.AreEqual(1, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
 
                         m_Manager.SetComponentEnabled<EcsTestManagedComponentEnableable>(ent, true);
                         Assert.IsTrue(m_Manager.IsComponentEnabled<EcsTestManagedComponentEnableable>(ent),
                             $"Component {nameof(EcsTestManagedComponentEnableable)} in Entity {ent} is should be enabled, but isn't");
-                        Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(indexInTypeArray, 0));
+                        Assert.AreEqual(0, archetype.Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, 0));
                     }
                 }
             }
@@ -322,6 +328,46 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddEnableableTagComponent_Query_BitsAreInitialized()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            m_Manager.CreateEntity(archetype, 17);
+            var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().Build(m_Manager);
+            m_Manager.AddComponent<EcsTestTagEnableable>(query);
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void AddEnableableTagComponent_QueryWithEnableable_BitsAreInitialized()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            m_Manager.CreateEntity(archetype, 17);
+            var query = new EntityQueryBuilder(Allocator.Temp).WithNone<EcsTestTagEnableable>().Build(m_Manager);
+            m_Manager.AddComponent<EcsTestTagEnableable>(query);
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void RemoveEnableableTagComponent_Query_BitsAreConsistent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestTagEnableable));
+            m_Manager.CreateEntity(archetype, 17);
+            var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().Build(m_Manager);
+            m_Manager.RemoveComponent<EcsTestTagEnableable>(query);
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void RemoveEnableableTagComponent_QueryWithEnableable_BitsAreConsistent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestTagEnableable));
+            m_Manager.CreateEntity(archetype, 17);
+            var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestTagEnableable>().Build(m_Manager);
+            m_Manager.RemoveComponent<EcsTestTagEnableable>(query);
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
         public void AddTagComponent_PreservesBitValues([Values(1, 4)] int chunkCount)
         {
             var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
@@ -338,12 +384,33 @@ namespace Unity.Entities.Tests
             var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
             SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator, out var entities, out var map, out var archetype, chunkCount);
 
-            var query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestDataEnableable>());
+            using var query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestDataEnableable>());
             m_Manager.AddComponent<EcsTestTag>(query);
             CheckChunkDataAndMapConsistency(m_Manager, enableableType, entities, map);
             m_Manager.Debug.CheckInternalConsistency();
+        }
 
-            query.Dispose();
+        [Test]
+        public void AddEnableableTagComponent_PreservesBitValues([Values(1, 4)] int chunkCount)
+        {
+            var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
+            SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator, out var entities, out var map, out var archetype, chunkCount);
+
+            m_Manager.AddComponent<EcsTestTagEnableable>(entities[7]);
+            CheckChunkDataAndMapConsistency(m_Manager, enableableType, entities, map);
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void AddEnableableTagComponent_Query_PreservesBitValues([Values(1, 4)] int chunkCount)
+        {
+            var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
+            SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator, out var entities, out var map, out var archetype, chunkCount);
+
+            using var query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestDataEnableable>());
+            m_Manager.AddComponent<EcsTestTagEnableable>(query);
+            CheckChunkDataAndMapConsistency(m_Manager, enableableType, entities, map);
+            m_Manager.Debug.CheckInternalConsistency();
         }
 
         [Test]
@@ -408,6 +475,60 @@ namespace Unity.Entities.Tests
             SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator, out var entities, out var map, out var archetype, chunkCount);
 
             m_Manager.RemoveComponent<EcsTestData>(entities[7]);
+            CheckChunkDataAndMapConsistency(m_Manager, enableableType, entities, map);
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void RemoveTagComponent_PreservesBitValues([Values(1, 4)] int chunkCount)
+        {
+            var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
+            SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator,
+                out var entities, out var map, out var archetype, chunkCount,
+                ComponentType.ReadOnly<EcsTestTag>());
+
+            m_Manager.RemoveComponent<EcsTestTag>(entities[7]);
+            CheckChunkDataAndMapConsistency(m_Manager, enableableType, entities, map);
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void RemoveTagComponent_Query_PreservesBitValues([Values(1, 4)] int chunkCount)
+        {
+            var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
+            SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator,
+                out var entities, out var map, out var archetype, chunkCount,
+                ComponentType.ReadOnly<EcsTestTag>());
+
+            using var query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestDataEnableable>());
+            m_Manager.RemoveComponent<EcsTestTag>(query);
+            CheckChunkDataAndMapConsistency(m_Manager, enableableType, entities, map);
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void RemoveEnableableTagComponent_PreservesBitValues([Values(1, 4)] int chunkCount)
+        {
+            var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
+            SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator,
+                out var entities, out var map, out var archetype, chunkCount,
+                ComponentType.ReadOnly<EcsTestTagEnableable>());
+
+            m_Manager.RemoveComponent<EcsTestTagEnableable>(entities[7]);
+            CheckChunkDataAndMapConsistency(m_Manager, enableableType, entities, map);
+            m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void RemoveEnableableTagComponent_Query_PreservesBitValues([Values(1, 4)] int chunkCount)
+        {
+            var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
+            SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator,
+                out var entities, out var map, out var archetype, chunkCount,
+                ComponentType.ReadOnly<EcsTestTagEnableable>());
+
+            using var query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestDataEnableable>());
+            m_Manager.RemoveComponent<EcsTestTagEnableable>(query);
             CheckChunkDataAndMapConsistency(m_Manager, enableableType, entities, map);
             m_Manager.Debug.CheckInternalConsistency();
         }
@@ -1701,6 +1822,95 @@ namespace Unity.Entities.Tests
             var expectedMatches = new[] { entities1[0], entities1[1], entities2[0], entities2[1], entities2[2] };
             CollectionAssert.AreEquivalent(expectedMatches, query.ToEntityArray(Allocator.Temp).ToArray());
         }
+
+        partial class EnabledComponentInEntitiesForEachTest : SystemBase
+        {
+            public NativeList<Entity> ProcessedEntities;
+            protected override void OnCreate()
+            {
+                ProcessedEntities = new NativeList<Entity>(World.UpdateAllocator.ToAllocator);
+            }
+            protected override void OnDestroy()
+            {
+                ProcessedEntities.Dispose();
+            }
+            protected override void OnUpdate()
+            {
+                ProcessedEntities.Clear();
+                Entities.WithAll<EcsTestDataEnableable>().ForEach((Entity e) =>
+                    {
+                        ProcessedEntities.Add(e);
+                    }).WithoutBurst().Run();
+            }
+        }
+
+        [Test]
+        public void EntitiesForEach_WithEnableableComponents_MatchesCorrectEntities()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
+            var expectedProcessedEntities = new NativeList<Entity>(entities.Length, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                if (i > 0 && (i & (i - 1)) == 0)
+                {
+                    expectedProcessedEntities.Add(entities[i]);
+                }
+                else
+                {
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+                }
+            }
+            var sys = World.CreateSystemManaged<EnabledComponentInEntitiesForEachTest>();
+            sys.Update();
+            CollectionAssert.AreEquivalent(expectedProcessedEntities.ToArray(Allocator.Temp).ToArray(),
+                sys.ProcessedEntities.ToArray(Allocator.Temp).ToArray());
+        }
+
+        partial class EnabledComponentInEntitiesForEachWithStructuralChangesTest : SystemBase
+        {
+            public NativeList<Entity> ProcessedEntities;
+            protected override void OnCreate()
+            {
+                ProcessedEntities = new NativeList<Entity>(World.UpdateAllocator.ToAllocator);
+            }
+            protected override void OnDestroy()
+            {
+                ProcessedEntities.Dispose();
+            }
+            protected override void OnUpdate()
+            {
+                ProcessedEntities.Clear();
+                Entities.WithAll<EcsTestDataEnableable>().ForEach((Entity e) =>
+                {
+                    ProcessedEntities.Add(e);
+                }).WithoutBurst().WithStructuralChanges().Run();
+            }
+        }
+
+        [Test]
+        public void EntitiesForEach_WithStructuralChanges_WithEnableableComponents_MatchesCorrectEntities()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
+            var expectedProcessedEntities = new NativeList<Entity>(entities.Length, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                if (i > 0 && (i & (i - 1)) == 0)
+                {
+                    expectedProcessedEntities.Add(entities[i]);
+                }
+                else
+                {
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+                }
+            }
+            var sys = World.CreateSystemManaged<EnabledComponentInEntitiesForEachWithStructuralChangesTest>();
+            sys.Update();
+            CollectionAssert.AreEquivalent(expectedProcessedEntities.ToArray(Allocator.Temp).ToArray(),
+                sys.ProcessedEntities.ToArray(Allocator.Temp).ToArray());
+        }
+
 
 #if !NET_DOTS && !UNITY_DOTSRUNTIME // DOTS Runtimes does not support regex
         struct DataJob_WriteBits_ComponentLookup : IJobChunk

@@ -12,6 +12,10 @@ using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.S
 using SystemList = System.Collections.Generic.List<Mono.Cecil.TypeDefinition>;
 using Unity.Cecil.Awesome;
 using static Unity.Entities.CodeGen.TypeReferenceExtensions;
+using Unity.Collections.LowLevel.Unsafe;
+using TypeAttributes = Mono.Cecil.TypeAttributes;
+using FieldAttributes = Mono.Cecil.FieldAttributes;
+using TypeInfo = Unity.Entities.TypeManager.TypeInfo;
 
 namespace Unity.Entities.CodeGen
 {
@@ -963,14 +967,15 @@ namespace Unity.Entities.CodeGen
                 return false;
             }
 
-            if (type.Resolve().HasAttribute("Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute"))
+            var typeDef = type.Resolve();
+            if (typeDef.HasAttribute(typeof(NativeContainerAttribute).FullName))
                 return true;
 
             // The incoming `type` should be a full generic instance.  This genericResolver
             // will help us resolve the generic parameters of any of its fields
             var genericResolver = TypeResolver.For(type);
 
-            foreach (var typeField in type.Resolve().Fields)
+            foreach (var typeField in typeDef.Fields)
             {
                 // 1) enums which infinitely recurse because the values in the enum are of the same enum type
                 // 2) statics which infinitely recurse themselves (Such as vector3.zero.zero.zero.zero)
@@ -993,6 +998,73 @@ namespace Unity.Entities.CodeGen
             return false;
         }
 
+        // True when a component is valid to using in world serialization. A component IsSerializable when it is valid to blit
+        // the data across storage media. Thus components containing pointers have an IsSerializable of false as the component
+        // is blittable but no longer valid upon deserialization.
+        private (bool isSerializable, bool hasChunkSerializableAttribute) IsTypeValidForSerialization(TypeReference type)
+        {
+            var result = (false, false);
+            if (m_ChunkSerializableCache.TryGetValue(type, out result))
+                return result;
+
+            var typeDef = type.Resolve();
+            if (typeDef.HasAttribute(typeof(ChunkSerializableAttribute).FullName))
+            {
+                result = (true, true);
+                m_ChunkSerializableCache.Add(type, result);
+                return result;
+            }
+
+            var genericResolver = TypeResolver.For(type);
+            foreach (var typeField in typeDef.Fields)
+            {
+                if (typeField.IsStatic)
+                    continue;
+
+                var fieldType = genericResolver.ResolveFieldType(typeField);
+                if (fieldType.IsGenericParameter)
+                    continue;
+
+                if (fieldType.IsPointer || (fieldType == m_SystemIntPtrRef || fieldType == m_SystemUIntPtrRef))
+                {
+                    m_ChunkSerializableCache.Add(type, result);
+                    return result;
+                }
+                else if (fieldType.IsValueType() && !fieldType.IsPrimitive && !fieldType.IsEnum())
+                {
+                    if (!IsTypeValidForSerialization(fieldType).isSerializable)
+                    {
+                        m_ChunkSerializableCache.Add(type, result);
+                        return result;
+                    }
+                }
+            }
+
+            result = (true, false);
+            m_ChunkSerializableCache.Add(type, result);
+            return result;
+        }
+
+        // A component type is "chunk serializable" if it meets the following rules:
+        // - It is decorated with [ChunkSerializable] attribute (this is an override for all other rules)
+        // - The type is blittable AND
+        // - The type does not contain any pointer types (including IntPtr) AND
+        // - If the type is a shared component, it does not contain an entity reference
+        private bool IsComponentChunkSerializable(TypeReference type, TypeCategory category, bool hasEntityReference)
+        {
+            var isSerializable = IsTypeValidForSerialization(type);
+
+            // Shared Components are expected to be handled specially when serializing and are not required to be blittable.
+            // They cannot contain an entity reference today as they are not patched however for unmanaged components
+            // we should be able to correct this behaviour DOTS-7613
+            if (!isSerializable.hasChunkSerializableAttribute && category == TypeCategory.ISharedComponentData && hasEntityReference)
+            {
+                isSerializable.isSerializable = false;
+            }
+
+            return isSerializable.isSerializable;
+        }
+
         internal unsafe TypeGenInfo CreateTypeGenInfo(TypeReference typeRef, TypeCategory typeCategory)
         {
             // We will be referencing this type in generated functions to make it's type internal if it's private
@@ -1012,7 +1084,6 @@ namespace Unity.Entities.CodeGen
                              (typeRef.IsManagedType(
                                   ref mightHaveEntityRefs,
                                   ref mightHaveBlobRefs));
-
 
             if (!isManaged)
             {
@@ -1072,6 +1143,8 @@ namespace Unity.Entities.CodeGen
                     mightHaveBlobRefs = false;
             }
 
+            bool isChunkSerializable = IsComponentChunkSerializable(typeRef, typeCategory, mightHaveEntityRefs);
+
             if (alignAndSize.empty || typeCategory == TypeCategory.ISharedComponentData)
                 typeIndex |= ZeroSizeInChunkTypeFlag;
 
@@ -1105,7 +1178,10 @@ namespace Unity.Entities.CodeGen
             if (isIEquatable)
                 typeIndex |= IEquatableTypeFlag;
 
-            if(typeCategory == TypeCategory.ISharedComponentData && isManaged && !isIEquatable)
+            if (!isChunkSerializable)
+                typeIndex |= IsNotChunkSerializableTypeFlag;
+
+            if (typeCategory == TypeCategory.ISharedComponentData && isManaged && !isIEquatable)
                 throw new ArgumentException($"Type '{typeRef.FullName}' is a ISharedComponentData and has managed references, you must implement IEquatable<T>");
 
             CalculateMemoryOrderingAndStableHash(typeRef, out ulong memoryOrdering, out ulong stableHash);

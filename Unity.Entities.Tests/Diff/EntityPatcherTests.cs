@@ -55,6 +55,47 @@ namespace Unity.Entities.Tests
             }
         }
 
+        // This test checks that the the entities added by ApplyCreateEntitiesWithArchetypes are correctly mapped
+        // to the indices used by SetComponent/SetManagedComponents and such.
+        [Test]
+        public void EntityPatcher_ApplyChanges_CreateEntityWithDifferentArchetypes()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
+            {
+
+                NativeArray<Entity> entities = new NativeArray<Entity>(new []
+                {
+                    SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData)),
+                    SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData2)),
+                    SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData)),
+                    SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData2))
+                }, Allocator.Temp);
+
+                EntityGuid[] entityGuid = new EntityGuid[] {CreateEntityGuid(), CreateEntityGuid(), CreateEntityGuid(), CreateEntityGuid()};
+                SrcEntityManager.SetComponentData(entities[0], entityGuid[0]);
+                SrcEntityManager.SetComponentData(entities[0], new EcsTestData(){value = 0});
+                SrcEntityManager.SetComponentData(entities[1], entityGuid[1]);
+                SrcEntityManager.SetComponentData(entities[1], new EcsTestData2(){value0 = 1});
+                SrcEntityManager.SetComponentData(entities[2], entityGuid[2]);
+                SrcEntityManager.SetComponentData(entities[2], new EcsTestData(){value = 2});
+                SrcEntityManager.SetComponentData(entities[3], entityGuid[3]);
+                SrcEntityManager.SetComponentData(entities[3], new EcsTestData2(){value0 = 3});
+
+                PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
+
+                Assert.AreEqual(4, DstEntityManager.Debug.EntityCount);
+
+                Assert.IsTrue(HasComponent<EcsTestData>(DstEntityManager, entityGuid[0]));
+                Assert.AreEqual(0, GetComponentData<EcsTestData>(DstEntityManager, entityGuid[0]).value);
+                Assert.IsTrue(HasComponent<EcsTestData2>(DstEntityManager, entityGuid[1]));
+                Assert.AreEqual(1, GetComponentData<EcsTestData2>(DstEntityManager, entityGuid[1]).value0);
+                Assert.IsTrue(HasComponent<EcsTestData>(DstEntityManager, entityGuid[2]));
+                Assert.AreEqual(2, GetComponentData<EcsTestData>(DstEntityManager, entityGuid[2]).value);
+                Assert.IsTrue(HasComponent<EcsTestData2>(DstEntityManager, entityGuid[3]));
+                Assert.AreEqual(3, GetComponentData<EcsTestData2>(DstEntityManager, entityGuid[3]).value0);
+            }
+        }
+
         [Test]
         public void EntityPatcher_ApplyChanges_CreateEntityWithPrefabComponent()
         {
@@ -1105,9 +1146,9 @@ namespace Unity.Entities.Tests
                 var dstChildEntity = GetEntity(DstEntityManager, childEntityGuid);
 
                 var dstLinkedEntityGroup = DstEntityManager.GetBuffer<LinkedEntityGroup>(dstRootEntity);
-                Assert.AreEqual(dstLinkedEntityGroup.Length, 2);
-                Assert.AreEqual(dstLinkedEntityGroup[0].Value, dstRootEntity);
-                Assert.AreEqual(dstLinkedEntityGroup[1].Value, dstChildEntity);
+                Assert.AreEqual(2, dstLinkedEntityGroup.Length);
+                Assert.AreEqual(dstRootEntity, dstLinkedEntityGroup[0].Value);
+                Assert.AreEqual(dstChildEntity, dstLinkedEntityGroup[1].Value);
             }
         }
 
@@ -1136,14 +1177,14 @@ namespace Unity.Entities.Tests
 
                 {
                     var dstLinkedEntityGroup = DstEntityManager.GetBuffer<LinkedEntityGroup>(dstRootEntity);
-                    Assert.AreEqual(dstLinkedEntityGroup.Length, 1);
-                    Assert.AreEqual(dstLinkedEntityGroup[0].Value, dstRootEntity);
+                    Assert.AreEqual(1, dstLinkedEntityGroup.Length);
+                    Assert.AreEqual(dstRootEntity, dstLinkedEntityGroup[0].Value);
                 }
 
                 {
                     var dstLinkedEntityGroup = DstEntityManager.GetBuffer<LinkedEntityGroup>(dstChildEntity);
-                    Assert.AreEqual(dstLinkedEntityGroup.Length, 1);
-                    Assert.AreEqual(dstLinkedEntityGroup[0].Value, dstChildEntity);
+                    Assert.AreEqual(1, dstLinkedEntityGroup.Length);
+                    Assert.AreEqual(dstChildEntity, dstLinkedEntityGroup[0].Value);
                 }
 
                 // now combine the two groups and verify that they are the same
@@ -1154,9 +1195,9 @@ namespace Unity.Entities.Tests
 
                 {
                     var dstLinkedEntityGroup = DstEntityManager.GetBuffer<LinkedEntityGroup>(dstRootEntity);
-                    Assert.AreEqual(dstLinkedEntityGroup.Length, 2);
-                    Assert.AreEqual(dstLinkedEntityGroup[0].Value, dstRootEntity);
-                    Assert.AreEqual(dstLinkedEntityGroup[1].Value, dstChildEntity);
+                    Assert.AreEqual(2, dstLinkedEntityGroup.Length);
+                    Assert.AreEqual(dstRootEntity, dstLinkedEntityGroup[0].Value);
+                    Assert.AreEqual(dstChildEntity, dstLinkedEntityGroup[1].Value);
                 }
             }
         }

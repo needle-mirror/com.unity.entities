@@ -304,6 +304,9 @@ namespace Unity.Entities.Editor
         /// <returns><see langword="true"/> if the specified component type can be watched. <see langword="false"/> otherwise.</returns>
         public static bool CanWatch(ComponentType componentType)
         {
+            if (!TypeManager.IsInitialized)
+                throw new InvalidOperationException($"{nameof(TypeManager)} has not been initialized properly");
+
             var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
             return typeInfo.Category == TypeManager.TypeCategory.ComponentData && UnsafeUtility.IsUnmanaged(componentType.GetManagedType());
         }

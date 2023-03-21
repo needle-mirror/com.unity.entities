@@ -99,7 +99,7 @@ namespace Unity.Entities
     /// [Job.WithCode]: xref:iterating-data-entities-foreach
     /// </remarks>
     [RequireDerived]
-    public unsafe abstract class SystemBase : ComponentSystemBase
+    public unsafe abstract partial class SystemBase : ComponentSystemBase
     {
         /// <summary>
         /// The ECS-related data dependencies of the system.

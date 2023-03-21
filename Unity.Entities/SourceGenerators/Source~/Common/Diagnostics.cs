@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
+
 using static Unity.Entities.SourceGen.Common.SourceGenHelpers;
 
 namespace Unity.Entities.SourceGen.Common

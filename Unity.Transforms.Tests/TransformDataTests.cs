@@ -1,4 +1,3 @@
-#if !ENABLE_TRANSFORM_V1
 using System;
 using NUnit.Framework;
 using Unity.Mathematics;
@@ -244,6 +243,19 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void TDT_FromMatrixSafe()
+        {
+            var matrix = GetTestMatrix1();
+            FastAssert.DoesNotThrow(() => { LocalTransform.FromMatrix(matrix); });
+            var nonuniformScaleMatrix = matrix;
+            nonuniformScaleMatrix.c0 *= .5f;
+            FastAssert.Throws<ArgumentException>(() => { LocalTransform.FromMatrixSafe(nonuniformScaleMatrix); });
+            var shearMatrix = matrix;
+            shearMatrix.c0 = shearMatrix.c1;
+            FastAssert.Throws<ArgumentException>(() => { LocalTransform.FromMatrixSafe(shearMatrix); });
+        }
+
+        [Test]
         public void TDT_Translate()
         {
             var transform = GetTestTransform1();
@@ -305,4 +317,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif

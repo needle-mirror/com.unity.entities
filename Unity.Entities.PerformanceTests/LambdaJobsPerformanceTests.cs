@@ -309,6 +309,8 @@ namespace Unity.Entities.PerformanceTests
                         LambdaJobsTestSystem.StructuralChangesWithECB(m_Manager);
                     })
                         .SampleGroup(new SampleGroup("StructuralChangesWithECB", SampleUnit.Microsecond))
+                        .WarmupCount(1)
+                        .MeasurementCount(100)
                         .Run();
                 }
                 else
@@ -318,6 +320,8 @@ namespace Unity.Entities.PerformanceTests
                         LambdaJobsTestSystem.StructuralChangesInLambda(m_Manager);
                     })
                         .SampleGroup(new SampleGroup("StructuralChangesInLambda", SampleUnit.Microsecond))
+                        .WarmupCount(1)
+                        .MeasurementCount(100)
                         .Run();
                 }
             }

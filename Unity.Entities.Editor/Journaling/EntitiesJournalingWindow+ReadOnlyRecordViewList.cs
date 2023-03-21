@@ -8,7 +8,7 @@ namespace Unity.Entities.Editor
 {
     partial class EntitiesJournalingWindow
     {
-        class ReadOnlyRecordViewList : IList<RecordView>, IList
+        internal class ReadOnlyRecordViewList : IList<RecordView>, IList
         {
             readonly RecordViewArray m_Records;
 

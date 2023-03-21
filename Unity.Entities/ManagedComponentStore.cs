@@ -560,9 +560,10 @@ namespace Unity.Entities
         public NativeArray<int> MoveSharedComponents_Managed(
             ManagedComponentStore srcManagedComponents,
             NativeArray<ArchetypeChunk> chunks,
-            Allocator allocator)
+            AllocatorManager.AllocatorHandle allocator)
         {
-            var remap = new NativeArray<int>(srcManagedComponents.GetSharedComponentCount(), allocator);
+            // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
+            var remap = new NativeArray<int>(srcManagedComponents.GetSharedComponentCount(), allocator.ToAllocator);
             var remapPtr = (int*) remap.GetUnsafePtr();
             // Build a map of all shared component values that will be moved
             // remap will have a refcount of how many chunks reference the shared component after this loop

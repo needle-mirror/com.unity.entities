@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 namespace Unity.Entities.SourceGen.Aspect
 {
     /// <summary>

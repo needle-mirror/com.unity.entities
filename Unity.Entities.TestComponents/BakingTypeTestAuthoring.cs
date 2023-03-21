@@ -17,7 +17,9 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(BakingTypeTestAuthoring authoring)
             {
-                AddComponent(new BakingTypeTestComponent
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new BakingTypeTestComponent
                 {
                     Value = 0
                 });

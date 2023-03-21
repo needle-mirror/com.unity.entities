@@ -45,29 +45,34 @@ namespace Unity.Entities.Tests.TestSystemAPI
     #endregion
 
     #region Aspect
+
+    readonly partial struct TestAspect : IAspect
+    {
+        public readonly RefRW<LocalTransform> Transform;
+        public void Move(float3 newPosition)
+        {
+            Transform.ValueRW.Position = newPosition;
+        }
+    }
+
     partial class TestGetAspectRW : SystemBase {
         protected override void OnCreate() {}
         protected override void OnDestroy() {}
         protected override void OnUpdate() {
             var e = EntityManager.CreateEntity(
-#if !ENABLE_TRANSFORM_V1
                 typeof(LocalTransform),
-                typeof(LocalToWorld), typeof(WorldTransform));
-#else
-                typeof(Translation), typeof(Rotation),
-                typeof(LocalToWorld), typeof(LocalToParent));
-#endif
+                typeof(LocalToWorld));
             var containingEntity = EntityManager.CreateEntity();
             EntityManager.AddComponentData(containingEntity, new EcsTestDataEntity(1, e));
 
             Entities.ForEach((in EcsTestDataEntity data) =>
             {
-                var transform = SystemAPI.GetAspectRW<TransformAspect>(data.value1);
-                transform.TranslateLocal(5);
+                var transform = SystemAPI.GetAspectRW<TestAspect>(data.value1);
+                transform.Move(new float3(5,5,5));
             }).WithoutBurst().Schedule(Dependency).Complete();
 
             Entities.ForEach((in EcsTestDataEntity data) =>
-                Assert.AreEqual(new float3(5), SystemAPI.GetAspectRW<TransformAspect>(data.value1).LocalPosition)
+                Assert.AreEqual(new float3(5), SystemAPI.GetAspectRW<TestAspect>(data.value1).Transform.ValueRO.Position)
             ).WithoutBurst().Schedule(Dependency).Complete();
         }
     }
@@ -80,15 +85,10 @@ namespace Unity.Entities.Tests.TestSystemAPI
         protected override void OnCreate() {}
         protected override void OnDestroy() {}
         protected override void OnUpdate() {
-#if !ENABLE_TRANSFORM_V1
             var e = EntityManager.CreateEntity(typeof(LocalTransform),
-                typeof(LocalToWorld), typeof(WorldTransform));
+                typeof(LocalToWorld));
             EntityManager.AddComponentData(e, LocalTransform.FromPosition(5, 5, 5));
-#else
-            var e = EntityManager.CreateEntity(typeof(Rotation),
-                typeof(LocalToWorld), typeof(LocalToParent));
-            EntityManager.AddComponentData(e, new Translation{Value = 5});
-#endif
+
             var containingEntity = EntityManager.CreateEntity();
             EntityManager.AddComponentData(containingEntity, new EcsTestDataEntity(1, e));
 
@@ -97,14 +97,14 @@ namespace Unity.Entities.Tests.TestSystemAPI
             {
                 Entities.ForEach((in EcsTestDataEntity data) =>
                 {
-                    var transform = SystemAPI.GetAspectRO<TransformAspect>(data.value1);
-                    transform.TranslateLocal(5);
+                    var transform = SystemAPI.GetAspectRO<TestAspect>(data.value1);
+                    transform.Move(new float3(5,5,5));
                 }).WithoutBurst().Run();
             });
 #endif
 
             Entities.ForEach((in EcsTestDataEntity data) =>
-                Assert.AreEqual(new float3(5), SystemAPI.GetAspectRO<TransformAspect>(data.value1).LocalPosition)
+                Assert.AreEqual(new float3(5), SystemAPI.GetAspectRO<TestAspect>(data.value1).Transform.ValueRO.Position)
             ).WithoutBurst().ScheduleParallel(Dependency).Complete();
         }
     }

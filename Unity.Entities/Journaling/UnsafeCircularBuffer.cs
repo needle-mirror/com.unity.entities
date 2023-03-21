@@ -76,7 +76,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// <param name="capacity">The total capacity.</param>
         /// <param name="allocator">The allocator.</param>
         /// <param name="options">Memory initialization options.</param>
-        public UnsafeCircularBuffer(int capacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory)
+        public UnsafeCircularBuffer(int capacity, AllocatorManager.AllocatorHandle allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory)
         {
             m_Allocator = default;
             m_Ptr = null;
@@ -92,7 +92,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// </summary>
         /// <param name="array">The native array.</param>
         /// <param name="allocator">The allocator.</param>
-        public UnsafeCircularBuffer(in NativeArray<T> array, Allocator allocator)
+        public UnsafeCircularBuffer(in NativeArray<T> array, AllocatorManager.AllocatorHandle allocator)
         {
             m_Allocator = allocator;
 
@@ -113,7 +113,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// <param name="array">The managed array.</param>
         /// <param name="allocator">The allocator.</param>
         [ExcludeFromBurstCompatTesting("Takes managed array")]
-        public UnsafeCircularBuffer(T[] array, Allocator allocator)
+        public UnsafeCircularBuffer(T[] array, AllocatorManager.AllocatorHandle allocator)
         {
             m_Allocator = allocator;
 
@@ -135,7 +135,7 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// <param name="capacity">The total capacity.</param>
         /// <param name="allocator">The allocator.</param>
         /// <param name="options">Memory initialization options.</param>
-        public void Construct(int capacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory)
+        public void Construct(int capacity, AllocatorManager.AllocatorHandle allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory)
         {
             ThrowIfAllocated();
 
@@ -460,9 +460,10 @@ namespace Unity.Entities.LowLevel.Unsafe
         /// </summary>
         /// <param name="allocator">The allocator used for the new NativeArray.</param>
         /// <returns>The circular buffer elements copied into a NativeArray.</returns>
-        public NativeArray<T> ToNativeArray(Allocator allocator)
+        public NativeArray<T> ToNativeArray(AllocatorManager.AllocatorHandle allocator)
         {
-            var array = new NativeArray<T>(m_Count, allocator, NativeArrayOptions.UninitializedMemory);
+            // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
+            var array = new NativeArray<T>(m_Count, allocator.ToAllocator, NativeArrayOptions.UninitializedMemory);
             if (m_Count > 0)
                 CopyTo((T*)array.GetUnsafePtr());
             return array;

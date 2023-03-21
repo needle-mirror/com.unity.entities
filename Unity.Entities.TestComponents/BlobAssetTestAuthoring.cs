@@ -4,7 +4,7 @@ namespace Unity.Entities.TestComponents
 {
     public class BlobAssetAddTestAuthoring : MonoBehaviour
     {
-        public int blobValue = 0;
+        public int blobValue;
     }
 
     public struct BlobAssetReference : IComponentData
@@ -21,7 +21,9 @@ namespace Unity.Entities.TestComponents
             var blobReference = BlobAssetUtility.CreateBlobAsset(authoring.blobValue);
             AddBlobAsset(ref blobReference, out Hash128 objectHash);
 
-            AddComponent(new BlobAssetReference()
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new BlobAssetReference()
             {
                 blobValue = blobReference.Value,
                 blobHash = objectHash,
@@ -30,19 +32,28 @@ namespace Unity.Entities.TestComponents
         }
     }
 
+    public static class CustomHashHelpers
+    {
+        public static Hash128 Compute(int value)
+        {
+            var customHash = value.GetHashCode();
+            return new Hash128((uint)customHash, 1, 2, 3);
+        }
+    }
 
     [DisableAutoCreation]
     public class AddBlobAssetWithCustomHashBaker : Baker<BlobAssetAddTestAuthoring>
     {
         public override void Bake(BlobAssetAddTestAuthoring authoring)
         {
-            var customHash = authoring.blobValue.GetHashCode();
-            var customCustomHash = new Hash128((uint) customHash, 1, 2, 3);
+            var customCustomHash = CustomHashHelpers.Compute(authoring.blobValue);
 
             var blobReference = BlobAssetUtility.CreateBlobAsset(authoring.blobValue);
             AddBlobAssetWithCustomHash(ref blobReference, customCustomHash);
 
-            AddComponent(new BlobAssetReference()
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new BlobAssetReference()
             {
                 blobValue = blobReference.Value,
                 blobHash = customCustomHash,
@@ -63,12 +74,13 @@ namespace Unity.Entities.TestComponents
     {
         public override void Bake(BlobAssetAddTestAuthoring authoring)
         {
-            var customHash = authoring.blobValue.GetHashCode();
-            var customCustomHash = new Hash128((uint) customHash, 1, 2, 3);
+            var customCustomHash = CustomHashHelpers.Compute(authoring.blobValue);
 
             if (TryGetBlobAssetReference(customCustomHash, out BlobAssetReference<int> blobReference))
             {
-                AddComponent(new BlobAssetReference()
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new BlobAssetReference()
                 {
                     blobValue = blobReference.Value,
                     blobHash = customCustomHash,
@@ -79,7 +91,9 @@ namespace Unity.Entities.TestComponents
             {
                 blobReference = BlobAssetUtility.CreateBlobAsset(authoring.blobValue);
                 AddBlobAssetWithCustomHash(ref blobReference, customCustomHash);
-                AddComponent(new BlobAssetGetReference()
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new BlobAssetGetReference()
                 {
                     blobValue = blobReference.Value,
                     blobHash = customCustomHash,
@@ -98,20 +112,21 @@ namespace Unity.Entities.TestComponents
     {
         public override void Bake(BlobAssetAddTestAuthoring authoring)
         {
-            var customHash = authoring.blobValue.GetHashCode();
-            var customCustomHash = new Hash128((uint) customHash, 1, 2, 3);
+            var customCustomHash = CustomHashHelpers.Compute(authoring.blobValue);
 
             // First add the blob asset
             var blobReference = BlobAssetUtility.CreateBlobAsset(authoring.blobValue);
             AddBlobAssetWithCustomHash(ref blobReference, customCustomHash);
-            AddComponent(new BlobAssetGetReference()
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new BlobAssetGetReference()
             {
                 blobValue = blobReference.Value,
                 blobHash = customCustomHash,
                 blobReference = blobReference
             });
 
-            var buffer = AddBuffer<BlobAssetReferenceElement>();
+            var buffer = AddBuffer<BlobAssetReferenceElement>(entity);
 
             // TryGet 4 times (adds 4 refcounting in the Baker and BlobAssetStore)
             for (int i = 0; i < 4; i++)
@@ -121,8 +136,6 @@ namespace Unity.Entities.TestComponents
                     buffer.Add(new BlobAssetReferenceElement() {blobHash = customCustomHash});
                 }
             }
-
-
         }
     }
 }

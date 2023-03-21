@@ -6,25 +6,13 @@ namespace Unity.Entities.Editor
 {
     class EntityInspectorComponentsComparer: IComparer<string>
     {
-#if !ENABLE_TRANSFORM_V1
         static readonly string[] k_TopComponents =
         {
-            nameof(WorldTransform),
             nameof(LocalTransform),
-            nameof(PostTransformScale),
+            nameof(PostTransformMatrix),
             nameof(LocalToWorld),
             nameof(Parent),
         };
-#else
-        static readonly string[] k_TopComponents =
-        {
-            nameof(Translation),
-            nameof(Rotation),
-            nameof(NonUniformScale),
-            nameof(LocalToWorld),
-            nameof(LocalToParent)
-        };
-#endif
 
         public static EntityInspectorComponentsComparer Instance { get; } = new();
 

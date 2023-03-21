@@ -21,7 +21,9 @@ namespace Unity.Entities.Tests
     {
         public override void Bake(SceneSectionValueAuthoring authoring)
         {
-            AddComponent(new SceneSectionValue(authoring.Value));
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new SceneSectionValue(authoring.Value));
         }
     }
 }

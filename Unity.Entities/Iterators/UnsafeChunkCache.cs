@@ -28,7 +28,7 @@ namespace Unity.Entities
 
         EntityQueryFilter                      _Filter;
         byte                                   _RequireMatchesFilter;
-        byte                                   _DoesQueryRequireBatching;
+        byte                                   _QueryHasEnableableComponents;
 
         int                                    _CurrentMatchingArchetypeIndex;
 
@@ -36,7 +36,7 @@ namespace Unity.Entities
         [NoAlias] int*                         _CurrentArchetypeChunkEntityCounts;
         ChunkIterationUtility.EnabledMaskMatchingArchetypeState _CurrentArchetypeState;
 
-        internal UnsafeChunkCache(in EntityQueryFilter filter, bool doesQueryRequireBatching, UnsafeCachedChunkList list, MatchingArchetype** matchingArchetypes)
+        internal UnsafeChunkCache(in EntityQueryFilter filter, bool hasEnableableComponents, UnsafeCachedChunkList list, MatchingArchetype** matchingArchetypes)
         {
             _Chunks = list.Ptr;
             Length = list.Length;
@@ -46,7 +46,7 @@ namespace Unity.Entities
             _ChunkIndexInArchetype = list.ChunkIndexInArchetype->Ptr;
             _Filter = filter;
             _RequireMatchesFilter = filter.RequiresMatchesFilter ? (byte)1 : (byte)0;
-            _DoesQueryRequireBatching = doesQueryRequireBatching ? (byte)1 : (byte)0;
+            _QueryHasEnableableComponents = hasEnableableComponents ? (byte)1 : (byte)0;
             _CurrentMatchingArchetypeIndex = -1;
             _CurrentMatchingArchetype = null;
             _CurrentArchetypeChunkEntityCounts = null;
@@ -93,7 +93,7 @@ namespace Unity.Entities
                     _CurrentMatchingArchetypeIndex = _PerChunkMatchingArchetypeIndex[chunkIndexInCache];
                     _CurrentMatchingArchetype = _MatchingArchetypes[_CurrentMatchingArchetypeIndex];
                     _CurrentArchetypeChunkEntityCounts = _CurrentMatchingArchetype->Archetype->Chunks.GetChunkEntityCountArray();
-                    if (_DoesQueryRequireBatching != 0)
+                    if (_QueryHasEnableableComponents != 0)
                     {
                         _CurrentArchetypeState = new ChunkIterationUtility.EnabledMaskMatchingArchetypeState(_CurrentMatchingArchetype);
                     }
@@ -104,7 +104,7 @@ namespace Unity.Entities
                     continue;
                 }
 
-                if (_DoesQueryRequireBatching != 0)
+                if (_QueryHasEnableableComponents != 0)
                 {
                     int chunkEntityCount = _CurrentArchetypeChunkEntityCounts[chunkIndexInArchetype];
                     ChunkIterationUtility.GetEnabledMask(chunkIndexInArchetype, chunkEntityCount, _CurrentArchetypeState, out enableBits);

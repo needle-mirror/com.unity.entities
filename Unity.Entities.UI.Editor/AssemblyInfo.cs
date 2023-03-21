@@ -11,4 +11,3 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Entities.Editor")]
 [assembly: InternalsVisibleTo("Unity.Entities.Editor.Properties")]
 [assembly: InternalsVisibleTo("Unity.Entities.Editor.Tests")]
-[assembly: InternalsVisibleTo("Unity.Tiny.Authoring")]

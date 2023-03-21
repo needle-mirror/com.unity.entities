@@ -13,7 +13,9 @@ public class TestNameBaker : Baker<TestNameAuthoring>
     public override void Bake(TestNameAuthoring authoring)
     {
         var name = GetName(authoring);
-        AddComponent(new TestNameComponent
+        // This test shouldn't require transform components
+        var entity = GetEntity(TransformUsageFlags.None);
+        AddComponent(entity, new TestNameComponent
         {
             value = name.GetHashCode()
         });
@@ -31,7 +33,9 @@ public class TestLayerBaker : Baker<TestLayerAuthoring>
     public override void Bake(TestLayerAuthoring authoring)
     {
         int layer = GetLayer(authoring);
-        AddComponent(new TestLayerComponent
+        // This test shouldn't require transform components
+        var entity = GetEntity(TransformUsageFlags.None);
+        AddComponent(entity, new TestLayerComponent
         {
             value = layer
         });
@@ -49,7 +53,9 @@ public class TestTagBaker : Baker<TestTagAuthoring>
     public override void Bake(TestTagAuthoring authoring)
     {
         var tag = GetTag(authoring);
-        AddComponent(new TestTagComponent
+        // This test shouldn't require transform components
+        var entity = GetEntity(TransformUsageFlags.None);
+        AddComponent(entity, new TestTagComponent
         {
             value = tag.GetHashCode()
         });

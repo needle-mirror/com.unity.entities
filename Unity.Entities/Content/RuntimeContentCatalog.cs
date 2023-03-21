@@ -73,27 +73,27 @@ namespace Unity.Entities.Content
         /// </summary>
         /// <param name="alloc">Allocator to use for created NativeArray.</param>
         /// <returns>The set of archive ids.  The caller is responsible for disposing the returned array.</returns>
-        public NativeArray<ContentArchiveId> GetArchiveIds(Allocator alloc) => ArchiveLocations.GetKeyArray(alloc);
+        public NativeArray<ContentArchiveId> GetArchiveIds(AllocatorManager.AllocatorHandle alloc) => ArchiveLocations.GetKeyArray(alloc);
 
         /// <summary>
         /// Get the entire list of object ids.
         /// </summary>
         /// <param name="alloc">Allocator to use for created NativeArray.</param>
         /// <returns>The set of object ids.  The caller is responsible for disposing the returned array.</returns>
-        public NativeArray<UntypedWeakReferenceId> GetObjectIds(Allocator alloc) => ObjectLocations.GetKeyArray(alloc);
+        public NativeArray<UntypedWeakReferenceId> GetObjectIds(AllocatorManager.AllocatorHandle alloc) => ObjectLocations.GetKeyArray(alloc);
         /// <summary>
         /// Get the entire list of object ids.
         /// </summary>
         /// <param name="alloc">Allocator to use for created NativeArray.</param>
         /// <returns>The set of object ids.  The caller is responsible for disposing the returned array.</returns>
-        public NativeArray<UntypedWeakReferenceId> GetSceneIds(Allocator alloc) => SceneLocations.GetKeyArray(alloc);
+        public NativeArray<UntypedWeakReferenceId> GetSceneIds(AllocatorManager.AllocatorHandle alloc) => SceneLocations.GetKeyArray(alloc);
 
         /// <summary>
         /// Get the entire list of file ids.
         /// </summary>
         /// <param name="alloc">Allocator to use for created NativeArray.</param>
         /// <returns>The set of file ids.  The caller is responsible for disposing the returned array.</returns>
-        public NativeArray<ContentFileId> GetFileIds(Allocator alloc) => FileLocations.GetKeyArray(alloc);
+        public NativeArray<ContentFileId> GetFileIds(AllocatorManager.AllocatorHandle alloc) => FileLocations.GetKeyArray(alloc);
 
         /// <summary>
         /// The number of scenes.
@@ -158,7 +158,7 @@ namespace Unity.Entities.Content
         /// <summary>
         /// True if there is no data loaded into the catalog.
         /// </summary>
-        public bool IsEmpty => ObjectLocations.IsEmpty;
+        public bool IsEmpty => ObjectLocations.IsEmpty && SceneLocations.IsEmpty;
 
         /// <summary>
         /// Retrieves the stored string value.

@@ -9,7 +9,7 @@ namespace Unity.Entities.Editor
 {
     partial class ArchetypesWindow
     {
-        unsafe class ArchetypesMemoryDataRecorder : IDisposable
+        internal unsafe class ArchetypesMemoryDataRecorder : IDisposable
         {
             class Recorder : IDisposable
             {

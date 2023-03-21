@@ -23,12 +23,14 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(TestComponentAuthoring authoring)
             {
-                AddComponent(new TestComponentAuthoring.UnmanagedTestComponent
+                // This test might require transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponent(entity, new TestComponentAuthoring.UnmanagedTestComponent
                 {
                     IntValue = authoring.IntValue
                 });
 #if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
-                AddComponentObject(new TestComponentAuthoring.ManagedTestComponent
+                AddComponentObject(entity, new TestComponentAuthoring.ManagedTestComponent
                 {
                     Material = authoring.Material
                 });

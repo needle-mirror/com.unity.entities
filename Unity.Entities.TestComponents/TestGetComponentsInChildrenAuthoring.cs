@@ -34,9 +34,11 @@ namespace Unity.Entities.Tests
             {
                 List<Collider> found = new List<Collider>();
 				GetComponentsInChildren<Collider>(found);
-                AddComponent(new ComponentTest1() {Field = found.Count});
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new ComponentTest1() {Field = found.Count});
 
-                DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+                DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
                 foreach (var component in found)
                 {
                     buffer.Add(component.GetInstanceID());

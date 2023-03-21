@@ -19,8 +19,10 @@ namespace Unity.Entities.TestComponents
         {
             public override void Bake(MockBodyComponent authoring)
             {
-                AddComponent(new RequiredComponent {AddedBy = nameof(MockBodyComponent)});
-                AddComponent<MockBody>();
+                // A body test might use transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponent(entity, new RequiredComponent {AddedBy = nameof(MockBodyComponent)});
+                AddComponent<MockBody>(entity);
             }
         }
     }

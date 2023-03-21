@@ -15,12 +15,16 @@ namespace Unity.Entities.Hybrid.Baking
 
         public override void Bake(BakingOnlyEntityAuthoring authoring)
         {
-            AddComponent<BakingOnlyEntity>();
-            var childrenBuffer = AddBuffer<BakingOnlyChildren>();
+            // We don't need any transform components to make the entity bake only
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponent<BakingOnlyEntity>(entity);
+            var childrenBuffer = AddBuffer<BakingOnlyChildren>(entity);
 
             foreach (var childGameObject in GetChildren(true))
             {
-                childrenBuffer.Add(new BakingOnlyChildren() {entity = GetEntity(childGameObject)});
+                // We don't need any transform components to make the child bake only
+                var child = GetEntity(childGameObject, TransformUsageFlags.Dynamic);
+                childrenBuffer.Add(new BakingOnlyChildren() {entity = child});
             }
         }
     }

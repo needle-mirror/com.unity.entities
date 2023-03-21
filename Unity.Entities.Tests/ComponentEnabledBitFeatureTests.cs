@@ -8,13 +8,12 @@ namespace Unity.Entities.Tests
 {
     partial class ComponentEnabledBitFeatureTests : ECSTestsFixture
     {
-
         partial class TouchEnabledEntitiesSystem : SystemBase
         {
             private EntityQuery _query;
             protected override void OnCreate()
             {
-                _query = GetEntityQuery(typeof(EcsTestDataEnableable));
+                _query = GetEntityQuery(typeof(EcsTestDataEnableable), typeof(EcsTestData));
             }
 
             partial struct TouchEnabledEntitiesJob : IJobEntity
@@ -41,7 +40,7 @@ namespace Unity.Entities.Tests
             for(int i=0; i<entityCount; ++i)
             {
                 m_Manager.SetComponentData(entities[i], new EcsTestData(0));
-                if ((i % 10) == 0)
+                if (i % 10 == 0)
                     m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
             }
 
@@ -859,7 +858,7 @@ namespace Unity.Entities.Tests
         public unsafe void SetEnabledBitsOnAllChunks_TypeNotInQuery_Throws()
         {
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestDataEnableable));
-            Assert.Throws<InvalidOperationException>(() => query.SetEnabledBitsOnAllChunks<EcsTestDataEnableable3>(false));
+            Assert.Throws<InvalidOperationException>(() => m_Manager.SetComponentEnabled<EcsTestDataEnableable3>(query, false));
         }
 
         [Test]
@@ -878,14 +877,14 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(4*entitiesPerArchetype, query.CalculateEntityCount());
             using var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
 
-            query.SetEnabledBitsOnAllChunks<EcsTestDataEnableable>(false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(query, false);
             foreach (var ent in entities)
             {
                 Assert.IsFalse(m_Manager.IsComponentEnabled<EcsTestDataEnableable>(ent));
                 Assert.IsTrue(m_Manager.IsComponentEnabled<EcsTestDataEnableable2>(ent));
             }
 
-            query.SetEnabledBitsOnAllChunks<EcsTestDataEnableable>(true);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(query, true);
             foreach (var ent in entities)
             {
                 Assert.IsTrue(m_Manager.IsComponentEnabled<EcsTestDataEnableable>(ent));
@@ -916,7 +915,7 @@ namespace Unity.Entities.Tests
             }
             query.SetSharedComponentFilterManaged(filterValue);
 
-            query.SetEnabledBitsOnAllChunks<EcsTestDataEnableable>(false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(query, false);
             foreach (var ent in entities)
             {
                 var sharedValue = m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(ent);
@@ -924,7 +923,7 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(m_Manager.IsComponentEnabled<EcsTestDataEnableable2>(ent));
             }
 
-            query.SetEnabledBitsOnAllChunks<EcsTestDataEnableable>(true);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(query, true);
             foreach (var ent in entities)
             {
                 Assert.IsTrue(m_Manager.IsComponentEnabled<EcsTestDataEnableable>(ent));

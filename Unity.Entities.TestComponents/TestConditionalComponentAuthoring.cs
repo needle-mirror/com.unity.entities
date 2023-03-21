@@ -17,7 +17,9 @@ namespace Unity.Entities.Tests
             {
                 if (authoring.condition)
                 {
-                    AddComponent(default(TestComponent));
+                    // This test shouldn't require transform components
+                    var entity = GetEntity(TransformUsageFlags.None);
+                    AddComponent(entity, default(TestComponent));
                 }
             }
         }

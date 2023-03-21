@@ -60,9 +60,10 @@ namespace Unity.Entities
             /// </summary>
             /// <param name="allocator">The Allocator of the NativeArray.</param>
             /// <returns>A native array of entity views.</returns>
-            public NativeArray<EntityView> ToNativeArray(Allocator allocator)
+            public NativeArray<EntityView> ToNativeArray(AllocatorManager.AllocatorHandle allocator)
             {
-                var array = new NativeArray<EntityView>(m_EntityCount, allocator);
+                // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
+                var array = new NativeArray<EntityView>(m_EntityCount, allocator.ToAllocator);
                 for (var i = 0; i < m_EntityCount; ++i)
                     array[i] = this[i];
                 return array;

@@ -69,6 +69,9 @@ namespace Unity.Entities.Editor
         public static class ComponentSearch
         {
             public const string Token = "c";
+            public const string All = "all";
+            public const string None = "none";
+            public const string Any = "any";
             public const string Op = "=";
             public const string TokenCaseInsensitive = "cC";
             public const string TokenOp = "c=";
@@ -78,6 +81,8 @@ namespace Unity.Entities.Editor
         {
             public const string EntityIndexToken = "ei";
             public const string EntityIndexTokenOpEqual = "ei=";
+            public const string NodeKindOpEqual = "k=";
+            public const string KindToken = "k";
         }
 
         public static class Inspector

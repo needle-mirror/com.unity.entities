@@ -192,12 +192,57 @@ namespace Unity.Entities.Editor.Tests
             new TestCase() { token = "c:a", shouldAutoComplete = false },
             new TestCase() { token = "C:", shouldAutoComplete = false },
             new TestCase() { token = "C:a", shouldAutoComplete = false },
+
+            new TestCase() { token = "k=a", shouldAutoComplete = false },
+            new TestCase() { token = "dummy=a", shouldAutoComplete = false },
         };
 
         [Test]
         public void Run([ValueSource(nameof(testCases))] TestCase testCase)
         {
             var autoComplete = ComponentTypeAutoComplete.Instance;
+            Assert.AreEqual(autoComplete.ShouldStartAutoCompletion(testCase.token, testCase.token.Length), testCase.shouldAutoComplete);
+        }
+
+        static TestCase[] advancedTestCases = new[]
+        {
+            new TestCase() { token = "c=a", shouldAutoComplete = true },
+            new TestCase() { token = "c=acc", shouldAutoComplete = true },
+            new TestCase() { token = "C=acc", shouldAutoComplete = true },
+
+            new TestCase() { token = "none=acc", shouldAutoComplete = true },
+            new TestCase() { token = "nOne=acc", shouldAutoComplete = true },
+
+            new TestCase() { token = "any=acc", shouldAutoComplete = true },
+            new TestCase() { token = "Any=acc", shouldAutoComplete = true },
+
+            new TestCase() { token = "all=acc", shouldAutoComplete = true },
+            new TestCase() { token = "aLL=acc", shouldAutoComplete = true },
+
+            new TestCase() { token = "none:acc", shouldAutoComplete = false },
+            new TestCase() { token = "all:acc", shouldAutoComplete = false },
+            new TestCase() { token = "any:acc", shouldAutoComplete = false },
+
+            new TestCase() { token = "c:a", shouldAutoComplete = false },
+            new TestCase() { token = "C:a", shouldAutoComplete = false },
+
+            new TestCase() { token = "c", shouldAutoComplete = false },
+            new TestCase() { token = "C", shouldAutoComplete = false },
+
+            new TestCase() { token = "c=", shouldAutoComplete = false },
+            new TestCase() { token = "C=", shouldAutoComplete = false },
+
+            new TestCase() { token = "c:", shouldAutoComplete = false },
+            new TestCase() { token = "C:", shouldAutoComplete = false },
+            
+            new TestCase() { token = "k=a", shouldAutoComplete = false },
+            new TestCase() { token = "dummy=a", shouldAutoComplete = false },
+        };
+
+        [Test]
+        public void RunAdvanceEntityQuery([ValueSource(nameof(advancedTestCases))] TestCase testCase)
+        {
+            var autoComplete = ComponentTypeAutoComplete.EntityQueryInstance;
             Assert.AreEqual(autoComplete.ShouldStartAutoCompletion(testCase.token, testCase.token.Length), testCase.shouldAutoComplete);
         }
     }

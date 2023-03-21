@@ -30,7 +30,9 @@ namespace Unity.Entities.Tests
                 component.Bool2 = authoring.Bool2;
                 component.Bool3 = authoring.Bool3;
                 component.Bool4 = authoring.Bool4;
-                AddComponent(component);
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, component);
             }
         }
     }

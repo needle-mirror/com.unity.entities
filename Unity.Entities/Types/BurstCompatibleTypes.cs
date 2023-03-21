@@ -28,12 +28,11 @@ namespace Unity.Entities
 
     // This exists only to be able to make generic instances of generic methods to test burst compatibility.
     [DisableGeneration]
-    internal struct BurstCompatibleAspect : IAspect, IAspectCreate<BurstCompatibleAspect>
+    internal partial struct BurstCompatibleAspect : IAspect, IAspectCreate<BurstCompatibleAspect>
     {
         public int UnusedField;
 
-        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, ref UnsafeList<ComponentType> any, ref UnsafeList<ComponentType> none,
-            ref UnsafeList<ComponentType> disabled, ref UnsafeList<ComponentType> absent, bool isReadOnly)
+        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, bool isReadOnly)
         {
         }
 

@@ -2,6 +2,7 @@ using System;
 using Unity.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.Xml;
 #if UNITY_EDITOR
 #if USING_PLATFORMS_PACKAGE
 using Unity.Build;
@@ -899,9 +900,44 @@ namespace Unity.Entities
         /// <summary>
         /// Returns the primary Entity
         /// </summary>
+        /// <returns>The requested Entity</returns>
+        /// <remarks>Implicitly it access the entity with TransformUsageFlags.Dynamic as TransformUsageFlags.</remarks>
+        [Obsolete("Use the version of the function with the explicit TransformUsageFlag parameter (RemovedAfter Entities 1.0)")]
+        public Entity GetEntity()
+        {
+            return GetEntity(TransformUsageFlags.Dynamic);
+        }
+
+        /// <summary>
+        /// Returns the Entity associated with a GameObject
+        /// </summary>
+        /// <param name="authoring">The GameObject whose Entity is requested</param>
+        /// <returns>The requested Entity if found, null otherwise</returns>
+        /// <remarks>Implicitly it access the entity with TransformUsageFlags.Dynamic as TransformUsageFlags.</remarks>
+        [Obsolete("Use the version of the function with the explicit TransformUsageFlag parameter (RemovedAfter Entities 1.0)")]
+        public Entity GetEntity(GameObject authoring)
+        {
+            return GetEntity(authoring, TransformUsageFlags.Dynamic);
+        }
+
+        /// <summary>
+        /// Returns the Entity associated with an Object
+        /// </summary>
+        /// <param name="authoring">The Object whose Entity is requested</param>
+        /// <returns>The requested Entity if found, null otherwise</returns>
+        /// <remarks>Implicitly it access the entity with TransformUsageFlags.Dynamic as TransformUsageFlags.</remarks>
+        [Obsolete("Use the version of the function with the explicit TransformUsageFlag parameter (RemovedAfter Entities 1.0)")]
+        public Entity GetEntity(Component authoring)
+        {
+            return GetEntity(authoring, TransformUsageFlags.Dynamic);
+        }
+
+        /// <summary>
+        /// Returns the primary Entity
+        /// </summary>
         /// <param name="flags">The flags to add to this Entity</param>
         /// <returns>The requested Entity</returns>
-        public Entity GetEntity(TransformUsageFlags flags = TransformUsageFlags.Default)
+        public Entity GetEntity(TransformUsageFlags flags)
         {
             _State.Usage->PrimaryEntityFlags.Add(flags);
             return _State.PrimaryEntity;
@@ -913,7 +949,7 @@ namespace Unity.Entities
         /// <param name="authoring">The GameObject whose Entity is requested</param>
         /// <param name="flags">The flags to add to this Entity</param>
         /// <returns>The requested Entity if found, null otherwise</returns>
-        public Entity GetEntity(GameObject authoring, TransformUsageFlags flags = TransformUsageFlags.Default)
+        public Entity GetEntity(GameObject authoring, TransformUsageFlags flags)
         {
             if (authoring == null)
                 return Entity.Null;
@@ -952,7 +988,7 @@ namespace Unity.Entities
         /// <param name="authoring">The Object whose Entity is requested</param>
         /// <param name="flags">The flags to add to this Entity</param>
         /// <returns>The requested Entity if found, null otherwise</returns>
-        public Entity GetEntity(Component authoring, TransformUsageFlags flags = TransformUsageFlags.Default)
+        public Entity GetEntity(Component authoring, TransformUsageFlags flags)
         {
             if (authoring == null)
                 return Entity.Null;
@@ -1408,7 +1444,6 @@ namespace Unity.Entities
             // TryAdd already prevents double entries
             _State.BlobAssetStore.TryAdd(ref blobAssetReference, out Hash128 tempObjectHash);
             objectHash = tempObjectHash;
-            _State.BakerState->ReferencedBlobAssets.Add(((uint)typeof(T).GetHashCode(), objectHash));
         }
 
         /// <summary>
@@ -1428,8 +1463,6 @@ namespace Unity.Entities
             {
                 blobAssetReference = existingBlobAssetReference;
             }
-
-            _State.BakerState->ReferencedBlobAssets.Add(((uint)typeof(T).GetHashCode(), customHash));
         }
 
         /// <summary>
@@ -1442,37 +1475,29 @@ namespace Unity.Entities
         /// <remarks>This will take a dependency on the component</remarks>
         public bool TryGetBlobAssetReference<T>(Hash128 hash, out BlobAssetReference<T> blobAssetReference) where T : unmanaged
         {
-            bool updateRefCount = true;
-            var hashCode = (uint) typeof(T).GetHashCode();
-            if(_State.BakerState->ReferencedBlobAssets.Contains((hashCode, hash)))
+            if (_State.BlobAssetStore.TryGet(hash, out blobAssetReference))
             {
-                updateRefCount = false;
-            }
-            if (_State.BlobAssetStore.TryGet(hash, out blobAssetReference, updateRefCount))
-            {
-                _State.BakerState->ReferencedBlobAssets.Add((hashCode, hash));
                 return true;
             }
 
             blobAssetReference = default;
             return false;
-
         }
 
 #endregion
 
 #region Add and Set Components on Entities
 
-       /// <summary>
+        /// <summary>
         /// Adds a component of type T to the primary Entity
         /// </summary>
         /// <typeparam name="T">The type of component to add</typeparam>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public void AddComponent<T>() where T : unmanaged, IComponentData
         {
-            AddDebugTrackingForComponent<T>(_State.PrimaryEntity);
-            AddTrackingForComponent<T>();
-
-            _State.Ecb.AddComponent<T>(_State.PrimaryEntity);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponent<T>(entity);
         }
 
         /// <summary>
@@ -1480,13 +1505,12 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="component">The component to add</param>
         /// <typeparam name="T">The type of component to add</typeparam>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public void AddComponent<T>(in T component) where T : unmanaged, IComponentData
         {
-            var e = GetEntity(TransformUsageFlags.Default);
-            AddDebugTrackingForComponent<T>(e);
-            AddTrackingForComponent<T>();
-
-            _State.Ecb.AddComponent(e, component);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponent<T>(entity, component);
         }
 
         /// <summary>
@@ -1523,12 +1547,12 @@ namespace Unity.Entities
         /// Adds a component of type ComponentType to the primary Entity
         /// </summary>
         /// <param name="componentType">The type of component to add</param>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public void AddComponent(ComponentType componentType)
         {
-            var e = GetEntity(TransformUsageFlags.Default);
-            AddDebugTrackingForComponent(e, componentType);
-            AddTrackingForComponent(componentType);
-            _State.Ecb.AddComponent(e, componentType);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponent(entity, componentType);
         }
 
         /// <summary>
@@ -1576,12 +1600,12 @@ namespace Unity.Entities
         /// Adds multiple components of types ComponentType to the primary Entity
         /// </summary>
         /// <param name="componentTypeSet">The types of components to add</param>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public void AddComponent(in ComponentTypeSet componentTypeSet)
         {
-            AddDebugTrackingForComponent(_State.PrimaryEntity, componentTypeSet);
-            AddTrackingForComponent(componentTypeSet);
-
-            _State.Ecb.AddComponent(_State.PrimaryEntity, componentTypeSet);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponent(entity, componentTypeSet);
         }
 
         /// <summary>
@@ -1611,13 +1635,12 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="component">The component to add</param>
         /// <typeparam name="T">The type of component to add</typeparam>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public void AddComponentObject<T>(T component) where T : class
         {
-            var e = GetEntity(TransformUsageFlags.Default);
-            AddDebugTrackingForComponent(e, ComponentType.ReadWrite<T>());
-            AddTrackingForComponent<T>();
-
-            _State.Ecb.AddComponent(e, component);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponentObject<T>(entity, component);
         }
 
         /// <summary>
@@ -1646,12 +1669,12 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="component">The component to add</param>
         /// <typeparam name="T">The type of component to add</typeparam>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public void AddSharedComponentManaged<T>(T component) where T : struct, ISharedComponentData
         {
-            var e = GetEntity(TransformUsageFlags.Default);
-            AddDebugTrackingForComponent(e, ComponentType.ReadWrite<T>());
-            AddTrackingForComponent<T>();
-            _State.Ecb.AddSharedComponentManaged(e, component);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddSharedComponentManaged<T>(entity, component);
         }
 
         /// <summary>
@@ -1678,12 +1701,12 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="component">The component to add</param>
         /// <typeparam name="T">The type of component to add</typeparam>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public void AddSharedComponent<T>(T component) where T : unmanaged, ISharedComponentData
         {
-            var e = GetEntity(TransformUsageFlags.Default);
-            AddDebugTrackingForComponent(e, ComponentType.ReadWrite<T>());
-            AddTrackingForComponent<T>();
-            _State.Ecb.AddSharedComponent(e, component);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddSharedComponent<T>(entity, component);
         }
 
         /// <summary>
@@ -1710,12 +1733,12 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="T">The type of buffer to add</typeparam>
         /// <returns>The created DynamicBuffer</returns>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public DynamicBuffer<T> AddBuffer<T>() where T : unmanaged, IBufferElementData
         {
-            var e = GetEntity(TransformUsageFlags.Default);
-            AddDebugTrackingForComponent<T>(e);
-            AddTrackingForComponent<T>();
-            return _State.Ecb.AddBuffer<T>(e);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            return AddBuffer<T>(entity);
         }
 
         /// <summary>
@@ -1783,10 +1806,12 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="enabled">True if the specified component should be enabled, or false if it should be disabled</param>
         /// <typeparam name="T">The type of component to set</typeparam>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public void SetComponentEnabled<T>(bool enabled) where T : struct, IEnableableComponent
         {
-            CheckComponentHasBeenAddedByThisBaker(_State.PrimaryEntity, TypeManager.GetTypeIndex<T>());
-            _State.Ecb.SetComponentEnabled<T>(_State.PrimaryEntity, enabled);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            SetComponentEnabled<T>(entity, enabled);
         }
 
          /// <summary>
@@ -1858,9 +1883,12 @@ namespace Unity.Entities
         /// </remarks>
         /// <typeparam name="T">The type of buffer to set</typeparam>
         /// <returns>The new DynamicBuffer</returns>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public DynamicBuffer<T> SetBuffer<T>() where T : unmanaged, IBufferElementData
         {
-            return SetBufferInternal<T>(_State.PrimaryEntity);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            return SetBuffer<T>(entity);
         }
 
         /// <summary>
@@ -1906,9 +1934,12 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="element">The element of type T to append to the buffer</param>
         /// <typeparam name="T">The type of buffer to append to</typeparam>
+        /// <remarks>Implicitly it will access the primary entity with TransformUsageFlags.Dynamic.</remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
         public void AppendToBuffer<T>(T element) where T : unmanaged, IBufferElementData
         {
-            AppendToBufferInternal(_State.PrimaryEntity, element);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AppendToBuffer<T>(entity, element);
         }
 
         /// <summary>
@@ -1944,6 +1975,25 @@ namespace Unity.Entities
         /// <summary>
         /// Creates an additional Entity tied to the primary entity.
         /// </summary>
+        /// <returns>Returns the newly created entity.</returns>
+        /// <remarks>
+        /// Additional entities are automatically reverted by the baking system if the source primary entity is removed in a new baking pass.
+        /// Additional entities are created with the same active or static state as the Primary Entity. For example, if the authoring object is disabled,
+        /// the new additional entity will also have the <see cref="Disabled"/> tag component.
+        ///
+        /// Implicitly it will create the additional entity with TransformUsageFlags.Dynamic.
+        ///
+        /// Baking only additional entities are not exported in the runtime data.
+        /// </remarks>
+        [Obsolete("Use the version of the function with the explicit Entity parameter (RemovedAfter Entities 1.0)")]
+        public Entity CreateAdditionalEntity()
+        {
+            return CreateAdditionalEntity(TransformUsageFlags.Dynamic);
+        }
+
+        /// <summary>
+        /// Creates an additional Entity tied to the primary entity.
+        /// </summary>
         /// <param name="transformUsageFlags">The <see cref="TransformUsageFlags"/> of the additional Entity.</param>
         /// <param name="bakingOnlyEntity">Whether to mark the additional Entity as BakingOnly.</param>
         /// <param name="entityName">The name of the additional Entity.</param>
@@ -1955,7 +2005,7 @@ namespace Unity.Entities
         ///
         /// Baking only additional entities are not exported in the runtime data.
         /// </remarks>
-        public Entity CreateAdditionalEntity(TransformUsageFlags transformUsageFlags = TransformUsageFlags.Default, bool bakingOnlyEntity = false, string entityName = "")
+        public Entity CreateAdditionalEntity(TransformUsageFlags transformUsageFlags, bool bakingOnlyEntity = false, string entityName = "")
         {
             var entity = _State.BakedEntityData->CreateAdditionalEntity(_State.AuthoringObject, _State.AuthoringId, bakingOnlyEntity, entityName);
             _State.BakerState->Entities.Add(entity);
@@ -1986,7 +2036,7 @@ namespace Unity.Entities
         /// Adds the TransformUsageFlags to the Flags of the Entity
         /// </summary>
         /// <param name="flags">The Flags to add</param>
-        public void AddTransformUsageFlags(TransformUsageFlags flags = TransformUsageFlags.Default)
+        public void AddTransformUsageFlags(TransformUsageFlags flags)
         {
             _State.Usage->PrimaryEntityFlags.Add(flags);
         }
@@ -1996,7 +2046,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="entity">The Entity to add the Flags to</param>
         /// <param name="flags">The Flags to add</param>
-        public void AddTransformUsageFlags(Entity entity, TransformUsageFlags flags = TransformUsageFlags.Default)
+        public void AddTransformUsageFlags(Entity entity, TransformUsageFlags flags)
         {
             if (entity == _State.PrimaryEntity)
             {
@@ -2080,7 +2130,8 @@ namespace Unity.Entities
     ///         // Accessing the transform using Baker function, not the GameObject one
     ///         // so the this baker can keep track of the dependency
     ///         var transform = GetComponent&lt;Transform&gt;();
-    ///         AddComponent(new MyComponent
+    ///         var entity = GetEntity(TransformUsageFlags.Dynamic);
+    ///         AddComponent(entity, new MyComponent
     ///         {
     ///             Value = authoring.Value,
     ///             Position = transform.position

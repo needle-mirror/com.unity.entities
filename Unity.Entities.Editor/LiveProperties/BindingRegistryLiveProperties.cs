@@ -12,9 +12,7 @@ namespace Unity.Entities.Editor
     [InitializeOnLoad]
     static class BindingRegistryLiveProperties
     {
-#if !ENABLE_TRANSFORM_V1
         static readonly TypeIndex s_LocalTransformTypeIndex = TypeManager.GetTypeIndex<LocalTransform>();
-#endif
 
         static BindingRegistryLiveProperties()
         {
@@ -115,21 +113,13 @@ namespace Unity.Entities.Editor
 
                             if (!diffingContext.LiveEntityManager.HasComponent(diffingContext.LiveEntity, runtimeType))
                             {
-#if ENABLE_TRANSFORM_V1
-                                // Detect missing/failed conversion between the authoring and runtime type
-                                Debug.LogError($"Can't update live properties on the authoring component {m_authoringType}." +
-                                               $"Because the runtime component {runtimeType} is missing on the primary entity. It looks like conversion didn't run on {m_authoringType}.");
-                                return false;
-
-#else
-                                if (runtimeType != typeof(LocalTransform) && runtimeType != typeof(WorldTransform))
+                                if (runtimeType != typeof(LocalTransform))
                                 {
                                     // Detect missing/failed conversion between the authoring and runtime type
                                     Debug.LogError($"Can't update live properties on the authoring component {m_authoringType}." +
                                                    $"Because the runtime component {runtimeType} is missing on the primary entity. It looks like conversion didn't run on {m_authoringType}.");
                                     return false;
                                 }
-#endif
                             }
 
                             foreach (var data in runtimeDataBinding)
@@ -171,17 +161,9 @@ namespace Unity.Entities.Editor
                     var binding = runtimeDataBinding[i];
                     var runtimeTypeIndex = runtimeDataBinding[i].ComponentTypeIndex;
 
-#if ENABLE_TRANSFORM_V1
-                    if ((  binding.AuthoringFieldName.Equals("m_LocalScale.x")
-                        || binding.AuthoringFieldName.Equals("m_LocalScale.y")
-                        || binding.AuthoringFieldName.Equals("m_LocalScale.z"))
-                        && !world.EntityManager.HasComponent<NonUniformScale>(liveEntity))
-                        continue;
-#else
                     // For entities that do not have LocalTransform components, just skip them.
                     if (runtimeTypeIndex == s_LocalTransformTypeIndex && !world.EntityManager.HasComponent<LocalTransform>(liveEntity))
                         continue;
-#endif
 
                     var prop = serializedObject.FindProperty(binding.AuthoringFieldName);
                     if (prop == null)
@@ -298,17 +280,6 @@ namespace Unity.Entities.Editor
 
         static void RegisterBindingsFromBuiltinTypes()
         {
-#if ENABLE_TRANSFORM_V1
-            BindingRegistry.Register(typeof(Translation), "Value.x", typeof(Transform), "m_LocalPosition.x");
-            BindingRegistry.Register(typeof(Translation), "Value.y", typeof(Transform), "m_LocalPosition.y");
-            BindingRegistry.Register(typeof(Translation), "Value.z", typeof(Transform), "m_LocalPosition.z");
-
-            BindingRegistry.Register(typeof(NonUniformScale), "Value.x", typeof(Transform), "m_LocalScale.x");
-            BindingRegistry.Register(typeof(NonUniformScale), "Value.y", typeof(Transform), "m_LocalScale.y");
-            BindingRegistry.Register(typeof(NonUniformScale), "Value.z", typeof(Transform), "m_LocalScale.z");
-
-            BindingRegistry.Register(typeof(Rotation), nameof(Rotation.Value), typeof(Transform), "m_LocalRotation");
-#else
             BindingRegistry.Register(typeof(LocalTransform), "Position.x", typeof(Transform), "m_LocalPosition.x");
             BindingRegistry.Register(typeof(LocalTransform), "Position.y", typeof(Transform), "m_LocalPosition.y");
             BindingRegistry.Register(typeof(LocalTransform), "Position.z", typeof(Transform), "m_LocalPosition.z");
@@ -316,7 +287,6 @@ namespace Unity.Entities.Editor
             BindingRegistry.Register(typeof(LocalTransform), "Scale", typeof(Transform), "m_LocalScale");
 
             BindingRegistry.Register(typeof(LocalTransform), "Rotation", typeof(Transform), "m_LocalRotation");
-#endif
         }
     }
 }

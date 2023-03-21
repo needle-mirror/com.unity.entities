@@ -29,8 +29,9 @@ namespace Unity.Scenes.Hybrid.Tests
     public abstract class SubSceneSectionTests : SubSceneTestFixture
     {
         public TestLiveConversionSettings m_Settings;
-        public SubSceneSectionTests() : base("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/SubSceneSectionTestScene.unity")
+        public SubSceneSectionTests() : base()
         {
+            PlayModeScenePath = "Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/SubSceneSectionTestScene.unity";
         }
 
         // Only works in Editor for now until we can support SubScene building with new build settings in a test
@@ -47,7 +48,7 @@ namespace Unity.Scenes.Hybrid.Tests
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
                 };
 
-                SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, resolveParams);
                 world.Update();
 
                 EntitiesAssert.Contains(manager,
@@ -74,7 +75,7 @@ namespace Unity.Scenes.Hybrid.Tests
 
                 var subSceneSectionTestDataQuery = manager.CreateEntityQuery(typeof(SubSceneSectionTestData));
 
-                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, resolveParams);
                 world.Update();
 
                 Assert.AreEqual(3, subSceneSectionTestDataQuery.CalculateEntityCount());
@@ -102,7 +103,7 @@ namespace Unity.Scenes.Hybrid.Tests
 
                 var subSceneSectionTestDataQuery = manager.CreateEntityQuery(typeof(SubSceneSectionTestData));
 
-                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, resolveParams);
                 world.Update();
 
                 Assert.AreEqual(0, subSceneSectionTestDataQuery.CalculateEntityCount());
@@ -174,7 +175,7 @@ namespace Unity.Scenes.Hybrid.Tests
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn | SceneLoadFlags.DisableAutoLoad
                 };
 
-                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, resolveParams);
                 Assert.AreEqual(SceneSystem.SceneStreamingState.Loading, SceneSystem.GetSceneStreamingState(world.Unmanaged, sceneEntity));
                 world.Update();
 
@@ -303,7 +304,7 @@ namespace Unity.Scenes.Hybrid.Tests
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn | SceneLoadFlags.DisableAutoLoad
                 };
 
-                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, resolveParams);
                 Assert.AreEqual(SceneSystem.SceneStreamingState.Loading, SceneSystem.GetSceneStreamingState(world.Unmanaged, sceneEntity));
                 world.Update();
 

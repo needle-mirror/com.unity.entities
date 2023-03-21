@@ -64,6 +64,8 @@ namespace Unity.Entities.CodeGen
         TypeReference m_SystemTypeRef;
         TypeReference m_SystemIntRef;
         TypeReference m_SystemLongRef;
+        TypeReference m_SystemIntPtrRef;
+        TypeReference m_SystemUIntPtrRef;
         TypeReference m_TypeInfoRef;
         MethodReference m_TypeInfoConstructorRef;
         TypeReference m_FieldInfoRef;
@@ -77,8 +79,11 @@ namespace Unity.Entities.CodeGen
         MethodReference m_SystemGuidHashFn;
         MethodReference m_BurstRuntimeGetHashCode64Ref;
 
+        Dictionary<TypeReference, (bool isChunkSerializable, bool hasChunkSerializableAttribute)> m_ChunkSerializableCache;
+
         TypeDefinition GeneratedRegistryDef;
         MethodDefinition GeneratedRegistryCCTORDef;
+
         bool IsReleaseConfig;
         bool IsMono;
         bool IsNetDots;
@@ -98,7 +103,6 @@ namespace Unity.Entities.CodeGen
             IsNetDots = EntitiesILPostProcessors.Defines.Contains("NET_DOTS");
             IsToolConfig = EntitiesILPostProcessors.Defines.Contains("UNITY_ENTITIES_RUNTIME_TOOLING");
             ArchBits = EntitiesILPostProcessors.Defines.Contains("UNITY_DOTSRUNTIME64") ? 64 : 32;
-
 
             (var typeGenInfoList, var systemList) = GatherTypeInformation();
             if (typeGenInfoList.Count > 0 || systemList.Count > 0)
@@ -129,11 +133,15 @@ namespace Unity.Entities.CodeGen
             return madeChange;
         }
 
-        void InitializeReferences()
+        void InitializeForTypeGeneration()
         {
+            // Initialize References
             m_SystemTypeRef = AssemblyDefinition.MainModule.ImportReference(typeof(Type));
             m_SystemIntRef = AssemblyDefinition.MainModule.ImportReference(typeof(int));
             m_SystemLongRef = AssemblyDefinition.MainModule.ImportReference(typeof(long));
+            m_SystemIntPtrRef = AssemblyDefinition.MainModule.ImportReference(typeof(IntPtr));
+            m_SystemUIntPtrRef = AssemblyDefinition.MainModule.ImportReference(typeof(UIntPtr));
+            
             m_GetTypeFromHandleFnRef = AssemblyDefinition.MainModule.ImportReference(typeof(Type).GetMethod("GetTypeFromHandle"));
 
             // I think we can remove this and make the GetHashCode generation less dumb
@@ -168,6 +176,9 @@ namespace Unity.Entities.CodeGen
             {
                 typeof(int), typeof(int), typeof(int)
             }));
+
+            // Initialize Internal State
+            m_ChunkSerializableCache = new Dictionary<TypeReference, (bool isChunkSerializable, bool hasChunkSerializableAttribute)>();
         }
 
         TypeCategory FindTypeCategoryForType(TypeDefinition typeDef)
@@ -296,7 +307,7 @@ namespace Unity.Entities.CodeGen
             // Move the CreateTypeGenInfo here so we can keep assemblies with no components quick to process
             if (components.Count > 0 || systemList.Count > 0)
             {
-                InitializeReferences();
+                InitializeForTypeGeneration();
                 GenerateFieldInfoForRegisteredComponents();
                 foreach (var typePair in components)
                 {

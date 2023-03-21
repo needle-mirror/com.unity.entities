@@ -11,7 +11,10 @@
         "Unity.Mathematics",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Unity.Entities.Hybrid.Tests"
+        "Unity.Entities.Hybrid.Tests",
+        "Unity.Build",
+        "Unity.Entities.Build",
+        "Unity.Burst"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

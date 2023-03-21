@@ -9,5 +9,5 @@ namespace Unity.Entities
     ///
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
-    public class TransformBakingSystemGroup : ComponentSystemGroup { }
+    public partial class TransformBakingSystemGroup : ComponentSystemGroup { }
 }

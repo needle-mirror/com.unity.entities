@@ -120,6 +120,19 @@ namespace Unity.Entities
         /// <returns>A native array containing the <see cref="ComponentType"/> objects of this archetype.</returns>
         public NativeArray<ComponentType> GetComponentTypes(Allocator allocator = Allocator.Temp)
         {
+            return GetComponentTypes((AllocatorManager.AllocatorHandle)allocator);
+        }
+
+        /// <summary>
+        /// Gets the types of the components making up this archetype.
+        /// </summary>
+        /// <remarks>The set of component types in an archetype cannot change; adding components to an entity or
+        /// removing components from an entity changes the archetype of that entity (possibly resulting in the
+        /// creation of a new archetype). The original archetype remains unchanged.</remarks>
+        /// <param name="allocator">The allocation type to use for the returned NativeArray.</param>
+        /// <returns>A native array containing the <see cref="ComponentType"/> objects of this archetype.</returns>
+        public NativeArray<ComponentType> GetComponentTypes(AllocatorManager.AllocatorHandle allocator)
+        {
             var archetypeCount = Archetype->TypesCount;
             var types = CollectionHelper.CreateNativeArray<ComponentType>(archetypeCount - 1, allocator);
 

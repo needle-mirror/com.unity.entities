@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -13,31 +11,6 @@ namespace Unity.Entities.SourceGen.Common
 {
     public static class SyntaxExtensions
     {
-        public static bool HasAttribute(this TypeDeclarationSyntax typeDeclarationSyntax, string attributeName)
-        {
-            return typeDeclarationSyntax.AttributeLists
-                                        .SelectMany(list => list.Attributes.Select(a => a.Name.ToString()))
-                                        .SingleOrDefault(a => a == attributeName) != null;
-        }
-
-        public static MemberDeclarationSyntax AddNamespaces(
-            this TypeDeclarationSyntax typeDeclarationSyntax,
-            IEnumerable<NamespaceDeclarationSyntax> namespacesFromMostToLeastNested)
-        {
-            NamespaceDeclarationSyntax[] namespaces = namespacesFromMostToLeastNested.ToArray();
-
-            if (!namespaces.Any())
-            {
-                return typeDeclarationSyntax;
-            }
-
-            return
-                namespaces.Aggregate<NamespaceDeclarationSyntax, MemberDeclarationSyntax>(
-                    typeDeclarationSyntax,
-                    (current, nds) =>
-                        NamespaceDeclaration(nds.Name).AddMembers(current));
-        }
-
         public static IEnumerable<MemberDeclarationSyntax> GetContainingTypesAndNamespacesFromMostToLeastNested(
             this SyntaxNode syntaxNode)
         {

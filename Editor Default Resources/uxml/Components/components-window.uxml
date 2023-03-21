@@ -1,15 +1,8 @@
-<UXML xmlns:ui="UnityEngine.UIElements" xmlns:uee="Unity.Entities.Editor">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" uee="Unity.Entities.Editor" editor-extension-mode="False">
     <ui:VisualElement class="components-window__container">
-        <ui:VisualElement class="components-window__search-element-container">
-            <uee:SearchElement
-                    class="components-window__search-element"
-                    search-data="Name"
-                    search-filters="category:Category"
-                    search-delay="0"
-                    handle-type="async"
-                    max-frame-time="5"
-            />
+        <ui:VisualElement class="components-window__search-element-container" style="flex-direction: row;">
+            <Unity.Entities.Editor.SearchElement search-data="Name" search-filters="category:Category" search-delay="0" handle-type="async" max-frame-time="5" class="components-window__search-element" style="flex-grow: 1;" />
         </ui:VisualElement>
         <ui:ListView class="components-window__list-view" selection-type="Single"/>
     </ui:VisualElement>
-</UXML>
+</ui:UXML>

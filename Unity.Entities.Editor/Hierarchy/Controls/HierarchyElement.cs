@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Editor.Bridge;
 using UnityEditor;
@@ -95,9 +95,6 @@ namespace Unity.Entities.Editor
         static readonly int[] k_SingleSelectionBuffer = new int[1];
 
         const string k_ListViewName = "unity-tree-view__list-view";
-
-        static readonly string k_ComponentTypeNotFoundTitle = L10n.Tr("Type not found");
-        static readonly string k_ComponentTypeNotFoundContent = L10n.Tr("\"{0}\" is not a component type");
         static readonly string k_NoItemFoundTitle = L10n.Tr("No item matches your search");
 
         ViewType m_ViewType;
@@ -286,10 +283,10 @@ namespace Unity.Entities.Editor
             {
                 var filter = m_Nodes.GetFilter();
 
-                if (!filter.IsValid && !string.IsNullOrEmpty(filter.ErrorComponentType))
+                if (!filter.IsValid)
                 {
-                    m_MessageElement.Title = k_ComponentTypeNotFoundTitle;
-                    m_MessageElement.Message = string.Format(k_ComponentTypeNotFoundContent, filter.ErrorComponentType);
+                    m_MessageElement.Title = filter.ErrorCategory;
+                    m_MessageElement.Message = filter.ErrorMsg;
                     SetView(ViewType.Message);
                     return;
                 }

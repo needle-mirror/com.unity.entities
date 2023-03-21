@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Transforms;
 
 #if !UNITY_PORTABLE_TEST_RUNNER
 using System.Text.RegularExpressions;
@@ -17,9 +18,10 @@ using System.Linq;
 
 namespace Unity.Entities.Tests
 {
+    [BurstCompile]
     class ComponentSystemGroupTests : ECSTestsFixture
     {
-        class TestGroup : ComponentSystemGroup
+        partial class TestGroup : ComponentSystemGroup
         {
         }
 
@@ -35,17 +37,31 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => { parent.SortSystems(); });
         }
 
-        class TestSystem : TestSystemBase
+        [Test]
+        public void SettingParent_ThenDeletingParentInSameFrame_DoesNotThrow()
+        {
+            var parentSystem = World.GetOrCreateSystem<ParentSystem>();
+            var parent = m_Manager.CreateEntity();
+            var child = m_Manager.CreateEntity();
+            m_Manager.AddComponentData(child, new Parent { Value = parent });
+            m_Manager.DestroyEntity(parent);
+            Assert.DoesNotThrow(() =>
+                parentSystem.Update(World.Unmanaged)
+            );
+            Assert.IsFalse(m_Manager.HasComponent<Parent>(child));
+        }
+
+        partial class TestSystem : TestSystemBase
         {
             protected override void OnUpdate() { Dependency = default; }
         }
 
-        class TestSystem2 : TestSystemBase
+        partial class TestSystem2 : TestSystemBase
         {
             protected override void OnUpdate() { Dependency = default; }
         }
 
-        class TestSystem3 : TestSystemBase
+        partial class TestSystem3 : TestSystemBase
         {
             protected override void OnUpdate() { Dependency = default; }
         }
@@ -62,11 +78,11 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateAfter(typeof(Sibling2System))]
-        class Sibling1System : TestSystemBase
+        partial class Sibling1System : TestSystemBase
         {
             protected override void OnUpdate()  { Dependency = default; }
         }
-        class Sibling2System : TestSystemBase
+        partial class Sibling2System : TestSystemBase
         {
             protected override void OnUpdate()  { Dependency = default; }
         }
@@ -105,38 +121,34 @@ namespace Unity.Entities.Tests
         // - systems 3, 4, and 5 form a cycle (in that order, or equivalent).
         // - system 6 is not sorted AND is not part of the cycle.
         [UpdateBefore(typeof(Circle2System))]
-        class Circle1System : TestSystemBase
+        partial class Circle1System : TestSystemBase
         {
         }
         [UpdateBefore(typeof(Circle3System))]
-        class Circle2System : TestSystemBase
+        partial class Circle2System : TestSystemBase
         {
         }
         [UpdateAfter(typeof(Circle5System))]
-        class Circle3System : TestSystemBase
+        partial class Circle3System : TestSystemBase
         {
         }
         [UpdateAfter(typeof(Circle3System))]
-        class Circle4System : TestSystemBase
+        partial class Circle4System : TestSystemBase
         {
         }
         [UpdateAfter(typeof(Circle4System))]
-        class Circle5System : TestSystemBase
+        partial class Circle5System : TestSystemBase
         {
         }
         [UpdateAfter(typeof(Circle5System))]
-        class Circle6System : TestSystemBase
+        partial class Circle6System : TestSystemBase
         {
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
         // https://unity3d.atlassian.net/browse/DOTSR-1432
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
-        [Ignore("We do not actually check for circular dependencies correctly and we never have, " +
-                "but we were getting lucky before with this test and now we're not," +
-                " so let's fix that, and then re-enable this. DOTS-7765")]
         public void DetectCircularDependency_Throws()
         {
             var parent = World.CreateSystemManaged<TestGroup>();
@@ -152,38 +164,28 @@ namespace Unity.Entities.Tests
             parent.AddSystemToUpdateList(child4);
             parent.AddSystemToUpdateList(child1);
             parent.AddSystemToUpdateList(child5);
-            var e = Assert.Throws<ComponentSystemSorter.CircularSystemDependencyException>(() => parent.SortSystems());
+            
+            var e = Assert.Throws<InvalidOperationException>(() =>  parent.SortSystems());
             // Make sure the cycle expressed in e.Chain is the one we expect, even though it could start at any node
             // in the cycle.
-            var expectedCycle = new Type[] {typeof(Circle5System), typeof(Circle3System), typeof(Circle4System)};
-            var cycle = e.Chain.ToList();
-            bool foundCycleMatch = false;
-            for (int i = 0; i < cycle.Count; ++i)
-            {
-                var offsetCycle = new List<Type>(cycle.Count);
-                offsetCycle.AddRange(cycle.GetRange(i, cycle.Count - i));
-                offsetCycle.AddRange(cycle.GetRange(0, i));
-                Assert.AreEqual(cycle.Count, offsetCycle.Count);
-                if (expectedCycle.SequenceEqual(offsetCycle))
-                {
-                    foundCycleMatch = true;
-                    break;
-                }
-            }
-            Assert.IsTrue(foundCycleMatch);
-        }
-#endif
 
-        class Unconstrained1System : TestSystemBase
+            Assert.AreEqual(@"The following systems form a circular dependency cycle (check their [*Before]/[*After] attributes):
+- Unity.Entities.Tests.ComponentSystemGroupTests+Circle3System
+- Unity.Entities.Tests.ComponentSystemGroupTests+Circle4System
+- Unity.Entities.Tests.ComponentSystemGroupTests+Circle5System", e.Message);
+
+        }
+
+        partial class Unconstrained1System : TestSystemBase
         {
         }
-        class Unconstrained2System : TestSystemBase
+        partial class Unconstrained2System : TestSystemBase
         {
         }
-        class Unconstrained3System : TestSystemBase
+        partial class Unconstrained3System : TestSystemBase
         {
         }
-        class Unconstrained4System : TestSystemBase
+        partial class Unconstrained4System : TestSystemBase
         {
         }
 
@@ -211,13 +213,13 @@ namespace Unity.Entities.Tests
                 ++CompleteUpdateCount;
             }
         }
-        class NonThrowing1System : UpdateCountingSystemBase
+        partial class NonThrowing1System : UpdateCountingSystemBase
         {
         }
-        class NonThrowing2System : UpdateCountingSystemBase
+        partial class NonThrowing2System : UpdateCountingSystemBase
         {
         }
-        class ThrowingSystem : UpdateCountingSystemBase
+        partial class ThrowingSystem : UpdateCountingSystemBase
         {
             public string ExceptionMessage = "I should always throw!";
             protected override void OnUpdate()
@@ -274,11 +276,11 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateAfter(typeof(NonSibling2System))]
-        class NonSibling1System : TestSystemBase
+        partial class NonSibling1System : TestSystemBase
         {
         }
         [UpdateBefore(typeof(NonSibling1System))]
-        class NonSibling2System : TestSystemBase
+        partial class NonSibling2System : TestSystemBase
         {
         }
 
@@ -305,11 +307,11 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateAfter(typeof(NotEvenASystem))]
-        class InvalidUpdateAfterSystem : TestSystemBase
+        partial class InvalidUpdateAfterSystem : TestSystemBase
         {
         }
         [UpdateBefore(typeof(NotEvenASystem))]
-        class InvalidUpdateBeforeSystem : TestSystemBase
+        partial class InvalidUpdateBeforeSystem : TestSystemBase
         {
         }
         class NotEvenASystem
@@ -321,7 +323,7 @@ namespace Unity.Entities.Tests
         {
             var parent = World.CreateSystemManaged<TestGroup>();
             var child = World.CreateSystemManaged<InvalidUpdateAfterSystem>();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[Unity.Entities.UpdateAfterAttribute\].+InvalidUpdateAfterSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[Unity.Entities.UpdateAfterAttribute\].+InvalidUpdateAfterSystem.+NotEvenASystem is not a subclass of ComponentSystemBase and does not implement ISystem"));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
             LogAssert.NoUnexpectedReceived();
@@ -332,18 +334,18 @@ namespace Unity.Entities.Tests
         {
             var parent = World.CreateSystemManaged<TestGroup>();
             var child = World.CreateSystemManaged<InvalidUpdateBeforeSystem>();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[Unity.Entities.UpdateBeforeAttribute\].+InvalidUpdateBeforeSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[Unity.Entities.UpdateBeforeAttribute\].+InvalidUpdateBeforeSystem.+NotEvenASystem is not a subclass of ComponentSystemBase and does not implement ISystem"));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
             LogAssert.NoUnexpectedReceived();
         }
 
         [UpdateAfter(typeof(UpdateAfterSelfSystem))]
-        class UpdateAfterSelfSystem : TestSystemBase
+        partial class UpdateAfterSelfSystem : TestSystemBase
         {
         }
         [UpdateBefore(typeof(UpdateBeforeSelfSystem))]
-        class UpdateBeforeSelfSystem : TestSystemBase
+        partial class UpdateBeforeSelfSystem : TestSystemBase
         {
         }
 
@@ -384,7 +386,7 @@ namespace Unity.Entities.Tests
             Assert.That(() => { parent.AddSystemToUpdateList(parent); },
                 Throws.ArgumentException.With.Message.Contains("to its own update list"));
         }
-        class StartAndStopSystemGroup : ComponentSystemGroup
+        partial class StartAndStopSystemGroup : ComponentSystemGroup
         {
             public List<int> Operations;
             protected override void OnCreate()
@@ -564,7 +566,7 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateInGroup(typeof(int))]
-        public class GroupIsntAComponentSystem : EmptySystem
+        public partial class GroupIsntAComponentSystem : EmptySystem
         {
         }
 
@@ -585,7 +587,7 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateInGroup(typeof(TestSystem))]
-        public class GroupIsntAComponentSystemGroup : EmptySystem
+        public partial class GroupIsntAComponentSystemGroup : EmptySystem
         {
         }
 
@@ -605,7 +607,7 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true, OrderLast = true)]
-        public class FirstAndLast : EmptySystem
+        public partial class FirstAndLast : EmptySystem
         {
         }
 
@@ -627,42 +629,42 @@ namespace Unity.Entities.Tests
         // All the ordering constraints below are valid (though some are redundant). All should sort correctly without warnings.
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
         [UpdateBefore(typeof(FirstSystem))]
-        public class FirstBeforeFirstSystem : EmptySystem { }
+        public partial class FirstBeforeFirstSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
         [UpdateBefore(typeof(MiddleSystem))] // redundant
         [UpdateBefore(typeof(LastSystem))] // redundant
-        public class FirstSystem : EmptySystem { }
+        public partial class FirstSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
         [UpdateAfter(typeof(FirstSystem))]
-        public class FirstAfterFirstSystem : EmptySystem { }
+        public partial class FirstAfterFirstSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup))]
         [UpdateAfter(typeof(FirstSystem))] // redundant
         [UpdateBefore(typeof(MiddleSystem))]
-        public class MiddleAfterFirstSystem : EmptySystem { }
+        public partial class MiddleAfterFirstSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup))]
-        public class MiddleSystem : EmptySystem { }
+        public partial class MiddleSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup))]
         [UpdateAfter(typeof(MiddleSystem))]
         [UpdateBefore(typeof(LastSystem))] // redundant
-        public class MiddleBeforeLastSystem : EmptySystem { }
+        public partial class MiddleBeforeLastSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
         [UpdateBefore(typeof(LastSystem))]
-        public class LastBeforeLastSystem : EmptySystem { }
+        public partial class LastBeforeLastSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
         [UpdateAfter(typeof(FirstSystem))] // redundant
         [UpdateAfter(typeof(MiddleSystem))] // redundant
-        public class LastSystem : EmptySystem { }
+        public partial class LastSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
         [UpdateAfter(typeof(LastSystem))]
-        public class LastAfterLastSystem : EmptySystem { }
+        public partial class LastAfterLastSystem : EmptySystem { }
 
         [Test]
         public void ComponentSystemSorter_ValidUpdateConstraints_SortCorrectlyWithNoWarnings()
@@ -696,26 +698,26 @@ namespace Unity.Entities.Tests
 
         // Invalid constraints
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
-        public class DummyFirstSystem : EmptySystem { }
+        public partial class DummyFirstSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
-        public class DummyLastSystem : EmptySystem { }
+        public partial class DummyLastSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
         [UpdateAfter(typeof(DummyLastSystem))] // can't update after an OrderLast without also being OrderLast
-        public class FirstAfterLastSystem : EmptySystem { }
+        public partial class FirstAfterLastSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup))]
         [UpdateBefore(typeof(DummyFirstSystem))] // can't update before an OrderFirst without also being OrderFirst
-        public class MiddleBeforeFirstSystem : EmptySystem { }
+        public partial class MiddleBeforeFirstSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup))]
         [UpdateAfter(typeof(DummyLastSystem))] // can't update after an OrderLast without also being OrderLast
-        public class MiddleAfterLastSystem : EmptySystem { }
+        public partial class MiddleAfterLastSystem : EmptySystem { }
 
         [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
         [UpdateBefore(typeof(DummyFirstSystem))] // can't update before an OrderFirst without also being OrderFirst
-        public class LastBeforeFirstSystem : EmptySystem { }
+        public partial class LastBeforeFirstSystem : EmptySystem { }
 
         [Test] // runtime string formatting
         public void ComponentSystemSorter_OrderFirstUpdateAfterOrderLast_WarnAndIgnoreConstraint()
@@ -805,28 +807,28 @@ namespace Unity.Entities.Tests
 #endif
 
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
-        public class OFL_A : EmptySystem
+        public partial class OFL_A : EmptySystem
         {
         }
 
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
         [UpdateAfter(typeof(OFL_A))]
-        public class OFL_B : EmptySystem
+        public partial class OFL_B : EmptySystem
         {
         }
 
-        public class OFL_C : EmptySystem
+        public partial class OFL_C : EmptySystem
         {
         }
 
         [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
-        public class OFL_D : EmptySystem
+        public partial class OFL_D : EmptySystem
         {
         }
 
         [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
         [UpdateAfter(typeof(OFL_D))]
-        public class OFL_E : EmptySystem
+        public partial class OFL_E : EmptySystem
         {
         }
 
@@ -857,15 +859,15 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateAfter(typeof(TestSystem))]
-        struct MyUnmanagedSystem : ISystem
+        partial struct MyUnmanagedSystem : ISystem
         {
         }
 
-        struct MyUnmanagedSystem2 : ISystem
+        partial struct MyUnmanagedSystem2 : ISystem
         {
         }
 
-        struct MyUnmanagedSystem3 : ISystem
+        partial struct MyUnmanagedSystem3 : ISystem
         {
         }
 
@@ -920,7 +922,7 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(expectedSystems, group.m_managedSystemsToRemove);
         }
 
-        struct UnmanagedTestSystem : ISystem
+        partial struct UnmanagedTestSystem : ISystem
         {
         }
 
@@ -972,11 +974,11 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => { group.Update(); });
         }
 
-        class ParentSystemGroup : ComponentSystemGroup
+        partial class ParentSystemGroup : ComponentSystemGroup
         {
         }
 
-        class ChildSystemGroup : ComponentSystemGroup
+        partial class ChildSystemGroup : ComponentSystemGroup
         {
         }
 
@@ -1317,9 +1319,9 @@ namespace Unity.Entities.Tests
                 SystemOrderInfoMap[statePtr] = info;
             }
         }
-        
+
         public partial class TestSystemOrder0_0 : TestSystemOrder0_0Base {
-        
+
         }
 
         [CreateBefore(typeof(TestSystemOrder3_4))]
@@ -1573,9 +1575,6 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
-        [Ignore("We do not actually check for circular dependencies correctly and we never have, " +
-                "but we were getting lucky before with this test and now we're not," +
-                " so let's fix that, and then re-enable this. DOTS-7765")]
         public void Circular_CreateBefore_Throws()
         {
             var systems = new List<Type>
@@ -1583,17 +1582,19 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
                 typeof(CircularSystem1),
                 typeof(CircularSystem2)
             };
-            Assert.Throws<ComponentSystemSorter.CircularSystemDependencyException>(() =>
+            var e = Assert.Throws<InvalidOperationException>(() =>
             {
                 using (var world = CreateWorldWithSystems(systems)) { }
             });
+            Assert.AreEqual(
+                "The following systems form a circular dependency cycle (check their [*Before]/[*After] attributes):\n" +
+                "- Unity.Entities.Tests.ComponentSystemOrderingTests+CircularSystem1\n" +
+                "- Unity.Entities.Tests.ComponentSystemOrderingTests+CircularSystem2",
+                e.Message);
         }
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
-        [Ignore("We do not actually check for circular dependencies correctly and we never have, " +
-                "but we were getting lucky before with this test and now we're not," +
-                " so let's fix that, and then re-enable this. DOTS-7765")]
         public void Circular_CreateAfter_Throws()
         {
             var systems = new List<Type>
@@ -1601,10 +1602,59 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
                 typeof(CircularSystem3),
                 typeof(CircularSystem4)
             };
-            Assert.Throws<ComponentSystemSorter.CircularSystemDependencyException>(() =>
+            var e =Assert.Throws<InvalidOperationException>(() =>
             {
                 using (var world = CreateWorldWithSystems(systems)) { }
             });
+            Assert.AreEqual(
+                "The following systems form a circular dependency cycle (check their [*Before]/[*After] attributes):\n" +
+                "- Unity.Entities.Tests.ComponentSystemOrderingTests+CircularSystem3\n" +
+                "- Unity.Entities.Tests.ComponentSystemOrderingTests+CircularSystem4",
+                e.Message);
+        }
+        
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
+        public void ComponentSystem_CreateAfterTargetIsNotSystem_LogsWarning()
+        {
+            var systems = new List<Type>
+            {
+                typeof(CreateAfterIsntAComponentSystem),
+            };
+            using (var world = CreateWorldWithSystems(systems)) {
+
+                LogAssert.Expect(LogType.Warning,
+                    new Regex(
+                        @"Ignoring invalid \[Unity.Entities.CreateAfterAttribute\].+CreateAfterIsntAComponentSystem.+Int32 is not a subclass of ComponentSystemBase and does not implement ISystem"));
+            }
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
+        public void ComponentSystem_CreateBeforeTargetIsNotSystem_LogsWarning()
+        {
+            var systems = new List<Type>
+            {
+                typeof(CreateBeforeIsntAComponentSystem),
+            };
+            using (var world = CreateWorldWithSystems(systems)) {
+
+                LogAssert.Expect(LogType.Warning,
+                    new Regex(
+                        @"Ignoring invalid \[Unity.Entities.CreateBeforeAttribute\].+CreateBeforeIsntAComponentSystem.+Int32 is not a subclass of ComponentSystemBase and does not implement ISystem"));
+            }
+        }
+
+        
+        
+        [CreateAfter(typeof(int))]
+        public partial class CreateAfterIsntAComponentSystem : EmptySystem
+        {
+        }
+        
+        [CreateBefore(typeof(int))]
+        public partial class CreateBeforeIsntAComponentSystem : EmptySystem
+        {
         }
     }
 }

@@ -7,6 +7,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Unity.Editor.Bridge;
 
 namespace Unity.Entities.Editor
 {
@@ -147,6 +148,7 @@ namespace Unity.Entities.Editor
 
             root.Add(toolbar);
             AddSearchElement(root);
+            m_SearchElement.parent.Add(SearchUtils.CreateJumpButton(() => SystemSearchProvider.OpenProvider(m_SearchElement.value)));
         }
 
         void AppendOptionMenu(DropdownMenu menu)

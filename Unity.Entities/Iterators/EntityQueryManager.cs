@@ -680,7 +680,7 @@ namespace Unity.Entities
                 queryData->RequiredComponents = (ComponentType*)ChunkAllocate<ComponentType>(requiredComponentCount, requiredComponents);
                 queryData->EnableableComponentTypeIndexCount = queryIgnoresEnabledBits ? 0 : allEnableableTypeIndices.Length;
                 queryData->EnableableComponentTypeIndices = (TypeIndex*)ChunkAllocate<TypeIndex>(allEnableableTypeIndices.Length, allEnableableTypeIndices.GetUnsafeReadOnlyPtr());
-                queryData->DoesQueryRequireBatching = (allEnableableTypeIndices.Length > 0 && !queryIgnoresEnabledBits) ? (byte)1 : (byte)0;
+                queryData->HasEnableableComponents = (allEnableableTypeIndices.Length > 0 && !queryIgnoresEnabledBits) ? (byte)1 : (byte)0;
 
                 InitializeReaderWriter(queryData, requiredComponents, requiredComponentCount);
                 queryData->ArchetypeQueryCount = archetypeQueryCount;
@@ -819,7 +819,7 @@ namespace Unity.Entities
                 {
                     typeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
                     Assert.AreNotEqual(-1, typeComponentIndex);
-                    match->EnableableIndexInArchetype_All[enableableAllCount++] = typeComponentIndex;
+                    match->EnableableTypeMemoryOrderInArchetype_All[enableableAllCount++] = archetype->TypeIndexInArchetypeToMemoryOrderIndex[typeComponentIndex];
                 }
             }
 
@@ -833,7 +833,7 @@ namespace Unity.Entities
                     var currentTypeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
                     if (currentTypeComponentIndex != -1) // we skip storing "None" component types for matching archetypes that do not contain the "None" type (there are no bits to check)
                     {
-                        match->EnableableIndexInArchetype_None[enableableNoneCount++] = currentTypeComponentIndex;
+                        match->EnableableTypeMemoryOrderInArchetype_None[enableableNoneCount++] = archetype->TypeIndexInArchetypeToMemoryOrderIndex[currentTypeComponentIndex];
                         typeComponentIndex = currentTypeComponentIndex;
                     }
                 }
@@ -851,7 +851,7 @@ namespace Unity.Entities
                     // Skip storing the missing types.
                     if (currentTypeComponentIndex != -1)
                     {
-                        match->EnableableIndexInArchetype_Any[enableableAnyCount++] = currentTypeComponentIndex;
+                        match->EnableableTypeMemoryOrderInArchetype_Any[enableableAnyCount++] = archetype->TypeIndexInArchetypeToMemoryOrderIndex[currentTypeComponentIndex];
                         typeComponentIndex = currentTypeComponentIndex;
                     }
                 }
@@ -866,7 +866,7 @@ namespace Unity.Entities
                 {
                     typeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
                     Assert.AreNotEqual(-1, typeComponentIndex);
-                    match->EnableableIndexInArchetype_Disabled[enableableDisabledCount++] = typeComponentIndex;
+                    match->EnableableTypeMemoryOrderInArchetype_Disabled[enableableDisabledCount++] = archetype->TypeIndexInArchetypeToMemoryOrderIndex[typeComponentIndex];
                 }
             }
         }
@@ -1083,7 +1083,7 @@ namespace Unity.Entities
 
         public fixed int IndexInArchetype[1];
 
-        public int* EnableableIndexInArchetype_All
+        public int* EnableableTypeMemoryOrderInArchetype_All
         {
             get
             {
@@ -1093,7 +1093,7 @@ namespace Unity.Entities
                 }
             }
         }
-        public int* EnableableIndexInArchetype_None
+        public int* EnableableTypeMemoryOrderInArchetype_None
         {
             get
             {
@@ -1103,7 +1103,7 @@ namespace Unity.Entities
                 }
             }
         }
-        public int* EnableableIndexInArchetype_Any
+        public int* EnableableTypeMemoryOrderInArchetype_Any
         {
             get
             {
@@ -1113,7 +1113,7 @@ namespace Unity.Entities
                 }
             }
         }
-        public int* EnableableIndexInArchetype_Disabled
+        public int* EnableableTypeMemoryOrderInArchetype_Disabled
         {
             get
             {
@@ -1446,7 +1446,7 @@ namespace Unity.Entities
         public UnsafeMatchingArchetypePtrList MatchingArchetypes;
         internal UnsafeCachedChunkList MatchingChunkCache;
 
-        public byte DoesQueryRequireBatching; // 0 = no, 1 = yes
+        public byte HasEnableableComponents; // 0 = no, 1 = yes
 
         public unsafe UnsafeCachedChunkList GetMatchingChunkCache()
         {

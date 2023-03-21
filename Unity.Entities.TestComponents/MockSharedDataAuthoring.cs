@@ -12,7 +12,9 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(MockSharedDataAuthoring authoring)
             {
-                AddSharedComponent(new MockSharedData
+                // This test might require transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddSharedComponent(entity, new MockSharedData
                 {
                     Value = authoring.Value
                 });

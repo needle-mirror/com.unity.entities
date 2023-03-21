@@ -42,7 +42,6 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
         }
 
-#if !ENABLE_TRANSFORM_V1
         [Test]
         public void ComponentsTab_Comparer()
         {
@@ -68,39 +67,6 @@ namespace Unity.Entities.Editor.Tests
                 nameof(YComponent)
             }));
         }
-#else
-        [Test]
-        public void ComponentsTab_Comparer()
-        {
-            var componentTypes = new[]
-            {
-                nameof(XComponent),
-                nameof(BComponent),
-                nameof(Rotation),
-                nameof(YComponent),
-                nameof(Translation),
-                nameof(NonUniformScale),
-                nameof(LocalToParent),
-                nameof(DComponent),
-                nameof(LocalToWorld),
-            };
-
-            Array.Sort(componentTypes, EntityInspectorComponentsComparer.Instance);
-
-            Assert.That(componentTypes, Is.EquivalentTo(new[]
-            {
-                nameof(Translation),
-                nameof(Rotation),
-                nameof(NonUniformScale),
-                nameof(LocalToWorld),
-                nameof(LocalToParent),
-                nameof(BComponent),
-                nameof(DComponent),
-                nameof(XComponent),
-                nameof(YComponent)
-            }));
-        }
-#endif
 
         [Test]
         public void ComponentsTab_UpdateComponentOrder_AddNewComponentsBeginning()
@@ -250,7 +216,6 @@ namespace Unity.Entities.Editor.Tests
                 $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
             }));
 
-#if !ENABLE_TRANSFORM_V1
             m_World.EntityManager.RemoveComponent<AComponent>(m_InspectedEntity);
             m_World.EntityManager.RemoveComponent<BComponent>(m_InspectedEntity);
             m_World.EntityManager.AddComponent<LocalTransform>(m_InspectedEntity);
@@ -261,20 +226,6 @@ namespace Unity.Entities.Editor.Tests
                 $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
                 $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
             }));
-#else
-            m_World.EntityManager.RemoveComponent<AComponent>(m_InspectedEntity);
-            m_World.EntityManager.RemoveComponent<BComponent>(m_InspectedEntity);
-            m_World.EntityManager.AddComponent<Translation>(m_InspectedEntity);
-            m_World.EntityManager.AddComponent<Rotation>(m_InspectedEntity);
-            m_Root.ForceUpdateBindings();
-            Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
-            {
-                nameof(Translation),
-                nameof(Rotation),
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
-            }));
-#endif
         }
 
         [Test]
@@ -304,7 +255,6 @@ namespace Unity.Entities.Editor.Tests
             }));
         }
 
-#if !ENABLE_TRANSFORM_V1
         [Test]
         public void ComponentsTab_UpdateComponentOrder_AddAndRemoveMultipleComponentsMiddle()
         {
@@ -333,38 +283,6 @@ namespace Unity.Entities.Editor.Tests
                 $"{nameof(ComponentsTabTests)}_{nameof(YComponent)}",
             }));
         }
-#else
-        [Test]
-        public void ComponentsTab_UpdateComponentOrder_AddAndRemoveMultipleComponentsMiddle()
-        {
-            m_World.EntityManager.AddComponent(m_InspectedEntity, new ComponentTypeSet(typeof(Translation), typeof(Rotation), typeof(CComponent), typeof(DComponent), typeof(YComponent)));
-            m_Root.ForceUpdateBindings();
-            Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
-            {
-                nameof(Translation),
-                nameof(Rotation),
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(YComponent)}",
-            }));
-
-            m_World.EntityManager.RemoveComponent<Rotation>(m_InspectedEntity);
-            m_World.EntityManager.RemoveComponent<CComponent>(m_InspectedEntity);
-            m_World.EntityManager.AddComponent<AComponent>(m_InspectedEntity);
-            m_World.EntityManager.AddComponent<EComponent>(m_InspectedEntity);
-            m_World.EntityManager.AddComponent<XComponent>(m_InspectedEntity);
-            m_Root.ForceUpdateBindings();
-            Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
-            {
-                nameof(Translation),
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(XComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(YComponent)}",
-            }));
-        }
-#endif
 
         [Test]
         public void ComponentsTab_UpdateComponentOrder_RemoveAll()
@@ -387,7 +305,6 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(GetComponentsOrderFromUI(), Is.Empty);
         }
 
-#if !ENABLE_TRANSFORM_V1
         [Test]
         public void ComponentsTab_UpdateComponentOrder_AddAndRemoveRandomOrder1()
         {
@@ -415,39 +332,6 @@ namespace Unity.Entities.Editor.Tests
                 $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}"
             }));
         }
-#else
-        [Test]
-        public void ComponentsTab_UpdateComponentOrder_AddAndRemoveRandomOrder1()
-        {
-            m_World.EntityManager.AddComponent(m_InspectedEntity, new ComponentTypeSet(new ComponentType[] { typeof(BComponent), typeof(EComponent), typeof(CComponent), typeof(Translation), typeof(Rotation), typeof(NonUniformScale) }));
-            m_Root.ForceUpdateBindings();
-
-            Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
-            {
-                nameof(Translation),
-                nameof(Rotation),
-                nameof(NonUniformScale),
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}"
-            }));
-
-            m_World.EntityManager.RemoveComponent<Rotation>(m_InspectedEntity);
-            m_World.EntityManager.RemoveComponent<NonUniformScale>(m_InspectedEntity);
-            m_World.EntityManager.RemoveComponent<CComponent>(m_InspectedEntity);
-            m_World.EntityManager.AddComponent(m_InspectedEntity, new ComponentTypeSet(typeof(AComponent), typeof(DComponent)));
-
-            m_Root.ForceUpdateBindings();
-            Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
-            {
-                nameof(Translation),
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}"
-            }));
-        }
-#endif
 
         [Test]
         public void ComponentsTab_UpdateComponentOrder_AddAndRemoveRandomOrder2()

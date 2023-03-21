@@ -703,7 +703,7 @@ namespace Unity.Entities
             return _stateMemory.Resolve(handle, version);
         }
 
-        internal NativeArray<SystemHandle> GetAllUnmanagedSystems(Allocator a)
+        internal NativeArray<SystemHandle> GetAllUnmanagedSystems(AllocatorManager.AllocatorHandle a)
         {
             int totalCount = 0;
             for (int i = 0; i < 64; ++i)
@@ -738,7 +738,7 @@ namespace Unity.Entities
             return result;
         }
 
-        internal NativeArray<SystemHandle> GetAllSystems(Allocator a)
+        internal NativeArray<SystemHandle> GetAllSystems(AllocatorManager.AllocatorHandle a)
         {
             int totalCount = 0;
             for (int i = 0; i < 64; ++i)
@@ -1223,7 +1223,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="a">Allocator used for the returned container</param>
         /// <returns>An array of system instances</returns>
-        public NativeArray<SystemHandle> GetAllUnmanagedSystems(Allocator a)
+        public NativeArray<SystemHandle> GetAllUnmanagedSystems(AllocatorManager.AllocatorHandle a)
         {
             return GetImpl().GetAllUnmanagedSystems(a);
         }
@@ -1233,7 +1233,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="a">Allocator used for the returned container</param>
         /// <returns>An array of system instances</returns>
-        public NativeArray<SystemHandle> GetAllSystems(Allocator a)
+        public NativeArray<SystemHandle> GetAllSystems(AllocatorManager.AllocatorHandle a)
         {
             return GetImpl().GetAllSystems(a);
         }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using VerifyCS =
     Unity.Entities.SourceGenerators.Test.CSharpIncrementalGeneratorVerifier<
@@ -122,11 +121,8 @@ public class JobEntityVerify
         const string source = @"
             using Unity.Entities;
             using Unity.Entities.Tests;
-#if !ENABLE_TRANSFORM_V1
+
             [WithAll(typeof(EcsTestData))]
-#else
-            [WithAll(typeof(EcsTestData))]
-#endif
             partial struct WithFilterButNotQueryStaticJob : IJobEntity { public void Execute(Entity _) {} }
         ";
 

@@ -57,7 +57,12 @@ namespace Unity.Entities.Editor
         public ComponentType WatchedComponentType { get; }
 
         public static bool CanWatch(ComponentType componentType)
-            => TypeManager.GetTypeInfo(componentType.TypeIndex).Category == TypeManager.TypeCategory.ISharedComponentData;
+        {
+            if (!TypeManager.IsInitialized)
+                throw new InvalidOperationException($"{nameof(TypeManager)} has not been initialized properly");
+
+            return TypeManager.GetTypeInfo(componentType.TypeIndex).Category == TypeManager.TypeCategory.ISharedComponentData;
+        }
 
         public unsafe void Dispose()
         {

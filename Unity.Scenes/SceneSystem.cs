@@ -19,7 +19,7 @@ namespace Unity.Scenes
     public struct SceneSystemData : IComponentData
     {
         /// <summary>
-        /// The GUID of the <see cref="Unity.Build.BuildConfiguration"/> applied on the <see cref="World"/>.
+        /// The GUID of the Unity.Build.BuildConfiguration applied on the <see cref="World"/>.
         /// </summary>
         public Hash128 BuildConfigurationGUID;
     }

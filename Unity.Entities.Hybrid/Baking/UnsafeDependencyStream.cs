@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -12,7 +14,7 @@ namespace Unity.Entities.Baking
     /// An unmanaged, resizable list per thread.
     /// </summary>
     /// <typeparam name="T">The type of the elements.</typeparam>
-    internal struct UnsafeDependencyStream<T>        : IDisposable
+    internal struct UnsafeDependencyStream<T>        : IDisposable, IEnumerable<T>
                                                         where T : unmanaged, IEquatable<T>
     {
         private UnsafeList<UnsafeList<T>> listPerThread;
@@ -120,6 +122,57 @@ namespace Unity.Entities.Baking
                 }
             }
         }
+
+        public struct Enumerator : IEnumerator<T>, IEnumerator, IDisposable
+        {
+            private UnsafeDependencyStream<T> m_Internal;
+            private int m_GlobalIndex;
+            private int m_InternalIndex;
+
+            public Enumerator(ref UnsafeDependencyStream<T> array)
+            {
+                this.m_Internal = array;
+                this.m_GlobalIndex = 0;
+                this.m_InternalIndex = -1;
+            }
+
+            public void Dispose()
+            {
+            }
+
+            public bool MoveNext()
+            {
+                while (m_GlobalIndex < m_Internal.listPerThread.Length)
+                {
+                    ++m_InternalIndex;
+                    if (m_InternalIndex < m_Internal.listPerThread[m_GlobalIndex].Length)
+                    {
+                        return true;
+                    }
+
+                    // Move to the next list
+                    m_InternalIndex = -1;
+                    ++m_GlobalIndex;
+                }
+                return false;
+            }
+
+            public void Reset()
+            {
+                this.m_GlobalIndex = 0;
+                this.m_InternalIndex = -1;
+            }
+
+            public T Current => this.m_Internal.listPerThread[this.m_GlobalIndex][m_InternalIndex];
+
+            object IEnumerator.Current => (object) this.Current;
+        }
+
+        public UnsafeDependencyStream<T>.Enumerator GetEnumerator() => new UnsafeDependencyStream<T>.Enumerator(ref this);
+
+        IEnumerator<T> IEnumerable<T>.GetEnumerator() => (IEnumerator<T>) new UnsafeDependencyStream<T>.Enumerator(ref this);
+
+        IEnumerator IEnumerable.GetEnumerator() => (IEnumerator) this.GetEnumerator();
     }
 #else
     /// <summary>

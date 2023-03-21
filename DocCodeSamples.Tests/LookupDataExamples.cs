@@ -106,11 +106,7 @@ namespace Doc.CodeSamples.Tests
             // Non-entity data
             public float deltaTime;
 
-#if !ENABLE_TRANSFORM_V1
             public void Execute(ref LocalTransform transform, in Target target, in LocalToWorld entityPosition)
-#else
-            public void Execute(Translation position, in Target target, in LocalToWorld entityPosition)
-#endif
             {
                 // Get the target Entity object
                 Entity targetEntity = target.entity;
@@ -121,20 +117,10 @@ namespace Doc.CodeSamples.Tests
 
                 // Update translation to move the chasing entity toward the target
                 float3 targetPosition = entityPosition.Position;
-#if !ENABLE_TRANSFORM_V1
                 float3 chaserPosition = transform.Position;
 
                 float3 displacement = targetPosition - chaserPosition;
                 transform.Position = chaserPosition + displacement * deltaTime;
-#else
-                float3 chaserPosition = position.Value;
-
-                float3 displacement = targetPosition - chaserPosition;
-                position = new Translation
-                {
-                    Value = chaserPosition + displacement * deltaTime
-                };
-#endif
             }
         }
 
@@ -143,11 +129,7 @@ namespace Doc.CodeSamples.Tests
             // Select all entities that have Translation and Target Component
             query = this.GetEntityQuery
                 (
-#if !ENABLE_TRANSFORM_V1
                     typeof(LocalTransform),
-#else
-                    typeof(Translation),
-#endif
                     ComponentType.ReadOnly<Target>()
                 );
         }
@@ -176,11 +158,7 @@ namespace Doc.CodeSamples.Tests
         protected override void OnCreate()
         {
             // Select all entities that have LocalTransform and Target Component
-#if !ENABLE_TRANSFORM_V1
             query = this.GetEntityQuery(typeof(LocalTransform), ComponentType.ReadOnly<Target>());
-#else
-            query = this.GetEntityQuery(typeof(Translation), ComponentType.ReadOnly<Target>());
-#endif
         }
 
         [BurstCompile]
@@ -192,11 +170,7 @@ namespace Doc.CodeSamples.Tests
             [ReadOnly]
             public ComponentLookup<LocalToWorld> EntityPositions;
 
-#if !ENABLE_TRANSFORM_V1
             public void Execute(ref LocalTransform transform, in Target target, in LocalToWorld entityPosition)
-#else
-            public void Execute(ref Translation position, in Target target, in LocalToWorld entityPosition)
-#endif
             {
                 var targetEntity = target.entity;
 
@@ -207,18 +181,10 @@ namespace Doc.CodeSamples.Tests
                 // Update translation to move the chasing enitity toward the target
                 #region lookup-ijobchunk-read
                 float3 targetPosition = entityPosition.Position;
-#if !ENABLE_TRANSFORM_V1
                 float3 chaserPosition = transform.Position;
-#else
-                float3 chaserPosition = position.Value;
-#endif
                 float3 displacement = targetPosition - chaserPosition;
                 float3 newPosition = chaserPosition + displacement * deltaTime;
-#if !ENABLE_TRANSFORM_V1
                 transform.Position = newPosition;
-#else
-                position = new Translation { Value = newPosition };
-#endif
                 #endregion
 
             }

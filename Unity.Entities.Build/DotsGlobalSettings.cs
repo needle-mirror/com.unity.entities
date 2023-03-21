@@ -196,7 +196,14 @@ namespace Unity.Entities.Build
         /// <returns>Returns the <see cref="PlayerType"/> for the build.</returns>
         public PlayerType GetPlayerType()
         {
-            return EditorUserBuildSettings.standaloneBuildSubtarget == StandaloneBuildSubtarget.Server ? PlayerType.Server : PlayerType.Client;
+            //When switching from dedicated server to other standalone platform, the standaloneBuildSubtarget
+            //is not reset. At the moment this is the safest and suggest check to verify we are building for the
+            //dedicated server platform.
+            #if UNITY_SERVER
+            return PlayerType.Server;
+            #else
+            return PlayerType.Client;
+            #endif
         }
 
         /// <summary>

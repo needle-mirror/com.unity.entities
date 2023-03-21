@@ -93,7 +93,7 @@ namespace Unity.Entities
         /// It is safe to use Allocator.Temp for all EntityQueryBuilders. Since they are a ref struct,
         /// their lifetime is limited to the current frame.
         /// </remarks>
-        public EntityQueryBuilder(Allocator allocator)
+        public EntityQueryBuilder(AllocatorManager.AllocatorHandle allocator)
         {
             _allocator = allocator;
             _builderDataPtr = _allocator.Allocate(default(BuilderData), 1);
@@ -119,7 +119,7 @@ namespace Unity.Entities
         ///
         /// If a component's access mode is "Exclude", it will instead be added to the None list as a read-only type.
         /// </remarks>
-        internal EntityQueryBuilder(Allocator allocator, ComponentType* componentTypes, int count)
+        internal EntityQueryBuilder(AllocatorManager.AllocatorHandle allocator, ComponentType* componentTypes, int count)
         {
             _allocator = allocator;
             _builderDataPtr = _allocator.Allocate(default(BuilderData), 1);
@@ -198,8 +198,7 @@ namespace Unity.Entities
             where TAspect : struct, IAspect, IAspectCreate<TAspect>
         {
             CheckBuilderPtr();
-            default(TAspect).AddComponentRequirementsTo(ref _builderDataPtr->_all, ref _builderDataPtr->_any, ref _builderDataPtr->_none,
-                ref _builderDataPtr->_disabled, ref _builderDataPtr->_absent, false);
+            default(TAspect).AddComponentRequirementsTo(ref _builderDataPtr->_all, false);
             _builderDataPtr->_isFinalized = 0;
             return this;
         }
@@ -214,8 +213,7 @@ namespace Unity.Entities
             where TAspect : struct, IAspect, IAspectCreate<TAspect>
         {
             CheckBuilderPtr();
-            default(TAspect).AddComponentRequirementsTo(ref _builderDataPtr->_all, ref _builderDataPtr->_any, ref _builderDataPtr->_none,
-                ref _builderDataPtr->_disabled, ref _builderDataPtr->_absent, true);
+            default(TAspect).AddComponentRequirementsTo(ref _builderDataPtr->_all, true);
             _builderDataPtr->_isFinalized = 0;
             return this;
         }
@@ -250,6 +248,8 @@ namespace Unity.Entities
         /// </example>
         ///
         /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAll``1(``0@)"/>
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAllRW``1(``0@)"/>
         /// </remarks>
         /// <typeparam name="T1">A required component type</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
@@ -380,6 +380,7 @@ namespace Unity.Entities
         /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-builder-chained-withallrw" title="Query Builder With Chained WithAllRW Calls"/>
         /// </example>
         ///
+        /// To request read-only access to the reference component(s), use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAll``1(``0@)"/>
         /// </remarks>
         /// <typeparam name="T1">A required ReadWrite component type</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
@@ -419,6 +420,8 @@ namespace Unity.Entities
         /// </example>
         ///
         /// To add additional required Chunk Components, call this method multiple times.
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAllChunkComponentRW``1(``0@)"/>
         ///
         /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAll``1(``0@)"/>
         /// </remarks>
@@ -522,6 +525,8 @@ namespace Unity.Entities
         /// </example>
         ///
         /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAny``1(``0@)"/>
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAnyRW``1(``0@)"/>
         /// </remarks>
         /// <typeparam name="T1">An optional component type</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
@@ -656,6 +661,8 @@ namespace Unity.Entities
         /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-builder-chained-withaanyrw" title="Query Builder With Chained WithAnyRW Calls"/>
         /// </example>
         ///
+        /// To request read-only access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAny``1(``0@)"/>
+        ///
         /// </remarks>
         /// <typeparam name="T1">An optional ReadWrite component type</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
@@ -699,6 +706,8 @@ namespace Unity.Entities
         /// To add additional optional Chunk Components, call this method multiple times.
         ///
         /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAny``1(``0@)"/>
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAnyChunkComponentRW``1(``0@)"/>
         ///
         /// </remarks>
         /// <typeparam name="T">Component type to use as an optional, read-only Chunk Component</typeparam>
@@ -797,9 +806,9 @@ namespace Unity.Entities
         /// To match the resulting query, an Entity must not have any of the query's excluded component types.
         ///
         /// There are several ways to exclude components from a query:
-        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
-        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
-        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        /// - WithAbsent&lt;T&gt;() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled&lt;T&gt;() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone&lt;T&gt;() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
         ///
         /// WithNone accepts up to seven type arguments. You can add more component types by chaining calls together.
         ///
@@ -958,9 +967,9 @@ namespace Unity.Entities
         /// To match the resulting query, an Entity must not have any of the query's excluded component types.
         ///
         /// There are several ways to exclude components from a query:
-        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
-        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
-        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        /// - WithAbsent&lt;T&gt;() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled&lt;T&gt;() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone&lt;T&gt;() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
         ///
         /// To add component types that are known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithNone``1"/>
         ///
@@ -1011,9 +1020,9 @@ namespace Unity.Entities
         /// must all be disabled.
         ///
         /// There are several ways to exclude components from a query:
-        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
-        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
-        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        /// - WithAbsent&lt;T&gt;() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled&lt;T&gt;() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone&lt;T&gt;() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
         ///
         /// WithDisabled accepts up to seven type arguments. You can add more component types by chaining calls together.
         ///
@@ -1022,6 +1031,9 @@ namespace Unity.Entities
         /// </example>
         ///
         /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``1(``0@)"/>
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithDisabledRW``1(``0@)"/>
+        ///
         /// </remarks>
         /// <typeparam name="T1">A required disabled component type</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
@@ -1148,15 +1160,17 @@ namespace Unity.Entities
         /// must all be disabled.
         ///
         /// There are several ways to exclude components from a query:
-        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
-        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
-        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        /// - WithAbsent&lt;T&gt;() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled&lt;T&gt;() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone&lt;T&gt;() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
         ///
         /// WithDisabledRW accepts up to two type arguments. You can add more component types by chaining calls together.
         ///
         /// <example>
         /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-builder-chained-withallrw" title="Query Builder With Chained WithAllRW Calls"/>
         /// </example>
+        ///
+        /// To request read-only access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``1(``0@)"/>
         ///
         /// </remarks>
         /// <typeparam name="T1">A required disabled ReadWrite component type</typeparam>
@@ -1191,9 +1205,9 @@ namespace Unity.Entities
         /// must all be disabled.
         ///
         /// There are several ways to exclude components from a query:
-        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
-        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
-        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        /// - WithAbsent&lt;T&gt;() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled&lt;T&gt;() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone&lt;T&gt;() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
         /// </remarks>
         /// <param name="componentTypes">
         /// A list of component types that implements <see cref="T:Unity.Collections.INativeList`1"/>.
@@ -1238,9 +1252,9 @@ namespace Unity.Entities
         /// To match the resulting query, an archetype must not have any of the absent components (whether they are disabled or enabled).
         ///
         /// There are several ways to exclude components from a query:
-        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
-        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
-        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        /// - WithAbsent&lt;T&gt;() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled&lt;T&gt;() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone&lt;T&gt;() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
         ///
         /// WithAbsent accepts up to seven type arguments. You can add more component types by chaining calls together.
         ///
@@ -1401,9 +1415,9 @@ namespace Unity.Entities
         /// To add component types that are known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithNone``1"/>
         ///
         /// There are several ways to exclude components from a query:
-        /// - WithAbsent<T>() matches all entities in chunks that do not have T at all.
-        /// - WithDisabled<T>() matches chunks that must have T, but only matches entities where T is disabled.
-        /// - WithNone<T>() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
+        /// - WithAbsent&lt;T&gt;() matches all entities in chunks that do not have T at all.
+        /// - WithDisabled&lt;T&gt;() matches chunks that must have T, but only matches entities where T is disabled.
+        /// - WithNone&lt;T&gt;() matches both of the above cases: either the component isn't present at all, or it is present but disabled.
         ///
         /// Component types added using WithAbsent are never written to. If the <see cref="ComponentType.AccessMode"/> field of the
         /// provided component type is <see cref="ComponentType.AccessMode.ReadWrite"/>, it will be forced to

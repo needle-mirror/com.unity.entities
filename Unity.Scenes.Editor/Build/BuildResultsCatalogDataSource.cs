@@ -6,6 +6,7 @@ using Unity.Entities.Serialization;
 using UnityEditor;
 using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEditor.Build.Pipeline.Tasks;
+using UnityEngine;
 
 namespace Unity.Entities.Content
 {
@@ -56,7 +57,12 @@ namespace Unity.Entities.Content
                 var guidStr = fileId.Value.ToString();
                 var scenePath = AssetDatabase.GUIDToAssetPath(guidStr);
                 if (!string.IsNullOrEmpty(scenePath))
-                    return new (UntypedWeakReferenceId, string)[] { (new UntypedWeakReferenceId { GlobalId = new RuntimeGlobalObjectId { AssetGUID = fileId.Value } }, guidStr) };
+                {
+                    var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath);
+                    var id = UntypedWeakReferenceId.CreateFromObjectInstance(sceneAsset);
+                    Resources.UnloadAsset(sceneAsset);
+                    return new (UntypedWeakReferenceId, string)[] { (id, guidStr) };
+                }
             }
             return new (UntypedWeakReferenceId, string)[0];
         }

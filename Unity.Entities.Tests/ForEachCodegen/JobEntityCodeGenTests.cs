@@ -215,6 +215,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void JobDebuggerSafetyThrows([Values] ScheduleType scheduleType) => m_TestSystem.JobDebuggerSafetyThrows(scheduleType);
+
+        [Test]
+        public void UserDefinedQuerySafetyThrows([Values] ScheduleType scheduleType) => m_TestSystem.UserDefinedQuerySafetyThrows(scheduleType);
 #endif
 
 #endregion
@@ -949,11 +952,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     WithFilterButNotQueryDynamic(scheduleType);
             }
 
-#if !ENABLE_TRANSFORM_V1
             [WithChangeFilter(typeof(LocalTransform))]
-#else
-            [WithChangeFilter(typeof(Translation))]
-#endif
             partial struct WithFilterButNotQueryStaticJob : IJobEntity { public void Execute(Entity _) {} }
             void WithFilterButNotQueryStatic(ScheduleType scheduleType)
             {
@@ -983,17 +982,11 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 Assert.DoesNotThrow(() =>
                 {
-#if !ENABLE_TRANSFORM_V1
                     var query = new EntityQueryBuilder(Allocator.Temp)
                         .WithAllRW<LocalTransform>()
                         .Build(this);
                     query.SetChangedVersionFilter(typeof(LocalTransform));
-#else
-                    var query = new EntityQueryBuilder(Allocator.Temp)
-                        .WithAllRW<Translation>()
-                        .Build(this);
-                    query.SetChangedVersionFilter(typeof(Translation));
-#endif
+
                     var job = new WithFilterButNotQueryDynamicJob();
 
                     switch (scheduleType)
@@ -1533,7 +1526,38 @@ namespace Unity.Entities.Tests.ForEachCodegen
 #endregion
 
 #region Safety
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            partial struct UserDefinedQuerySafetyJob : IJobEntity
+            {
+                public void Execute(ref EcsTestData e1) => e1.value *= 2;
+            }
 
+            public void UserDefinedQuerySafetyThrows(ScheduleType scheduleType)
+            {
+                var entityQueryBuilder = new EntityQueryBuilder(Allocator.Temp);
+                var userDefinedQuery = entityQueryBuilder.WithAll<EcsTestData2>().Build(this);
+
+                Assert.Throws<InvalidOperationException>(() =>
+                {
+                    switch (scheduleType)
+                    {
+                        case ScheduleType.Run:
+                            new UserDefinedQuerySafetyJob().Run(userDefinedQuery);
+                            break;
+                        case ScheduleType.Schedule:
+                            new UserDefinedQuerySafetyJob().Schedule(userDefinedQuery);
+                            break;
+                        case ScheduleType.ScheduleParallel:
+                            new UserDefinedQuerySafetyJob().ScheduleParallel(userDefinedQuery);
+                            break;
+                    }
+                });
+                Dependency.Complete();
+
+                entityQueryBuilder.Dispose();
+            }
+
+#endif
             partial struct JobDebuggerSafetyThrowsJob : IJobEntity
             {
                 public int IncrementBy;
@@ -1562,12 +1586,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
                 jobHandle.Complete();
             }
-
-            void JobDebuggerSafetyThrowsDoJob(ScheduleType scheduleType)
-            {
-
-            }
-
 #endregion
 
 #region EnableableComponents

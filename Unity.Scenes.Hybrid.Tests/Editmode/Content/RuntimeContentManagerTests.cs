@@ -32,6 +32,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
     public class RuntimeContentManagerTests
     {
         private static string MainScenePath => $"{TestAssetFolder}/RuntimeContentManagerTests.unity";
+        private static string GOScenePath => $"{TestAssetFolder}/goScene.unity";
         private static string TestAssetFolder => $"Assets/{TestAssetFolderName}";
         private static string TestAssetFolderName => nameof(RuntimeContentManagerTests);
         private static string TestStreamingAssetsFolderName => $"Assets/StreamingAssets/{nameof(RuntimeContentManagerTests)}";
@@ -95,6 +96,8 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
                 mat1.color = new Color(1, i / (float)kDirectAssetPaths.Length, 0);
                 AssetDatabase.CreateAsset(mat1, kDirectAssetPaths[i]);
             }
+            var goScene = SubSceneTestsHelper.CreateScene(GOScenePath);
+            var goSceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(GOScenePath);
 
             var mainScene = SubSceneTestsHelper.CreateScene(MainScenePath);
 
@@ -110,6 +113,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
                     WeakObjectReference<Material> materialRef = new WeakObjectReference<Material>();
                     materialRef.Id = UntypedWeakReferenceId.CreateFromObjectInstance(matObj1);
                     comp1.matRef = materialRef;
+                    comp1.sceneRef = new WeakObjectSceneReference { Id = UntypedWeakReferenceId.CreateFromObjectInstance(goSceneAsset) };
                     SessionState.SetString(RefObjRuntimeId, materialRef.Id.ToString());
                     gos.Add(go1);
                 }
@@ -253,6 +257,34 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             {
                 RuntimeContentManager.ReleaseObjectAsync(id);
             }
+        }
+        [UnityTest]
+        public IEnumerator RuntimeContentManager_CanLoadAdditive_GOScenes()
+        {
+            yield return new EnterPlayMode();
+            Assert.IsTrue(InitializeCatalogForTest());
+            while (RuntimeContentManager.UnfinishedObjectLoads() > 0)
+            {
+                RuntimeContentManager.ProcessQueuedCommands();
+                yield return null;
+            }
+            var sceneFileCount = Loading.ContentLoadInterface.GetSceneFiles(RuntimeContentManager.Namespace).Length;
+            var id = UntypedWeakReferenceId.CreateFromObjectInstance(AssetDatabase.LoadAssetAtPath<SceneAsset>(GOScenePath));
+            var sceneRef = new WeakObjectSceneReference { Id = id };
+            var sceneInstance1 = sceneRef.LoadAsync(new Loading.ContentSceneParameters { autoIntegrate = true, loadSceneMode = UnityEngine.SceneManagement.LoadSceneMode.Additive });
+            Assert.True(sceneInstance1.IsValid());
+            var sceneInstance2 = sceneRef.LoadAsync(new Loading.ContentSceneParameters { autoIntegrate = true, loadSceneMode = UnityEngine.SceneManagement.LoadSceneMode.Additive });
+            Assert.True(sceneInstance2.IsValid());
+            while (!sceneInstance1.isLoaded || !sceneInstance2.isLoaded)
+                yield return null;
+            sceneRef.Unload(ref sceneInstance1);
+            Assert.IsFalse(sceneInstance1.IsValid());
+            Assert.True(sceneInstance2.IsValid());
+            sceneRef.Unload(ref sceneInstance2);
+            Assert.IsFalse(sceneInstance2.IsValid());
+            
+            var sceneFileCount2 = Loading.ContentLoadInterface.GetSceneFiles(RuntimeContentManager.Namespace).Length;
+            Assert.AreEqual(sceneFileCount, sceneFileCount2);
         }
 
         [UnityTest]

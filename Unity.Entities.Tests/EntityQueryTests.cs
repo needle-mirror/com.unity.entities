@@ -135,7 +135,7 @@ namespace Unity.Entities.Tests
             int expectedChunkCountE = 10;
             var createChunksE = CreateEntitiesAndReturnChunks(archetypeE, archetypeE.ChunkCapacity * expectedChunkCountE);
             using var queryE = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestDataEnableable));
-            queryE.SetEnabledBitsOnAllChunks<EcsTestDataEnableable>(false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(queryE, false);
             var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
             createChunksE[0].SetComponentEnabled(ref typeHandle, 0, true); // enable one entity in first chunk
             FastAssert.AreEqual(expectedChunkCountE, queryE.CalculateChunkCountWithoutFiltering());
@@ -174,7 +174,7 @@ namespace Unity.Entities.Tests
             int expectedChunkCountE = 10;
             var createChunksE = CreateEntitiesAndReturnChunks(archetypeE, archetypeE.ChunkCapacity * expectedChunkCountE);
             using var queryE = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestDataEnableable));
-            queryE.SetEnabledBitsOnAllChunks<EcsTestDataEnableable>(false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(queryE, false);
             var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
             createChunksE[0].SetComponentEnabled(ref typeHandle, 0, true); // enable one entity in first chunk
             FastAssert.AreEqual(expectedChunkCountE, queryE.CalculateChunkCountWithoutFiltering());
@@ -2895,7 +2895,7 @@ namespace Unity.Entities.Tests
             // A running job reading from the tag component should cause SetEnabledBitsOnAllChunks() to block
             var sysRO = World.CreateSystemManaged<DisableTagComponentsSystemRO>();
             sysRO.Update();
-            Assert.DoesNotThrow(() => { query.SetEnabledBitsOnAllChunks<EcsTestTagEnableable>(true); });
+            Assert.DoesNotThrow(() => { m_Manager.SetComponentEnabled<EcsTestTagEnableable>(query, true); });
             Assert.AreEqual(entities.Length, query.CalculateEntityCount());
             foreach(var ent in entities)
             {
@@ -2917,7 +2917,7 @@ namespace Unity.Entities.Tests
             }
             var sysRW = World.CreateSystemManaged<DisableTagComponentsSystemRW>();
             sysRW.Update();
-            Assert.DoesNotThrow(() => { query.SetEnabledBitsOnAllChunks<EcsTestTagEnableable>(true); });
+            Assert.DoesNotThrow(() => {m_Manager.SetComponentEnabled<EcsTestTagEnableable>(query, true); });
             Assert.AreEqual(entities.Length, query.CalculateEntityCount());
             foreach(var ent in entities)
             {
@@ -4320,7 +4320,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class TestGroup : ComponentSystemGroup
+        partial class TestGroup : ComponentSystemGroup
         {
         }
 

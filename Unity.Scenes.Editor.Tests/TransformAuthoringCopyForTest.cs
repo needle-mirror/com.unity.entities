@@ -14,7 +14,7 @@ namespace Unity.Scenes.Editor.Tests
     {
         public TransformAuthoring Value;
 
-        public TransformUsageFlags RuntimeTransformUsage => Value.RuntimeTransformUsage;
+        public RuntimeTransformComponentFlags RuntimeTransformUsage => Value.RuntimeTransformUsage;
     }
 
     [DisableAutoCreation]

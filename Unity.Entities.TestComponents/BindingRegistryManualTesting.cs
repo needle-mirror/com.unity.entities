@@ -30,7 +30,9 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(BindingRegistryManualTestAuthoring authoring)
             {
-                AddComponent(new BindingRegistryManualTestComponent
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new BindingRegistryManualTestComponent
                         {BindFloat = authoring.FloatField, BindInt = authoring.IntField, BindBool = authoring.BoolField});
             }
         }
@@ -52,7 +54,9 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(BindingRegistrySeparateFieldsAuthoring authoring)
             {
-                AddComponent(new BindingRegistrySeparateFieldsComponent
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new BindingRegistrySeparateFieldsComponent
                     { BindFloat2 = new float2(authoring.FloatField1, authoring.FloatField2) });
             }
         }
@@ -72,7 +76,9 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(BindingRegistryColorAuthoring authoring)
             {
-                AddComponent(new BindingRegistryColorComponent
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new BindingRegistryColorComponent
                 {
                     BindColor = new float4(authoring.Color.r, authoring.Color.g, authoring.Color.b, authoring.Color.a)
                 });
@@ -94,7 +100,9 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(BindingRegistryVectorAuthoring authoring)
             {
-                AddComponent(new BindingRegistryVectorComponent
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new BindingRegistryVectorComponent
                 {
                     BindFloat4 = new float4(authoring.Vector4.x, authoring.Vector4.y, authoring.Vector4.z, authoring.Vector4.w)
                 });
@@ -126,7 +134,9 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(BindingRegistryNestedFieldsAuthoring authoring)
             {
-                AddComponent(new BindingRegistryNestedFieldsComponent
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new BindingRegistryNestedFieldsComponent
                 {
                     BindFloat4 = new float4(authoring.NestedData.Float, authoring.NestedData.Float3)
                 });

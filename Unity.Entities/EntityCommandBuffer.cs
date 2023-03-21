@@ -274,9 +274,9 @@ namespace Unity.Entities
     {
         private readonly ECBChainHeapElement* m_Heap;
         private int m_Size;
-        private readonly Allocator m_Allocator;
+        private readonly AllocatorManager.AllocatorHandle m_Allocator;
         private static readonly int BaseIndex = 1;
-        public ECBChainPriorityQueue(ECBChainPlaybackState* chainStates, int chainStateCount, Allocator alloc)
+        public ECBChainPriorityQueue(ECBChainPlaybackState* chainStates, int chainStateCount, AllocatorManager.AllocatorHandle alloc)
         {
             m_Size = chainStateCount;
             m_Allocator = alloc;
@@ -693,7 +693,7 @@ namespace Unity.Entities
             var ctype = ComponentType.ReadWrite<T>();
             if (ctype.IsZeroSized)
             {
-                AddEntityComponentTypeCommand(chain, sortKey, op, e, ctype);
+                AddEntityComponentTypeWithoutValueCommand(chain, sortKey, op, e, ctype);
                 return;
             }
 
@@ -861,7 +861,7 @@ namespace Unity.Entities
             return (size + alignmentPowerOfTwo - 1) & ~(alignmentPowerOfTwo - 1);
         }
 
-        internal void AddEntityComponentTypeCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, ComponentType t)
+        internal void AddEntityComponentTypeWithoutValueCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, ComponentType t)
         {
             var sizeNeeded = Align(sizeof(EntityComponentCommand), ALIGN_64_BIT);
 
@@ -1583,7 +1583,7 @@ namespace Unity.Entities
         ///  Creates a new command buffer.
         /// </summary>
         /// <param name="label">Memory allocator to use for chunks and data</param>
-        public EntityCommandBuffer(Allocator label)
+        public EntityCommandBuffer(AllocatorManager.AllocatorHandle label)
             : this(label, PlaybackPolicy.SinglePlayback)
         {
         }
@@ -1691,52 +1691,44 @@ namespace Unity.Entities
 
         private void FreeChain(EntityCommandBufferChain* chain, PlaybackPolicy playbackPolicy, bool didPlayback)
         {
-            if (chain == null)
+            while (chain != null)
             {
-                return;
-            }
-
-            ECBInterop.CleanupManaged(chain);
-
-            // Buffers played in ecbs which can be played back more than once are always copied during playback.
-            if (playbackPolicy == PlaybackPolicy.MultiPlayback || !didPlayback)
-            {
-                var bufferCleanupList = chain->m_Cleanup->BufferCleanupList;
-                while (bufferCleanupList != null)
+                ECBInterop.CleanupManaged(chain);        // Buffers played in ecbs which can be played back more than once are always copied during playback.
+                if (playbackPolicy == PlaybackPolicy.MultiPlayback || !didPlayback)
                 {
-                    var prev = bufferCleanupList->Prev;
-                    BufferHeader.Destroy(&bufferCleanupList->TempBuffer);
-                    bufferCleanupList = prev;
+                    var bufferCleanupList = chain->m_Cleanup->BufferCleanupList;
+                    while (bufferCleanupList != null)
+                    {
+                        var prev = bufferCleanupList->Prev;
+                        BufferHeader.Destroy(&bufferCleanupList->TempBuffer);
+                        bufferCleanupList = prev;
+                    }
                 }
-            }
-            chain->m_Cleanup->BufferCleanupList = null;
+                chain->m_Cleanup->BufferCleanupList = null;
 
-            // Arrays of entities captured from an input EntityQuery at record time are always cleaned up
-            // at Dispose time.
-            var entityArraysCleanupList = chain->m_Cleanup->EntityArraysCleanupList;
-            while (entityArraysCleanupList != null)
-            {
-                var prev = entityArraysCleanupList->Prev;
-                Memory.Unmanaged.Free(entityArraysCleanupList->Ptr, m_Data->m_Allocator);
-                entityArraysCleanupList = prev;
-            }
-            chain->m_Cleanup->EntityArraysCleanupList = null;
+                // Arrays of entities captured from an input EntityQuery at record time are always cleaned up
+                // at Dispose time.
+                var entityArraysCleanupList = chain->m_Cleanup->EntityArraysCleanupList;
+                while (entityArraysCleanupList != null)
+                {
+                    var prev = entityArraysCleanupList->Prev;
+                    Memory.Unmanaged.Free(entityArraysCleanupList->Ptr, m_Data->m_Allocator);
+                    entityArraysCleanupList = prev;
+                }
+                chain->m_Cleanup->EntityArraysCleanupList = null;
+                Memory.Unmanaged.Free(chain->m_Cleanup, m_Data->m_Allocator);
+                while (chain->m_Tail != null)
+                {
+                    var prev = chain->m_Tail->Prev;
+                    Memory.Unmanaged.Free(chain->m_Tail, m_Data->m_Allocator);
+                    chain->m_Tail = prev;
+                }
+                chain->m_Head = null;
 
-            Memory.Unmanaged.Free(chain->m_Cleanup, m_Data->m_Allocator);
-
-            while (chain->m_Tail != null)
-            {
-                var prev = chain->m_Tail->Prev;
-                Memory.Unmanaged.Free(chain->m_Tail, m_Data->m_Allocator);
-                chain->m_Tail = prev;
-            }
-
-            chain->m_Head = null;
-            if (chain->m_NextChain != null)
-            {
-                FreeChain(chain->m_NextChain, playbackPolicy, didPlayback);
-                Memory.Unmanaged.Free(chain->m_NextChain, m_Data->m_Allocator);
-                chain->m_NextChain = null;
+                var chainToFree = chain;
+                chain = chain->m_NextChain;
+                Memory.Unmanaged.Free(chainToFree->m_NextChain, m_Data->m_Allocator);
+                chainToFree->m_NextChain = null;
             }
         }
 
@@ -1968,7 +1960,7 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, ComponentType.ReadWrite<T>());
+            m_Data->AddEntityComponentTypeWithoutValueCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, ComponentType.ReadWrite<T>());
         }
 
         /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
@@ -2002,7 +1994,7 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, componentType);
+            m_Data->AddEntityComponentTypeWithoutValueCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, componentType);
         }
 
         /// <summary> Records a command to add a component to an entity. </summary>
@@ -2227,7 +2219,7 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+            m_Data->AddEntityComponentTypeWithoutValueCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.RemoveComponent, e, componentType);
         }
 
@@ -4847,7 +4839,7 @@ namespace Unity.Entities
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentTypeCommand(chain, sortKey, ECBCommand.AddComponent, e, ComponentType.ReadWrite<T>());
+                m_Data->AddEntityComponentTypeWithoutValueCommand(chain, sortKey, ECBCommand.AddComponent, e, ComponentType.ReadWrite<T>());
             }
 
             /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
@@ -4886,7 +4878,7 @@ namespace Unity.Entities
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentTypeCommand(chain, sortKey, ECBCommand.AddComponent, e, componentType);
+                m_Data->AddEntityComponentTypeWithoutValueCommand(chain, sortKey, ECBCommand.AddComponent, e, componentType);
             }
 
             /// <summary> Records a command to add a component to a NativeArray of entities. </summary>
@@ -5187,7 +5179,7 @@ namespace Unity.Entities
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentTypeCommand(chain, sortKey, ECBCommand.RemoveComponent, e, componentType);
+                m_Data->AddEntityComponentTypeWithoutValueCommand(chain, sortKey, ECBCommand.RemoveComponent, e, componentType);
             }
 
             /// <summary> Records a command to remove one or more components from a NativeArray of entities. </summary>
@@ -5674,7 +5666,7 @@ namespace Unity.Entities
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
-            AddEntityComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, component);
+            AddEntityManagedComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, component);
         }
 
         /// <summary> Records a command to add a managed component for an entity.</summary>
@@ -5690,7 +5682,7 @@ namespace Unity.Entities
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
-            ecb.m_Data->AddEntityComponentTypeCommand(&ecb.m_Data->m_MainThreadChain, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, ComponentType.ReadWrite<T>());
+            AddEntityManagedComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, default(T));
         }
 
         /// <summary> Records a command to set a managed component for an entity.</summary>
@@ -5707,7 +5699,7 @@ namespace Unity.Entities
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
-            AddEntityComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.SetManagedComponentData, e, component);
+            AddEntityManagedComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.SetManagedComponentData, e, component);
         }
 
         /// <summary>
@@ -5789,7 +5781,7 @@ namespace Unity.Entities
             ecb.SetComponentObject(query, component);
         }
 
-        internal static void AddEntityComponentCommandFromMainThread<T>(EntityCommandBufferData* ecbd, int sortKey, ECBCommand op, Entity e, T component) where T : class
+        internal static void AddEntityManagedComponentCommandFromMainThread<T>(EntityCommandBufferData* ecbd, int sortKey, ECBCommand op, Entity e, T component) where T : class
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var sizeNeeded = EntityCommandBufferData.Align(sizeof(EntityManagedComponentCommand), 8);

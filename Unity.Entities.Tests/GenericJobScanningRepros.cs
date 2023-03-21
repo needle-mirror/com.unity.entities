@@ -583,11 +583,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum3
         }
     }
 
-#if !ENABLE_TRANSFORM_V1
-    public class TestSystem : CustomSystem<LocalTransform>
-#else
-    public class TestSystem : CustomSystem<Translation>
-#endif
+    public partial class TestSystem : CustomSystem<LocalTransform>
     {
         protected override void OnUpdate()
         {
@@ -598,11 +594,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum3
 
         struct TestProcessor : IProcessor
         {
-#if !ENABLE_TRANSFORM_V1
             public void Execute(ref LocalTransform transform)
-#else
-            public void Execute(ref Translation translation)
-#endif
             {
             }
         }

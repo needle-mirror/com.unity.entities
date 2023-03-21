@@ -19,7 +19,7 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(119, "extDontMatter", AllowCaching = true)]
+    [ScriptedImporter(120, "extDontMatter", AllowCaching = true)]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {

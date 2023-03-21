@@ -62,9 +62,9 @@ namespace Unity.Entities.Tests.Conversion
             Assert.IsTrue(entity == buffer[0].Value); //First element in a LinkedEntityGroup should be the root entity
 
             EntitiesAssert.ContainsOnly(manager,
-                EntityMatch.Exact<AdditionalEntitiesBakingData, EntityRefTestData, LinkedEntityGroup, LinkedEntityGroupBakingData, TransformAuthoring>(k_CommonComponents, entity),
-                EntityMatch.Exact<AdditionalEntitiesBakingData, TransformAuthoring>(k_ChildComponents, childEntity),
-                EntityMatch.Exact<AdditionalEntitiesBakingData, TransformAuthoring>(k_ChildComponents));
+                EntityMatch.Exact<AdditionalEntitiesBakingData, EntityRefTestData, LinkedEntityGroup, LinkedEntityGroupBakingData, TransformAuthoring, Simulate>(entity),
+                EntityMatch.Exact<AdditionalEntitiesBakingData, TransformAuthoring, Simulate>(childEntity),
+                EntityMatch.Exact<AdditionalEntitiesBakingData, TransformAuthoring, Simulate>());
         }
 
         [Test]

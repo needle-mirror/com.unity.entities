@@ -1285,11 +1285,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             public void RunWithFilterButNotQuery()
             {
-#if !ENABLE_TRANSFORM_V1
                 Entities.WithChangeFilter<LocalTransform>().ForEach((Entity entity) => { }).Run();
-#else
-                Entities.WithChangeFilter<Translation>().ForEach((Entity entity) => { }).Run();
-#endif
             }
 
             public int RunWithNoParametersCountEntities()

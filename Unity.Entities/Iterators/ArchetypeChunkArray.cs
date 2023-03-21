@@ -790,8 +790,13 @@ namespace Unity.Entities
             var chunks = m_Chunk->Archetype->Chunks;
             ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, handle.m_TypeIndex, ref handle.m_TypeLookupCache);
 
-            return handle.m_TypeLookupCache == -1 ? new v128() : *chunks.GetComponentEnabledMaskArrayForTypeInChunk(handle.m_TypeLookupCache,
-                m_Chunk->ListIndex);
+            if (handle.m_TypeLookupCache == -1)
+                return default;
+            int indexInArchetype = handle.m_TypeLookupCache;
+            int memoryOrderIndexInArchetype = m_Chunk->Archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInArchetype];
+            return handle.m_TypeLookupCache == -1 ?
+                new v128() :
+                *chunks.GetComponentEnabledMaskArrayForTypeInChunk(memoryOrderIndexInArchetype, m_Chunk->ListIndex);
         }
 
         /// <summary>

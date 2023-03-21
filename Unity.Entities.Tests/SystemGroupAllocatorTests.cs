@@ -91,7 +91,7 @@ namespace Unity.Entities.Tests
 
         [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
         [UpdateInGroup(typeof(FixedStepSimulationSystemGroup), OrderFirst = true)]
-        public class FixedStepTestSimulationSystemGroup : ComponentSystemGroup
+        public partial class FixedStepTestSimulationSystemGroup : ComponentSystemGroup
         {
             /// <summary>
             /// Set the timestep use by this group, in seconds. The default value is 1/60 seconds.
@@ -121,7 +121,7 @@ namespace Unity.Entities.Tests
 
         [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation)]
         [UpdateInGroup(typeof(FixedStepSimulationSystemGroup), OrderFirst = true)]
-        public class FixedStepNoAllocatorSystemGroup : ComponentSystemGroup
+        public partial class FixedStepNoAllocatorSystemGroup : ComponentSystemGroup
         {
             /// <summary>
             /// Set the timestep use by this group, in seconds. The default value is 1/60 seconds.

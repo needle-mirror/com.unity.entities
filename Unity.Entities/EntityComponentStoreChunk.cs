@@ -143,11 +143,11 @@ namespace Unity.Entities
             AssertEntityHasComponent(entity, typeIndex, ref typeLookupCache);
             var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
             var archetype = chunk->Archetype;
-            var typeOffset = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
             indexInBitField = m_EntityInChunkByEntity[entity.Index].IndexInChunk;
             if (Hint.Unlikely(archetype != typeLookupCache.Archetype))
                 typeLookupCache.Update(archetype, typeIndex);
-            ptrChunkDisabledCount = archetype->Chunks.GetPointerToChunkDisabledCountForType(typeLookupCache.IndexInArchetype, chunk->ListIndex);
+            int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[typeLookupCache.IndexInArchetype];
+            ptrChunkDisabledCount = archetype->Chunks.GetPointerToChunkDisabledCountForType(memoryOrderIndexInArchetype, chunk->ListIndex);
             return ChunkDataUtility.GetEnabledRefRO(chunk, typeLookupCache.IndexInArchetype).Ptr;
         }
 

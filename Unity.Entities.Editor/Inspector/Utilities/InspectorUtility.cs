@@ -16,7 +16,6 @@ namespace Unity.Entities.Editor
 
         static InspectorUtility()
         {
-            k_AspectIconsDict.Add("TransformAspect", EditorGUIUtility.IconContent(EditorGUIUtility.isProSkin ? "d_Transform Icon" : "Transform Icon").image as Texture2D);
             k_AspectIconsDict.Add("RigidbodyAspect", EditorGUIUtility.IconContent(EditorGUIUtility.isProSkin ? "d_Rigidbody Icon" : "Rigidbody Icon").image as Texture2D);
             k_AspectIconsDict.Add("CameraAspect", EditorGUIUtility.IconContent(EditorGUIUtility.isProSkin ? "d_Camera Icon" : "Camera Icon").image as Texture2D);
             k_AspectIconsDict.Add("RendererAspect", EditorGUIUtility.IconContent(EditorGUIUtility.isProSkin ? "d_MeshRenderer Icon" : "MeshRenderer Icon").image as Texture2D);

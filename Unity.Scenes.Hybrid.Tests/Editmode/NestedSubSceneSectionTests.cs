@@ -72,8 +72,9 @@ namespace Unity.Scenes.Hybrid.Tests
     {
         protected TestLiveConversionSettings m_Settings;
 
-        public NestedSubSceneSectionTests() : base("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/NestedSubSceneSectionTestScene.unity")
+        public NestedSubSceneSectionTests()
         {
+            PlayModeScenePath = "Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/NestedSubSceneSectionTestScene.unity";
         }
 
         // Only works in Editor for now until we can support SubScene building with new build settings in a test
@@ -92,7 +93,7 @@ namespace Unity.Scenes.Hybrid.Tests
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
                 };
 
-                SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, resolveParams);
 
                 int sanityCheck = 30;
                 do
@@ -127,7 +128,7 @@ namespace Unity.Scenes.Hybrid.Tests
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
                 };
 
-                Entity sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                Entity sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, resolveParams);
 
                 int sanityCheck = 30;
                 do
@@ -163,7 +164,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 {
                 };
 
-                Entity sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                Entity sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, resolveParams);
 
                 int sanityCheck = 300;
                 do

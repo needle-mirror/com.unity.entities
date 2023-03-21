@@ -22,48 +22,23 @@ namespace Unity.Entities.Content
         public bool IsReferenceValid => Id.IsValid;
 
         /// <summary>
-        /// True if the object is either being loaded or already finished loading.
-        /// </summary>
-        public Unity.Loading.SceneLoadingStatus LoadingStatus => RuntimeContentManager.GetSceneLoadingStatus(Id);
-
-        /// <summary>
-        /// The loaded scene object.
-        /// </summary>
-        public Scene SceneResult
-        {
-            get
-            {
-                return RuntimeContentManager.GetSceneValue(Id);
-            }
-        }
-
-        /// <summary>
-        /// The ContentSceneFile that was loaded.  This can be used to manually integrate the loaded scene at the end of the frame.
-        /// </summary>
-        public Unity.Loading.ContentSceneFile SceneFileResult
-        {
-            get
-            {
-                return RuntimeContentManager.GetSceneFileValue(Id);
-            }
-        }
-
-        /// <summary>
-        /// Directs the object to begin loading.  This will increase the reference count for each call to the same id.  Release must be called for each Load call to properly release resources.
+        /// Loads a scene.
         /// </summary>
         /// <param name="loadParams">The scene loading parameters.</param>
-        public void LoadAsync(Unity.Loading.ContentSceneParameters loadParams)
+        /// <returns>The scene instance that is loading. It will not necessarily be ready when it is returned.  The scene instance can be checked for its loading state.</returns>
+        public Scene LoadAsync(Unity.Loading.ContentSceneParameters loadParams)
         {
-            RuntimeContentManager.LoadSceneAsync(Id, loadParams);
+            return RuntimeContentManager.LoadSceneAsync(Id, loadParams);
         }
 
+
         /// <summary>
-        /// Releases the object.  This will decrement the reference count of this object.  When an objects reference count reaches 0, the archive file is released.  The archive file is only
-        /// unloaded when its reference count reaches zero, which will then release the archive it was loaded from.  Archives will be unmounted when their reference count reaches 0.
+        /// Unloads a scene.
         /// </summary>
-        public void Release()
+        /// <param name="scene">The scene to unload.  The scene reference will be invalid when this method returns.</param>
+        public void Unload(ref Scene scene)
         {
-            RuntimeContentManager.ReleaseScene(Id);
+            RuntimeContentManager.UnloadScene(ref scene);
         }
 
         /// <summary>
@@ -86,6 +61,33 @@ namespace Unity.Entities.Content
         {
             return Id.GetHashCode();
         }
+
+
+
+        /// <summary>
+        /// True if the object is either being loaded or already finished loading.
+        /// </summary>
+        [Obsolete("This property is no longer valid.  Check the loading status of the scene returned from LoadAsync.")]
+        public Unity.Loading.SceneLoadingStatus LoadingStatus => Loading.SceneLoadingStatus.Failed;
+
+        /// <summary>
+        /// The loaded scene object.
+        /// </summary>
+        [Obsolete("This property is no longer valid.  Use the scene returned from LoadAsync.")]
+        public Scene SceneResult => default;
+
+        /// <summary>
+        /// The ContentSceneFile that was loaded.  This can be used to manually integrate the loaded scene at the end of the frame.
+        /// </summary>
+        [Obsolete("This property is no longer valid.  The scene file does not exist in all cases (e.g. play mode).")]
+        public Unity.Loading.ContentSceneFile SceneFileResult => default;
+
+        /// <summary>
+        /// Releases the object.  This will decrement the reference count of this object.  When an objects reference count reaches 0, the archive file is released.  The archive file is only
+        /// unloaded when its reference count reaches zero, which will then release the archive it was loaded from.  Archives will be unmounted when their reference count reaches 0.
+        /// </summary>
+        [Obsolete("Release has been replaced with Unload(ref Scene scene).  You will need to use the scene returned from LoadAsync to unload the scene and its resources.")]
+        public void Release() { }
     }
 }
 #endif

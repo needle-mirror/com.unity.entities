@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Unity.Entities.SourceGen.Aspect
@@ -27,11 +28,20 @@ namespace Unity.Entities.SourceGen.Aspect
             {
                 foreach (var type in structDeclaration.BaseList.Types)
                 {
-                    if (type.Type is IdentifierNameSyntax identifierNode
-                        && identifierNode.Identifier.ValueText == "IAspect")
+                    if (type.Type is IdentifierNameSyntax { Identifier: { ValueText: "IAspect" } })
                     {
+                        var hasPartial = false;
+                        foreach (var modifier in structDeclaration.Modifiers)
+                            if (modifier.IsKind(SyntaxKind.PartialKeyword))
+                            {
+                                hasPartial = true;
+                                break;
+                            }
+                        if (!hasPartial)
+                            return;
+
                         _AspectCandidates.Add(structDeclaration);
-                        break;
+                        return;
                     }
                 }
             }

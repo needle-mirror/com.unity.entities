@@ -73,8 +73,7 @@ namespace Unity.Scenes.Editor
                 var provider = instance.ServerProvider;
                 if (provider == null)
                 {
-                    UnityEngine.Debug.LogWarning(
-                        $"No available DotsPlayerSettingsProvider for the current platform ({EditorUserBuildSettings.activeBuildTarget}). Using the client settings instead.");
+                    LogMissingServerProvider();
                     provider = instance.ClientProvider;
                 }
                 opts.extraScriptingDefines = provider.GetExtraScriptingDefines();
@@ -88,6 +87,12 @@ namespace Unity.Scenes.Editor
                 opts.options |= instance.ClientProvider.GetExtraBuildOptions();
             }
             return opts;
+        }
+
+        static void LogMissingServerProvider()
+        {
+            UnityEngine.Debug.LogWarning(
+                $"No available DotsPlayerSettingsProvider for the current platform ({EditorUserBuildSettings.activeBuildTarget}). Using the client settings instead.");
         }
 
         public override void PrepareForBuild(BuildPlayerContext buildPlayerContext)
@@ -148,7 +153,18 @@ namespace Unity.Scenes.Editor
             var binaryFiles = new EntitySectionBundlesInBuild();
 
             var instance = DotsGlobalSettings.Instance;
-            var playerGuid = instance.GetPlayerType() == DotsGlobalSettings.PlayerType.Client? instance.GetClientGUID() : instance.GetServerGUID();
+            var playerGuid = instance.GetClientGUID();
+
+            if (instance.GetPlayerType() == DotsGlobalSettings.PlayerType.Server)
+            {
+                playerGuid = instance.GetServerGUID();
+                if (!playerGuid.IsValid)
+                {
+                    LogMissingServerProvider();
+                    playerGuid = instance.GetClientGUID();
+                }
+            }
+
             if(!playerGuid.IsValid)
                 throw new BuildFailedException("Invalid Player GUID");
 

@@ -27,10 +27,6 @@ namespace Unity.Entities.SourceGen.Aspect
         {
             Service<IDiagnosticLogger>.Instance?.LogError("SGA0002", "IAspect<Self>", $"Aspect struct must implement IAspect<{structName}>", location);
         }
-        public static void SGA0003(Location location, string aspectName)
-        {
-            Service<IDiagnosticLogger>.Instance?.LogError("SGA0003", "Partial Aspect", $"Aspect '{aspectName}' struct must be declared with the 'partial' keyword", location);
-        }
         public static void SGA0004(Location location)
         {
             Service<IDiagnosticLogger>.Instance?.LogError("SGA0004", "Empty Aspect", $"An aspect struct must contain at least 1 field of type RefRO<ComponentType>/RefRW<ComponentType> or embed another aspect.", location);
@@ -54,10 +50,6 @@ namespace Unity.Entities.SourceGen.Aspect
         public static void SGA0009(Location location)
         {
             Service<IDiagnosticLogger>.Instance?.LogError(nameof(SGA0009), "Generic aspects are not supported.", "Generic aspects are not supported.", location);
-        }
-        public static void SGA0010(Location location)
-        {
-            Service<IDiagnosticLogger>.Instance?.LogError(nameof(SGA0010), "Nested aspects declaration must have all enclosing types declared with the 'partial' keyword.", "Aspects cannot be declared as nested types in non-partial types.", location);
         }
 
         public static void SGA0011(Location location)

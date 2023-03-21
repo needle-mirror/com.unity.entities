@@ -1,4 +1,5 @@
 #if !UNITY_DOTSRUNTIME
+#define ENABLE_PROFILER
 #if ENABLE_PROFILER
 using System;
 using Unity.Collections;
@@ -57,6 +58,9 @@ namespace Unity.Entities.Content
 
         internal const string k_CategoryName = "Runtime Content";
         internal const string k_LoadedObjectsCounterName = "Loaded Objects";
+        internal const string k_LoadedScenesCounterName = "Loaded Scenes";
+        internal const string k_LoadSceneRequestsCounterName = "Scene Load Requests";
+        internal const string k_UnloadSceneRequestsCounterName = "Scene Unload Requests";
         internal const string k_LoadedFilesCounterName = "Loaded Files";
         internal const string k_LoadedArchivesCounterName = "Loaded Archives";
         internal const string k_LoadObjectRequestsCounterName = "Object Load Requests";
@@ -74,6 +78,9 @@ namespace Unity.Entities.Content
         sealed class SharedObjectRefCountCounter { internal static readonly SharedStatic<Counter> Ref = SharedStatic<Counter>.GetOrCreate<SharedObjectRefCountCounter>(); }
         sealed class SharedProcessTimeCounter { internal static readonly SharedStatic<TimeCounter> Ref = SharedStatic<TimeCounter>.GetOrCreate<SharedProcessTimeCounter>(); }
         sealed class SharedProcessStartTime { internal static readonly SharedStatic<long> Ref = SharedStatic<long>.GetOrCreate<SharedProcessStartTime>(); }
+        sealed class SharedLoadedScenesCounter { internal static readonly SharedStatic<Counter> Ref = SharedStatic<Counter>.GetOrCreate<SharedLoadedScenesCounter>(); }
+        sealed class SharedLoadSceneRequestsCounter { internal static readonly SharedStatic<Counter> Ref = SharedStatic<Counter>.GetOrCreate<SharedLoadSceneRequestsCounter>(); }
+        sealed class SharedUnloadSceneRequestsCounter { internal static readonly SharedStatic<Counter> Ref = SharedStatic<Counter>.GetOrCreate<SharedUnloadSceneRequestsCounter>(); }
 
         static ref bool s_Initialized => ref SharedInit.Ref.Data;
         public static Guid Guid => SharedGuid.Ref.Data;
@@ -92,6 +99,9 @@ namespace Unity.Entities.Content
             SharedObjectRefCountCounter.Ref.Data = new Counter(k_ObjectRefsCounterName, false);
             SharedProcessTimeCounter.Ref.Data = new TimeCounter(k_ProcessCommandsFrameTimeCounterName);
             SharedProcessStartTime.Ref.Data = 0;
+            SharedLoadedScenesCounter.Ref.Data = new Counter(k_LoadedScenesCounterName, false);
+            SharedLoadSceneRequestsCounter.Ref.Data = new Counter(k_LoadSceneRequestsCounterName, true);
+            SharedUnloadSceneRequestsCounter.Ref.Data = new Counter(k_UnloadSceneRequestsCounterName, true);
             s_Initialized = true;
         }
 
@@ -102,6 +112,7 @@ namespace Unity.Entities.Content
             SharedLoadedObjectsCounter.Ref.Data.Value = 0;
             SharedLoadedFilesCounter.Ref.Data.Value = 0;
             SharedLoadedArchivesCounter.Ref.Data.Value = 0;
+            SharedLoadedScenesCounter.Ref.Data.Value = 0;
             s_Initialized = false;
         }
 
@@ -117,6 +128,23 @@ namespace Unity.Entities.Content
             var conversionRatio = ProfilerUnsafeUtility.TimestampToNanosecondsConversionRatio;
             var elapsed = (ProfilerUnsafeUtility.Timestamp - SharedProcessStartTime.Ref.Data) * conversionRatio.Numerator / conversionRatio.Denominator;
             SharedProcessTimeCounter.Ref.Data.Value += elapsed;
+        }
+
+        public static void RecordLoadSceneRequest()
+        {
+            if (!s_Initialized)
+                return;
+            SharedLoadSceneRequestsCounter.Ref.Data.Value++;
+            SharedLoadedScenesCounter.Ref.Data.Value++;
+        }
+
+
+        public static void RecordUnloadSceneRequest()
+        {
+            if (!s_Initialized)
+                return;
+            SharedUnloadSceneRequestsCounter.Ref.Data.Value++;
+            SharedLoadedScenesCounter.Ref.Data.Value--;
         }
 
         public static void RecordLoadObjectRequest()

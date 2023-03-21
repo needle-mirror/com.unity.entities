@@ -5,5 +5,5 @@ namespace Unity.Entities
     /// </summary>
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
-    public class BakingSystemGroup : ComponentSystemGroup { }
+    public partial class BakingSystemGroup : ComponentSystemGroup { }
 }

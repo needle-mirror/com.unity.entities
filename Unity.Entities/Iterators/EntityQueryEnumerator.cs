@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -23,16 +24,18 @@ namespace Unity.Entities
         /// </summary>
         public int         IndexInChunk;
         /// <summary>
-        /// The number of entities in the current chunk
+        /// The first entity in the chunk which should not be included in the current hot-loop iteration.
+        /// If enabled-bits are in use, this one index past the end of the current entity range.
+        /// If not, it will happen to match the number of entities in the current chunk, but this is a coincidence.
         /// </summary>
-        public int         EntityCount;
+        int         _EndIndexInChunk;
 
         // enable bit warm state
         int                _ChunkIndex; // NOTE: _ChunkIndex is cold state, but we want v128 to be 16 byte aligned and there is no reason to waste the space.
-        byte               _FilteringOrBatching;
-        byte               _UseEnableBits;
+        byte               _QueryHasFilterOrEnableable;
+        byte               _UseEnableBitsForChunk;
         v128               _EnableBitMask;
-        UnsafeChunkCache      _CacheIfFilteringOrBatching;
+        UnsafeChunkCache      _CacheIfFilteringOrEnableable;
         UnsafeCachedChunkList _CachedChunkList;
         private int _CachedChunkListLength;
 
@@ -57,18 +60,18 @@ namespace Unity.Entities
         public EntityQueryEnumerator(EntityQuery query)
         {
             IndexInChunk = -1;
-            EntityCount = -1;
+            _EndIndexInChunk = 0;
 
-            _UseEnableBits = 0;
+            _UseEnableBitsForChunk = 0;
             _EnableBitMask = default;
 
             var impl = query._GetImpl();
 
-            _FilteringOrBatching = impl->_Filter.RequiresMatchesFilter || impl->_QueryData->DoesQueryRequireBatching == 1 ? (byte)1 : (byte)0;
-            if (_FilteringOrBatching == 1)
+            _QueryHasFilterOrEnableable = impl->_Filter.RequiresMatchesFilter || impl->_QueryData->HasEnableableComponents == 1 ? (byte)1 : (byte)0;
+            if (_QueryHasFilterOrEnableable == 1)
             {
-                _CacheIfFilteringOrBatching =
-                    new UnsafeChunkCache(impl->_Filter, impl->_QueryData->DoesQueryRequireBatching != 0, impl->_QueryData->GetMatchingChunkCache(), impl->_QueryData->MatchingArchetypes.Ptr);
+                _CacheIfFilteringOrEnableable =
+                    new UnsafeChunkCache(impl->_Filter, impl->_QueryData->HasEnableableComponents != 0, impl->_QueryData->GetMatchingChunkCache(), impl->_QueryData->MatchingArchetypes.Ptr);
                 _CachedChunkList = default;
                 _CachedChunkListLength = -1;
 
@@ -76,7 +79,7 @@ namespace Unity.Entities
             }
             else
             {
-                _CacheIfFilteringOrBatching = default;
+                _CacheIfFilteringOrEnableable = default;
                 _CachedChunkList = impl->_QueryData->GetMatchingChunkCache();
                 _CachedChunkListLength = _CachedChunkList.Length;
             }
@@ -109,7 +112,7 @@ namespace Unity.Entities
 
         // TODO(DOTS-7398)
         /// <summary>
-        /// Attempt to advance to the next entity in the current chunk, updating <see cref="IndexInChunk"/>.
+        /// Attempt to advance to the next entity in the current chunk, updating <see cref="IndexInChunk"/> and <see cref="_EndIndexInChunk"/>.
         /// </summary>
         /// <returns>True if another entity in the current chunk was found, or false if the end of the chunk was reached
         /// (in which case, <see cref="MoveNextColdLoop"/> should be called).</returns>
@@ -120,13 +123,16 @@ namespace Unity.Entities
             // we expect that there are a bunch of entities in one batch to be processed.
             IndexInChunk++;
 
-            if (Unity.Burst.CompilerServices.Hint.Likely(IndexInChunk < EntityCount))
+            if (Unity.Burst.CompilerServices.Hint.Likely(IndexInChunk < _EndIndexInChunk))
                 return true;
 
             // When using enable bits, we try to get another chunk range.
             // This is our warm path, we want it to be reasonably fast,
             // but GetNextRange is marked to not be inlined in order to avoid bloating the code size in foreach loops
-            return _UseEnableBits != 0 && EnabledBitUtility.GetNextRange(ref _EnableBitMask, ref IndexInChunk, ref EntityCount);
+            // TODO(DOTS-8131): GetNextRange() has a tricky interface.
+            // - beginIndex's input value is ignored; its output on success is the start of the next range.
+            // - endIndex's input value is the end of the previous range (or zero on the first call). Its output is the end of the next range.
+            return _UseEnableBitsForChunk != 0 && EnabledBitUtility.GetNextRange(ref _EnableBitMask, ref IndexInChunk, ref _EndIndexInChunk);
         }
 
         /// <summary>
@@ -139,12 +145,11 @@ namespace Unity.Entities
         /// <param name="entityCount">The number of entities in the next range.</param>
         /// <returns>True if a new range of entities is found; false otherwise.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool MoveNextEntityRange(out bool movedToNewChunk, out ArchetypeChunk chunk, out int entityStartIndex, out int entityCount)
+        public bool MoveNextEntityRange(out bool movedToNewChunk, out ArchetypeChunk chunk, out int entityStartIndex, out int entityEndIndex)
         {
             entityStartIndex = -1;
-            entityCount = -1;
 
-            if (_FilteringOrBatching == 0)
+            if (_QueryHasFilterOrEnableable == 0)
             {
 #if UNITY_BURST_EXPERIMENTAL_PREFETCH_INTRINSIC
                 if (Burst.CompilerServices.Hint.Likely(_ChunkIndex + 1 < _CachedChunkListLength))
@@ -158,56 +163,62 @@ namespace Unity.Entities
                 {
                     chunk = default;
                     movedToNewChunk = false;
+                    _EndIndexInChunk = 0;
+                    entityStartIndex = -1;
+                    entityEndIndex = -1;
                     return false;
                 }
 
                 chunk = new ArchetypeChunk(_CachedChunkList.Ptr[_ChunkIndex], _CachedChunkList.EntityComponentStore);
                 movedToNewChunk = true;
                 entityStartIndex = 0;
-                entityCount = chunk.Count;
+                entityEndIndex = chunk.Count;
+                _EndIndexInChunk = 0;
                 return true;
             }
 
-            int entityEndIndex = 0;
-
             // If we are checking for enabledness *and* we haven't finished processing the current chunk,
             // then try to find the next range of contiguous bits in the current chunk
-            if (_UseEnableBits != 0 && EnabledBitUtility.GetNextRange(ref _EnableBitMask, ref entityStartIndex, ref entityEndIndex))
+            if (_UseEnableBitsForChunk != 0 && EnabledBitUtility.GetNextRange(ref _EnableBitMask, ref entityStartIndex, ref _EndIndexInChunk))
             {
                 chunk = default;
                 movedToNewChunk = false;
-                entityCount = entityEndIndex - entityStartIndex;
+                entityEndIndex = _EndIndexInChunk;
                 return true;
             }
 
             // We have finished processing the current chunk. Are there more we need to process?
-            bool hasChunksLeft = _CacheIfFilteringOrBatching.MoveNextChunk(ref _ChunkIndex, out chunk, out entityCount, out _UseEnableBits, ref _EnableBitMask);
+            _EndIndexInChunk = 0;
+            bool hasChunksLeft = _CacheIfFilteringOrEnableable.MoveNextChunk(ref _ChunkIndex, out chunk, out int chunkEntityCount, out _UseEnableBitsForChunk, ref _EnableBitMask);
 
             // If there are no more chunks we need to process
             if (Unity.Burst.CompilerServices.Hint.Unlikely(!hasChunksLeft))
             {
                 movedToNewChunk = false;
+                entityStartIndex = -1;
+                entityEndIndex = -1;
                 return false;
             }
 
             // If the next chunk does not require us to check for enabledness
-            if (Unity.Burst.CompilerServices.Hint.Likely(_UseEnableBits == 0))
+            if (Unity.Burst.CompilerServices.Hint.Likely(_UseEnableBitsForChunk == 0))
             {
                 movedToNewChunk = true;
                 entityStartIndex = 0;
+                entityEndIndex = chunkEntityCount;
                 return true;
             }
 
             // If the next chunk requires us to check for enabledness, and we can find a new range of contiguous bits
-            movedToNewChunk = Unity.Burst.CompilerServices.Hint.Likely(EnabledBitUtility.GetNextRange(ref _EnableBitMask, ref entityStartIndex, ref entityEndIndex));
-            entityCount = entityEndIndex - entityStartIndex;
+            movedToNewChunk = Unity.Burst.CompilerServices.Hint.Likely(EnabledBitUtility.GetNextRange(ref _EnableBitMask, ref entityStartIndex, ref _EndIndexInChunk));
+            entityEndIndex = _EndIndexInChunk;
             return movedToNewChunk;
         }
 
         // TODO(DOTS-7398)
         /// <summary>
         /// Attempt to advance to the first entity of the next chunk that matches the query, updating <see cref="IndexInChunk"/>
-        /// and <see cref="EntityCount"/>.
+        /// and <see cref="_EndIndexInChunk"/>.
         /// </summary>
         /// <param name="chunk">If successful, the new chunk's metadata is stored here.</param>
         /// <returns>True if a new non-empty matching chunk was found (in which case iteration can continue immediately),
@@ -216,7 +227,7 @@ namespace Unity.Entities
         public bool MoveNextColdLoop(out ArchetypeChunk chunk)
         {
             CheckDisposed();
-            if (_FilteringOrBatching == 0)
+            if (_QueryHasFilterOrEnableable == 0)
             {
                 _ChunkIndex++;
 
@@ -228,25 +239,25 @@ namespace Unity.Entities
 
                 chunk = new ArchetypeChunk(_CachedChunkList.Ptr[_ChunkIndex], _CachedChunkList.EntityComponentStore);
                 IndexInChunk = 0;
-                EntityCount = chunk.Count;
+                _EndIndexInChunk = chunk.Count;
                 return true;
             }
 
-            bool hasChunksLeft = _CacheIfFilteringOrBatching.MoveNextChunk(ref _ChunkIndex, out chunk, out int chunkEntityCount, out _UseEnableBits, ref _EnableBitMask);
+            bool hasChunksLeft = _CacheIfFilteringOrEnableable.MoveNextChunk(ref _ChunkIndex, out chunk, out int chunkEntityCount, out _UseEnableBitsForChunk, ref _EnableBitMask);
 
             // Should we setup indices so it's clear we are done???
             if (Unity.Burst.CompilerServices.Hint.Unlikely(!hasChunksLeft))
                 return false;
 
-            if (Unity.Burst.CompilerServices.Hint.Unlikely(_UseEnableBits != 0))
+            if (Unity.Burst.CompilerServices.Hint.Unlikely(_UseEnableBitsForChunk != 0))
             {
-                EntityCount = IndexInChunk = 0;
-                EnabledBitUtility.GetNextRange(ref _EnableBitMask, ref IndexInChunk, ref EntityCount);
+                _EndIndexInChunk = 0;
+                EnabledBitUtility.GetNextRange(ref _EnableBitMask, ref IndexInChunk, ref _EndIndexInChunk);
             }
             else
             {
                 IndexInChunk = 0;
-                EntityCount = chunkEntityCount;
+                _EndIndexInChunk = chunkEntityCount;
             }
 
             return true;

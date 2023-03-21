@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Unity.Entities.SourceGen.SystemGeneratorCommon;
+using Unity.Entities.SourceGen.SystemGenerator.Common;
 
 namespace Unity.Entities.SourceGen.SystemGenerator
 {

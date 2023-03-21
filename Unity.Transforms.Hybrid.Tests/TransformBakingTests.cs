@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using NUnit.Framework;
 using Unity.Entities.Hybrid.Baking;
 using Unity.Mathematics;
@@ -9,7 +10,6 @@ using Unity.Transforms;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 using UnityEngine;
-using UnityEngine.SocialPlatforms;
 using Object = UnityEngine.Object;
 
 namespace Unity.Entities.Tests.Conversion
@@ -27,12 +27,6 @@ namespace Unity.Entities.Tests.Conversion
         {
             ConvertHierarchy,
             ConvertScene
-        }
-
-        internal enum EntityType
-        {
-            PrimaryEntity,
-            AdditionalEntity
         }
 
         [OneTimeSetUp]
@@ -67,6 +61,7 @@ namespace Unity.Entities.Tests.Conversion
 
             AssignTransformUsageBaker.Flags.Clear();
             AssignTransformUsageBaker.AdditionalFlags.Clear();
+            AssignTransformUsageBaker.AdditionalCount = 0;
         }
 
         BakingSettings MakeDefaultSettings() => new BakingSettings
@@ -114,801 +109,696 @@ namespace Unity.Entities.Tests.Conversion
 
         #endregion setup
 
-        static EntityMatch Exact(ConversionType conversionType, EntityType entityType = EntityType.PrimaryEntity, params object[] matchData) =>
-            ExactWith(conversionType, Enumerable.Empty<Type>(), entityType, matchData);
-        static EntityMatch ExactUnreferenced(ConversionType conversionType, EntityType entityType = EntityType.PrimaryEntity, params object[] matchData)
-        {
-            matchData = matchData.Append(typeof(RemoveUnusedEntityInBake)).ToArray();
-            return ExactWith(conversionType, Enumerable.Empty<Type>(), entityType, matchData);
-        }
-
-        static EntityMatch ExactWith(ConversionType conversionType, IEnumerable<Type> types, EntityType entityType = EntityType.PrimaryEntity, params object[] matchData)
-        {
-            if (entityType == EntityType.PrimaryEntity)
-                types = types.Append(typeof(AdditionalEntitiesBakingData));
-            else if (entityType == EntityType.AdditionalEntity)
-                types = types.Append(typeof(AdditionalEntityParent));
-
-            if (conversionType == ConversionType.ConvertHierarchy)
-                return EntityMatch.Exact(types.Append(typeof(TransformAuthoring)).Append(typeof(Simulate)), matchData);
-            else
-                return EntityMatch.Exact(types.Append(typeof(TransformAuthoring)).Append(typeof(EntityGuid)).Append(typeof(Simulate)), matchData);
-        }
-
-        static EntityMatch ExactPrefabWithComponents(IEnumerable<Type> types, params object[] matchData)
-            => EntityMatch.Exact(types.Append(typeof(LinkedEntityGroup)).Append(typeof(Prefab)), matchData);
-        static EntityMatch ExactPrefab(params object[] matchData)
-            => ExactPrefabWithComponents(Enumerable.Empty<Type>(), matchData);
-
-        private static object[] GlobalData(float3 pos, quaternion rotation, float3 scale)
-        {
-#if !ENABLE_TRANSFORM_V1
-            // TransformData does not support per-object non-uniform scale
-            Unity.Assertions.Assert.AreApproximatelyEqual(scale.x, scale.y);
-            Unity.Assertions.Assert.AreApproximatelyEqual(scale.x, scale.z);
-            var transform = LocalTransform.FromPositionRotationScale(pos, rotation, scale.x);
-            return new object[]
-            {
-                transform,
-                (WorldTransform)transform,
-                new LocalToWorld {Value = transform.ToMatrix()}
-            };
-#else
-            if (scale.Equals(1))
-                return new object[]
-                {
-                    new Translation() {Value = pos},
-                    new Rotation {Value = rotation},
-                    new LocalToWorld() {Value = float4x4.TRS(pos, rotation, scale)}
-                };
-            else
-                return new object[]
-                {
-                    new Translation() {Value = pos},
-                    new Rotation {Value = rotation},
-                    new NonUniformScale {Value = scale},
-                    new LocalToWorld() {Value = float4x4.TRS(pos, rotation, scale)}
-                };
-#endif
-        }
-
-        private static IEnumerable ProduceTestCases(IEnumerable<(TransformUsageFlags, object[])> testCaseData)
-        {
-            foreach (var entry in testCaseData)
-            {
-                yield return new TestCaseData(ConversionType.ConvertHierarchy, entry.Item1, entry.Item2).SetName($"ConvertHierarchy_{entry.Item1}");
-                yield return new TestCaseData(ConversionType.ConvertScene, entry.Item1, entry.Item2).SetName($"ConvertScene_{entry.Item1}");
-            }
-        }
-
-        private static IEnumerable<(TransformUsageFlags, object[])> BlankObjectWithUniformScaleData(float3 t, quaternion r, float s)
-        {
-            yield return (TransformUsageFlags.None, Array.Empty<object>());
-            yield return (TransformUsageFlags.ManualOverride, Array.Empty<object>());
-            yield return (TransformUsageFlags.Default, GlobalData(t, r, s));
-            yield return (TransformUsageFlags.ReadGlobalTransform, GlobalData(t, r, s));
-            yield return (TransformUsageFlags.WriteGlobalTransform, GlobalData(t, r, s));
-            yield return (TransformUsageFlags.ReadResidualTransform, new object[] {new LocalToWorld {Value = float4x4.TRS(t, r, s)}}); // no residual transform
-            yield return (TransformUsageFlags.ReadLocalToWorld, new object[] {new LocalToWorld {Value = float4x4.TRS(t, r, s)}});
-        }
-
-        public static IEnumerable BlankObjectTestCases => ProduceTestCases(BlankObjectWithUniformScaleData(float3.zero, quaternion.identity, 1));
-
-
-
-        public static IEnumerable BlankObjectWithOffsetTestCases => ProduceTestCases(BlankObjectWithUniformScaleData(
-            new float3(4, 5, 6), quaternion.Euler(1, 2, 3), 4)
-        );
-
-        [DisableAutoCreation]
-        class TransformUsageBaker : Baker<UnityEngine.Transform>
-        {
-            internal static TransformUsageFlags Flags;
-
-            public override void Bake(UnityEngine.Transform authoring)
-            {
-                GetEntity(authoring, Flags);
-            }
-        }
-
         [DisableAutoCreation]
         class AssignTransformUsageBaker : Baker<UnityEngine.Transform>
         {
             internal static readonly Dictionary<GameObject, TransformUsageFlags> Flags = new Dictionary<GameObject, TransformUsageFlags>();
             internal static readonly Dictionary<GameObject, TransformUsageFlags> AdditionalFlags = new Dictionary<GameObject, TransformUsageFlags>();
+            internal static int AdditionalCount = 0;
             public override void Bake(UnityEngine.Transform authoring)
             {
                 if (Flags.TryGetValue(authoring.gameObject, out var flags))
                     GetEntity(authoring, flags);
 
-                if (AdditionalFlags.TryGetValue(authoring.gameObject, out flags))
-                    CreateAdditionalEntity(flags);
+                for (int index = 0; index < AdditionalCount; ++index)
+                {
+                    if (AdditionalFlags.TryGetValue(authoring.gameObject, out flags))
+                        CreateAdditionalEntity(flags);
+                }
             }
         }
 
-        [DisableAutoCreation]
-        class ManualTransformBaker : Baker<UnityEngine.Transform>
+        public enum ConvertGameObjectParent
         {
-            internal static TransformUsageFlags Flags;
+            None,
+            Renderable,
+            RenderableNonUniformScale,
+            Dynamic,
+            ManualOverride
+        }
 
-            public override void Bake(UnityEngine.Transform authoring)
+        [Flags]
+        public enum ExpectedConvertedTransformResults
+        {
+            Nothing                     = 0,
+            HasLocalToWorld             = 1,
+            HasLocalTransform           = 1 << 1,
+            HasPostTransformMatrix      = 1 << 2,
+            HasParent                   = 1 << 3,
+            HasWorldSpaceData           = 1 << 4,
+            HasNonUniformScale          = 1 << 5,
+            HasValidRuntimeParent       = 1 << 6
+        }
+
+        public struct ConvertGameObjectInput
+        {
+            public ConvertGameObjectParent parentConfig;
+            public TransformUsageFlags flags;
+            public bool nonUniformScale;
+
+            public override string ToString()
             {
-                // Pollute the entity with random TransformUsageFlags that should get ignored due to the ManualOverride
-                GetEntity(authoring, TransformUsageFlags.ReadGlobalTransform);
-                GetEntity(authoring, TransformUsageFlags.ReadLocalToWorld);
-                var entity = GetEntity(authoring, TransformUsageFlags.ManualOverride);
-
-#if !ENABLE_TRANSFORM_V1
-                AddComponent(entity, LocalTransform.Identity);
-                AddComponent(entity, WorldTransform.Identity);
-#else
-                AddComponent(entity, new Translation());
-#endif
+                StringBuilder sb = new StringBuilder();
+                switch (parentConfig)
+                {
+                    case ConvertGameObjectParent.None:
+                        sb.Append("NoParent");
+                        break;
+                    case ConvertGameObjectParent.Renderable:
+                        sb.Append("ParentRenderable");
+                        break;
+                    case ConvertGameObjectParent.RenderableNonUniformScale:
+                        sb.Append("ParentRenderableNonUniScl");
+                        break;
+                    case ConvertGameObjectParent.Dynamic:
+                        sb.Append("ParentDynamic");
+                        break;
+                    case ConvertGameObjectParent.ManualOverride:
+                        sb.Append("ParentManual");
+                        break;
+                }
+                sb.Append("_");
+                if (flags == TransformUsageFlags.None)
+                {
+                    sb.Append("None");
+                }
+                if ((flags & TransformUsageFlags.Renderable) != 0)
+                {
+                    sb.Append("Renderable");
+                }
+                if ((flags & TransformUsageFlags.Dynamic) != 0)
+                {
+                    sb.Append("Dynamic");
+                }
+                if ((flags & TransformUsageFlags.WorldSpace) != 0)
+                {
+                    sb.Append("World");
+                }
+                if ((flags & TransformUsageFlags.NonUniformScale) != 0)
+                {
+                    sb.Append("NonUniScl");
+                }
+                if ((flags & TransformUsageFlags.ManualOverride) != 0)
+                {
+                    sb.Append("Manual");
+                }
+                sb.Append("_");
+                if (nonUniformScale)
+                {
+                    sb.Append("NonUniScl");
+                }
+                else
+                {
+                    sb.Append("UniScl");
+                }
+                return sb.ToString();
             }
         }
-        [DisableAutoCreation]
-        class ManualBakeAdditional : Baker<UnityEngine.Transform>
+
+        public static ExpectedConvertedTransformResults CalculateExpected(ConvertGameObjectInput input)
         {
-            public override void Bake(UnityEngine.Transform authoring)
+            bool dynamic = (input.flags & TransformUsageFlags.Dynamic) != 0;
+            bool worldSpace = (input.flags & TransformUsageFlags.WorldSpace) != 0;
+            bool nonUniformScale = (input.flags & TransformUsageFlags.NonUniformScale) != 0;
+            bool renderable = (input.flags & TransformUsageFlags.Renderable) != 0 || dynamic || worldSpace ||
+                              nonUniformScale;
+            bool manualOverrideParent = (input.parentConfig == ConvertGameObjectParent.ManualOverride);
+            bool dynamicParent = (input.parentConfig == ConvertGameObjectParent.Dynamic) || manualOverrideParent;
+            bool nonUniformScaleParent = (input.parentConfig == ConvertGameObjectParent.RenderableNonUniformScale);
+
+            //return ConvertSingleGameObjectResults.Nothing;
+
+            ExpectedConvertedTransformResults expected = new ExpectedConvertedTransformResults();
+
+            if ((input.flags & TransformUsageFlags.ManualOverride) != 0)
+                return ExpectedConvertedTransformResults.Nothing;
+
+            // if(map.WorldSpace == 1 && map.Reparentable == 0) {
+            if(worldSpace)
             {
-                // Pollute the entity with random TransformUsageFlags that should get ignored due to the ManualOverride
-                GetEntity(authoring, TransformUsageFlags.ReadLocalToWorld);
-
-                var entity = CreateAdditionalEntity(TransformUsageFlags.ManualOverride);
-#if !ENABLE_TRANSFORM_V1
-                AddComponent(entity, LocalTransform.Identity);
-                AddComponent(entity, WorldTransform.Identity);
-#else
-                AddComponent(entity, new Translation());
-#endif
+                // if(component == 'LocalTransfom') return map.Dynamic;
+                if (dynamic)
+                {
+                    expected |= ExpectedConvertedTransformResults.HasLocalTransform;
+                }
+                //if(component == 'Parent') return 0;
             }
+            else
+            {
+                //if(component == 'LocalTransfom') return map.Renderable & (map.Reparentable | map.Dynamic | map.DynamicParent);
+                if (renderable && (dynamic || dynamicParent))
+                {
+                    expected |= ExpectedConvertedTransformResults.HasLocalTransform;
+                }
+                //if(component == 'Parent') return map.Renderable & (map.Reparentable | map.DynamicParent);
+                if (renderable && dynamicParent)
+                {
+                    expected |= ExpectedConvertedTransformResults.HasParent;
+                }
+            }
+
+            // if(component == 'LocalToWorld') return map.Renderable;
+            if (renderable)
+                expected |= ExpectedConvertedTransformResults.HasLocalToWorld;
+
+            if ((input.flags & TransformUsageFlags.WorldSpace) != 0 || !dynamicParent)
+                expected |= ExpectedConvertedTransformResults.HasWorldSpaceData;
+
+            // If it actually has non uniform scale data
+            if (input.nonUniformScale || ((expected & ExpectedConvertedTransformResults.HasWorldSpaceData) != 0 && nonUniformScaleParent))
+                expected |= ExpectedConvertedTransformResults.HasNonUniformScale;
+
+            // if(component == 'PostTransformMatrix') return map.NonUniformScale;
+            if (nonUniformScale || (((expected & ExpectedConvertedTransformResults.HasNonUniformScale) != 0) && ((expected & ExpectedConvertedTransformResults.HasLocalTransform) != 0)))                  //  TODO: Review if (input.nonUniformScale && dynamic) or (input.nonUniformScale && renderable)
+                expected |= ExpectedConvertedTransformResults.HasPostTransformMatrix | ExpectedConvertedTransformResults.HasNonUniformScale;
+
+            if (!worldSpace && dynamicParent && renderable)
+                expected |= ExpectedConvertedTransformResults.HasValidRuntimeParent;
+
+            return expected;
         }
 
-        [TestCaseSource(typeof(TransformBakingTests), nameof(BlankObjectTestCases))]
-        public void ConvertBlankGameObject(ConversionType type, TransformUsageFlags flag, object[] matchers)
+        public static ExpectedConvertedTransformResults CalculateExpectedNoneIntermediate(ConvertGameObjectInput input, ExpectedConvertedTransformResults leafChild)
         {
-            var go = _objects.CreateGameObject();
-            TransformUsageBaker.Flags = flag;
-            Convert(go, type, typeof(TransformUsageBaker));
-            EntitiesAssert.ContainsOnly(_entityManager, Exact(type, EntityType.PrimaryEntity, matchers));
+            if ((leafChild & ExpectedConvertedTransformResults.HasParent) != 0 &&
+                (leafChild & ExpectedConvertedTransformResults.HasValidRuntimeParent) != 0)
+            {
+                // I need to be promoted
+                ExpectedConvertedTransformResults expected = new ExpectedConvertedTransformResults();
+                expected |= ExpectedConvertedTransformResults.HasParent |
+                            ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                            ExpectedConvertedTransformResults.HasLocalTransform |
+                            ExpectedConvertedTransformResults.HasLocalToWorld;
 
-            var entity = _destinationWorld.GetExistingSystemManaged<BakingSystem>().GetEntity(go);
+                if (input.nonUniformScale)
+                {
+                    expected |= ExpectedConvertedTransformResults.HasPostTransformMatrix | ExpectedConvertedTransformResults.HasNonUniformScale;
+                }
+                return expected;
+            }
+            return ExpectedConvertedTransformResults.Nothing;
+        }
+
+        public static bool Has(ExpectedConvertedTransformResults expectedDescription, ExpectedConvertedTransformResults flag)
+        {
+            return (expectedDescription & flag) != 0;
+        }
+
+        const float k_Tolerance = 0.001f;
+
+        static bool AreEqual(float v1, float v2)
+        {
+            return math.abs(v1 - v2) <= k_Tolerance;
+        }
+
+        static bool AreEqual(in float3 v1, in float3 v2)
+        {
+            return math.abs(v1.x - v2.x) <= k_Tolerance &&
+                   math.abs(v1.y - v2.y) <= k_Tolerance &&
+                   math.abs(v1.z - v2.z) <= k_Tolerance;
+        }
+
+        static bool AreEqual(in quaternion v1, in quaternion v2)
+        {
+            return AreEqual(v1.value, v2.value);
+        }
+
+        static bool AreEqual(in float4 v1, in float4 v2)
+        {
+            return math.abs(v1.x - v2.x) <= k_Tolerance &&
+                   math.abs(v1.y - v2.y) <= k_Tolerance &&
+                   math.abs(v1.w - v2.w) <= k_Tolerance &&
+                   math.abs(v1.z - v2.z) <= k_Tolerance;
+        }
+
+        static bool AreEqual(in float4x4 v1, in float4x4 v2)
+        {
+            return AreEqual(v1.c0, v2.c0) &&
+                   AreEqual(v1.c1, v2.c1) &&
+                   AreEqual(v1.c2, v2.c2) &&
+                   AreEqual(v1.c3, v2.c3);
+        }
+
+        [TestCaseSource(nameof(Convert2GameObjectTestCases))]
+        public void Convert2GameObjectHierarchy(ConvertGameObjectInput input, ExpectedConvertedTransformResults expectedDescription)
+        {
+            ConvertGameObjectParent parentConfig = input.parentConfig;
+
+            Generate2GameObjectHierarchyScenario(input, out GameObject main, out GameObject root, out TransformUsageFlags mainFlags, out TransformUsageFlags parentFlags);
+            if (parentConfig != ConvertGameObjectParent.None)
+            {
+                AssignTransformUsageBaker.Flags[root] = parentFlags;
+            }
+            AssignTransformUsageBaker.Flags[main] = mainFlags;
+            AssignTransformUsageBaker.AdditionalCount = 0;
+            Convert(root, ConversionType.ConvertHierarchy, typeof(AssignTransformUsageBaker));
+
+            var entity = _destinationWorld.GetExistingSystemManaged<BakingSystem>().GetEntity(main);
 
             var authoring = _entityManager.GetComponentData<TransformAuthoring>(entity);
-            var transform = go.transform;
-            Assert.AreEqual((float3)transform.localPosition, authoring.LocalPosition);
-            Assert.AreEqual((quaternion)transform.localRotation, authoring.LocalRotation);
-            Assert.AreEqual((float3)transform.localScale, authoring.LocalScale);
-            Assert.AreEqual((float3)transform.position, authoring.Position);
-            Assert.AreEqual((quaternion)transform.rotation, authoring.Rotation);
-            Assert.AreEqual((float4x4)transform.localToWorldMatrix, authoring.LocalToWorld);
-            Assert.AreEqual(default(Entity), authoring.AuthoringParent);
-            Assert.AreEqual(default(Entity), authoring.RuntimeParent);
+            var transform = main.transform;
 
-            Assert.AreEqual(flag, _entityManager.GetComponentData<TransformAuthoring>(entity).RuntimeTransformUsage);
-        }
-
-        [Test]
-        public void ConvertGameObject_WithIConvertGameObjectToEntity_HasDefaultFlags([Values]ConversionType type)
-        {
-            var root = _objects.CreateGameObject("Parent");
-            var child = _objects.CreateGameObject("Child");
-            child.transform.SetParent(root.transform);
-            TransformUsageBaker.Flags = TransformUsageFlags.Default;
-            Convert(root, type, typeof(TransformUsageBaker));
-
-            EntitiesAssert.ContainsOnly(_entityManager,
-#if !ENABLE_TRANSFORM_V1
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)),
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld), typeof(Parent)));
-#else
-                Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld)),
-                Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent)));
-#endif
-        }
-
-        [Test]
-        public void BakeManualTransform([Values]ConversionType type)
-        {
-            var go = _objects.CreateGameObject();
-            Convert(go, type, typeof(ManualTransformBaker));
-#if !ENABLE_TRANSFORM_V1
-            EntitiesAssert.ContainsOnly(_entityManager, Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform)));
-#else
-            EntitiesAssert.ContainsOnly(_entityManager, Exact(type, EntityType.PrimaryEntity, typeof(Translation)));
-#endif
-        }
-
-        [Test]
-        public void BakeManualAdditionalTransform([Values]ConversionType type)
-        {
-            var go = _objects.CreateGameObject();
-            Convert(go, type, typeof(ManualBakeAdditional));
-            EntitiesAssert.ContainsOnly(_entityManager,
-#if !ENABLE_TRANSFORM_V1
-                Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform)),
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld)));
-#else
-                Exact(type, EntityType.AdditionalEntity, typeof(Translation)),
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld)));
-#endif
-        }
-
-        [Test]
-        public void ConvertBlankGameObject_InScene_DoesNotCreateEntities()
-        {
-            var go = _objects.CreateGameObject();
-            Convert(go, ConversionType.ConvertScene);
-            EntitiesAssert.ContainsOnly(_entityManager, ExactUnreferenced(ConversionType.ConvertScene));
-        }
-
-        [Test]
-        public void ConvertBlankGameObject_AsHierarchy_CreatesEntities()
-        {
-            var go = _objects.CreateGameObject();
-            Convert(go, ConversionType.ConvertHierarchy);
-            EntitiesAssert.ContainsOnly(_entityManager, ExactUnreferenced(ConversionType.ConvertHierarchy));
-        }
-
-        [TestCaseSource(typeof(TransformBakingTests), nameof(BlankObjectWithOffsetTestCases))]
-        public void ConvertBlankGameObject_WithOffset(ConversionType type, TransformUsageFlags flag, object[] matchers)
-        {
-            var go = _objects.CreateGameObject();
-            go.transform.SetPositionAndRotation(new Vector3(4, 5, 6), quaternion.Euler(1, 2, 3));
-            go.transform.localScale = (float3)4;
-            TransformUsageBaker.Flags = flag;
-            Convert(go, type, typeof(TransformUsageBaker));
-            EntitiesAssert.ContainsOnly(_entityManager, Exact(type, EntityType.PrimaryEntity, matchers));
-        }
-
-        private static readonly quaternion[] ResidualRotations = {
-            quaternion.identity,
-            quaternion.Euler(1,2,3),
-            quaternion.Euler(-16, 0.1f, 2),
-        };
-
-        private static readonly float3[] ResidualTranslations =
-        {
-            float3.zero,
-            new float3(0, 0, 1500),
-            new float3(-10, 15, 0),
-            new float3(0.001f, -1000, 17),
-            new float3(1),
-        };
-
-        private static readonly float3[] ResidualScale =
-        {
-            float3.zero,
-            new float3(1, 2, 3),
-            new float3(1),
-            new float3(-1, 1, 0),
-            new float3(1, 1, 2)
-        };
-
-        static IEnumerable ResidualTransformTestCases
-        {
-            get
+            Entity parentEntity = Entity.Null;
+            if (parentConfig != ConvertGameObjectParent.None)
             {
-                for (int t = 0; t < ResidualTranslations.Length; t++)
+                parentEntity = _destinationWorld.GetExistingSystemManaged<BakingSystem>().GetEntity(root);
+            }
+            VerifyBakedTransformData(expectedDescription, transform, authoring, entity, parentEntity);
+        }
+
+        public static IEnumerable Convert2GameObjectTestCases()
+        {
+            var parentConfigs = Enum.GetValues(typeof(ConvertGameObjectParent)).Cast<ConvertGameObjectParent>();
+            foreach (var parentConfig in parentConfigs)
+            {
+                uint upperFlagLimit = ((uint)TransformUsageFlags.ManualOverride << 1) - 1;
+                for (uint flagsValue = 0; flagsValue < upperFlagLimit; ++flagsValue)
                 {
-                    for (int r = 0; r < ResidualRotations.Length; r++)
+                    var input = new ConvertGameObjectInput
                     {
-                        for (int s = 0; s < ResidualScale.Length; s++)
-                        {
-                            yield return new TestCaseData(ConversionType.ConvertScene, ResidualTranslations[t], ResidualRotations[r], ResidualScale[s]).SetName($"ConvertScene_{t}_{r}_{s}");
-                            yield return new TestCaseData(ConversionType.ConvertHierarchy, ResidualTranslations[t], ResidualRotations[r], ResidualScale[s]).SetName($"ConvertHierarchy_{t}_{r}_{s}");
-                        }
-                    }
+                        parentConfig = parentConfig,
+                        flags = (TransformUsageFlags)flagsValue,
+                        nonUniformScale = false
+                    };
+                    yield return new TestCaseData(input, CalculateExpected(input) ).SetName($"ConvertHierarchy_{input}");
+
+                    input.nonUniformScale = true;
+                    yield return new TestCaseData(input, CalculateExpected(input) ).SetName($"ConvertHierarchy_{input}");
                 }
             }
         }
 
-        private float4x4 ComputeLocalToWorldFromGlobalAndResidual(Entity e)
+        public void Generate2GameObjectHierarchyScenario(ConvertGameObjectInput input, out GameObject main, out GameObject root, out TransformUsageFlags mainFlags, out TransformUsageFlags parentFlags)
         {
-            #if TRANSFORM_V2
-            var t = _entityManager.GetComponentData<GlobalTranslation>(e).Value;
-            var r = _entityManager.GetComponentData<GlobalRotation>(e).Value;
-            var s = _entityManager.GetComponentData<GlobalScale>(e).Value;
-            float3x3 residual = float3x3.identity;
-            if (_entityManager.HasComponent<ResidualTransformation>(e))
-                residual = _entityManager.GetComponentData<ResidualTransformation>(e).Value;
-            var ltw = float4x4.TRS(t, r, s);
-            return math.mul(ltw, new float4x4(residual, 0));
-            #else
-            return _entityManager.GetComponentData<LocalToWorld>(e).Value;
-            #endif
-        }
+            ConvertGameObjectParent parentConfig = input.parentConfig;
+            TransformUsageFlags flag = input.flags;
+            bool nonUniformScaleSetup = input.nonUniformScale;
 
-        private static bool IsAlmostZero(float4x4 a)
-        {
-            const float epsilon = 0.001f;
-            return ((a < epsilon) & (a > -epsilon)).Equals(true);
-        }
+            parentFlags = TransformUsageFlags.None;
 
-        private static bool IsAlmostZero(float3x3 a)
-        {
-            const float epsilon = 0.001f;
-            return ((a < epsilon) & (a > -epsilon)).Equals(true);
-        }
+            main = _objects.CreateGameObject();
+            main.transform.localPosition = new Vector3(1, 2, 3);
+            main.transform.localRotation = Quaternion.Euler(45f, 45f, 45f);
 
-        private static bool IsAlmostZero(float4 a)
-        {
-            const float epsilon = 0.001f;
-            return ((a < epsilon) & (a > -epsilon)).Equals(true);
-        }
-
-        private static bool IsAlmostZero(float3 a)
-        {
-            const float epsilon = 0.001f;
-            return ((a < epsilon) & (a > -epsilon)).Equals(true);
-        }
-
-        private static bool IsAlmostZero(float a)
-        {
-            const float epsilon = 0.001f;
-            return ((a < epsilon) & (a > -epsilon)).Equals(true);
-        }
-
-        [TestCaseSource(typeof(TransformBakingTests), nameof(ResidualTransformTestCases))]
-        public void ConvertBlankGameObject_WithTransform_HasCorrectResidual(ConversionType type, float3 t, quaternion r, float3 scale)
-        {
-            var go = _objects.CreateGameObject();
-            go.transform.SetPositionAndRotation(t, r);
-            go.transform.localScale = scale;
-            TransformUsageBaker.Flags = TransformUsageFlags.ReadGlobalTransform | TransformUsageFlags.ReadResidualTransform;
-            Convert(go, type, typeof(TransformUsageBaker));
-#if TRANSFORM_V2
-            EntitiesAssert.ContainsOnly(_entityManager, EntityMatch.Partial<GlobalRotation, GlobalScale, GlobalTranslation>());
-#else
-            EntitiesAssert.ContainsOnly(_entityManager, EntityMatch.Partial<LocalToWorld>());
-#endif
-            var ltw = ComputeLocalToWorldFromGlobalAndResidual(_entityManager.UniversalQuery.GetSingletonEntity());
-            Assert.IsTrue(IsAlmostZero(ltw - go.transform.localToWorldMatrix));
-        }
-
-        //#define TRANSFORM_V2
-#if TRANSFORM_V2
-        [Test]
-        public void ConvertBlankGameObject_WithResidualTransform_HasCorrectResidual([Values] ConversionType type, [Values] TransformUsageFlags flag)
-        {
-            var go = _objects.CreateGameObject();
-            go.transform.localScale = new float3(1, 2, 3);
-            TransformUsageBaker.Flags = flag;
-            Convert(go, type, typeof(TransformUsageBaker));
-            if (flag == TransformUsageFlags.ReadResidualTransform)
-                EntitiesAssert.ContainsOnly(_entityManager, ExactRootWithComponents(type, new[] {typeof(ResidualTransformation)}));
-            else
-                Assert.IsFalse(_entityManager.HasComponent<ResidualTransformation>(_entityManager.UniversalQuery.GetSingletonEntity()));
-        }
-#endif
-
-// PREFABS ARE NOT YET SUPPORTED BY BAKING
-#if false
-
-        [Test]
-        public void ConvertGameObject_WithReferencedPrefab_ButWithoutCallingGetPrimaryEntity_ConvertsPrefabWithoutTransformData([Values]ConversionType type)
-        {
-            var prefab = ConversionTestHelpers.LoadPrefab("EmptyPrefab");
-            var go = _objects.CreateGameObject("GO");
-            var authoring = go.AddComponent<PrefabReferenceAuthoring>();
-            authoring.Prefab = prefab;
-            authoring.CallGetPrimaryEntity = false;
-
-            // Only force the main entity into existence explicitly
-            AssignUsageFlagSystem.Flags.Clear();
-            AssignUsageFlagSystem.Flags[go.GetInstanceID()] = TransformUsageFlags.None;
-            Convert(go, type, typeof(AssignUsageFlagSystem));
-
-            EntitiesAssert.Contains(_entityManager, ExactPrefab());
-        }
-        [Test]
-        [TestCaseSource(typeof(TransformBakingTests), nameof(BlankObjectTestCases))]
-        public void ConvertGameObject_WithReferencedPrefab_ConvertsPrefab(ConversionType type, TransformUsageFlags flag, object[] matchers)
-        {
-            var prefab = ConversionTestHelpers.LoadPrefab("EmptyPrefab");
-            var go = _objects.CreateGameObject("GO");
-            var authoring = go.AddComponent<PrefabReferenceAuthoring>();
-            authoring.Prefab = prefab;
-            authoring.TransformUsageFlags = flag;
-
-            // Only force the main entity into existence
-            AssignUsageFlagSystem.Flags.Clear();
-            AssignUsageFlagSystem.Flags[go.GetInstanceID()] = TransformUsageFlags.None;
-            Convert(go, type, typeof(AssignUsageFlagSystem));
-
-            EntitiesAssert.Contains(_entityManager, ExactPrefab(matchers));
-        }
-#endif
-
-        [Test]
-        public void ConvertGameObject_WithAdditionalEntity_IsAttachedToPrimaryEntity_WhenItHasATransform([Values]ConversionType type)
-        {
-            var root = _objects.CreateGameObject("GameObject");
-            AssignTransformUsageBaker.Flags[root] = TransformUsageFlags.Default;
-            AssignTransformUsageBaker.AdditionalFlags[root] = TransformUsageFlags.Default;
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-            EntitiesAssert.ContainsOnly(_entityManager,
-#if !ENABLE_TRANSFORM_V1
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)),
-                Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld), typeof(Parent)));
-#else
-                Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld)),
-                Exact(type, EntityType.AdditionalEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld), typeof(LocalToParent), typeof(Parent)));
-#endif
-        }
-
-        [Test]
-        public void ConvertGameObject_WithAdditionalEntity_IsNotAttachedToPrimaryEntity_WhenItHasNoTransform([Values]ConversionType type)
-        {
-            var root = _objects.CreateGameObject("GameObject");
-            AssignTransformUsageBaker.Flags[root] = TransformUsageFlags.Default;
-            AssignTransformUsageBaker.AdditionalFlags[root] = TransformUsageFlags.None;
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-            EntitiesAssert.ContainsOnly(_entityManager,
-#if !ENABLE_TRANSFORM_V1
-                Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)),
-                Exact(type, EntityType.AdditionalEntity));
-#else
-                Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld)),
-                Exact(type, EntityType.AdditionalEntity));
-#endif
-        }
-
-        [Test]
-        public void ConvertGameObject_WithAdditionalEntity_IsNotAttachedToPrimaryEntity_WhenPrimaryHasNoTransform([Values]ConversionType type)
-        {
-            // in this case, there will not be a primary entity!
-            var root = _objects.CreateGameObject("GameObject");
-            AssignTransformUsageBaker.AdditionalFlags[root] = TransformUsageFlags.Default;
-
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-#if !ENABLE_TRANSFORM_V1
-            EntitiesAssert.ContainsOnly(_entityManager, ExactUnreferenced(type), Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)));
-#else
-            EntitiesAssert.ContainsOnly(_entityManager, ExactUnreferenced(type), Exact(type, EntityType.AdditionalEntity, typeof(Rotation), typeof(Translation), typeof(LocalToWorld)));
-#endif
-        }
-
-        [Test]
-        public void ConvertGameObject_WithAdditionalEntity_IsNotAttachedToPrimaryEntity_WhenPrimaryHasManualOverride([Values]ConversionType type)
-        {
-            var root = _objects.CreateGameObject("GameObject");
-            AssignTransformUsageBaker.AdditionalFlags[root] = TransformUsageFlags.Default;
-            AssignTransformUsageBaker.Flags[root] = TransformUsageFlags.ManualOverride;
-
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-#if !ENABLE_TRANSFORM_V1
-            EntitiesAssert.ContainsOnly(_entityManager, Exact(type), Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld)));
-#else
-            EntitiesAssert.ContainsOnly(_entityManager, Exact(type), Exact(type, EntityType.AdditionalEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld)));
-#endif
-        }
-
-        [Test]
-        public void ConvertGameObject_WithAdditionalEntity_IsAttachedToFirstParentWithTransformData([Values]ConversionType type)
-        {
-            // The primary entity of the object that we create the additional entity for will not have transform data,
-            // but its parent has. So we expect to attach to that. (In fact, the primary entity does not exist.)
-            var root = _objects.CreateGameObject("Root");
-            var child = _objects.CreateGameObject("Child");
-            child.transform.SetParent(root.transform);
-
-            AssignTransformUsageBaker.Flags[root] = TransformUsageFlags.Default;
-            AssignTransformUsageBaker.AdditionalFlags[child] = TransformUsageFlags.Default;
-
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-
-#if !ENABLE_TRANSFORM_V1
-            var rootTypes = Exact(type, EntityType.PrimaryEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld));
-            var additionalChildTypes = Exact(type, EntityType.AdditionalEntity, typeof(LocalTransform), typeof(WorldTransform), typeof(LocalToWorld), typeof(Parent));
-#else
-            var rootTypes = Exact(type, EntityType.PrimaryEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld));
-            var additionalChildTypes = Exact(type, EntityType.AdditionalEntity, typeof(Translation), typeof(Rotation), typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
-#endif
-            EntitiesAssert.ContainsOnly(_entityManager, rootTypes, additionalChildTypes, ExactUnreferenced(type));
-
-            foreach (var de in DebugEntity.GetAllEntitiesWithSystems(_entityManager))
+            // Setup the scaled based on what we expect
+            if (nonUniformScaleSetup)
             {
-                if (de.TryGetComponent<Parent>(out var parent))
-                {
-                    Assert.AreNotEqual(Entity.Null, parent.Value);
-                    Assert.IsTrue(_entityManager.Exists(parent.Value));
-                    Assert.IsFalse(_entityManager.HasComponent<RemoveUnusedEntityInBake>(parent.Value));
-                }
+                main.transform.localScale = new Vector3(2f, 4f, 6f);
             }
-        }
-
-        [Test]
-        public void ConvertGameObjectHierarchy_WithWriteGlobalOnChild_MovesChildToRoot([Values] ConversionType type)
-        {
-            var root = _objects.CreateGameObject("Parent");
-            var child = _objects.CreateGameObject("Child");
-            child.transform.SetParent(root.transform);
-            AssignTransformUsageBaker.Flags[root] = TransformUsageFlags.Default;
-            AssignTransformUsageBaker.Flags[child] = TransformUsageFlags.WriteGlobalTransform | TransformUsageFlags.Default;
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-            EntitiesAssert.ContainsOnly(
-                _entityManager,
-                EntityMatch.Where(() => "no parent", de => !de.HasComponent<Parent>()),
-                EntityMatch.Where(() => "no parent", de => !de.HasComponent<Parent>())
-            );
-        }
-
-
-        [Test]
-        public void ConvertGameObjectHierarchy_WithStaticRoot_MovesChildToRoot([Values] ConversionType type, [Values(TransformUsageFlags.None, TransformUsageFlags.ReadLocalToWorld, TransformUsageFlags.ReadGlobalTransform)] TransformUsageFlags rootFlags)
-        {
-            var root = _objects.CreateGameObject("Parent");
-            var child = _objects.CreateGameObject("Child");
-            child.transform.SetParent(root.transform);
-            AssignTransformUsageBaker.Flags[root] = rootFlags;
-            AssignTransformUsageBaker.Flags[child] = TransformUsageFlags.Default;
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-            #if TRANSFORM_V2
-            EntitiesAssert.ContainsOnly(
-                _entityManager,
-                EntityMatch.Where(() => "no parent", de => !de.HasComponent<Parent>()),
-                EntityMatch.Where(() => "no parent", de => !de.HasComponent<Parent>())
-            );
-            #else
-
-            EntityMatch rootMatch;
-#if !ENABLE_TRANSFORM_V1
-            if (rootFlags == TransformUsageFlags.None)
-                rootMatch = Exact(type);
-            else if (rootFlags == TransformUsageFlags.ReadGlobalTransform)
-                rootMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform));
             else
-                rootMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld));
-
-            var childMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld), typeof(LocalTransform), typeof(WorldTransform));
-#else
-            if (rootFlags == TransformUsageFlags.None)
-                rootMatch = Exact(type);
-            else if (rootFlags == TransformUsageFlags.ReadGlobalTransform)
-                rootMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld), typeof(Rotation), typeof(Translation));
-            else
-                rootMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld));
-
-            var childMatch = Exact(type, EntityType.PrimaryEntity, typeof(LocalToWorld), typeof(Rotation), typeof(Translation));
-#endif
-            EntitiesAssert.ContainsOnly(_entityManager, rootMatch, childMatch);
-
-            #endif
-        }
-
-        [Test]
-        public void ConvertGameObjectHierarchy_WithManualOverrideRoot_MovesChildToRoot([Values] ConversionType type)
-        {
-            var root = _objects.CreateGameObject("Parent");
-            var child = _objects.CreateGameObject("Child");
-            child.transform.SetParent(root.transform);
-            AssignTransformUsageBaker.Flags[root] = TransformUsageFlags.ManualOverride;
-            AssignTransformUsageBaker.Flags[child] = TransformUsageFlags.Default;
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-            EntitiesAssert.ContainsOnly(
-                _entityManager,
-                EntityMatch.Where(() => "no parent", de => !de.HasComponent<Parent>()),
-                EntityMatch.Where(() => "no parent", de => !de.HasComponent<Parent>())
-            );
-        }
-
-        [Test]
-        public void ConvertGameObjectHierarchy_WithManualOverrideChild_ChildHasNoParent([Values] ConversionType type)
-        {
-            var root = _objects.CreateGameObject("Parent");
-            var child = _objects.CreateGameObject("Child");
-            child.transform.SetParent(root.transform);
-            AssignTransformUsageBaker.Flags[root] = TransformUsageFlags.Default;
-            AssignTransformUsageBaker.Flags[child] = TransformUsageFlags.ManualOverride;
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-            EntitiesAssert.ContainsOnly(
-                _entityManager,
-                EntityMatch.Where(() => "no parent", de => !de.HasComponent<Parent>()),
-                EntityMatch.Where(() => "no parent", de => !de.HasComponent<Parent>())
-            );
-        }
-
-#if !DOTS_DISABLE_DEBUG_NAMES
-        [Test]
-#endif
-        public void ConvertGameObjectHierarchy_WithIntermediateStatic_IsRemoved([Values] ConversionType type)
-        {
-            var root = _objects.CreateGameObject("Root");
-            var child = _objects.CreateGameObject("Child");
-            child.transform.SetParent(root.transform);
-            var childChild = _objects.CreateGameObject("ChildChild");
-            childChild.transform.SetParent(child.transform);
-            AssignTransformUsageBaker.Flags[root] = TransformUsageFlags.Default;
-            AssignTransformUsageBaker.Flags[child] = TransformUsageFlags.ReadGlobalTransform;
-            AssignTransformUsageBaker.Flags[childChild] = TransformUsageFlags.Default;
-            Convert(root, type, typeof(AssignTransformUsageBaker));
-
-            EntitiesAssert.ContainsOnly(
-                _entityManager,
-                EntityMatch.Where(() => "no parent for root", de => !de.HasComponent<Parent>() && de.Name == "Root"),
-                EntityMatch.Where(() => "child has parent", de => de.HasComponent<Parent>() && de.Name == "Child"),
-                EntityMatch.Where(() => "child child is parented to root", de => de.HasComponent<Parent>() && de.Name == "ChildChild" && _entityManager.GetName(de.GetComponent<Parent>().Value) == "Root")
-            );
-        }
-
-#if TRANSFORM_V2
-        static IEnumerable<uint> FuzzTestingSeeds()
-        {
-            for (int i = 0; i < 300; i++)
-                yield return (uint) i;
-        }
-
-        [Test, Explicit]
-        public void ConvertHierarchy_HasExpectedData([ValueSource(nameof(FuzzTestingSeeds))]uint seed)
-        {
-            Console.WriteLine("Running with seed " + seed);
-            // set up a random hierarchy of game objects with a single root
-            const int allFlags = (int) (TransformUsageFlags.Default | TransformUsageFlags.ReadGlobalTransform |
-                                        TransformUsageFlags.WriteGlobalTransform | TransformUsageFlags.ReadLocalToWorld |
-                                        TransformUsageFlags.ReadResidualTransform | TransformUsageFlags.ManualOverride);
-            var rng = Mathematics.Random.CreateFromIndex(seed);
-            var objs = new List<GameObject>();
-
-            var usageFlags = AssignTransformUsageBaker.Flags;
-            GameObject root = null;
-            int i = 0;
-            do
             {
-                var go = _objects.CreateGameObject(i.ToString());
-                i++;
-                if (objs.Count > 0)
+                main.transform.localScale = new Vector3(2f, 2f, 2f);
+            }
+            mainFlags = flag;
+
+            if (parentConfig != ConvertGameObjectParent.None)
+            {
+                // Do the parent part and attach
+                var parent = _objects.CreateGameObject();
+                parent.transform.localPosition = new Vector3(4, 5, 6);
+                parent.transform.localRotation = Quaternion.Euler(30f, 0f, -30f);
+                if (parentConfig != ConvertGameObjectParent.RenderableNonUniformScale)
                 {
-                    var parent = objs[rng.NextInt(objs.Count)];
-                    go.transform.SetParent(parent.transform);
+                    parent.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
                 }
                 else
-                    root = go;
-
-                objs.Add(go);
-                go.transform.SetPositionAndRotation(rng.NextFloat3(), rng.NextQuaternionRotation());
-                go.transform.localScale = rng.NextFloat3();
-                if (rng.NextFloat() < 0.95f)
-                    usageFlags.Add(go, (TransformUsageFlags) rng.NextInt(allFlags + 1));
-            } while (rng.NextFloat() < 0.95f);
-
-            // convert the hierarchy and get GUIDs
-            var settings = MakeDefaultSettings();
-            settings.ConversionFlags |= GameObjectConversionUtility.ConversionFlags.AddEntityGUID;
-            settings.ExtraSystems = new[] {typeof(AssignTransformUsageBaker)};
-            Convert(root, ConversionType.ConvertScene, settings);
-
-            var entities = DebugEntity.GetAllEntities(_entityManager);
-            var entitiesByInstanceId = new Dictionary<int, DebugEntity>();
-            foreach (var de in entities)
-                entitiesByInstanceId.Add(de.GetComponent<EntityGuid>().OriginatingId, de);
-
-            // validate that the hierarchy looks as expected
-            foreach (var gameObject in objs)
+                {
+                    parent.transform.localScale = new Vector3(0.5f, 0.25f, 0.1f);
+                }
+                main.transform.SetParent(parent.transform, false);
+                switch (parentConfig)
+                {
+                    case ConvertGameObjectParent.RenderableNonUniformScale:
+                    case ConvertGameObjectParent.Renderable:
+                        parentFlags = TransformUsageFlags.Renderable;
+                        break;
+                    case ConvertGameObjectParent.Dynamic:
+                        parentFlags = TransformUsageFlags.Dynamic;
+                        break;
+                    case ConvertGameObjectParent.ManualOverride:
+                        parentFlags = TransformUsageFlags.ManualOverride;
+                        break;
+                }
+                root = parent;
+            }
+            else
             {
-                var instanceId = gameObject.GetInstanceID();
-                bool hasEntity = entitiesByInstanceId.TryGetValue(instanceId, out var de);
-                bool hasFlag = usageFlags.TryGetValue(gameObject, out var flags);
-                Assert.AreEqual(hasEntity, hasFlag);
-                if (!hasFlag)
-                    continue;
-                Assert.IsTrue(hasEntity, $"Failed to find entity for {gameObject}");
-
-                if (flags == TransformUsageFlags.None || (flags & TransformUsageFlags.ManualOverride) != 0)
-                {
-                    if (de.Components.Count != 1)
-                        _entityManager.Debug.LogEntityInfo(de.Entity);
-                    Assert.AreEqual(1, de.Components.Count);
-                    AssertComponent<EntityGuid>();
-                    continue;
-                }
-
-                if ((flags & (TransformUsageFlags.Default | TransformUsageFlags.ReadGlobalTransform | TransformUsageFlags.WriteGlobalTransform)) != 0)
-                {
-                    AssertComponent<GlobalTranslation>();
-                    AssertComponent<GlobalRotation>();
-                    AssertComponent<GlobalScale>();
-                }
-
-                if ((flags & TransformUsageFlags.ReadLocalToWorld) != 0)
-                    AssertComponent<LocalToWorld>();
-                else
-                    AssertNoComponent<LocalToWorld>();
-
-                if ((flags & (TransformUsageFlags.Default | TransformUsageFlags.ReadLocalToWorld)) == 0)
-                {
-                    AssertNoComponent<LocalTranslation>();
-                    AssertNoComponent<LocalRotation>();
-                    AssertNoComponent<LocalScale>();
-                }
-
-                if ((flags & TransformUsageFlags.WriteGlobalTransform) != 0)
-                {
-                    AssertNoComponent<Parent>();
-                    AssertNoComponent<ParentTransform>();
-                }
-
-                if (de.HasComponent<ResidualTransformation>())
-                {
-                    Assert.AreEqual(TransformUsageFlags.ReadResidualTransform,
-                        flags & TransformUsageFlags.ReadResidualTransform);
-                    var rt = de.GetComponent<ResidualTransformation>();
-                    Assert.IsFalse(IsAlmostZero(rt.Value - float3x3.identity));
-                }
-
-                if ((flags & TransformUsageFlags.ReadLocalToWorld) != 0 &&
-                    (flags & TransformUsageFlags.ReadResidualTransform) != 0 &&
-                    (flags & TransformUsageFlags.ReadGlobalTransform) != 0)
-                {
-                    // make sure that multiplying out LTW is the same as global TRS * Residual Transform
-                    var ltw = de.GetComponent<LocalToWorld>().Value;
-                    var globalT = de.GetComponent<GlobalTranslation>().Value;
-                    var globalR = de.GetComponent<GlobalRotation>().Value;
-                    var globalS = de.GetComponent<GlobalScale>().Value;
-                    var residual = de.GetComponent<ResidualTransformation>().Value;
-
-                    var computedLtw = math.mul(float4x4.TRS(globalT, globalR, globalS),
-                        new float4x4(residual, float3.zero));
-                    Assert.IsTrue(IsAlmostZero(computedLtw - ltw));
-                }
-
-                if (de.HasComponent<Parent>())
-                {
-                    var parent = de.GetComponent<Parent>().Value;
-                    Assert.IsTrue(_entityManager.Exists(parent), "If there is a parent, it must be valid.");
-                    var parentDe = new DebugEntity(_entityManager, parent);
-
-                    if ((flags & (TransformUsageFlags.Default | TransformUsageFlags.ReadLocalToWorld)) != 0)
-                    {
-                        AssertComponent<LocalTranslation>();
-                        AssertComponent<LocalRotation>();
-                        AssertComponent<LocalScale>();
-                        AssertComponent<ParentTransform>();
-                        Assert.IsTrue(parentDe.HasComponent<GlobalTranslation>());
-                        Assert.IsTrue(parentDe.HasComponent<GlobalRotation>());
-                        Assert.IsTrue(parentDe.HasComponent<GlobalScale>());
-
-                        // check that parent transform matches
-                        var parentTransformData = de.GetComponent<ParentTransform>();
-                        Assert.AreEqual(parentDe.GetComponent<GlobalTranslation>().Value, parentTransformData.Translation);
-                        Assert.AreEqual(parentDe.GetComponent<GlobalRotation>().Value.value, parentTransformData.Rotation.value);
-                        Assert.AreEqual(parentDe.GetComponent<GlobalScale>().Value, parentTransformData.Scale);
-
-                        // check that multiplying the data together (local + parent TRS) yields global TRS
-                        var matrix = float4x4.TRS(parentTransformData.Translation, parentTransformData.Rotation,
-                            parentTransformData.Scale);
-                        Assert.IsTrue(IsAlmostZero(math.transform(matrix, de.GetComponent<LocalTranslation>().Value) - de.GetComponent<GlobalTranslation>().Value));
-                        Assert.IsTrue(IsAlmostZero(
-                            math.mul(parentTransformData.Rotation, de.GetComponent<LocalRotation>().Value).value -
-                            de.GetComponent<GlobalRotation>().Value.value));
-                        Assert.IsTrue(IsAlmostZero(parentTransformData.Scale * de.GetComponent<LocalScale>().Value - de.GetComponent<GlobalScale>().Value));
-                    }
-
-                    // check that the game object that the parent comes from is actually writable
-                    var entityParent = de.GetComponent<Parent>().Value;
-                    var entityParentInstanceId = _entityManager.GetComponentData<EntityGuid>(entityParent).OriginatingId;
-                    Assert.AreNotEqual(TransformUsageFlags.None, usageFlags[entityParentInstanceId] & TransformUsageFlags.WriteFlags, $"An object should only have children if it is writable. Found {usageFlags[entityParentInstanceId]}");
-
-                    // check that between this game object and the game object of the parent there is no other writable
-                    // game object
-                    var parentTransform = gameObject.transform.parent;
-                    var goParentInstanceId = 0;
-                    while ((goParentInstanceId = parentTransform.gameObject.GetInstanceID()) != entityParentInstanceId)
-                    {
-                        bool parentHasFlags = usageFlags.TryGetValue(goParentInstanceId, out var goParentFlags);
-                        if (parentHasFlags && (goParentFlags & TransformUsageFlags.ManualOverride) == 0 && (goParentFlags & TransformUsageFlags.WriteFlags) != 0)
-                            Assert.Fail($"No intermediate parent should be a writable. Found {usageFlags[goParentInstanceId]}");
-                        parentTransform = parentTransform.parent;
-                    }
-                }
-
-                void AssertNoComponent<T>() => Assert.IsFalse(de.HasComponent<T>(),
-                    $"Entity for {gameObject} should not have component {typeof(T).Name} - flags are {flags}");
-
-                void AssertComponent<T>() => Assert.IsTrue(de.HasComponent<T>(),
-                    $"Entity for {gameObject} should have component {typeof(T).Name} - flags are {flags}");
+                root = main;
             }
         }
-#endif
+
+        [TestCaseSource(nameof(ConvertGameObjectAdditionalTestCases))]
+        public void ConvertGameObjectAdditional(ConvertGameObjectInput input, ExpectedConvertedTransformResults expectedDescription)
+        {
+            ConvertGameObjectParent parentConfig = input.parentConfig;
+
+            GenerateGameObjectAdditionalScenario(input, out GameObject root, out TransformUsageFlags additionalEntitiesFlags, out TransformUsageFlags parentFlags);
+            AssignTransformUsageBaker.Flags[root] = parentFlags;
+            AssignTransformUsageBaker.AdditionalFlags[root] = additionalEntitiesFlags;
+            AssignTransformUsageBaker.AdditionalCount = 1;
+            Convert(root, ConversionType.ConvertHierarchy, typeof(AssignTransformUsageBaker));
+
+            var bakingSystem = _destinationWorld.GetExistingSystemManaged<BakingSystem>();
+            var parentEntity = bakingSystem.GetEntity(root);
+
+            // Access the additional entity
+            var buffer = _entityManager.GetBuffer<AdditionalEntitiesBakingData>(parentEntity);
+            Assert.AreEqual(1, buffer.Length);
+            var entity = buffer[0].Value;
+
+            var authoring = _entityManager.GetComponentData<TransformAuthoring>(entity);
+            var transform = root.transform;
+
+            VerifyBakedTransformData(expectedDescription, transform, authoring, entity, parentEntity, true);
+        }
+
+        public static IEnumerable ConvertGameObjectAdditionalTestCases()
+        {
+            var parentConfigs = Enum.GetValues(typeof(ConvertGameObjectParent)).Cast<ConvertGameObjectParent>();
+            foreach (var parentConfig in parentConfigs)
+            {
+                uint upperFlagLimit = ((uint)TransformUsageFlags.ManualOverride << 1) - 1;
+                for (uint flagsValue = 0; flagsValue < upperFlagLimit; ++flagsValue)
+                {
+                    var input = new ConvertGameObjectInput
+                    {
+                        parentConfig = parentConfig,
+                        flags = (TransformUsageFlags)flagsValue,
+                        nonUniformScale = false
+                    };
+                    yield return new TestCaseData(input, CalculateExpected(input) ).SetName($"ConvertAdditional_{input}");
+                }
+            }
+        }
+
+        public void GenerateGameObjectAdditionalScenario(ConvertGameObjectInput input, out GameObject root, out TransformUsageFlags additionalEntitiesFlags, out TransformUsageFlags parentFlags)
+        {
+            ConvertGameObjectParent parentConfig = input.parentConfig;
+            TransformUsageFlags flag = input.flags;
+
+            additionalEntitiesFlags = flag;
+
+            // Do the parent part and attach
+            root = _objects.CreateGameObject();
+            root.transform.localPosition = new Vector3(4, 5, 6);
+            root.transform.localRotation = Quaternion.Euler(30f, 0f, -30f);
+            if (parentConfig != ConvertGameObjectParent.RenderableNonUniformScale)
+            {
+                root.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+            }
+            else
+            {
+                root.transform.localScale = new Vector3(0.5f, 0.25f, 0.1f);
+            }
+
+            parentFlags = TransformUsageFlags.None;
+            switch (parentConfig)
+            {
+                case ConvertGameObjectParent.RenderableNonUniformScale:
+                case ConvertGameObjectParent.Renderable:
+                    parentFlags = TransformUsageFlags.Renderable;
+                    break;
+                case ConvertGameObjectParent.Dynamic:
+                    parentFlags = TransformUsageFlags.Dynamic;
+                    break;
+                case ConvertGameObjectParent.ManualOverride:
+                    parentFlags = TransformUsageFlags.ManualOverride;
+                    break;
+            }
+        }
+
+        [TestCaseSource(nameof(ConvertNoneIntermediateGameObjectTestCases))]
+        public void ConvertNoneIntermediateGameObject(ConvertGameObjectInput input, ExpectedConvertedTransformResults expectedDescription, ExpectedConvertedTransformResults expectedIntermediateDescription)
+        {
+            ConvertGameObjectParent parentConfig = input.parentConfig;
+            int intermediateCount = 2;
+
+            var hierarchyArray = GenerateNoneIntermediateGameObjectScenario(input, intermediateCount, out TransformUsageFlags rootFlags, out TransformUsageFlags intermediateFlags, out TransformUsageFlags childFlags);
+
+            AssignTransformUsageBaker.Flags[hierarchyArray[0]] = rootFlags;
+            for (int index = 1; index < hierarchyArray.Length - 1; ++index)
+            {
+                AssignTransformUsageBaker.Flags[hierarchyArray[index]] = intermediateFlags;
+            }
+            AssignTransformUsageBaker.Flags[hierarchyArray[hierarchyArray.Length - 1]] = childFlags;
+            AssignTransformUsageBaker.AdditionalCount = 0;
+            Convert(hierarchyArray[0], ConversionType.ConvertHierarchy, typeof(AssignTransformUsageBaker));
+
+            var bakingSystem = _destinationWorld.GetExistingSystemManaged<BakingSystem>();
+
+            // Check the child
+            GameObject leafGameObject = hierarchyArray[hierarchyArray.Length - 1];
+            var entityLeaf = bakingSystem.GetEntity(leafGameObject);
+
+            var authoringLeaf = _entityManager.GetComponentData<TransformAuthoring>(entityLeaf);
+            var transformLeaf = leafGameObject.transform;
+
+            var parentEntity = bakingSystem.GetEntity(hierarchyArray[hierarchyArray.Length - 2]);
+            VerifyBakedTransformData(expectedDescription, transformLeaf, authoringLeaf, entityLeaf, parentEntity);
+
+            // Check the intermediate nodes
+            for (int index = 0; index < intermediateCount; ++index)
+            {
+                GameObject intermediateGameObject = hierarchyArray[hierarchyArray.Length - 2 - index];
+                var entityIntermediate = bakingSystem.GetEntity(intermediateGameObject);
+
+                var authoringIntermediate = _entityManager.GetComponentData<TransformAuthoring>(entityIntermediate);
+                var transformIntermediate = intermediateGameObject.transform;
+
+                var parentEntityIntermediate = bakingSystem.GetEntity(hierarchyArray[hierarchyArray.Length - 3 - index]);
+                VerifyBakedTransformData(expectedIntermediateDescription, transformIntermediate, authoringIntermediate, entityIntermediate, parentEntityIntermediate);
+            }
+        }
+
+        public static IEnumerable ConvertNoneIntermediateGameObjectTestCases()
+        {
+            var parentConfigs = Enum.GetValues(typeof(ConvertGameObjectParent)).Cast<ConvertGameObjectParent>();
+            foreach (var parentConfig in parentConfigs)
+            {
+                uint upperFlagLimit = ((uint)TransformUsageFlags.ManualOverride << 1) - 1;
+                for (uint flagsValue = 0; flagsValue < upperFlagLimit; ++flagsValue)
+                {
+                    var input = new ConvertGameObjectInput
+                    {
+                        parentConfig = parentConfig,
+                        flags = (TransformUsageFlags)flagsValue,
+                        nonUniformScale = false
+                    };
+
+                    var leafExpect = CalculateExpected(input);
+                    var intermediateExpect = CalculateExpectedNoneIntermediate(input, leafExpect);
+                    yield return new TestCaseData(input, leafExpect, intermediateExpect).SetName($"ConvertNoneIntermediate_{input}");
+
+                    input.nonUniformScale = true;
+                    leafExpect = CalculateExpected(input);
+                    intermediateExpect = CalculateExpectedNoneIntermediate(input, leafExpect);
+                    yield return new TestCaseData(input, leafExpect, intermediateExpect).SetName($"ConvertNoneIntermediate_{input}");
+                }
+            }
+        }
+
+        public GameObject[] GenerateNoneIntermediateGameObjectScenario(ConvertGameObjectInput input, int intermediateCount, out TransformUsageFlags rootFlags, out TransformUsageFlags intermediateFlags, out TransformUsageFlags childFlags)
+        {
+            GameObject[] returnArray = new GameObject[intermediateCount + 2];
+            int arrayIndex = returnArray.Length - 1;
+
+            ConvertGameObjectParent parentConfig = input.parentConfig;
+            TransformUsageFlags flag = input.flags;
+            bool nonUniformScaleSetup = input.nonUniformScale;
+
+            rootFlags = TransformUsageFlags.None;
+
+            var child = _objects.CreateGameObject();
+            child.transform.localPosition = new Vector3(1, 2, 3);
+            child.transform.localRotation = Quaternion.Euler(45f, 45f, 45f);
+
+            // Setup the scaled based on what we expect
+            if (nonUniformScaleSetup)
+            {
+                child.transform.localScale = new Vector3(2f, 4f, 6f);
+            }
+            else
+            {
+                child.transform.localScale = new Vector3(2f, 2f, 2f);
+            }
+            childFlags = flag;
+            var previous = child;
+            returnArray[arrayIndex--] = previous;
+
+            // Create Intermediate
+            intermediateFlags = TransformUsageFlags.None;
+            for (int index = 0; index < intermediateCount; ++index)
+            {
+                var intermediate = _objects.CreateGameObject();
+                intermediate.transform.localPosition = new Vector3(1, 2, 3);
+                intermediate.transform.localRotation = Quaternion.Euler(45f, 45f, 45f);
+
+                // Setup the scaled based on what we expect
+                if (nonUniformScaleSetup)
+                {
+                    intermediate.transform.localScale = new Vector3(2f, 4f, 6f);
+                }
+                else
+                {
+                    intermediate.transform.localScale = new Vector3(2f, 2f, 2f);
+                }
+                previous.transform.SetParent(intermediate.transform, false);
+                previous = intermediate;
+                returnArray[arrayIndex--] = previous;
+            }
+
+            // Do the parent part and attach
+            var root = _objects.CreateGameObject();
+            root.transform.localPosition = new Vector3(4, 5, 6);
+            root.transform.localRotation = Quaternion.Euler(30f, 0f, -30f);
+            if (parentConfig != ConvertGameObjectParent.RenderableNonUniformScale)
+            {
+                root.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+            }
+            else
+            {
+                root.transform.localScale = new Vector3(0.5f, 0.25f, 0.1f);
+            }
+            previous.transform.SetParent(root.transform, false);
+            switch (parentConfig)
+            {
+                case ConvertGameObjectParent.RenderableNonUniformScale:
+                case ConvertGameObjectParent.Renderable:
+                    rootFlags = TransformUsageFlags.Renderable;
+                    break;
+                case ConvertGameObjectParent.Dynamic:
+                    rootFlags = TransformUsageFlags.Dynamic;
+                    break;
+                case ConvertGameObjectParent.ManualOverride:
+                    rootFlags = TransformUsageFlags.ManualOverride;
+                    break;
+            }
+            returnArray[arrayIndex--] = root;
+
+            return returnArray;
+        }
+
+        public void VerifyBakedTransformData(ExpectedConvertedTransformResults expectedDescription, Transform transform, TransformAuthoring authoring, Entity entity, Entity parentEntity, bool isAdditionalEntity = false)
+        {
+            // Check TransformAuthoring values
+            float3 localPositionRef;
+            quaternion localRotationRef;
+            float3 localScaleRef;
+            if (!isAdditionalEntity)
+            {
+                localPositionRef = transform.localPosition;
+                localRotationRef = transform.localRotation;
+                localScaleRef = transform.localScale;
+            }
+            else
+            {
+                localPositionRef = float3.zero;
+                localRotationRef = quaternion.identity;
+                localScaleRef = new float3(1f,1f,1f);
+            }
+
+            Assert.IsTrue(AreEqual((float3) localPositionRef, authoring.LocalPosition));
+            Assert.IsTrue(AreEqual((quaternion) localRotationRef, authoring.LocalRotation));
+            Assert.IsTrue(AreEqual((float3) localScaleRef, authoring.LocalScale));
+
+            Assert.IsTrue(AreEqual((float3) transform.position, authoring.Position));
+            Assert.IsTrue(AreEqual((quaternion) transform.rotation, authoring.Rotation));
+            Assert.IsTrue(AreEqual((float4x4) transform.localToWorldMatrix, authoring.LocalToWorld));
+
+            Assert.AreEqual(parentEntity, authoring.AuthoringParent);
+
+            if (Has(expectedDescription, ExpectedConvertedTransformResults.HasValidRuntimeParent))
+            {
+                Assert.AreEqual(parentEntity, authoring.RuntimeParent);
+            }
+            else
+            {
+                Assert.AreEqual(default(Entity), authoring.RuntimeParent);
+            }
+
+            // Check Entity Components and Values
+            bool expectsLocalToWorld = Has(expectedDescription, ExpectedConvertedTransformResults.HasLocalToWorld);
+            Assert.AreEqual(expectsLocalToWorld, _entityManager.HasComponent<LocalToWorld>(entity));
+            if (expectsLocalToWorld)
+            {
+                // Check the values are the expected ones
+                var data = _entityManager.GetComponentData<LocalToWorld>(entity);
+                Assert.IsTrue(AreEqual(authoring.LocalToWorld, data.Value));
+            }
+
+            bool expectsLocalTransform = Has(expectedDescription, ExpectedConvertedTransformResults.HasLocalTransform);
+            Assert.AreEqual(expectsLocalTransform, _entityManager.HasComponent<LocalTransform>(entity));
+            if (expectsLocalTransform)
+            {
+                // Check the values are the expected ones
+                var data = _entityManager.GetComponentData<LocalTransform>(entity);
+                if (Has(expectedDescription, ExpectedConvertedTransformResults.HasWorldSpaceData))
+                {
+                    Assert.IsTrue(AreEqual(authoring.Position, data.Position));
+                    Assert.IsTrue(AreEqual(authoring.Rotation, data.Rotation));
+
+                    if (Has(expectedDescription, ExpectedConvertedTransformResults.HasNonUniformScale))
+                    {
+                        Assert.IsTrue(AreEqual(1f, data.Scale));
+                    }
+                    else
+                    {
+                        Assert.IsTrue(AreEqual(((float3)transform.lossyScale).x, data.Scale));
+                    }
+                }
+                else
+                {
+                    Assert.IsTrue(AreEqual( authoring.LocalPosition, data.Position));
+                    Assert.IsTrue(AreEqual(authoring.LocalRotation, data.Rotation));
+                    if (Has(expectedDescription, ExpectedConvertedTransformResults.HasNonUniformScale))
+                    {
+                        Assert.IsTrue(AreEqual(1f, data.Scale));
+                    }
+                    else
+                    {
+                        Assert.IsTrue(AreEqual(localScaleRef.x, data.Scale));
+                    }
+                }
+            }
+
+            bool expectsPostTransformMatrix = Has(expectedDescription, ExpectedConvertedTransformResults.HasPostTransformMatrix);
+            Assert.AreEqual(expectsPostTransformMatrix, _entityManager.HasComponent<PostTransformMatrix>(entity));
+            if (expectsPostTransformMatrix)
+            {
+                // Check the values are the expected ones
+                var data = _entityManager.GetComponentData<PostTransformMatrix>(entity);
+                if (!Has(expectedDescription, ExpectedConvertedTransformResults.HasNonUniformScale))
+                {
+                    Assert.IsTrue(AreEqual(float4x4.identity, data.Value));
+                }
+                else
+                {
+                    if (Has(expectedDescription, ExpectedConvertedTransformResults.HasWorldSpaceData))
+                    {
+                        Assert.IsTrue(AreEqual(float4x4.Scale(transform.lossyScale), data.Value));
+                    }
+                    else
+                    {
+                        Assert.IsTrue(AreEqual(float4x4.Scale(localScaleRef), data.Value));
+                    }
+                }
+            }
+
+            bool expectsParent = Has(expectedDescription, ExpectedConvertedTransformResults.HasParent);
+            Assert.AreEqual(expectsParent, _entityManager.HasComponent<Parent>(entity));
+            if (expectsParent)
+            {
+                // Check the values are the expected ones
+                var data = _entityManager.GetComponentData<Parent>(entity);
+                if (Has(expectedDescription, ExpectedConvertedTransformResults.HasValidRuntimeParent))
+                {
+                    Assert.AreEqual(authoring.RuntimeParent, data.Value);
+                }
+                else
+                {
+                    Assert.AreEqual(default(Entity), data.Value);
+                }
+            }
+        }
     }
 }

@@ -74,8 +74,11 @@ namespace Unity.Transforms
         {
             public NativeParallelMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToAdd;
             public NativeParallelMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToRemove;
+            public NativeParallelHashSet<Entity>.ParallelWriter ChildParentToRemove;   // Children that have a Parent component, but that parent does not exist (deleted before ParentSystem runs)
             public NativeParallelHashMap<Entity, int>.ParallelWriter UniqueParents;
             public ComponentTypeHandle<PreviousParent> PreviousParentTypeHandle;
+            public EntityStorageInfoLookup EntityStorageInfoLookup;
+
             [ReadOnly] public BufferLookup<Child> ChildLookup;
 
             [ReadOnly] public ComponentTypeHandle<Parent> ParentTypeHandle;
@@ -100,6 +103,14 @@ namespace Unity.Transforms
                             var childEntity = chunkEntities[j];
                             var parentEntity = chunkParents[j].Value;
                             var previousParentEntity = chunkPreviousParents[j].Value;
+
+                            if (!EntityStorageInfoLookup.Exists(parentEntity))
+                            {
+                                // If we get here, the Parent component is pointing to an invalid entity
+                                // This can happen, for example, if a parent has been deleted before ParentSystem has had a chance to add a PreviousParent component
+                                ChildParentToRemove.Add(childEntity);
+                                continue;
+                            }
 
                             ParentChildrenToAdd.Add(parentEntity, childEntity);
                             UniqueParents.TryAdd(parentEntity, 0);
@@ -293,6 +304,7 @@ namespace Unity.Transforms
             // 4. Set PreviousParent to new Parent
             var parentChildrenToAdd = new NativeParallelMultiHashMap<Entity, Entity>(count, state.WorldUnmanaged.UpdateAllocator.ToAllocator);
             var parentChildrenToRemove = new NativeParallelMultiHashMap<Entity, Entity>(count, state.WorldUnmanaged.UpdateAllocator.ToAllocator);
+            var childParentToRemove = new NativeParallelHashSet<Entity>(count, state.WorldUnmanaged.UpdateAllocator.ToAllocator);
             var uniqueParents = new NativeParallelHashMap<Entity, int>(count, state.WorldUnmanaged.UpdateAllocator.ToAllocator);
 
             ParentTypeHandleRO.Update(ref state);
@@ -303,15 +315,21 @@ namespace Unity.Transforms
             {
                 ParentChildrenToAdd = parentChildrenToAdd.AsParallelWriter(),
                 ParentChildrenToRemove = parentChildrenToRemove.AsParallelWriter(),
+                ChildParentToRemove = childParentToRemove.AsParallelWriter(),
                 UniqueParents = uniqueParents.AsParallelWriter(),
                 PreviousParentTypeHandle = PreviousParentTypeHandleRW,
                 ChildLookup = _childLookupRw,
+                EntityStorageInfoLookup = state.GetEntityStorageInfoLookup(),
                 ParentTypeHandle = ParentTypeHandleRO,
                 EntityTypeHandle = EntityTypeHandle,
                 LastSystemVersion = state.LastSystemVersion
             };
             var gatherChangedParentsJobHandle = gatherChangedParentsJob.ScheduleParallel(m_ExistingParentsQuery, state.Dependency);
             gatherChangedParentsJobHandle.Complete();
+
+            // Remove Parent components that are not valid
+            var arrayToRemove = childParentToRemove.ToNativeArray(state.WorldUnmanaged.UpdateAllocator.ToAllocator);
+            state.EntityManager.RemoveComponent(arrayToRemove, ComponentType.ReadWrite<Parent>());
 
             // 5. (Structural change) Add any missing Child to Parents
             var parentsMissingChild = new NativeList<Entity>(state.WorldUnmanaged.UpdateAllocator.ToAllocator);
@@ -406,11 +424,7 @@ namespace Unity.Transforms
                 new ComponentTypeSet(
                     ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<Parent>()),
                     ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<PreviousParent>())
-#if !ENABLE_TRANSFORM_V1
-#else
-                    , ComponentType.FromTypeIndex(TypeManager.GetTypeIndex<LocalToParent>())
-#endif
-            ));
+                ));
             state.EntityManager.RemoveComponent(m_DeletedParentsQuery, ComponentType.FromTypeIndex(
                 TypeManager.GetTypeIndex<Child>()));
         }

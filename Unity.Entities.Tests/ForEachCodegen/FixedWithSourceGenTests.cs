@@ -55,17 +55,10 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     Entities
                         .WithName("RotationSpeedSystem_ForEach")
-#if !ENABLE_TRANSFORM_V1
                         .ForEach((ref LocalTransform transform) =>
                         {
                             transform.Rotation = math.mul(math.normalize(transform.Rotation), quaternion.AxisAngle(math.up(), deltaTime));
                         })
-#else
-                        .ForEach((ref Rotation rotation) =>
-                        {
-                            rotation.Value = math.mul(math.normalize(rotation.Value), quaternion.AxisAngle(math.up(), deltaTime));
-                        })
-#endif
                         .ScheduleParallel();
                 });
             }
@@ -140,15 +133,9 @@ namespace Unity.Entities.CodeGen.Tests
                         }
                         if ((q > 0) && EntityManager.HasComponent<EcsTestData2>(entity))
                         {
-#if !ENABLE_TRANSFORM_V1
                             EntityManager.SetComponentData(entity, LocalTransform.FromPosition(.0f, 1.0f, .0f));
                             var r = EntityManager.Instantiate(entity);
                             EntityManager.AddComponentData(EntityManager.Instantiate(entity), new LocalTransform());
-#else
-                            EntityManager.SetComponentData(entity, new Translation{Value = new float3(.0f, 1.0f, .0f)});
-                            var r = EntityManager.Instantiate(entity);
-                            EntityManager.AddComponentData(EntityManager.Instantiate(entity), new LocalToParent());
-#endif
                             writeTo = entity;
                         }
                     })

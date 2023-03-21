@@ -224,7 +224,7 @@ namespace Unity.Entities
 
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        protected internal virtual void OnCreateForCompiler()
+        protected virtual void OnCreateForCompiler()
         {
             //do not remove, source generators will emit methods that implement this method.
         }

@@ -126,7 +126,7 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void TestFindCorrectEqualityMethods()
         {
-            var ti = FastEquality.CreateTypeInfo(typeof(ChildComponentMultipleHashCodes), true);
+            var ti = FastEquality.CreateTypeInfo(typeof(ChildComponentMultipleHashCodes));
             // Don't take the parent IEquatable methods
             Assert.IsTrue(ti.EqualsDelegateIndex == FastEquality.TypeInfo.Null.EqualsDelegateIndex);
             // Ensure we can find our hashcode without error
@@ -136,7 +136,7 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void ClassLayout()
         {
-            var ti = FastEquality.CreateTypeInfo(typeof(ClassInStruct), true);
+            var ti = FastEquality.CreateTypeInfo(typeof(ClassInStruct));
             Assert.IsTrue(ti.EqualsDelegateIndex != FastEquality.TypeInfo.Null.EqualsDelegateIndex);
             Assert.IsTrue(ti.GetHashCodeDelegateIndex != FastEquality.TypeInfo.Null.GetHashCodeDelegateIndex);
         }
@@ -144,7 +144,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EqualsInt4()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(int4), true);
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(int4));
 
             var a  = new int4(1, 2, 3, 4);
             var aa = new int4(1, 2, 3, 4);
@@ -160,7 +160,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EqualsPadding()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(EndPadding), true);
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(EndPadding));
             var a = new EndPadding(1, 2);
             var b = new EndPadding(1, 2);
             var c = new EndPadding(1, 3);
@@ -173,7 +173,7 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void EqualsFixedArray()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(FixedArrayStruct), true);
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(FixedArrayStruct));
 
             var a = new FixedArrayStruct();
             var b = new FixedArrayStruct();
@@ -191,7 +191,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EqualsEnum()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(EnumStruct), true);
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(EnumStruct));
 
             var a = new EnumStruct { nephew = Nephew.Huey };
             var aa = new EnumStruct { nephew = Nephew.Huey };
@@ -216,7 +216,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void ForgettingGetHashCodeIsAnError()
         {
-            var ex = Assert.Throws<ArgumentException>(() => FastEquality.CreateTypeInfo(typeof(TypeWithoutHashCodeOverride), true));
+            var ex = Assert.Throws<ArgumentException>(() => FastEquality.CreateTypeInfo(typeof(TypeWithoutHashCodeOverride)));
             Assert.IsTrue(ex.Message.Contains("GetHashCode"));
         }
 
@@ -245,7 +245,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void CorrectEqualsIsUsed()
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(DoubleEquals), true);
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(DoubleEquals));
             var a = new DoubleEquals {};
             var b = new DoubleEquals {};
             bool iseq = FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo);
@@ -269,7 +269,7 @@ namespace Unity.Entities.Tests
         public void FastEqualityWorksFromBurst()
         {
             TypeManager.Initialize();
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(Entity), true);
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(Entity));
 
             Entity a1 = new Entity() {Index = 1, Version = 2};
             Entity a2 = a1;
@@ -332,7 +332,7 @@ namespace Unity.Entities.Tests
         public void ManagedComponentEquals()
         {
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent), true);
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent));
                 var obj1 = new EcsTestManagedComponent() { value = "SomeString" };
                 var obj12 = new EcsTestManagedComponent() { value = "SomeString" };
                 var obj2 = new EcsTestManagedComponent() { value = "SomeOtherString" };
@@ -342,7 +342,7 @@ namespace Unity.Entities.Tests
             }
 
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray), true);
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray));
                 var tex1 = new UnityEngine.Texture2D(512, 512);
                 var tex2 = new UnityEngine.Texture2D(512, 512);
                 var tex3 = new UnityEngine.Texture2D(512, 512);
@@ -369,7 +369,7 @@ namespace Unity.Entities.Tests
             }
 
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentImplementsIEquatable), true);
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentImplementsIEquatable));
                 var obj = new ComponentImplementsIEquatable();
                 Assert.IsTrue(FastEquality.ManagedEquals(obj, obj, typeInfo));
                 Assert.IsTrue(obj.EqualsWasCalled);
@@ -380,7 +380,7 @@ namespace Unity.Entities.Tests
         public void ManagedComponentGetHashCode()
         {
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent), true);
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(EcsTestManagedComponent));
                 var obj1 = new EcsTestManagedComponent() { value = "SomeString" };
                 var obj12 = new EcsTestManagedComponent() { value = "SomeString" };
                 var obj2 = new EcsTestManagedComponent() { value = "SomeOtherString" };
@@ -390,7 +390,7 @@ namespace Unity.Entities.Tests
             }
 
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray), true);
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentWithUnityObjectArray));
                 var tex1 = new UnityEngine.Texture2D(512, 512);
                 var tex2 = new UnityEngine.Texture2D(512, 512);
                 var tex3 = new UnityEngine.Texture2D(512, 512);
@@ -417,7 +417,7 @@ namespace Unity.Entities.Tests
             }
 
             {
-                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentOverridesGetHashCode), true);
+                var typeInfo = FastEquality.CreateTypeInfo(typeof(ComponentOverridesGetHashCode));
                 var obj = new ComponentOverridesGetHashCode();
                 Assert.AreEqual(FastEquality.ManagedGetHashCode(obj, typeInfo), FastEquality.ManagedGetHashCode(obj, typeInfo));
                 Assert.IsTrue(obj.GetHashCodeWasCalled); 
@@ -435,7 +435,7 @@ namespace Unity.Entities.Tests
 
         static unsafe void ValidateEqualsForGeneric<T>(T val) where T : unmanaged
         {
-            var typeInfo = FastEquality.CreateTypeInfo(typeof(GenericComponent<T>), true);
+            var typeInfo = FastEquality.CreateTypeInfo(typeof(GenericComponent<T>));
             var aa = default(GenericComponent<T>);
             var ab = default(GenericComponent<T>);
             var ba = default(GenericComponent<T>);

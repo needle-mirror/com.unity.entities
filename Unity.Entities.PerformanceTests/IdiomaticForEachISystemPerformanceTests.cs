@@ -15,7 +15,6 @@ namespace Unity.Entities.PerformanceTests
     }
     public readonly partial struct RotateAspect : IAspect
     {
-#if !ENABLE_TRANSFORM_V1
         readonly RefRW<LocalTransform> Transform;
 
         public void Rotate(float time, float speedModifier) =>
@@ -23,15 +22,6 @@ namespace Unity.Entities.PerformanceTests
                 math.mul(
                     math.normalize(Transform.ValueRO.Rotation),
                     quaternion.AxisAngle(math.up(), time * speedModifier));
-#else
-        readonly RefRW<Rotation> Rotation;
-
-        public void Rotate(float time, float speedModifier) =>
-            Rotation.ValueRW.Value =
-                math.mul(
-                    math.normalize(Rotation.ValueRO.Value),
-                    quaternion.AxisAngle(math.up(), time * speedModifier));
-#endif
     }
 
     [BurstCompile(CompileSynchronously = true)]
@@ -53,7 +43,6 @@ namespace Unity.Entities.PerformanceTests
         public void OnUpdate(ref SystemState state)
         {
             var time = SystemAPI.Time.DeltaTime;
-#if !ENABLE_TRANSFORM_V1
             foreach (var (transform, speedModifierRef) in SystemAPI.Query<RefRW<LocalTransform>, RefRO<SpeedModifier>>())
             {
                 transform.ValueRW.Rotation =
@@ -61,15 +50,6 @@ namespace Unity.Entities.PerformanceTests
                         math.normalize(transform.ValueRO.Rotation),
                         quaternion.AxisAngle(math.up(), time * speedModifierRef.ValueRO.Value));
             }
-#else
-            foreach (var (rotation, speedModifierRef) in SystemAPI.Query<RefRW<Rotation>, RefRO<SpeedModifier>>())
-            {
-                rotation.ValueRW.Value =
-                    math.mul(
-                        math.normalize(rotation.ValueRO.Value),
-                        quaternion.AxisAngle(math.up(), time * speedModifierRef.ValueRO.Value));
-            }
-#endif
         }
     }
 
@@ -78,7 +58,6 @@ namespace Unity.Entities.PerformanceTests
         protected override void OnUpdate()
         {
             var time = SystemAPI.Time.DeltaTime;
-#if !ENABLE_TRANSFORM_V1
             Entities.ForEach((ref LocalTransform localTransform, in SpeedModifier speedModifier) =>
             {
                 localTransform.Rotation =
@@ -87,16 +66,6 @@ namespace Unity.Entities.PerformanceTests
                         quaternion.AxisAngle(math.up(), time * speedModifier.Value));
 
             }).WithBurst(synchronousCompilation: true).Run();
-#else
-            Entities.ForEach((ref Rotation rotation, in SpeedModifier speedModifier) =>
-            {
-                rotation.Value =
-                    math.mul(
-                        math.normalize(rotation.Value),
-                        quaternion.AxisAngle(math.up(), time * speedModifier.Value));
-
-            }).WithBurst(synchronousCompilation: true).Run();
-#endif
         }
     }
 

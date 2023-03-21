@@ -1,9 +1,9 @@
-﻿using JetBrains.Annotations;
+using JetBrains.Annotations;
 using Unity.Properties;
 using Unity.Entities.UI;
 using UnityEditor;
-using UnityEditor.UIElements;
 using UnityEngine.UIElements;
+using System;
 
 namespace Unity.Entities.Editor
 {
@@ -12,8 +12,12 @@ namespace Unity.Entities.Editor
     {
         [InternalSetting] public HierarchyConfiguration Configuration = new HierarchyConfiguration();
 
+        public event Action UseAdvanceSearchSettingChanged;
+
         void ISetting.OnSettingChanged(PropertyPath path)
         {
+            if (path.Equals(new PropertyPath($"{nameof(Configuration)}.{nameof(Configuration.AdvancedSearch)}")))
+                UseAdvanceSearchSettingChanged?.Invoke();
         }
 
         [UsedImplicitly]
@@ -31,10 +35,12 @@ namespace Unity.Entities.Editor
                 var updateModeType = new VisualElement();
                 var millisecondsBetweenUpdateCycles = new VisualElement();
                 var excludeUnnamedNodesForSearch = new VisualElement();
+                var useAdvanceSearch = new VisualElement();
 
                 DoDefaultGui(updateModeType, nameof(Configuration) + "." + nameof(HierarchyConfiguration.UpdateMode));
                 DoDefaultGui(millisecondsBetweenUpdateCycles, nameof(Configuration) + "." + nameof(HierarchyConfiguration.MinimumMillisecondsBetweenHierarchyUpdateCycles));
                 DoDefaultGui(excludeUnnamedNodesForSearch, nameof(Configuration) + "." + nameof(HierarchyConfiguration.ExcludeUnnamedNodesForSearch));
+                DoDefaultGui(useAdvanceSearch, nameof(Configuration) + "." + nameof(HierarchyConfiguration.AdvancedSearch));
 
                 root.Add(updateModeType);
                 root.Add(millisecondsBetweenUpdateCycles);
@@ -66,6 +72,7 @@ namespace Unity.Entities.Editor
                 }
 
                 root.Add(excludeUnnamedNodesForSearch);
+                root.Add(useAdvanceSearch);
 
                 return root;
             }

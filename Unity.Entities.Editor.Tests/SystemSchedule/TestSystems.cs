@@ -29,7 +29,7 @@ namespace Unity.Entities.Editor.Tests
         }
     }
 
-    struct SystemScheduleTestUnmanagedSystem : ISystem
+    partial struct SystemScheduleTestUnmanagedSystem : ISystem
     {
     }
 

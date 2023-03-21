@@ -89,7 +89,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetSingleton_GetSingleton_NoMatching_GeneratesException()
         {
-            var exceptionStr = "GetSingleton<Unity.Entities.Tests.EcsTestData>() requires that exactly one Unity.Entities.Tests.EcsTestData exist that match this query, but there are 0.";
+            var exceptionStr = "GetSingleton<Unity.Entities.Tests.EcsTestData>() requires that exactly one entity exists that match this query, but there are none. Are you missing a call to RequireForUpdate<T>()? You could also use TryGetSingleton<T>()";
             Assert.That(() => TestSystem.EntityQuery_GetSingleton<EcsTestData>(),
                 Throws.Exception.TypeOf<InvalidOperationException>().With.Message.Contains(exceptionStr));
         }

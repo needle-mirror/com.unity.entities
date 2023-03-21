@@ -1253,7 +1253,7 @@ namespace Unity.Entities.Serialization
     // Disposing an instance of this class will free all the allocated memory blocks.
     internal unsafe class PagedAllocation : IDisposable
     {
-        public PagedAllocation(Allocator allocator, int pageSize = 65536)
+        public PagedAllocation(AllocatorManager.AllocatorHandle allocator, int pageSize = 65536)
         {
             PageSize = pageSize;
             Allocator = allocator;
@@ -1319,11 +1319,11 @@ namespace Unity.Entities.Serialization
         public ref UnsafeList<PageInfo> Pages => ref _pages;
 
         public int PageSize { get; }
-        public Allocator Allocator { get; }
+        public AllocatorManager.AllocatorHandle Allocator { get; }
         public int CurrentGlobalOffset { get; private set; }
         public bool IsDisposed { get; private set; }
 
-        private UnsafeList<PageInfo> _pages = new UnsafeList<PageInfo>(16, Allocator.Persistent);
+        private UnsafeList<PageInfo> _pages = new UnsafeList<PageInfo>(16, Unity.Collections.Allocator.Persistent);
 
         public struct PageInfo
         {

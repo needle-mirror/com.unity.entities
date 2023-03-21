@@ -190,9 +190,8 @@ namespace Unity.Entities
                 container.m_ListData = this.Allocate(default(UnsafeList<T>), 1);
                 container.m_ListData->Ptr = this.Allocate(default(T), capacity);
                 container.m_ListData->m_length = 0;
-                container.m_ListData->m_capacity = 0;
-                container.m_ListData->GrowthPolicy = new CapacityGrowthPolicyImpl(Handle, 0, CapacityGrowthPolicy.CeilPow2, 0);
-                container.m_ListData->GrowthPolicy.Capacity = capacity;
+                container.m_ListData->m_capacity = capacity;
+                container.m_ListData->Allocator = Handle;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 container.m_Safety = CollectionHelper.CreateSafetyHandle(ToAllocator);
                 CollectionHelper.SetStaticSafetyId<NativeList<T>>(ref container.m_Safety, ref NativeList<T>.s_staticSafetyId.Data);

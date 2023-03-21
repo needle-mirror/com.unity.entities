@@ -116,6 +116,39 @@ namespace Unity.Entities.Tests
             }
         }
 
+        struct EnableableAllTag : IComponentData, IEnableableComponent {}
+        struct EnableableAnyTag : IComponentData, IEnableableComponent {}
+        struct EnableableNoneTag : IComponentData, IEnableableComponent {}
+        struct EnableableDisabledTag : IComponentData, IEnableableComponent {}
+        struct EnableableAbsentTag : IComponentData, IEnableableComponent {}
+        partial class IterateThroughEnableableComponents_TrackProcessedEntities : SystemBase
+        {
+            public NativeList<Entity> ProcessedEntities;
+            protected override void OnCreate()
+            {
+                ProcessedEntities = new NativeList<Entity>(Allocator.Persistent);
+            }
+
+            protected override void OnDestroy()
+            {
+                ProcessedEntities.Dispose();
+            }
+
+            protected override void OnUpdate()
+            {
+                ProcessedEntities.Clear();
+                foreach (var (_, entity) in Query<EnableableAllTag>()
+                             .WithAny<EnableableAnyTag>()
+                             .WithNone<EnableableNoneTag>()
+                             .WithDisabled<EnableableDisabledTag>()
+                             .WithAbsent<EnableableAbsentTag>()
+                             .WithEntityAccess())
+                {
+                    ProcessedEntities.Add(entity);
+                }
+            }
+        }
+
         public struct SumData : IComponentData
         {
             public int sum;
@@ -448,96 +481,118 @@ namespace Unity.Entities.Tests
 
         partial struct IterateThroughAspectsAndComponents_WithDifferentReturnTypesSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) =>
-                state.EntityManager.AddComponent(state.SystemHandle,
-                    new ComponentTypeSet(
-                        ComponentType.ReadWrite<SystemQueryData>(),
-                        ComponentType.ReadWrite<EcsTestData>(),
-                        ComponentType.ReadWrite<EcsTestData2>(),
-                        ComponentType.ReadWrite<EcsTestData3>(),
-                        ComponentType.ReadOnly<EcsTestTag>()));
+            public void OnCreate(ref SystemState state)
+            {
+                state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<SystemQueryData>());
+
+                for (int i = 0; i < 2; i++)
+                {
+                    var entity = state.EntityManager.CreateEntity();
+                    state.EntityManager.AddComponent(
+                        entity,
+                        new ComponentTypeSet(
+                            ComponentType.ReadWrite<EcsTestData>(),
+                            ComponentType.ReadWrite<EcsTestData2>(),
+                            ComponentType.ReadWrite<EcsTestData3>(),
+                            ComponentType.ReadOnly<EcsTestTag>()));
+                }
+            }
 
             public void OnUpdate(ref SystemState state)
             {
+                int entityCount = 0;
                 var ReturnTypeToTest = state.EntityManager.GetComponentData<SystemQueryData>(state.SystemHandle).returnTypeToTest;
                 switch (ReturnTypeToTest)
                 {
                     case QueryReturnType.IdentifierName:
-                        foreach (var queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
+                        foreach (var queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>())
                         {
-                            queryReturnType.Item1._Data.ValueRW = new EcsTestData { value = 10 };
+                            entityCount++;
+
+                            queryReturnType.Item1._Data.ValueRW = new EcsTestData { value = entityCount };
 
                             var myAspect = queryReturnType.Item1;
-                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
+                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = entityCount, value1 = entityCount };
 
-                            queryReturnType.Item2.ValueRW.value0 = 10;
+                            queryReturnType.Item2.ValueRW.value0 = entityCount;
 
                             // Our source-generator solution changes the type of `queryReturnType.Item2` to `Unity.Entities.InternalCompilerInterface.UncheckedRefRW<Unity.Entities.Tests.EcsTestData3>`
                             // behind the scenes so that calling `ValueRW` and `ValueRO` will not trigger safety checks. (Safety checks are only crucial when dealing with long-lived `RefRW`/`RefRO` instances.)
                             // This change behind the scenes is not exposed to users, and the next line tests that the usage of explicit types (`RefRW<EcsTestData3>` in this case) is correctly
                             // supported.
                             RefRW<EcsTestData3> ecsTestData3 = queryReturnType.Item2;
-                            ecsTestData3.ValueRW.value1 = 20;
-                            ecsTestData3.ValueRW.value2 = 30;
+                            ecsTestData3.ValueRW.value1 = entityCount;
+                            ecsTestData3.ValueRW.value2 = entityCount;
                         }
                         break;
                     case QueryReturnType.TupleWithNamedElementsAndExplicitTypes:
-                        foreach ((MyAspect myAspect, RefRW<EcsTestData3> ecsTestData3) queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
+                        foreach ((RefRW<EcsTestData> ecsTestData, RefRW<EcsTestData2> ecsTestData2, RefRW<EcsTestData3> ecsTestData3) queryReturnType
+                                 in Query<RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>>())
                         {
-                            queryReturnType.myAspect._Data.ValueRW = new EcsTestData { value = 10 };
-                            queryReturnType.myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
+                            entityCount++;
 
-                            queryReturnType.ecsTestData3.ValueRW.value0 = 10;
-                            queryReturnType.ecsTestData3.ValueRW.value1 = 20;
-                            queryReturnType.ecsTestData3.ValueRW.value2 = 30;
+                            queryReturnType.ecsTestData.ValueRW = new EcsTestData { value = entityCount };
+                            queryReturnType.ecsTestData2.ValueRW = new EcsTestData2 { value0 = entityCount, value1 = entityCount };
+
+                            queryReturnType.ecsTestData3.ValueRW.value0 = entityCount;
+                            queryReturnType.ecsTestData3.ValueRW.value1 = entityCount;
+                            queryReturnType.ecsTestData3.ValueRW.value2 = entityCount;
                         }
                         break;
                     case QueryReturnType.TupleWithNamedElementsAndImplicitTypes:
-                        foreach ((var myAspect, var ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
+                        foreach ((var myAspect, var ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>())
                         {
-                            myAspect._Data.ValueRW = new EcsTestData { value = 10 };
-                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
+                            entityCount++;
 
-                            ecsTestData3.ValueRW.value0 = 10;
-                            ecsTestData3.ValueRW.value1 = 20;
-                            ecsTestData3.ValueRW.value2 = 30;
+                            myAspect._Data.ValueRW = new EcsTestData { value = entityCount };
+                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = entityCount, value1 = entityCount };
+
+                            ecsTestData3.ValueRW.value0 = entityCount;
+                            ecsTestData3.ValueRW.value1 = entityCount;
+                            ecsTestData3.ValueRW.value2 = entityCount;
                         }
                         break;
                     case QueryReturnType.TupleWithoutNamedElements:
-                        foreach ((MyAspect, RefRW<EcsTestData3>) queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
+                        foreach ((MyAspect, RefRW<EcsTestData3>) queryReturnType in Query<MyAspect, RefRW<EcsTestData3>>())
                         {
-                            queryReturnType.Item1._Data.ValueRW = new EcsTestData { value = 10 };
+                            entityCount++;
+
+                            queryReturnType.Item1._Data.ValueRW = new EcsTestData { value = entityCount };
 
                             var myAspect = queryReturnType.Item1;
-                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
+                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = entityCount, value1 = entityCount };
 
-                            queryReturnType.Item2.ValueRW.value0 = 10;
+                            queryReturnType.Item2.ValueRW.value0 = entityCount;
 
                             var ecsTestData3 = queryReturnType.Item2;
-                            ecsTestData3.ValueRW.value1 = 20;
-                            ecsTestData3.ValueRW.value2 = 30;
+                            ecsTestData3.ValueRW.value1 = entityCount;
+                            ecsTestData3.ValueRW.value2 = entityCount;
                         }
                         break;
                     case QueryReturnType.ParenthesizedVariable:
-                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems))
+                        foreach (var (myAspect, ecsTestData3) in Query<MyAspect, RefRW<EcsTestData3>>())
                         {
-                            myAspect._Data.ValueRW = new EcsTestData { value = 10 };
-                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
+                            entityCount++;
 
-                            ecsTestData3.ValueRW.value0 = 10;
-                            ecsTestData3.ValueRW.value1 = 20;
-                            ecsTestData3.ValueRW.value2 = 30;
+                            myAspect._Data.ValueRW = new EcsTestData { value = entityCount };
+                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = entityCount, value1 = entityCount };
+
+                            ecsTestData3.ValueRW.value0 = entityCount;
+                            ecsTestData3.ValueRW.value1 = entityCount;
+                            ecsTestData3.ValueRW.value2 = entityCount;
                         }
                         break;
                     case QueryReturnType.TupleWithDiscardedElement:
-                        foreach (var (myAspect, ecsTestData3, _) in Query<MyAspect, RefRW<EcsTestData3>>().WithOptions(EntityQueryOptions.IncludeSystems).WithEntityAccess())
+                        foreach (var (myAspect, ecsTestData3, _) in Query<MyAspect, RefRW<EcsTestData3>>().WithEntityAccess())
                         {
-                            myAspect._Data.ValueRW = new EcsTestData { value = 10 };
-                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = 20, value1 = 30 };
+                            entityCount++;
 
-                            ecsTestData3.ValueRW.value0 = 10;
-                            ecsTestData3.ValueRW.value1 = 20;
-                            ecsTestData3.ValueRW.value2 = 30;
+                            myAspect._Data.ValueRW = new EcsTestData { value = entityCount };
+                            myAspect._Data2.ValueRW = new EcsTestData2 { value0 = entityCount, value1 = entityCount };
+
+                            ecsTestData3.ValueRW.value0 = entityCount;
+                            ecsTestData3.ValueRW.value1 = entityCount;
+                            ecsTestData3.ValueRW.value2 = entityCount;
                         }
                         break;
                 }
@@ -796,7 +851,7 @@ namespace Unity.Entities.Tests
             {
                 state.EntityManager.AddComponent<MartialArtsAbilityComponent>(state.SystemHandle);
 
-                for (int i = 0; i <= 2; i++)
+                for (int i = 1; i <= 8; i++)
                 {
                     var e = state.EntityManager.CreateEntity();
 
@@ -804,16 +859,17 @@ namespace Unity.Entities.Tests
 
                     state.EntityManager.AddComponentData(e, new LinearVelocity());
 
-                    state.EntityManager.AddComponentData(e, new MartialArtsAbilityComponent());
-                    state.EntityManager.SetComponentEnabled<MartialArtsAbilityComponent>(e, i % 2 == 0);
+                    state.EntityManager.AddComponentData(e, new MartialArtsAbilityComponent{Value = i});
+                    bool isPowerOfTwo = (i & (i-1)) == 0;
+                    state.EntityManager.SetComponentEnabled<MartialArtsAbilityComponent>(e, isPowerOfTwo);
                 }
             }
 
             public void OnUpdate(ref SystemState state)
             {
                 ref var sumData = ref state.EntityManager.GetComponentDataRW<MartialArtsAbilityComponent>(state.SystemHandle).ValueRW;
-                foreach (var component in Query<MyAspect, LinearVelocity>().WithAll<MartialArtsAbilityComponent>())
-                    sumData.Value++;
+                foreach (var component in Query<MyAspect, MartialArtsAbilityComponent>().WithAll<LinearVelocity>())
+                    sumData.Value += component.Item2.Value;
             }
         }
         partial struct IterateThroughValueTypeEnableableComponentSystem : ISystem
@@ -876,21 +932,35 @@ namespace Unity.Entities.Tests
         [Test]
         public void ForEachIterationWithDifferentReturnTypesFromQueryEnumerable([Values] QueryReturnType queryReturnType)
         {
-            var system = World.GetOrCreateSystem<IterateThroughAspectsAndComponents_WithDifferentReturnTypesSystem>();
-            ref var queryData = ref World.EntityManager.GetComponentDataRW<SystemQueryData>(system).ValueRW;
+            var systemHandle = World.GetOrCreateSystem<IterateThroughAspectsAndComponents_WithDifferentReturnTypesSystem>();
+
+            ref var queryData = ref World.EntityManager.GetComponentDataRW<SystemQueryData>(systemHandle).ValueRW;
             queryData.returnTypeToTest = queryReturnType;
-            system.Update(World.Unmanaged);
+            systemHandle.Update(World.Unmanaged);
 
-            var myAspect = GetAspect<MyAspect>(system);
-            var ecsTestData3 = GetComponent<EcsTestData3>(system);
+            var entityQuery = World.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>(), ComponentType.ReadWrite<EcsTestData3>());
+            var allEntities = entityQuery.ToEntityArray(Allocator.Temp);
 
-            Assert.AreEqual(10, myAspect._Data.ValueRO.value);
-            Assert.AreEqual(20, myAspect._Data2.ValueRO.value0);
-            Assert.AreEqual(30, myAspect._Data2.ValueRO.value1);
+            Assert.AreEqual(2, allEntities.Length);
 
-            Assert.AreEqual(10, ecsTestData3.value0);
-            Assert.AreEqual(20, ecsTestData3.value1);
-            Assert.AreEqual(30, ecsTestData3.value2);
+            for (int i = 0; i < allEntities.Length; i++)
+            {
+                var entity = allEntities[i];
+
+                var ecsTestData = GetComponent<EcsTestData>(entity);
+                var ecsTestData2 = GetComponent<EcsTestData2>(entity);
+                var ecsTestData3 = GetComponent<EcsTestData3>(entity);
+
+                Assert.AreEqual(i + 1, ecsTestData.value);
+                Assert.AreEqual(i + 1, ecsTestData2.value0);
+                Assert.AreEqual(i + 1, ecsTestData2.value1);
+
+                Assert.AreEqual(i + 1, ecsTestData3.value0);
+                Assert.AreEqual(i + 1, ecsTestData3.value1);
+                Assert.AreEqual(i + 1, ecsTestData3.value2);
+            }
+
+            allEntities.Dispose();
         }
 
         [Test]
@@ -930,6 +1000,46 @@ namespace Unity.Entities.Tests
 
             var ecsTestData = GetComponent<EcsTestData>(enableSystem.Entity);
             Assert.AreEqual(1, ecsTestData.value);
+        }
+
+        [Test]
+        public void ForEachIteration_WithEnableableComponents_ProcessCorrectEntities()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EnableableAllTag),
+                typeof(EnableableAnyTag), typeof(EnableableNoneTag), typeof(EnableableDisabledTag));
+            int entityCount = 10_000;
+            var allEntities = m_Manager.CreateEntity(archetype, entityCount, Allocator.Temp);
+            for (int i = 0; i < entityCount; ++i)
+            {
+                var e = allEntities[i];
+                if ((i / 5) % 2 == 0)
+                    m_Manager.SetComponentEnabled<EnableableAllTag>(e, false);
+                if ((i / 7) % 2 == 0)
+                    m_Manager.SetComponentEnabled<EnableableAnyTag>(e, false);
+                if ((i / 11) % 2 == 0)
+                    m_Manager.SetComponentEnabled<EnableableNoneTag>(e, false);
+                if ((i / 13) % 2 == 0)
+                    m_Manager.SetComponentEnabled<EnableableDisabledTag>(e, false);
+                if ((i / 17) % 2 == 0)
+                {
+                    m_Manager.AddComponent<EnableableAbsentTag>(e);
+                    if (i % 2 == 0)
+                        m_Manager.SetComponentEnabled<EnableableAbsentTag>(e, false);
+                }
+            }
+
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EnableableAllTag>()
+                .WithAny<EnableableAnyTag>()
+                .WithNone<EnableableNoneTag>()
+                .WithDisabled<EnableableDisabledTag>()
+                .WithAbsent<EnableableAbsentTag>()
+                .Build(m_Manager);
+            using var expectedEntities = query.ToEntityArray(Allocator.Temp);
+
+            var sys = World.CreateSystemManaged<IterateThroughEnableableComponents_TrackProcessedEntities>();
+            sys.Update();
+            CollectionAssert.AreEqual(expectedEntities.ToArray(), sys.ProcessedEntities.AsArray().ToArray());
         }
 
         [Test]
@@ -1227,7 +1337,8 @@ namespace Unity.Entities.Tests
             system.Update(World.Unmanaged);
             var martialArtsAbilityEnabledCount = World.EntityManager.GetComponentData<MartialArtsAbilityComponent>(system);
 
-            Assert.AreEqual(expected: 2, actual: martialArtsAbilityEnabledCount.Value);
+            // of the 8 entities created, only the powers of 2 should be enabled & included in the sum.
+            Assert.AreEqual(expected: 1+2+4+8, actual: martialArtsAbilityEnabledCount.Value);
         }
 
         [Test]

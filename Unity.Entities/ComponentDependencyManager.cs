@@ -631,7 +631,7 @@ namespace Unity.Entities
         internal void BeginIsInForEach(EntityQueryImpl* query)
         {
             CheckIsWithinMaxAllowedNestedForEach(Depth);
-            if (query->_QueryData->DoesQueryRequireBatching != 0)
+            if (query->_QueryData->HasEnableableComponents != 0)
                 _forEachQueryMasks[Depth++] = new EntityQueryMask();
             else
                 _forEachQueryMasks[Depth++] = query->GetEntityQueryMask();

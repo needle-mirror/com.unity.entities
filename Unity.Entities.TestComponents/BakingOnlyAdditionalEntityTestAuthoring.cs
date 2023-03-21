@@ -20,12 +20,14 @@ namespace Unity.Entities.Tests
                 {
                     Value = authoring.SelfValue
                 };
-                AddComponent(component);
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, component);
 
-                var bakeOnlyEntity = CreateAdditionalEntity(TransformUsageFlags.Default, true);
+                var bakeOnlyEntity = CreateAdditionalEntity(TransformUsageFlags.None, true);
                 AddComponent(bakeOnlyEntity, component);
 
-                var noBakeOnlyEntity = CreateAdditionalEntity();
+                var noBakeOnlyEntity = CreateAdditionalEntity(TransformUsageFlags.None);
                 AddComponent(noBakeOnlyEntity, component);
             }
         }

@@ -91,7 +91,7 @@ namespace Unity.Entities
             for (int i = 0; i != batch->BlobAssetHeaderCount; i++)
             {
                 header->ValidationPtr = header + 1;
-                if (header->Allocator != Allocator.None)
+                if (header->Allocator.ToAllocator != Allocator.None)
                     throw new System.ArgumentException("Blob Allocator should be Allocator.None");
                 header = (BlobAssetHeader*)(((byte*) (header+1)) + header->Length);
             }
@@ -174,7 +174,7 @@ namespace Unity.Entities
     {
         [FieldOffset(0)]  public void* ValidationPtr;
         [FieldOffset(8)]  public int Length;
-        [FieldOffset(12)] public Allocator Allocator;
+        [FieldOffset(12)] public AllocatorManager.AllocatorHandle Allocator;
         [FieldOffset(16)] public ulong Hash;
         [FieldOffset(24)] private ulong Padding;
 
@@ -184,7 +184,7 @@ namespace Unity.Entities
             {
                 ValidationPtr = null,
                 Length = length,
-                Allocator = Allocator.None,
+                Allocator = Unity.Collections.Allocator.None,
                 Hash = hash,
                 Padding = 0
             };
@@ -297,7 +297,7 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void ValidateNotDeserialized()
         {
-            if (Header->Allocator == Allocator.None)
+            if (Header->Allocator.ToAllocator == Allocator.None)
                 throw new InvalidOperationException("It's not possible to release a blob asset reference that was deserialized. It will be automatically released when the scene is unloaded ");
             Header->Invalidate();
         }

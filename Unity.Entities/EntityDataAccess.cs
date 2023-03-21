@@ -381,7 +381,7 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal void AssertQueryHasNoEnableableComponents(EntityQuery query)
         {
-            if (query._GetImpl()->_QueryData->DoesQueryRequireBatching != 0)
+            if (query._GetImpl()->_QueryData->HasEnableableComponents != 0)
                 throw new ArgumentException("EntityQuery objects with types that implement IEnableableComponent are not currently supported by this operation.");
         }
 
@@ -2141,7 +2141,7 @@ namespace Unity.Entities
             return ManagedComponentStore.GetSharedComponentCount() + EntityComponentStore->GetUnmanagedSharedComponentCount();
         }
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
-        public NativeParallelHashMap<int, int> MoveAllSharedComponents(EntityComponentStore* srcEntityComponentStore, ManagedComponentStore srcManagedComponents, Allocator allocator)
+        public NativeParallelHashMap<int, int> MoveAllSharedComponents(EntityComponentStore* srcEntityComponentStore, ManagedComponentStore srcManagedComponents, AllocatorManager.AllocatorHandle allocator)
         {
             var managedsharedComponentCount = srcManagedComponents.GetSharedComponentCount();
             var remap = new NativeParallelHashMap<int, int>(srcEntityComponentStore->GetUnmanagedSharedComponentCount() + managedsharedComponentCount, allocator);
@@ -2177,7 +2177,7 @@ namespace Unity.Entities
         }
 
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
-        public NativeHashMap<int, int> MoveSharedComponents(EntityComponentStore* srcEntityComponentStore, ManagedComponentStore srcManagedComponents, NativeArray<ArchetypeChunk> chunks, Allocator allocator)
+        public NativeHashMap<int, int> MoveSharedComponents(EntityComponentStore* srcEntityComponentStore, ManagedComponentStore srcManagedComponents, NativeArray<ArchetypeChunk> chunks, AllocatorManager.AllocatorHandle allocator)
         {
             var map = new NativeHashMap<int, int>(64, allocator);
             BuildSharedComponentMapForMoving(ref map, ref chunks);
@@ -2630,7 +2630,7 @@ namespace Unity.Entities
 
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
         public NativeArray<int> MoveSharedComponents(ManagedComponentStore srcManagedComponents,
-            NativeArray<ArchetypeChunk> chunks, Allocator allocator)
+            NativeArray<ArchetypeChunk> chunks, AllocatorManager.AllocatorHandle allocator)
         {
             return ManagedComponentStore.MoveSharedComponents_Managed(srcManagedComponents, chunks, allocator);
         }

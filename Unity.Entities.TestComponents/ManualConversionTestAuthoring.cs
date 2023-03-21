@@ -38,7 +38,9 @@ namespace Unity.Entities.Tests
         {
             public override void Bake(ManualConversionTestAuthoring authoring)
             {
-                AddComponent(new ManualConversionComponentTest
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new ManualConversionComponentTest
                     {BindFloat = authoring.FloatField, BindInt = authoring.IntField, BindBool = authoring.BoolField, BindQuaternion = authoring.QuaternionField, BindVector3 = authoring.Vector3Field});
             }
         }

@@ -6,7 +6,7 @@ namespace Unity.Entities
     partial class EntitiesJournaling
     {
         [UpdateInGroup(typeof(PresentationSystemGroup), OrderLast = true), BurstCompile]
-        struct FrameCountSystem : ISystem
+        partial struct FrameCountSystem : ISystem
         {
             sealed class SharedFrameCount { internal static readonly SharedStatic<int> Ref = SharedStatic<int>.GetOrCreate<SharedFrameCount>(); }
 

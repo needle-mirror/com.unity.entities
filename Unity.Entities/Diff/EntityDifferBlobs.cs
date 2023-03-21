@@ -14,7 +14,7 @@ namespace Unity.Entities
             public readonly NativeList<byte> BlobAssetData;
             public readonly bool IsCreated;
 
-            public BlobAssetChanges(Allocator allocator)
+            public BlobAssetChanges(AllocatorManager.AllocatorHandle allocator)
             {
                 CreatedBlobAssets = new NativeList<BlobAssetChange>(1, allocator);
                 DestroyedBlobAssets = new NativeList<ulong>(1, allocator);
@@ -35,7 +35,7 @@ namespace Unity.Entities
             public NativeList<BlobAssetPtr> BlobAssets;
             public NativeParallelHashMap<ulong, int> BlobAssetsMap;
 
-            public BlobAssetsWithDistinctHash(Allocator allocator)
+            public BlobAssetsWithDistinctHash(AllocatorManager.AllocatorHandle allocator)
             {
                 BlobAssets = new NativeList<BlobAssetPtr>(1, allocator);
                 BlobAssetsMap = new NativeParallelHashMap<ulong, int>(1, allocator);
@@ -159,7 +159,7 @@ namespace Unity.Entities
             EntityComponentStore* entityComponentStore,
             ManagedComponentStore managedComponentStore,
             NativeArray<ArchetypeChunk> chunks,
-            Allocator allocator)
+            AllocatorManager.AllocatorHandle allocator)
         {
             s_GetBlobAssetsWithDistinctHash.Begin();
             var blobAssetsWithDistinctHash = new BlobAssetsWithDistinctHash(allocator);
@@ -185,7 +185,7 @@ namespace Unity.Entities
 
                 for (var unorderedTypeIndexInArchetype = 0; unorderedTypeIndexInArchetype < typesCount; unorderedTypeIndexInArchetype++)
                 {
-                    var typeIndexInArchetype = archetype->TypeMemoryOrder[unorderedTypeIndexInArchetype];
+                    var typeIndexInArchetype = archetype->TypeMemoryOrderIndexToIndexInArchetype[unorderedTypeIndexInArchetype];
                     var componentTypeInArchetype = archetype->Types[typeIndexInArchetype];
                     if (componentTypeInArchetype.IsZeroSized)
                         continue;
@@ -355,7 +355,7 @@ namespace Unity.Entities
         static BlobAssetChanges GetBlobAssetChanges(
             NativeList<BlobAssetPtr> afterBlobAssets,
             NativeList<BlobAssetPtr> beforeBlobAssets,
-            Allocator allocator,
+            AllocatorManager.AllocatorHandle allocator,
             out JobHandle jobHandle,
             JobHandle dependsOn = default)
         {

@@ -17,7 +17,9 @@ namespace Unity.Entities
         {
             public override void Bake(SceneSectionComponent authoring)
             {
-                AddSharedComponent(new SceneSection { SceneGUID = GetSceneGUID(), Section = authoring.SectionIndex });
+                // Adding a section doesn't require any transform usage flags
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddSharedComponent(entity, new SceneSection { SceneGUID = GetSceneGUID(), Section = authoring.SectionIndex });
             }
         }
     }

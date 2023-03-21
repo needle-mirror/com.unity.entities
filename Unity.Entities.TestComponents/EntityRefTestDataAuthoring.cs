@@ -31,12 +31,14 @@ namespace Unity.Entities.Tests
     {
         public override void Bake(EntityRefTestDataAuthoring authoring)
         {
-            var entity = GetEntity(authoring.Value);
-            AddComponent(new EntityRefTestData {Value = entity});
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            var refEntity = GetEntity(authoring.Value, TransformUsageFlags.None);
+            AddComponent(entity, new EntityRefTestData {Value = refEntity});
             for (int i = 0; i != authoring.AdditionalEntityCount; i++)
             {
-                var additional = CreateAdditionalEntity();
-                AddComponent(additional, new EntityRefTestData {Value = entity});
+                var additional = CreateAdditionalEntity(TransformUsageFlags.None);
+                AddComponent(additional, new EntityRefTestData {Value = refEntity});
             }
 
             //TODO: Needs to declare prefabs as well

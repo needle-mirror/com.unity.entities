@@ -9,7 +9,8 @@
         "Unity.Transforms",
         "Unity.Collections.BurstCompatibilityGen",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "Unity.Entities.Tests.InAnotherAssembly"
     ],
     "includePlatforms": [],
     "excludePlatforms": [

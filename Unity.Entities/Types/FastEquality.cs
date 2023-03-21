@@ -113,23 +113,20 @@ namespace Unity.Entities
 #if !UNITY_DOTSRUNTIME
         static readonly ProfilerMarker ManagedEqualsMarker = new ProfilerMarker("FastEquality.ManagedEquals with IPropertyVisitor fallback (Missing IEquatable interface)");
 
-        internal static TypeInfo CreateTypeInfo<T>() where T : struct
+        internal static TypeInfo CreateTypeInfo<T>(Dictionary<Type, List<LayoutInfo>> cache = null) where T : struct
         {
             if (TypeUsesDelegates(typeof(T)))
                 return CreateManagedTypeInfo(typeof(T));
             else
-                return CreateTypeInfoBlittable(typeof(T));
+                return CreateTypeInfoBlittable(typeof(T), cache);
         }
 
-        internal static TypeInfo CreateTypeInfo(Type type, bool generateBlittableInfo = false)
+        internal static TypeInfo CreateTypeInfo(Type type, Dictionary<Type, List<LayoutInfo>> cache = null)
         {
-#if ENABLE_IL2CPP
-            generateBlittableInfo = true;
-#endif
             if (TypeUsesDelegates(type))
                 return CreateManagedTypeInfo(type);
             else
-                return CreateTypeInfoBlittable(type);
+                return CreateTypeInfoBlittable(type, cache);
         }
 
         private struct Dummy : IEquatable<Dummy>

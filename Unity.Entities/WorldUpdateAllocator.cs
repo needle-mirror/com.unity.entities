@@ -16,7 +16,7 @@ namespace Unity.Entities
     // ReSharper disable once InconsistentNaming
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.Editor)]
-    public struct WorldUpdateAllocatorResetSystem : ISystem
+    public partial struct WorldUpdateAllocatorResetSystem : ISystem
     {
         /// <summary>
         /// Executes world update allocator reset system to rewind memories of the world update allocator.

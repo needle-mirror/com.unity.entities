@@ -1,10 +1,7 @@
-using System;
 using System.Collections;
 using NUnit.Framework;
 using System.IO;
 using System.Linq;
-using Unity.Entities.Conversion;
-using Unity.Entities.UI;
 using Unity.Scenes;
 using Unity.Scenes.Editor;
 using UnityEditor;
@@ -20,6 +17,7 @@ namespace Unity.Entities.Editor.Tests
     partial class SystemScheduleWindowIntegrationTests
     {
         World m_DefaultWorld;
+        World m_TestWorld;
         ComponentSystemGroup m_TestSystemGroup;
         ComponentSystemBase m_TestSystem1;
         ComponentSystemBase m_TestSystem2;
@@ -114,9 +112,10 @@ namespace Unity.Entities.Editor.Tests
                 SystemScheduleTestUtilities.DestroySystemsWindow(m_SystemScheduleWindow);
 
             if (EditorWindow.HasOpenInstances<SystemScheduleWindow>())
-            {
                 EditorWindow.GetWindow<SystemScheduleWindow>().Close();
-            }
+
+            if (m_TestWorld is { IsCreated: true })
+                m_TestWorld.Dispose();
         }
 
         void CreateTestSystems(World world)
@@ -249,11 +248,11 @@ namespace Unity.Entities.Editor.Tests
         {
             var previousPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
 
-            var world = new World(k_SystemScheduleTestWorld);
-            CreateTestSystems(world);
+            m_TestWorld = new World(k_SystemScheduleTestWorld);
+            CreateTestSystems(m_TestWorld);
 
             var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
-            ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(world, ref playerLoop);
+            ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(m_TestWorld, ref playerLoop);
             PlayerLoop.SetPlayerLoop(playerLoop);
 
             yield return new SystemScheduleTestUtilities.UpdateSystemGraph(typeof(SystemScheduleTestGroup));
@@ -261,14 +260,14 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(m_SystemScheduleWindow.SelectedWorld.Name, Is.EqualTo(k_SystemScheduleTestWorld));
             Assert.That(m_SystemScheduleWindow.rootVisualElement.Q<SystemTreeView>().CheckIfTreeViewContainsGivenSystemType(typeof(SystemScheduleTestGroup), out _), Is.True);
 
-            world.Dispose();
+            m_TestWorld.Dispose();
             PlayerLoop.SetPlayerLoop(previousPlayerLoop);
 
             m_SystemScheduleWindow.Update();
             Assert.That(m_SystemScheduleWindow.SelectedWorld.Name, Is.EqualTo(k_SystemScheduleEditorWorld));
 
-            if (world.IsCreated)
-                world.Dispose();
+            if (m_TestWorld is { IsCreated: true })
+                m_TestWorld.Dispose();
         }
 
         [UnityTest]
@@ -286,11 +285,11 @@ namespace Unity.Entities.Editor.Tests
             var testSystemInDefaultWorldHash = testSystemItemDefaultWorld.Node.Hash;
 
             // Create test system in test world.
-            var world = new World(k_SystemScheduleTestWorld);
-            CreateTestSystems(world);
+            m_TestWorld = new World(k_SystemScheduleTestWorld);
+            CreateTestSystems(m_TestWorld);
 
             var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
-            ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(world, ref playerLoop);
+            ScriptBehaviourUpdateOrder.AppendWorldToPlayerLoop(m_TestWorld, ref playerLoop);
             PlayerLoop.SetPlayerLoop(playerLoop);
 
             // Wait a frame for the window to update.
@@ -303,8 +302,8 @@ namespace Unity.Entities.Editor.Tests
 
             var testSystemInTestWorldHash = testSystemItemTestWorld.Node.Hash;
 
-            if (world.IsCreated)
-                world.Dispose();
+            if (m_TestWorld.IsCreated)
+                m_TestWorld.Dispose();
             PlayerLoop.SetPlayerLoop(previousPlayerLoop);
 
             Assert.That(testSystemInDefaultWorldHash, Is.Not.EqualTo(testSystemInTestWorldHash));
@@ -317,8 +316,8 @@ namespace Unity.Entities.Editor.Tests
 
             var oldSystemCount = m_SystemScheduleWindow.rootVisualElement.Q<SystemTreeView>().m_SystemTreeView.items.Count();
 
-            var testWorld = new World(k_SystemScheduleTestWorld);
-            var managedSystem = testWorld.GetOrCreateSystemManaged<SystemScheduleTestSystem>();
+            m_TestWorld = new World(k_SystemScheduleTestWorld);
+            var managedSystem = m_TestWorld.GetOrCreateSystemManaged<SystemScheduleTestSystem>();
 
             var simulationSystemGroup = World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             simulationSystemGroup.AddSystemToUpdateList(managedSystem);
@@ -334,8 +333,8 @@ namespace Unity.Entities.Editor.Tests
             if (managedSystem != null)
                 World.DefaultGameObjectInjectionWorld.GetOrCreateSystemManaged<SimulationSystemGroup>().RemoveSystemFromUpdateList(managedSystem);
 
-            if (testWorld.IsCreated)
-                testWorld.Dispose();
+            if (m_TestWorld.IsCreated)
+                m_TestWorld.Dispose();
         }
 
         [UnityTest]

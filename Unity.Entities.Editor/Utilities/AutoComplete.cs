@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Profiling;
 using UnityEngine;
@@ -159,7 +159,8 @@ namespace Unity.Entities.Editor
 
         void BeginCompletion()
         {
-            if (!m_Behavior.ShouldStartAutoCompletion(m_TextField.value, CaretPosition))
+            var pos = Mathf.Clamp(CaretPosition, 0, m_TextField.value.Length);
+            if (!m_Behavior.ShouldStartAutoCompletion(m_TextField.value, pos))
             {
                 m_CompletionContainer.Hide();
                 return;
@@ -168,10 +169,10 @@ namespace Unity.Entities.Editor
             using (k_FetchCompletionResultsMarker.Auto())
             {
                 m_CompletionItems.Clear();
-                m_CompletionItems.AddRange(m_Behavior.GetCompletionItems(m_TextField.value, CaretPosition));
+                m_CompletionItems.AddRange(m_Behavior.GetCompletionItems(m_TextField.value, pos));
             }
 
-            if (m_CompletionItems.Count == 0 || m_CompletionItems.Count == 1 && m_CompletionItems[0] == m_Behavior.GetToken(m_TextField.value, CaretPosition))
+            if (m_CompletionItems.Count == 0 || m_CompletionItems.Count == 1 && m_CompletionItems[0] == m_Behavior.GetToken(m_TextField.value, pos))
             {
                 m_CompletionContainer.Hide();
                 return;
@@ -215,7 +216,7 @@ namespace Unity.Entities.Editor
 
         public void Dispose()
         {
-            m_Root.Remove(m_CompletionListView);
+            m_Root.Remove(m_CompletionContainer);
             k_Container.RemoveStyles(m_Root);
 
             m_TextField.UnregisterCallback<KeyDownEvent>(OnInputKeyDown);

@@ -22,7 +22,9 @@ namespace Unity.Scenes.Hybrid.Tests
     {
         public override void Bake(SubSceneSectionTestDataAuthoringForBaking authoring)
         {
-            AddComponent(GetEntity(authoring), new SubSceneSectionTestData(){Value = authoring.Value});
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new SubSceneSectionTestData(){Value = authoring.Value});
         }
     }
 }

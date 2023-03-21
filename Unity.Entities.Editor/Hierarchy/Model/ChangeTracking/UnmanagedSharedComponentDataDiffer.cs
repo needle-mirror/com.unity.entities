@@ -312,6 +312,9 @@ namespace Unity.Entities.Editor
         {
             static bool CanWatch(ComponentType componentType)
             {
+                if (!TypeManager.IsInitialized)
+                    throw new InvalidOperationException($"{nameof(TypeManager)} has not been initialized properly");
+
                 var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
                 return typeInfo.Category == TypeManager.TypeCategory.ISharedComponentData && UnsafeUtility.IsUnmanaged(componentType.GetManagedType());
             }

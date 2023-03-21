@@ -2,8 +2,6 @@
 
 An aspect is an object-like wrapper that you can use to group together a subset of an entity's components into a single C# struct. Aspects are useful for organizing component code and simplifying queries in your systems. Unity provides predefined aspects for groups of related components or you can define your own with the [`IAspect`](xref:Unity.Entities.IAspect) interface.
 
-For example, [`TransformAspect`](xref:Unity.Transforms.TransformAspect) groups together the `LocalTransform`, `WorldTransform`, and `ParentTransform` components. It also provides several utility methods for acting on these components. The utility methods are accessible from any query or `IJobEntity` that includes `TransformAspect`. 
-
 Aspects can include items such as the following:
 
 * A single `Entity` field to store the entity's ID
@@ -17,4 +15,3 @@ Aspects can include items such as the following:
 
 * [Create an aspect](aspects-create.md)
 * [`IAspect` API documentation](xref:Unity.Entities.IAspect)
-* [`TransformAspect` API documentation](xref:Unity.Transforms.TransformAspect)

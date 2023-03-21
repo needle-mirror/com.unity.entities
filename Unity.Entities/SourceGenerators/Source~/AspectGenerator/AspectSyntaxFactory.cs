@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Unity.Entities.SourceGen.Aspect;
 using Unity.Entities.SourceGen.Common;
 
@@ -66,13 +63,21 @@ public static class AspectSyntaxFactory
         return printer;
     }
 
-    static Printer PrintAddComponentTypes(Printer printer, AspectDefinition aspect, bool isReadOnly)
+    static Printer PrintAddComponentTypes(Printer printer, bool forceReadOnly, AspectDefinition aspect)
     {
-        foreach (var bind in aspect.PrimitivesRouter.QueryBindings)
-        {
-            printer.PrintBeginLine("global::Unity.Entities.InternalCompilerInterface.CombineComponentType(ref all, ");
-            bind.PrintQueryComponentType(printer, isReadOnly).PrintEndLine(");");
-        }
+        printer.PrintBeginLine(
+            $@"var allRequiredComponentsInAspect =
+                    new Unity.Collections.LowLevel.Unsafe.UnsafeList<Unity.Entities.ComponentType>(initialCapacity: 8, allocator: Unity.Collections.Allocator.Temp, options: Unity.Collections.NativeArrayOptions.ClearMemory)
+                    {{
+                        {aspect.PrimitivesRouter.QueryBindings
+                            .Select(
+                                q =>
+                                    q.IsReadOnly | forceReadOnly ? $"Unity.Entities.ComponentType.ReadOnly<{q.ComponentTypeName}>()" : $"Unity.Entities.ComponentType.ReadWrite<{q.ComponentTypeName}>()")
+                            .SeparateByComma()}
+                    }};
+                global::Unity.Entities.InternalCompilerInterface.MergeWith(ref all, ref allRequiredComponentsInAspect);
+                allRequiredComponentsInAspect.Dispose();");
+
         return printer;
     }
 
@@ -127,17 +132,17 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@"/// <param name=""absent"">Archetype ""absent"" component requirements.</param>");
             printer.PrintLine(@"/// <param name=""isReadOnly"">set to true to force all components to be read-only.</param>");
             printer.PrintBeginLine(
-                    "public void AddComponentRequirementsTo(ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> all, ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> any, ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> none, ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> disabled, ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> absent, bool isReadOnly)")
-            .OpenScope()
+                    "public void AddComponentRequirementsTo(ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> all, bool isReadOnly)")
+                .OpenScope()
                 .PrintBeginLine("if (isReadOnly)")
                 .OpenScope()
-                    .PrintWith(x => PrintAddComponentTypes(x, aspect, isReadOnly: true))
+                .PrintWith(x => PrintAddComponentTypes(x, true, aspect))
                 .CloseScope()
                 .PrintBeginLine("else")
                 .OpenScope()
-                    .PrintWith(x => PrintAddComponentTypes(x, aspect, isReadOnly: false))
+                .PrintWith(x => PrintAddComponentTypes(x, false, aspect))
                 .CloseScope()
-            .CloseScope();
+                .CloseScope();
 
             // Print Aspect's Lookup primitive
             printer.PrintEndLine();

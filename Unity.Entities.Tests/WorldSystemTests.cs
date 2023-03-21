@@ -573,7 +573,7 @@ namespace Unity.Entities.Tests
         }
 
 
-        struct ISystemWithIncorrectManageField : ISystem
+        partial struct ISystemWithIncorrectManageField : ISystem
         {
             private string BadString;
             public void OnCreate(ref SystemState state) => Debug.LogError("Should never even get here");

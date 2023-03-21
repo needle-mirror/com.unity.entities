@@ -37,7 +37,9 @@ namespace Unity.Entities.Tests
 
             public override void Bake(DependsOnAssetTransitiveTestAuthoring authoring)
             {
-                AddComponent(new Component
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+                AddComponent(entity, new Component
                 {
                     Value = FindValue(authoring)
                 });

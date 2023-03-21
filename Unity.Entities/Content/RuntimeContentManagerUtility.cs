@@ -194,13 +194,14 @@ namespace Unity.Entities.Content
             spinLock.Release();
         }
 
-        public unsafe bool ConsumeAll(out NativeArray<T> newIdContainer, Allocator allocator)
+        public unsafe bool ConsumeAll(out NativeArray<T> newIdContainer, AllocatorManager.AllocatorHandle allocator)
         {
             newIdContainer = default;
             spinLock.Acquire();
             if (!Values.IsEmpty)
             {
-                newIdContainer = new NativeArray<T>(Values.Length, allocator);
+                // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
+                newIdContainer = new NativeArray<T>(Values.Length, allocator.ToAllocator);
                 UnsafeUtility.MemCpy(newIdContainer.GetUnsafePtr(), Values.Ptr, sizeof(T) * Values.Length);
                 var size = Values.Capacity;
                 Values.Dispose();

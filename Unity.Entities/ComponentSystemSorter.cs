@@ -14,33 +14,6 @@ namespace Unity.Entities
     [BurstCompile]
     internal class ComponentSystemSorter
     {
-        public class CircularSystemDependencyException : Exception
-        {
-            public CircularSystemDependencyException(IEnumerable<Type> chain)
-            {
-                Chain = chain;
-            }
-
-            public IEnumerable<Type> Chain { get; }
-
-            public override string Message
-            {
-                get
-                {
-                    var lines = new List<string>
-                    {
-                        $"The following systems form a circular dependency cycle (check their [*Before]/[*After] attributes):"
-                    };
-                    foreach (var s in Chain)
-                    {
-                        lines.Add($"- {s.ToString()}");
-                    }
-
-                    return lines.Aggregate((str1, str2) => str1 + "\n" + str2);
-                }
-            }
-        }
-
         private struct Heap
         {
             private readonly UnsafeList<TypeHeapElement> _elements;
@@ -160,7 +133,7 @@ namespace Unity.Entities
             }
         }
 
-        private static unsafe int LookupSystemElement(int typeIndex, NativeHashMap<int, int>* lookupDictionaryPtr)
+        internal static unsafe int LookupSystemElement(int typeIndex, NativeHashMap<int, int>* lookupDictionaryPtr)
         {
             ref var mylookupDictionary = ref *lookupDictionaryPtr;
 
@@ -177,22 +150,65 @@ namespace Unity.Entities
             public FixedList128Bytes<int> updateBefore;
             public int nAfter;
         }
+
+
+        internal static unsafe void Sort(
+            UnsafeList<SystemElement>* elementsptr,
+            NativeHashMap<int, int>* lookupDictionary)
+        {
+            var badTypeIndices = new NativeList<int>(16, Allocator.Temp);
+            
+            // Find & validate constraints between systems in the group
+            var badTypeIndicesPtr = (NativeList<int>*)UnsafeUtility.AddressOf(ref badTypeIndices);
+            SortInternal(elementsptr, lookupDictionary, badTypeIndicesPtr);
+            
+            //the below can't be bursted yet because of https://jira.unity3d.com/browse/BUR-2232 and friends, which are
+            //slated to be fixed in 1.8.4. 
+            if (badTypeIndices.Length > 0)
+            {
+                FixedString4096Bytes msg = "The following systems form a circular dependency cycle (check their [*Before]/[*After] attributes):\n";
+
+                FixedString32Bytes newline = "\n";
+
+                for (int i=0; i< badTypeIndices.Length; i++)
+                {
+                    FixedString512Bytes line = "- ";
+                    line.Append(TypeManager.GetSystemName(badTypeIndices[i]));
+                    msg.Append(line); 
+
+                    if (i < badTypeIndices.Length - 1)
+                    {
+                        msg.Append(newline);
+                    }
+                }
+                        
+                throw new InvalidOperationException(msg.ToString());
+            }
+        }
         
         [BurstCompile(CompileSynchronously = true)]
-        internal static unsafe void Sort(UnsafeList<SystemElement>* elementsptr, NativeHashMap<int, int>* lookupDictionary)
+        internal static unsafe void SortInternal(
+            UnsafeList<SystemElement>* elementsptr,
+            NativeHashMap<int, int>* lookupDictionary, 
+            NativeList<int>* badSystemTypeIndices)
         {
-            var elements = *elementsptr;
+            ref var elements = ref *elementsptr;
             lookupDictionary->Clear();
             
             var sortedElements = new UnsafeList<SystemElement>(elements.Length,
                 Allocator.Temp);
             sortedElements.Length = elements.Length;
+            var sortedIndices = new UnsafeList<int>(elements.Length,
+                Allocator.Temp);
+            sortedIndices.Length = elements.Length;
             
             int nextOutIndex = 0;
 
             var readySystems = new Heap(elements.Length);
+            
             for (int i = 0; i < elements.Length; ++i)
             {
+                
                 if (elements[i].nAfter == 0)
                 {
                     readySystems.Insert(new TypeHeapElement(i, elements[i].TypeIndex));
@@ -209,7 +225,11 @@ namespace Unity.Entities
                 sortedElements[nextOutIndex++] = new SystemElement
                 {
                     TypeIndex = elem.TypeIndex,
-                    Index = elem.Index,
+                    Index = elem.Index, 
+                    nAfter = elem.nAfter, 
+                    updateBefore = elem.updateBefore, 
+                    OrderingBucket = elem.OrderingBucket
+                    
                 };
                 foreach (var beforeType in elem.updateBefore)
                 {
@@ -227,8 +247,129 @@ namespace Unity.Entities
                 elements.ElementAt(sysIndex).nAfter = -1; // "Remove()"
             }
 
-            elements.CopyFrom(sortedElements);
+            
+            if (nextOutIndex < elements.Length)
+            {
+               /*
+                * we failed to sort all the things, which happens if and only if there's a cycle in the before/after
+                * graph. but, the unsorted things will also include any systems that were supposed to be after the
+                * systems in a cycle. 
+                *
+                * We should actually throw the exception right here inside burst, but we are blocked by Burst bugs
+                * https://jira.unity3d.com/browse/BUR-2245
+                * https://jira.unity3d.com/browse/BUR-2231
+                * https://jira.unity3d.com/browse/BUR-2216
+                * so instead we write down the indices and throw outside burst.
+                */
+
+                var tmp = new NativeHashSet<int>(nextOutIndex, Allocator.Temp);
+                for (int i = 0; i < nextOutIndex; i++)
+                {
+                    tmp.Add(sortedElements[i].TypeIndex);
+                }
+
+                for (int i = 0; i < elements.Length; i++)
+                {
+                    if (!tmp.Contains(elements[i].TypeIndex))
+                    {
+                        badSystemTypeIndices->Clear();
+                        FindExactCycleInSystemGraph(elements[i].TypeIndex, elements, lookupDictionary, badSystemTypeIndices->m_ListData);
+                        if (badSystemTypeIndices->Length > 0)
+                        {
+                            //we found a cycle, so we're done
+                            return;
+                        }
+                        //if we didn't write anything into the array, the type index in question must not been just
+                        //downstream of a cycle, rather than actually part of the cycle, so just try to find a cycle
+                        //starting from another system. 
+                    }
+                }
+
+                throw new InvalidOperationException(
+                    "Internal error: failed sorting systems but also couldn't find a cycle in the system graph. Please report this with Help->Report a bug...");
+            }
+            else
+            {
+                elements.CopyFrom(sortedElements);
+            }
         }
+
+        private static unsafe void FindExactCycleInSystemGraph(
+            int startingSystemTypeIndex,
+            UnsafeList<SystemElement> elements,
+            NativeHashMap<int, int>* lookup,
+            UnsafeList<int>* finalCycle)
+        {
+            var indexInList = -1;
+            for (int i = 0; i < elements.Length; i++)
+            {
+                if (elements[i].TypeIndex == startingSystemTypeIndex)
+                {
+                    indexInList = i;
+                    break;
+                }
+            }
+
+            if (indexInList == -1)
+            {
+                throw new InvalidOperationException("Internal error starting type index was bad couldn't find it in list");
+            }
+
+            var pathSoFarInTypeIndices = new NativeList<int>(16, Allocator.Temp);
+            var visitedSoFarTypeIndices = new NativeHashSet<int>(elements.Length, Allocator.Temp);
+
+            var currentSystemTypeIndex = startingSystemTypeIndex;
+            var currentIndexInList = indexInList;
+            
+            
+            while (visitedSoFarTypeIndices.Count < elements.Length)
+            {
+                var continueflag = false;
+                for (int i = 0; i < elements[currentIndexInList].updateBefore.Length; i++)
+                {
+                    var newTypeIndex = elements[currentIndexInList].updateBefore[i];
+                    var cycleStart = pathSoFarInTypeIndices.IndexOf(newTypeIndex);
+
+                    if (cycleStart != -1)
+                    {
+                        //found a cycle! make sure not to miss the last node
+                        pathSoFarInTypeIndices.Add(currentSystemTypeIndex);
+
+                        for (int j = cycleStart; j < pathSoFarInTypeIndices.Length; j++)
+                        {
+                            finalCycle->Add(pathSoFarInTypeIndices[j]);
+                        }
+
+                        //finalcycle represents the exact cycle now
+                        return;
+                    }
+                    
+                    if (!visitedSoFarTypeIndices.Contains(newTypeIndex))
+                    {
+                        pathSoFarInTypeIndices.Add(currentSystemTypeIndex);
+                        visitedSoFarTypeIndices.Add(currentSystemTypeIndex);
+                        
+                        //we've never been here before, so expand this node
+                        currentSystemTypeIndex = newTypeIndex;
+                        currentIndexInList = LookupSystemElement(currentSystemTypeIndex, lookup);
+                        
+                        continueflag = true;
+                        break;
+                    }
+                }
+
+                if (continueflag) continue;
+                
+                //if we get here, we looked at all the constraints of the current element and we had seen them all before,
+                //and none of them formed a cycle with anything in the path so far. 
+                //so, we have to backtrack.
+                
+                pathSoFarInTypeIndices.RemoveAt(pathSoFarInTypeIndices.Length-1);
+                currentSystemTypeIndex = pathSoFarInTypeIndices[^1];
+                currentIndexInList = LookupSystemElement(currentSystemTypeIndex, lookup);
+            }
+        }
+
 
         private static unsafe void PopulateSystemElementLookup(NativeHashMap<int, int>* lookupDictionary, UnsafeList<SystemElement> elements)
         {
@@ -246,33 +387,41 @@ namespace Unity.Entities
             var systemType = TypeManager.GetSystemType(systemTypeIndex);
             var updateInGroups =
                 TypeManager.GetSystemAttributes(systemType, typeof(UpdateInGroupAttribute));
-            Type groupType = group.GetType();
-            UpdateInGroupAttribute groupAttr;
-            foreach (var attr in updateInGroups)
+            Type groupType = null;
+            if (group != null)
             {
-                groupAttr = (UpdateInGroupAttribute)attr;
-                groupType = groupAttr.GroupType;
-                if (!TypeManager.IsSystemType(groupType))
+                groupType = group.GetType();
+                UpdateInGroupAttribute groupAttr;
+                foreach (var attr in updateInGroups)
                 {
-                    Debug.LogWarning($"Ignoring invalid UpdateInGroup attribute on {systemType} targeting {groupType}, because {groupType} is not a system type.");
-                    continue;
-                }
-                
-                if (!TypeManager.IsSystemAGroup(groupType))
-                {
-                    Debug.LogWarning($"Ignoring invalid UpdateInGroup attribute on {systemType} targeting {groupType}, because {groupType} is not a ComponentSystemGroup.");
-                    continue;
-                }
+                    groupAttr = (UpdateInGroupAttribute)attr;
+                    groupType = groupAttr.GroupType;
+                    if (!TypeManager.IsSystemType(groupType))
+                    {
+                        Debug.LogWarning(
+                            $"Ignoring invalid UpdateInGroup attribute on {systemType} targeting {groupType}, because {groupType} is not a system type.");
+                        continue;
+                    }
 
-                if (groupType == systemType)
-                {
-                    Debug.LogWarning($"Ignoring invalid UpdateInGroup attribute on {systemType} because a system group cannot be updated inside itself.\n");
-                    continue;
-                }
+                    if (!TypeManager.IsSystemAGroup(groupType))
+                    {
+                        Debug.LogWarning(
+                            $"Ignoring invalid UpdateInGroup attribute on {systemType} targeting {groupType}, because {groupType} is not a ComponentSystemGroup.");
+                        continue;
+                    }
 
-                if (groupAttr.OrderFirst && groupAttr.OrderLast)
-                {
-                    Debug.LogWarning($"Ignoring invalid OrderFirst & OrderLast directives on UpdateInGroup attribute on {systemType} because a system cannot be ordered both first and last in a group.");
+                    if (groupType == systemType)
+                    {
+                        Debug.LogWarning(
+                            $"Ignoring invalid UpdateInGroup attribute on {systemType} because a system group cannot be updated inside itself.\n");
+                        continue;
+                    }
+
+                    if (groupAttr.OrderFirst && groupAttr.OrderLast)
+                    {
+                        Debug.LogWarning(
+                            $"Ignoring invalid OrderFirst & OrderLast directives on UpdateInGroup attribute on {systemType} because a system cannot be ordered both first and last in a group.");
+                    }
                 }
             }
 
@@ -294,7 +443,7 @@ namespace Unity.Entities
                     if (!TypeManager.IsSystemType(targetType))
                     {
                         Debug.LogWarning(
-                            $"Ignoring invalid [{attrType}] attribute on {systemType} targeting {targetType}, because {targetType} is not a subclass of ComponentSystemBase");
+                            $"Ignoring invalid [{attrType}] attribute on {systemType} targeting {targetType}, because {targetType} is not a subclass of ComponentSystemBase and does not implement ISystem");
                         continue;
                     }
 
@@ -307,7 +456,7 @@ namespace Unity.Entities
 
                     if (TypeManager.IsSystemManaged(targetType))
                     {
-                        if (group.m_managedSystemsToUpdate.All(s => s.GetType() != targetType))
+                        if (group != null && group.m_managedSystemsToUpdate.All(s => s.GetType() != targetType))
                         {
                             Debug.LogWarning(
                                 $"Ignoring invalid [{attrType}] attribute on {systemType} targeting {targetType}.\n" +
@@ -319,42 +468,51 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        //it must be unmanaged if we get here, so look for it in the unmanaged of the group, and warn if it isn't there
-                        var badUnmanagedUpdateInGroup = true;
-                        for (int i = 0; i < group.m_UnmanagedSystemsToUpdate.Length; i++)
+                        if (group != null)
                         {
-                            if (TypeManager.GetSystemType(
-                                    group.World.Unmanaged.ResolveSystemState(group.m_UnmanagedSystemsToUpdate[i])->
-                                        m_SystemTypeIndex) ==
-                                targetType)
+                            //it must be unmanaged if we get here, so look for it in the unmanaged of the group, and warn if it isn't there
+                            var badUnmanagedUpdateInGroup = true;
+                            for (int i = 0; i < group.m_UnmanagedSystemsToUpdate.Length; i++)
                             {
-                                badUnmanagedUpdateInGroup = false;
-                                break;
+                                if (TypeManager.GetSystemType(
+                                        group.World.Unmanaged.ResolveSystemState(group.m_UnmanagedSystemsToUpdate[i])->
+                                            m_SystemTypeIndex) ==
+                                    targetType)
+                                {
+                                    badUnmanagedUpdateInGroup = false;
+                                    break;
+                                }
+                            }
+
+                            if (badUnmanagedUpdateInGroup)
+                            {
+                                Debug.LogWarning(
+                                    $"Ignoring invalid [{attrType}] attribute on {systemType} targeting {targetType}.\n" +
+                                    $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n" +
+                                    $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({groupType}))],\n" +
+                                    $"or by manually adding both systems to the same group's update list.");
+                                continue;
                             }
                         }
+                    }
 
-                        if (badUnmanagedUpdateInGroup)
+                    if (group != null)
+                    {
+                        var groupTypeIndex = TypeManager.GetSystemTypeIndex(groupType);
+                        var thisBucket =
+                            ComponentSystemGroup.ComputeSystemOrdering(systemTypeIndex, groupTypeIndex);
+
+                        var otherBucket =
+                            ComponentSystemGroup.ComputeSystemOrdering(TypeManager.GetSystemTypeIndex(targetType),
+                                groupTypeIndex);
+                        if (thisBucket != otherBucket)
                         {
                             Debug.LogWarning(
-                                $"Ignoring invalid [{attrType}] attribute on {systemType} targeting {targetType}.\n" +
-                                $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n" +
-                                $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({groupType}))],\n" +
-                                $"or by manually adding both systems to the same group's update list.");
+                                $"Ignoring invalid [{attrType}({targetType})] attribute on {systemType} because OrderFirst/OrderLast has higher precedence.");
                             continue;
                         }
                     }
 
-                    var groupTypeIndex = TypeManager.GetSystemTypeIndex(groupType);
-                    var thisBucket =
-                        ComponentSystemGroup.ComputeSystemOrdering(systemTypeIndex, groupTypeIndex);
-                    
-                    var otherBucket = ComponentSystemGroup.ComputeSystemOrdering(TypeManager.GetSystemTypeIndex(targetType), groupTypeIndex);
-                    if (thisBucket != otherBucket)
-                    {
-                        Debug.LogWarning($"Ignoring invalid [{attrType}({targetType})] attribute on {systemType} because OrderFirst/OrderLast has higher precedence.");
-                        continue;
-                    }
-                    
                 }
             }
         }
@@ -366,9 +524,9 @@ namespace Unity.Entities
             NativeHashMap<int, int>* lookupDictionary,
             TypeManager.SystemAttributeKind afterkind,
             TypeManager.SystemAttributeKind beforekind,
-            UnsafeList<int>* badSystemTypeIndices)
+            NativeHashSet<int>* badSystemTypeIndices)
         {
-            var sysElems = *sysElemsPtr;
+            ref var sysElems = ref *sysElemsPtr;
             lookupDictionary->Clear();
             
             PopulateSystemElementLookup(lookupDictionary, sysElems);

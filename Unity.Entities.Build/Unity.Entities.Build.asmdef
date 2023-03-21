@@ -3,7 +3,8 @@
     "rootNamespace": "Unity.Entities.Build",
     "references": [
         "Unity.Entities",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.Collections"
     ],
     "includePlatforms": [
         "Editor"

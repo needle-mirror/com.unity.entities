@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Mathematics;
@@ -37,7 +38,7 @@ namespace Unity.Entities
             public readonly NativeArray<EntityGuid> NameChangedEntityGuids;
             public int NameChangedCount;
 
-            public NameChangeSet(int length, Allocator allocator)
+            public NameChangeSet(int length, AllocatorManager.AllocatorHandle allocator)
             {
                 Names = CollectionHelper.CreateNativeArray<FixedString64Bytes>(length, allocator);
                 NameChangedEntityGuids = CollectionHelper.CreateNativeArray<EntityGuid>(length, allocator);
@@ -55,6 +56,7 @@ namespace Unity.Entities
             public readonly PackedEntityGuidsCollection Entities;
             public readonly PackedCollection<ComponentTypeHash> ComponentTypes;
             public readonly NativeList<PackedComponent> AddComponents;
+            public readonly NativeList<FilteredArchetype> AddArchetypes;
             public readonly NativeList<PackedComponent> RemoveComponents;
             public readonly NativeList<PackedComponentDataChange> SetComponents;
             public readonly NativeList<LinkedEntityGroupChange> LinkedEntityGroupAdditions;
@@ -72,6 +74,7 @@ namespace Unity.Entities
                 Entities = new PackedEntityGuidsCollection(count, Allocator.Persistent);
                 ComponentTypes = new PackedCollection<ComponentTypeHash>(count, Allocator.Persistent);
                 AddComponents = new NativeList<PackedComponent>(count * 16, Allocator.Persistent);
+                AddArchetypes = new NativeList<FilteredArchetype>(count, Allocator.Persistent);
                 RemoveComponents = new NativeList<PackedComponent>(count, Allocator.Persistent);
                 SetComponents = new NativeList<PackedComponentDataChange>(count * 8, Allocator.Persistent);
                 LinkedEntityGroupAdditions = new NativeList<LinkedEntityGroupChange>(count, Allocator.Persistent);
@@ -83,6 +86,16 @@ namespace Unity.Entities
                 ManagedComponentChanges = new NativeList<DeferredManagedComponentChange>(count, Allocator.Persistent);
                 IsCreated = true;
                 ReserveSize = count;
+
+                for (int i = 0; i < count; i++)
+                {
+                    AddArchetypes.Add(new FilteredArchetype()
+                    {
+                        EntityCount = 0,
+                        PackedEntityIndices = new UnsafeList<int>(1, Allocator.Persistent),
+                        TypeIndices = new UnsafeList<TypeIndex>(1, Allocator.Persistent)
+                    });
+                }
             }
 
             public void ResizeAndClear(int count)
@@ -106,6 +119,17 @@ namespace Unity.Entities
                 Entities.Clear();
                 ComponentTypes.Clear();
                 if (AddComponents.IsCreated) AddComponents.Clear();
+                if (AddArchetypes.IsCreated)
+                {
+                    for (int i = 0; i < AddArchetypes.Length; i++)
+                    {
+                        ref var arch = ref AddArchetypes.ElementAt(i);
+                        arch.EntityCount = 0;
+                        arch.TypeIndices.Clear();
+                        arch.PackedEntityIndices.Clear();
+                    }
+                }
+
                 if (RemoveComponents.IsCreated) RemoveComponents.Clear();
                 if (SetComponents.IsCreated) SetComponents.Clear();
                 if (LinkedEntityGroupAdditions.IsCreated) LinkedEntityGroupAdditions.Clear();
@@ -123,6 +147,15 @@ namespace Unity.Entities
                 ComponentTypes.Dispose();
 
                 if (AddComponents.IsCreated) AddComponents.Dispose();
+                if (AddArchetypes.IsCreated)
+                {
+                    foreach (var arch in AddArchetypes)
+                    {
+                        arch.TypeIndices.Dispose();
+                        arch.PackedEntityIndices.Dispose();
+                    }
+                    AddArchetypes.Dispose();
+                }
                 if (RemoveComponents.IsCreated) RemoveComponents.Dispose();
                 if (SetComponents.IsCreated) SetComponents.Dispose();
                 if (LinkedEntityGroupAdditions.IsCreated) LinkedEntityGroupAdditions.Dispose();
@@ -145,7 +178,7 @@ namespace Unity.Entities
 
             public NativeReference<int> AddedCount;
 
-            public PackedEntityGuidsCollection(int capacity, Allocator label)
+            public PackedEntityGuidsCollection(int capacity, AllocatorManager.AllocatorHandle label)
             {
                 List = new NativeList<EntityGuid>(capacity, label);
                 AddedCount = new NativeReference<int>(label);
@@ -252,7 +285,7 @@ namespace Unity.Entities
             [NativeDisableContainerSafetyRestriction]
             public NativeParallelHashMap<T, int> Lookup;
 
-            public PackedCollection(int capacity, Allocator label)
+            public PackedCollection(int capacity, AllocatorManager.AllocatorHandle label)
             {
                 List = new NativeList<T>(capacity, label);
                 Lookup = new NativeParallelHashMap<T, int>(capacity, label);
@@ -487,6 +520,7 @@ namespace Unity.Entities
             public GatherComponentChangesWriteOnlyData CacheData;
             // Atomic outputs written from the cached data
             public GatherComponentChangesOutput OutputData;
+            public NativeHashMap<ulong, int> AddedArchetypes;
 
             public void ProcessRange(int index)
             {
@@ -505,6 +539,49 @@ namespace Unity.Entities
                         var afterChunk = afterEntity.Chunk;
                         var afterArchetype = afterChunk->Archetype;
                         var afterTypesCount = afterArchetype->TypesCount;
+                        var archetypeHash = afterArchetype->StableHash;
+
+                        // The packedEntityIndex is used to store on which indices of the other packed arrays (e.g. AddComponents array)
+                        // this archetype is used. This is necessary to match the entities up again in the patcher with the othe arrays
+                        // Without this, the wrong archetype will be assigned to the wrong entity indices
+                        var packedEntityIndex = ReadData.Entities.Get(entityGuid, 0, i);
+
+                        // If the archetype is already known, update the entry
+                        if (AddedArchetypes.TryGetValue(archetypeHash, out int indexInAddArchetypes))
+                        {
+                            // Add the current index to the PackedEntityIndices of the filteredArchetype
+                            var previous = CacheData.AddArchetypes[indexInAddArchetypes];
+                            previous.PackedEntityIndices.Add(packedEntityIndex);
+                            previous.EntityCount++;
+
+                            // Overwrite the previous entry for this filteredArchetype with the new one
+                            CacheData.AddArchetypes[indexInAddArchetypes] = previous;
+                        }
+                        else
+                        {
+                            // Add all components to the archetype in typeIndex form, to allow (de)serialization
+                            UnsafeList<TypeIndex> typeSet =
+                                new UnsafeList<TypeIndex>(afterTypesCount - 1, Allocator.TempJob);
+                            for (var indexInTypeArray = 1; indexInTypeArray < afterTypesCount; indexInTypeArray++)
+                            {
+                                var afterTypeInArchetype = afterArchetype->Types[indexInTypeArray];
+
+                                if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType)
+                                    continue;
+
+                                typeSet.Add(afterTypeInArchetype.TypeIndex);
+                            }
+
+                            // Add both to the CacheData for the EntityPatcher and to the local AddedArchetypes
+                            // for checking against future entities being processed
+                            AddedArchetypes.Add(archetypeHash, CacheData.AddArchetypes.Length);
+                            CacheData.AddArchetypes.Add(new FilteredArchetype()
+                            {
+                                EntityCount = 1,
+                                TypeIndices = typeSet,
+                                PackedEntityIndices = new UnsafeList<int>(16, Allocator.TempJob){packedEntityIndex},
+                            });
+                        }
 
                         for (var afterIndexInTypeArray = 1; afterIndexInTypeArray < afterTypesCount; afterIndexInTypeArray++)
                         {
@@ -513,15 +590,18 @@ namespace Unity.Entities
                             if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType)
                                 continue;
 
+                            // This handles special component types that need additional/special adding
+                            // (managed components). It doesn't add normal components that are covered in the archetype
                             AddComponentData(
                                 afterChunk,
                                 afterArchetype,
                                 afterTypeInArchetype,
                                 afterIndexInTypeArray,
                                 afterEntity.IndexInChunk,
-                                entityGuid, 0, i);
+                                entityGuid, 0, i, false);
                         }
                     }
+                    AddedArchetypes.Clear();
 
                     // handle the case where we have few entites to process and we need to fall into the other
                     // loop in case we need to
@@ -581,7 +661,8 @@ namespace Unity.Entities
                                 afterIndexInTypeArray,
 
                                 afterEntity.IndexInChunk,
-                                entityGuid, 1, i
+                                entityGuid, 1, i,
+                                true
                             );
 
                             continue;
@@ -634,11 +715,15 @@ namespace Unity.Entities
                 int afterEntityIndexInChunk,
                 EntityGuid entityGuid,
                 int tableHint,
-                int entryHint)
+                int entryHint,
+                bool addComponent)
             {
                 var packedComponent = PackComponent(entityGuid, afterTypeInArchetype.TypeIndex, tableHint, entryHint);
 
-                CacheData.AddComponents.Add(packedComponent);
+                if (addComponent)
+                {
+                    CacheData.AddComponents.Add(packedComponent);
+                }
 
                 if (afterTypeInArchetype.IsSharedComponent)
                 {
@@ -1259,9 +1344,32 @@ namespace Unity.Entities
                 src.Clear();
             }
 
-            public void WriteToOutputData()
+            private void WriteArrayDeepCopy(NativeList<FilteredArchetype> dest, ref NativeList<FilteredArchetype> src, ref int currentIndex)
+            {
+                if (src.IsEmpty)
+                    return;
+
+                for (int srcIndex = 0; srcIndex < src.Length; srcIndex++)
+                {
+                    int destIndex = currentIndex + srcIndex;
+                    ref var dst = ref dest.ElementAt(destIndex);
+
+                    dst.EntityCount += src[srcIndex].EntityCount;
+                    dst.TypeIndices.AddRange(src[srcIndex].TypeIndices);
+                    dst.PackedEntityIndices.AddRange(src[srcIndex].PackedEntityIndices);
+
+                    src[srcIndex].TypeIndices.Dispose();
+                    src[srcIndex].PackedEntityIndices.Dispose();
+                }
+
+                currentIndex += src.Length;
+                src.Clear();
+            }
+
+            public void WriteToOutputData(ref int archteypeCount)
             {
                 WriteArray(OutputData.AddComponents, ref CacheData.AddComponents);
+                WriteArrayDeepCopy(OutputData.AddArchetypes, ref CacheData.AddArchetypes, ref archteypeCount);
                 WriteArray(OutputData.SetComponents, ref CacheData.SetComponents);
                 WriteArray(OutputData.RemoveComponents, ref CacheData.RemoveComponents);
                 WriteArray(OutputData.EntityReferencePatches, ref CacheData.EntityReferencePatches);
@@ -1277,6 +1385,7 @@ namespace Unity.Entities
         struct GatherComponentChangesOutput
         {
             [WriteOnly] public NativeList<PackedComponent> AddComponents;
+            [WriteOnly] public NativeList<FilteredArchetype> AddArchetypes;
             [WriteOnly] public NativeList<PackedComponentDataChange> SetComponents;
             [WriteOnly] public NativeList<PackedComponent> RemoveComponents;
             [WriteOnly] public NativeList<EntityReferenceChange> EntityReferencePatches;
@@ -1322,6 +1431,7 @@ namespace Unity.Entities
         struct GatherComponentChangesWriteOnlyData
         {
             [WriteOnly] public NativeList<PackedComponent> AddComponents;
+            [WriteOnly] public NativeList<FilteredArchetype> AddArchetypes;
             [WriteOnly] public NativeList<PackedComponentDataChange> SetComponents;
             [WriteOnly] public NativeList<PackedComponent> RemoveComponents;
             [WriteOnly] public NativeList<EntityReferenceChange> EntityReferencePatches;
@@ -1342,6 +1452,7 @@ namespace Unity.Entities
             public void Execute()
             {
                 var addComponentsSize = ComponentChangesBatchCount * 16;
+                var addArchetypeSize = ComponentChangesBatchCount;
                 var removeComponentsSize  = ComponentChangesBatchCount;
                 var setComponentsSize  = ComponentChangesBatchCount * 8;
                 var linkedEntityGroupAdditionsSize = ComponentChangesBatchCount;
@@ -1355,6 +1466,7 @@ namespace Unity.Entities
                 var cacheData = new GatherComponentChangesWriteOnlyData
                 {
                     AddComponents = new NativeList<PackedComponent>(addComponentsSize, Allocator.Temp),
+                    AddArchetypes = new NativeList<FilteredArchetype>(addArchetypeSize, Allocator.Temp),
                     RemoveComponents = new NativeList<PackedComponent>(removeComponentsSize, Allocator.Temp),
                     SetComponents = new NativeList<PackedComponentDataChange>(setComponentsSize, Allocator.Temp),
                     LinkedEntityGroupAdditions = new NativeList<LinkedEntityGroupChange>(linkedEntityGroupAdditionsSize, Allocator.Temp),
@@ -1365,20 +1477,23 @@ namespace Unity.Entities
                     SharedComponentChanges = new NativeList<DeferredSharedComponentChange>(sharedComponentChangesSize, Allocator.Temp),
                     ManagedComponentChanges = new NativeList<DeferredManagedComponentChange>(managedComponentChangesSize, Allocator.Temp),
                 };
+                var addedArchetypes = new NativeHashMap<ulong, int>(16, Allocator.Temp);
 
                 var data = new GatherComponentChanges
                 {
                     ReadData = ReadData,
                     CacheData = cacheData,
                     OutputData = OutputData,
+                    AddedArchetypes = addedArchetypes
                 };
 
                 int count = ReadData.CreatedEntities.Length + ReadData.ModifiedEntities.Length;
+                int archteypeCount = 0;
 
                 for (int i = 0; i < count; i += ComponentChangesBatchCount)
                 {
                     data.ProcessRange(i);
-                    data.WriteToOutputData();
+                    data.WriteToOutputData(ref archteypeCount);
                 }
 
                 data.CacheData.ManagedComponentChanges.Dispose();
@@ -1391,6 +1506,13 @@ namespace Unity.Entities
                 data.CacheData.SetComponents.Dispose();
                 data.CacheData.RemoveComponents.Dispose();
                 data.CacheData.AddComponents.Dispose();
+                foreach (var arch in data.CacheData.AddArchetypes)
+                {
+                    arch.TypeIndices.Dispose();
+                    arch.PackedEntityIndices.Dispose();
+                }
+                data.CacheData.AddArchetypes.Dispose();
+                addedArchetypes.Dispose();
             }
         }
 
@@ -1429,6 +1551,7 @@ namespace Unity.Entities
             return new GatherComponentChangesOutput
             {
                 AddComponents = componentChanges.AddComponents,
+                AddArchetypes = componentChanges.AddArchetypes,
                 RemoveComponents = componentChanges.RemoveComponents,
                 SetComponents = componentChanges.SetComponents,
                 EntityReferencePatches = componentChanges.EntityReferenceChanges,
@@ -1447,7 +1570,7 @@ namespace Unity.Entities
             bool useReferentialEquivalence,
             NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> afterBlobAssetRemap,
             NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> beforeBlobAssetRemap,
-            Allocator allocator,
+            AllocatorManager.AllocatorHandle allocator,
             out JobHandle jobHandle,
             JobHandle dependsOn = default)
         {
@@ -1493,7 +1616,7 @@ namespace Unity.Entities
             EntityInChunkChanges entityInChunkChanges,
             ComponentChanges componentChanges,
             BlobAssetChanges blobAssetChanges,
-            Allocator allocator)
+            AllocatorManager.AllocatorHandle allocator)
         {
             if (!entityInChunkChanges.IsCreated || !componentChanges.IsCreated || !blobAssetChanges.IsCreated)
             {
@@ -1552,6 +1675,7 @@ namespace Unity.Entities
                 nameChanges.Names,
                 nameChanges.NameChangedEntityGuids,
                 componentChanges.AddComponents.ToArray(allocator),
+                DeepCopyToArray(componentChanges.AddArchetypes, allocator),
                 componentChanges.RemoveComponents.ToArray(allocator),
                 componentChanges.SetComponents.ToArray(allocator),
                 componentChanges.ComponentData.ToArray(allocator),
@@ -1571,6 +1695,38 @@ namespace Unity.Entities
             return result;
         }
 
+        static NativeArray<FilteredArchetype> DeepCopyToArray(NativeList<FilteredArchetype> addArchetype, AllocatorManager.AllocatorHandle allocator)
+        {
+            int filledArchetypeCount = 0;
+            foreach (var archetype in addArchetype)
+            {
+                // Means it is an empty entry that was pre-populated
+                // Entries are contiguous so return at the first empty Entry, all others will be empty too
+                if (archetype.EntityCount == 0)
+                    break;
+
+                filledArchetypeCount++;
+            }
+
+            // Deep copy the filled Archetype data
+            NativeArray<FilteredArchetype> copyAddArchetype = CollectionHelper.CreateNativeArray<FilteredArchetype>(filledArchetypeCount, allocator);
+            for (int i = 0; i < filledArchetypeCount; i++)
+            {
+                var typeIndices = new UnsafeList<TypeIndex>(addArchetype[i].TypeIndices.Length, allocator);
+                var packedEntityIndices = new UnsafeList<int>(addArchetype[i].PackedEntityIndices.Length, allocator);
+                typeIndices.CopyFrom(addArchetype[i].TypeIndices);
+                packedEntityIndices.CopyFrom(addArchetype[i].PackedEntityIndices);
+
+                copyAddArchetype[i] = new FilteredArchetype()
+                {
+                    EntityCount = addArchetype[i].EntityCount,
+                    TypeIndices = typeIndices,
+                    PackedEntityIndices = packedEntityIndices
+                };
+            }
+            return copyAddArchetype;
+        }
+
         static PackedSharedComponentDataChange[] GetChangedSharedComponents(
             PackedEntityGuidsCollection packedEntityCollection,
             PackedCollection<ComponentTypeHash> packedStableTypeHashCollection,
@@ -1580,7 +1736,7 @@ namespace Unity.Entities
             EntityComponentStore* afterEntityComponentStore,
             ManagedComponentStore beforeManagedComponentStore,
             ManagedComponentStore afterManagedComponentStore,
-            Allocator allocator,
+            AllocatorManager.AllocatorHandle allocator,
             out UnsafeAppendBuffer unmanagedSharedComponentData)
         {
             if (changes.Length == 0)
@@ -1896,7 +2052,7 @@ namespace Unity.Entities
             NativeList<NameModifiedEntity> nameModifiedEntities,
             EntityManager afterEntityManager,
             EntityManager beforeEntityManager,
-            Allocator allocator)
+            AllocatorManager.AllocatorHandle allocator)
         {
             var length = createdEntities.Length + destroyedEntities.Length + nameModifiedEntities.Length;
 

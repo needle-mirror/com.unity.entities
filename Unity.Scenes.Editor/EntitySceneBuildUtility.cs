@@ -32,6 +32,7 @@ using UnityEngine.Analytics;
 using Object = UnityEngine.Object;
 using UnityEngine.SceneManagement;
 using Unity.Entities.Build;
+using Unity.Loading;
 
 namespace Unity.Scenes.Editor
 {
@@ -716,7 +717,6 @@ namespace Unity.Scenes.Editor
         {
             public UntypedWeakReferenceId refId;
             public AsyncOperation loadingOperation;
-            public Scene loadedScene;
             public bool IsDone => loadingOperation.isDone;
 
             public bool IsValid => loadingOperation != null;
@@ -726,7 +726,6 @@ namespace Unity.Scenes.Editor
                 try
                 {
                     refId = id;
-                    loadedScene = default;
                     if (refId.GenerationType == WeakReferenceGenerationType.SubSceneObjectReferences)
                     {
                         AssetDatabaseCompatibility.GetArtifactPaths(refId.GlobalId.AssetGUID, out var artifactPaths);
@@ -735,11 +734,6 @@ namespace Unity.Scenes.Editor
                             Debug.LogError($"Failed to find artifact load path for id {id}");
                         else
                             loadingOperation = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForgetAsync(loadPath, 1);
-                    }
-                    else if (refId.GenerationType == WeakReferenceGenerationType.GameObjectScene)
-                    {
-                        loadingOperation = UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(AssetDatabase.GUIDToAssetPath(refId.GlobalId.AssetGUID), default(LoadSceneParameters));
-                        loadedScene = UnityEditor.SceneManagement.EditorSceneManager.GetSceneAt(UnityEditor.SceneManagement.EditorSceneManager.sceneCount - 1);
                     }
                     else
                     {
@@ -756,8 +750,6 @@ namespace Unity.Scenes.Editor
             {
                 if (IsDone)
                     return true;
-                if (refId.GenerationType == WeakReferenceGenerationType.GameObjectScene)
-                    return false; //scenes cannot be synchronously loaded
                 if (refId.GenerationType == WeakReferenceGenerationType.SubSceneObjectReferences)
                     return (loadingOperation as UnityEditorInternal.LoadFileAndForgetOperation).Result != null;
                 else
@@ -782,9 +774,9 @@ namespace Unity.Scenes.Editor
                 {
                     if (refId.GenerationType == WeakReferenceGenerationType.UnityObject)
                     {
-                        var obj = GetResult();
-                        if (obj != null)
-                            Resources.UnloadAsset(obj as UnityEngine.Object);
+                        var obj = GetResult() as Object;
+                        if (obj != null && obj.IsAsset())
+                            Resources.UnloadAsset(obj);
                     }
                 }
                 else
@@ -795,13 +787,11 @@ namespace Unity.Scenes.Editor
 
             private void UnloadDeferred(AsyncOperation op)
             {
-                var adOp = op as UnityEditor.AssetDatabaseLoadOperation;
-                if (adOp != null)
-                    Resources.UnloadAsset(adOp.LoadedObject);
+                Unload();
             }
         }
-        Dictionary<UntypedWeakReferenceId, LoadState> _LoadingStates;
 
+        Dictionary<UntypedWeakReferenceId, LoadState> _LoadingStates;
         Dictionary<UntypedWeakReferenceId, LoadState> LoadingStates
         {
             get
@@ -852,11 +842,16 @@ namespace Unity.Scenes.Editor
             return state.GetResult();
         }
 
-        public Scene GetScene(UntypedWeakReferenceId sceneReferenceId)
+        public void UnloadScene(ref Scene scene)
         {
-            if (!LoadingStates.TryGetValue(sceneReferenceId, out var state))
-                throw new Exception($"GetScene should never be called when LoadingStates does not contain entry - id: {sceneReferenceId}");
-            return state.loadedScene;
+            SceneManager.UnloadSceneAsync(scene, UnloadSceneOptions.UnloadAllEmbeddedSceneObjects);
+            scene = default;
+        }
+
+        public Scene LoadScene(UntypedWeakReferenceId sceneReferenceId, ContentSceneParameters loadParams)
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.LoadSceneAsyncInPlayMode(AssetDatabase.GUIDToAssetPath(sceneReferenceId.GlobalId.AssetGUID), new LoadSceneParameters { loadSceneMode = loadParams.loadSceneMode, localPhysicsMode = loadParams.localPhysicsMode });
+            return SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
         }
 
         public void Unload(UntypedWeakReferenceId objectId)

@@ -46,12 +46,15 @@ namespace Unity.Entities
         // SharedComponentValues[SharedComponentCount * Capacity]
         int* SharedComponentValues => (int*)(((ulong)EntityCount) + EntityCountSize);
 
-        // ComponentEnabledBits[(RoundUp(ChunkEntityCapacity, 64)/64 * ComponentCount * Capacity]
+        // ComponentEnabledBits[(RoundUp(ChunkEntityCapacity, 128)/128 * ComponentCount * Capacity]
         //    chunk0: type0 type1 type2 ...
         //    chunk1: type0 type1 type2 ...
         //    chunk1: type0 type1 type2 ...
-        // Each type's bits are rounded up to a multiple of 64 bits, so that we can create an UnsafeBitArray of a single
+        // Each type's bits are rounded up to a multiple of 128 bits, so that we can create an UnsafeBitArray of a single
         // type within a single chunk.
+        // Types are stored in the same order in memory as component data (which is stable across runs),
+        // *not* the type index within the archetype (which is not). The data for archetype->Types[N] within
+        // each chunk is at mask index archetype->TypeIndexInArchetypeToMemoryOrderIndex[N]
         v128* ComponentEnabledBits => (v128*)(((ulong)SharedComponentValues) + SharedComponentValuesSize + PaddingForEnabledBitAlignmentSize);
 
         // Starts with single int32 for # of disabled components in entire archetype
@@ -59,6 +62,9 @@ namespace Unity.Entities
         //    chunk0: type0 type1 type2 ...
         //    chunk1: type0 type1 type2 ...
         //    chunk1: type0 type1 type2 ...
+        // Types are stored in the same order in memory as component data (which is stable across runs),
+        // *not* the type index within the archetype (which is not). The data for archetype->Types[N] within
+        // each chunk is at mask index archetype->TypeIndexInArchetypeToMemoryOrderIndex[N]
         int* ComponentEnabledBitsHierarchicalData => (int*)(((ulong)ComponentEnabledBits) + ComponentEnabledBitsSize);
 
         public ArchetypeChunkData(int componentCount, int sharedComponentCount)
@@ -162,16 +168,6 @@ namespace Unity.Entities
             };
         }
 
-        // Returns the bits for all types within a single chunk. Each type's bits are padded to a
-        // multiple of 64 entities.
-        public UnsafeBitArray GetComponentEnabledArrayForChunk(int chunkIndex)
-        {
-            Assert.IsTrue(chunkIndex >= 0 && chunkIndex < Capacity);
-
-            var bits = ComponentEnabledBits + (ComponentCount * chunkIndex);
-            return new UnsafeBitArray(bits, (int)ComponentEnabledBitsSizeTotalPerChunk);
-        }
-
         // Returns the bits for all types within a single chunk. Each type's bits are a v128.
         public v128* GetComponentEnabledMaskArrayForChunk(int chunkIndex)
         {
@@ -185,30 +181,18 @@ namespace Unity.Entities
         }
 
         // Returns the bits for a single type in a single chunk. Array count will be padded to a multiple of 64 entities.
-        public UnsafeBitArray GetEnabledArrayForTypeInChunk(int typeIndexInArchetype, int chunkIndex)
+        public UnsafeBitArray GetEnabledArrayForTypeInChunk(int typeMemoryOrderIndexInArchetype, int chunkIndex)
         {
-            Assert.IsTrue(typeIndexInArchetype >= 0);
+            Assert.IsTrue(typeMemoryOrderIndexInArchetype >= 0 && typeMemoryOrderIndexInArchetype < ComponentCount);
 
-            var bits = ComponentEnabledBits + (ComponentCount * chunkIndex) + typeIndexInArchetype;
+            var bits = ComponentEnabledBits + (ComponentCount * chunkIndex) + typeMemoryOrderIndexInArchetype;
             return new UnsafeBitArray(bits, (int)ComponentEnabledBitsSizePerComponentInChunk);
         }
-        public v128* GetComponentEnabledMaskArrayForTypeInChunk(int typeIndexInArchetype, int chunkIndex)
+        public v128* GetComponentEnabledMaskArrayForTypeInChunk(int typeMemoryOrderIndexInArchetype, int chunkIndex)
         {
-            Assert.IsTrue(typeIndexInArchetype >= 0);
+            Assert.IsTrue(typeMemoryOrderIndexInArchetype >= 0 && typeMemoryOrderIndexInArchetype < ComponentCount);
 
-            return ComponentEnabledBits + (ComponentCount * chunkIndex) + typeIndexInArchetype;
-        }
-
-        public UnsafeBitArray GetComponentEnabledArrayForArchetype()
-        {
-            var bits = ComponentEnabledBits;
-            return new UnsafeBitArray(bits, (int)ComponentEnabledBitsSizeTotalPerChunk * Count);
-        }
-
-        public UnsafeBitArray GetComponentEnabledArrayForArchetypeAndChunkOffset(int chunkOffset)
-        {
-            var bits = ComponentEnabledBits + (ComponentCount * chunkOffset);
-            return new UnsafeBitArray(bits, (int)ComponentEnabledBitsSizeTotalPerChunk * (Count - chunkOffset));
+            return ComponentEnabledBits + (ComponentCount * chunkIndex) + typeMemoryOrderIndexInArchetype;
         }
 
         public void InitializeDisabledCountForChunk(int chunkIndex)
@@ -232,13 +216,13 @@ namespace Unity.Entities
             return ComponentEnabledBitsHierarchicalData + chunkIndex * ComponentCount;
         }
 
-        public int GetChunkDisabledCountForType(int typeIndexInArchetype, int chunkIndex)
+        public int GetChunkDisabledCountForType(int typeMemoryOrderIndexInArchetype, int chunkIndex)
         {
             Assert.IsTrue(chunkIndex >= 0 && chunkIndex < Capacity);
-            Assert.IsTrue(typeIndexInArchetype >= 0);
+            Assert.IsTrue(typeMemoryOrderIndexInArchetype >= 0 && typeMemoryOrderIndexInArchetype < ComponentCount);
 
             var typeArrayForChunk = ComponentEnabledBitsHierarchicalData + chunkIndex * ComponentCount;
-            return typeArrayForChunk[typeIndexInArchetype];
+            return typeArrayForChunk[typeMemoryOrderIndexInArchetype];
         }
 
         public byte* GetPointerToComponentEnabledArrayForArchetype()
@@ -251,31 +235,31 @@ namespace Unity.Entities
             return ComponentEnabledBitsHierarchicalData;
         }
 
-        public int* GetPointerToChunkDisabledCountForType(int typeIndexInArchetype, int chunkIndex)
+        public int* GetPointerToChunkDisabledCountForType(int typeMemoryOrderIndexInArchetype, int chunkIndex)
         {
             Assert.IsTrue(chunkIndex >= 0 && chunkIndex < Capacity);
-            Assert.IsTrue(typeIndexInArchetype >= 0);
+            Assert.IsTrue(typeMemoryOrderIndexInArchetype >= 0 && typeMemoryOrderIndexInArchetype < ComponentCount);
 
             var typeArrayForChunk = ComponentEnabledBitsHierarchicalData + chunkIndex * ComponentCount;
-            return typeArrayForChunk + typeIndexInArchetype;
+            return typeArrayForChunk + typeMemoryOrderIndexInArchetype;
         }
 
-        public void SetChunkDisabledCountForType(int typeIndexInArchetype, int chunkIndex, int value)
+        public void SetChunkDisabledCountForType(int typeMemoryOrderIndexInArchetype, int chunkIndex, int value)
         {
             Assert.IsTrue(chunkIndex >= 0 && chunkIndex < Capacity);
-            Assert.IsTrue(typeIndexInArchetype >= 0);
+            Assert.IsTrue(typeMemoryOrderIndexInArchetype >= 0 && typeMemoryOrderIndexInArchetype < ComponentCount);
 
             var typeArrayForChunk = ComponentEnabledBitsHierarchicalData + chunkIndex * ComponentCount;
-            typeArrayForChunk[typeIndexInArchetype] = value;
+            typeArrayForChunk[typeMemoryOrderIndexInArchetype] = value;
         }
 
-        public void AdjustChunkDisabledCountForType(int typeIndexInArchetype, int chunkIndex, int value)
+        public void AdjustChunkDisabledCountForType(int typeMemoryOrderIndexInArchetype, int chunkIndex, int value)
         {
             Assert.IsTrue(chunkIndex >= 0 && chunkIndex < Capacity);
-            Assert.IsTrue(typeIndexInArchetype >= 0);
+            Assert.IsTrue(typeMemoryOrderIndexInArchetype >= 0 && typeMemoryOrderIndexInArchetype < ComponentCount);
 
             var typeArrayForChunk = ComponentEnabledBitsHierarchicalData + chunkIndex * ComponentCount;
-            typeArrayForChunk[typeIndexInArchetype] += value;
+            typeArrayForChunk[typeMemoryOrderIndexInArchetype] += value;
         }
 
         public uint* GetChangeVersionArrayForType(int indexInArchetype)

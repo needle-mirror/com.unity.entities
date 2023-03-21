@@ -78,25 +78,3 @@ The previous example let the baker handle all de-duplication, but that means you
 To do this, you can use a custom hash instead of letting the baker generate one. If multiple bakers either have access to, or generate the same hash for the same blob assets, you can use this hash to de-duplicate before generating a blob asset. Use [TryGetBlobAssetReference](xref:Unity.Entities.IBaker.TryGetBlobAssetReference*) to check if the custom hash is already registered to the baker:
 
 [!code-cs[blobs](../DocCodeSamples.Tests/BlobAssetBakingExamples.cs#CustomHashBlobAssetBaker)]
-
-## Blob assets in baking systems
-
-Baking systems are outside the control of a baker, so they aren't automatically incrementally correct. To make it correct, you need to manually ensure that components and blob assets are reverted and disposed correctly when the baking system is rerun.
-
-To do this, use the [ICleanupComponent](xref:Unity.Entities.ICleanupComponentData) component. Because this component is not automatically removed when an entity is removed, you can use it to cleanup after recently destroyed entities. This means that the baking system can manually revert when it's re-run. This allows the baking system to dispose the blob assets from the previous run:
-
-[!code-cs[blobs](../DocCodeSamples.Tests/BlobAssetBakingExamples.cs#BlobAssetBakingSystemSetup)]
-
-The hash is stored in the `ICleanupComponent` when the blob asset is created. The hash is used to dispose the blob asset when the baking system is reverted.
-
-The baking system needs to handle the following to be incrementally correct:
-
-* Newly created entities. These need to receive the `ICleanupComponent` and the new blob asset needs to be added.
-* Newly removed entities. The `ICleanupComponent` needs to be removed and the old blob asset needs to be released.
-* Entities with changed blob assets. The old blob asset needs to be released and the new one added.
-
-> [!NOTE]
-> If the blob asset is also referenced somewhere else, it won't be added or released respectively. Instead the refcounting is updated accordingly.
-
-
-[!code-cs[blobs](../DocCodeSamples.Tests/BlobAssetBakingExamples.cs#BlobAssetBakingSystem)]

@@ -57,6 +57,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void GetComponent([Values] SystemAPIAccess access, [Values] MemberUnderneath memberUnderneath, [Values] ReadAccess readAccess) => GetTestSystemUnsafe().TestGetComponent(ref GetSystemStateRef(), access, memberUnderneath);
 
         [Test]
+        public void GetComponentRW([Values] SystemAPIAccess access, [Values] MemberUnderneath memberUnderneath, [Values] ReadAccess readAccess) => GetTestSystemUnsafe().TestGetComponentRW(ref GetSystemStateRef(), access, memberUnderneath);
+
+        [Test]
         public void SetComponent([Values] SystemAPIAccess access, [Values] MemberUnderneath memberUnderneath, [Values] ReadAccess readAccess) => GetTestSystemUnsafe().TestSetComponent(ref GetSystemStateRef(), access);
 
         [Test]
@@ -187,14 +190,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
             for (var i = 1; i <= 10; i++)
             {
                 var e = state.EntityManager.CreateEntity();
-#if !ENABLE_TRANSFORM_V1
                 state.EntityManager.AddComponentData(e, LocalTransform.FromPosition(i, i, i));
-#else
-                state.EntityManager.AddComponentData(e, new Translation{Value=i});
-                state.EntityManager.AddComponentData(e, new Rotation());
                 state.EntityManager.AddComponentData(e, new LocalToWorld());
-                state.EntityManager.AddComponentData(e, new LocalToParent());
-#endif
+
                 state.EntityManager.AddComponentData(e, new EcsTestData(i));
                 state.EntityManager.AddComponentData(e, new EcsTestData2(i));
                 state.EntityManager.AddComponentData(e, new EcsTestData3(i));
@@ -224,12 +222,12 @@ namespace Unity.Entities.Tests.TestSystemAPI
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI:
-                    foreach (var transformAspect in SystemAPI.Query<TransformAspect>())
-                        sum += (int) transformAspect.LocalPosition.x;
+                    foreach (var transform in Query<RefRO<LocalTransform>>())
+                        sum += (int) transform.ValueRO.Position.x;
                     break;
                 case SystemAPIAccess.Using:
-                    foreach (var transformAspect in Query<TransformAspect>())
-                        sum += (int) transformAspect.LocalPosition.x;
+                    foreach (var transform in Query<RefRO<LocalTransform>>())
+                        sum += (int) transform.ValueRO.Position.x;
                     break;
             }
             return sum;
@@ -242,16 +240,16 @@ namespace Unity.Entities.Tests.TestSystemAPI
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI:
-                    foreach (var (transformAspect, data1) in SystemAPI.Query<TransformAspect, RefRW<EcsTestData>>())
+                    foreach (var (transform, data1) in SystemAPI.Query<RefRO<LocalTransform>, RefRW<EcsTestData>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                     }
                     break;
                 case SystemAPIAccess.Using:
-                    foreach (var (transformAspect, data1) in Query<TransformAspect, RefRW<EcsTestData>>())
+                    foreach (var (transform, data1) in Query<RefRO<LocalTransform>, RefRW<EcsTestData>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                     }
                     break;
@@ -266,17 +264,17 @@ namespace Unity.Entities.Tests.TestSystemAPI
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI:
-                    foreach (var (transformAspect, data1, data2) in SystemAPI.Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>>())
+                    foreach (var (transform, data1, data2) in SystemAPI.Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                     }
                     break;
                 case SystemAPIAccess.Using:
-                    foreach (var (transformAspect, data1, data2) in Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>>())
+                    foreach (var (transform, data1, data2) in Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                     }
@@ -292,18 +290,18 @@ namespace Unity.Entities.Tests.TestSystemAPI
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI:
-                    foreach (var (transformAspect, data1, data2, data3) in SystemAPI.Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>>())
+                    foreach (var (transform, data1, data2, data3) in SystemAPI.Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                         sum += data3.ValueRO.value0;
                     }
                     break;
                 case SystemAPIAccess.Using:
-                    foreach (var (transformAspect, data1, data2, data3) in Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>>())
+                    foreach (var (transform, data1, data2, data3) in Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                         sum += data3.ValueRO.value0;
@@ -320,9 +318,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI:
-                    foreach (var (transformAspect, data1, data2, data3, data4) in SystemAPI.Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>>())
+                    foreach (var (transform, data1, data2, data3, data4) in SystemAPI.Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                         sum += data3.ValueRO.value0;
@@ -330,9 +328,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     }
                     break;
                 case SystemAPIAccess.Using:
-                    foreach (var (transformAspect, data1, data2, data3, data4) in Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>>())
+                    foreach (var (transform, data1, data2, data3, data4) in Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                         sum += data3.ValueRO.value0;
@@ -350,9 +348,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI:
-                    foreach (var (transformAspect, data1, data2, data3, data4, data5) in SystemAPI.Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>, RefRW<EcsTestData5>>())
+                    foreach (var (transform, data1, data2, data3, data4, data5) in SystemAPI.Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>, RefRW<EcsTestData5>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                         sum += data3.ValueRO.value0;
@@ -361,9 +359,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     }
                     break;
                 case SystemAPIAccess.Using:
-                    foreach (var (transformAspect, data1, data2, data3, data4, data5) in Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>, RefRW<EcsTestData5>>())
+                    foreach (var (transform, data1, data2, data3, data4, data5) in Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>, RefRW<EcsTestData5>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                         sum += data3.ValueRO.value0;
@@ -382,9 +380,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI:
-                    foreach (var (transformAspect, data1, data2, data3, data4, data5, data6) in SystemAPI.Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>, RefRW<EcsTestData5>, RefRW<EcsTestDataEnableable>>())
+                    foreach (var (transform, data1, data2, data3, data4, data5, data6) in SystemAPI.Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>, RefRW<EcsTestData5>, RefRW<EcsTestDataEnableable>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                         sum += data3.ValueRO.value0;
@@ -394,9 +392,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     }
                     break;
                 case SystemAPIAccess.Using:
-                    foreach (var (transformAspect, data1, data2, data3, data4, data5, data6) in Query<TransformAspect, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>, RefRW<EcsTestData5>, RefRW<EcsTestDataEnableable>>())
+                    foreach (var (transform, data1, data2, data3, data4, data5, data6) in Query<RefRO<LocalTransform>, RefRW<EcsTestData>, RefRW<EcsTestData2>, RefRW<EcsTestData3>, RefRW<EcsTestData4>, RefRW<EcsTestData5>, RefRW<EcsTestDataEnableable>>())
                     {
-                        sum += (int)transformAspect.LocalPosition.x;
+                        sum += (int)transform.ValueRO.Position.x;
                         sum += data1.ValueRO.value;
                         sum += data2.ValueRO.value0;
                         sum += data3.ValueRO.value0;
@@ -436,7 +434,6 @@ namespace Unity.Entities.Tests.TestSystemAPI
         #endregion
 
         #region Component Access
-#if !ENABLE_TRANSFORM_V1
         [BurstCompile]
         public void TestGetComponentLookup(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath, ReadAccess readAccess) {
             var e = state.EntityManager.CreateEntity();
@@ -548,6 +545,37 @@ namespace Unity.Entities.Tests.TestSystemAPI
         }
 
         [BurstCompile]
+        public void TestGetComponentRW(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath) {
+            var e = state.EntityManager.CreateEntity();
+            state.EntityManager.AddComponent<LocalTransform>(e);
+            var t = LocalTransform.FromPosition(0, 2, 0);
+            SystemAPI.GetComponentRW<LocalTransform>(e,false).ValueRW = t;
+
+            switch (memberUnderneath) {
+                case MemberUnderneath.WithMemberUnderneath:
+                    switch (access) {
+                        case SystemAPIAccess.SystemAPI:
+                            Assert.That(SystemAPI.GetComponentRW<LocalTransform>(e,false).ValueRO, Is.EqualTo(t));
+                            break;
+                        case SystemAPIAccess.Using:
+                            Assert.That(GetComponentRW<LocalTransform>(e,false).ValueRO, Is.EqualTo(t));
+                            break;
+                    }
+                    break;
+                case MemberUnderneath.WithoutMemberUnderneath:
+                    switch (access) {
+                        case SystemAPIAccess.SystemAPI:
+                            Assert.That(SystemAPI.GetComponentRW<LocalTransform>(e,false).ValueRO, Is.EqualTo(t));
+                            break;
+                        case SystemAPIAccess.Using:
+                            Assert.That(GetComponentRW<LocalTransform>(e,false).ValueRO, Is.EqualTo(t));
+                            break;
+                    }
+                    break;
+            }
+        }
+
+        [BurstCompile]
         public void TestSetComponent(ref SystemState state, SystemAPIAccess access) {
             var e = state.EntityManager.CreateEntity();
             var t = LocalTransform.FromPosition(0, 2, 0);
@@ -599,185 +627,15 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     break;
             }
         }
-#else
-        [BurstCompile]
-        public void TestGetComponentLookup(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath, ReadAccess readAccess) {
-            var e = state.EntityManager.CreateEntity();
-            var t = new Translation { Value = new float3(0, 2, 0) };
-            state.EntityManager.AddComponentData(e, t);
-
-            switch (readAccess) {
-                case ReadAccess.ReadOnly:
-                    // Get works
-                    switch (memberUnderneath) {
-                        case MemberUnderneath.WithMemberUnderneath:
-                            switch (access) {
-                                case SystemAPIAccess.SystemAPI: {
-                                    var tGet = SystemAPI.GetComponentLookup<Translation>(true)[e];
-                                    Assert.That(tGet, Is.EqualTo(t));
-                                } break;
-                                case SystemAPIAccess.Using: {
-                                    var tGet = GetComponentLookup<Translation>(true)[e];
-                                    Assert.That(tGet, Is.EqualTo(t));
-                                } break;
-                            }
-                            break;
-                        case MemberUnderneath.WithoutMemberUnderneath:
-                            switch (access) {
-                                case SystemAPIAccess.SystemAPI: {
-                                    var lookup = SystemAPI.GetComponentLookup<Translation>(true);
-                                    var tGet = lookup[e];
-                                    Assert.That(tGet, Is.EqualTo(t));
-                                } break;
-                                case SystemAPIAccess.Using: {
-                                    var lookup = GetComponentLookup<Translation>(true);
-                                    var tGet = lookup[e];
-                                    Assert.That(tGet, Is.EqualTo(t));
-                                } break;
-                            }
-                            break;
-                    } break;
-
-                // Set works
-                case ReadAccess.ReadWrite: {
-                    switch (memberUnderneath) {
-                        case MemberUnderneath.WithMemberUnderneath:
-                            switch (access) {
-                                case SystemAPIAccess.SystemAPI: {
-                                    t.Value += 1;
-                                    var lookup = SystemAPI.GetComponentLookup<Translation>();
-                                    lookup[e] = t;
-                                    var tSet = SystemAPI.GetComponentLookup<Translation>(true)[e];
-                                    Assert.That(tSet, Is.EqualTo(t));
-                                } break;
-                                case SystemAPIAccess.Using: {
-                                    t.Value += 1;
-                                    var lookup = GetComponentLookup<Translation>();
-                                    lookup[e] = t;
-                                    var tSet = GetComponentLookup<Translation>(true)[e];
-                                    Assert.That(tSet, Is.EqualTo(t));
-                                } break;
-                            }
-                            break;
-                        case MemberUnderneath.WithoutMemberUnderneath:
-                            switch (access) {
-                                case SystemAPIAccess.SystemAPI: {
-                                    t.Value += 1;
-                                    var lookup = SystemAPI.GetComponentLookup<Translation>();
-                                    lookup[e] = t;
-                                    Assert.That(lookup[e], Is.EqualTo(t));
-                                } break;
-                                case SystemAPIAccess.Using: {
-                                    t.Value += 1;
-                                    var lookup = GetComponentLookup<Translation>();
-                                    lookup[e] = t;
-                                    Assert.That(lookup[e], Is.EqualTo(t));
-                                } break;
-                            }
-                            break;
-                    }
-                } break;
-            }
-        }
-
-        [BurstCompile]
-        public void TestGetComponent(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath) {
-            var e = state.EntityManager.CreateEntity();
-            var t = new Translation { Value = new float3(0, 2, 0) };
-            state.EntityManager.AddComponentData(e, t);
-
-            switch (memberUnderneath) {
-                case MemberUnderneath.WithMemberUnderneath:
-                    switch (access) {
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponent<Translation>(e).Value, Is.EqualTo(t.Value));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(GetComponent<Translation>(e).Value, Is.EqualTo(t.Value));
-                            break;
-                    }
-                    break;
-                case MemberUnderneath.WithoutMemberUnderneath:
-                    switch (access) {
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponent<Translation>(e), Is.EqualTo(t));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(GetComponent<Translation>(e), Is.EqualTo(t));
-                            break;
-                    }
-                    break;
-            }
-        }
-
-        [BurstCompile]
-        public void TestSetComponent(ref SystemState state, SystemAPIAccess access) {
-            var e = state.EntityManager.CreateEntity();
-            var t = new Translation { Value = new float3(0, 2, 0) };
-            state.EntityManager.AddComponentData(e, t);
-
-
-            switch (access) {
-                case SystemAPIAccess.SystemAPI:
-                    t.Value += 1;
-                    SystemAPI.SetComponent(e, t);
-                    Assert.That(SystemAPI.GetComponent<Translation>(e), Is.EqualTo(t));
-                    break;
-                case SystemAPIAccess.Using:
-                    t.Value += 1;
-                    SetComponent(e, t);
-                    Assert.That(GetComponent<Translation>(e), Is.EqualTo(t));
-                    break;
-            }
-        }
-
-        [BurstCompile]
-        public void TestHasComponent(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath) {
-            var e = state.EntityManager.CreateEntity(typeof(Translation));
-
-            switch (memberUnderneath) {
-                case MemberUnderneath.WithMemberUnderneath:
-                    switch (access) {
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.HasComponent<Translation>(e).GetHashCode(), Is.EqualTo(1));
-                            Assert.That(SystemAPI.HasComponent<EcsTestData>(e).GetHashCode(), Is.EqualTo(0));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(HasComponent<Translation>(e).GetHashCode(), Is.EqualTo(1));
-                            Assert.That(HasComponent<EcsTestData>(e).GetHashCode(), Is.EqualTo(0));
-                            break;
-                    }
-                    break;
-                case MemberUnderneath.WithoutMemberUnderneath:
-                    switch (access) {
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.HasComponent<Translation>(e), Is.EqualTo(true));
-                            Assert.That(SystemAPI.HasComponent<EcsTestData>(e), Is.EqualTo(false));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(HasComponent<Translation>(e), Is.EqualTo(true));
-                            Assert.That(HasComponent<EcsTestData>(e), Is.EqualTo(false));
-                            break;
-                    }
-                    break;
-            }
-        }
-#endif
 
         [BurstCompile]
         public void TestGetComponentForSystem(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath)
         {
-#if !ENABLE_TRANSFORM_V1
             var t = LocalTransform.FromPosition(0, 2, 0);
-#else
-            var t = new Translation { Value = new float3(0, 2, 0) };
-            state.EntityManager.AddComponentData(state.SystemHandle, t);
-#endif
             state.EntityManager.AddComponentData(state.SystemHandle, t);
 
             switch (memberUnderneath)
             {
-#if !ENABLE_TRANSFORM_V1
                 case MemberUnderneath.WithMemberUnderneath:
                     switch (access)
                     {
@@ -800,37 +658,12 @@ namespace Unity.Entities.Tests.TestSystemAPI
                             break;
                     }
                     break;
-#else
-                case MemberUnderneath.WithMemberUnderneath:
-                    switch (access)
-                    {
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponent<Translation>(state.SystemHandle).Value, Is.EqualTo(t.Value));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(GetComponent<Translation>(state.SystemHandle).Value, Is.EqualTo(t.Value));
-                            break;
-                    }
-                    break;
-                case MemberUnderneath.WithoutMemberUnderneath:
-                    switch (access)
-                    {
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponent<Translation>(state.SystemHandle), Is.EqualTo(t));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(GetComponent<Translation>(state.SystemHandle), Is.EqualTo(t));
-                            break;
-                    }
-                    break;
-#endif
             }
         }
 
         [BurstCompile]
         public void TestGetComponentRWForSystem(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath)
         {
-#if !ENABLE_TRANSFORM_V1
             var t = LocalTransform.FromPosition(0, 2, 0);
             state.EntityManager.AddComponent<LocalTransform>(state.SystemHandle);
             switch (access)
@@ -868,62 +701,17 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     }
                     break;
             }
-#else
-            var t = new Translation { Value = new float3(0, 2, 0) };
-            state.EntityManager.AddComponent<Translation>(state.SystemHandle);
-            switch (access)
-            {
-                case SystemAPIAccess.SystemAPI:
-                    SystemAPI.GetComponentRW<Translation>(state.SystemHandle).ValueRW = t;
-                    break;
-                case SystemAPIAccess.Using:
-                    GetComponentRW<Translation>(state.SystemHandle).ValueRW = t;
-                    break;
-            }
-
-            switch (memberUnderneath)
-            {
-                case MemberUnderneath.WithMemberUnderneath:
-                    switch (access)
-                    {
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponentRW<Translation>(state.SystemHandle).ValueRW.Value, Is.EqualTo(t.Value));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(GetComponentRW<Translation>(state.SystemHandle).ValueRW.Value, Is.EqualTo(t.Value));
-                            break;
-                    }
-                    break;
-                case MemberUnderneath.WithoutMemberUnderneath:
-                    switch (access)
-                    {
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.GetComponentRW<Translation>(state.SystemHandle).ValueRW, Is.EqualTo(t));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(GetComponentRW<Translation>(state.SystemHandle).ValueRW, Is.EqualTo(t));
-                            break;
-                    }
-                    break;
-            }
-#endif
         }
 
         [BurstCompile]
         public void TestSetComponentForSystem(ref SystemState state, SystemAPIAccess access)
         {
-#if !ENABLE_TRANSFORM_V1
             var t = LocalTransform.FromPosition(0, 2, 0);
             state.EntityManager.AddComponentData(state.SystemHandle, t);
-#else
-            var t = new Translation { Value = new float3(0, 2, 0) };
-            state.EntityManager.AddComponentData(state.SystemHandle, t);
-#endif
             state.EntityManager.AddComponentData(state.SystemHandle, t);
 
             switch (access)
             {
-#if !ENABLE_TRANSFORM_V1
                 case SystemAPIAccess.SystemAPI:
                     t.Position += 1;
                     SystemAPI.SetComponent(state.SystemHandle, t);
@@ -934,36 +722,19 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     SetComponent(state.SystemHandle, t);
                     Assert.That(GetComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(t));
                     break;
-#else
-                case SystemAPIAccess.SystemAPI:
-                    t.Value += 1;
-                    SystemAPI.SetComponent(state.SystemHandle, t);
-                    Assert.That(SystemAPI.GetComponent<Translation>(state.SystemHandle), Is.EqualTo(t));
-                    break;
-                case SystemAPIAccess.Using:
-                    t.Value += 1;
-                    SetComponent(state.SystemHandle, t);
-                    Assert.That(GetComponent<Translation>(state.SystemHandle), Is.EqualTo(t));
-                    break;
-#endif
             }
         }
 
         [BurstCompile]
         public void TestHasComponentForSystem(ref SystemState state, SystemAPIAccess access, MemberUnderneath memberUnderneath)
         {
-#if !ENABLE_TRANSFORM_V1
             state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<LocalTransform>());
-#else
-            state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<Translation>());
-#endif
 
             switch (memberUnderneath)
             {
                 case MemberUnderneath.WithMemberUnderneath:
                     switch (access)
                     {
-#if !ENABLE_TRANSFORM_V1
                         case SystemAPIAccess.SystemAPI:
                             Assert.That(SystemAPI.HasComponent<LocalTransform>(state.SystemHandle).GetHashCode(), Is.EqualTo(1));
                             Assert.That(SystemAPI.HasComponent<EcsTestData>(state.SystemHandle).GetHashCode(), Is.EqualTo(0));
@@ -972,22 +743,11 @@ namespace Unity.Entities.Tests.TestSystemAPI
                             Assert.That(HasComponent<LocalTransform>(state.SystemHandle).GetHashCode(), Is.EqualTo(1));
                             Assert.That(HasComponent<EcsTestData>(state.SystemHandle).GetHashCode(), Is.EqualTo(0));
                             break;
-#else
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.HasComponent<Translation>(state.SystemHandle).GetHashCode(), Is.EqualTo(1));
-                            Assert.That(SystemAPI.HasComponent<EcsTestData>(state.SystemHandle).GetHashCode(), Is.EqualTo(0));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(HasComponent<Translation>(state.SystemHandle).GetHashCode(), Is.EqualTo(1));
-                            Assert.That(HasComponent<EcsTestData>(state.SystemHandle).GetHashCode(), Is.EqualTo(0));
-                            break;
-#endif
                     }
                     break;
                 case MemberUnderneath.WithoutMemberUnderneath:
                     switch (access)
                     {
-#if !ENABLE_TRANSFORM_V1
                         case SystemAPIAccess.SystemAPI:
                             Assert.That(SystemAPI.HasComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(true));
                             Assert.That(SystemAPI.HasComponent<EcsTestData>(state.SystemHandle), Is.EqualTo(false));
@@ -996,16 +756,6 @@ namespace Unity.Entities.Tests.TestSystemAPI
                             Assert.That(HasComponent<LocalTransform>(state.SystemHandle), Is.EqualTo(true));
                             Assert.That(HasComponent<EcsTestData>(state.SystemHandle), Is.EqualTo(false));
                             break;
-#else
-                        case SystemAPIAccess.SystemAPI:
-                            Assert.That(SystemAPI.HasComponent<Translation>(state.SystemHandle), Is.EqualTo(true));
-                            Assert.That(SystemAPI.HasComponent<EcsTestData>(state.SystemHandle), Is.EqualTo(false));
-                            break;
-                        case SystemAPIAccess.Using:
-                            Assert.That(HasComponent<Translation>(state.SystemHandle), Is.EqualTo(true));
-                            Assert.That(HasComponent<EcsTestData>(state.SystemHandle), Is.EqualTo(false));
-                            break;
-#endif
                     }
                     break;
             }
@@ -1555,7 +1305,6 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         #region NoError
 
-#if !ENABLE_TRANSFORM_V1
         [BurstCompile]
         void NestingSetup(ref SystemState state)
         {
@@ -1607,77 +1356,25 @@ namespace Unity.Entities.Tests.TestSystemAPI
             var coinsCollected = GetSingleton<EcsTestData>().value;
             Assert.AreEqual(15, coinsCollected);
         }
-#else
-        [BurstCompile]
-        void NestingSetup(ref SystemState state)
-        {
-            // Setup Archetypes
-            var playerArchetype = state.EntityManager.CreateArchetype(new FixedList128Bytes<ComponentType> {
-                ComponentType.ReadWrite<EcsTestFloatData>(), ComponentType.ReadWrite<Translation>(), ComponentType.ReadWrite<EcsTestTag>()
-            }.ToNativeArray(state.World.UpdateAllocator.ToAllocator));
-            var coinArchetype = state.EntityManager.CreateArchetype(new FixedList128Bytes<ComponentType> {
-                ComponentType.ReadWrite<EcsTestFloatData>(), ComponentType.ReadWrite<Translation>(),
-            }.ToNativeArray(state.World.UpdateAllocator.ToAllocator));
-            var coinCounterArchetype = state.EntityManager.CreateArchetype(new FixedList128Bytes<ComponentType> {
-                ComponentType.ReadWrite<EcsTestData>()
-            }.ToNativeArray(state.World.UpdateAllocator.ToAllocator));
 
-            // Setup Players
-            var players = state.EntityManager.CreateEntity(playerArchetype, 5, state.World.UpdateAllocator.ToAllocator);
-            foreach (var player in players)
-                SetComponent(player, new EcsTestFloatData {Value = 0.1f});
-            SetComponent(players[0], new Translation{Value = new float3(0,1,0)});
-            SetComponent(players[1], new Translation{Value = new float3(1,1,0)});
-            SetComponent(players[2], new Translation{Value = new float3(0,1,1)});
-            SetComponent(players[3], new Translation{Value = new float3(1,1,1)});
-            SetComponent(players[4], new Translation{Value = new float3(1,0,1)});
-
-            // Setup Enemies
-            var coins = state.EntityManager.CreateEntity(coinArchetype, 5, state.World.UpdateAllocator.ToAllocator);
-            foreach (var coin in coins)
-                SetComponent(coin, new EcsTestFloatData {Value = 1f});
-            SetComponent(coins[0], new Translation{Value = new float3(0,1,0)});
-            SetComponent(coins[1], new Translation{Value = new float3(1,1,0)});
-            SetComponent(coins[2], new Translation{Value = new float3(0,1,1)});
-            SetComponent(coins[3], new Translation{Value = new float3(1,1,1)});
-            SetComponent(coins[4], new Translation{Value = new float3(1,0,1)});
-
-            // Setup Coin Counter
-            state.EntityManager.CreateEntity(coinCounterArchetype);
-        }
-
-        [BurstCompile]
-        public void TestNesting(ref SystemState state)
-        {
-            NestingSetup(ref state);
-
-            foreach (var (playerTranslation, playerRadius) in Query<RefRO<Translation>, RefRO<EcsTestFloatData>>().WithAll<EcsTestTag>())
-            foreach (var (coinTranslation, coinRadius, coinEntity) in Query<RefRO<Translation>, RefRO<EcsTestFloatData>>().WithEntityAccess().WithNone<EcsTestTag>())
-                if (math.distancesq(playerTranslation.ValueRO.Value, coinTranslation.ValueRO.Value) < coinRadius.ValueRO.Value + playerRadius.ValueRO.Value)
-                    GetSingletonRW<EcsTestData>().ValueRW.value++; // Three-layer SystemAPI nesting
-
-            var coinsCollected = GetSingleton<EcsTestData>().value;
-            Assert.AreEqual(15, coinsCollected);
-        }
-#endif
         /// <summary>
         /// This will throw in cases where SystemAPI doesn't properly insert .Update and .CompleteDependencyXX statements.
         /// </summary>
         public void TestStatementInsert(ref SystemState state)
         {
             // Asserts that does not throw - Not using Assert.DoesNotThrow since a lambda capture to ref state will fail.
-            foreach (var (transform, target) in Query<TransformAspect, RefRO<EcsTestDataEntity>>())
+            foreach (var (transform, target) in Query<RefRO<LocalTransform>, RefRO<EcsTestDataEntity>>())
             {
                 if (Exists(target.ValueRO.value1))
                 {
-                    var targetTransform = GetAspectRO<TransformAspect>(target.ValueRO.value1);
-                    var src = transform.LocalPosition;
-                    var dst = targetTransform.LocalPosition;
+                    var targetTransform = GetComponent<LocalTransform>(target.ValueRO.value1);
+                    var src = transform.ValueRO.Position;
+                    var dst = targetTransform.Position;
                     Assert.That(src, Is.Not.EqualTo(dst));
                 }
             }
         }
-        
+
         [BurstCompile]
         public partial struct ExplicitInterfaceImplementationSystem : ISystem
         {
@@ -1690,7 +1387,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         }
 
         [BurstCompile]
-        public partial struct VariableInOnCreateSystem : ISystem 
+        public partial struct VariableInOnCreateSystem : ISystem
         {
             [BurstCompile]
             public void OnCreate(ref SystemState state) {

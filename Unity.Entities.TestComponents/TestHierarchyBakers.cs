@@ -26,7 +26,9 @@ namespace Unity.Entities.Tests
         {
             var position = GetComponent<Transform>().position;
 
-            AddComponent(new Vector3Element { Value =  position });
+            // This test might require transform components
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponent(entity, new Vector3Element { Value =  position });
         }
     }
 
@@ -51,7 +53,9 @@ namespace Unity.Entities.Tests
 		{
             var parent = GetParent();
 
-			DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+			DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             if (parent)
                 buffer.Add(parent.GetInstanceID());
         }
@@ -78,7 +82,9 @@ namespace Unity.Entities.Tests
         {
             var parents = GetParents();
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             if (parents != null)
             {
                 foreach (var parent in parents)
@@ -98,7 +104,9 @@ namespace Unity.Entities.Tests
 
         public override void Bake(TestComponentAuthoring authoring)
         {
-            AddComponent(new IntComponent() { Value = GetChildCount() });
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new IntComponent() { Value = GetChildCount() });
         }
     }
 
@@ -121,7 +129,9 @@ namespace Unity.Entities.Tests
 
         public override void Bake(TestComponentAuthoring authoring)
         {
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             if (authoring.transform.childCount > 0)
             {
                 var child = GetChild(0);
@@ -153,7 +163,9 @@ namespace Unity.Entities.Tests
         {
             var children = GetChildren(Recursive);
 
-            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>();
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            DynamicBuffer<IntElement> buffer = AddBuffer<IntElement>(entity);
             if (children != null)
             {
                 foreach (var child in children)

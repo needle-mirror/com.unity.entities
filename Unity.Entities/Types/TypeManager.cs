@@ -187,9 +187,14 @@ namespace Unity.Entities
         public bool HasEntityReferences { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return  (Value & TypeManager.HasNoEntityReferencesFlag) == 0; } }
 
         /// <summary>
-        /// The component type contains a NativeContainer member. NativeContainer members found in nested member types will also cause this property to return true.
+        /// The component type contains a <seealso cref="NativeContainerAttribute"/> decorated member. NativeContainer members found in nested member types will also cause this property to return true.
         /// </summary>
         public bool HasNativeContainer { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return (Value & TypeManager.HasNativeContainerFlag) != 0; } }
+
+        /// <summary>
+        /// The component type is appropriate for chunk serialization. Such types are blittable without containing pointer types or have been decorated with <seealso cref="ChunkSerializableAttribute"/>.
+        /// </summary>
+        public bool IsChunkSerializable { [MethodImpl(MethodImplOptions.AggressiveInlining)] get { return (Value & TypeManager.IsNotChunkSerializableTypeFlag) == 0; } }
 
         /// <summary>
         /// The component type is decorated with the <seealso cref="TemporaryBakingTypeAttribute"/> attribute.
@@ -408,9 +413,16 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// [TypeOverrides] can be applied to a component that is known to contain no Entity or Blob references,
+        /// [TypeOverrides] can be applied to a component that is known to never contain Entity and/or Blob references,
         /// in order to reduce time taken during serialization operations.
         /// </summary>
+        /// <remarks>
+        /// For example, a managed component containing a base class type field can only be determined to have entity or blob
+        /// references at runtime since the runtime instance might hold a child type instance which does contain Entity and/or
+        /// BlobAssetReferences. As such, serializing operations for managed components needs to walk runtime type instances
+        /// which might be unnecessary. Use this attribute to prevent this walking to improve managed component serialization
+        /// operations when you know the component type will never contain Entity and/or Blob references.
+        /// </remarks>
         [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
         public class TypeOverridesAttribute : Attribute
         {
@@ -473,7 +485,7 @@ namespace Unity.Entities
             /// </summary>
             BufferData,
             /// <summary>
-            /// Implement ISharedComponentData (struct only)
+            /// Implement ISharedComponentData (can be either a struct or a class)
             /// </summary>
             ISharedComponentData,
             /// <summary>
@@ -487,14 +499,25 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Bitflag set for component types with NativeContainer data <seealso cref="NativeContainerAttribute"/>.
+        /// Maximum number of unique component types supported by the <seealso cref="TypeManager"/>/>
         /// </summary>
-        public const int HasNativeContainerFlag = 1 << 18;
+        public const int MaximumTypesCount = 1 << 13;
 
         /// <summary>
-        /// Bitflag set for component types inheriting from <seealso cref="System.IEquatable{T}"/>.
+        /// Bitflag set for component types that do not contain an <seealso cref="Entity"/> member.
+        /// Entity members found in nested member types will cause this bitflag to not be set.
         /// </summary>
-        public const int IEquatableTypeFlag = 1 << 19;
+        public const int HasNoEntityReferencesFlag = 1 << 17; // this flag is inverted to ensure the type id of Entity can still be 1
+
+        /// <summary>
+        /// Bitflag set if a component is not appropriate to be included in chunk serialization.
+        /// </summary>
+        public const int IsNotChunkSerializableTypeFlag = 1 << 18; // this flag is inverted to ensure the type id of Entity can still be 1
+
+        /// <summary>
+        /// Bitflag set for component types with NativeContainer data <seealso cref="NativeContainerAttribute"/>.
+        /// </summary>
+        public const int HasNativeContainerFlag = 1 << 19;
 
         /// <summary>
         /// Bitflag set for component types decorated with the <seealso cref="BakingTypeAttribute"/> attribute.
@@ -512,15 +535,14 @@ namespace Unity.Entities
         public const int IRefCountedComponentFlag = 1 << 22;
 
         /// <summary>
-        /// Bitflag set for component types inheriting from <seealso cref="IEnableableComponent"/>.
+        /// Bitflag set for component types inheriting from <seealso cref="System.IEquatable{T}"/>.
         /// </summary>
-        public const int EnableableComponentFlag = 1 << 23;
+        public const int IEquatableTypeFlag = 1 << 23;
 
         /// <summary>
-        /// Bitflag set for component types that do not contain an <seealso cref="Entity"/> member.
-        /// Entity members found in nested member types will cause this bitflag to not be set.
+        /// Bitflag set for component types inheriting from <seealso cref="IEnableableComponent"/>.
         /// </summary>
-        public const int HasNoEntityReferencesFlag = 1 << 24; // this flag is inverted to ensure the type id of Entity can still be 1
+        public const int EnableableComponentFlag = 1 << 24;
 
         /// <summary>
         /// Obsolete. Use <see cref="CleanupComponentTypeFlag"/> instead.
@@ -544,7 +566,7 @@ namespace Unity.Entities
         public const int SharedComponentTypeFlag = 1 << 27;
 
         /// <summary>
-        /// Bitflag set for component types inheriting from <seealso cref="IComponentData"/> and requiring managed
+        /// Bitflag set for component types requiring managed
         /// storage due to being a class type and/or containing managed references.
         /// </summary>
         public const int ManagedComponentTypeFlag = 1 << 28;
@@ -585,7 +607,7 @@ namespace Unity.Entities
         /// <summary>
         /// Bit mask to clear all flag bits from a <seealso cref="TypeIndex"/> />
         /// </summary>
-        public const int ClearFlagsMask = 0x0003FFFF;
+        public const int ClearFlagsMask = MaximumTypesCount-1;
 
         /// <summary>
         /// Maximum number of <seealso cref="Entity"/> instances stored in a given <seealso cref="Chunk"/>/>
@@ -596,11 +618,6 @@ namespace Unity.Entities
         /// Maximum platform alignment supported when aligning component data in a <seealso cref="Chunk"/>/>
         /// </summary>
         public const int MaximumSupportedAlignment = 16;
-
-        /// <summary>
-        /// Maximum number of unique component types supported by the <seealso cref="TypeManager"/>/>
-        /// </summary>
-        public const int MaximumTypesCount = 1024 * 10;
 
         /// <summary>
         /// BufferCapacity is by default calculated as DefaultBufferCapacityNumerator / sizeof(BufferElementDataType)
@@ -688,6 +705,11 @@ namespace Unity.Entities
         /// Enumerable list of all component <see cref="TypeInfo"/> values.
         /// </summary>
         public static IEnumerable<TypeInfo> AllTypes { get { return s_TypeInfos.GetSubArray(0, s_TypeCount); } }
+
+        /// <summary>
+        /// Returns true if the TypeManager has been initialized, otherwise false.
+        /// </summary>
+        internal static bool IsInitialized => s_Initialized;
 
 #if !UNITY_DOTSRUNTIME
         static bool                         s_AppDomainUnloadRegistered;
@@ -813,7 +835,7 @@ namespace Unity.Entities
             /// <summary>
             /// <seealso cref="TypeIndex"/>
             /// </summary>
-            public   readonly TypeIndex    TypeIndex;
+            public   readonly TypeIndex     TypeIndex;
 
             /// <summary>
             /// The number of bytes used in a <seealso cref="Chunk"/> to store an instance of this component.
@@ -821,23 +843,23 @@ namespace Unity.Entities
             /// <remarks>Note that this includes internal capacity and header overhead for buffers. Also, note
             /// that components with no member variables will have a SizeInChunk of 0, but will have a
             /// <seealso cref="TypeSize"/> of GREATER than 0 (since C# does not allow for zero-sized types).</remarks>
-            public readonly int          SizeInChunk;
+            public   readonly int           SizeInChunk;
 
             /// <summary>
             /// The size of an element store in buffer components. For non-buffer component types, this is the same as <see cref="SizeInChunk"/>
             /// </summary>
-            public   readonly int          ElementSize;
+            public   readonly int           ElementSize;
 
             /// <summary>
             /// The maximum number of elements that can be stored in a buffer component instance.
             /// </summary>
-            public   readonly int          BufferCapacity;
+            public   readonly int           BufferCapacity;
 
             /// <summary>
             /// Sort order for component types in <see cref="Chunk"/> storage. By default this is equivalent to <seealso cref="StableTypeHash"/>.
             /// Order is sorted from lowest to highest.
             /// </summary>
-            public   readonly ulong        MemoryOrdering;
+            public   readonly ulong         MemoryOrdering;
 
             /// <summary>
             /// Hash used to uniquely identify a component based on its runtime memory footprint.
@@ -848,59 +870,59 @@ namespace Unity.Entities
             /// however changing a member's type causes the parent StableTypeHash to change).
             /// </remarks>
             /// <seealso cref="TypeHash"/>
-            public   readonly ulong        StableTypeHash;
+            public   readonly ulong         StableTypeHash;
 
             /// <summary>
             /// The alignment requirement for the component. For buffer types, this is the alignment requirement of the element type.
             /// </summary>
-            public   readonly int          AlignmentInBytes;
+            public   readonly int           AlignmentInBytes;
 
             /// <summary>
             /// <seealso cref="TypeCategory"/>
             /// </summary>
-            public   readonly TypeCategory Category;
+            public   readonly TypeCategory  Category;
 
             /// <summary>
             /// Number of <seealso cref="Entity"/> references this component can store.
             /// </summary>
-            public   readonly int          EntityOffsetCount;
+            public   readonly int           EntityOffsetCount;
 
-            internal readonly int          EntityOffsetStartIndex;
-            private  readonly int          _HasBlobAssetRefs;
+            internal readonly int           EntityOffsetStartIndex;
+            private  readonly int           _HasBlobAssetRefs;
 
             /// <summary>
             /// Number of <seealso cref="BlobAssetReference{T}"/>s this component can store.
             /// </summary>
-            public   readonly int          BlobAssetRefOffsetCount;
-            internal readonly int          BlobAssetRefOffsetStartIndex;
+            public   readonly int           BlobAssetRefOffsetCount;
+            internal readonly int           BlobAssetRefOffsetStartIndex;
 
             /// <summary>
             /// Number of <seealso cref="WeakReference{T}"/>s this component can store.
             /// </summary>
-            public   readonly int          WeakAssetRefOffsetCount;
-            internal readonly int          WeakAssetRefOffsetStartIndex;
+            public   readonly int           WeakAssetRefOffsetCount;
+            internal readonly int           WeakAssetRefOffsetStartIndex;
 
             /// <summary>
             /// Number of components which specify this component as the target type in a <seealso cref="WriteGroupAttribute"/>.
             /// </summary>
-            public   readonly int          WriteGroupCount;
-            internal readonly int          WriteGroupStartIndex;
+            public   readonly int           WriteGroupCount;
+            internal readonly int           WriteGroupStartIndex;
 
             /// <summary>
             /// Maximum number of instances of this component allowed to be stored in a <seealso cref="Chunk"/>.
             /// </summary>
-            public   readonly int          MaximumChunkCapacity;
+            public   readonly int           MaximumChunkCapacity;
 
             /// <summary>
             /// Blittable size of the component type.
             /// </summary>
-            public   readonly int          TypeSize;
+            public   readonly int           TypeSize;
 
             /// <summary>
             /// Alignment of this type in a chunk.  Normally the same as AlignmentInBytes, but that
             /// might be less than this value for buffer elements, whereas the buffer itself must be aligned to <seealso cref="MaximumSupportedAlignment"/>.
             /// </summary>
-            public int AlignmentInChunkInBytes
+            public int  AlignmentInChunkInBytes
             {
                 get
                 {
@@ -1363,30 +1385,6 @@ namespace Unity.Entities
 #endif
         }
 
-#if UNITY_EDITOR
-        // Todo: Remove this once UnityEngine supports deterministically ordered [InitializeOnLoad] method invocations (likely sometime in 2021.x)
-        // This function uses reflection to find a static BurstLoader property and calls it. The sole reason of this
-        // is to force the BurstLoader's cctor to be invoked (accessing the property will trigger this if the cctor
-        // hasn't been caleed already without risking us calling it directly potentially invoking the cctor more
-        // than once). We do this to allow TypeManager to make use of BurstCompiled functions (which requires burst to
-        // have been initialized before our first call to Burst.CompileFunctionPointer)
-        static void InitializeBurst()
-        {
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            foreach (var assembly in assemblies)
-            {
-                if (assembly.GetName().Name == "Unity.Burst.Editor")
-                {
-                    var burstLoaderType = assembly.GetType("Unity.Burst.Editor.BurstLoader");
-                    var isDebuggingProperty = burstLoaderType.GetProperty("IsDebugging");
-                    var getMethod = isDebuggingProperty.GetGetMethod();
-                    getMethod.Invoke(null, null);
-                    return;
-                }
-            }
-        }
-#endif
-
         /// <summary>
         /// Initializes the TypeManager with all ECS type information. May be called multiple times; only the first call
         /// will do any work. Always must be called from the main thread.
@@ -1396,78 +1394,85 @@ namespace Unity.Entities
             if (s_Initialized)
                 return;
 
-#if UNITY_EDITOR
-            if (!UnityEditorInternal.InternalEditorUtility.CurrentThreadIsMainThread())
-                throw new InvalidOperationException("Must be called from the main thread");
-
-            InitializeBurst();
-#endif
             s_Initialized = true;
+            try
+            {
+
+#if UNITY_EDITOR
+                if (!UnityEditorInternal.InternalEditorUtility.CurrentThreadIsMainThread())
+                    throw new InvalidOperationException("Must be called from the main thread");
+#endif
 
 #if !UNITY_DOTSRUNTIME
-            if (!s_AppDomainUnloadRegistered)
-            {
-                // important: this will always be called from a special unload thread (main thread will be blocking on this)
-                AppDomain.CurrentDomain.DomainUnload += (_, __) =>
+                if (!s_AppDomainUnloadRegistered)
                 {
-                    if (s_Initialized)
-                        Shutdown();
-                };
+                    // important: this will always be called from a special unload thread (main thread will be blocking on this)
+                    AppDomain.CurrentDomain.DomainUnload += (_, __) =>
+                    {
+                        if (s_Initialized)
+                            Shutdown();
+                    };
 
-                // There is no domain unload in player builds, so we must be sure to shutdown when the process exits.
-                AppDomain.CurrentDomain.ProcessExit += (_, __) => { Shutdown(); };
-                s_AppDomainUnloadRegistered = true;
-            }
+                    // There is no domain unload in player builds, so we must be sure to shutdown when the process exits.
+                    AppDomain.CurrentDomain.ProcessExit += (_, __) => { Shutdown(); };
+                    s_AppDomainUnloadRegistered = true;
+                }
 
-            ObjectOffset = UnsafeUtility.SizeOf<ObjectOffsetType>();
-            s_ManagedTypeToIndex = new Dictionary<Type, TypeIndex>(1000);
-            s_FailedTypeBuildException = new Dictionary<Type, Exception>();
+                ObjectOffset = UnsafeUtility.SizeOf<ObjectOffsetType>();
+                s_ManagedTypeToIndex = new Dictionary<Type, TypeIndex>(1000);
+                s_FailedTypeBuildException = new Dictionary<Type, Exception>();
 #endif
 
-            s_TypeCount = 0;
-            s_TypeInfos = new NativeArray<TypeInfo>(MaximumTypesCount, Allocator.Persistent);
+                s_TypeCount = 0;
+                s_TypeInfos = new NativeArray<TypeInfo>(MaximumTypesCount, Allocator.Persistent);
 #if UNITY_DOTSRUNTIME
             s_DescendantIndex = new NativeArray<int>(MaximumTypesCount, Allocator.Persistent);
 #endif
-            s_DescendantCounts = new NativeArray<int>(MaximumTypesCount, Allocator.Persistent);
-            s_StableTypeHashToTypeIndex = new UnsafeParallelHashMap<ulong, TypeIndex>(MaximumTypesCount, Allocator.Persistent);
-            s_EntityOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
-            s_BlobAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
-            s_WeakAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
-            s_WriteGroupList = new NativeList<TypeIndex>(Allocator.Persistent);
-            s_FastEqualityTypeInfoList = new NativeList<FastEquality.TypeInfo>(Allocator.Persistent);
-            s_Types = new List<Type>();
-            s_TypeNames = new UnsafeList<UnsafeText>(MaximumTypesCount, Allocator.Persistent);
-            s_TypeFullNameHashes = new UnsafeList<ulong>(MaximumTypesCount, Allocator.Persistent);
-            s_SharedComponent_FunctionPointers = new UnsafeList<SharedComponentFnPtrs>(MaximumTypesCount, Allocator.Persistent);
-            s_SharedComponentFns_gcDefeat = new ManagedSharedComponentFnPtrs[MaximumTypesCount];
+                s_DescendantCounts = new NativeArray<int>(MaximumTypesCount, Allocator.Persistent);
+                s_StableTypeHashToTypeIndex = new UnsafeParallelHashMap<ulong, TypeIndex>(MaximumTypesCount, Allocator.Persistent);
+                s_EntityOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
+                s_BlobAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
+                s_WeakAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
+                s_WriteGroupList = new NativeList<TypeIndex>(Allocator.Persistent);
+                s_FastEqualityTypeInfoList = new NativeList<FastEquality.TypeInfo>(Allocator.Persistent);
+                s_Types = new List<Type>();
+                s_TypeNames = new UnsafeList<UnsafeText>(MaximumTypesCount, Allocator.Persistent);
+                s_TypeFullNameHashes = new UnsafeList<ulong>(MaximumTypesCount, Allocator.Persistent);
+                s_SharedComponent_FunctionPointers = new UnsafeList<SharedComponentFnPtrs>(MaximumTypesCount, Allocator.Persistent);
+                s_SharedComponentFns_gcDefeat = new ManagedSharedComponentFnPtrs[MaximumTypesCount];
 
-            FastEquality.Initialize();
-            InitializeSystemsState();
-            InitializeFieldInfoState();
+                FastEquality.Initialize();
+                InitializeSystemsState();
+                InitializeFieldInfoState();
 
-            // There are some types that must be registered first such as a null component and Entity
-            RegisterSpecialComponents();
-            RegisterSpecialSystems();
-            Assert.IsTrue(kInitialComponentCount == s_TypeCount);
+                // There are some types that must be registered first such as a null component and Entity
+                RegisterSpecialComponents();
+                RegisterSpecialSystems();
+                Assert.IsTrue(kInitialComponentCount == s_TypeCount);
 
 #if !UNITY_DOTSRUNTIME
-            InitializeAllComponentTypes();
+                InitializeAllComponentTypes();
 #else
-            // Registers all types and their static info from the static type registry
-            RegisterStaticAssemblyTypes();
+                // Registers all types and their static info from the static type registry
+                RegisterStaticAssemblyTypes();
 #endif
-            InitializeAllSystemTypes();
+                InitializeAllSystemTypes();
 
 
-            // Must occur after we've constructed s_TypeInfos
-            InitializeSharedStatics();
+                // Must occur after we've constructed s_TypeInfos
+                InitializeSharedStatics();
 
-            EntityNameStorage.Initialize();
+                EntityNameStorage.Initialize();
 
 #if !UNITY_DOTSRUNTIME
-            InitializeAspects();
+                InitializeAspects();
 #endif
+            }
+            catch
+            {
+                Shutdown();
+                throw;
+            }
         }
 
         static void InitializeSharedStatics()
@@ -1491,6 +1496,7 @@ namespace Unity.Entities
             SharedTypeFullNameHashes.Ref.Data = new IntPtr(s_TypeFullNameHashes.Ptr);
             SharedSystemTypeNames.Ref.Data = new IntPtr(s_SystemTypeNames.Ptr);
             SharedSystemAttributes.Ref.Data = new IntPtr(s_SystemAttributes.Ptr);
+            SharedSystemCount.Ref.Data = s_SystemCount;
             SharedSystemTypeHashes.Ref.Data = new IntPtr(s_SystemTypeHashes.Ptr);
         }
 
@@ -1498,7 +1504,7 @@ namespace Unity.Entities
         {
             SharedTypeInfos.Ref.Data = default;
 #if UNITY_DOTSRUNTIME
-            SharedDescendantIndices.Ref.Data = default;
+            SharedDescendantIndices.Ref.Data = default; 
 #endif
             SharedDescendantCounts.Ref.Data = default;
             SharedEntityOffsetInfos.Ref.Data = default;
@@ -1511,6 +1517,7 @@ namespace Unity.Entities
             SharedTypeFullNameHashes.Ref.Data = default;
             SharedSystemTypeNames.Ref.Data = default;
             SharedSystemAttributes.Ref.Data = default;
+            SharedSystemCount.Ref.Data = default;
             SharedSystemTypeHashes.Ref.Data = default;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -2195,7 +2202,7 @@ namespace Unity.Entities
 #endif
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal static void CheckComponentType(Type type)
         {
             int typeCount = 0;
@@ -2215,7 +2222,6 @@ namespace Unity.Entities
             if (typeCount > 1)
                 throw new ArgumentException($"Component {type} can only implement one of IComponentData, ISharedComponentData and IBufferElementData");
         }
-#endif
 
         /// <summary>
         /// Used by codegen. Returns list of all type indices for components who have a WriteGroup on the provided type
@@ -2551,7 +2557,6 @@ namespace Unity.Entities
                     Attribute.IsDefined(methodInfo, typeof(BurstCompileAttribute)));
             }
 
-
             foreach (var type in indexByType.Keys)
             {
                 var indexInTypeArray = indexByType[type];
@@ -2580,10 +2585,31 @@ namespace Unity.Entities
             }
         }
 
+        internal class BuildComponentCache
+        {
+            public Dictionary<Type, ulong> TypeHashCache;
+            public Dictionary<Type, bool> NestedNativeContainerCache;
+            public Dictionary<Type, EntityRemapUtility.EntityBlobRefResult> HasEntityOrBlobAssetReferenceCache;
+            public Dictionary<Type, List<FastEquality.LayoutInfo>> FastEqualityLayoutInfoCache;
+            public Dictionary<Type, (bool, bool)> ChunkSerializableCache;
+            public HashSet<Type> AllowedComponentCache;
+            public HashSet<Type> CalculateFieldOffsetsUnmanagedCache;
+
+            public BuildComponentCache(int initialCapacity = 0)
+            {
+                TypeHashCache = new Dictionary<Type, ulong>(initialCapacity);
+                NestedNativeContainerCache = new Dictionary<Type, bool>(initialCapacity);
+                HasEntityOrBlobAssetReferenceCache = new Dictionary<Type, EntityRemapUtility.EntityBlobRefResult>(initialCapacity);
+                FastEqualityLayoutInfoCache = new Dictionary<Type, List<FastEquality.LayoutInfo>>(initialCapacity);
+                AllowedComponentCache = new HashSet<Type>(initialCapacity);
+                ChunkSerializableCache = new Dictionary<Type, (bool isChunkSerializable, bool hasChunkSerializableAttribute)>();
+                CalculateFieldOffsetsUnmanagedCache = new HashSet<Type>(initialCapacity);
+            }
+        }
+
         private static void AddAllComponentTypes(Type[] componentTypes, int startTypeIndex, Dictionary<int, HashSet<TypeIndex>> writeGroupByType, Dictionary<Type, int> descendantCountByType)
         {
-            Dictionary<Type, ulong> hashCache = new Dictionary<Type, ulong>();
-            Dictionary<Type, bool> nestedContainerCache = new Dictionary<Type, bool>();
+            BuildComponentCache caches = new BuildComponentCache(componentTypes.Length);
             var expectedTypeIndex = startTypeIndex;
 
             for (int i = 0; i < componentTypes.Length; i++)
@@ -2603,16 +2629,16 @@ namespace Unity.Entities
                         var writeGroupArray = new TypeIndex[writeGroupCount];
                         writeGroupSet.CopyTo(writeGroupArray);
 
-                        typeInfo = BuildComponentType(type, writeGroupArray, hashCache, nestedContainerCache);
+                        typeInfo = BuildComponentType(type, writeGroupArray, caches);
                     }
                     else
                     {
-                        typeInfo = BuildComponentType(type, hashCache, nestedContainerCache);
+                        typeInfo = BuildComponentType(type, caches);
                     }
 
                     var typeIndexNoFlags = typeInfo.TypeIndex.Index;
                     if (expectedTypeIndex != typeIndexNoFlags)
-                        throw new InvalidOperationException($"ComponentType.TypeIndex does not match precalculated index. Expected: {expectedTypeIndex:x8} Actual: {typeIndexNoFlags:x8}");
+                        throw new InvalidOperationException($"ComponentType.TypeIndex does not match precalculated index for {type}. Expected: {expectedTypeIndex:x8} Actual: {typeIndexNoFlags:x8}");
 
                     var descendantCount = descendantCountByType[type];
 
@@ -2709,32 +2735,59 @@ namespace Unity.Entities
             }
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-        internal static void CheckIsAllowedAsComponentData(Type type, string baseTypeDesc, Dictionary<Type, bool> nestedContainerCache, out bool hasNativeContainer)
+        internal static void CheckIsAllowedAsComponentData(Type type, string baseTypeDesc, Dictionary<Type, bool> nestedContainerCache, out bool hasNativeContainer, HashSet<Type> allowedComponentCache = null)
         {
             hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (UnsafeUtility.IsUnmanaged(type))
                 return;
 
             // it can't be used -- so we expect this to find and throw
-            ThrowOnDisallowedComponentData(type, type, baseTypeDesc);
+            ThrowOnDisallowedComponentData(type, type, baseTypeDesc, allowedComponentCache);
 
             // if something went wrong and the above didn't throw, then throw
             throw new ArgumentException($"{type} cannot be used as component data for unknown reasons (BUG)");
-        }
 #endif
+        }
+
+        internal static void CheckTypeOverrideAndUpdateHasReferences(Type type, Dictionary<Type, EntityRemapUtility.EntityBlobRefResult> cache, ref bool hasEntityReferences, ref bool hasBlobReferences)
+        {
+            // Components can opt out of certain patching operations as an optimization since with managed components we can't statically
+            // know if there are certainly entity or blob references. Check here to ensure the type overrides were done correctly.
+            var typeOverride = type.GetCustomAttribute<TypeOverridesAttribute>(true);
+            if (typeOverride != null)
+            {
+                EntityRemapUtility.HasEntityReferencesManaged(type, out var actuallyHasEntityRefs, out var actuallyHasBlobRefs, cache, 128);
+                if (typeOverride.HasNoEntityReferences && actuallyHasEntityRefs == EntityRemapUtility.HasRefResult.HasRef)
+                {
+                    throw new ArgumentException(
+                        $"Component type '{type}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
+                        $"Entity references, however the type does in fact contain a (potentially nested) Entity reference. " +
+                        $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
+                }
+
+                if (typeOverride.HasNoBlobReferences && actuallyHasBlobRefs == EntityRemapUtility.HasRefResult.HasRef)
+                {
+                    throw new ArgumentException(
+                        $"Component type '{type}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
+                        $"BlobAssetReferences, however the type does in fact contain a (potentially nested) BlobAssetReference. " +
+                        $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
+                }
+            }
+
+            if (typeOverride != null && typeOverride.HasNoEntityReferences)
+                hasEntityReferences = false;
+            if (typeOverride != null && typeOverride.HasNoBlobReferences)
+                hasBlobReferences = false;
+        }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         internal static void CheckIsAllowedAsManagedComponentData(Type type, string baseTypeDesc, Dictionary<Type, bool> nestedContainerCache, out bool hasNativeContainer)
         {
             if (type.IsClass && typeof(IComponentData).IsAssignableFrom(type))
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
-#else
-                hasNativeContainer = false;
-#endif
                 ThrowOnDisallowedManagedComponentData(type, baseTypeDesc);
                 return;
             }
@@ -2743,6 +2796,7 @@ namespace Unity.Entities
             throw new ArgumentException($"{type} cannot be used as managed component data for unknown reasons (BUG)");
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal static void ThrowOnDisallowedManagedComponentData(Type type, string baseTypeDesc)
         {
             // Validate the class component data type is usable:
@@ -2753,7 +2807,7 @@ namespace Unity.Entities
 #endif
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        internal static void ThrowOnDisallowedComponentData(Type type, Type baseType, string baseTypeDesc)
+        internal static void ThrowOnDisallowedComponentData(Type type, Type baseType, string baseTypeDesc, HashSet<Type> cache)
         {
             if (type.IsPrimitive)
                 return;
@@ -2761,6 +2815,13 @@ namespace Unity.Entities
             // if it's a pointer, we assume you know what you're doing
             if (type.IsPointer)
                 return;
+
+            // The cache check is lower than the above early outs since checking the cache is more expensive
+            // than the above checks
+            if (cache.Contains(type))
+                return;
+
+            cache.Add(type);
 
             if (!type.IsValueType || type.IsByRef || type.IsClass || type.IsInterface || type.IsArray)
             {
@@ -2773,21 +2834,17 @@ namespace Unity.Entities
 
             foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {
-                ThrowOnDisallowedComponentData(field.FieldType, baseType, baseTypeDesc);
+                ThrowOnDisallowedComponentData(field.FieldType, baseType, baseTypeDesc, cache);
             }
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         internal static bool ThrowOnNestedNativeContainerComponentData(Type type, Type baseType, Dictionary<Type, bool> nestedContainerCache)
         {
+            if (type.IsPrimitive)
+                return false;
+
             if (nestedContainerCache.TryGetValue(type, out bool hasContainer))
                 return hasContainer;
-
-            if (type.IsPrimitive)
-            {
-                nestedContainerCache.Add(type, false);
-                return false;
-            }
 
             if (type.IsArray)
             {
@@ -2795,21 +2852,27 @@ namespace Unity.Entities
                 var elementType = type.GetElementType();
                 if (elementType != null)
                     hasContainer = ThrowOnNestedNativeContainerComponentData(elementType, baseType, nestedContainerCache);
-                nestedContainerCache.Add(type, hasContainer);
+                // We may have inserted the ElementType as part of the recursive call above if the type contains
+                // a circular reference (which is not valid for ValueTypes but is possible for ReferenceTypes).
+                // Since we don't know the answer for hasContainer, and it can't have changed since the recursive
+                // call we use TryAdd, and don't need to do a Contains and then update the value; TryAdd is good enough.
+                nestedContainerCache.TryAdd(type, hasContainer);
                 return hasContainer;
             }
 
-            const int kScriptTypeNativeContainerFlag = 0x2;
 
             if (Attribute.IsDefined(type, typeof(NativeContainerAttribute)))
             {
                 hasContainer = true;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 foreach (var genericArg in type.GenericTypeArguments)
                 {
+                    const int kScriptTypeNativeContainerFlag = 0x2;
                     if ((UnsafeUtility.GetScriptingTypeFlags(genericArg) & kScriptTypeNativeContainerFlag) == kScriptTypeNativeContainerFlag)
                         throw new ArgumentException(
                             $"{baseType} contains a field of {type} which is a nested native container");
                 }
+#endif
             }
 
             nestedContainerCache.Add(type, hasContainer);
@@ -2822,7 +2885,67 @@ namespace Unity.Entities
             nestedContainerCache[type] = hasContainer;
             return hasContainer;
         }
-#endif
+
+        // A component type is "chunk serializable" if it meets the following rules:
+        // - It is decorated with [ChunkSerializable] attribute (this is an override for all other rules)
+        // - The type is blittable AND
+        // - The type does not contain any pointer types (including IntPtr) AND
+        // - If the type is a shared component, it does not contain an entity reference
+        private static bool IsComponentChunkSerializable(Type type, TypeCategory category, bool hasEntityReference, BuildComponentCache cache)
+        {
+            var isSerializable = IsTypeValidForSerialization(type, cache.ChunkSerializableCache);
+
+            // Shared Components are expected to be handled specially when serializing and are not required to be blittable.
+            // They cannot contain an entity reference today as they are not patched however for unmanaged components
+            // we should be able to correct this behaviour DOTS-7613
+            if (!isSerializable.hasChunkSerializableAttribute && category == TypeCategory.ISharedComponentData && hasEntityReference)
+            {
+                isSerializable.isSerializable = false;
+            }
+
+            return isSerializable.isSerializable;
+        }
+
+
+        // True when a component is valid to using in world serialization. A component IsSerializable when it is valid to blit
+        // the data across storage media. Thus components containing pointers have an IsSerializable of false as the component
+        // is blittable but no longer valid upon deserialization.
+        private static (bool isSerializable, bool hasChunkSerializableAttribute) IsTypeValidForSerialization(Type type, Dictionary<Type, (bool isChunkSerializable, bool hasChunkSerializableAttribute)> cache)
+        {
+            var result = (false, false);
+            if (cache.TryGetValue(type, out result))
+                return result;
+
+            if (type.GetCustomAttribute<ChunkSerializableAttribute>() != null)
+            {
+                result = (true, true);
+                cache.Add(type, result);
+                return result;
+            }
+
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+            {
+                if (field.IsStatic)
+                    continue;
+
+                if (field.FieldType.IsPointer || (field.FieldType == typeof(UIntPtr) || field.FieldType == typeof(IntPtr)))
+                {
+                    return result;
+                }
+                else if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive && !field.FieldType.IsEnum)
+                {
+                    if (!IsTypeValidForSerialization(field.FieldType, cache).isSerializable)
+                    {
+                        cache.Add(type, result);
+                        return result;
+                    }
+                }
+            }
+
+            result = (true, false);
+            cache.Add(type, result);
+            return result;
+        }
 
         // https://stackoverflow.com/a/27851610
         static bool IsZeroSizeStruct(Type t)
@@ -2831,23 +2954,21 @@ namespace Unity.Entities
                 t.GetFields((BindingFlags)0x34).All(fi => IsZeroSizeStruct(fi.FieldType));
         }
 
-        internal static TypeInfo BuildComponentType(Type type, Dictionary<Type, ulong> hashCache, Dictionary<Type, bool> nestedContainerCache)
+        internal static TypeInfo BuildComponentType(Type type, BuildComponentCache caches)
         {
-            return BuildComponentType(type, null, hashCache, nestedContainerCache);
+            return BuildComponentType(type, null, caches);
         }
 
-        internal static TypeInfo BuildComponentType(Type type, TypeIndex[] writeGroups, Dictionary<Type, ulong> hashCache, Dictionary<Type, bool> nestedContainerCache)
+        internal static TypeInfo BuildComponentType(Type type, TypeIndex[] writeGroups, BuildComponentCache caches)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             CheckComponentType(type);
-#endif
 
             var sizeInChunk = 0;
             TypeCategory category;
             int bufferCapacity = -1;
-            var memoryOrdering = TypeHash.CalculateMemoryOrdering(type, out var hasCustomMemoryOrder, hashCache);
+            var memoryOrdering = TypeHash.CalculateMemoryOrdering(type, out var hasCustomMemoryOrder, caches.TypeHashCache);
             // The stable type hash is the same as the memory order if the user hasn't provided a custom memory ordering
-            var stableTypeHash = !hasCustomMemoryOrder ? memoryOrdering : TypeHash.CalculateStableTypeHash(type, null, hashCache);
+            var stableTypeHash = !hasCustomMemoryOrder ? memoryOrdering : TypeHash.CalculateStableTypeHash(type, null, caches.TypeHashCache);
             bool isManaged = type.IsClass;
             var isRefCounted = typeof(IRefCounted).IsAssignableFrom(type);
             var maxChunkCapacity = MaximumChunkCapacity;
@@ -2874,9 +2995,7 @@ namespace Unity.Entities
 
             if (typeof(IComponentData).IsAssignableFrom(type) && !isManaged)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                CheckIsAllowedAsComponentData(type, nameof(IComponentData), nestedContainerCache, out hasNativeContainer);
-#endif
+                CheckIsAllowedAsComponentData(type, nameof(IComponentData), caches.NestedNativeContainerCache, out hasNativeContainer, caches.AllowedComponentCache);
 
                 category = TypeCategory.ComponentData;
 
@@ -2888,16 +3007,16 @@ namespace Unity.Entities
                 else
                     sizeInChunk = valueTypeSize;
 
-                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList);
+                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList, caches.CalculateFieldOffsetsUnmanagedCache);
             }
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             else if (typeof(IComponentData).IsAssignableFrom(type) && isManaged)
             {
-                CheckIsAllowedAsManagedComponentData(type, nameof(IComponentData), nestedContainerCache, out hasNativeContainer);
+                CheckIsAllowedAsManagedComponentData(type, nameof(IComponentData), caches.NestedNativeContainerCache, out hasNativeContainer);
 
                 category = TypeCategory.ComponentData;
                 sizeInChunk = sizeof(int);
-                EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult);
+                EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult, caches.HasEntityOrBlobAssetReferenceCache);
 
                 hasEntityReferences = entityRefResult > 0;
                 hasBlobReferences = blobRefResult > 0;
@@ -2905,9 +3024,7 @@ namespace Unity.Entities
 #endif
             else if (typeof(IBufferElementData).IsAssignableFrom(type))
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                CheckIsAllowedAsComponentData(type, nameof(IBufferElementData), nestedContainerCache, out hasNativeContainer);
-#endif
+                CheckIsAllowedAsComponentData(type, nameof(IBufferElementData), caches.NestedNativeContainerCache, out hasNativeContainer, caches.AllowedComponentCache);
 
                 category = TypeCategory.BufferData;
 
@@ -2929,14 +3046,14 @@ namespace Unity.Entities
                     bufferCapacity = DefaultBufferCapacityNumerator / elementSize; // Rather than 2*cachelinesize, to make it cross platform deterministic
 
                 sizeInChunk = sizeof(BufferHeader) + bufferCapacity * elementSize;
-                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList);
+                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList, caches.CalculateFieldOffsetsUnmanagedCache);
             }
             else if (typeof(ISharedComponentData).IsAssignableFrom(type))
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (!type.IsValueType)
                     throw new ArgumentException($"{type} is an ISharedComponentData, and thus must be a struct.");
-                hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
+                hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, caches.NestedNativeContainerCache);
 #endif
                 valueTypeSize = UnsafeUtility.SizeOf(type);
 
@@ -2950,7 +3067,7 @@ namespace Unity.Entities
 
                 if (isManaged)
                 {
-                    EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult);
+                    EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult, caches.HasEntityOrBlobAssetReferenceCache);
 
                     // Managed shared components explicitly do not allow patching of entity references
                     hasEntityReferences = false;
@@ -2958,9 +3075,8 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList);
+                    EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList, caches.CalculateFieldOffsetsUnmanagedCache);
                 }
-
             }
             else if (type.IsClass)
             {
@@ -2984,13 +3100,9 @@ namespace Unity.Entities
             }
 
             // If the type explicitly overrides entity/blob reference attributes account for that now
-            var typeOverridesAttributes = type.GetCustomAttribute<TypeOverridesAttribute>(true);
-            if (typeOverridesAttributes != null && typeOverridesAttributes.HasNoEntityReferences)
-                hasEntityReferences = false;
-            if (typeOverridesAttributes != null && typeOverridesAttributes.HasNoBlobReferences)
-                hasBlobReferences = false;
+            CheckTypeOverrideAndUpdateHasReferences(type, caches.HasEntityOrBlobAssetReferenceCache, ref hasEntityReferences, ref hasBlobReferences);
 
-            AddFastEqualityInfo(type, category == TypeCategory.UnityEngineObject);
+            AddFastEqualityInfo(type, category == TypeCategory.UnityEngineObject, caches.FastEqualityLayoutInfoCache);
 
             int entityOffsetCount = s_EntityOffsetList.Length - entityOffsetIndex;
             int blobAssetRefOffsetCount = s_BlobAssetRefOffsetList.Length - blobAssetRefOffsetIndex;
@@ -3020,7 +3132,7 @@ namespace Unity.Entities
             bool isTemporaryBakingType = Attribute.IsDefined(type, typeof(TemporaryBakingTypeAttribute));
             bool isBakingOnlyType = Attribute.IsDefined(type, typeof(BakingTypeAttribute));
             var isIEquatable = type.GetInterfaces().Any(i => i.Name.Contains("IEquatable"));
-
+            var isChunkSerializable = IsComponentChunkSerializable(type, category, hasEntityReferences, caches);
 
             if (typeIndex != 0)
             {
@@ -3062,6 +3174,9 @@ namespace Unity.Entities
 
                 if (isIEquatable)
                     typeIndex |= IEquatableTypeFlag;
+
+                if (!isChunkSerializable)
+                    typeIndex |= IsNotChunkSerializableTypeFlag;
             }
 
             return new TypeInfo(typeIndex, category, entityOffsetCount, entityOffsetIndex,
@@ -3081,7 +3196,7 @@ namespace Unity.Entities
         }
 #endif // #if !UNITY_DOTSRUNTIME
 
-        private static void AddFastEqualityInfo(Type type, bool isUnityEngineObject = false)
+        private static void AddFastEqualityInfo(Type type, bool isUnityEngineObject = false, Dictionary<Type, List<FastEquality.LayoutInfo>> cache = null)
         {
 #if !UNITY_DOTSRUNTIME
             if (type == null || isUnityEngineObject)

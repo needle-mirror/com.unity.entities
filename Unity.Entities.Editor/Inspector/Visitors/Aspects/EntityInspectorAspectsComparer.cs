@@ -8,7 +8,7 @@ namespace Unity.Entities.Editor
     {
         static readonly string[] k_TopAspects =
         {
-            nameof(TransformAspect)
+            // No built-in aspects currently need to be sorted at the top of the inspector
         };
 
         public static EntityInspectorAspectsComparer Instance { get; } = new();

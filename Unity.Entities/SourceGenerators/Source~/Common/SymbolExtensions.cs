@@ -1,24 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
-using Unity.Entities.SourceGen.SystemGeneratorCommon;
 
 namespace Unity.Entities.SourceGen.Common
 {
     public static class SymbolExtensions
     {
-        public static (bool IsSystemType, SystemType SystemType) TryGetSystemType(this ITypeSymbol namedSystemTypeSymbol)
-        {
-            if (namedSystemTypeSymbol.Is("Unity.Entities.SystemBase"))
-                return (true, SystemType.SystemBase);
-            if (namedSystemTypeSymbol.InheritsFromInterface("Unity.Entities.ISystem"))
-                return (true, SystemType.ISystem);
-            return (false, default);
-        }
-
         static SymbolDisplayFormat QualifiedFormat { get; } =
             new SymbolDisplayFormat(
                 typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
@@ -233,37 +222,6 @@ namespace Unity.Entities.SourceGen.Common
         }
 
         public static bool IsAspect(this ITypeSymbol typeSymbol) => typeSymbol.InheritsFromInterface("Unity.Entities.IAspect");
-
-        /// <summary>
-        /// Test if the type is unmanaged or one of the unmanaged types generated nested in an aspect by the aspect generator.
-        /// The aspect nested types may not be generated yet and trying to resolve them will result in a SymbolKind.ErrorType and ITypeSymbol.IsUnmanagedType will be false.
-        /// But we know that the nest aspect types "Lookup" and "TypeHandle" will be generated and will be unmanaged.
-        /// Will test recursively for struct that are not IsUnmanagedType and test if all their unmanaged fields are aspect types.
-        /// </summary>
-        /// <param name="type"></param>
-        /// <returns>if type is unmanaged</returns>
-        public static bool IsUnmanagedOrAspectPrimitive(this ITypeSymbol type)
-        {
-            if (type.IsUnmanagedType) return true;
-
-            // SymbolKind.ErrorType happens for aspects Lookup and TypeHandle types which are not yet generated when we hit this point.
-            // these types are assumed to be unmanaged.
-            if (type.Kind == SymbolKind.ErrorType
-                && (type.Name == "Lookup" || type.Name == "TypeHandle")
-                && type.ContainingType != null && type.ContainingType.IsAspect())
-                return true;
-
-            // Structs that nest any aspect Lookup or TypeHandle are considered unmanaged as well.
-            if (type.TypeKind == TypeKind.Struct)
-            {
-                foreach (var member in type.GetMembers())
-                    if (member is IFieldSymbol field && !field.Type.IsUnmanagedOrAspectPrimitive())
-                        return false;
-                return true;
-            }
-
-            return false;
-        }
 
         public static TypedConstantKind GetTypedConstantKind(this ITypeSymbol type)
         {

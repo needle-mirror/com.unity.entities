@@ -44,7 +44,9 @@ namespace Unity.Entities.Tests.Conversion
         {
             public override void Bake(ConversionTestCompanionComponentWithEntity authoring)
             {
-                AddComponentObject(authoring);
+                // This test might require transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponentObject(entity, authoring);
             }
         }
 
@@ -52,7 +54,9 @@ namespace Unity.Entities.Tests.Conversion
         {
             public override void Bake(ConversionTestCompanionComponentA authoring)
             {
-                AddComponentObject(authoring);
+                // This test might require transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponentObject(entity, authoring);
             }
         }
 
@@ -60,7 +64,9 @@ namespace Unity.Entities.Tests.Conversion
         {
             public override void Bake(ConversionTestCompanionComponentB authoring)
             {
-                AddComponentObject(authoring);
+                // This test might require transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponentObject(entity, authoring);
             }
         }
 
@@ -68,7 +74,9 @@ namespace Unity.Entities.Tests.Conversion
         {
             public override void Bake(ConversionTestCompanionComponentC authoring)
             {
-                AddComponentObject(authoring);
+                // This test might require transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponentObject(entity, authoring);
             }
         }
 
@@ -299,7 +307,8 @@ namespace Unity.Entities.Tests.Conversion
         {
             public override void Bake(ConversionTestCompanionComponentPrefabReference authoring)
             {
-                GetEntity(authoring.Prefab);
+                // This test could require transform components
+                GetEntity(authoring.Prefab, TransformUsageFlags.Dynamic);
             }
         }
 

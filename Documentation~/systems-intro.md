@@ -13,6 +13,7 @@ Understand the different options to create systems, and best practices around wo
 |[Using SystemBase](systems-systembase.md)|Work with `SystemBase` based systems.|
 |[Define and manage system data](systems-data.md)|Access system data in components.|
 |[System groups](systems-update-order.md)|Understand how to group systems and their update order.|
+|[Manage systems in multiple worlds](systems-icustombootstrap.md)|Understand how to manage systems in multiple worlds.|
 
 ## Additional resources
 

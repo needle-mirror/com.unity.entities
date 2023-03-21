@@ -35,7 +35,9 @@ namespace Unity.Entities.Tests
     {
         public override void Bake(WeakMaterialComponentAuthoring authoring)
         {
-            AddSharedComponentManaged(GetEntity(authoring), new WeakMaterialComponent() { material = authoring.mat });
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddSharedComponentManaged(entity, new WeakMaterialComponent() { material = authoring.mat });
         }
     }
 }

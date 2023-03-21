@@ -8,19 +8,23 @@ namespace Unity.Entities.Tests
     [DisallowMultipleComponent]
     public class WeakMaterialRefComponentAuthoring : MonoBehaviour
     {
+        public WeakObjectSceneReference sceneRef;
         public WeakObjectReference<Material> matRef;
     }
 
     public struct WeakMaterialRefComponent : ISharedComponentData
     {
         public WeakObjectReference<Material> materialRef;
+        public WeakObjectSceneReference sceneRef;
     }
 
     public class WeakMaterialRefComponentAuthoringBaker : Baker<WeakMaterialRefComponentAuthoring>
     {
         public override void Bake(WeakMaterialRefComponentAuthoring authoring)
         {
-            AddSharedComponentManaged(GetEntity(authoring), new WeakMaterialRefComponent() { materialRef = authoring.matRef });
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddSharedComponentManaged(entity, new WeakMaterialRefComponent() { materialRef = authoring.matRef, sceneRef = authoring.sceneRef });
         }
     }
 }

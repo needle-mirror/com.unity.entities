@@ -91,6 +91,7 @@ namespace Unity.Scenes
             resolver.ResolveObjects(globalObjectIDs, resolvedObjects);
             var reader = new ManagedObjectBinaryReader(bufferReader, resolvedObjects);
 
+            var addArchetypes = ReadFilteredArchetypes(bufferReader, Allocator.Persistent);
             var (setSharedComponents, unmanagedSharedComponentData) = ReadSharedComponentDataChanges(bufferReader, reader, typeHashes);
             var setManagedComponents = ReadManagedComponentDataChanges(bufferReader, reader, typeHashes);
 
@@ -106,6 +107,7 @@ namespace Unity.Scenes
                 names,
                 nameChangedEntityGuids,
                 addComponents,
+                addArchetypes,
                 removeComponents,
                 setComponents,
                 componentData,
@@ -164,6 +166,38 @@ namespace Unity.Scenes
             return setManagedComponentDataChanges;
         }
 
+        static NativeArray<FilteredArchetype> ReadFilteredArchetypes(UnsafeAppendBuffer.Reader* buffer, Allocator allocator)
+        {
+            var filteredArchetypesLength = buffer->ReadNext<int>();
+            var filteredArchetypes = new NativeArray<FilteredArchetype>(filteredArchetypesLength, allocator);
+
+            for (var i = 0; i < filteredArchetypesLength; i++)
+            {
+                var entityCount = buffer->ReadNext<int>();
+                var packedEntityIndices = new UnsafeList<int>(entityCount, allocator);
+                for (int j = 0; j < entityCount; j++)
+                {
+                    packedEntityIndices.Add(buffer->ReadNext<int>());
+                }
+
+                var componentCount = buffer->ReadNext<int>();
+                var typeIndices = new UnsafeList<TypeIndex>(componentCount, allocator);
+                for (int j = 0; j < componentCount; j++)
+                {
+                    typeIndices.Add(buffer->ReadNext<TypeIndex>());
+                }
+
+                filteredArchetypes[i] = new FilteredArchetype()
+                {
+                    EntityCount = entityCount,
+                    PackedEntityIndices = packedEntityIndices,
+                    TypeIndices = typeIndices
+                };
+            }
+
+            return filteredArchetypes;
+        }
+
 #if UNITY_EDITOR
 
         public static void Serialize(EntityChangeSet entityChangeSet, UnsafeAppendBuffer* buffer, out NativeArray<RuntimeGlobalObjectId> outAssets)
@@ -203,6 +237,7 @@ namespace Unity.Scenes
 
             var writer = new ManagedObjectBinaryWriter(buffer);
 
+            WriteFilteredArchetypes(buffer, entityChangeSet.AddArchetypes);
             WriteSharedComponentDataChanges(buffer, writer, entityChangeSet.SetSharedComponents, entityChangeSet.UnmanagedSharedComponentData);
             WriteManagedComponentDataChanges(buffer, writer, setManagedComponentWithoutCompanionLinks);
 
@@ -236,6 +271,26 @@ namespace Unity.Scenes
             removeComponentWithoutCompanionLinks.Dispose();
         }
 
+        static void WriteFilteredArchetypes(UnsafeAppendBuffer* buffer, NativeArray<FilteredArchetype> changes)
+        {
+            buffer->Add(changes.Length);
+
+            for (var i = 0; i < changes.Length; i++)
+            {
+                buffer->Add(changes[i].EntityCount);
+                for (int j = 0; j < changes[i].EntityCount; j++)
+                {
+                    buffer->Add(changes[i].PackedEntityIndices[j]);
+                }
+
+                buffer->Add(changes[i].TypeIndices.Length);
+                for (int j = 0; j < changes[i].TypeIndices.Length; j++)
+                {
+                    buffer->Add(changes[i].TypeIndices[j]);
+                }
+            }
+        }
+
         static void WriteSharedComponentDataChanges(UnsafeAppendBuffer* buffer, ManagedObjectBinaryWriter writer, PackedSharedComponentDataChange[] changes, UnsafeAppendBuffer unmanagedSharedComponentData)
         {
             buffer->Add(changes.Length);
@@ -262,7 +317,7 @@ namespace Unity.Scenes
                 writer.WriteObject(changes[i].BoxedValue);
         }
 
-        static NativeList<PackedComponent> GetPackedComponentsWithoutCompanionLinks(NativeArray<PackedComponent> components, int companionLinkPackedTypeIndex, Allocator allocator)
+        static NativeList<PackedComponent> GetPackedComponentsWithoutCompanionLinks(NativeArray<PackedComponent> components, int companionLinkPackedTypeIndex, AllocatorManager.AllocatorHandle allocator)
         {
             var list = new NativeList<PackedComponent>(components.Length, allocator);
 

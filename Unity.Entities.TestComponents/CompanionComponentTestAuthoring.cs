@@ -13,7 +13,9 @@ namespace Unity.Entities.Tests
     {
         public override void Bake(CompanionComponentTestAuthoring authoring)
         {
-            AddComponentObject(authoring);
+            // This test might require transform components
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponentObject(entity, authoring);
         }
     }
 }

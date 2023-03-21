@@ -1,8 +1,10 @@
 {
     "name": "Unity.Deformations",
+    "rootNamespace": "",
     "references": [
         "Unity.Entities",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.Collections"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

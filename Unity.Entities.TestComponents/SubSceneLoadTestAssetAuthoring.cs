@@ -23,7 +23,9 @@ namespace Unity.Scenes.Editor.Tests
         public override void Bake(SubSceneLoadTestAssetAuthoring authoring)
         {
 #if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
-            AddComponentObject(new SubSceneLoadTestAssetComponent
+            // This test shouldn't require transform components
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponentObject(entity, new SubSceneLoadTestAssetComponent
             {
                 Asset = authoring.Asset
             });

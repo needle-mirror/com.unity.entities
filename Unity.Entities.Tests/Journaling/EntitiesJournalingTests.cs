@@ -1696,7 +1696,7 @@ namespace Unity.Entities.Tests
                 Throws.ArgumentException.With.Message.Contains("(" + e.Index + ":" + e.Version + ")"));
         }
 
-        class TestECBPlaybackSystem : EntityCommandBufferSystem { }
+        partial class TestECBPlaybackSystem : EntityCommandBufferSystem { }
         partial class TestECBRecordingSystem_DestroyedErrorMessage : SystemBase
         {
             protected override void OnUpdate()

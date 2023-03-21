@@ -191,6 +191,7 @@ namespace Unity.Scenes.Editor
         static readonly ProfilerMarker IncrementalConversionMarker = new ProfilerMarker("IncrementalConversion");
         static readonly ProfilerMarker DebugConversionMarker = new ProfilerMarker("DebugConversion");
         static readonly ProfilerMarker CleanConversionMarker = new ProfilerMarker("CleanConversion");
+        static readonly ProfilerMarker BlobAssetStoreGarbageCollection = new ProfilerMarker("BlobAssetStoreGarbageCollection");
 
         internal World ConvertedWorld => _ConvertedWorld;
 
@@ -213,6 +214,11 @@ namespace Unity.Scenes.Editor
                 var didBake = BakingUtility.BakeScene(_ConvertedWorld, _Scene, conversionSettings, !_RequestCleanConversion, _IncrementalBakingChangeTracker);
                 if (didBake)
                     AddMissingData(_ConvertedWorld, _MissingSceneQuery, _MissingRenderDataQuery, flags);
+
+                using (BlobAssetStoreGarbageCollection.Auto())
+                {
+                    _BlobAssetStore.GarbageCollection(_ConvertedWorld.EntityManager);
+                }
 
                 _IncrementalBakingChangeTracker.Clear();
                 _RequestCleanConversion = false;
@@ -320,16 +326,27 @@ namespace Unity.Scenes.Editor
                             // throw away the companion link changes
                             Array.Resize(ref managedComponents, last + 1 - numCompanionLinkObjects);
                             fwdChanges = new EntityChangeSet(fwdChanges.CreatedEntityCount,
-                                fwdChanges.DestroyedEntityCount, fwdChanges.NameChangedCount, fwdChanges.Entities, fwdChanges.TypeHashes,
-                                fwdChanges.Names, fwdChanges.NameChangedEntityGuids, fwdChanges.AddComponents, fwdChanges.RemoveComponents,
-                                fwdChanges.SetComponents, fwdChanges.ComponentData, fwdChanges.EntityReferenceChanges,
+                                fwdChanges.DestroyedEntityCount,
+                                fwdChanges.NameChangedCount,
+                                fwdChanges.Entities,
+                                fwdChanges.TypeHashes,
+                                fwdChanges.Names,
+                                fwdChanges.NameChangedEntityGuids,
+                                fwdChanges.AddComponents,
+                                fwdChanges.AddArchetypes,
+                                fwdChanges.RemoveComponents,
+                                fwdChanges.SetComponents,
+                                fwdChanges.ComponentData,
+                                fwdChanges.EntityReferenceChanges,
                                 fwdChanges.BlobAssetReferenceChanges,
                                 managedComponents, // <- this changes
                                 fwdChanges.SetSharedComponents,
                                 fwdChanges.UnmanagedSharedComponentData,
                                 fwdChanges.LinkedEntityGroupAdditions,
-                                fwdChanges.LinkedEntityGroupRemovals, fwdChanges.CreatedBlobAssets,
-                                fwdChanges.DestroyedBlobAssets, fwdChanges.BlobAssetData);
+                                fwdChanges.LinkedEntityGroupRemovals,
+                                fwdChanges.CreatedBlobAssets,
+                                fwdChanges.DestroyedBlobAssets,
+                                fwdChanges.BlobAssetData);
                             if (!fwdChanges.HasChanges)
                                 return;
                         }

@@ -57,9 +57,10 @@ namespace Unity.Entities
             /// Convert array to native array.
             /// </summary>
             /// <param name="allocator">The Allocator of the NativeArray.</param>
-            public NativeArray<ComponentTypeView> ToNativeArray(Allocator allocator)
+            public NativeArray<ComponentTypeView> ToNativeArray(AllocatorManager.AllocatorHandle allocator)
             {
-                var array = new NativeArray<ComponentTypeView>(m_TypeIndexCount, allocator);
+                // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
+                var array = new NativeArray<ComponentTypeView>(m_TypeIndexCount, allocator.ToAllocator);
                 for (var i = 0; i < m_TypeIndexCount; ++i)
                     array[i] = this[i];
                 return array;

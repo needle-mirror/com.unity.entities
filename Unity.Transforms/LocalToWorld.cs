@@ -11,21 +11,21 @@ namespace Unity.Transforms
     /// This matrix is primarily intended for consumption by the rendering systems.
     ///
     /// The matrix value is generally updated automatically by <see cref="LocalToWorldSystem"/> based on the entity's
-    /// <see cref="WorldTransform"/>.
-    /// These components are the preferred interface for application code to read
-    /// and write an entity's transformation data.
+    /// <see cref="LocalTransform"/>.
+    ///
+    /// This component value may be out of date or invalid while the <see cref="SimulationSystemGroup"/> is running; it
+    /// is only updated when the <see cref="TransformSystemGroup"/> runs).
+    /// It may also contain additional offsets applied for graphical smoothing purposes.
+    /// Therefore, while the <see cref="LocalToWorld"/> component may be useful as a fast approximation of an entity's
+    /// world-space transformation when its latency is acceptable, it should not be relied one when an accurate,
+    /// up-to-date world transform is needed for simulation purposes. In those cases, use the
+    /// <see cref="Unity.Transforms.Helpers.ComputeWorldTransformMatrix"/> method.
     ///
     /// If a system writes to this component directly outside of the Entities transform systems using a <see cref="WriteGroupAttribute"/>,
-    /// <see cref="LocalToWorldSystem"/> will not overwrite this entity's matrix. In this case:
-    /// 1. The writing system is also responsible for applying the entity's <see cref="PostTransformScale"/> component (if present).
-    /// 2. The <see cref="PropagateLocalToWorld"/> attribute should be added to the entity, in order to ensure that any descendants
-    ///    inherit the custom local-to-world matrix correctly.
+    /// <see cref="LocalToWorldSystem"/> will not overwrite this entity's matrix. In this case, the writing system is
+    /// also responsible for applying the entity's <see cref="PostTransformMatrix"/> component (if present).
     /// </remarks>
     [Serializable]
-#if !ENABLE_TRANSFORM_V1
-#else
-    [WriteGroup(typeof(WorldToLocal))]
-#endif
     public struct LocalToWorld : IComponentData
     {
         /// <summary>
@@ -56,8 +56,6 @@ namespace Unity.Transforms
         /// <summary>
         /// The "entity's" orientation in world-space.
         /// </summary>
-        /// <remarks>It is generally more efficient to read this value from <see cref="WorldTransform"/>, rather
-        /// than extracting it from the local-to-world matrix.</remarks>
         public quaternion Rotation => new quaternion(Value);
     }
 }

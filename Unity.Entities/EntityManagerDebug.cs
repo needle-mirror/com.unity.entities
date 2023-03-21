@@ -98,6 +98,20 @@ namespace Unity.Entities
         /// <param name="allocator">The type of allocation for creating the NativeArray to hold the Entity objects.</param>
         /// <returns>An array of Entity objects referring to all the entities in the World.</returns>
         public NativeArray<Entity> GetAllEntities(Allocator allocator = Allocator.Temp)
+            => GetAllEntities((AllocatorManager.AllocatorHandle) allocator, GetAllEntitiesOptions.Default);
+
+        /// <summary>
+        /// Gets all the entities managed by this EntityManager.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before getting the entities and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="allocator">The type of allocation for creating the NativeArray to hold the Entity objects.</param>
+        /// <returns>An array of Entity objects referring to all the entities in the World.</returns>
+        public NativeArray<Entity> GetAllEntities(AllocatorManager.AllocatorHandle allocator)
             => GetAllEntities(allocator, GetAllEntitiesOptions.Default);
 
         /// <summary>
@@ -112,7 +126,7 @@ namespace Unity.Entities
         /// <param name="allocator">The type of allocation for creating the NativeArray to hold the Entity objects.</param>
         /// <param name="options">Specifies whether entities from chunk components should be included.</param>
         /// <returns>An array of Entity objects referring to all the entities in the World.</returns>
-        public NativeArray<Entity> GetAllEntities(Allocator allocator, GetAllEntitiesOptions options)
+        public NativeArray<Entity> GetAllEntities(AllocatorManager.AllocatorHandle allocator, GetAllEntitiesOptions options)
         {
             NativeArray<ArchetypeChunk> chunks = default;
             if ((options & GetAllEntitiesOptions.IncludeMeta) != 0)

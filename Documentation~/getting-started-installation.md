@@ -4,7 +4,7 @@ When you set up an Entities project, there are additional steps you must follow.
 
 ## Unity version
 
-Entities 1.0 is compatible with Unity version 2022.2.0b8 and later.
+Entities 1.0 is compatible with Unity version 2022.2.6f1 and later.
 
 ## Recommended packages
 
@@ -16,7 +16,7 @@ You should add the following recommended set of core packages to your project:
 * [com.unity.entities.graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@latest)
 
 ## IDE support
-Entities 0.51 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
+The Entities package uses [Roslyn Source Generators](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview). Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
 
 * Visual Studio 2022+
 * Rider 2021.3.3+

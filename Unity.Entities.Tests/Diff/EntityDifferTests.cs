@@ -50,7 +50,9 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
 
                     // Reverse changes is all changes needed to go from the current state back to the last shadow state. (i.e. Undo)
@@ -58,6 +60,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(1, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.CreatedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
                 }
 
@@ -91,7 +94,9 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
 
                     // ReverseChanges defines all operations needed to go from the current state back to the last shadow state. (i.e. Undo)
@@ -99,6 +104,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(1, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.CreatedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
                 }
 
@@ -108,13 +114,16 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
 
                     Assert.IsTrue(changes.HasReverseChangeSet);
                     Assert.AreEqual(1, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.CreatedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
                 }
             }
@@ -150,6 +159,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddArchetypes.Length);
 
                     // The ReverseChangeSet will contain a set value 9
                     Assert.IsTrue(changes.HasReverseChangeSet);
@@ -157,6 +167,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(0, changes.ReverseChangeSet.CreatedEntityCount);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                 }
 
                 SrcEntityManager.DestroyEntity(entity);
@@ -167,13 +178,82 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
                     Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(0, changes.ForwardChangeSet.RemoveComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddArchetypes.Length);
 
                     // In this case the ReverseChangeSet should describe how to get this entity back in it's entirety
                     Assert.IsTrue(changes.HasReverseChangeSet);
                     Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ReverseChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ReverseChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(3, changes.ReverseChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
+                }
+            }
+        }
+
+
+        // This test checks that if there are multiple entities per archetype and multiple archetypes that each
+        // entity is added to their own archetype, and that the correct components are added to the archetype
+        [Test] public void EntityDiffer_GetChanges_CreateArchetypeEntity_MultipleEntities()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
+            {
+                NativeArray<Entity> entities = new NativeArray<Entity>(new []
+                {
+                    SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData)),
+                    SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData)),
+                    SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData2)),
+                    SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData2))
+                }, Allocator.Temp);
+
+                SrcEntityManager.SetComponentData(entities[0], CreateEntityGuid());
+                SrcEntityManager.SetComponentData(entities[1], CreateEntityGuid());
+                SrcEntityManager.SetComponentData(entities[2], CreateEntityGuid());
+                SrcEntityManager.SetComponentData(entities[3], CreateEntityGuid());
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
+                {
+                    // The ForwardChangeSet will contain a set value 10
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(8, changes.ForwardChangeSet.SetComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+
+                    Assert.AreEqual(2, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(2, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
+                    Assert.IsTrue(changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Contains(TypeManager.GetTypeIndex(typeof(EcsTestData))));
+                    Assert.AreEqual(2, changes.ForwardChangeSet.AddArchetypes[1].EntityCount);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddArchetypes[1].TypeIndices.Length); // +1 due to Simulate
+                    Assert.IsTrue(changes.ForwardChangeSet.AddArchetypes[1].TypeIndices.Contains(TypeManager.GetTypeIndex(typeof(EcsTestData2))));
+                }
+
+                SrcEntityManager.DestroyEntity(entities);
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.RemoveComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddArchetypes.Length);
+
+                    // In this case the ReverseChangeSet should describe how to get this entity back in it's entirety
+                    Assert.IsTrue(changes.HasReverseChangeSet);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
+                    Assert.AreEqual(4, changes.ReverseChangeSet.CreatedEntityCount);
+                    Assert.AreEqual(8, changes.ReverseChangeSet.SetComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+
+                    Assert.AreEqual(2, changes.ReverseChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(2, changes.ReverseChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(3, changes.ReverseChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
+                    Assert.IsTrue(changes.ReverseChangeSet.AddArchetypes[0].TypeIndices.Contains(TypeManager.GetTypeIndex(typeof(EcsTestData))));
+                    Assert.AreEqual(2, changes.ReverseChangeSet.AddArchetypes[1].EntityCount);
+                    Assert.AreEqual(3, changes.ReverseChangeSet.AddArchetypes[1].TypeIndices.Length); // +1 due to Simulate
+                    Assert.IsTrue(changes.ReverseChangeSet.AddArchetypes[1].TypeIndices.Contains(TypeManager.GetTypeIndex(typeof(EcsTestData2))));
                 }
             }
         }
@@ -190,7 +270,9 @@ namespace Unity.Entities.Tests
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetSharedComponents.Length);
                 }
@@ -218,7 +300,9 @@ namespace Unity.Entities.Tests
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(3, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(3, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetSharedComponents.Length);
                 }
@@ -309,7 +393,9 @@ namespace Unity.Entities.Tests
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(6, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(6, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(4, changes.ForwardChangeSet.SetComponents.Length); // Enabled to true are ignored in the differ
 
                     var packedComponents = changes.ForwardChangeSet.TypeHashes;
@@ -349,6 +435,7 @@ namespace Unity.Entities.Tests
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddArchetypes.Length);
                     Assert.AreEqual(3, changes.ForwardChangeSet.SetComponents.Length);
 
                     var packedComponents = changes.ForwardChangeSet.TypeHashes;
@@ -396,7 +483,9 @@ namespace Unity.Entities.Tests
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);// Enabled to true are ignored in the differ
 
                     var packedComponents = changes.ForwardChangeSet.TypeHashes;
@@ -429,6 +518,7 @@ namespace Unity.Entities.Tests
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddArchetypes.Length);
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
 
                     var packedComponents = changes.ForwardChangeSet.TypeHashes;
@@ -1113,7 +1203,9 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
 
@@ -1122,6 +1214,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(1, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.CreatedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetManagedComponents.Length);
                 }
@@ -1157,7 +1250,9 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
 
@@ -1166,6 +1261,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(1, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.CreatedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetManagedComponents.Length);
                 }
@@ -1176,7 +1272,9 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(0, changes.ForwardChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
 
@@ -1184,6 +1282,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(1, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.CreatedEntityCount);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetManagedComponents.Length);
                 }
@@ -1223,6 +1322,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
                     Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddArchetypes.Length);
 
                     // The ReverseChangeSet will contain a set value 9 and set value "SomeOtherString"
                     Assert.IsTrue(changes.HasReverseChangeSet);
@@ -1231,6 +1331,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                 }
 
                 SrcEntityManager.DestroyEntity(entity);
@@ -1248,7 +1349,9 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasReverseChangeSet);
                     Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(4, changes.ReverseChangeSet.AddComponents.Length); // +1 due to Simulate
+                    Assert.AreEqual(1, changes.ReverseChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(4, changes.ReverseChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
                 }
@@ -1286,6 +1389,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
                     Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddArchetypes.Length);
 
                     // The ReverseChangeSet will contain a set value 9 and set value "SomeOtherString"
                     Assert.IsTrue(changes.HasReverseChangeSet);
@@ -1294,6 +1398,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                 }
 
                 SrcEntityManager.DestroyEntity(entity);
@@ -1311,7 +1416,9 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasReverseChangeSet);
                     Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(4, changes.ReverseChangeSet.AddComponents.Length); // +1 for Simulate
+                    Assert.AreEqual(1, changes.ReverseChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(4, changes.ReverseChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
                 }
@@ -1350,6 +1457,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(0, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);
                     Assert.AreEqual(0, changes.ForwardChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ForwardChangeSet.AddArchetypes.Length);
 
                     // The ReverseChangeSet will contain a set value 9 and set value "SomeOtherString"
                     Assert.IsTrue(changes.HasReverseChangeSet);
@@ -1358,6 +1466,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(0, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
                     Assert.AreEqual(0, changes.ReverseChangeSet.AddComponents.Length);
+                    Assert.AreEqual(0, changes.ReverseChangeSet.AddArchetypes.Length);
                 }
 
                 SrcEntityManager.DestroyEntity(entity);
@@ -1375,7 +1484,9 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(changes.HasReverseChangeSet);
                     Assert.AreEqual(0, changes.ReverseChangeSet.DestroyedEntityCount);
                     Assert.AreEqual(1, changes.ReverseChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(4, changes.ReverseChangeSet.AddComponents.Length); // +1 for Simulate
+                    Assert.AreEqual(1, changes.ReverseChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ReverseChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(4, changes.ReverseChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(2, changes.ReverseChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ReverseChangeSet.SetManagedComponents.Length);
                 }
@@ -1397,7 +1508,9 @@ namespace Unity.Entities.Tests
                 {
                     Assert.IsTrue(changes.HasForwardChangeSet);
                     Assert.AreEqual(1, changes.ForwardChangeSet.CreatedEntityCount);
-                    Assert.AreEqual(4, changes.ForwardChangeSet.AddComponents.Length); // +1 for Simulate
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes.Length);
+                    Assert.AreEqual(1, changes.ForwardChangeSet.AddArchetypes[0].EntityCount);
+                    Assert.AreEqual(4, changes.ForwardChangeSet.AddArchetypes[0].TypeIndices.Length); // +1 due to Simulate
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetSharedComponents.Length);
                     Assert.AreEqual(1, changes.ForwardChangeSet.SetManagedComponents.Length);

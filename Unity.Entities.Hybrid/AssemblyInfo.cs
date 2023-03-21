@@ -18,7 +18,6 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Scenes.Editor.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Playmode")]
-[assembly: InternalsVisibleTo("Unity.Tiny.Authoring")]
 [assembly: InternalsVisibleTo("Unity.Transforms.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.Transforms.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Baking.PerformanceTests")]
@@ -31,4 +30,3 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Motion.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Build.Editor")]
 [assembly: InternalsVisibleTo("Unity.NetCode.Authoring.Hybrid")]
-[assembly: InternalsVisibleTo("Assembly-CSharp")]

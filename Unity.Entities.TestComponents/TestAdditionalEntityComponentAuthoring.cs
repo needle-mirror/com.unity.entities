@@ -16,7 +16,7 @@ namespace Unity.Entities.Tests
             {
                 for (int index = 0; index < authoring.value; ++index)
                 {
-                    var entity = CreateAdditionalEntity();
+                    var entity = CreateAdditionalEntity(TransformUsageFlags.None);
                     AddComponent<AdditionalEntity>(entity);
                 }
             }

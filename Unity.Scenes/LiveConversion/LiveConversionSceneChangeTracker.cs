@@ -27,7 +27,7 @@ namespace Unity.Scenes
             return bytes;
         }
 
-        unsafe public static LiveConversionSceneMsg FromMsg(byte[] buffer, Allocator allocator)
+        unsafe public static LiveConversionSceneMsg FromMsg(byte[] buffer, AllocatorManager.AllocatorHandle allocator)
         {
             fixed(byte* ptr = buffer)
             {
@@ -44,7 +44,7 @@ namespace Unity.Scenes
             buffer.Add(RemovedScenes);
         }
 
-        void Deserialize(ref UnsafeAppendBuffer.Reader buffer, Allocator allocator)
+        void Deserialize(ref UnsafeAppendBuffer.Reader buffer, AllocatorManager.AllocatorHandle allocator)
         {
             buffer.ReadNext(out LoadedScenes, allocator);
             buffer.ReadNext(out RemovedScenes, allocator);

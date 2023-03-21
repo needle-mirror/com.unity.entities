@@ -88,6 +88,7 @@ namespace Unity.Entities.Editor
             public VisualElement Create()
             {
                 m_Window = s_WindowTemplate.Clone();
+                Resources.Templates.DotsEditorCommon.AddStyles(m_Window);
                 m_Splitter = m_Window.Q<TwoPaneSplitView>("splitter");
                 CreateViewLeftPane(m_Splitter.Q("left-pane"));
                 CreateViewRightPane(m_Splitter.Q("right-pane"));
@@ -118,6 +119,8 @@ namespace Unity.Entities.Editor
                 m_SearchElement.AddSearchFilterCallbackWithPopupItem<MemoryProfilerTreeViewItemData, int>("segments", data => data.SegmentCount, "Segment Count");
                 m_SearchElement.AddSearchFilterCallbackWithPopupItem<MemoryProfilerTreeViewItemData, int>("components", data => data.ComponentTypes.Length, "Component Type Count");
                 m_SearchElement.FilterPopupWidth = 250;
+
+                m_SearchElement.parent.Add(SearchUtils.CreateJumpButton(() => ArchetypeSearchProvider.OpenProvider(m_SearchElement.value)));
 
                 var searchHandler = new SearchHandler<MemoryProfilerTreeViewItemData>(m_SearchElement)
                 {
@@ -415,7 +418,7 @@ namespace Unity.Entities.Editor
                 return count;
             }
 
-            static int GetTypeSizeInChunk(TypeIndex typeIndex)
+            internal static int GetTypeSizeInChunk(TypeIndex typeIndex)
             {
                 return typeIndex != TypeIndex.Null ? TypeManager.GetTypeInfo(typeIndex).SizeInChunk : 0;
             }

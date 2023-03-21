@@ -8,9 +8,7 @@ using UnityEditor;
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
 
-#if !ENABLE_TRANSFORM_V1
 using LocalTransform = Unity.Transforms.LocalTransform;
-#endif
 
 namespace Doc.CodeSamples.Tests
 {
@@ -46,7 +44,8 @@ public class SceneLoaderAuthoring : MonoBehaviour
         public override void Bake(SceneLoaderAuthoring authoring)
         {
             var reference = new EntitySceneReference(authoring.Scene);
-            AddComponent(new SceneLoader
+            var entity = GetEntity(TransformUsageFlags.None);
+            AddComponent(entity, new SceneLoader
             {
                 SceneReference = reference
             });
@@ -225,9 +224,8 @@ public class SceneLoaderAuthoring : MonoBehaviour
         }
 #endif
 
-#if !ENABLE_TRANSFORM_V1
-
 #region sceneloading_instancing3
+
     [UpdateInGroup(typeof(ProcessAfterLoadGroup))]
     public partial struct PostprocessSystem : ISystem
     {
@@ -258,5 +256,4 @@ public class SceneLoaderAuthoring : MonoBehaviour
     }
 #endregion
 
-#endif
 }

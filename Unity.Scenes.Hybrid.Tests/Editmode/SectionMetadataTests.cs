@@ -4,15 +4,15 @@ using UnityEngine;
 using UnityEngine.TestTools;
 #endif
 using Unity.Entities;
-using Unity.Entities.Conversion;
 using Unity.Entities.Tests;
 
 namespace Unity.Scenes.Hybrid.Tests
 {
     public class SectionMetadataTests : SubSceneTestFixture
     {
-        public SectionMetadataTests() : base("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/TestSubSceneWithSectionMetadata.unity")
+        public SectionMetadataTests() : base()
         {
+            PlayModeScenePath = "Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/TestSubSceneWithSectionMetadata.unity";
         }
 
         [OneTimeSetUp]
@@ -41,7 +41,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 };
                 var sceneSystem = world.GetOrCreateSystem<SceneSystem>();
 
-                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, SceneGUID, resolveParams);
+                var sceneEntity = SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, resolveParams);
                 world.Update();
                 var manager = world.EntityManager;
                 var sectionEntities = manager.GetBuffer<ResolvedSectionEntity>(sceneEntity);
@@ -75,7 +75,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 Assert.AreEqual(42, manager.GetComponentData<TestMetadata>(sectionEntities[2].SectionEntity).SectionIndex);
                 Assert.AreEqual(100, manager.GetComponentData<TestMetadata>(sectionEntities[2].SectionEntity).Value);
 
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(SceneGUID, manager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID, true, ImportMode.Synchronous);
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(PlayModeSceneGUID, manager.GetComponentData<SceneSystemData>(sceneSystem).BuildConfigurationGUID, true, ImportMode.Synchronous);
                 Assert.IsTrue(hash.IsValid);
             }
         }

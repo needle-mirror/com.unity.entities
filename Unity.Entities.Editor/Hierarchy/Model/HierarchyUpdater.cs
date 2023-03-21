@@ -187,9 +187,16 @@ namespace Unity.Entities.Editor
             m_SubSceneChangeTracker.SetWorld(m_World);
 
             m_HierarchyEntityChangeTracker?.Dispose();
-            m_HierarchyEntityChangeTracker = null != world
-                ? new HierarchyEntityChangeTracker(m_World, m_Allocator) { OperationMode = m_HierarchyEntityChangeTrackerOperationMode }
-                : null;
+
+            if (world == null)
+                m_HierarchyEntityChangeTracker = null;
+            else if (!TypeManager.IsInitialized)
+            {
+                Debug.LogError($"{nameof(TypeManager)} has not been initialized properly");
+                m_HierarchyEntityChangeTracker = null;
+            }
+            else
+                m_HierarchyEntityChangeTracker = new HierarchyEntityChangeTracker(m_World, m_Allocator) { OperationMode = m_HierarchyEntityChangeTrackerOperationMode };
 
             Reset();
         }

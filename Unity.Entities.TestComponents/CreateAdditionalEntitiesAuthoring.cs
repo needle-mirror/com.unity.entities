@@ -14,7 +14,7 @@ namespace Unity.Entities.TestComponents
         {
             for (int i = 0; i < authoring.number; i++)
             {
-                CreateAdditionalEntity();
+                CreateAdditionalEntity(TransformUsageFlags.None);
             }
         }
     }

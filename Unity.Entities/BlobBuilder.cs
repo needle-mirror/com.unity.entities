@@ -103,7 +103,7 @@ namespace Unity.Entities
     /// </example>
     unsafe public struct BlobBuilder : IDisposable
     {
-        Allocator m_allocator;
+        AllocatorManager.AllocatorHandle m_allocator;
         NativeList<BlobAllocation> m_allocations;
         NativeList<OffsetPtrPatch> m_patches;
         int m_currentChunkIndex;
@@ -137,7 +137,7 @@ namespace Unity.Entities
         /// The default value should suit most use cases. A smaller chunkSize results in more allocations; a larger
         /// chunkSize could increase the BlobBuilder's total memory allocation (which is freed when you dispose of
         /// the BlobBuilder.</param>
-        public BlobBuilder(Allocator allocator, int chunkSize = 65536)
+        public BlobBuilder(AllocatorManager.AllocatorHandle allocator, int chunkSize = 65536)
         {
             m_allocator = allocator;
             m_allocations = new NativeList<BlobAllocation>(16, m_allocator);
@@ -305,7 +305,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The data type of the struct used to construct the asset's root. Use the same struct type
         /// that you used when calling <see cref="ConstructRoot{T}"/>.</typeparam>
         /// <returns>Returns a reference to the blob asset in unmanaged memory.</returns>
-        public BlobAssetReference<T> CreateBlobAssetReference<T>(Allocator allocator) where T : unmanaged
+        public BlobAssetReference<T> CreateBlobAssetReference<T>(AllocatorManager.AllocatorHandle allocator) where T : unmanaged
         {
             //Align last chunk upwards so all chunks are 16 byte aligned
             AlignChunk(m_currentChunkIndex);

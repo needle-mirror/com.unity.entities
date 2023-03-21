@@ -15,12 +15,15 @@ namespace Unity.Entities.Tests
             {
                 DependsOn(authoring.Other);
 
+                // This test shouldn't require transform components
+                var entity = GetEntity(TransformUsageFlags.None);
+
                 if (authoring.Other == null || authoring.Other.scene != authoring.gameObject.scene)
-                    AddComponent(new Component {Value = -1});
+                    AddComponent(entity, new Component {Value = -1});
                 else
                 {
                     Versions.TryGetValue(authoring.Other, out var version);
-                    AddComponent(new Component {Value = version});
+                    AddComponent(entity, new Component {Value = version});
                 }
             }
         }

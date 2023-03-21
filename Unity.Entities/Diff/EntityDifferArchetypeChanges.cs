@@ -36,7 +36,7 @@ namespace Unity.Entities
             /// </remarks>
             public readonly ArchetypeChunkChangeSet DestroyedDstChunks;
 
-            public ArchetypeChunkChanges(Allocator allocator)
+            public ArchetypeChunkChanges(AllocatorManager.AllocatorHandle allocator)
             {
                 CreatedSrcChunks = new ArchetypeChunkChangeSet(allocator);
                 DestroyedDstChunks = new ArchetypeChunkChangeSet(allocator);
@@ -71,7 +71,7 @@ namespace Unity.Entities
             /// </summary>
             public int TotalEntityCount => EntityCounts.Length > 0 ? EntityCounts[EntityCounts.Length - 1] : 0;
 
-            public ArchetypeChunkChangeSet(Allocator allocator)
+            public ArchetypeChunkChangeSet(AllocatorManager.AllocatorHandle allocator)
             {
                 Chunks = new NativeList<ArchetypeChunk>(allocator);
                 Flags = new NativeList<ArchetypeChunkChangeFlags>(allocator);
@@ -215,7 +215,7 @@ namespace Unity.Entities
             NativeList<ArchetypeChunk> srcChunks,
             NativeList<ArchetypeChunk> dstChunks,
             int maxSrcChunkCount,
-            Allocator allocator,
+            AllocatorManager.AllocatorHandle allocator,
             out JobHandle jobHandle,
             JobHandle dependsOn = default)
         {

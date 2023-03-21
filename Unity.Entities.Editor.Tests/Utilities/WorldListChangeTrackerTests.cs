@@ -35,11 +35,7 @@ namespace Unity.Entities.Editor.Tests.Utilities
             Assert.That(m_Tracker.HasChanged(), Is.False);
 
             var nextSequenceNumber = World.NextSequenceNumber;
-#if !ENABLE_TRANSFORM_V1
             using var q = w.EntityManager.CreateEntityQuery(typeof(LocalTransform));
-#else
-            using var q = w.EntityManager.CreateEntityQuery(typeof(Rotation));
-#endif
 
             Assert.That(nextSequenceNumber, Is.Not.EqualTo(World.NextSequenceNumber), "World.NextSequenceNumber must be different to the previously captured one because we created a query.");
             Assert.That(m_Tracker.HasChanged(), Is.False, "No changes should be detected by the tracker since no world has been created or destroyed");

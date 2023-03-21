@@ -57,7 +57,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
     }
 
     [BurstCompile(CompileSynchronously = true)]
-    struct ThrowDuringIJobChunkISystem : ISystem
+    partial struct ThrowDuringIJobChunkISystem : ISystem
     {
         EntityQuery _Query;
 
@@ -181,7 +181,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
     }
 
     [BurstCompile]
-    struct ForEachRecursionSystem : ISystem
+    partial struct ForEachRecursionSystem : ISystem
     {
         EntityQuery _Query;
 

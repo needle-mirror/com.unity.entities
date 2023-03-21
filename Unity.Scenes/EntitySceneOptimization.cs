@@ -6,7 +6,7 @@ namespace Unity.Entities.Streaming
 {
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.EntitySceneOptimizations)]
-    internal class OptimizationGroup : ComponentSystemGroup
+    internal partial class OptimizationGroup : ComponentSystemGroup
     {
     }
 

@@ -168,7 +168,6 @@ namespace Unity.Entities
 
         private static void ShutdownSystemsState()
         {
-            s_SystemCount = 0;
             s_SystemTypes.Clear();
             s_ManagedSystemTypeToIndex.Clear();
             s_SystemTypeSizes.Clear();
@@ -546,6 +545,8 @@ namespace Unity.Entities
 #if !NET_DOTS
         internal static void AddSystemTypeToTablesAfterInit(Type systemType)
         {
+            Assertions.Assert.IsTrue(SharedSystemCount.Ref.UnsafeDataPointer != null, "This method must not be called until TypeManager initialization is complete.");
+            
             if (systemType == null || s_ManagedSystemTypeToIndex.ContainsKey(systemType))
                 return;
 
@@ -569,6 +570,9 @@ namespace Unity.Entities
             var filterFlags = default(WorldSystemFilterFlags);
             AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
 
+            //the above method can't use the SharedSystemCount shared static because it's called in TypeManager.Initialize
+            //before shared statics are inited. but here, shared statics are already set up, so we need to keep them in sync.
+            SharedSystemCount.Ref.Data = s_SystemCount;
             AddSystemAttributesToTable(systemType);
         }
 #endif
@@ -596,24 +600,25 @@ namespace Unity.Entities
             
             var sysElemsPtr = (UnsafeList<ComponentSystemSorter.SystemElement>*)UnsafeUtility.AddressOf(ref systemElements);
 
-            var badSystemTypeIndices = new UnsafeList<int>(16, Allocator.Temp);
+            var badSystemTypeIndices = new NativeHashSet<int>(16, Allocator.Temp);
+            var badSystemTypeIndicesPtr = (NativeHashSet<int>*)UnsafeUtility.AddressOf(ref badSystemTypeIndices);
             ComponentSystemSorter.FindConstraints(
                 -1,
                 sysElemsPtr,
                 lookupDictionaryPtr,
                 SystemAttributeKind.CreateAfter,
                 SystemAttributeKind.CreateBefore,
-                (UnsafeList<int>*)UnsafeUtility.AddressOf(ref badSystemTypeIndices));
+                badSystemTypeIndicesPtr);
             
-            for (int i = 0; i < badSystemTypeIndices.Length; i++)
-            {
-                ComponentSystemSorter.WarnAboutAnySystemAttributeBadness(badSystemTypeIndices[i], null);
-            }
-            
+            foreach (var badindex in badSystemTypeIndices)
+                ComponentSystemSorter.WarnAboutAnySystemAttributeBadness(badindex, null);
+
+            badSystemTypeIndices.Clear();
+        
             ComponentSystemSorter.Sort(
                 sysElemsPtr,
                 lookupDictionaryPtr);
-
+            
             for (int i = 0; i < systemElements.Length; ++i)
                 systemTypes[i] = GetSystemType(systemElements[i].TypeIndex);
         }
@@ -673,7 +678,7 @@ namespace Unity.Entities
 
         public static bool IsSystemTypeIndex(int systemTypeIndex)
         {
-            return systemTypeIndex >= 0 && systemTypeIndex < s_SystemCount;
+            return systemTypeIndex >= 0 && systemTypeIndex < SharedSystemCount.Ref.Data;
         }
         
 
@@ -833,9 +838,7 @@ namespace Unity.Entities
             var ret = new FixedList128Bytes<SystemAttribute>(); 
             var attributesList = (UnsafeList<SystemAttribute>*)SharedSystemAttributes.Ref.Data;
 
-
-            //todo: check that it's in range
-            //if (IsSystemTypeIndex(systemTypeIndex))
+            if (IsSystemTypeIndex(systemTypeIndex))
             {
 
                 var list = attributesList[systemTypeIndex];
@@ -922,6 +925,11 @@ namespace Unity.Entities
         internal struct SharedSystemTypeIndex<TSystem>
         {
             public static readonly SharedStatic<int> Ref = SharedStatic<int>.GetOrCreate<TypeManagerKeyContext, TSystem>();
+        }
+
+        private struct SharedSystemCount
+        {
+            public static readonly SharedStatic<int> Ref = SharedStatic<int>.GetOrCreate<TypeManagerKeyContext, SharedSystemCount>();
         }
 
 #if !UNITY_DOTSRUNTIME
