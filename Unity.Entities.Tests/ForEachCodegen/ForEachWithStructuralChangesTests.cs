@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.CodeGeneratedJobForEach;
@@ -7,6 +8,7 @@ using Unity.Entities.Tests.ForEachCodegen;
 using Unity.Jobs;
 using Unity.Transforms;
 using UnityEngine;
+using UnityEngine.TestTools;
 #if !UNITY_PORTABLE_TEST_RUNNER
 using System.Linq;
 #endif
@@ -482,21 +484,24 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     .ForEach((Entity e, ref EcsTestData testData) =>
                     {
                         EntityManager.DestroyEntity(e);
+
+                        // Assert destroyed entity throws when trying to instantiate or adding/setting components.
+                        try {EntityManager.Instantiate(e);} catch (Exception ex) { StringAssert.Contains("destroyed", ex.Message); }
+                        try {EntityManager.AddComponentData(e, new EcsTestData2(22));} catch (Exception ex) { StringAssert.Contains("does not exist", ex.Message); }
+                        try {EntityManager.SetComponentData(e, new EcsTestData(1));} catch (Exception ex) { StringAssert.Contains("does not exist", ex.Message); }
                         Assert.IsFalse(EntityManager.HasComponent<EcsTestData>(e));
-                        Assert.Throws<InvalidOperationException>(() => EntityManager.AddComponentData(e, new EcsTestData2(22)));
-                        Assert.Throws<ArgumentException>(() => EntityManager.Instantiate(e));
-                        Assert.Throws<ArgumentException>(() => EntityManager.SetComponentData(e, new EcsTestData(1)));
-                        Assert.IsFalse(EntityManager.HasComponent<EcsTestData>(e));
-                        Assert.Throws<InvalidOperationException>(() =>
-                            EntityManager.AddSharedComponentManaged(e, new EcsTestSharedComp(1)));
-                        Assert.Throws<ArgumentException>(() => EntityManager.GetSharedComponentManaged<EcsTestSharedComp>(e));
-                        Assert.Throws<ArgumentException>(() =>
-                            EntityManager.SetSharedComponentManaged(e, new EcsTestSharedComp(1)));
+
+                        // Assert destroyed entity throws when trying to add/get/set shared components.
+                        try {EntityManager.AddSharedComponentManaged(e, new EcsTestSharedComp(1));} catch (Exception ex) { StringAssert.Contains("does not exist", ex.Message); }
+                        try {EntityManager.GetSharedComponentManaged<EcsTestSharedComp>(e);} catch (Exception ex) { StringAssert.Contains("does not exist", ex.Message); }
+                        try {EntityManager.SetSharedComponentManaged(e, new EcsTestSharedComp(1));} catch (Exception ex) { StringAssert.Contains("does not exist", ex.Message); }
                         Assert.IsFalse(EntityManager.HasComponent<EcsTestSharedComp>(e));
 
-                        Assert.Throws<InvalidOperationException>(() => EntityManager.AddBuffer<EcsIntElement>(e));
+                        // Assert destroyed entity throws when trying to add buffer
+                        try {EntityManager.AddBuffer<EcsIntElement>(e);} catch (Exception ex) { StringAssert.Contains("does not exist", ex.Message); }
                         Assert.IsFalse(EntityManager.HasComponent<EcsIntElement>(e));
-                        Assert.Throws<ArgumentException>(() => EntityManager.Instantiate(e));
+
+                        // Validate removing a non-existent entity is O.K.
                         EntityManager.RemoveComponent<EcsIntElement>(e);
                         EntityManager.RemoveComponent<EcsTestSharedComp>(e);
                         EntityManager.RemoveComponent<EcsIntElement>(e);
@@ -572,14 +577,17 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                         Assert.IsTrue(EntityManager.HasComponent<EcsTestData>(e));
                         EntityManager.RemoveComponent<EcsTestData>(e);
                         Assert.IsFalse(EntityManager.HasComponent<EcsTestData>(e));
-                        Assert.Throws<ArgumentException>(() => EntityManager.GetComponentData<EcsTestData>(e));
-                        Assert.Throws<ArgumentException>(() => EntityManager.SetComponentData(e, new EcsTestData(12)));
+
+                        // Assert that getting and setting the component creates a valid error.
+                        try {EntityManager.GetComponentData<EcsTestData>(e);} catch (Exception ex) { StringAssert.Contains("EcsTestData", ex.Message); }
+                        try {EntityManager.SetComponentData(e, new EcsTestData(12));} catch (Exception ex) { StringAssert.Contains("EcsTestData", ex.Message); }
 
                         EntityManager.AddSharedComponentManaged(e, new EcsTestSharedComp(22));
                         EntityManager.RemoveComponent<EcsTestSharedComp>(e);
-                        Assert.Throws<ArgumentException>(() => EntityManager.GetSharedComponentManaged<EcsTestSharedComp>(e));
-                        Assert.Throws<ArgumentException>(() =>
-                            EntityManager.SetSharedComponentManaged(e, new EcsTestSharedComp(-22)));
+
+                        // Assert that getting and setting the shared component creates a valid error.
+                        try {EntityManager.GetSharedComponentManaged<EcsTestSharedComp>(e);} catch (Exception ex) { StringAssert.Contains("EcsTestSharedComp", ex.Message); }
+                        try {EntityManager.SetSharedComponentManaged(e, new EcsTestSharedComp(-22));} catch (Exception ex) { StringAssert.Contains("EcsTestSharedComp", ex.Message); }
                     }).Run();
             }
 

@@ -16,6 +16,7 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
+    [BurstCompile]
     partial class ComponentEnabledBitTests : ECSTestsFixture
     {
         private unsafe T[] ToManagedArray<T>(T* values, int length) where T : unmanaged
@@ -1092,22 +1093,21 @@ namespace Unity.Entities.Tests
 
 
         [BurstCompile(CompileSynchronously = true)]
-        static void TestNextRange(int expectedBegin, int expectedCount, ref v128 mask, ref int2 state)
+        static void VerifyNextRange(int firstIndexToCheck, int expectedBegin, int expectedCount, ref v128 mask, out int nextRangeEnd)
         {
-            var res = EnabledBitUtility.GetNextRange(ref mask, ref state.x, ref state.y);
+            var nonRefMask = mask;
+            var foundNextRange = EnabledBitUtility.TryGetNextRange(nonRefMask, firstIndexToCheck, out int nextRangeBegin, out nextRangeEnd);
 
-            Assert.AreEqual(expectedCount != 0, res);
-            Assert.AreEqual(expectedBegin, state.x);
-            Assert.AreEqual(expectedCount, state.y - state.x);
+            Assert.IsTrue(foundNextRange);
+            Assert.AreEqual(expectedBegin, nextRangeBegin);
+            Assert.AreEqual(expectedCount, nextRangeEnd - nextRangeBegin);
         }
 
         [BurstCompile(CompileSynchronously = true)]
-        static void TestNextRangeDone(ref v128 mask, ref int2 state)
+        static void VerifyNoSubsequentRangeFound(int firstIndexToCheck, ref v128 mask)
         {
-            var res = EnabledBitUtility.GetNextRange(ref mask, ref state.x, ref state.y);
-
-            Assert.AreEqual(state.y, state.x);
-            Assert.IsFalse(res);
+            var nonRefMask = mask;
+            Assert.IsFalse(EnabledBitUtility.TryGetNextRange(nonRefMask, firstIndexToCheck, out int _, out int _));
         }
 
         [Test]
@@ -1152,30 +1152,26 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public unsafe void TestGetNextRange128()
+        public void TestGetNextRange128()
         {
             v128 mask;
-            int2 state;
+            int nextRangeEnd;
 
             for (int i = 0; i < 128; i++)
             {
-                state = default;
                 mask = default;
                 SetBit(ref mask, i, true);
-                TestNextRange(i, 1, ref mask, ref state);
-                TestNextRangeDone(ref mask, ref state);
+                VerifyNextRange(firstIndexToCheck: 0, expectedBegin: i, expectedCount: 1, ref mask, out nextRangeEnd);
+                VerifyNoSubsequentRangeFound(firstIndexToCheck: nextRangeEnd, ref mask);
             }
 
-            state = default;
             mask = default;
-            TestNextRangeDone(ref mask, ref state);
+            VerifyNoSubsequentRangeFound(firstIndexToCheck: 0, ref mask);
 
-            state = default;
             mask = new v128(-1, -1);
-            TestNextRange(0, 128, ref mask, ref state);
-            TestNextRangeDone(ref mask, ref state);
+            VerifyNextRange(firstIndexToCheck: 0, expectedBegin: 0, expectedCount: 128, ref mask, out nextRangeEnd);
+            VerifyNoSubsequentRangeFound(firstIndexToCheck: nextRangeEnd, ref mask);
 
-            state = default;
             mask = default;
             SetBit(ref mask, 3, true);
             SetBit(ref mask, 4, true);
@@ -1184,11 +1180,10 @@ namespace Unity.Entities.Tests
             SetBit(ref mask, 74, true);
             SetBit(ref mask, 75, true);
             SetBit(ref mask, 76, true);
-            TestNextRange(3, 4, ref mask, ref state);
-            TestNextRange(74, 3, ref mask, ref state);
-            TestNextRangeDone(ref mask, ref state);
+            VerifyNextRange(firstIndexToCheck: 0, expectedBegin: 3, expectedCount: 4, ref mask, out nextRangeEnd);
+            VerifyNextRange(firstIndexToCheck: nextRangeEnd, expectedBegin: 74, expectedCount: 3, ref mask, out nextRangeEnd);
+            VerifyNoSubsequentRangeFound(firstIndexToCheck: nextRangeEnd, ref mask);
 
-            state = default;
             mask = default;
             SetBit(ref mask, 3, true);
             SetBit(ref mask, 62, true);
@@ -1196,10 +1191,10 @@ namespace Unity.Entities.Tests
             SetBit(ref mask, 64, true);
             SetBit(ref mask, 65, true);
             SetBit(ref mask, 127, true);
-            TestNextRange(3, 1, ref mask, ref state);
-            TestNextRange(62, 4, ref mask, ref state);
-            TestNextRange(127, 1, ref mask, ref state);
-            TestNextRangeDone(ref mask, ref state);
+            VerifyNextRange(firstIndexToCheck: 0, expectedBegin: 3, expectedCount: 1, ref mask, out nextRangeEnd);
+            VerifyNextRange(firstIndexToCheck: nextRangeEnd, expectedBegin: 62, expectedCount: 4, ref mask, out nextRangeEnd);
+            VerifyNextRange(firstIndexToCheck: nextRangeEnd, expectedBegin: 127, expectedCount: 1, ref mask, out nextRangeEnd);
+            VerifyNoSubsequentRangeFound(firstIndexToCheck: nextRangeEnd, ref mask);
         }
 
         [Test]

@@ -47,7 +47,8 @@ namespace Unity.Entities.SourceGen.Common
                 .WithUsings(existingUsings)
                 .NormalizeWhitespace(eol:Environment.NewLine);
 
-            var generatedSourceFilePath = originalSyntaxTree.GetGeneratedSourceFilePath(generatorExecutionContext.Compilation.Assembly.Name, generatorName).Replace('\\', '/');
+            var generatedSourceFilePath = originalSyntaxTree.GetGeneratedSourceFilePath(
+                generatorExecutionContext.Compilation.Assembly.Name, generatorName).Replace('\\', '/');
 
             // Output as source
             var sourceTextForNewClass =

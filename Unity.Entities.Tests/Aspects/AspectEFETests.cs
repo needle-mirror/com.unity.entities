@@ -15,22 +15,12 @@ namespace Unity.Entities.Tests
 
     partial class AspectEFETests : ECSTestsFixture
     {
-
         public partial class TestSystem : SystemBase
         {
             protected override void OnUpdate()
             {
-
                 int count = 0;
                 Entities.ForEach((MyAspectEFE myAspect) => { ++count; }).Run();
-                Assert.AreEqual(count, 2);
-
-                count = 0;
-                Entities.ForEach((in MyAspectEFE myAspect) => { ++count; }).Run();
-                Assert.AreEqual(count, 2);
-
-                count = 0;
-                Entities.ForEach((ref MyAspectEFE myAspect) => { ++count; }).Run();
                 Assert.AreEqual(count, 2);
 
                 // overlapping aspects
@@ -39,21 +29,13 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(count, 1);
 
                 count = 0;
-                Entities.ForEach((in MyAspectEFE myAspect, in Unity.Entities.Tests.EcsTestData2 data2) => { ++count; }).Run();
+                Entities.ForEach((MyAspectEFE myAspect, in Unity.Entities.Tests.EcsTestData2 data2) => { ++count; }).Run();
                 Assert.AreEqual(count, 1);
 
                 count = 0;
                 Entities.ForEach((Entity e, in EcsTestData data) =>
                 {
-                    var a = SystemAPI.GetAspectRW<MyAspectEFE>(e);
-                    ++count;
-                }).Run();
-                Assert.AreEqual(count, 2);
-
-                count = 0;
-                Entities.ForEach((Entity e, in EcsTestData2 data2) =>
-                {
-                    var a = GetAspectRO<MyAspectEFE2>(e);
+                    var a = SystemAPI.GetAspect<MyAspectEFE>(e);
                     ++count;
                 }).Run();
                 Assert.AreEqual(count, 2);

@@ -48,19 +48,13 @@ namespace Unity.Entities
                 m_WorldsData.Add(new WorldData(world));
             }
 
-            public void AddSystem(Type systemType, in SystemHandle systemHandle)
+            public void AddSystem(SystemTypeIndex systemType, in SystemHandle systemHandle)
             {
                 if (!m_Initialized || !m_LastProfilerEnabled || !Profiler.enabled)
                     return;
 
-                try
-                {
-                    m_SystemsData.Add(new SystemData(systemType, systemHandle));
-                }
-                catch (InvalidOperationException)
-                {
-                    // System does not exist (can happen when adding a destroyed system)
-                }
+                //todo: check if system handle is not valid (e.g. because system is destroyed)
+                m_SystemsData.Add(new SystemData(systemType, systemHandle));
             }
 
             public void AddArchetype(Archetype* archetype)
@@ -137,8 +131,8 @@ namespace Unity.Entities
                             for (var systemIter = 0; systemIter < systems.Length; ++systemIter)
                             {
                                 var system = systems[systemIter];
-                                var systemType = world.Unmanaged.GetTypeOfSystem(system);
-                                if (systemType == null)
+                                var systemType = world.Unmanaged.ResolveSystemState(system)->m_SystemTypeIndex;
+                                if (systemType == SystemTypeIndex.Null)
                                     continue;
 
                                 m_SystemsData.Add(new SystemData(systemType, system));

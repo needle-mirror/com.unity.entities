@@ -109,7 +109,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 #endif
 
                 Assert.AreNotEqual(Entity.Null, requestEntity);
-                Assert.IsTrue(prefabReference.PrefabId.IsValid);
+                Assert.IsTrue(prefabReference.Id.IsValid);
                 em.AddComponentData(requestEntity, new RequestEntityPrefabLoaded {Prefab = prefabReference});
                 world.Update();
                 Assert.IsTrue(em.HasComponent<PrefabAssetReference>(requestEntity));
@@ -183,7 +183,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 #endif
 
                 Assert.AreNotEqual(Entity.Null, requestEntity1);
-                Assert.IsTrue(prefabReference.PrefabId.IsValid);
+                Assert.IsTrue(prefabReference.Id.IsValid);
                 em.AddComponentData(requestEntity1, new RequestEntityPrefabLoaded {Prefab = prefabReference});
 
                 world.Update();

@@ -645,13 +645,23 @@ namespace Unity.Entities.Baking
             {
                 if (transform != null)
                 {
+                    var hashGenerator = new xxHash3.StreamingState(false);
+                    GameObject go = transform.gameObject;
+                    int goInstanceID = go.GetInstanceID();
+                    hashGenerator.Update(goInstanceID);
+
                     // We take the dependency on the parent hierarchy.
                     transform = transform.parent;
                     while (transform != null)
                     {
+                        hashGenerator.Update(transform.gameObject.GetInstanceID());
+
                         AddObjectReference(transform.GetInstanceID());
                         transform = transform.parent;
                     }
+
+                    var hash = new Hash128(hashGenerator.DigestHash128());
+                    AddGetHierarchy(new GetHierarchyDependency {GameObject = goInstanceID, Hash = hash, DependencyType = GetHierarchyDependencyType.Parent});
                 }
             }
 

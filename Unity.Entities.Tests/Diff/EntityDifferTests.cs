@@ -1,7 +1,10 @@
 using System;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
@@ -1083,12 +1086,16 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.SetComponentData(entity2, entityGuid0);
                 SrcEntityManager.SetComponentData(entity3, entityGuid0);
 
+                var regexMain = new Regex($"DuplicateEntityGuidException");
+                LogAssert.Expect(LogType.Exception, regexMain);
+
                 var dup0 = Assert.Throws<DuplicateEntityGuidException>(GetChanges).DuplicateEntityGuids;
                 Assert.That(dup0, Is.EquivalentTo(new[] { new DuplicateEntityGuid(entityGuid0, 3) }));
 
                 SrcEntityManager.SetComponentData(entity0, entityGuid1);
                 SrcEntityManager.SetComponentData(entity3, entityGuid1);
 
+                LogAssert.Expect(LogType.Exception, regexMain);
                 var dup1 = Assert.Throws<DuplicateEntityGuidException>(GetChanges).DuplicateEntityGuids;
                 Assert.That(dup1, Is.EquivalentTo(new[] { new DuplicateEntityGuid(entityGuid0, 1), new DuplicateEntityGuid(entityGuid1, 1) }));
             }

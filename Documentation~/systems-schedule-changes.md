@@ -4,7 +4,11 @@ You can schedule data changes to defer [structural changes](concepts-structural-
 
 |**Topic**|**Description**|
 |---|---|
+|[Ways to schedule data changes](systems-schedule-changes-intro.md)|Compare the different ways that you can schedule data changes in Entities.|
 |[Entity command buffer overview](systems-entity-command-buffers.md)|Understand entity command buffers.|
-|[Use an entity command buffer](systems-entity-command-buffer-use.md)|Use an entity command buffer in a job or on the main thread.|
-|[Entity command buffer playback](systems-entity-command-buffer-playback.md)|Understand Unity plays back entity command buffers.|
-|[Automatic playback and disposal of entity command buffers](systems-entity-command-buffer-automatic-playback.md)|Automatically play back and dispose of entity command buffers.|
+|[EntityManager overview](systems-entitymanager.md)| Understand how to use `EntityManager` to schedule data changes.|
+
+## Additional resources
+
+* [Access data in systems](systems-access-data.md)
+* [Query data](systems-entityquery.md)

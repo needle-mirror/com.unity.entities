@@ -345,7 +345,12 @@ namespace Unity.Entities
         {
             if (IsInstalled.Data == 0)
             {
-                Pad.Data.Initialize(JobsUtility.MaxJobThreadCount + 1, BlockSize, true, (int)AllocatorManager.GlobalAllocatorBaseIndex);
+#if UNITY_2022_2_14F1_OR_NEWER
+                int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+                int maxThreadCount = JobsUtility.MaxJobThreadCount + 1; // account for main thread
+#endif
+                Pad.Data.Initialize(maxThreadCount, BlockSize, true, (int)AllocatorManager.GlobalAllocatorBaseIndex);
                 IsInstalled.Data = 1;
             }
         }

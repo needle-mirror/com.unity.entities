@@ -70,10 +70,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
 
                 UseCase.MarkNotSupported(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess);
 
-                if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                    foreach (AspectAliasingSharedComponentComplex test in SystemAPI.Query<AspectAliasingSharedComponentComplex>())
-                        testData = test.Read(testData);
-
                 UseCase.TestData = testData;
             }
         }
@@ -87,10 +83,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
                 var testData = UseCase.TestData;
 
                 UseCase.MarkNotSupported(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess);
-
-                if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                    foreach (AspectAliasingSharedComponentSimple test in SystemAPI.Query<AspectAliasingSharedComponentSimple>())
-                        testData = test.Read(testData);
 
                 UseCase.TestData = testData;
             }
@@ -106,13 +98,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
 
                 UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess);
 
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess))
-                    Entities.WithoutBurst().ForEach((Entity entity, in TestComponentType comp) => testData = GetAspectRO<AspectAliasingSharedComponentComplex>(entity).Read(testData)).Run();
-
                 UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.Foreach, AccessKind.ReadWriteAccess);
-
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                    Entities.ForEach((Entity entity, in AspectAliasingSharedComponentComplex aspect) => testData = aspect.Read(testData)).Run();
 
                 UseCase.TestData = testData;
             }
@@ -126,19 +112,12 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
                 var testData = UseCase.TestData;
 
                 UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess);
-
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess))
-                    Entities.WithoutBurst().ForEach((Entity entity, in TestComponentType comp) => testData = GetAspectRO<AspectAliasingSharedComponentSimple>(entity).Read(testData)).Run();
-
                 UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.Foreach, AccessKind.ReadWriteAccess);
-
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                    Entities.ForEach((Entity entity, in AspectAliasingSharedComponentSimple aspect) => testData = aspect.Read(testData)).Run();
 
                 UseCase.TestData = testData;
             }
         }
-        
+
         partial struct TestISystemOptional : ISystem, IUseCaseTestSystem
         {
             public UseCase UseCase;
@@ -149,14 +128,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
                 var testData = UseCase.TestData;
 
                 UseCase.MarkNotSupported(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess);
-
-                if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                    if (Optional == OptionalKind.NoOptionalComponent)
-                        foreach (var test in SystemAPI.Query<AspectSharedComponentOptional>())
-                            testData = test.ReadNoOptional(testData);
-                    else
-                        foreach (var test in SystemAPI.Query<AspectSharedComponentOptional>())
-                            testData = test.ReadWithOptional(testData);
 
                 UseCase.TestData = testData;
             }
@@ -173,19 +144,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
 
                 UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess);
                 UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.Foreach, AccessKind.ReadWriteAccess);
-                
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess))
-                    if (Optional == OptionalKind.WithOptionalComponent)
-                        Entities.WithoutBurst().ForEach((Entity entity, in EcsTestData c0, in EcsTestSharedComp c1) => testData = GetAspectRO<AspectSharedComponentOptional>(entity).ReadWithOptional(testData)).Run();
-                    else
-                        Entities.WithoutBurst().ForEach((Entity entity, in EcsTestData c0) => testData = GetAspectRO<AspectSharedComponentOptional>(entity).ReadNoOptional(testData)).Run();
-
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                    if (Optional == OptionalKind.WithOptionalComponent)
-                        Entities.ForEach((Entity entity, in AspectSharedComponentOptional aspect) => testData = aspect.ReadWithOptional(testData)).Run();
-                    else
-                        Entities.ForEach((Entity entity, in AspectSharedComponentOptional aspect) => testData = aspect.ReadNoOptional(testData)).Run();
-
 
                 UseCase.TestData = testData;
             }
@@ -201,7 +159,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             // create an entity that will hold all components required by the aspect
             var entity = m_Manager.CreateEntity();
 
-            var useCase = MakeUseCase(entity, systemKind, contextKind, AccessKind.ReadOnlyAccess, expectedOperationCount: 1);
+            var useCase = MakeUseCase(entity, systemKind, contextKind, AccessKind.ReadWriteAccess, expectedOperationCount: 1);
             NestedAspectType.ApplyTo(m_Manager, entity, useCase.ValueInitial);
             TestUseCase<TestISystemSimple, TestSystemBaseSimple>(useCase);
         }
@@ -215,7 +173,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             // create an entity that will hold all components required by the aspect
             var entity = m_Manager.CreateEntity();
 
-            var useCase = MakeUseCase(entity, systemKind, contextKind, AccessKind.ReadOnlyAccess, expectedOperationCount: 1);
+            var useCase = MakeUseCase(entity, systemKind, contextKind, AccessKind.ReadWriteAccess, expectedOperationCount: 1);
             NestedAspectType.ApplyTo(m_Manager, entity, useCase.ValueInitial);
             TestUseCase<TestISystemComplex, TestSystemBaseComplex>(useCase);
         }
@@ -229,7 +187,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             // create an entity that will hold all components required by the aspect
             var entity = m_Manager.CreateEntity();
 
-            var useCase = MakeUseCase(entity, systemKind, contextKind, AccessKind.ReadOnlyAccess, expectedOperationCount: 1);
+            var useCase = MakeUseCase(entity, systemKind, contextKind, AccessKind.ReadWriteAccess, expectedOperationCount: 1);
             AspectSharedComponentOptional.ApplyTo(m_Manager, entity, useCase.ValueInitial, optionalKind == OptionalKind.WithOptionalComponent);
             World.Unmanaged.GetUnsafeSystemRef<TestISystemOptional>(World.GetOrCreateSystem<TestISystemOptional>()).Optional = optionalKind;
             World.GetOrCreateSystemManaged<TestSystemBaseOptional>().Optional = optionalKind;

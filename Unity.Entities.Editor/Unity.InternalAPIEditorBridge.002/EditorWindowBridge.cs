@@ -23,6 +23,15 @@ namespace Unity.Editor.Bridge
             };
         }
 
+        public static void ReloadHostView(this EditorWindow @this)
+        {
+            var hostView = @this.m_Parent;
+            if (hostView is null)
+                throw new ArgumentNullException();
+
+            hostView.Reload(@this);
+        }
+
         public static DockArea GetDockArea(this EditorWindow @this)
         {
             if (@this.m_Parent is UnityEditor.DockArea dockArea)

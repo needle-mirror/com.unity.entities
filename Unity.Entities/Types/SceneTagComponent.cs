@@ -98,7 +98,7 @@ namespace Unity.Entities
         /// <param name="sceneReference">The <see cref="EntitySceneReference"/> to reference.</param>
         public SceneReference(EntitySceneReference sceneReference)
         {
-            SceneGUID = sceneReference.SceneId.GlobalId.AssetGUID;
+            SceneGUID = sceneReference.Id .GlobalId.AssetGUID;
         }
 
         /// <summary>

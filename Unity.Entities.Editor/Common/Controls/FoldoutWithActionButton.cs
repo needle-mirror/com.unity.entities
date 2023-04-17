@@ -19,7 +19,7 @@ namespace Unity.Entities.Editor
             toggleHeader.AddToClassList(UssClasses.FoldoutWithActionButton.Toggle);
             this.Q(className: "unity-toggle__input").AddToClassList(UssClasses.FoldoutWithActionButton.ToggleInput);
 
-            Header = Resources.Templates.FoldoutWithActionButton.CloneTemplate();
+            Header = Resources.Templates.FoldoutWithActionButton.Clone();
             HeaderIcon = Header.Q(className: UssClasses.FoldoutWithActionButton.Icon);
             HeaderName = Header.Q<Label>(className: UssClasses.FoldoutWithActionButton.Name);
             MatchingCount = Header.Q<Label>(className: UssClasses.FoldoutWithActionButton.Count);

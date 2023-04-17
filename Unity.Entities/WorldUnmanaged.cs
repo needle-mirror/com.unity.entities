@@ -404,6 +404,16 @@ namespace Unity.Entities
             }
             return SystemHandle.Null;
         }
+        
+        internal SystemHandle GetExistingUnmanagedSystem(SystemTypeIndex t)
+        {
+            var hash = TypeManager.GetSystemTypeHash(t);
+            if (_unmanagedSlotByTypeHash.ContainsKey(hash))
+            {
+                return GetExistingUnmanagedSystem(hash);
+            }
+            return SystemHandle.Null;
+        }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void CheckSysHandleVersion(SystemHandle sysHandle)
@@ -557,31 +567,33 @@ namespace Unity.Entities
             var systemHandle = CreateUnmanagedSystemInternal(self, UnsafeUtility.SizeOf<T>(), GetHashCode64<T>(), systemTypeIndex, out var systemPtr, callOnCreate);
 
 #if ENABLE_PROFILER
-            EntitiesProfiler.OnSystemCreated(typeof(T), in systemHandle);
+            EntitiesProfiler.OnSystemCreated(TypeManager.GetSystemTypeIndex<T>(), in systemHandle);
 #endif
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.OnSystemCreated(typeof(T), in systemHandle);
+            EntitiesJournaling.OnSystemCreated(TypeManager.GetSystemTypeIndex<T>(), in systemHandle);
 #endif
 
             return systemHandle;
         }
 
-        private SystemHandle CreateUnmanagedSystem(Type t, long typeHash, bool callOnCreate)
+        [ExcludeFromBurstCompatTesting("Uses managed World")]
+        private SystemHandle CreateUnmanagedSystem(SystemTypeIndex t, long typeHash, bool callOnCreate)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (TypeManager.IsSystemManaged(t))
+
+            var systemType = TypeManager.GetSystemType(t);
+            if (TypeManager.IsSystemManaged(systemType))
             {
 #if UNITY_DOTSRUNTIME
                 throw new ArgumentException($"The system {t} cannot contain managed fields. If you need have to store managed fields in your system, please use SystemBase instead.");
 #else
-                throw new ArgumentException($"The system {t} cannot contain managed fields. If you need have to store managed fields in your system, please use SystemBase instead. Reason: {UnsafeUtility.GetReasonForTypeNonBlittable(t)}");
+                throw new ArgumentException($"The system {t} cannot contain managed fields. If you need have to store managed fields in your system, please use SystemBase instead. Reason: {UnsafeUtility.GetReasonForTypeNonBlittable(systemType)}");
 #endif
             }
 
 #endif
 
-            var untypedHandle = CreateUnmanagedSystemInternal(m_EntityManager.World, TypeManager.GetSystemTypeSize(t), typeHash, TypeManager.GetSystemTypeIndex(t), out _, callOnCreate);
-
+            var untypedHandle = CreateUnmanagedSystemInternal(m_EntityManager.World, TypeManager.GetSystemTypeSize(t), typeHash, t, out _, callOnCreate);
 #if ENABLE_PROFILER
             EntitiesProfiler.OnSystemCreated(t, in untypedHandle);
 #endif
@@ -640,7 +652,8 @@ namespace Unity.Entities
             }
         }
 
-        internal SystemHandle GetOrCreateUnmanagedSystem(Type t, bool callOnCreate = true)
+        [ExcludeFromBurstCompatTesting("Uses managed World")]
+        internal SystemHandle GetOrCreateUnmanagedSystem(SystemTypeIndex t, bool callOnCreate = true)
         {
             long hash = TypeManager.GetSystemTypeHash(t);
             if (_unmanagedSlotByTypeHash.ContainsKey(hash))
@@ -654,6 +667,11 @@ namespace Unity.Entities
         }
 
         internal SystemHandle CreateUnmanagedSystem(Type t, bool callOnCreate)
+        {
+            return CreateUnmanagedSystem(TypeManager.GetSystemTypeIndex(t), callOnCreate);
+        }
+
+        internal SystemHandle CreateUnmanagedSystem(SystemTypeIndex t, bool callOnCreate)
         {
             long hash = TypeManager.GetSystemTypeHash(t);
             return CreateUnmanagedSystem(t, hash, callOnCreate);
@@ -1081,12 +1099,13 @@ namespace Unity.Entities
         internal SystemHandle GetOrCreateUnmanagedSystem<T>() where T : unmanaged, ISystem =>
             GetImpl().GetOrCreateUnmanagedSystem<T>();
 
-        [ExcludeFromBurstCompatTesting("Takes managed Type")]
-        internal SystemHandle GetOrCreateUnmanagedSystem(Type unmanagedType) =>
-            GetImpl().GetOrCreateUnmanagedSystem(unmanagedType);
 
-        [ExcludeFromBurstCompatTesting("Takes managed Type")]
-        internal SystemHandle CreateUnmanagedSystem(World self, Type unmanagedType, bool callOnCreate) =>
+        [ExcludeFromBurstCompatTesting("Uses managed World under the hood")]
+        internal SystemHandle GetOrCreateUnmanagedSystem(SystemTypeIndex unmanagedType) =>
+            GetImpl().GetOrCreateUnmanagedSystem(unmanagedType);
+        
+        [ExcludeFromBurstCompatTesting("Uses managed World under the hood")]
+        internal SystemHandle CreateUnmanagedSystem(SystemTypeIndex unmanagedType, bool callOnCreate) =>
             GetImpl().CreateUnmanagedSystem(unmanagedType, callOnCreate);
 
         [ExcludeFromBurstCompatTesting("accesses managed World")]
@@ -1164,7 +1183,8 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Return an existing instance of a system of type <typeparamref name="T"/> in this World.
+        /// Return an existing instance of a system of type <paramref name="type"/> in this World. Prefer the version
+        /// that takes a SystemTypeIndex to avoid unnecessary reflection.
         /// </summary>
         /// <typeparam name="T">The system type</typeparam>
         /// <returns>The existing instance of system type <typeparamref name="T"/> in this World. If no such instance exists, the method returns default.</returns>
@@ -1189,6 +1209,15 @@ namespace Unity.Entities
         /// <returns>The existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns SystemHandle.Null.</returns>
         [ExcludeFromBurstCompatTesting("Takes System.Type")]
         public SystemHandle GetExistingUnmanagedSystem(Type type) =>
+            GetImpl().GetExistingUnmanagedSystem(type);
+        
+        /// <summary>
+        /// Return an existing instance of a system of type <paramref name="type"/> in this World. This avoids
+        /// unnecessary reflection. 
+        /// </summary>
+        /// <param name="type">The system type</param>
+        /// <returns>The existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns SystemHandle.Null.</returns>
+        public SystemHandle GetExistingUnmanagedSystem(SystemTypeIndex type) =>
             GetImpl().GetExistingUnmanagedSystem(type);
 
         /// <summary>
@@ -1238,10 +1267,10 @@ namespace Unity.Entities
             return GetImpl().GetAllSystems(a);
         }
 
-        [ExcludeFromBurstCompatTesting("Takes managed Types")]
-        unsafe internal NativeArray<SystemHandle> GetOrCreateUnmanagedSystems(IList<Type> unmanagedTypes)
+        [ExcludeFromBurstCompatTesting("Accesses managed World under the hood")]
+        unsafe internal NativeArray<SystemHandle> GetOrCreateUnmanagedSystems(NativeList<SystemTypeIndex> unmanagedTypes)
         {
-            int count = unmanagedTypes.Count;
+            int count = unmanagedTypes.Length;
             var result = new NativeArray<SystemHandle>(count, Allocator.Temp);
 
             var impl = GetImplPtr();

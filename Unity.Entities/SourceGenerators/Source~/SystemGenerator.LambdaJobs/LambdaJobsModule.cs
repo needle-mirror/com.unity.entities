@@ -208,18 +208,15 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                 systemDescription.NewMiscellaneousMembers.Add(EntitiesSourceFactory.LambdaJobs.JobStructFor(lambdaJobDescription));
 
-                if (lambdaJobDescription.WithStructuralChangesAndLambdaBodyInSystem)
-                    systemDescription.NewMiscellaneousMembers.Add(EntitiesSourceFactory.LambdaJobs.LambdaBodyMethodFor(lambdaJobDescription));
-
                 if (lambdaJobDescription.NeedsJobFunctionPointers)
                 {
                     string delegateName = lambdaJobDescription.LambdaJobKind switch
                     {
-                        LambdaJobKind.Job => "Unity.Entities.InternalCompilerInterface.JobRunWithoutJobSystemDelegate",
+                        LambdaJobKind.Job => "Unity.Entities.Internal.InternalCompilerInterface.JobRunWithoutJobSystemDelegate",
                         LambdaJobKind.Entities when lambdaJobDescription.WithFilterEntityArray != null =>
-                            "Unity.Entities.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegateLimitEntities",
+                            "Unity.Entities.Internal.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegateLimitEntities",
                         LambdaJobKind.Entities =>
-                            "Unity.Entities.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegate",
+                            "Unity.Entities.Internal.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegate",
                         _ => string.Empty
                     };
 
@@ -243,7 +240,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         if (lambdaJobDescription.Burst.IsEnabled)
                         {
                             systemDescription.AdditionalStatementsInOnCreateForCompilerMethod.Add(
-                                $"{lambdaJobDescription.JobStructName}.FunctionPtrFieldBurst = Unity.Entities.InternalCompilerInterface.BurstCompile({lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst);");
+                                $"{lambdaJobDescription.JobStructName}.FunctionPtrFieldBurst = Unity.Entities.Internal.InternalCompilerInterface.BurstCompile({lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst);");
                         }
                     }
                 }

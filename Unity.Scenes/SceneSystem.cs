@@ -118,6 +118,18 @@ namespace Unity.Scenes
 
             state.EntityManager.AddComponentData(state.SystemHandle, new SceneSystemData());
         }
+        
+        /// <summary>
+        /// Callback invoked when the system is destroyed.
+        /// </summary>
+        /// <param name="state">The entity system state.</param>
+        public void OnDestroy(ref SystemState state)
+        {
+            if (catalogData.IsCreated)
+            {
+                catalogData.Dispose();
+            }
+        }
 
         void LoadCatalogData(ref SystemState state)
         {
@@ -389,7 +401,7 @@ namespace Unity.Scenes
         /// <returns>An entity representing the loading state of the scene.</returns>
         public static Entity LoadSceneAsync(WorldUnmanaged world, EntitySceneReference sceneReferenceId, LoadParameters parameters = default)
         {
-            return LoadSceneAsync(world, sceneReferenceId.SceneId.GlobalId.AssetGUID, parameters);
+            return LoadSceneAsync(world, sceneReferenceId.Id .GlobalId.AssetGUID, parameters);
         }
 
         /// <summary>
@@ -402,7 +414,7 @@ namespace Unity.Scenes
         /// <returns>An entity representing the loading state of the prefab.</returns>
         public static Entity LoadPrefabAsync(WorldUnmanaged world, EntityPrefabReference prefabReferenceId, LoadParameters parameters = default)
         {
-            return LoadSceneAsync(world, prefabReferenceId.PrefabId.GlobalId.AssetGUID, parameters);
+            return LoadSceneAsync(world, prefabReferenceId.Id.GlobalId.AssetGUID, parameters);
         }
 
         /// <summary>
@@ -584,7 +596,7 @@ namespace Unity.Scenes
         /// </remarks>
         public static void UnloadScene(WorldUnmanaged world, EntityPrefabReference sceneReferenceId, UnloadParameters unloadParams = UnloadParameters.Default)
         {
-            UnloadScene(world, sceneReferenceId.PrefabId.GlobalId.AssetGUID, unloadParams);
+            UnloadScene(world, sceneReferenceId.Id.GlobalId.AssetGUID, unloadParams);
         }
 
         /// <summary>

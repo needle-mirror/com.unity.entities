@@ -74,7 +74,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                     case QueryType.ValueTypeComponent:
                         fieldName = $"{arg.Name}_IntPtr";
                         fieldDeclaration = $"public global::System.IntPtr {fieldName};";
-                        elementInReturnedTuple = $"Unity.Entities.InternalCompilerInterface.UnsafeGetCopyOfNativeArrayPtrElement<{arg.TypeSymbolFullName}>({fieldName}, index)";
+                        elementInReturnedTuple = $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetCopyOfNativeArrayPtrElement<{arg.TypeSymbolFullName}>({fieldName}, index)";
                         yield return
                         (
                             new Field(fieldDeclaration, fieldName),
@@ -101,8 +101,8 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                         fieldDeclaration = $"public global::System.IntPtr {fieldName};";
                         elementInReturnedTuple =
                             performCollectionChecks
-                                ? $"Unity.Entities.InternalCompilerInterface.UnsafeGetUncheckedRefRW<{arg.TypeArgumentFullName}>({fieldName}, index, ref {typeHandleName})"
-                                : $"Unity.Entities.InternalCompilerInterface.UnsafeGetUncheckedRefRW<{arg.TypeArgumentFullName}>({fieldName}, index)" ;
+                                ? $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetUncheckedRefRW<{arg.TypeArgumentFullName}>({fieldName}, index, ref {typeHandleName})"
+                                : $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetUncheckedRefRW<{arg.TypeArgumentFullName}>({fieldName}, index)" ;
 
                         yield return
                         (
@@ -140,8 +140,8 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                         fieldDeclaration = $"public global::System.IntPtr {fieldName};";
                         elementInReturnedTuple =
                             performCollectionChecks
-                                ? $"Unity.Entities.InternalCompilerInterface.UnsafeGetUncheckedRefRO<{arg.TypeArgumentFullName}>({fieldName}, index, ref {typeHandleName_})"
-                                : $"Unity.Entities.InternalCompilerInterface.UnsafeGetUncheckedRefRO<{arg.TypeArgumentFullName}>({fieldName}, index)";
+                                ? $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetUncheckedRefRO<{arg.TypeArgumentFullName}>({fieldName}, index, ref {typeHandleName_})"
+                                : $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetUncheckedRefRO<{arg.TypeArgumentFullName}>({fieldName}, index)";
 
                         yield return
                         (
@@ -209,7 +209,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                 yield return
                     (
                         new Field("public global::System.IntPtr Entity_IntPtr;", "Entity_IntPtr"),
-                        new ArgumentInReturnedType("Unity.Entities.InternalCompilerInterface.UnsafeGetCopyOfNativeArrayPtrElement<Unity.Entities.Entity>(Entity_IntPtr, index)")
+                        new ArgumentInReturnedType("Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetCopyOfNativeArrayPtrElement<Unity.Entities.Entity>(Entity_IntPtr, index)")
                     );
         }
 
@@ -232,7 +232,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                     case QueryType.Aspect:
                         fieldName = $"{arg.Name}_AspectTypeHandle";
                         fieldDeclaration = $"{arg.TypeSymbolFullName}.TypeHandle {fieldName};";
-                        fieldAssignment = $"{fieldName} = new {arg.TypeSymbolFullName}.TypeHandle(ref systemState, isReadOnly);";
+                        fieldAssignment = $"{fieldName} = new {arg.TypeSymbolFullName}.TypeHandle(ref systemState);";
                         resolvedChunkInitializerArgument = $"{fieldName}.Resolve(archetypeChunk);";
 
                         yield return
@@ -277,7 +277,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                         }
 
                         resolvedChunkInitializerArgument =
-                            $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
+                            $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
 
                         yield return
                         (
@@ -303,7 +303,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                         }
 
                         resolvedChunkInitializerArgument =
-                            $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
+                            $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
 
                         yield return
                         (
@@ -315,7 +315,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                         fieldName = $"{arg.Name}_ComponentTypeHandle_RO";
                         fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeSymbolFullName}> {fieldName};";
                         fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeSymbolFullName}>(isReadOnly: true);";
-                        resolvedChunkInitializerArgument = $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<{arg.TypeSymbolFullName}>(archetypeChunk, ref {fieldName});";
+                        resolvedChunkInitializerArgument = $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<{arg.TypeSymbolFullName}>(archetypeChunk, ref {fieldName});";
 
                         yield return
                         (
@@ -343,7 +343,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                         }
 
                         resolvedChunkInitializerArgument =
-                            $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
+                            $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
 
                         yield return
                         (
@@ -384,7 +384,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                         }
 
                         resolvedChunkInitializerArgument =
-                            $"Unity.Entities.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
+                            $"Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<{arg.TypeArgumentFullName}>(archetypeChunk, ref {fieldName});";
 
                         yield return
                         (
@@ -500,7 +500,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                         "Unity.Entities.EntityTypeHandle Entity_TypeHandle;",
                         "Entity_TypeHandle",
                         "Entity_TypeHandle = systemState.GetEntityTypeHandle();");
-                yield return (entityField, new ArgumentInReturnedType("Unity.Entities.InternalCompilerInterface.UnsafeGetChunkEntityArrayIntPtr(archetypeChunk, Entity_TypeHandle);"));
+                yield return (entityField, new ArgumentInReturnedType("Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkEntityArrayIntPtr(archetypeChunk, Entity_TypeHandle);"));
             }
         }
 

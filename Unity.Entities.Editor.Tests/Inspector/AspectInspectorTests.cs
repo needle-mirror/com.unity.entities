@@ -66,7 +66,7 @@ namespace Unity.Entities.Editor.Tests
     {
         protected override void OnUpdate()
         {
-            Entities.ForEach((ref TestAspect testAspect) =>
+            Entities.ForEach((TestAspect testAspect) =>
             {
                 testAspect.SetValue(88);
             }).Run();

@@ -60,8 +60,8 @@ namespace Unity.Entities.Tests
         public override void Setup()
         {
             base.Setup();
-            var allSystems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.Default);
-            DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(World, allSystems);
+            DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(World,
+                DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.Default));
         }
 
         RawFrameDataView GenerateFrameMetaData(Action onUpdate = null)

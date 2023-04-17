@@ -11,6 +11,7 @@ using System.Runtime.InteropServices;
 using UnityEngine.SceneManagement;
 using Unity.Content;
 using Unity.Burst;
+using System.Threading;
 #if ENABLE_PROFILER
 using Unity.Profiling;
 using System.Runtime.CompilerServices;
@@ -202,7 +203,8 @@ namespace Unity.Entities.Content
             }
 #endif
             SceneManager.sceneUnloaded += ReleaseSceneResources;
-
+            AppDomain.CurrentDomain.DomainUnload += OnShutdown;
+            AppDomain.CurrentDomain.ProcessExit += OnShutdown;
         }
 
         static void ReleaseSceneResources(Scene scene)
@@ -220,6 +222,11 @@ namespace Unity.Entities.Content
                 //dependencies of scenes must be deferred a frame to avoid releasing too early.
                 SharedStaticDeferredSceneUnloads.Data.Add(new DeferredSceneDependencyUnload { DependencyIndex = depIndex, FileIds = deps });
             }
+        }
+
+        private static void OnShutdown(object _, EventArgs __)
+        {
+            Cleanup(out var unreleasedObjectCount);
         }
 
         /// <summary>
@@ -259,7 +266,7 @@ namespace Unity.Entities.Content
                         }
                     }
                 }
-                
+
                 if (ActiveScenes.IsCreated)
                 {
                     if (ActiveScenes.Count > 0)
@@ -359,6 +366,8 @@ namespace Unity.Entities.Content
             }
 
             SceneManager.sceneUnloaded -= ReleaseSceneResources;
+            AppDomain.CurrentDomain.DomainUnload -= OnShutdown;
+            AppDomain.CurrentDomain.ProcessExit -= OnShutdown;
             return unreleasedObjectCount == 0;
         }
 
@@ -367,7 +376,6 @@ namespace Unity.Entities.Content
         [UnityEditor.InitializeOnLoadMethod]
         static void EditorInitializeOnLoadMethod()
         {
-            Cleanup(out var _);
             Initialize();
         }
 #else
@@ -438,6 +446,51 @@ namespace Unity.Entities.Content
             SharedStaticObjectLoadQueue.Data.Produce(objectId);
             SharedStaticObjectValueCache.Data.AddEntry(objectId);
         }
+#if UNITY_EDITOR
+        //These methods are only used in play mode in the editor from AsyncLoadSceneOperation.  This ensures that new copies of the objects are loaded for each sub scene.
+        static long instanceLoadCounter = 0;
+        public struct InstanceHandle : IEquatable<InstanceHandle>
+        {
+            public UntypedWeakReferenceId ObjectId;
+            public long InstanceId;
+            public bool IsValid => ObjectId.IsValid && InstanceId > 0;
+            public bool Equals(InstanceHandle other) => InstanceId.Equals(other.InstanceId) && ObjectId.Equals(other.ObjectId);
+            public override int GetHashCode() => (int)(InstanceId * 31 + ObjectId.GetHashCode());
+        }
+
+        [ExcludeFromBurstCompatTesting("LoadInstanceAsync is editor only and not called from bursted code.")]
+        internal unsafe static InstanceHandle LoadInstanceAsync(in UntypedWeakReferenceId objectId)
+        {
+            //incremented first to ensure that 0 is not used for a valid handle
+            var handle = new InstanceHandle { ObjectId = objectId, InstanceId = instanceLoadCounter + 1 };
+            if (!OverrideLoader.LoadInstance(handle))
+                handle.InstanceId = 0;
+            else
+                instanceLoadCounter++;
+            return handle;
+        }
+        [ExcludeFromBurstCompatTesting("References managed engine API and static data")]
+        internal static bool WaitForInstanceCompletion(in InstanceHandle handle, int timeoutMs = 0)
+        {
+            return OverrideLoader.WaitForCompletion(handle, timeoutMs);
+        }
+
+        [ExcludeFromBurstCompatTesting("ReleaseInstancesAsync is editor only and not called from bursted code.")]
+        internal unsafe static void ReleaseInstancesAsync(in InstanceHandle handle)
+        {
+            OverrideLoader.ReleaseInstance(handle);
+        }
+        [ExcludeFromBurstCompatTesting("GetInstanceLoadingStatus is editor only and not called from bursted code.")]
+        internal unsafe static ObjectLoadingStatus GetInstanceLoadingStatus(in InstanceHandle handle)
+        {
+            return OverrideLoader.GetInstanceLoadStatus(handle);
+        }
+        [ExcludeFromBurstCompatTesting("GetInstanceValue is editor only and not called from bursted code.")]
+        internal static TObject GetInstanceValue<TObject>(in InstanceHandle handle) where TObject : UnityEngine.Object
+        {
+            return OverrideLoader.GetInstance(handle) as TObject;
+        }
+#endif
 
         /// <summary>
         /// Thread safe method to release an object.  The release will happen during the main thread update.
@@ -466,8 +519,6 @@ namespace Unity.Entities.Content
                 Debug.LogException(e);
             }
         }
-
-
 
         unsafe private delegate void LoadObjectManagedDelegate(UntypedWeakReferenceId* ids, int count);
         private static readonly SharedStatic<IntPtr> s_ManagedLoadObjectTrampoline = SharedStatic<IntPtr>.GetOrCreate<LoadObjectManagedDelegate>();
@@ -624,6 +675,7 @@ namespace Unity.Entities.Content
 #if ENABLE_PROFILER
             RuntimeContentManagerProfiler.EnterProcessCommands();
 #endif
+            
             if (SharedStaticObjectLoadQueue.Data.ConsumeAll(out var objectLoads, Allocator.Temp))
             {
                 new FunctionPointer<LoadObjectManagedDelegate>(s_ManagedLoadObjectTrampoline.Data).Invoke((UntypedWeakReferenceId *)objectLoads.GetUnsafePtr<UntypedWeakReferenceId>(), objectLoads.Length);
@@ -843,7 +895,7 @@ namespace Unity.Entities.Content
         /// <param name="objectId">The id of the object.</param>
         /// <returns>True if the process started, false if any errors are encountered.</returns>
         [ExcludeFromBurstCompatTesting("References managed engine API and static data")]
-        private unsafe static bool LoadObjectImpl(UntypedWeakReferenceId objectId)
+        private unsafe static bool LoadObjectImpl(in UntypedWeakReferenceId objectId)
         {
 #if ENABLE_PROFILER
             RuntimeContentManagerProfiler.RecordLoadObjectRequest();
@@ -895,7 +947,6 @@ namespace Unity.Entities.Content
             ActiveObjects[objectId] = activeObject;
             return true;
         }
-
 
         /// <summary>
         /// Release an object.  This will decrement the internal reference count and may not immediately unload the object.
@@ -1097,7 +1148,7 @@ namespace Unity.Entities.Content
             if (!ActiveFiles.TryGetValue(activeObject.ContentFileId, out var activeFile))
             {
 #if UNITY_EDITOR
-                if (!OverrideLoader.WaitForCompletion(objectId))
+                if (!OverrideLoader.WaitForCompletion(objectId, timeoutMs))
                     return false;
                 UpdateLoadingObjectStatus();
                 return true;
@@ -1195,7 +1246,13 @@ namespace Unity.Entities.Content
             Scene LoadScene(UntypedWeakReferenceId sceneReferenceId, ContentSceneParameters loadParams);
             void UnloadScene(ref Scene scene);
             void Unload(UntypedWeakReferenceId referenceId);
-            bool WaitForCompletion(UntypedWeakReferenceId referenceId);
+            bool WaitForCompletion(UntypedWeakReferenceId referenceId, int timeoutMs);
+
+            bool LoadInstance(InstanceHandle handle);
+            bool WaitForCompletion(InstanceHandle handle, int timeoutMs);
+            ObjectLoadingStatus GetInstanceLoadStatus(InstanceHandle handle);
+            UnityEngine.Object GetInstance(InstanceHandle handle);
+            void ReleaseInstance(InstanceHandle handle);
         }
 
         internal static IAlternativeLoader OverrideLoader;

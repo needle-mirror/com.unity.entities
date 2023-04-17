@@ -17,11 +17,18 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 return;
             }
 
-            if ((description.Burst.IsEnabled || description.Schedule.Mode != ScheduleMode.Run) && description.VariablesCaptured.Any(var => var.Type.IsReferenceType))
+            // Fail if we have other issues with captured variables or are capturing a reference type in burst or non-run
+            foreach (var variableCaptured in description.VariablesCaptured)
             {
-                foreach (var variable in description.VariablesCaptured.Where(var => var.Type.IsReferenceType))
-                    LambdaJobsErrors.DC0004(description.SystemDescription, description.Location, variable.OriginalVariableName, description.LambdaJobKind);
-                description.Success = false;
+                if (variableCaptured.Type.TypeKind == TypeKind.Error)
+                    description.Success = false;
+                else if (variableCaptured.Type.IsReferenceType &&
+                        (description.Burst.IsEnabled || description.Schedule.Mode != ScheduleMode.Run))
+                {
+                    LambdaJobsErrors.DC0004(description.SystemDescription, description.Location,
+                        variableCaptured.OriginalVariableName, description.LambdaJobKind);
+                    description.Success = false;
+                }
             }
 
             if (description.LambdaJobKind == LambdaJobKind.Job && description.WithStructuralChanges)

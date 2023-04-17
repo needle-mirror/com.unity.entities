@@ -104,8 +104,14 @@ namespace Unity.Entities.Editor
         }
     }
 
+    /// <summary>
+    /// This class allows the SearchWindow to search for ECS components.
+    /// </summary>
     public static class ComponentSearchProvider
     {
+        /// <summary>
+        /// Search Provider type id. 
+        /// </summary>
         public const string type = "component";
 
         internal static QueryEngine<ComponentTypeDescriptor> s_QueryEngine;
@@ -370,6 +376,10 @@ namespace Unity.Entities.Editor
             OpenProvider();
         }
 
+        /// <summary>
+        /// Open SearchWindow with ComponentSearchProvider enabled.
+        /// </summary>
+        /// <param name="query">Optional initial query.</param>
         public static void OpenProvider(string query = null)
         {
             SearchBridge.OpenContextualTable(type, query ?? "", GetDefaultTableConfig(null));

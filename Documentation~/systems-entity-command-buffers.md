@@ -6,7 +6,7 @@ uid: systems-entity-command-buffers
 
 An entity command buffer (ECB) stores a queue of thread-safe commands which you can add to and later play back. You can use an ECB to schedule [structural changes](concepts-structural-changes.md) from jobs and perform changes on the main thread after the jobs complete. You can also use ECBs on the main thread to delay changes, or play back a set of changes multiple times.
 
-The [methods in `EntityCommandBuffer`](xref:Unity.Entities.EntityCommandBuffer.) record commands, which mirror methods available in [`EntityManager`](xref:Unity.Entities.EntityManager.html). For example:
+The [methods in `EntityCommandBuffer`](xref:Unity.Entities.EntityCommandBuffer) record commands, which mirror methods available in [`EntityManager`](xref:Unity.Entities.EntityManager). For example:
 
 * `CreateEntity(EntityArchetype)`: Registers a command that creates a new entity with the specified archetype.
 * `DestroyEntity(Entity)`: Registers a command that destroys the entity.
@@ -14,19 +14,9 @@ The [methods in `EntityCommandBuffer`](xref:Unity.Entities.EntityCommandBuffer.)
 * `AddComponent&lt;T>(Entity)`: Registers a command that adds a component of type `T` to the entity.
 * `RemoveComponent&lt;T>(EntityQuery)`: Registers a command that removes a component of type `T` from all entities that match the query.
 
-## Comparison between EntityCommandBuffer and EntityManager
-
-You can use `EntityCommandBuffer` or `EntityManager` to manage structural changes. The difference between the two options are as follows:
-
-* If you want to queue up structural changes from a job, [you must use an ECB](systems-entity-command-buffer-use.md).
-* If you want to perform structural changes on the main thread, and have them happen instantly, use the methods in `EntityManager`.
-* If you want to perform structural change on the main thread, and you want them to happen at a later point (such as after a job completes), you should use an ECB.
-
-The changes recorded in an ECB only are applied when `Playback` is called on the main thread. If you try to record any further changes to the ECB after playback, then Unity throws an exception.
-
 ## Entity command buffer safety
 
-`EntityCommandBuffer` has a job safety handle, similar to a [native container](xref:JobSystemNativeContainer). This safety is only available in the Editor, and not in player builds. The safety checks throw an exception if you try to do any of the following on an incomplete scheduled job that uses an ECB:
+`EntityCommandBuffer` has a job safety handle, similar to a [native container](xref:JobSystemNativeContainer). This safety is only available in the Unity Editor, and not in player builds. The safety checks throw an exception if you try to do any of the following on an incomplete scheduled job that uses an ECB:
 
 * Access the `EntityCommandBuffer` through its `AddComponent`, `Playback`, `Dispose`, or other methods.
 * Schedule another job that accesses the same `EntityCommandBuffer`, unless the new job [depends on](xref:JobSystemJobDependencies) the already scheduled job.

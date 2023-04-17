@@ -25,10 +25,10 @@ namespace Unity.Entities
             public SystemHandle Handle => *m_HandlePtr;
 
             /// <summary>
-            /// The system type.
+            /// The system type index.
             /// </summary>
-            [ExcludeFromBurstCompatTesting("Returns managed object")]
-            public Type Type => GetSystemType(Handle);
+            [ExcludeFromBurstCompatTesting("uses managed Dictionary")]
+            public SystemTypeIndex Type => GetSystemType(Handle);
 
             /// <summary>
             /// The system name.

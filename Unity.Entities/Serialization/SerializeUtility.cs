@@ -871,22 +871,25 @@ namespace Unity.Entities.Serialization
             blobAssetRefChunks = new UnsafeList<ArchetypeChunk>(32, Allocator.Temp);
 
             // Read Shared and Managed components
-            using (var reader = status.SharedComponentPrefetchState.CreateStream())
-            {
-                // read the full index list
-                int sharedComponentArraysLength = reader.ReadInt();
-                sharedComponentArray = new NativeArray<int>(sharedComponentArraysLength, Allocator.Temp);
-                reader.ReadArray(sharedComponentArray, sharedComponentArraysLength);
+            // Note, do not move this code to "using (var sharedComponentReader = status.SharedComponentPrefetchState.CreateStream()) {}"
+            // until UUM-27771 is resolved.
+            var sharedComponentReader = status.SharedComponentPrefetchState.CreateStream();
+            
+            // read the full index list
+            int sharedComponentArraysLength = sharedComponentReader.ReadInt();
+            sharedComponentArray = new NativeArray<int>(sharedComponentArraysLength, Allocator.Temp);
+            sharedComponentReader.ReadArray(sharedComponentArray, sharedComponentArraysLength);
 
-                // 0 index is special and means default shared component value
-                // Also see below the offset + 1 indices for the same reason
-                sharedComponentRemap.Add(0);
+            // 0 index is special and means default shared component value
+            // Also see below the offset + 1 indices for the same reason
+            sharedComponentRemap.Add(0);
 
-                var unmanagedSharedComponentCount = ReadUnmanagedSharedComponents(manager, reader, sharedComponentRemap);
+            var unmanagedSharedComponentCount = ReadUnmanagedSharedComponents(manager, sharedComponentReader, sharedComponentRemap);
 
-                var managedSharedComponentCount = ReadManagedSharedComponents(manager, reader, sharedComponentRemap, unityObjects, blobAssetBuffer);
-                numSharedComponents = unmanagedSharedComponentCount + managedSharedComponentCount;
-            }
+            var managedSharedComponentCount = ReadManagedSharedComponents(manager, sharedComponentReader, sharedComponentRemap, unityObjects, blobAssetBuffer);
+            numSharedComponents = unmanagedSharedComponentCount + managedSharedComponentCount;
+
+            sharedComponentReader.Dispose();
 
             // Get pointers to enabled bits data
             var enabledBitsData = (byte*)status.EnabledBitsPrefetchState._buffer;

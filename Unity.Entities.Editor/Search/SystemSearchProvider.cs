@@ -95,10 +95,17 @@ namespace Unity.Entities.Editor
             }
         }
     }
-    
+
+    /// <summary>
+    /// This class allows the SearchWindow to search for ECS System.
+    /// </summary>
     public static class SystemSearchProvider
     {
+        /// <summary>
+        /// Search Provider type id. 
+        /// </summary>
         public const string type = "system";
+
         internal static Dictionary<string, string[]> s_SystemDependencyMap = new Dictionary<string, string[]>();
         internal static WorldProxyManager s_WorldProxyManager;
         internal static WorldProxy s_WorldProxy;
@@ -221,7 +228,7 @@ namespace Unity.Entities.Editor
         }
 
         [SearchColumnProvider("Systems/Enabled")]
-        public static void EnabledColumn(SearchColumn column)
+        internal static void EnabledColumn(SearchColumn column)
         {
             column.getter = args =>
             {
@@ -508,6 +515,10 @@ namespace Unity.Entities.Editor
             OpenProvider();
         }
 
+        /// <summary>
+        /// Open SearchWindow with SystemSearchProvider enabled.
+        /// </summary>
+        /// <param name="query">Optional initial query.</param>
         public static void OpenProvider(string query = null)
         {
             SearchBridge.OpenContextualTable(type, query ?? "", GetDefaultTableConfig(null));

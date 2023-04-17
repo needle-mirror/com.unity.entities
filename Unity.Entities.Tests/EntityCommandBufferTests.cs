@@ -99,7 +99,12 @@ namespace Unity.Entities.Tests
                 return false;
             if (ecb.m_Data->m_ThreadedChains != null)
             {
-                for (int i = 0; i < JobsUtility.MaxJobThreadCount; ++i)
+#if UNITY_2022_2_14F1_OR_NEWER
+                int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+                int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+                for (int i = 0; i < maxThreadCount; ++i)
                 {
                     if (!CleanupListsAreEmpty(&ecb.m_Data->m_ThreadedChains[i]))
                         return false;

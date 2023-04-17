@@ -178,8 +178,7 @@ namespace Unity.Entities
             var chunkCache = new UnsafeChunkCache(filter, true, cache, matchingArchetypePtrList.Ptr);
             int chunkIndex = -1;
             v128 chunkEnabledMask = default;
-            while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
-                       out byte useEnableBits, ref chunkEnabledMask))
+            while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount, out byte useEnableBits, ref chunkEnabledMask))
             {
                 Entity* chunkEntities = (Entity*)chunk.m_Chunk->Buffer; // Entity is always the first table in the chunk buffer
                 if (useEnableBits == 0)
@@ -191,9 +190,8 @@ namespace Unity.Entities
                 {
                     // If this branch ever becomes a bottleneck for the many-small-batches case, we could add a third path
                     // that iterates over the chunkEnabledMask directly, similar to what IJobEntity generates.
-                    int batchStartIndex = 0;
                     int batchEndIndex = 0;
-                    while (EnabledBitUtility.GetNextRange(ref chunkEnabledMask, ref batchStartIndex, ref batchEndIndex))
+                    while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, batchEndIndex, out int batchStartIndex, out batchEndIndex))
                     {
                         int batchEntityCount = batchEndIndex - batchStartIndex;
                         UnsafeUtility.MemCpy(copyDest, chunkEntities+batchStartIndex, batchEntityCount * sizeof(Entity));
@@ -363,9 +361,8 @@ namespace Unity.Entities
                 {
                     // If this branch ever becomes a bottleneck for the many-small-batches case, we could add a third path
                     // that iterates over the chunkEnabledMask directly, similar to what IJobEntity generates.
-                    int batchStartIndex = 0;
                     int batchEndIndex = 0;
-                    while (EnabledBitUtility.GetNextRange(ref chunkEnabledMask, ref batchStartIndex, ref batchEndIndex))
+                    while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, batchEndIndex, out int batchStartIndex, out batchEndIndex))
                     {
                         int batchEntityCount = batchEndIndex - batchStartIndex;
                         UnsafeUtility.MemCpy(copyDest, chunkComponentData+batchStartIndex * typeLookupCache.ComponentSizeOf, batchEntityCount * typeLookupCache.ComponentSizeOf);
@@ -548,9 +545,8 @@ namespace Unity.Entities
                 {
                     // If this branch ever becomes a bottleneck for the many-small-batches case, we could add a third path
                     // that iterates over the chukEnabledMask directly, similar to what IJobEntity generates.
-                    int batchStartIndex = 0;
                     int batchEndIndex = 0;
-                    while (EnabledBitUtility.GetNextRange(ref chunkEnabledMask, ref batchStartIndex, ref batchEndIndex))
+                    while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, batchEndIndex, out int batchStartIndex, out batchEndIndex))
                     {
                         int batchEntityCount = batchEndIndex - batchStartIndex;
                         UnsafeUtility.MemCpy(chunkComponentData+batchStartIndex * typeLookupCache.ComponentSizeOf, copySrc, batchEntityCount * typeLookupCache.ComponentSizeOf);
@@ -907,9 +903,18 @@ namespace Unity.Entities
             ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, int hasEnableableComponents)
         {
             var totalEntityCount = 0;
-            var matchingArchetypesPtr = matchingArchetypes.Ptr;
             var requiresFilter = filter.RequiresMatchesFilter;
             var hasEnableable = hasEnableableComponents == 1;
+            var matchingArchetypesPtr = matchingArchetypes.Ptr;
+            // Fast path if no filtering at all is required
+            if (!requiresFilter && !hasEnableable)
+            {
+                int matchingArchetypeCount = matchingArchetypes.Length;
+                for (int i = 0; i < matchingArchetypeCount; ++i)
+                    totalEntityCount += matchingArchetypesPtr[i]->Archetype->EntityCount;
+                return totalEntityCount;
+            }
+
             var chunkMatchingArchetypeIndexPtr = cachedChunkList.PerChunkMatchingArchetypeIndex->Ptr;
             var chunkIndexInArchetypePtr = cachedChunkList.ChunkIndexInArchetype->Ptr;
             int cachedChunkCount = cachedChunkList.Length;
@@ -917,14 +922,7 @@ namespace Unity.Entities
             MatchingArchetype* currentMatchingArchetype = null;
             var currentMatchingArchetypeState = default(EnabledMaskMatchingArchetypeState);
             int* currentArchetypeChunkEntityCountsPtr = null;
-            // Fast path if no filtering at all is required
-            if (!requiresFilter && !hasEnableable)
-            {
-                int matchingArchetypeCount = matchingArchetypes.Length;
-                for (int i = 0; i < matchingArchetypeCount; ++i)
-                    totalEntityCount += matchingArchetypesPtr[i]->Archetype->EntityCount;
-            }
-            else if (hasEnableable)
+            if (hasEnableable)
             {
                 // per-entity + per-chunk filtering
                 for (int chunkIndexInCache = 0; chunkIndexInCache < cachedChunkCount; ++chunkIndexInCache)
@@ -1213,55 +1211,30 @@ namespace Unity.Entities
     public static class EnabledBitUtility
     {
         /// <summary>
-        /// Retrieves the next contiguous range of set bits in the provided mask.
+        /// Retrieves the next contiguous range of set bits starting at or after the provided index in the provided mask.
         /// </summary>
-        /// <remarks>
-        /// This method right-shifts the mask as it is processed. See the example for correct usage.
-        /// </remarks>
-        /// <example>
-        /// <code>
-        /// <![CDATA[
-        /// int batchStartIndex = 0;
-        /// int batchEndIndex = 0;
-        /// while (EnabledBitUtility.GetNextRange(ref chunkEnabledMask, ref batchStartIndex, ref batchEndIndex))
-        /// {
-        ///     int batchEntityCount = batchEndIndex - batchStartIndex;
-        ///     // process entities in range [batchStartIndex, batchEndIndex-1] here
-        /// }
-        /// ]]>
-        /// </code>
-        /// </example>
-        /// <param name="mask">The enabled-bit mask. This mask is modified during iteration.</param>
-        /// <param name="beginIndex">The input value of this parameter is ignored. On success, the index of the start of the next range is written here.</param>
-        /// <param name="endIndex">The input value must be the first bit index *not* included in the previously-returned range.
-        /// For the first call on a given mask, pass zero. On success, the index of the first bit not in the next range is written here.</param>
+        /// <param name="mask">The enabled-bit mask.</param>
+        /// <param name="firstIndexToCheck">The index at which to start checking for enabled bits.
+        /// This method ignores all bits whose indices are smaller than the index provided here.</param>
+        /// <param name="nextRangeBegin">The index at which the first enabled bit is found.</param>
+        /// <param name="nextRangeEnd">The index of the first bit NOT in the next range.</param>
         /// <returns>True if another range of contiguous bits was found (in which case, the range info is stored in
-        /// <paramref name="beginIndex"/> and <paramref name="endIndex"/>. Otherwise, false.</returns>
+        /// <paramref name="nextRangeBegin"/> and <paramref name="nextRangeEnd"/>. Otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        // TODO(DOTS-8131): This API should be refactored to be less error-prone.
-        public static bool GetNextRange(ref v128 mask, ref int beginIndex, ref int endIndex)
+        public static bool TryGetNextRange(v128 mask, int firstIndexToCheck, out int nextRangeBegin, out int nextRangeEnd)
         {
-            // count zero bits before first enabled bit (Thats our start)
+            mask = ShiftRight(mask, firstIndexToCheck);
+
+            // count zero bits before first enabled bit (that's our start)
             var start = tzcnt_u128(mask);
             mask = ShiftRight(mask, start);
 
-            // The mask has been shifted so now we need to find the first disabled bit (Thats the count)
-            v128 negatedMask = default;
-            if (X86.Sse2.IsSse2Supported)
-            {
-                negatedMask = X86.Sse2.xor_si128(mask, new v128(0xFFFFFFFF));
-            }
-            else
-            {
-                negatedMask = new v128(~mask.ULong0, ~mask.ULong1);
-            }
+            // The mask has been shifted so now we need to find the first disabled bit (that's the count)
+            v128 negatedMask = X86.Sse2.IsSse2Supported ? X86.Sse2.xor_si128(mask, new v128(0xFFFFFFFF)) : new v128(~mask.ULong0, ~mask.ULong1);
+
             var count = tzcnt_u128(negatedMask);
-
-            // make sure the mask is valid for the next loop
-            mask = ShiftRight(mask, count);
-
-            beginIndex = endIndex + start;
-            endIndex = beginIndex + count;
+            nextRangeBegin = firstIndexToCheck + start;
+            nextRangeEnd = nextRangeBegin + count;
 
             return count != 0;
         }

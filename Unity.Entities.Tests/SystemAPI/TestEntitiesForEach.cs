@@ -1,6 +1,6 @@
 #if !UNITY_DOTSRUNTIME
-using System;
 using NUnit.Framework;
+using Unity.Core;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -13,8 +13,8 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void SetUp()
         {
             World.CreateSystem<TestTime>();
-            World.CreateSystem<TestGetAspectRW>();
-            World.CreateSystem<TestGetAspectRO>();
+            World.CreateSystem<TestGetAspect>();
+            World.CreateSystem<WithStructuralChangeNoCapture>();
         }
 
         #region Time
@@ -24,18 +24,19 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         #region Aspect
         [Test]
-        public void GetAspectRW() => World.GetExistingSystem<TestGetAspectRW>().Update(World.Unmanaged);
+        public void GetAspect() => World.GetExistingSystem<TestGetAspect>().Update(World.Unmanaged);
 
+        #endregion
+
+        #region StructuralChange
         [Test]
-        public void GetAspectRO() => World.GetExistingSystem<TestGetAspectRO>().Update(World.Unmanaged);
+        public void WithStructuralChangeNoCapture() => World.GetExistingSystem<WithStructuralChangeNoCapture>().Update(World.Unmanaged);
         #endregion
     }
 
 
     #region Time
     partial class TestTime : SystemBase {
-        protected override void OnCreate() {}
-        protected override void OnDestroy() {}
         protected override void OnUpdate() {
             EntityManager.CreateEntity();
             var time = World.Time;
@@ -55,7 +56,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         }
     }
 
-    partial class TestGetAspectRW : SystemBase {
+    partial class TestGetAspect : SystemBase {
         protected override void OnCreate() {}
         protected override void OnDestroy() {}
         protected override void OnUpdate() {
@@ -67,47 +68,26 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
             Entities.ForEach((in EcsTestDataEntity data) =>
             {
-                var transform = SystemAPI.GetAspectRW<TestAspect>(data.value1);
+                var transform = SystemAPI.GetAspect<TestAspect>(data.value1);
                 transform.Move(new float3(5,5,5));
             }).WithoutBurst().Schedule(Dependency).Complete();
 
             Entities.ForEach((in EcsTestDataEntity data) =>
-                Assert.AreEqual(new float3(5), SystemAPI.GetAspectRW<TestAspect>(data.value1).Transform.ValueRO.Position)
+                Assert.AreEqual(new float3(5), SystemAPI.GetAspect<TestAspect>(data.value1).Transform.ValueRO.Position)
             ).WithoutBurst().Schedule(Dependency).Complete();
         }
     }
 
-    /// <summary>
-    /// Matches <see cref="TestGetAspectRW"/> so that you can see differences in use.
-    /// RO means you can schedule parallel, but also throws if you try to change values.
-    /// </summary>
-    partial class TestGetAspectRO : SystemBase {
-        protected override void OnCreate() {}
-        protected override void OnDestroy() {}
-        protected override void OnUpdate() {
-            var e = EntityManager.CreateEntity(typeof(LocalTransform),
-                typeof(LocalToWorld));
-            EntityManager.AddComponentData(e, LocalTransform.FromPosition(5, 5, 5));
+#endregion
 
-            var containingEntity = EntityManager.CreateEntity();
-            EntityManager.AddComponentData(containingEntity, new EcsTestDataEntity(1, e));
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Assert.Throws<InvalidOperationException>(() =>
-            {
-                Entities.ForEach((in EcsTestDataEntity data) =>
-                {
-                    var transform = SystemAPI.GetAspectRO<TestAspect>(data.value1);
-                    transform.Move(new float3(5,5,5));
-                }).WithoutBurst().Run();
-            });
-#endif
-
-            Entities.ForEach((in EcsTestDataEntity data) =>
-                Assert.AreEqual(new float3(5), SystemAPI.GetAspectRO<TestAspect>(data.value1).Transform.ValueRO.Position)
-            ).WithoutBurst().ScheduleParallel(Dependency).Complete();
+    #region StructuralChange
+    partial class WithStructuralChangeNoCapture : SystemBase {
+        protected override void OnUpdate()
+        {
+            EntityManager.CreateEntity();
+            Entities.WithStructuralChanges().ForEach(() => Assert.AreEqual(default(TimeData), SystemAPI.Time)).Run();
         }
     }
-#endregion
+    #endregion
 }
 #endif

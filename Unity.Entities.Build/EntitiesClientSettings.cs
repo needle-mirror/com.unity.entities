@@ -84,11 +84,6 @@ namespace Unity.Entities.Build
             return DotsGlobalSettings.PlayerType.Client;
         }
 
-        protected override Hash128 DoGetPlayerSettingGUID()
-        {
-            return EntitiesClientSettings.instance.GUID;
-        }
-
         protected override IEntitiesPlayerSettings DoGetSettingAsset()
         {
             return EntitiesClientSettings.instance;

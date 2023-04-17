@@ -215,9 +215,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void JobDebuggerSafetyThrows([Values] ScheduleType scheduleType) => m_TestSystem.JobDebuggerSafetyThrows(scheduleType);
-
+#endif
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         [Test]
         public void UserDefinedQuerySafetyThrows([Values] ScheduleType scheduleType) => m_TestSystem.UserDefinedQuerySafetyThrows(scheduleType);
+        [Test]
+        public void UserDefinedQuerySafetyDoesNotThrow([Values] ScheduleType scheduleType) => m_TestSystem.UserDefinedQuerySafetyDoesNotThrow(scheduleType);
 #endif
 
 #endregion
@@ -247,6 +250,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
     [Test]
     public void UsingCodeGenInsideAScheduleObjectInit() => m_TestSystem.UsingCodeGenInsideAScheduleObjectInit();
+
+    [Test]
+    public void ExtensionMethodToInvoke() => m_TestSystem.ExtensionMethodToInvoke();
 #endregion
 
 #region Interfaces
@@ -1351,7 +1357,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 for (var index = 0; index < entities.Length; index++)
                     EntityManager.SetComponentData(entities[index], new EcsTestData {value = index+1});
 
-                var job = new CompareEntityQueryIndex{Successes = CollectionHelper.CreateNativeArray<int>(JobsUtility.MaxJobThreadCount, EntityManager.World.UpdateAllocator.ToAllocator) };
+#if UNITY_2022_2_14F1_OR_NEWER
+                int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+                int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+                var job = new CompareEntityQueryIndex{Successes = CollectionHelper.CreateNativeArray<int>(maxThreadCount, EntityManager.World.UpdateAllocator.ToAllocator) };
 
                 switch (scheduleType)
                 {
@@ -1391,7 +1402,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 using var entities = EntityManager.CreateEntity(EntityManager.CreateArchetype(typeof(EcsTestDataEnableable)), 1000, Allocator.Temp);
                 for (var i = 0; i < entities.Length; i+=4)
                     EntityManager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
-                var job = new EntityIndexInChunkJob {Array = CollectionHelper.CreateNativeArray<int>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator)};
+
+#if UNITY_2022_2_14F1_OR_NEWER
+                int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+                int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+                var job = new EntityIndexInChunkJob {Array = CollectionHelper.CreateNativeArray<int>(maxThreadCount, World.UpdateAllocator.ToAllocator)};
                 switch (scheduleType)
                 {
                     case ScheduleType.Run:
@@ -1526,16 +1543,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
 #endregion
 
 #region Safety
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             partial struct UserDefinedQuerySafetyJob : IJobEntity
             {
-                public void Execute(ref EcsTestData e1) => e1.value *= 2;
+                // MyAspect requires EcsTestData1 and optionally EcsTestData2
+                // YourAspect requires EcsTestData3 and EcsTestData4
+                public void Execute(MyAspect myAspect, YourAspect yourAspect, EcsTestData5 ecsTestData5)
+                {
+                }
             }
 
             public void UserDefinedQuerySafetyThrows(ScheduleType scheduleType)
             {
                 var entityQueryBuilder = new EntityQueryBuilder(Allocator.Temp);
-                var userDefinedQuery = entityQueryBuilder.WithAll<EcsTestData2>().Build(this);
+                var userDefinedQuery = entityQueryBuilder.WithAll<EcsTestData6>().Build(this);
 
                 Assert.Throws<InvalidOperationException>(() =>
                 {
@@ -1557,6 +1578,37 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 entityQueryBuilder.Dispose();
             }
 
+            partial struct UserDefinedQuerySafetyJob_ScheduledWithReadOnlyData : IJobEntity
+            {
+                public void Execute(ref EcsTestData _)
+                {
+                }
+            }
+
+            public void UserDefinedQuerySafetyDoesNotThrow(ScheduleType scheduleType)
+            {
+                var entityQueryBuilder = new EntityQueryBuilder(Allocator.Temp);
+                var userDefinedQuery = entityQueryBuilder.WithAll<EcsTestData>().Build(this);
+
+                Assert.DoesNotThrow(() =>
+                {
+                    switch (scheduleType)
+                    {
+                        case ScheduleType.Run:
+                            new UserDefinedQuerySafetyJob_ScheduledWithReadOnlyData().Run(userDefinedQuery);
+                            break;
+                        case ScheduleType.Schedule:
+                            new UserDefinedQuerySafetyJob_ScheduledWithReadOnlyData().Schedule(userDefinedQuery);
+                            break;
+                        case ScheduleType.ScheduleParallel:
+                            new UserDefinedQuerySafetyJob_ScheduledWithReadOnlyData().ScheduleParallel(userDefinedQuery);
+                            break;
+                    }
+                });
+                Dependency.Complete();
+
+                entityQueryBuilder.Dispose();
+            }
 #endif
             partial struct JobDebuggerSafetyThrowsJob : IJobEntity
             {
@@ -1737,6 +1789,17 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }.Schedule(SystemAPI.QueryBuilder().WithAll<EcsTestData>().Build(), Dependency).Complete();
                 Assert.That(SystemAPI.GetComponent<EcsTestData>(s_TestEntity).value, Is.EqualTo(5));
             });
+        }
+
+        partial struct ExtensionMethodToInvokeJob : IJobEntity
+        {
+            void Execute(ref EcsTestData data) => data.value += 1;
+        }
+        public void ExtensionMethodToInvoke()
+        {
+            Assert.That(SystemAPI.GetComponent<EcsTestData>(s_TestEntity).value, Is.EqualTo(k_EcsTestDataValue));
+            IJobEntityExtensions.Run(new ExtensionMethodToInvokeJob());
+            Assert.That(SystemAPI.GetComponent<EcsTestData>(s_TestEntity).value, Is.EqualTo(k_EcsTestDataValue+1));
         }
 
 #endregion

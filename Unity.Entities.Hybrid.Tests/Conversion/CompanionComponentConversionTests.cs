@@ -40,6 +40,16 @@ namespace Unity.Entities.Tests.Conversion
             AssetDatabase.DeleteAsset(m_TempAssetDir);
         }
 
+        class ConversionTestCompanionComponentBaker : Baker<ConversionTestCompanionComponent>
+        {
+            public override void Bake(ConversionTestCompanionComponent authoring)
+            {
+                // This test might require transform components
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponentObject(entity, authoring);
+            }
+        }
+
         class ConversionTestCompanionComponentWithEntityBaker : Baker<ConversionTestCompanionComponentWithEntity>
         {
             public override void Bake(ConversionTestCompanionComponentWithEntity authoring)

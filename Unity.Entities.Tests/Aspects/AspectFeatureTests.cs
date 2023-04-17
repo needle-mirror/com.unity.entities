@@ -1,9 +1,6 @@
 using System;
-using System.Collections;
 using NUnit.Framework;
-using Unity.Collections;
 using Unity.Entities;
-using Unity;
 using static Unity.Entities.SystemAPI;
 
 namespace Unity.Entities.Tests.Aspects.FunctionalTests
@@ -41,13 +38,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             {
                 var testData = UseCase.TestData;
 
-                if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                {
-                    foreach (AspectWithDynamicBuffer test in SystemAPI.Query<AspectWithDynamicBuffer>())
-                        testData = test.Read(testData);
-                    Assert.AreEqual(UseCase.ValueToRead, testData.Data);
-                }
-
                 if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess))
                 {
                     foreach (AspectWithDynamicBuffer test in SystemAPI.Query<AspectWithDynamicBuffer>())
@@ -67,15 +57,10 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             {
                 var testData = UseCase.TestData;
 
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess))
-                {
-                    Entities.ForEach((Entity entity, DynamicBuffer<MyBufferElement> buffer) => testData = GetAspectRO<AspectWithDynamicBuffer>(entity).Read(testData)).Run();
-                    Assert.AreEqual(UseCase.ValueToRead, testData.Data);
-                }
-
                 if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess))
                 {
-                    Entities.ForEach((Entity entity, DynamicBuffer<MyBufferElement> buffer) => testData = GetAspectRW<AspectWithDynamicBuffer>(entity).Write(testData)).Run();
+                    Entities.ForEach((Entity entity, DynamicBuffer<MyBufferElement> buffer) => testData =
+                        SystemAPI.GetAspect<AspectWithDynamicBuffer>(entity).Write(testData)).Run();
                     Assert.AreEqual(UseCase.ValueToWrite, EntityManager.GetBuffer<MyBufferElement>(testData.DataEntity)[0].Value);
                 }
 
@@ -130,10 +115,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             {
                 var testData = UseCase.TestData;
 
-                if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                    foreach (AspectWithEntity test in SystemAPI.Query<AspectWithEntity>())
-                        testData = test.Read(testData);
-
                 if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess))
                     foreach (AspectWithEntity test in SystemAPI.Query<AspectWithEntity>())
                         testData = test.Read(testData);
@@ -151,11 +132,9 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             {
                 var testData = UseCase.TestData;
 
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess))
-                    Entities.ForEach((Entity entity, in EcsTestData ecsData) => testData = GetAspectRO<AspectWithEntity>(entity).Read(testData)).Run();
-
                 if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess))
-                    Entities.ForEach((Entity entity, in EcsTestData ecsData) => testData = GetAspectRW<AspectWithEntity>(entity).Read(testData)).Run();
+                    Entities.ForEach((Entity entity, in EcsTestData ecsData) => testData =
+                        SystemAPI.GetAspect<AspectWithEntity>(entity).Read(testData)).Run();
 
                 UseCase.TestData = testData;
             }
@@ -383,16 +362,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             {
                 var testData = UseCase.TestData;
 
-                if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                {
-                    foreach (var test in SystemAPI.Query<TestAspectIncludeZeroSize>())
-                            testData = test.Read(testData);
-
-                    foreach (var test in SystemAPI.Query<TestAspectZeroSize>())
-                        if(state.EntityManager.HasComponent<EcsTestData>(test.Self))
-                            testData = test.Read(testData);
-                }
-
                 if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess))
                     foreach (var test in SystemAPI.Query<TestAspectIncludeZeroSize>())
                         testData = test.Write(testData);
@@ -410,14 +379,9 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             {
                 var testData = UseCase.TestData;
 
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess))
-                {
-                    Entities.ForEach((Entity entity, in EcsTestData ecsData) => testData = GetAspectRO<TestAspectIncludeZeroSize>(entity).Read(testData)).Run();
-                    Entities.WithAll<ZeroSizeComponentNested>().ForEach((Entity entity) => testData = GetAspectRO<TestAspectZeroSize>(entity).Read(testData)).Run();
-                }
-
                 if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess))
-                    Entities.ForEach((Entity entity, in EcsTestData ecsData) => testData = GetAspectRW<TestAspectIncludeZeroSize>(entity).Write(testData)).Run();
+                    Entities.ForEach((Entity entity, in EcsTestData ecsData) => testData =
+                        SystemAPI.GetAspect<TestAspectIncludeZeroSize>(entity).Write(testData)).Run();
 
                 UseCase.TestData = testData;
             }
@@ -433,7 +397,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             var entity = m_Manager.CreateEntity();
             var entityZeroSize = m_Manager.CreateEntity();
 
-            var useCase = MakeUseCase(entity, systemKind, contextKind, accessKind, expectedOperationCount: accessKind == AccessKind.ReadOnlyAccess ? 2 : 1);
+            var useCase = MakeUseCase(entity, systemKind, contextKind, accessKind, expectedOperationCount: 1);
             m_Manager.AddComponent<ZeroSizeComponentNested>(entity);
             m_Manager.AddComponentData(entity, new EcsTestData(useCase.ValueInitial));
             m_Manager.AddComponent<ZeroSizeComponentNested>(entityZeroSize);
@@ -464,36 +428,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             public void OnUpdate(ref SystemState state)
             {
                 var testData = UseCase.TestData;
-                if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                {
-                    switch (NonZeroReason)
-                    {
-                        case NonZeroReason.BecauseEnum:
-                            foreach (AspectWithNonZeroSizeEnumComponent test in SystemAPI.Query<AspectWithNonZeroSizeEnumComponent>())
-                                testData = test.Read(testData);
-                            break;
-                        case NonZeroReason.BecauseNestedInt:
-                            foreach (AspectWithNonZeroSizeComponent test in SystemAPI.Query<AspectWithNonZeroSizeComponent>())
-                                testData = test.Read(testData);
-                            break;
-                        case NonZeroReason.BecauseBlobAssetReference_int_:
-                            foreach (var test in SystemAPI.Query<TestAspect_TestComp_BlobAssetReference_int___>())
-                                testData = test.Read(testData);
-                            break;
-                        case NonZeroReason.BecauseInt:
-                            foreach (var test in SystemAPI.Query<TestAspect_TestComp_int__>())
-                                testData = test.Read(testData);
-                            break;
-                        case NonZeroReason.BecauseIntPtr:
-                            foreach (var test in SystemAPI.Query<TestAspect_TestComp_IntPtr__>())
-                                testData = test.Read(testData);
-                            break;
-                        case NonZeroReason.BecauseActualIntPtr:
-                            foreach (var test in SystemAPI.Query<TestAspect_TestComp_intPtr__>())
-                                testData = test.Read(testData);
-                            break;
-                    }
-                }
                 if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess))
                 {
                     switch (NonZeroReason)
@@ -529,42 +463,21 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             protected override void OnUpdate()
             {
                 var testData = UseCase.TestData;
-                if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess))
-                {
-                    switch (NonZeroReason)
-                    {
-                        case NonZeroReason.BecauseEnum:
-                            Entities.ForEach((Entity entity, in TestComp_NonZeroSizeEnum_ ecsData) => testData = GetAspectRO<AspectWithNonZeroSizeEnumComponent>(entity).Read(testData)).Run();
-                            break;
-                        case NonZeroReason.BecauseNestedInt:
-                            Entities.ForEach((Entity entity, in NonZeroSizeComponentNested ecsData) => testData = GetAspectRO<AspectWithNonZeroSizeComponent>(entity).Read(testData)).Run();
-                            break;
-                        case NonZeroReason.BecauseBlobAssetReference_int_:
-                            Entities.ForEach((Entity entity, in TestComp_BlobAssetReference_int__ ecsData) => testData = GetAspectRO<TestAspect_TestComp_BlobAssetReference_int___>(entity).Read(testData)).Run();
-                            break;
-                        case NonZeroReason.BecauseInt:
-                            Entities.ForEach((Entity entity, in TestComp_int_ ecsData) => testData = GetAspectRO<TestAspect_TestComp_int__>(entity).Read(testData)).Run();
-                            break;
-                        case NonZeroReason.BecauseIntPtr:
-                            Entities.ForEach((Entity entity, in TestComp_IntPtr_ ecsData) => testData = GetAspectRO<TestAspect_TestComp_IntPtr__>(entity).Read(testData)).Run();
-                            break;
-                        case NonZeroReason.BecauseActualIntPtr:
-                            Entities.ForEach((Entity entity, in TestComp_intPtr_ ecsData) => testData = GetAspectRO<TestAspect_TestComp_intPtr__>(entity).Read(testData)).Run();
-                            break;
-                    }
-                }
                 if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess))
                 {
                     switch (NonZeroReason)
                     {
                         case NonZeroReason.BecauseEnum:
-                            Entities.ForEach((Entity entity, in TestComp_NonZeroSizeEnum_ ecsData) => testData = GetAspectRW<AspectWithNonZeroSizeEnumComponent>(entity).Write(testData)).Run();
+                            Entities.ForEach((Entity entity, in TestComp_NonZeroSizeEnum_ ecsData) => testData =
+                                SystemAPI.GetAspect<AspectWithNonZeroSizeEnumComponent>(entity).Write(testData)).Run();
                             break;
                         case NonZeroReason.BecauseNestedInt:
-                            Entities.ForEach((Entity entity, in NonZeroSizeComponentNested ecsData) => testData = GetAspectRW<AspectWithNonZeroSizeComponent>(entity).Write(testData)).Run();
+                            Entities.ForEach((Entity entity, in NonZeroSizeComponentNested ecsData) => testData =
+                                SystemAPI.GetAspect<AspectWithNonZeroSizeComponent>(entity).Write(testData)).Run();
                             break;
                         case NonZeroReason.BecauseInt:
-                            Entities.ForEach((Entity entity, in TestComp_int_ ecsData) => testData = GetAspectRW<TestAspect_TestComp_int__>(entity).Write(testData)).Run();
+                            Entities.ForEach((Entity entity, in TestComp_int_ ecsData) => testData =
+                                SystemAPI.GetAspect<TestAspect_TestComp_int__>(entity).Write(testData)).Run();
                             break;
                         case NonZeroReason.BecauseBlobAssetReference_int_:
                         case NonZeroReason.BecauseIntPtr:
@@ -633,5 +546,3 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
     }
     #endregion
 }
-
-

@@ -89,7 +89,7 @@ namespace Unity.Entities.Tests
             float3 targetPos = new float3(4, 5, 6);
             float3 lookAtUp = new float3(-1, 0, 1);
             float4x4 m = float4x4.LookAt(eyePos, targetPos, lookAtUp);
-            quaternion q = math.normalize(Helpers.LookAtRotation(eyePos, targetPos, lookAtUp));
+            quaternion q = math.normalize(TransformHelpers.LookAtRotation(eyePos, targetPos, lookAtUp));
             AssertNearlyEqual(math.normalize(m.Rotation()).value, q.value, 0.00001f);
         }
 
@@ -99,7 +99,7 @@ namespace Unity.Entities.Tests
             var localTransformLookup = m_Manager.GetComponentLookup<LocalTransform>(true);
             var parentLookup = m_Manager.GetComponentLookup<Parent>(true);
             var scaleLookup = m_Manager.GetComponentLookup<PostTransformMatrix>(true);
-            Assert.That(() => Helpers.ComputeWorldTransformMatrix(Entity.Null, out float4x4 ltw0,
+            Assert.That(() => TransformHelpers.ComputeWorldTransformMatrix(Entity.Null, out float4x4 ltw0,
                     ref localTransformLookup, ref parentLookup, ref scaleLookup),
                 Throws.InvalidOperationException.With.Message.Contains("does not have the required LocalTransform component"));
         }
@@ -116,7 +116,7 @@ namespace Unity.Entities.Tests
             var scaleLookup = m_Manager.GetComponentLookup<PostTransformMatrix>(true);
             // Ideally we'd get a more specific error message here for an invalid parent entity, but unfortunately all this method
             // can ask internally is "does this entity have component X?", and the answer for invalid entities is "no".
-            Assert.That(() => Helpers.ComputeWorldTransformMatrix(e, out float4x4 ltw0,
+            Assert.That(() => TransformHelpers.ComputeWorldTransformMatrix(e, out float4x4 ltw0,
                     ref localTransformLookup, ref parentLookup, ref scaleLookup),
                 Throws.InvalidOperationException.With.Message.Contains("does not have the required LocalTransform component"));
         }
@@ -130,7 +130,7 @@ namespace Unity.Entities.Tests
             var localTransformLookup = m_Manager.GetComponentLookup<LocalTransform>(true);
             var parentLookup = m_Manager.GetComponentLookup<Parent>(true);
             var scaleLookup = m_Manager.GetComponentLookup<PostTransformMatrix>(true);
-            Assert.That(() => Helpers.ComputeWorldTransformMatrix(e, out float4x4 ltw0,
+            Assert.That(() => TransformHelpers.ComputeWorldTransformMatrix(e, out float4x4 ltw0,
                     ref localTransformLookup, ref parentLookup, ref scaleLookup),
                 Throws.InvalidOperationException.With.Message.Contains("does not have the required LocalTransform component"));
         }
@@ -167,9 +167,9 @@ namespace Unity.Entities.Tests
             var localTransformLookup = m_Manager.GetComponentLookup<LocalTransform>(true);
             var parentLookup = m_Manager.GetComponentLookup<Parent>(true);
             var scaleLookup = m_Manager.GetComponentLookup<PostTransformMatrix>(true);
-            Helpers.ComputeWorldTransformMatrix(e0, out float4x4 ltw0, ref localTransformLookup, ref parentLookup, ref scaleLookup);
-            Helpers.ComputeWorldTransformMatrix(e1, out float4x4 ltw1, ref localTransformLookup, ref parentLookup, ref scaleLookup);
-            Helpers.ComputeWorldTransformMatrix(e2, out float4x4 ltw2, ref localTransformLookup, ref parentLookup, ref scaleLookup);
+            TransformHelpers.ComputeWorldTransformMatrix(e0, out float4x4 ltw0, ref localTransformLookup, ref parentLookup, ref scaleLookup);
+            TransformHelpers.ComputeWorldTransformMatrix(e1, out float4x4 ltw1, ref localTransformLookup, ref parentLookup, ref scaleLookup);
+            TransformHelpers.ComputeWorldTransformMatrix(e2, out float4x4 ltw2, ref localTransformLookup, ref parentLookup, ref scaleLookup);
             Assert.AreEqual(m_Manager.GetComponentData<LocalToWorld>(e0).Value, ltw0);
             Assert.AreEqual(m_Manager.GetComponentData<LocalToWorld>(e1).Value, ltw1);
             Assert.AreEqual(m_Manager.GetComponentData<LocalToWorld>(e2).Value, ltw2);

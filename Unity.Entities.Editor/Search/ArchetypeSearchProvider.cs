@@ -120,8 +120,14 @@ namespace Unity.Entities.Editor
         }
     }
 
+    /// <summary>
+    /// This class allows the SearchWindow to search for ECS Archetype.
+    /// </summary>
     public static class ArchetypeSearchProvider
     {
+        /// <summary>
+        /// Search Provider type id. 
+        /// </summary>
         public const string type = "archetype";
 
         static ArchetypesWindow.ArchetypesMemoryDataRecorder m_Recorder;
@@ -362,6 +368,10 @@ namespace Unity.Entities.Editor
             OpenProvider();
         }
 
+        /// <summary>
+        /// Open SearchWindow with ArchetypeSearchProvider enabled.
+        /// </summary>
+        /// <param name="query">Optional initial query.</param>
         public static void OpenProvider(string query = null)
         {
             SearchBridge.OpenContextualTable(type, query ?? "", GetDefaultTableConfig(null));

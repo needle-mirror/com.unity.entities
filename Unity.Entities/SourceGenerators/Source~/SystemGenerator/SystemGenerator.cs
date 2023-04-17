@@ -23,10 +23,10 @@ namespace Unity.Entities.SourceGen.SystemGenerator
             if (!SourceGenHelpers.IsBuildTime || !SourceGenHelpers.ShouldRun(context.Compilation, context.CancellationToken))
                 return;
 
-            SourceGenHelpers.Setup(context);
+            SourceOutputHelpers.Setup(context.ParseOptions, context.AdditionalFiles);
 
             Location lastLocation = null;
-            SourceGenHelpers.LogInfo($"Source generating assembly {context.Compilation.Assembly.Name}...");
+            SourceOutputHelpers.LogInfoToSourceGenLog($"Source generating assembly {context.Compilation.Assembly.Name}...");
 
             var stopwatch = Stopwatch.StartNew();
 
@@ -69,7 +69,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator
                         if (!systemTypeInfo.IsSystemType)
                             continue;
 
-                        var systemDescription = new SystemDescription(systemTypeSyntax, systemTypeInfo.SystemType, systemTypeSymbol, semanticModel, context.Compilation, context.ParseOptions.PreprocessorSymbolNames, syntaxTreeInfo);
+                        var systemDescription = new SystemDescription(systemTypeSyntax, systemTypeInfo.SystemType, systemTypeSymbol, semanticModel, context.ParseOptions.PreprocessorSymbolNames, syntaxTreeInfo);
 
                         foreach (var module in SystemGeneratorHelper.GetAllModulesWithCandidatesInSystemType(systemTypeSyntax, allModules, context))
                         {
@@ -134,8 +134,9 @@ namespace Unity.Entities.SourceGen.SystemGenerator
                     if (syntaxTreeInfo.IsSourceGenerationSuccessful)
                         context.AddSource(syntaxTreeInfo.Tree.GetGeneratedSourceFileName(GeneratorName), outputSource);
 
-                    SourceGenHelpers.OutputSourceToFile(context,
-                        syntaxTreeInfo.Tree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, GeneratorName), outputSource);
+                    SourceOutputHelpers.OutputSourceToFile(
+                        syntaxTreeInfo.Tree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, GeneratorName),
+                        () => outputSource.ToString());
                 }
 
                 foreach (var iSystemDefinedAsClass in systemReceiver.ISystemDefinedAsClass)
@@ -150,7 +151,8 @@ namespace Unity.Entities.SourceGen.SystemGenerator
                     SystemGeneratorErrors.DC0061(context, context.Compilation.SyntaxTrees.First().GetRoot().GetLocation(), context.Compilation.AssemblyName);
 
                 stopwatch.Stop();
-                SourceGenHelpers.LogInfo($"TIME : SystemGenerator : {context.Compilation.Assembly.Name} : {stopwatch.ElapsedMilliseconds}ms");
+                SourceOutputHelpers.LogInfoToSourceGenLog(
+                    $"TIME : SystemGenerator : {context.Compilation.Assembly.Name} : {stopwatch.ElapsedMilliseconds}ms");
             }
             catch (Exception exception)
             {

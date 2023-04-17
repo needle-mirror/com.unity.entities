@@ -6,7 +6,7 @@ The content management system provides a way to weakly reference an object via t
 
 ## Weakly reference an object from the Inspector
 
-The [WeakObjectReference](xref:Unity.Entities.Content.WeakObjectReference`1) struct provides a wrapper around the `RuntimeContentManager` APIs that are responsible for managing weakly-referenced objects. It also makes it possible to create a weak reference to an object via the Inspector. The Inspector property drawer for a `WeakObjectReference` is an object field that you can drag objects onto. Internally, Unity generates a weak reference to the object you assign, which you can then pass to [ECS components](concepts-components.md) during the [baking process](baking.md).
+The [WeakObjectReference](xref:Unity.Entities.Content.WeakObjectReference`1) struct provides a wrapper around the `RuntimeContentManager` APIs that are responsible for managing weakly-referenced objects. It also makes it possible to create a weak reference to an object via the Inspector. The Inspector property drawer for a `WeakObjectReference` is an object field that you can drag objects onto. Internally, Unity generates a weak reference to the object you assign, which you can then pass to [ECS components](concepts-components.md) during the [baking process](baking-overview.md).
 
 The `WeakObjectReference` wrapper also makes it easier to manage individual weakly-referenced objects at runtime. It provides methods and properties to load, use, and release the object that it weakly references.
 

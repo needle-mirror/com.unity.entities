@@ -115,11 +115,11 @@ namespace Unity.Entities
 
         public struct TypeHeapElement : IComparable<TypeHeapElement>
         {
-            private readonly int systemTypeIndex;
+            private readonly SystemTypeIndex systemTypeIndex;
             private readonly long systemTypeHash;
             public int unsortedIndex;
 
-            public TypeHeapElement(int index, int _systemTypeIndex)
+            public TypeHeapElement(int index, SystemTypeIndex _systemTypeIndex)
             {
                 unsortedIndex = index;
                 systemTypeIndex = _systemTypeIndex;
@@ -133,7 +133,7 @@ namespace Unity.Entities
             }
         }
 
-        internal static unsafe int LookupSystemElement(int typeIndex, NativeHashMap<int, int>* lookupDictionaryPtr)
+        internal static unsafe int LookupSystemElement(SystemTypeIndex typeIndex, NativeHashMap<SystemTypeIndex, int>* lookupDictionaryPtr)
         {
             ref var mylookupDictionary = ref *lookupDictionaryPtr;
 
@@ -144,22 +144,22 @@ namespace Unity.Entities
 
         internal struct SystemElement 
         {
-            public int TypeIndex;
+            public SystemTypeIndex SystemTypeIndex;
             public UpdateIndex Index;
             public int OrderingBucket; // 0 = OrderFirst, 1 = none, 2 = OrderLast
-            public FixedList128Bytes<int> updateBefore;
+            public NativeList<int> updateBefore;
             public int nAfter;
         }
 
 
         internal static unsafe void Sort(
             UnsafeList<SystemElement>* elementsptr,
-            NativeHashMap<int, int>* lookupDictionary)
+            NativeHashMap<SystemTypeIndex, int>* lookupDictionary)
         {
-            var badTypeIndices = new NativeList<int>(16, Allocator.Temp);
+            var badTypeIndices = new NativeList<SystemTypeIndex>(16, Allocator.Temp);
             
             // Find & validate constraints between systems in the group
-            var badTypeIndicesPtr = (NativeList<int>*)UnsafeUtility.AddressOf(ref badTypeIndices);
+            var badTypeIndicesPtr = (NativeList<SystemTypeIndex>*)UnsafeUtility.AddressOf(ref badTypeIndices);
             SortInternal(elementsptr, lookupDictionary, badTypeIndicesPtr);
             
             //the below can't be bursted yet because of https://jira.unity3d.com/browse/BUR-2232 and friends, which are
@@ -186,11 +186,11 @@ namespace Unity.Entities
             }
         }
         
-        [BurstCompile(CompileSynchronously = true)]
+        [BurstCompile]
         internal static unsafe void SortInternal(
             UnsafeList<SystemElement>* elementsptr,
-            NativeHashMap<int, int>* lookupDictionary, 
-            NativeList<int>* badSystemTypeIndices)
+            NativeHashMap<SystemTypeIndex, int>* lookupDictionary, 
+            NativeList<SystemTypeIndex>* badSystemTypeIndices)
         {
             ref var elements = ref *elementsptr;
             lookupDictionary->Clear();
@@ -198,7 +198,7 @@ namespace Unity.Entities
             var sortedElements = new UnsafeList<SystemElement>(elements.Length,
                 Allocator.Temp);
             sortedElements.Length = elements.Length;
-            var sortedIndices = new UnsafeList<int>(elements.Length,
+            var sortedIndices = new UnsafeList<SystemTypeIndex>(elements.Length,
                 Allocator.Temp);
             sortedIndices.Length = elements.Length;
             
@@ -211,7 +211,7 @@ namespace Unity.Entities
                 
                 if (elements[i].nAfter == 0)
                 {
-                    readySystems.Insert(new TypeHeapElement(i, elements[i].TypeIndex));
+                    readySystems.Insert(new TypeHeapElement(i, elements[i].SystemTypeIndex));
                 }
             }
             
@@ -224,7 +224,7 @@ namespace Unity.Entities
 
                 sortedElements[nextOutIndex++] = new SystemElement
                 {
-                    TypeIndex = elem.TypeIndex,
+                    SystemTypeIndex = elem.SystemTypeIndex,
                     Index = elem.Index, 
                     nAfter = elem.nAfter, 
                     updateBefore = elem.updateBefore, 
@@ -241,7 +241,7 @@ namespace Unity.Entities
                     elements.ElementAt(beforeIndex).nAfter--;
                     if (elements[beforeIndex].nAfter == 0)
                     {
-                        readySystems.Insert(new TypeHeapElement(beforeIndex, elements[beforeIndex].TypeIndex));
+                        readySystems.Insert(new TypeHeapElement(beforeIndex, elements[beforeIndex].SystemTypeIndex));
                     }
                 }
                 elements.ElementAt(sysIndex).nAfter = -1; // "Remove()"
@@ -265,15 +265,15 @@ namespace Unity.Entities
                 var tmp = new NativeHashSet<int>(nextOutIndex, Allocator.Temp);
                 for (int i = 0; i < nextOutIndex; i++)
                 {
-                    tmp.Add(sortedElements[i].TypeIndex);
+                    tmp.Add(sortedElements[i].SystemTypeIndex);
                 }
 
                 for (int i = 0; i < elements.Length; i++)
                 {
-                    if (!tmp.Contains(elements[i].TypeIndex))
+                    if (!tmp.Contains(elements[i].SystemTypeIndex))
                     {
                         badSystemTypeIndices->Clear();
-                        FindExactCycleInSystemGraph(elements[i].TypeIndex, elements, lookupDictionary, badSystemTypeIndices->m_ListData);
+                        FindExactCycleInSystemGraph(elements[i].SystemTypeIndex, elements, lookupDictionary, badSystemTypeIndices->m_ListData);
                         if (badSystemTypeIndices->Length > 0)
                         {
                             //we found a cycle, so we're done
@@ -295,15 +295,15 @@ namespace Unity.Entities
         }
 
         private static unsafe void FindExactCycleInSystemGraph(
-            int startingSystemTypeIndex,
+            SystemTypeIndex startingSystemTypeIndex,
             UnsafeList<SystemElement> elements,
-            NativeHashMap<int, int>* lookup,
-            UnsafeList<int>* finalCycle)
+            NativeHashMap<SystemTypeIndex, int>* lookup,
+            UnsafeList<SystemTypeIndex>* finalCycle)
         {
             var indexInList = -1;
             for (int i = 0; i < elements.Length; i++)
             {
-                if (elements[i].TypeIndex == startingSystemTypeIndex)
+                if (elements[i].SystemTypeIndex == startingSystemTypeIndex)
                 {
                     indexInList = i;
                     break;
@@ -371,13 +371,13 @@ namespace Unity.Entities
         }
 
 
-        private static unsafe void PopulateSystemElementLookup(NativeHashMap<int, int>* lookupDictionary, UnsafeList<SystemElement> elements)
+        private static unsafe void PopulateSystemElementLookup(NativeHashMap<SystemTypeIndex, int>* lookupDictionary, UnsafeList<SystemElement> elements)
         {
             //fill in for fast lookups in LookupSystemElement
             lookupDictionary->Capacity = elements.Length;
             for (int i = 0; i < elements.Length; ++i)
             {
-                (*lookupDictionary)[elements[i].TypeIndex] = i;
+                (*lookupDictionary)[elements[i].SystemTypeIndex] = i;
             }
         }
 
@@ -454,21 +454,30 @@ namespace Unity.Entities
                         continue;
                     }
 
-                    if (TypeManager.IsSystemManaged(targetType))
+                    if (group != null && attrType.Name.Contains("Update"))
                     {
-                        if (group != null && group.m_managedSystemsToUpdate.All(s => s.GetType() != targetType))
+                        if (TypeManager.IsSystemManaged(targetType))
                         {
-                            Debug.LogWarning(
-                                $"Ignoring invalid [{attrType}] attribute on {systemType} targeting {targetType}.\n" +
-                                $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n" +
-                                $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({groupType}))],\n" +
-                                $"or by manually adding both systems to the same group's update list.");
-                            continue;
+                            bool foundTargetType = false;
+                            for (int i = 0; i < group.m_managedSystemsToUpdate.Count; i++)
+                            {
+                                if (group.m_managedSystemsToUpdate[i].GetType() == targetType)
+                                {
+                                    foundTargetType = true;
+                                    break;
+                                }
+                            }
+                            if (!foundTargetType)
+                            {
+                                Debug.LogWarning(
+                                    $"Ignoring invalid [{attrType}] attribute on {systemType} targeting {targetType}.\n" +
+                                    $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n" +
+                                    $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({groupType}))],\n" +
+                                    $"or by manually adding both systems to the same group's update list.");
+                                continue;
+                            }
                         }
-                    }
-                    else
-                    {
-                        if (group != null)
+                        else
                         {
                             //it must be unmanaged if we get here, so look for it in the unmanaged of the group, and warn if it isn't there
                             var badUnmanagedUpdateInGroup = true;
@@ -512,7 +521,6 @@ namespace Unity.Entities
                             continue;
                         }
                     }
-
                 }
             }
         }
@@ -521,10 +529,10 @@ namespace Unity.Entities
         internal static unsafe void FindConstraints(
             int parentTypeIndex,
             UnsafeList<SystemElement>* sysElemsPtr,
-            NativeHashMap<int, int>* lookupDictionary,
+            NativeHashMap<SystemTypeIndex, int>* lookupDictionary,
             TypeManager.SystemAttributeKind afterkind,
             TypeManager.SystemAttributeKind beforekind,
-            NativeHashSet<int>* badSystemTypeIndices)
+            NativeHashSet<SystemTypeIndex>* badSystemTypeIndices)
         {
             ref var sysElems = ref *sysElemsPtr;
             lookupDictionary->Clear();
@@ -533,12 +541,14 @@ namespace Unity.Entities
 
             for (int i = 0; i < sysElems.Length; ++i)
             {
-                var systemTypeIndex = sysElems[i].TypeIndex;
+                var systemTypeIndex = sysElems[i].SystemTypeIndex;
 
                 var before = TypeManager.GetSystemAttributes(systemTypeIndex, beforekind);
                 var after = TypeManager.GetSystemAttributes(systemTypeIndex, afterkind);
-                foreach (var attr in before)
+                
+                for (int j = 0; j < before.Length; j++) 
                 {
+                    var attr = before[j];
                     bool warn = false;
                     if (CheckBeforeConstraints(parentTypeIndex, attr, systemTypeIndex, out warn))
                     {
@@ -557,9 +567,10 @@ namespace Unity.Entities
                     sysElems.ElementAt(i).updateBefore.Add(attr.TargetSystemTypeIndex);
                     sysElems.ElementAt(depIndex).nAfter++;
                 }
-
-                foreach (var attr in after)
+                
+                for (int j = 0; j < after.Length; j++) 
                 {
+                    var attr = after[j];
                     bool warn = false;
                     if (CheckAfterConstraints(parentTypeIndex, attr, systemTypeIndex, out warn))
                     {

@@ -13,7 +13,6 @@ namespace Unity.Entities.Editor
         const int k_CompletionListItemHeight = 18;
         const int k_CompletionListMaxHeight = 150;
 
-        static readonly UITemplate k_Container = new UITemplate("Common/autocomplete");
         static readonly ProfilerMarker k_FetchCompletionResultsMarker = new ProfilerMarker($"{nameof(AutoComplete)}.FetchCompletionResults");
 
         readonly VisualElement m_Anchor;
@@ -81,7 +80,7 @@ namespace Unity.Entities.Editor
             }
 
             m_Root = root;
-            k_Container.AddStyles(m_Root);
+            Resources.Templates.AutoComplete.AddStyles(m_Root);
             m_Root.Add(m_CompletionContainer);
             m_Root.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
         }
@@ -217,7 +216,7 @@ namespace Unity.Entities.Editor
         public void Dispose()
         {
             m_Root.Remove(m_CompletionContainer);
-            k_Container.RemoveStyles(m_Root);
+            Resources.Templates.AutoComplete.RemoveStyles(m_Root);
 
             m_TextField.UnregisterCallback<KeyDownEvent>(OnInputKeyDown);
             m_TextField.UnregisterCallback<KeyUpEvent>(OnInputKeyUp);

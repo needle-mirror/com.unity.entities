@@ -115,7 +115,6 @@ namespace Unity.Entities.Tests
     internal struct EcsTestData10 : IComponentData { public int value; }
     internal struct EcsTestData11 : IComponentData { public int value; }
 
-
     internal struct EcsTestDataEnableable : IComponentData, IGetValue, IEnableableComponent
     {
         public int value;
@@ -490,6 +489,7 @@ namespace Unity.Entities.Tests
         }
     }
 
+    [ChunkSerializable]
     internal unsafe struct EcsTestSharedCompWithRefCount : ISharedComponentData, IRefCounted
     {
         readonly int* RefCount;

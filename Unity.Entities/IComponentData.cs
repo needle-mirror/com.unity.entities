@@ -269,7 +269,7 @@ namespace Unity.Entities
     /// <summary>
     /// A Unity-defined shared component assigned to all entities in the same subscene.
     /// </summary>
-    [Serializable]
+    [Serializable][ChunkSerializable]
     public struct SceneTag : ISharedComponentData, IEquatable<SceneTag>
     {
         /// <summary>

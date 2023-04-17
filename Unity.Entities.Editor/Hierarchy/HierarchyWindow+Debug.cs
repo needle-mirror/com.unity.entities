@@ -1,4 +1,5 @@
 ﻿using JetBrains.Annotations;
+using Unity.Editor.Bridge;
 using Unity.Properties;
 using Unity.Entities.UI;
 using UnityEditor;
@@ -20,6 +21,11 @@ namespace Unity.Entities.Editor
 
                 menu.AddSeparator("");
                 menu.AddItem(new GUIContent("Stats..."), false, () => SelectionUtility.ShowInWindow(new DebugContentProvider()));
+            }
+
+            if (!Unsupported.IsDeveloperMode())
+            {
+                menu.AddItem(EditorGUIUtility.TrTextContent("Reload Window"), false, userData => ((EditorWindow)userData).ReloadHostView(), this);
             }
         }
 

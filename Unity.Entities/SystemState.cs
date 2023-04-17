@@ -73,7 +73,7 @@ namespace Unity.Entities
         #endregion
 
         #region Rarely accessed during System.OnUpdate depending on what they do (Cold)
-        internal int                           m_SystemTypeIndex;
+        internal SystemTypeIndex               m_SystemTypeIndex;
         
         internal int                           m_SystemID;
 

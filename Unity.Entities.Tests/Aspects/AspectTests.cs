@@ -1,23 +1,23 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Tests.Aspects.FunctionalTests;
-using static Unity.Entities.SystemAPI;
+
+//using Unity.Entities.Tests.Aspects.FunctionalTests;
 
 namespace Unity.Entities.Tests
 {
     using static AspectUtils;
     public static partial class AspectUtils
     {
-        public static ComponentType[] GetRequiredComponents<T>(bool isReadOnly)
+        public static ComponentType[] GetRequiredComponents<T>()
             where T : IAspect, IAspectCreate<T>
         {
             var all = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            default(T).AddComponentRequirementsTo(ref all, isReadOnly);
+            default(T).AddComponentRequirementsTo(ref all);
             var arrayAll = new ComponentType[all.Length];
             for (int i = 0; i < all.Length; i++)
                 arrayAll[i] = all[i];
@@ -25,6 +25,12 @@ namespace Unity.Entities.Tests
             return arrayAll;
         }
 
+    }
+
+    readonly internal partial struct YourAspect : IAspect
+    {
+        public readonly RefRW<EcsTestData3> _Data3;
+        public readonly RefRW<EcsTestData4> _Data4;
     }
 
     readonly internal partial struct MyAspect : IAspect
@@ -66,7 +72,6 @@ namespace Unity.Entities.Tests
     {
         public int Value;
     }
-
 
     /// <summary>
     /// This aspect uses many different features that triggers the source generator in multiple ways.
@@ -157,9 +162,9 @@ namespace Unity.Entities.Tests
     [DisableGeneration]
     internal readonly partial struct AspectDisableGeneration : IAspect, IAspectCreate<AspectDisableGeneration>
     {
-        public AspectDisableGeneration CreateAspect(Entity entity, ref SystemState system, bool isReadOnly) => default;
+        public AspectDisableGeneration CreateAspect(Entity entity, ref SystemState system) => default;
 
-        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, bool isReadOnly)
+        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all)
         {
             all.Add(ComponentType.ReadWrite<EcsTestData>());
         }
@@ -169,7 +174,7 @@ namespace Unity.Entities.Tests
 
     internal readonly partial struct AspectWithManualCreate : IAspect, IAspectCreate<AspectWithManualCreate>
     {
-        public AspectWithManualCreate CreateAspect(Entity entity, ref SystemState system, bool isReadOnly) => default;
+        public AspectWithManualCreate CreateAspect(Entity entity, ref SystemState system) => default;
         public readonly RefRW<EcsTestData> Data;
     }
 
@@ -210,7 +215,7 @@ namespace Unity.Entities.Tests
         public unsafe T GetAspect<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T>
         {
             T aspect = default;
-            return aspect.CreateAspect(entity, ref EmptySystem.CheckedStateRef, false);
+            return aspect.CreateAspect(entity, ref EmptySystem.CheckedStateRef);
         }
         partial class AspectEntityCountTestSystem : SystemBase
         {
@@ -218,7 +223,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 int c = 0;
-                Entities.ForEach((in MyAspect test) =>
+                Entities.ForEach((MyAspect test) =>
                 {
                     ++c;
                 }).Run();
@@ -251,7 +256,7 @@ namespace Unity.Entities.Tests
             {
                 int c = 0;
                 int res = 0;
-                Entities.ForEach((ref NestingAspectOnlyAspects only, in NestingAspectMixed test) =>
+                Entities.ForEach((NestingAspectOnlyAspects only, NestingAspectMixed test) =>
                 {
                     only.MyAspect.Write();
                     res = test.MiscTests.ReadSum();
@@ -289,14 +294,7 @@ namespace Unity.Entities.Tests
                 ComponentType.ReadWrite<EcsTestData3>(), ComponentType.ReadOnly<EcsTestData4>()
             };
 
-            CollectionAsserts.CompareSorted(expected, GetRequiredComponents<NestingAspectOnlyAspects>(isReadOnly: false));
-
-            var expectedRO = new[]
-            {
-                ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>(),
-                ComponentType.ReadOnly<EcsTestData3>(), ComponentType.ReadOnly<EcsTestData4>()
-            };
-            CollectionAsserts.CompareSorted(expectedRO, GetRequiredComponents<NestingAspectOnlyAspects>(isReadOnly:true));
+            CollectionAsserts.CompareSorted(expected, GetRequiredComponents<NestingAspectOnlyAspects>());
         }
 
         [Test]
@@ -349,19 +347,11 @@ namespace Unity.Entities.Tests
             {
                 switch (AccessKind)
                 {
-                    case AccessKind.ReadOnlyAccess:
-                        switch (ContextKind)
-                        {
-                            case ContextKind.GetAspect:
-                                Entities.ForEach((Entity entity) => GetAspectRO<MyAspect>(entity).Read()).Run();
-                                break;
-                        }
-                        break;
                     case AccessKind.ReadWriteAccess:
                         switch (ContextKind)
                         {
                             case ContextKind.GetAspect:
-                                Entities.ForEach((Entity entity) => { GetAspectRW<MyAspect>(entity).Write(); }).Run();
+                                Entities.ForEach((Entity entity) => { SystemAPI.GetAspect<MyAspect>(entity).Write(); }).Run();
                                 break;
                         }
                         break;
@@ -401,9 +391,6 @@ namespace Unity.Entities.Tests
             var newVersion = m_Manager.GetChunk(entity).GetChangeVersion(ref newTypeHandle);
             switch (accessKind)
             {
-                case AccessKind.ReadOnlyAccess:
-                    Assert.AreEqual(oldVersion, newVersion);
-                    break;
                 case AccessKind.ReadWriteAccess:
                     Assert.AreNotEqual(oldVersion, newVersion);
                     break;
@@ -424,14 +411,9 @@ namespace Unity.Entities.Tests
                     case OperationKind.Read:
                         switch (AccessKind)
                         {
-                            case AccessKind.ReadOnlyAccess:
-                                if (ContextKind == ContextKind.GetAspect)
-                                    Entities.ForEach((Entity entity) => GetAspectRO<MyAspect>(entity).Read()).Run();
-
-                                break;
                             case AccessKind.ReadWriteAccess:
                                 if (ContextKind == ContextKind.GetAspect)
-                                    Entities.ForEach((Entity entity) => GetAspectRW<MyAspect>(entity).Read()).Run();
+                                    Entities.ForEach((Entity entity) => SystemAPI.GetAspect<MyAspect>(entity).Read()).Run();
 
                                 break;
                         }
@@ -439,14 +421,9 @@ namespace Unity.Entities.Tests
                     case OperationKind.Write:
                         switch (AccessKind)
                         {
-                            case AccessKind.ReadOnlyAccess:
-                                if (ContextKind == ContextKind.GetAspect)
-                                    Entities.ForEach((Entity entity) => GetAspectRO<MyAspect>(entity).Write()).Run();
-
-                                break;
                             case AccessKind.ReadWriteAccess:
                                 if (ContextKind == ContextKind.GetAspect)
-                                    Entities.ForEach((Entity entity) => GetAspectRW<MyAspect>(entity).Write()).Run();
+                                    Entities.ForEach((Entity entity) => SystemAPI.GetAspect<MyAspect>(entity).Write()).Run();
 
                                 break;
                         }
@@ -473,8 +450,6 @@ namespace Unity.Entities.Tests
             if (!MakeUseCase(default, SystemKind.SystemBase, contextKind, accessKind).IsSupported)
                 Assert.Ignore();
 
-            // expect an exception if we try to write while being in read-only mode
-            bool readOnlyException = accessKind == AccessKind.ReadOnlyAccess && operationKind == OperationKind.Write;
 
             var entity = MyAspect.CreateEntity(m_Manager, false);
             var test = World.GetOrCreateSystemManaged<ReadWriteTestSystem>();
@@ -482,20 +457,13 @@ namespace Unity.Entities.Tests
             test.AccessKind = accessKind;
             test.ContextKind = contextKind;
 
-            if (readOnlyException)
-            {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                Assert.Throws<System.InvalidOperationException>(delegate { test.Update(); });
-#endif
-            }
-            else
-                test.Update();
+            test.Update();
 
             var dataTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
             var data = m_Manager.GetChunk(entity).GetNativeArray(ref dataTypeHandle);
             for (int i = 0; i != data.Length; ++i)
             {
-                Assert.AreEqual((operationKind == OperationKind.Read || accessKind == AccessKind.ReadOnlyAccess) ? 0 : 10, data[i].value);
+                Assert.AreEqual((operationKind == OperationKind.Read) ? 0 : 10, data[i].value);
             }
 
         }
@@ -516,14 +484,9 @@ namespace Unity.Entities.Tests
                     case OperationKind.Read:
                         switch (AccessKind)
                         {
-                            case AccessKind.ReadOnlyAccess:
-                                if (ContextKind == ContextKind.GetAspect)
-                                    Entities.ForEach((Entity entity) => value = GetAspectRO<MyAspectMiscTests>(entity).ReadSum()).Run();
-
-                                break;
                             case AccessKind.ReadWriteAccess:
                                 if (ContextKind == ContextKind.GetAspect)
-                                    Entities.ForEach((Entity entity) => value = GetAspectRW<MyAspectMiscTests>(entity).ReadSum()).Run();
+                                    Entities.ForEach((Entity entity) => value = SystemAPI.GetAspect<MyAspectMiscTests>(entity).ReadSum()).Run();
 
                                 break;
                         }
@@ -532,13 +495,9 @@ namespace Unity.Entities.Tests
                     case OperationKind.Write:
                         switch (AccessKind)
                         {
-                            case AccessKind.ReadOnlyAccess:
-                                if (ContextKind == ContextKind.GetAspect)
-                                    Entities.ForEach((Entity entity) => GetAspectRO<MyAspectMiscTests>(entity).WriteAll(value)).Run();
-                                break;
                             case AccessKind.ReadWriteAccess:
                                 if (ContextKind == ContextKind.GetAspect)
-                                    Entities.ForEach((Entity entity) => GetAspectRW<MyAspectMiscTests>(entity).WriteAll(value)).Run();
+                                    Entities.ForEach((Entity entity) => SystemAPI.GetAspect<MyAspectMiscTests>(entity).WriteAll(value)).Run();
 
                                 break;
                         }
@@ -571,7 +530,6 @@ namespace Unity.Entities.Tests
                 Assert.Ignore();
 
             // expect an exception if we try to write while being in read-only mode
-            bool readOnlyException = accessKind == AccessKind.ReadOnlyAccess && operationKind == OperationKind.Write;
 
             var entity = MyAspectMiscTests.CreateEntity(m_Manager, optionalKind == OptionalKind.WithOptionalComponent);
             var test = World.GetOrCreateSystemManaged<MyAspectMiscTestsSystem>();
@@ -583,14 +541,8 @@ namespace Unity.Entities.Tests
             test.AccessKind = accessKind;
             test.ContextKind = contextKind;
 
-            if (readOnlyException)
-            {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                Assert.Throws<System.InvalidOperationException>(delegate { test.Update(); });
-#endif
-            }
-            else
-                test.Update();
+
+            test.Update();
 
             if (operationKind == OperationKind.Read)
             {
@@ -601,7 +553,7 @@ namespace Unity.Entities.Tests
                     test.TestValue, "the value read through the aspect should be the one the components value are set to");
 
             }
-            else if (!readOnlyException)
+            else
             {
                 var chunk = m_Manager.GetChunk(entity);
                 chunk.VisitAllOfComponent<EcsTestData>(m_Manager, x => Assert.AreEqual(MyAspectMiscTests.k_WriteValue, x.value, "Component EcsTestData must be overwritten with the MyAspectMiscTests.k_WriteValue value"));
@@ -616,8 +568,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void AspectEnumerationWithEnableBitFiltering()
         {
-            var componentsWithEnabled = ComponentType.Combine(GetRequiredComponents<MyAspect>(isReadOnly: false), new[] { ComponentType.ReadOnly<EcsTestDataEnableable>() });
-            var componentsWithoutEnabled = ComponentType.Combine(GetRequiredComponents<MyAspect>(isReadOnly: false), new[] { ComponentType.ReadOnly<EcsTestTag>() });
+            var componentsWithEnabled = ComponentType.Combine(GetRequiredComponents<MyAspect>(), new[] { ComponentType.ReadOnly<EcsTestDataEnableable>() });
+            var componentsWithoutEnabled = ComponentType.Combine(GetRequiredComponents<MyAspect>(), new[] { ComponentType.ReadOnly<EcsTestTag>() });
 
             // Create entities
             var allEntitiesArch = m_Manager.CreateArchetype(componentsWithoutEnabled);
@@ -646,7 +598,7 @@ namespace Unity.Entities.Tests
             int expectedCounts = 500 + 250 - 3;
             Assert.AreEqual(expectedCounts, queryAll.CalculateEntityCount() + queryEnabled.CalculateEntityCount());
 
-            var type = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
+            var type = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef);
             int counter = 0;
 
             foreach (var e in MyAspect.Query(queryEnabled, type))
@@ -676,10 +628,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void AspectSafety_TestForEachSets_IsInForEachDisallowStructuralChangeCounter()
         {
-            m_Manager.CreateEntity(GetRequiredComponents<MyAspect>(isReadOnly: true));
+            m_Manager.CreateEntity(GetRequiredComponents<MyAspect>());
 
-            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>(isReadOnly: true));
-            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
+            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>());
+            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef);
 
             int counter = 0;
             Assert.AreEqual(0, m_Manager.Debug.IsInForEachDisallowStructuralChangeCounter);
@@ -697,10 +649,10 @@ namespace Unity.Entities.Tests
         [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
         public void AspectSafety_MoveNextTooFar()
         {
-            var e = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>(isReadOnly: true));
+            var e = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>());
 
-            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>(isReadOnly: true));
-            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
+            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>());
+            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef);
 
             using (var iterator = MyAspect.Query(query, typeHandle))
             {
@@ -713,10 +665,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void AspectSafety_ResetThrows()
         {
-            var e = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>(isReadOnly: true));
+            var e = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>());
 
-            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>(isReadOnly: true));
-            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
+            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>());
+            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef);
             using (var iterator = MyAspect.Query(query, typeHandle))
             {
                 Assert.Throws<NotImplementedException>(() => { ((IEnumerator)iterator).Reset(); });
@@ -727,10 +679,10 @@ namespace Unity.Entities.Tests
         [TestRequiresCollectionChecks]
         public void AspectSafety_AccessingDisposedQueryEnumeratorThrows()
         {
-            var e = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>(isReadOnly: true));
+            var e = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>());
 
-            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>(isReadOnly: true));
-            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
+            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>());
+            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef);
             var iterator = MyAspect.Query(query, typeHandle);
             query.Dispose();
 
@@ -752,10 +704,10 @@ namespace Unity.Entities.Tests
                 return;
 #endif
 
-            var e = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>(isReadOnly: true));
+            var e = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>());
 
-            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>(isReadOnly: true));
-            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef, false);
+            var query = m_Manager.CreateEntityQuery(GetRequiredComponents<MyAspect>());
+            var typeHandle = new MyAspect.TypeHandle(ref EmptySystem.CheckedStateRef);
 
             var iterator = MyAspect.Query(query, typeHandle);
 
@@ -818,8 +770,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype01, 4);
             m_Manager.CreateEntity(archetype02, 2);
 
-            var query01 = EmptySystem.GetEntityQuery(GetRequiredComponents<AnAspect>(isReadOnly: false));
-            var query02 = EmptySystem.GetEntityQuery(GetRequiredComponents<ParentAspectNamespace02.AnAspect>(isReadOnly: false));
+            var query01 = EmptySystem.GetEntityQuery(GetRequiredComponents<AnAspect>());
+            var query02 = EmptySystem.GetEntityQuery(GetRequiredComponents<ParentAspectNamespace02.AnAspect>());
 
             Assert.AreEqual(4, query01.CalculateEntityCount());
             Assert.AreEqual(2, query02.CalculateEntityCount());
@@ -833,8 +785,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype01, 4);
             m_Manager.CreateEntity(archetype02, 2);
 
-            var query01 = EmptySystem.GetEntityQuery(GetRequiredComponents<ParentAspectNamespace01.AnAspect>(isReadOnly: false));
-            var query02 = EmptySystem.GetEntityQuery(GetRequiredComponents<ParentAspectNamespace02.AnAspect>(isReadOnly: false));
+            var query01 = EmptySystem.GetEntityQuery(GetRequiredComponents<ParentAspectNamespace01.AnAspect>());
+            var query02 = EmptySystem.GetEntityQuery(GetRequiredComponents<ParentAspectNamespace02.AnAspect>());
 
             Assert.AreEqual(4, query01.CalculateEntityCount());
             Assert.AreEqual(2, query02.CalculateEntityCount());
@@ -856,11 +808,11 @@ namespace Unity.Entities.Tests
             IEnumerator IEnumerable.GetEnumerator() => List.GetEnumerator();
         }
 
-        void TestAspectAddComponentRequirementsTo<TAspect>(IReadOnlyCollection<ComponentType> expectedAll, bool isReadOnly)
+        void TestAspectAddComponentRequirementsTo<TAspect>(IReadOnlyCollection<ComponentType> expectedAll)
             where TAspect : struct, IAspect, IAspectCreate<TAspect>
         {
             var actualAll = new UnsafeList<ComponentType>(8, Allocator.Temp);
-            default(TAspect).AddComponentRequirementsTo(ref actualAll, isReadOnly);
+            default(TAspect).AddComponentRequirementsTo(ref actualAll);
 
             Assert.AreEqual(expectedAll.Count, actualAll.Length, $"Expected {expectedAll.Count} components; found {actualAll.Length} components instead.");
 
@@ -875,8 +827,7 @@ namespace Unity.Entities.Tests
         public void Aspect_AddComponentRequirementsTo_Works()
         {
             TestAspectAddComponentRequirementsTo<MyAspect>(
-                new []{ComponentType.ReadWrite<EcsTestData>()},
-                isReadOnly: false
+                new []{ComponentType.ReadWrite<EcsTestData>()}
             );
 
             TestAspectAddComponentRequirementsTo<MyAspectMiscTests>(
@@ -886,9 +837,43 @@ namespace Unity.Entities.Tests
                     ComponentType.ReadWrite<EcsTestData2>(),
                     ComponentType.ReadWrite<EcsTestData3>(),
                     ComponentType.ReadOnly<EcsTestData4>(),
-                },
-                isReadOnly: false
+                }
             );
+        }
+
+        [Test]
+        public void Aspect_AddComponentRequirementsToSpan_Works()
+        {
+            var myAspectMiscTestsExpected = new[]
+            {
+                ComponentType.ReadWrite<EcsTestData>(),
+                ComponentType.ReadWrite<EcsTestData2>(),
+                ComponentType.ReadWrite<EcsTestData3>(),
+                ComponentType.ReadOnly<EcsTestData4>()
+            };
+
+            // Allocate more space than strictly necessary to avoid potential runtime exception, since actualAll.Count might exceed expectedAll.Count
+            Span<ComponentType> actualAll = stackalloc ComponentType[myAspectMiscTestsExpected.Length * 2];
+            MyAspectMiscTests.AddRequiredComponentTypes(ref actualAll);
+
+            foreach (var expected in myAspectMiscTestsExpected)
+            {
+                bool found = false;
+
+                foreach (var actual in actualAll)
+                    if (actual == expected)
+                        found = true;
+
+                Assert.IsTrue(found, $"Expected but did not find component with 1) type index {expected.TypeIndex} and 2) the correct access mode.");
+            }
+        }
+
+        [Test]
+        public void Aspect_GetRequiredComponentCount_Works()
+        {
+            Assert.AreEqual(expected: 4, actual: MyAspectMiscTests.GetRequiredComponentTypeCount());
+            Assert.AreEqual(expected: 1, actual: MyAspect.GetRequiredComponentTypeCount());
+            Assert.AreEqual(expected: 0, actual: AspectWithOnlyOptionalComponent.GetRequiredComponentTypeCount());
         }
 
         [Test]
@@ -896,9 +881,15 @@ namespace Unity.Entities.Tests
         {
             // An aspect with only optional components is a valid empty aspect.
             TestAspectAddComponentRequirementsTo<AspectWithOnlyOptionalComponent>(
-                Array.Empty<ComponentType>(),
-                isReadOnly: false
+                Array.Empty<ComponentType>()
             );
+
+            // Allocate more space than strictly necessary to avoid potential runtime exception, since actualAll.Count might exceed expectedAll.Count
+            Span<ComponentType> actualAll = stackalloc ComponentType[2];
+            AspectWithOnlyOptionalComponent.AddRequiredComponentTypes(ref actualAll);
+
+            foreach (var actual in actualAll)
+                Assert.AreEqual(default(ComponentType), actual);
         }
         public readonly partial struct AspectWithOnlyOptionalComponent : IAspect
         {
@@ -911,9 +902,15 @@ namespace Unity.Entities.Tests
         {
             // An aspect with only optional nested aspects is a valid empty aspect.
             TestAspectAddComponentRequirementsTo<AspectWithOnlyOptionalComponent>(
-                Array.Empty<ComponentType>(),
-                isReadOnly: false
+                Array.Empty<ComponentType>()
             );
+
+            // Allocate more space than strictly necessary to avoid potential runtime exception, since actualAll.Count might exceed expectedAll.Count
+            Span<ComponentType> actualAll = stackalloc ComponentType[2];
+            AspectWithOnlyOptionalComponent.AddRequiredComponentTypes(ref actualAll);
+
+            foreach (var actual in actualAll)
+                Assert.AreEqual(default(ComponentType), actual);
         }
         public readonly partial struct AspectWithOnlyOptionalNestedAspect : IAspect
         {

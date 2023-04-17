@@ -150,8 +150,7 @@ namespace Unity.Entities
 
             World.DefaultGameObjectInjectionWorld = world;
 
-            var systemList = GetAllSystems(WorldSystemFilterFlags.Default, editorWorld);
-            AddSystemToRootLevelSystemGroupsInternal(world, systemList);
+            AddSystemToRootLevelSystemGroupsInternal(world, GetAllSystemTypeIndices(WorldSystemFilterFlags.Default, editorWorld));
 
 #if !UNITY_DOTSRUNTIME
             ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(world);
@@ -160,39 +159,67 @@ namespace Unity.Entities
             DefaultWorldInitialized?.Invoke(world);
             return world;
         }
-
-        // NET_DOTS does not support .ToArray()
-#if !NET_DOTS
+        
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
-        /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup)
+        /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup). Prefer the version that
+        /// takes SystemTypeIndex's as an argument to avoid unnecessary reflection.
         /// </summary>
         /// <param name="world">The World in which the root-level system groups should be created.</param>
         /// <param name="systemTypes">The system types to create and add.</param>
         public static void AddSystemsToRootLevelSystemGroups(World world, IEnumerable<Type> systemTypes)
         {
-            AddSystemsToRootLevelSystemGroups(world, systemTypes.ToArray());
-        }
-#endif
+            var systemTypeIndices = new NativeList<SystemTypeIndex>(16, Allocator.Temp);
+            foreach (var t in systemTypes)
+            {
+                systemTypeIndices.Add(TypeManager.GetSystemTypeIndex(t));
+            }
+            AddSystemToRootLevelSystemGroupsInternal(world, systemTypeIndices);        }
 
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
-        /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup)
+        /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup). Prefer the version that
+        /// takes SystemTypeIndex's as an argument to avoid unnecessary reflection.
+        /// </summary>
+        /// <param name="world">The World in which the root-level system groups should be created.</param>
+        /// <param name="systemTypes">The system types to create and add.</param>
+        public static void AddSystemsToRootLevelSystemGroups(World world, IReadOnlyList<Type> systemTypes)
+        {
+            var systemTypeIndices = new NativeList<SystemTypeIndex>(16, Allocator.Temp);
+            foreach (var t in systemTypes)
+            {
+                systemTypeIndices.Add(TypeManager.GetSystemTypeIndex(t));
+            }
+            AddSystemToRootLevelSystemGroupsInternal(world, systemTypeIndices);
+        }
+
+
+        /// <summary>
+        /// Adds the collection of systems to the world by injecting them into the root level system groups
+        /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup). Prefer the version that
+        /// takes SystemTypeIndex's as an argument to avoid unnecessary reflection.
         /// </summary>
         /// <param name="world">The World in which the root-level system groups should be created.</param>
         /// <param name="systemTypes">The system types to create and add.</param>
         public static void AddSystemsToRootLevelSystemGroups(World world, params Type[] systemTypes)
         {
-            AddSystemToRootLevelSystemGroupsInternal(world, systemTypes);
+            var indices = new NativeList<SystemTypeIndex>(systemTypes.Length, Allocator.Temp);
+            for (int i = 0; i < systemTypes.Length; i++)
+            {
+                indices.Add(TypeManager.GetSystemTypeIndex(systemTypes[i]));
+            }
+
+            AddSystemToRootLevelSystemGroupsInternal(world, indices);
         }
 
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
-        /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup)
+        /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup). This version avoids
+        /// unnecessary reflection. 
         /// </summary>
         /// <param name="world">The World in which the root-level system groups should be created.</param>
         /// <param name="systemTypes">The system types to create and add.</param>
-        public static void AddSystemsToRootLevelSystemGroups(World world, IReadOnlyList<Type> systemTypes)
+        public static void AddSystemsToRootLevelSystemGroups(World world, NativeList<SystemTypeIndex> systemTypes)
         {
             AddSystemToRootLevelSystemGroupsInternal(world, systemTypes);
         }
@@ -204,49 +231,48 @@ namespace Unity.Entities
         /// </summary>
         internal interface IIdentifyRootGroups
         {
-            bool IsRootGroup(Type type);
+            bool IsRootGroup(SystemTypeIndex type);
         }
 
         struct DefaultRootGroups : IIdentifyRootGroups
         {
-            public bool IsRootGroup(Type type) =>
-                type == typeof(InitializationSystemGroup) ||
-                type == typeof(SimulationSystemGroup) ||
-                type == typeof(PresentationSystemGroup);
+            public bool IsRootGroup(SystemTypeIndex type) =>
+                type == TypeManager.GetSystemTypeIndex<InitializationSystemGroup>() ||
+                type == TypeManager.GetSystemTypeIndex<SimulationSystemGroup>() ||
+                type == TypeManager.GetSystemTypeIndex<PresentationSystemGroup>();
         }
 
-        internal static unsafe void AddSystemToRootLevelSystemGroupsInternal<T>(World world, IEnumerable<Type> systemTypesOrig, ComponentSystemGroup defaultGroup, T rootGroups)
+        internal static unsafe void AddSystemToRootLevelSystemGroupsInternal<T>(World world, NativeList<SystemTypeIndex> systemTypesOrig, ComponentSystemGroup defaultGroup, T rootGroups)
             where T : struct, IIdentifyRootGroups
         {
-            var managedTypes = new List<Type>();
-            var unmanagedTypes = new List<Type>();
+            var managedTypes = new List<SystemTypeIndex>();
+            var unmanagedTypes = new List<SystemTypeIndex>();
 
-            var systemTypesArray = systemTypesOrig.ToArray();
-            foreach (var stype in systemTypesArray)
+            foreach (var stype in systemTypesOrig)
             {
-                if (typeof(ComponentSystemBase).IsAssignableFrom(stype))
-                    managedTypes.Add(stype);
-                else if (typeof(ISystem).IsAssignableFrom(stype))
-                    unmanagedTypes.Add(stype);
-                else
+                if (!TypeManager.IsSystemTypeIndex(stype))
                     throw new InvalidOperationException("Bad type");
+                if (stype.IsManaged)
+                    managedTypes.Add(stype);
+                else 
+                    unmanagedTypes.Add(stype);
             }
 
-            var allSystemHandlesToAdd = world.GetOrCreateSystemsAndLogException(systemTypesArray, Allocator.Temp);
+            var allSystemHandlesToAdd = world.GetOrCreateSystemsAndLogException(systemTypesOrig, Allocator.Temp);
 
             // Add systems to their groups, based on the [UpdateInGroup] attribute.
-            for (int i=0; i<systemTypesArray.Count(); i++)
+            for (int i=0; i<systemTypesOrig.Length; i++)
             {
                 SystemHandle system = allSystemHandlesToAdd[i];
-                Type systemType = systemTypesArray[i];
 
                 // Skip the built-in root-level system groups
-                if (rootGroups.IsRootGroup(systemType))
+                if (rootGroups.IsRootGroup(systemTypesOrig[i]))
                 {
                     continue;
                 }
 
-                var updateInGroupAttributes = TypeManager.GetSystemAttributes(systemType, typeof(UpdateInGroupAttribute));
+                var updateInGroupAttributes = TypeManager.GetSystemAttributes(systemTypesOrig[i],
+                    TypeManager.SystemAttributeKind.UpdateInGroup);
                 if (updateInGroupAttributes.Length == 0)
                 {
                     defaultGroup.AddSystemToUpdateList(system);
@@ -254,7 +280,7 @@ namespace Unity.Entities
 
                 foreach (var attr in updateInGroupAttributes)
                 {
-                    var group = FindGroup(world, systemType, attr);
+                    var group = FindGroup(world, systemTypesOrig[i], attr);
                     if (group != null)
                     {
                         group.AddSystemToUpdateList(system);
@@ -263,7 +289,7 @@ namespace Unity.Entities
             }
         }
 
-        internal static void AddSystemToRootLevelSystemGroupsInternal(World world, IEnumerable<Type> systemTypesOrig)
+        internal static void AddSystemToRootLevelSystemGroupsInternal(World world, NativeList<SystemTypeIndex> systemTypesOrig) 
         {
             using var marker = new ProfilerMarker("AddSystems").Auto();
 
@@ -279,35 +305,33 @@ namespace Unity.Entities
             presentationSystemGroup.SortSystems();
         }
 
-        private static ComponentSystemGroup FindGroup(World world, Type systemType, Attribute attr)
+        private static ComponentSystemGroup FindGroup(World world, SystemTypeIndex systemType, TypeManager.SystemAttribute attr)
         {
-            var uga = attr as UpdateInGroupAttribute;
+            var groupTypeIndex = attr.TargetSystemTypeIndex;
 
-            if (uga == null)
-                return null;
-
-            if (!TypeManager.IsSystemType(uga.GroupType) || !TypeManager.IsSystemAGroup(uga.GroupType))
+            if (!TypeManager.IsSystemTypeIndex(groupTypeIndex) || !groupTypeIndex.IsGroup)
             {
-                throw new InvalidOperationException($"Invalid [{nameof(UpdateInGroupAttribute)}] attribute for {systemType}: {uga.GroupType} must be derived from {nameof(ComponentSystemGroup)}.");
+                throw new InvalidOperationException($"Invalid [{nameof(UpdateInGroupAttribute)}] attribute for {systemType}: target group must be derived from {nameof(ComponentSystemGroup)}.");
             }
-            if (uga.OrderFirst && uga.OrderLast)
+            if ((attr.Flags & TypeManager.SystemAttribute.kOrderFirstFlag) != 0 && (attr.Flags & TypeManager.SystemAttribute.kOrderLastFlag) != 0)
             {
                 throw new InvalidOperationException($"The system {systemType} can not specify both OrderFirst=true and OrderLast=true in its [{nameof(UpdateInGroupAttribute)}] attribute.");
             }
 
-            var groupSys = world.GetExistingSystemManaged(uga.GroupType);
+            var groupSys = world.GetExistingSystemManaged(groupTypeIndex);
             if (groupSys == null)
             {
                 // Warn against unexpected behaviour combining DisableAutoCreation and UpdateInGroup
-                var parentDisableAutoCreation = TypeManager.GetSystemAttributes(uga.GroupType, typeof(DisableAutoCreationAttribute)).Length > 0;
+                var parentDisableAutoCreation = TypeManager.GetSystemAttributes(groupTypeIndex, TypeManager.SystemAttributeKind.DisableAutoCreation).Length > 0;
+                var name = TypeManager.GetSystemName(groupTypeIndex);
                 if (parentDisableAutoCreation)
                 {
-                    Debug.LogWarning($"A system {systemType} wants to execute in {uga.GroupType} but this group has [{nameof(DisableAutoCreationAttribute)}] and {systemType} does not. The system will not be added to any group and thus not update.");
+                    Debug.LogWarning($"A system {systemType} wants to execute in {name} but this group has [{nameof(DisableAutoCreationAttribute)}] and {systemType} does not. The system will not be added to any group and thus not update.");
                 }
                 else
                 {
                     Debug.LogWarning(
-                        $"A system {systemType} could not be added to group {uga.GroupType}, because the group was not created in the world {world.Name}. Fix these errors before continuing. The system will not be added to any group and thus not update.");
+                        $"A system {systemType} could not be added to group {name}, because the group was not created in the world {world.Name}. Fix these errors before continuing. The system will not be added to any group and thus not update.");
                 }
             }
 
@@ -346,7 +370,8 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Calculates a list of all systems filtered with WorldSystemFilterFlags, [DisableAutoCreation] etc.
+        /// Calculates a list of all systems filtered with WorldSystemFilterFlags, [DisableAutoCreation] etc. Prefer
+        /// GetAllSystemTypeIndices where possible to avoid extra reflection.
         /// </summary>
         /// <param name="filterFlags">The filter flags to search for.</param>
         /// <param name="requireExecuteInEditor">Optionally require that [WorldSystemFilter(WorldSystemFilterFlags.Editor)] is present on the system. This is used when creating edit mode worlds.</param>
@@ -354,7 +379,26 @@ namespace Unity.Entities
         public static IReadOnlyList<Type> GetAllSystems(WorldSystemFilterFlags filterFlags, bool requireExecuteInEditor = false)
         {
             using var marker = new ProfilerMarker("GetAllSystems").Auto();
-            return TypeManager.GetSystems(filterFlags, requireExecuteInEditor ? WorldSystemFilterFlags.Editor : 0);
+            var indices = GetAllSystemTypeIndices(filterFlags, requireExecuteInEditor);
+            var ret = new List<Type>();
+            for (int i = 0; i < indices.Length; i++)
+            {
+                ret.Add(TypeManager.GetSystemType(indices[i]));
+            }
+
+            return ret;
+        }
+
+        /// <summary>
+        /// Calculates a list of all systems filtered with WorldSystemFilterFlags, [DisableAutoCreation] etc.
+        /// Prefer this over GetAllSystems if possible, to avoid extra reflection usage.
+        /// </summary>
+        /// <param name="filterFlags">The filter flags to search for.</param>
+        /// <param name="requireExecuteInEditor">Optionally require that [WorldSystemFilter(WorldSystemFilterFlags.Editor)] is present on the system. This is used when creating edit mode worlds.</param>
+        /// <returns>The list of filtered systems</returns>
+        public static NativeList<SystemTypeIndex> GetAllSystemTypeIndices(WorldSystemFilterFlags filterFlags, bool requireExecuteInEditor = false)
+        {
+            return TypeManager.GetSystemTypeIndices(filterFlags, requireExecuteInEditor ? WorldSystemFilterFlags.Editor : 0);
         }
 
         static ICustomBootstrap CreateBootStrap()

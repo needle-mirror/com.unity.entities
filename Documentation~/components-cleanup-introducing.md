@@ -1,6 +1,6 @@
 # Introducing cleanup components
 
-Cleanup components are like regular components, but when you destroy an entity that contains one, Unity removes all non-cleanup components instead. The entity still exists until you remove all cleanup components from it. This is useful to tag entities that require cleanup when destroyed. For information on how to do this, see [Use cleanup components to perform cleanup](components-cleanup-cleanup.md).
+Cleanup components are like regular components, but when you destroy an entity that contains one, Unity removes all non-cleanup components instead. The entity still exists until you remove all cleanup components from it. This is useful to tag entities that require cleanup when destroyed. For information on how to do this, refer to [Use cleanup components](components-cleanup-create.md#perform-cleanup).
 
 ## Cleanup component lifecycle
 
@@ -26,3 +26,6 @@ bool entityExists = EntityManager.Exists(e);
 
 > [!NOTE]
 > Cleanup components are unmanaged and have all of the same restrictions as [unmanaged components](components-unmanaged.md).
+
+## Additional resources
+* [Unmanaged components](components-unmanaged.md)

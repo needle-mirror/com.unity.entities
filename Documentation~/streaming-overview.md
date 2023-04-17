@@ -6,7 +6,7 @@ The main advantages of streaming are:
 
 * Your application can remain responsive while Unity streams scenes in the background.
 * Unity can dynamically load and unload scenes in seamless worlds that are larger than can fit memory without interrupting gameplay.
-* In Play mode, if an entity scene file is missing or outdated, Unity converts the scene on demand. Because the [baking](baking.md) and loading of the entity scene happens asynchronously and in a separate process, the Editor remains responsive.
+* In Play mode, if an entity scene file is missing or outdated, Unity converts the scene on demand. Because the [baking](baking-overview.md) and loading of the entity scene happens asynchronously and in a separate process, the Editor remains responsive.
 
 The main disadvantages of streaming are:
 

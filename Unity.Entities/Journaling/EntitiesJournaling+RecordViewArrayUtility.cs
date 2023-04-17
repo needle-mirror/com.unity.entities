@@ -6,6 +6,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
+    [BurstCompile]
     partial class EntitiesJournaling
     {
         /// <summary>

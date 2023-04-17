@@ -75,9 +75,9 @@ namespace Unity.Entities
             }
 
             // Apply additional destroys from any LinkedEntityGroup
-            if (additionalDestroyList.Ptr != null)
+            if (!additionalDestroyList.IsEmpty)
             {
-                var additionalDestroyPtr = (Entity*)additionalDestroyList.Ptr;
+                var additionalDestroyPtr = additionalDestroyList.Ptr;
                 // Optimal for destruction speed is if entities with same archetype/chunk are followed one after another.
                 // So we lay out the to be destroyed objects assuming that the destroyed entities are "similar":
                 // Reorder destruction by index in entityGroupArray...
@@ -102,9 +102,9 @@ namespace Unity.Entities
                 {
                     DestroyEntities(additionalDestroyPtr, additionalDestroyList.Length);
                 }
-
-                Memory.Unmanaged.Free(additionalDestroyPtr, Allocator.Persistent);
             }
+
+            additionalDestroyList.Dispose();
         }
 
         public Chunk* GetCleanChunkNoMetaChunk(Archetype* archetype, SharedComponentValues sharedComponentValues)

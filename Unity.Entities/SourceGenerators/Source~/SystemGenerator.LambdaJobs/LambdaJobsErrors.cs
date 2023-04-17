@@ -319,5 +319,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 "and finally invoke .ScheduleParallel(). A parallel writer instance will automatically be created and run in said system.",
                 location);
         }
+        public static void DC0082(SystemDescription systemDescription, Location location, string parameterName)
+        {
+            systemDescription.LogError(nameof(DC0082), k_ErrorTitle,
+                $"{parameterName} is an passed with a `ref` or `in` keyword.  Aspects are already act as reference types and should just be passed in by value.", location);
+        }
     }
 }

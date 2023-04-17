@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -33,41 +32,6 @@ namespace Unity.Entities.SourceGen.Common
                 yield return nds;
                 current = current.Parent;
             }
-        }
-
-        public static string GetGeneratedSourceFileName(this SyntaxTree syntaxTree, string generatorName, SyntaxNode node)
-            => GetGeneratedSourceFileName(syntaxTree, generatorName, node.GetLocation().GetLineSpan().StartLinePosition.Line);
-        public static string GetGeneratedSourceFileName(this SyntaxTree syntaxTree, string generatorName, int salting = 0)
-        {
-            var (isSuccess, fileName) = TryGetFileNameWithoutExtension(syntaxTree);
-            var stableHashCode = SourceGenHelpers.GetStableHashCode(syntaxTree.FilePath) & 0x7fffffff;
-
-            var postfix = generatorName.Length > 0 ? $"__{generatorName}" : String.Empty;
-
-            if (isSuccess)
-                fileName = $"{fileName}{postfix}_{stableHashCode}{salting}.g.cs";
-            else
-                fileName = Path.Combine($"{Path.GetRandomFileName()}{postfix}", ".g.cs");
-
-            return fileName;
-        }
-
-        public static string GetGeneratedSourceFilePath(this SyntaxTree syntaxTree, string assemblyName, string generatorName)
-        {
-            var fileName = GetGeneratedSourceFileName(syntaxTree, generatorName);
-            if (SourceGenHelpers.CanWriteToProjectPath)
-            {
-                var saveToDirectory = $"{SourceGenHelpers.ProjectPath}/Temp/GeneratedCode/{assemblyName}/";
-                Directory.CreateDirectory(saveToDirectory);
-                return saveToDirectory+fileName;
-            }
-            return $"Temp/GeneratedCode/{assemblyName}";
-        }
-
-        static (bool IsSuccess, string FileName) TryGetFileNameWithoutExtension(SyntaxTree syntaxTree)
-        {
-            var fileName = Path.GetFileNameWithoutExtension(syntaxTree.FilePath);
-            return (IsSuccess: true, fileName);
         }
 
         class PreprocessorTriviaRemover : CSharpSyntaxRewriter
@@ -135,21 +99,6 @@ namespace Unity.Entities.SourceGen.Common
             foreach (var ancestor in node.Ancestors())
                 if (ancestor is T t)
                     return t;
-            return null;
-        }
-
-        public static SyntaxNode NodeAfter(this SyntaxNode node, Func<SyntaxNodeOrToken, bool> predicate)
-        {
-            bool nodeFound = false;
-            var descendents = node.DescendantNodesAndTokens().ToArray();
-            for (var i = 0; i < descendents.Count(); ++i)
-            {
-                if (nodeFound && descendents[i].IsNode)
-                    return descendents[i].AsNode();
-                if (predicate(descendents[i]))
-                    nodeFound = true;
-            }
-
             return null;
         }
 

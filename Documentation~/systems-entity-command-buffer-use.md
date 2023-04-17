@@ -4,7 +4,7 @@ You can record [entity command buffers](systems-entity-command-buffers.md) (ECBs
 
 ## Use an entity command buffer in a job
 
-You can't perform [structural changes](concepts-structural-changes) in a job, except inside an `ExclusiveEntityTransaction`, so you can use an ECB to record structural changes to play back after the job is complete. For example:
+You can't perform [structural changes](concepts-structural-changes.md) in a job, except inside an `ExclusiveEntityTransaction`, so you can use an ECB to record structural changes to play back after the job is complete. For example:
 
 [!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_single_threaded)]
 

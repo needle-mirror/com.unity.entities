@@ -746,7 +746,7 @@ namespace Unity.Scenes.Editor
                 }
             }
 
-            public bool WaitForCompletion()
+            public bool WaitForCompletion(int timeoutMs)
             {
                 if (IsDone)
                     return true;
@@ -801,7 +801,17 @@ namespace Unity.Scenes.Editor
                 return _LoadingStates;
             }
         }
-
+        Dictionary<RuntimeContentManager.InstanceHandle, LoadState> _Instances;
+        Dictionary<RuntimeContentManager.InstanceHandle, LoadState> Instances
+        {
+            get
+            {
+                if (_Instances == null)
+                    _Instances = new Dictionary<RuntimeContentManager.InstanceHandle, LoadState>();
+                return _Instances;
+            }
+        }
+        
         [UnityEditor.InitializeOnLoadMethod]
         static void EditorInitializeOnLoadMethod()
         {
@@ -810,11 +820,11 @@ namespace Unity.Scenes.Editor
 
         public bool IsCreated => LoadingStates != null;
 
-        public bool WaitForCompletion(UntypedWeakReferenceId objectId)
+        public bool WaitForCompletion(UntypedWeakReferenceId objectId, int timeoutMs)
         {
             if (!LoadingStates.TryGetValue(objectId, out var state))
                 throw new Exception($"IsLoaded should never be called when LoadingStates does not contain entry - id: {objectId}");
-            return state.WaitForCompletion();
+            return state.WaitForCompletion(timeoutMs);
         }
 
         public bool LoadObject(UntypedWeakReferenceId objectId)
@@ -867,6 +877,41 @@ namespace Unity.Scenes.Editor
             foreach(var s in LoadingStates)
                 s.Value.Unload();
             _LoadingStates = null;
+        }
+
+        public bool LoadInstance(RuntimeContentManager.InstanceHandle handle)
+        {
+            var ls = new LoadState(handle.ObjectId);
+            if (!ls.IsValid)
+                return false;
+            return Instances.TryAdd(handle, ls);
+        }
+
+        public bool WaitForCompletion(RuntimeContentManager.InstanceHandle handle, int timeoutMs)
+        {
+            if (!Instances.TryGetValue(handle, out var ls))
+                return false;
+            return ls.WaitForCompletion(timeoutMs);
+        }
+
+        public ObjectLoadingStatus GetInstanceLoadStatus(RuntimeContentManager.InstanceHandle handle)
+        {
+            if (!Instances.TryGetValue(handle, out var state))
+                return ObjectLoadingStatus.None;
+            return state.IsDone? ObjectLoadingStatus.Completed: ObjectLoadingStatus.Loading;
+        }
+
+        public Object GetInstance(RuntimeContentManager.InstanceHandle handle)
+        {
+            if (!Instances.TryGetValue(handle, out var state))
+                return null;
+            return state.GetResult() as Object;
+        }
+
+        public void ReleaseInstance(RuntimeContentManager.InstanceHandle handle)
+        {
+            if (Instances.Remove(handle, out var state))
+                state.Unload();
         }
     }
 }

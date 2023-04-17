@@ -4,7 +4,7 @@ The workflow to create applications with Unity's entity component system (ECS) f
 
 ## Create a subscene
 
-ECS uses [subscenes](conversion-subscenes.md) to contain the content of your application. You add GameObjects and MonoBehaviour components to a subscene, and [bakers](baking.md) convert the GameObjects and MonoBehaviour components into entities and ECS components.
+ECS uses [subscenes](conversion-subscenes.md) to contain the content of your application. You add GameObjects and MonoBehaviour components to a subscene, and [bakers](baking-baker-overview.md) convert the GameObjects and MonoBehaviour components into entities and ECS components.
 
 ## Create ECS components
 
@@ -14,12 +14,12 @@ There are different kinds of ECS components that serve different purposes. For m
 
 ## Create entities
 
-Entities represent distinct things that exist in an application. To create entities in the Editor, you add GameObjects to a subscene. The [baking](baking.md) process converts these GameObjects into entities. Optionally, to attach ECS components to the converted entities, you create bakers. When you create a baker, you define which MonoBehaviour component it's for and then write code that uses the MonoBehaviour component data to create and attach ECS components to the converted entity. You can also create additional entities from the baker and attach ECS components to them too. In this workflow, the MonoBehaviour component is called an authoring component.
+Entities represent distinct things that exist in an application. To create entities in the Editor, you add GameObjects to a subscene. The [baking](baking-overview.md) process converts these GameObjects into entities. Optionally, to attach ECS components to the converted entities, you create bakers. When you create a baker, you define which MonoBehaviour component it's for and then write code that uses the MonoBehaviour component data to create and attach ECS components to the converted entity. You can also create additional entities from the baker and attach ECS components to them too. In this workflow, the MonoBehaviour component is called an authoring component.
 
 >[!TIP]
 >It's a good organizational practice to append `Authoring` to the class name of any authoring components you create.
 
-You can also create entities at runtime. The spawner code examples in the [ECS workflow](ecs-workflow.md) section of the documentation show how to set up a spawner system that instantiates entities at runtime.
+You can also create entities at runtime. The spawner code examples in the [ECS workflow](ecs-workflow-tutorial.md) section of the documentation show how to set up a spawner system that instantiates entities at runtime.
 
 ## Create systems
 

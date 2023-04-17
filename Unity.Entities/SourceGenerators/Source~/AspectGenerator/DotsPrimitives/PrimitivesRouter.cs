@@ -79,15 +79,19 @@ namespace Unity.Entities.SourceGen.Aspect
         /// Collection of PrimitiveBinding for each ComponentType that forms the aspect entity query.
         /// </summary>
         /// <returns></returns>
-        public IEnumerable<PrimitiveBinding> QueryBindings
+        public IReadOnlyCollection<PrimitiveBinding> QueryBindings
         {
             get
             {
-                foreach (var depPrim in DependentPrimitives.Values)
-                    if (depPrim.Primitive.IsQueryComponent && !depPrim.Primitive.Bind.IsOptional)
-                        yield return depPrim.Primitive.Bind;
+                return
+                    _queryBindings ??=
+                        DependentPrimitives.Values
+                            .Where(v => v.Primitive.IsQueryComponent && !v.Primitive.Bind.IsOptional)
+                            .Select(v => v.Primitive.Bind).ToArray();
             }
         }
+
+        private PrimitiveBinding[] _queryBindings;
 
         /// <summary>
         /// List all the constructor parameters required to construct all the fields of an aspect

@@ -181,7 +181,11 @@ namespace Unity.Entities
                 if (!Managed.s_DisposeRegistered)
                 {
                     Managed.s_DisposeRegistered = true;
+#if UNITY_EDITOR
                     AppDomain.CurrentDomain.DomainUnload += (_, __) =>
+#else
+                    AppDomain.CurrentDomain.ProcessExit += (_, __) =>
+#endif
                     {
                         s_Data.Data.Dispose();
                         Managed.s_PendingRegistrations = null;
@@ -206,16 +210,26 @@ namespace Unity.Entities
         }
 
         [ExcludeFromBurstCompatTesting("Uses managed delegate")]
-        static void SelectManagedFn(out ulong result, ulong burstFn, ForwardingFunc managedFn)
+        static void SelectManagedFn(out ulong result, ref ulong burstFn, ForwardingFunc managedFn)
         {
             if (burstFn != 0)
             {
-                result = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(new FunctionPointer<ForwardingFunc>((IntPtr)burstFn).Invoke));
+                var fp = new FunctionPointer<ForwardingFunc>((IntPtr)burstFn);
+                try
+                {
+                    result = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(fp.Invoke));
+                    return;
+                }
+                catch(InvalidCastException)
+                {
+                    // Asset ImportWorkers are occasionally throwing InvalidCastExceptions. Provide some debug information when this happens
+                    // then fall through to use the managed delegate directly rather than the delegate returned from Burst. DOTS-8094
+                    Debug.LogWarning($"SelectManagedFn failed to cast {fp.GetType()}. BurstFn: {burstFn}.Forwarding Func: {managedFn.GetType()}. Falling back to managed delegate. Please report this as a bug using Help > Report a Bug...");
+                    burstFn = 0;
+                }
             }
-            else
-            {
-                result = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(managedFn));
-            }
+
+            result = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(managedFn));
         }
 
         [ExcludeFromBurstCompatTesting("Uses managed delegate")]
@@ -276,7 +290,7 @@ namespace Unity.Entities
                         ulong burstFunc = useBurstFunction ? (ulong)BurstCompiler.CompileFunctionPointer(dlg).Value : 0;
 
                         // Select what to call when calling into a system from managed code.
-                        SelectManagedFn(out delegates.ManagedFunctions[i], burstFunc, dlg);
+                        SelectManagedFn(out delegates.ManagedFunctions[i], ref burstFunc, dlg);
 
                         // Select what to call when calling into a system from Burst code.
                         SelectBurstFn(out delegates.BurstFunctions[i], out delegates.GCDefeat1[i], burstFunc, dlg);

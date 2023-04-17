@@ -10,6 +10,29 @@ namespace Unity.Entities.Editor
     /// </summary>
     class EntitySelectionProxy : ScriptableObject, ISerializationCallbackReceiver
     {
+        static EntitySelectionProxy s_LastSelected;
+
+        [InitializeOnLoadMethod]
+        static void RefCountGlobalSelection()
+        {
+            Selection.selectionChanged += () =>
+            {
+                var entitySelectionProxy = Selection.activeObject as EntitySelectionProxy ??
+                                           Selection.activeContext as EntitySelectionProxy;
+
+                if (s_LastSelected != null && s_LastSelected != entitySelectionProxy)
+                    s_LastSelected.Release();
+
+                s_LastSelected = entitySelectionProxy;
+
+                if (entitySelectionProxy == null)
+                    return;
+
+                // Being currently selected counts as being retained
+                entitySelectionProxy.Retain();
+            };
+        }
+
         /// <summary>
         /// Creates and configures an instance of EntitySelectionProxy wrapping the specified <see cref="Unity.Entities.Entity"/>.
         /// </summary>
@@ -19,17 +42,22 @@ namespace Unity.Entities.Editor
         /// <exception cref="ArgumentNullException">Thrown when <see cref="world"/> is <code>null</code> or world.<see cref="Unity.Entities.World.IsCreated"/> is <code>false</code>.</exception>
         public static EntitySelectionProxy CreateInstance(World world, Entity entity)
         {
-            if (world == null || !world.IsCreated)
+            if (world is not { IsCreated: true })
                 throw new ArgumentNullException(nameof(world));
 
             if (!EntityExistsAndIsValid(world, entity))
                 entity = Entity.Null;
 
             var proxy = CreateInstance<EntitySelectionProxy>();
-            proxy.hideFlags = HideFlags.HideAndDontSave;
+            proxy.hideFlags = HideFlags.DontSaveInBuild |
+                              HideFlags.DontSaveInEditor |
+                              HideFlags.NotEditable;
+
             proxy.Initialize(world, entity);
 
-            Undo.RegisterCreatedObjectUndo(proxy, "Create EntitySelectionProxy");
+            var undoGroup = Undo.GetCurrentGroup();
+            Undo.RegisterCreatedObjectUndo(proxy, $"Create {nameof(EntitySelectionProxy)}({entity.Index}, {entity.Version})");
+            Undo.CollapseUndoOperations(undoGroup);
 
             return proxy;
         }
@@ -53,18 +81,16 @@ namespace Unity.Entities.Editor
             if (!EntityExistsAndIsValid(world, entity))
                 return;
 
-            Undo.IncrementCurrentGroup();
-            Undo.SetCurrentGroupName("Select Entity");
+            Undo.SetCurrentGroupName($"Select {entity.ToString()}");
             CreateInstance(world, entity).Select();
         }
 
         // Workaround because EntityManager.Exists can potentially throw when used in the editor
         static bool EntityExistsAndIsValid(World world, Entity entity)
         {
-            return world != null
-                && world.IsCreated
-                && entity.Index >= 0 && (uint)entity.Index < (uint)world.EntityManager.EntityCapacity
-                && world.EntityManager.Exists(entity);
+            return world is { IsCreated: true }
+                   && entity.Index >= 0 && (uint)entity.Index < (uint)world.EntityManager.EntityCapacity
+                   && world.EntityManager.Exists(entity);
         }
 
         [SerializeField] int entityIndex;
@@ -72,6 +98,8 @@ namespace Unity.Entities.Editor
 
         // Try to remember the world when performing Undo/Redo
         [SerializeField] string worldName;
+
+        int m_RefCount;
 
         /// <summary>
         /// The <see cref="Unity.Entities.World"/> in which the wrapped <see cref="Unity.Entities.Entity"/> exists.
@@ -81,7 +109,7 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// The <see cref="Unity.Entities.Entity"/> wrapped by this instance of EntitySelectionProxy.
         /// </summary>
-        public Entity Entity => new Entity { Index = entityIndex, Version = entityVersion };
+        public Entity Entity => new() { Index = entityIndex, Version = entityVersion };
 
         /// <summary>
         /// Whether the wrapped <see cref="Unity.Entities.Entity"/> currently exists and is valid.
@@ -115,6 +143,20 @@ namespace Unity.Entities.Editor
 
             // Can only be Runtime if directly selected
             SelectionBridge.SetSelection(this, null, DataMode.Runtime);
+        }
+
+        internal void Retain() => m_RefCount++;
+
+        internal void Release()
+        {
+            if (--m_RefCount <= 0)
+            {
+                var undoGroup = Undo.GetCurrentGroup();
+                var undoGroupName = Undo.GetCurrentGroupName();
+                Undo.DestroyObjectImmediate(this);
+                Undo.SetCurrentGroupName(undoGroupName);
+                Undo.CollapseUndoOperations(undoGroup);
+            }
         }
 
         internal static bool FindPrimaryEntity(GameObject obj, EntitySelectionProxy proxy, out World world, out Entity entity)

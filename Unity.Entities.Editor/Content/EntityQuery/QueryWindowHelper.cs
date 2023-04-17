@@ -31,7 +31,8 @@ namespace Unity.Entities.Editor
             });
 
             wnd.titleContent = EditorGUIUtility.TrTextContent(windowName, EditorIcons.Query);
-
+            wnd.minSize = Constants.MinWindowSize;
+            
             if (s_LastDockArea is { IsValid: true })
             {
                 s_LastDockArea.AddTab(wnd);

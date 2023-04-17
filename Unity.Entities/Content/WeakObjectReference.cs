@@ -3,6 +3,7 @@ using System;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Entities.Serialization;
+using UnityEngine;
 
 namespace Unity.Entities.Content
 {
@@ -13,10 +14,8 @@ namespace Unity.Entities.Content
     [Serializable]
     public struct WeakObjectReference<TObject> : IEquatable<WeakObjectReference<TObject>> where TObject : UnityEngine.Object
     {
-        /// <summary>
-        /// The reference Id.
-        /// </summary>
-        public UntypedWeakReferenceId Id;
+        [SerializeField]
+        internal UntypedWeakReferenceId Id;
 
         /// <summary>
         /// Returns true if the reference has a valid id.  This does not imply that the referenced object is loaded.
@@ -37,6 +36,22 @@ namespace Unity.Entities.Content
             {
                 return RuntimeContentManager.GetObjectValue<TObject>(Id);
             }
+        }
+
+#if UNITY_EDITOR
+        public WeakObjectReference(TObject unityObject)
+        {
+            this.Id = UntypedWeakReferenceId.CreateFromObjectInstance(unityObject);
+        }
+#endif
+
+        /// <summary>
+        /// Construct a WeakObjectReference with an existing WeakObjectReference id <paramref name="id"/>.
+        /// </summary>
+        /// <param name="id">Existing id for some weakly referenced data.</param>
+        public WeakObjectReference(UntypedWeakReferenceId id)
+        {
+            this.Id = id;
         }
 
         /// <summary>
@@ -61,7 +76,7 @@ namespace Unity.Entities.Content
         /// </summary>
         /// <param name="timeoutMs">The number of milliseconds to wait.  If set to 0, the load will either complet or fail before returning.</param>
         /// <returns>True if the load completes within the timeout.</returns>
-        bool WaitForCompletion(int timeoutMs = 0)
+        public bool WaitForCompletion(int timeoutMs = 0)
         {
             return RuntimeContentManager.WaitForObjectCompletion(Id, timeoutMs);
         }

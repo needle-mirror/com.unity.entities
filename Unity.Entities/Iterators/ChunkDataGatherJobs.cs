@@ -232,11 +232,9 @@ namespace Unity.Entities
             Entity* sourcePtr = chunk.GetEntityDataPtrRO(EntityTypeHandle);
             if (useEnabledMask)
             {
-                v128 maskCopy = chunkEnabledMask;
-                int rangeStart = 0;
                 int rangeEnd = 0;
                 int numCopied = 0;
-                while (EnabledBitUtility.GetNextRange(ref maskCopy, ref rangeStart, ref rangeEnd))
+                while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, firstIndexToCheck: rangeEnd, out int rangeStart, out rangeEnd))
                 {
                     int rangeCount = rangeEnd - rangeStart;
                     UnsafeUtility.MemCpy(destinationPtr+numCopied, sourcePtr+rangeStart, rangeCount * sizeof(Entity));
@@ -275,11 +273,9 @@ namespace Unity.Entities
 #endif
             if (useEnabledMask)
             {
-                v128 maskCopy = chunkEnabledMask;
-                int rangeStart = 0;
                 int rangeEnd = 0;
                 int numCopied = 0;
-                while (EnabledBitUtility.GetNextRange(ref maskCopy, ref rangeStart, ref rangeEnd))
+                while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, rangeEnd, out int rangeStart, out rangeEnd))
                 {
                     int rangeCount = rangeEnd - rangeStart;
                     UnsafeUtility.MemCpy(dstEntities+numCopied, srcEntities+rangeStart, rangeCount * sizeof(Entity));
@@ -314,10 +310,8 @@ namespace Unity.Entities
             byte* dstBytes = ComponentData + (baseEntityIndexInQuery * typeSize);
             if (useEnabledMask)
             {
-                v128 maskCopy = chunkEnabledMask;
-                int rangeStart = 0;
                 int rangeEnd = 0;
-                while (EnabledBitUtility.GetNextRange(ref maskCopy, ref rangeStart, ref rangeEnd))
+                while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, firstIndexToCheck: rangeEnd, out int rangeStart, out rangeEnd))
                 {
                     int rangeCount = rangeEnd - rangeStart;
                     UnsafeUtility.MemCpy(dstBytes, srcBytes+rangeStart*typeSize, rangeCount*typeSize);
@@ -362,10 +356,8 @@ namespace Unity.Entities
 #endif
             if (useEnabledMask)
             {
-                v128 maskCopy = chunkEnabledMask;
-                int rangeStart = 0;
                 int rangeEnd = 0;
-                while (EnabledBitUtility.GetNextRange(ref maskCopy, ref rangeStart, ref rangeEnd))
+                while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, rangeEnd, out int rangeStart, out rangeEnd))
                 {
                     int rangeCount = rangeEnd - rangeStart;
                     UnsafeUtility.MemCpy(dstBytes, srcBytes + rangeStart * typeSize, rangeCount * typeSize);
@@ -400,10 +392,8 @@ namespace Unity.Entities
             var srcBytes = ComponentData + (baseEntityIndexInQuery * typeSize);
             if (useEnabledMask)
             {
-                v128 maskCopy = chunkEnabledMask;
-                int rangeStart = 0;
                 int rangeEnd = 0;
-                while (EnabledBitUtility.GetNextRange(ref maskCopy, ref rangeStart, ref rangeEnd))
+                while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, firstIndexToCheck: rangeEnd, out int rangeStart, out rangeEnd))
                 {
                     int rangeCount = rangeEnd - rangeStart;
                     UnsafeUtility.MemCpy(dstBytes+rangeStart*typeSize, srcBytes, rangeCount*typeSize);
@@ -446,10 +436,8 @@ namespace Unity.Entities
 #endif
             if (useEnabledMask)
             {
-                v128 maskCopy = chunkEnabledMask;
-                int rangeStart = 0;
                 int rangeEnd = 0;
-                while (EnabledBitUtility.GetNextRange(ref maskCopy, ref rangeStart, ref rangeEnd))
+                while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, rangeEnd, out int rangeStart, out rangeEnd))
                 {
                     int rangeCount = rangeEnd - rangeStart;
                     UnsafeUtility.MemCpy(dstBytes+rangeStart*typeSize, srcBytes, rangeCount*typeSize);

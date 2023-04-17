@@ -2,10 +2,6 @@
 
 When you set up an Entities project, there are additional steps you must follow.
 
-## Unity version
-
-Entities 1.0 is compatible with Unity version 2022.2.6f1 and later.
-
 ## Recommended packages
 
 Check the overview of the available [DOTS packages](https://unity.com/dots/packages).

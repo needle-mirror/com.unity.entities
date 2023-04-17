@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Unity.Entities.SourceGen.Aspect;
 using Unity.Entities.SourceGen.Common;
@@ -63,7 +64,7 @@ public static class AspectSyntaxFactory
         return printer;
     }
 
-    static Printer PrintAddComponentTypes(Printer printer, bool forceReadOnly, AspectDefinition aspect)
+    static Printer PrintAddComponentTypes(Printer printer, AspectDefinition aspect)
     {
         printer.PrintBeginLine(
             $@"var allRequiredComponentsInAspect =
@@ -72,13 +73,24 @@ public static class AspectSyntaxFactory
                         {aspect.PrimitivesRouter.QueryBindings
                             .Select(
                                 q =>
-                                    q.IsReadOnly | forceReadOnly ? $"Unity.Entities.ComponentType.ReadOnly<{q.ComponentTypeName}>()" : $"Unity.Entities.ComponentType.ReadWrite<{q.ComponentTypeName}>()")
+                                    q.IsReadOnly ? $"Unity.Entities.ComponentType.ReadOnly<{q.ComponentTypeName}>()" : $"Unity.Entities.ComponentType.ReadWrite<{q.ComponentTypeName}>()")
                             .SeparateByComma()}
                     }};
-                global::Unity.Entities.InternalCompilerInterface.MergeWith(ref all, ref allRequiredComponentsInAspect);
+                global::Unity.Entities.Internal.InternalCompilerInterface.MergeWith(ref all, ref allRequiredComponentsInAspect);
                 allRequiredComponentsInAspect.Dispose();");
 
         return printer;
+    }
+
+    static Printer PrintAddComponentTypesToSpan(Printer printer, AspectDefinition aspect)
+    {
+        var addComponents =
+            aspect.PrimitivesRouter.QueryBindings
+                .Select((q, i) =>
+                    $"componentTypes[{i}] = {(q.IsReadOnly ? $"Unity.Entities.ComponentType.ReadOnly<{q.ComponentTypeName}>();" : $"Unity.Entities.ComponentType.ReadWrite<{q.ComponentTypeName}>();")}")
+                .SeparateBy($"{Environment.NewLine}				");
+
+        return printer.PrintBeginLine(addComponents).PrintBeginLine(Environment.NewLine);
     }
 
     public static string GenerateAspectSource(AspectDefinition aspect)
@@ -110,12 +122,11 @@ public static class AspectSyntaxFactory
                 printer.PrintLine(@"/// </summary>");
                 printer.PrintLine(@"/// <param name=""entity"">The entity to create the aspect struct from.</param>");
                 printer.PrintLine(@"/// <param name=""systemState"">The system state from which data is extracted.</param>");
-                printer.PrintLine(@"/// <param name=""isReadOnly"">Set to true to force all reference to data to be read-only.</param>");
                 printer.PrintLine(@"/// <returns>Instance of the aspect struct pointing at a specific entity's components data.</returns>");
-                printer.PrintBeginLine("public ").Print(aspect.Name).Print(" CreateAspect(global::Unity.Entities.Entity entity, ref global::Unity.Entities.SystemState systemState, bool isReadOnly)");
+                printer.PrintBeginLine("public ").Print(aspect.Name).Print(" CreateAspect(global::Unity.Entities.Entity entity, ref global::Unity.Entities.SystemState systemState)");
                 {
                     printer.OpenScope();
-                    printer.PrintLine("var lookup = new Lookup(ref systemState, isReadOnly);");
+                    printer.PrintLine("var lookup = new Lookup(ref systemState);");
                     printer.PrintLine("return lookup[entity];");
                     printer.CloseScope();
                 }
@@ -123,25 +134,29 @@ public static class AspectSyntaxFactory
 
             printer.PrintEndLine();
             printer.PrintLine(@"/// <summary>");
-            printer.PrintLine(@"/// Add component requirements from this aspect into all / any / none archetype lists.");
+            printer.PrintLine(@"/// Add component requirements from this aspect into all archetype lists.");
             printer.PrintLine(@"/// </summary>");
             printer.PrintLine(@"/// <param name=""all"">Archetype ""all"" component requirements.</param>");
-            printer.PrintLine(@"/// <param name=""any"">Archetype ""any"" component requirements.</param>");
-            printer.PrintLine(@"/// <param name=""none"">Archetype ""none"" component requirements.</param>");
-            printer.PrintLine(@"/// <param name=""disabled"">Archetype ""disabled"" component requirements.</param>");
-            printer.PrintLine(@"/// <param name=""absent"">Archetype ""absent"" component requirements.</param>");
-            printer.PrintLine(@"/// <param name=""isReadOnly"">set to true to force all components to be read-only.</param>");
             printer.PrintBeginLine(
-                    "public void AddComponentRequirementsTo(ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> all, bool isReadOnly)")
+                    "public void AddComponentRequirementsTo(ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> all)")
                 .OpenScope()
-                .PrintBeginLine("if (isReadOnly)")
+                .PrintWith(x => PrintAddComponentTypes(x, aspect))
+                .CloseScope();
+
+            printer.PrintLine(@"/// <summary>");
+            printer.PrintLine(@"/// Get the number of required (i.e. non-optional) components contained in this aspect.");
+            printer.PrintLine(@"/// </summary>");
+            printer.PrintLine(@"/// <returns>The number of required (i.e. non-optional) components contained in this aspect.</returns>");
+            printer.PrintBeginLine($"public static int GetRequiredComponentTypeCount() => {aspect.PrimitivesRouter.QueryBindings.Count};{Environment.NewLine}");
+
+            printer.PrintLine(@"/// <summary>");
+            printer.PrintLine(@"/// Add component requirements from this aspect into the provided span.");
+            printer.PrintLine(@"/// </summary>");
+            printer.PrintLine(@"/// <param name=""componentTypes"">The span to which all required components in this aspect are added.</param>");
+            printer.PrintBeginLine(
+                    "public static void AddRequiredComponentTypes(ref global::System.Span<Unity.Entities.ComponentType> componentTypes)")
                 .OpenScope()
-                .PrintWith(x => PrintAddComponentTypes(x, true, aspect))
-                .CloseScope()
-                .PrintBeginLine("else")
-                .OpenScope()
-                .PrintWith(x => PrintAddComponentTypes(x, false, aspect))
-                .CloseScope()
+                .PrintWith(x => PrintAddComponentTypesToSpan(x, aspect))
                 .CloseScope();
 
             // Print Aspect's Lookup primitive
@@ -153,14 +168,6 @@ public static class AspectSyntaxFactory
             printer.PrintBeginLine("public struct Lookup");
             {
                 printer.OpenScope();
-                printer.PrintLine("private byte __IsReadOnly;");
-                printer.PrintBeginLine("bool _IsReadOnly");
-                {
-                    printer.OpenScope();
-                    printer.PrintLine("get { return __IsReadOnly == 1; }");
-                    printer.PrintLine("set { __IsReadOnly = value ? (byte) 1 : (byte) 0; }");
-                    printer.CloseScope();
-                }
                 // Declare all lookup primitives
                 aspect.PrimitivesRouter.LookupDeclare(printer);
                 // Lookup constructor
@@ -169,11 +176,9 @@ public static class AspectSyntaxFactory
                 printer.PrintLine(@"/// Create the aspect lookup from an system state.");
                 printer.PrintLine(@"/// </summary>");
                 printer.PrintLine(@"/// <param name=""state"">The system state to create the aspect lookup from.</param>");
-                printer.PrintLine(@"/// <param name=""isReadOnly"">Set to true to force all reference in the aspect to be read-only.</param>");
-                printer.PrintBeginLine("public Lookup(ref global::Unity.Entities.SystemState state, bool isReadOnly)");
+                printer.PrintBeginLine("public Lookup(ref global::Unity.Entities.SystemState state)");
                 {
                     printer.OpenScope();
-                    printer.PrintLine("__IsReadOnly = isReadOnly ? (byte) 1u : (byte) 0u;");
                     aspect.PrimitivesRouter.LookupConstructFromState(printer);
                     printer.CloseScope();
                 }
@@ -252,8 +257,7 @@ public static class AspectSyntaxFactory
                 printer.PrintLine(@"/// Create the aspect type handle from an system state.");
                 printer.PrintLine(@"/// </summary>");
                 printer.PrintLine(@"/// <param name=""state"">System state to create the type handle from.</param>");
-                printer.PrintLine(@"/// <param name=""isReadOnly"">Set to true to force all reference in the aspect to be read-only.</param>");
-                printer.PrintBeginLine("public TypeHandle(ref global::Unity.Entities.SystemState state, bool isReadOnly)");
+                printer.PrintBeginLine("public TypeHandle(ref global::Unity.Entities.SystemState state)");
                 {
                     printer.OpenScope();
                     aspect.PrimitivesRouter.TypeHandleConstructFromState(printer);
@@ -305,11 +309,11 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@$"public struct Enumerator : global::System.Collections.Generic.IEnumerator<{aspect.Name}>, global::System.Collections.Generic.IEnumerable<{aspect.Name}>");
             printer.PrintLine(@$"{{");
             printer.PrintLine(@$"    ResolvedChunk                                _Resolved;");
-            printer.PrintLine(@$"    global::Unity.Entities.EntityQueryEnumerator _QueryEnumerator;");
+            printer.PrintLine(@$"    global::Unity.Entities.Internal.InternalEntityQueryEnumerator _QueryEnumerator;");
             printer.PrintLine(@$"    TypeHandle                                   _Handle;");
             printer.PrintLine(@$"    internal Enumerator(global::Unity.Entities.EntityQuery query, TypeHandle typeHandle)");
             printer.PrintLine(@$"    {{");
-            printer.PrintLine(@$"        _QueryEnumerator = new global::Unity.Entities.EntityQueryEnumerator(query);");
+            printer.PrintLine(@$"        _QueryEnumerator = new global::Unity.Entities.Internal.InternalEntityQueryEnumerator(query);");
             printer.PrintLine(@$"        _Handle = typeHandle;");
             printer.PrintLine(@$"        _Resolved = default;");
             printer.PrintLine(@$"    }}");

@@ -10,9 +10,16 @@ using Unity.Editor.Bridge;
 
 namespace Unity.Entities.Editor
 {
+    /// <summary>
+    /// This class allows the SearchWindow to search for ECS Hierarchy node (GameObject, Entity).
+    /// </summary>
     public static class HierarchySearchProvider
     {
+        /// <summary>
+        /// Search Provider type id. 
+        /// </summary>
         public const string type = "nodehierarchy";
+
         static Hierarchy s_Hierarchy;
         static QueryEngine<HierarchyNode.Immutable> m_EntityQueryEngine;
         static QueryEngine<HierarchyNode.Immutable> s_EntityQueryEngine
@@ -472,7 +479,7 @@ namespace Unity.Entities.Editor
         }
 
         [SearchColumnProvider(nameof(HierarchyNode))]
-        public static void HierarchyModeColumnProvider(SearchColumn column)
+        internal static void HierarchyModeColumnProvider(SearchColumn column)
         {
             column.getter = args =>
             {
@@ -523,6 +530,10 @@ namespace Unity.Entities.Editor
             OpenProvider();
         }
 
+        /// <summary>
+        /// Open SearchWindow with HierarchySearchProvider enabled.
+        /// </summary>
+        /// <param name="query">Optional initial query.</param>
         public static void OpenProvider(string query = null)
         {
             SearchBridge.OpenContextualTable(type, query ?? "",

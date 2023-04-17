@@ -1,4 +1,5 @@
 ﻿using System;
+using Unity.Entities.Internal;
 
 namespace Unity.Entities
 {
@@ -546,14 +547,6 @@ namespace Unity.Entities
         /// <typeparam name="TAspect">The aspect to add to the query</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
         public SystemAPIQueryBuilder WithAspect<TAspect>()
-            where TAspect : struct, IAspect, IAspectCreate<TAspect> => throw ThrowNotBuildException();
-
-        /// <summary>
-        /// Add component type requirement for a given aspect with forced read-only access.
-        /// </summary>
-        /// <typeparam name="TAspect">The aspect to add to the query</typeparam>
-        /// <returns>The builder object that invoked this method.</returns>
-        public SystemAPIQueryBuilder WithAspectRO<TAspect>()
             where TAspect : struct, IAspect, IAspectCreate<TAspect> => throw ThrowNotBuildException();
 
         /// <summary>

@@ -37,7 +37,7 @@ namespace Unity.Entities
         readonly ManagedObjectClone m_ManagedObjectClone = new ManagedObjectClone();
         readonly ManagedObjectRemap m_ManagedObjectRemap = new ManagedObjectRemap();
 
-        UnsafeParallelMultiHashMap<int, int> m_HashLookup = new UnsafeParallelMultiHashMap<int, int>(128, Allocator.Persistent);
+        UnsafeParallelMultiHashMap<ulong, int> m_HashLookup = new UnsafeParallelMultiHashMap<ulong, int>(128, Allocator.Persistent);
 
         List<object> m_SharedComponentData = new List<object>();
 
@@ -231,9 +231,9 @@ namespace Unity.Entities
         private int FindNonDefaultSharedComponentIndex<T>(TypeIndex typeIndex, int hashCode, ref T newData) where T : struct
         {
             int itemIndex;
-            NativeParallelMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<ulong> iter;
 
-            if (!m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
+            if (!m_HashLookup.TryGetFirstValue(EntityComponentStore.GetSharedComponentHashKey(typeIndex, hashCode), out itemIndex, out iter))
                 return -1;
 
             var infos = SharedComponentInfoPtr;
@@ -255,9 +255,11 @@ namespace Unity.Entities
         private int FindNonDefaultSharedComponentIndex(TypeIndex typeIndex, int hashCode, object newData)
         {
             int itemIndex;
-            NativeParallelMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<ulong> iter;
 
-            if (!m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
+            if (!m_HashLookup.TryGetFirstValue(EntityComponentStore.GetSharedComponentHashKey(typeIndex, hashCode),
+                    out itemIndex,
+                    out iter)) 
                 return -1;
 
             var infos = SharedComponentInfoPtr;
@@ -334,7 +336,7 @@ namespace Unity.Entities
 
                 Assert.IsTrue(m_SharedComponentData[index] == null);
 
-                m_HashLookup.Add(hashCode, index);
+                m_HashLookup.Add(EntityComponentStore.GetSharedComponentHashKey(typeIndex, hashCode), index);
                 m_SharedComponentData[index] = newData;
                 infos[index] = info;
                 return index;
@@ -342,7 +344,7 @@ namespace Unity.Entities
             else
             {
                 int index = m_SharedComponentData.Count;
-                m_HashLookup.Add(hashCode, index);
+                m_HashLookup.Add(EntityComponentStore.GetSharedComponentHashKey(typeIndex, hashCode), index);
                 m_SharedComponentData.Add(newData);
                 m_SharedComponentInfo.Add(info);
                 return index;
@@ -431,13 +433,17 @@ namespace Unity.Entities
             (sharedComponent as IRefCounted)?.Release();
 
             m_SharedComponentData[index] = null;
+            var typeIndex = infos[index].ComponentType;
             infos[index].ComponentType = TypeIndex.Null;
             infos[index].Version = m_FreeListIndex;
             m_FreeListIndex = index;
 
             int itemIndex;
-            NativeParallelMultiHashMapIterator<int> iter;
-            if (m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
+            NativeParallelMultiHashMapIterator<ulong> iter;
+            if (m_HashLookup.TryGetFirstValue(
+                    EntityComponentStore.GetSharedComponentHashKey(typeIndex, hashCode),
+                    out itemIndex,
+                    out iter)) 
             {
                 do
                 {
@@ -470,8 +476,11 @@ namespace Unity.Entities
 
                     bool found = false;
                     int itemIndex;
-                    NativeParallelMultiHashMapIterator<int> iter;
-                    if (m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
+                    NativeParallelMultiHashMapIterator<ulong> iter;
+                    if (m_HashLookup.TryGetFirstValue(
+                            EntityComponentStore.GetSharedComponentHashKey(infos[i].ComponentType, hashCode),
+                            out itemIndex,
+                            out iter)) 
                     {
                         do
                         {

@@ -12,6 +12,7 @@ using UnityEngine;
 [RequireMatchingQueriesForUpdate]
 [UpdateInGroup(typeof(TransformBakingSystemGroup))]
 [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
+[BurstCompile]
 internal partial class TransformBakingSystem : SystemBase
 {
     EntityQuery               _Query;

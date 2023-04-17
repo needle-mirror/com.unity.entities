@@ -25,8 +25,13 @@ namespace Unity.Entities.Baking
         /// <param name="allocator">The allocator to use.</param>
         public UnsafeDependencyStream(AllocatorManager.AllocatorHandle allocator)
         {
-            listPerThread = new UnsafeList<UnsafeList<T>>(JobsUtility.MaxJobThreadCount, allocator);
-            for (int index = 0; index < JobsUtility.MaxJobThreadCount; ++index)
+#if UNITY_2022_2_14F1_OR_NEWER
+            int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+            int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+            listPerThread = new UnsafeList<UnsafeList<T>>(maxThreadCount, allocator);
+            for (int index = 0; index < maxThreadCount; ++index)
             {
                 listPerThread.Add(new UnsafeList<T>(0, allocator));
             }
@@ -49,7 +54,13 @@ namespace Unity.Entities.Baking
         public void Dispose()
         {
             // Release
-            for (int index = 0; index < JobsUtility.MaxJobThreadCount; ++index)
+
+#if UNITY_2022_2_14F1_OR_NEWER
+            int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+            int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+            for (int index = 0; index < maxThreadCount; ++index)
             {
                 listPerThread[index].Dispose();
             }
@@ -94,8 +105,13 @@ namespace Unity.Entities.Baking
 
             public void Execute()
             {
+#if UNITY_2022_2_14F1_OR_NEWER
+                int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+                int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
                 int count = 0;
-                for (int index = 0; index < JobsUtility.MaxJobThreadCount; ++index)
+                for (int index = 0; index < maxThreadCount; ++index)
                     count += changedComponentsPerThread[index].Length;
 
                 if (outputChangedComponents.Capacity < count)
@@ -187,16 +203,21 @@ namespace Unity.Entities.Baking
         private UnsafeList<UnsafeStream.Writer> writers;
 
         /// <summary>
-        /// Creates an UnsafeStream where bufferCount is JobsUtility.MaxJobThreadCount
+        /// Creates an UnsafeStream where bufferCount is the maximum number of threads that can run jobs at once
         /// </summary>
         public UnsafeDependencyStream(AllocatorManager.AllocatorHandle allocator)
         {
-            stream = new UnsafeStream(JobsUtility.MaxJobThreadCount, Allocator.TempJob);
-            writers = new UnsafeList<UnsafeStream.Writer>(JobsUtility.MaxJobThreadCount, Allocator.TempJob);
+#if UNITY_2022_2_14F1_OR_NEWER
+            int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+            int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+            stream = new UnsafeStream(maxThreadCount, Allocator.TempJob);
+            writers = new UnsafeList<UnsafeStream.Writer>(maxThreadCount, Allocator.TempJob);
         }
 
         /// <summary>
-        /// Creates JobsUtility.MaxJobThreadCount writers and it calls BeginForEachIndex on them
+        /// Creates stream.ForEachCount number of writers and it calls BeginForEachIndex on each of them
         /// </summary>
         public void BeginWriting()
         {

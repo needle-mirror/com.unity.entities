@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Unity.Collections;
 using Unity.Entities.Hybrid.Baking;
 using Unity.Profiling;
 using UnityEngine;
@@ -100,8 +101,15 @@ namespace Unity.Entities
 
         static void PreprocessBake(World conversionWorld, BakingSettings settings)
         {
-            var systemTypes = (settings.Systems ?? DefaultWorldInitialization.GetAllSystems(settings.FilterFlags)).ToList();
+            var systemTypeIndices = DefaultWorldInitialization.GetAllSystemTypeIndices(settings.FilterFlags);
 
+            //currently, baking uses reflection to decide whether to run a system, so we can't avoid this. but we
+            //should fix that. 
+            var typesList = new List<Type>();
+            for (int i=0; i<systemTypeIndices.Length; i++)
+                typesList.Add(TypeManager.GetSystemType(systemTypeIndices[i]));
+            var systemTypes = settings.Systems ?? typesList;
+            
 #if UNITY_EDITOR
             if (settings.BakingSystemFilterSettings != null)
             {
@@ -112,8 +120,13 @@ namespace Unity.Entities
                 }
             }
 #endif
-
-            AddBakingSystems(conversionWorld, systemTypes.Concat(settings.ExtraSystems));
+            if (settings.ExtraSystems.Count > 0)
+            {
+                systemTypes.AddRange(settings.ExtraSystems);
+                // We need to re-sort as we've appended new systems, and they may have attributes.
+                TypeManager.SortSystemTypesInCreationOrder(systemTypes);
+            }
+            AddBakingSystems(conversionWorld, systemTypes);
 #if UNITY_EDITOR
 #if ENABLE_CLOUD_SERVICES_ANALYTICS
             BakingAnalytics.BakingSystemTypes = systemTypes;
@@ -183,10 +196,11 @@ namespace Unity.Entities
 
         struct BakingRootGroups : DefaultWorldInitialization.IIdentifyRootGroups
         {
-            public bool IsRootGroup(Type type) => type == typeof(BakingSystemGroup) ||
-                                     type == typeof(PostBakingSystemGroup) ||
-                                     type == typeof(TransformBakingSystemGroup) ||
-                                     type == typeof(PreBakingSystemGroup);
+            public bool IsRootGroup(SystemTypeIndex type) =>
+                type == TypeManager.GetSystemTypeIndex<BakingSystemGroup>() ||
+                type == TypeManager.GetSystemTypeIndex<PostBakingSystemGroup>() ||
+                type == TypeManager.GetSystemTypeIndex<TransformBakingSystemGroup>() ||
+                type == TypeManager.GetSystemTypeIndex<PreBakingSystemGroup>();
         }
 
         static void AddBakingSystems(World gameObjectWorld, IEnumerable<Type> systemTypes)
@@ -196,26 +210,18 @@ namespace Unity.Entities
             var preBakingSystemGroup = gameObjectWorld.GetOrCreateSystemManaged<PreBakingSystemGroup>();
             var transformBakingSystemGroup = gameObjectWorld.GetOrCreateSystemManaged<TransformBakingSystemGroup>();
 
-            DefaultWorldInitialization.AddSystemToRootLevelSystemGroupsInternal(gameObjectWorld, systemTypes, bakeSystemGroup, new BakingRootGroups());
+            var systemTypeIndices = new NativeList<SystemTypeIndex>(16, Allocator.Temp);
+            foreach (var type in systemTypes)
+            {
+                systemTypeIndices.Add(TypeManager.GetSystemTypeIndex(type));
+            }
 
+            DefaultWorldInitialization.AddSystemToRootLevelSystemGroupsInternal(gameObjectWorld, systemTypeIndices, bakeSystemGroup, new BakingRootGroups());
+            
             bakeSystemGroup.SortSystems();
             postBakingSystemGroup.SortSystems();
             transformBakingSystemGroup.SortSystems();
             preBakingSystemGroup.SortSystems();
-        }
-
-        static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)
-        {
-            try
-            {
-                var system = world.GetOrCreateSystemManaged(type);
-                group.AddSystemToUpdateList(system);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Failed to add baking system {type}, exception following");
-                Debug.LogException(e);
-            }
         }
 
 #if UNITY_EDITOR

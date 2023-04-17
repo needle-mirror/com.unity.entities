@@ -198,22 +198,7 @@ namespace Unity.Entities
             where TAspect : struct, IAspect, IAspectCreate<TAspect>
         {
             CheckBuilderPtr();
-            default(TAspect).AddComponentRequirementsTo(ref _builderDataPtr->_all, false);
-            _builderDataPtr->_isFinalized = 0;
-            return this;
-        }
-
-        /// <summary>
-        /// Add component type requirement for a given aspect with forced read-only access.
-        /// </summary>
-        /// <typeparam name="TAspect">The aspect to add to the query</typeparam>
-        /// <returns>The builder object that invoked this method.</returns>
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleAspect) })]
-        public EntityQueryBuilder WithAspectRO<TAspect>()
-            where TAspect : struct, IAspect, IAspectCreate<TAspect>
-        {
-            CheckBuilderPtr();
-            default(TAspect).AddComponentRequirementsTo(ref _builderDataPtr->_all, true);
+            default(TAspect).AddComponentRequirementsTo(ref _builderDataPtr->_all);
             _builderDataPtr->_isFinalized = 0;
             return this;
         }

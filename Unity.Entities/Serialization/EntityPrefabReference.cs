@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -9,13 +10,15 @@ namespace Unity.Entities.Serialization
     /// <summary>
     /// Weak reference to entity prefab. Entity prefabs are GameObjects that have been fully converted into entity data during the import/build process.
     /// </summary>
+    [Serializable]
     public struct EntityPrefabReference : IEquatable<EntityPrefabReference>
     {
-        internal UntypedWeakReferenceId PrefabId;
+        [SerializeField]
+        internal UntypedWeakReferenceId Id;
 
         internal EntityPrefabReference(UntypedWeakReferenceId prefabId)
         {
-            PrefabId = prefabId;
+            Id = prefabId;
         }
 
         /// <inheritdoc/>
@@ -36,7 +39,7 @@ namespace Unity.Entities.Serialization
         /// <param name="guid">The prefab asset GUID.</param>
         public EntityPrefabReference(Hash128 guid)
         {
-            PrefabId = new UntypedWeakReferenceId(new RuntimeGlobalObjectId { AssetGUID = guid, IdentifierType = 1 }, WeakReferenceGenerationType.EntityPrefab);
+            Id = new UntypedWeakReferenceId(new RuntimeGlobalObjectId { AssetGUID = guid, IdentifierType = 1 }, WeakReferenceGenerationType.EntityPrefab);
         }
 
 #if UNITY_EDITOR
@@ -57,7 +60,7 @@ namespace Unity.Entities.Serialization
         /// <returns>True if the asset GUID of both are equal.</returns>
         public bool Equals(EntityPrefabReference other)
         {
-            return PrefabId.Equals(other.PrefabId);
+            return Id.Equals(other.Id);
         }
 
         /// <summary>
@@ -76,7 +79,7 @@ namespace Unity.Entities.Serialization
         /// <returns>The hash code of this EntityPrefabReference.</returns>
         public override int GetHashCode()
         {
-            return PrefabId.GetHashCode();
+            return Id.GetHashCode();
         }
     }
 }

@@ -3,23 +3,97 @@ using System;
 using Unity.Burst;
 using Unity.Collections;
 using UnityEngine;
+using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Content
 {
     /// <summary>
     /// System responsible for initializing and updating the <seealso cref="RuntimeContentManager"/>.
     /// </summary>
-    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
-    [UpdateInGroup(typeof(InitializationSystemGroup))]
-    public partial class RuntimeContentSystem : SystemBase
+    public static class RuntimeContentSystem
     {
-        /// <summary>Initializes the <seealso cref="RuntimeContentManager"/>.</summary>
-        protected override void OnCreate()
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+        static void EditorInitialize()
         {
-#if !UNITY_EDITOR && !ENABLE_CONTENT_DELIVERY
+            AddToEditorLoop();
+            UnityEditor.EditorApplication.playModeStateChanged += EditorApplication_playModeStateChanged;
+        }
+
+        private static void EditorApplication_playModeStateChanged(UnityEditor.PlayModeStateChange state)
+        {
+            switch (state)
+            {
+                case UnityEditor.PlayModeStateChange.ExitingEditMode:
+                    RemoveFromEditorLoop();
+                    break;
+                case UnityEditor.PlayModeStateChange.EnteredPlayMode:
+                    AddToPlayerLoop();
+                    break;
+                case UnityEditor.PlayModeStateChange.ExitingPlayMode:
+                    RemoveFromPlayerLoop();
+                    break;
+                case UnityEditor.PlayModeStateChange.EnteredEditMode:
+                    AddToEditorLoop();
+                    break;
+            }
+        }
+
+        static void AddToEditorLoop()
+        {
+            UnityEditor.EditorApplication.update += Update;
+        }
+
+        static void RemoveFromEditorLoop()
+        {
+            UnityEditor.EditorApplication.update -= Update;
+        }
+#else
+        [RuntimeInitializeOnLoadMethod]
+        static void RuntimeInitialize()
+        { 
+#if !ENABLE_CONTENT_DELIVERY
             LoadContentCatalog(null, null, null, false);
 #endif
+            AddToPlayerLoop();
         }
+#endif
+        static void RemoveFromPlayerLoop()
+        {
+            ScriptBehaviourUpdateOrder.RemoveFromCurrentPlayerLoop(Update);
+        }
+
+        static void AddToPlayerLoop()
+        {
+            //cannot use ScriptBehaviourUpdateOrder here bc the current player loop at this point
+            //has a null type and it fails to add
+            var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            var oldListLength = playerLoop.subSystemList != null ? playerLoop.subSystemList.Length : 0;
+            var newSubsystemList = new PlayerLoopSystem[oldListLength + 1];
+            for (var i = 0; i < oldListLength; ++i)
+                newSubsystemList[i] = playerLoop.subSystemList[i];
+            newSubsystemList[oldListLength] = new PlayerLoopSystem
+            {
+                type = typeof(RuntimeContentSystem),
+                updateDelegate = Update
+            };
+            playerLoop.subSystemList = newSubsystemList;
+            PlayerLoop.SetPlayerLoop(playerLoop);
+        }
+
+        static void Update()
+        {
+            //always update the CDGS in the player so that the catalog can load
+#if ENABLE_CONTENT_DELIVERY && !UNITY_EDITOR
+            ContentDeliveryGlobalState.Update();
+#endif
+
+#if !UNITY_EDITOR  //only update RCM in the player if the catalog has been loaded
+            if(RuntimeContentManager.IsReady)
+#endif
+            RuntimeContentManager.ProcessQueuedCommands();
+        }
+
 
         /// <summary>
         /// Loads the content catalog data.
@@ -77,25 +151,6 @@ namespace Unity.Entities.Content
 #else
             LoadCatalogFunc(p => $"{Application.streamingAssetsPath}/{p}");
 #endif
-        }
-
-        /// <summary>
-        /// Processes the <seealso cref="RuntimeContentManager"/>.
-        /// </summary>
-        protected override void OnUpdate()
-        {
-            if (World.Flags == WorldFlags.Game || World.Flags == WorldFlags.GameServer || World.Flags == WorldFlags.GameClient || World.Flags == WorldFlags.GameThinClient || World.Flags == WorldFlags.Editor)
-            {
-                //always update the CDGS in the player so that the catalog can load
-#if ENABLE_CONTENT_DELIVERY && !UNITY_EDITOR
-                ContentDeliveryGlobalState.Update();
-#endif
-
-#if !UNITY_EDITOR  //only update RCM in the player if the catalog has been loaded
-                if(RuntimeContentManager.IsReady)
-#endif
-                    RuntimeContentManager.ProcessQueuedCommands();
-            }
         }
 
         static void LoadCatalogFunc(Func<string, string> remapFunc)

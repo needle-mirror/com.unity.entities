@@ -74,7 +74,7 @@ namespace Unity.Entities.Tests
             var child = World.CreateSystemManaged<TestSystem>();
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
-            CollectionAssert.AreEqual(new[] {child}, parent.Systems);
+            CollectionAssert.AreEqual(new[] {child}, parent.ManagedSystems);
         }
 
         [UpdateAfter(typeof(Sibling2System))]
@@ -96,7 +96,7 @@ namespace Unity.Entities.Tests
             parent.AddSystemToUpdateList(child1);
             parent.AddSystemToUpdateList(child2);
             parent.SortSystems();
-            CollectionAssert.AreEqual(new TestSystemBase[] {child2, child1}, parent.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[] {child2, child1}, parent.ManagedSystems);
         }
 
         [Test]
@@ -110,7 +110,7 @@ namespace Unity.Entities.Tests
             parent.AddSystemToUpdateList(child2);
             parent.AddSystemToUpdateList(child3);
             parent.SortSystems();
-            CollectionAssert.AreEqual(new TestSystemBase[] {child1, child2, child3}, parent.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[] {child1, child2, child3}, parent.ManagedSystems);
         }
 
         // This test constructs the following system dependency graph:
@@ -202,7 +202,7 @@ namespace Unity.Entities.Tests
             parent.AddSystemToUpdateList(child3);
             parent.AddSystemToUpdateList(child1);
             parent.SortSystems();
-            CollectionAssert.AreEqual(new TestSystemBase[] {child1,child2,  child4,  child3}, parent.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[] {child1,child2,  child4,  child3}, parent.ManagedSystems);
         }
 
         private partial class UpdateCountingSystemBase : SystemBase
@@ -376,7 +376,7 @@ namespace Unity.Entities.Tests
         {
             var parent = World.CreateSystemManaged<TestGroup>();
             Assert.DoesNotThrow(() => { parent.AddSystemToUpdateList(null); });
-            Assert.IsEmpty(parent.Systems);
+            Assert.IsEmpty(parent.ManagedSystems);
         }
 
         [Test]
@@ -690,7 +690,7 @@ namespace Unity.Entities.Tests
 
             parent.SortSystems();
 
-            CollectionAssert.AreEqual(systems, parent.Systems);
+            CollectionAssert.AreEqual(systems, parent.ManagedSystems);
             LogAssert.NoUnexpectedReceived();
         }
 
@@ -738,7 +738,7 @@ namespace Unity.Entities.Tests
             parent.SortSystems();
             LogAssert.NoUnexpectedReceived();
 
-            CollectionAssert.AreEqual(systems, parent.Systems);
+            CollectionAssert.AreEqual(systems, parent.ManagedSystems);
         }
 
         [Test] // runtime string formatting
@@ -759,7 +759,7 @@ namespace Unity.Entities.Tests
             LogAssert.Expect(LogType.Warning, "Ignoring invalid [Unity.Entities.UpdateBeforeAttribute(Unity.Entities.Tests.ComponentSystemGroupTests+DummyFirstSystem)] attribute on Unity.Entities.Tests.ComponentSystemGroupTests+MiddleBeforeFirstSystem because OrderFirst/OrderLast has higher precedence.");
             parent.SortSystems();
             LogAssert.NoUnexpectedReceived();
-            CollectionAssert.AreEqual(systems, parent.Systems);
+            CollectionAssert.AreEqual(systems, parent.ManagedSystems);
         }
 
         [Test] // runtime string formatting
@@ -780,7 +780,7 @@ namespace Unity.Entities.Tests
             LogAssert.Expect(LogType.Warning, "Ignoring invalid [Unity.Entities.UpdateAfterAttribute(Unity.Entities.Tests.ComponentSystemGroupTests+DummyLastSystem)] attribute on Unity.Entities.Tests.ComponentSystemGroupTests+MiddleAfterLastSystem because OrderFirst/OrderLast has higher precedence.");
             parent.SortSystems();
             LogAssert.NoUnexpectedReceived();
-            CollectionAssert.AreEqual(systems, parent.Systems);
+            CollectionAssert.AreEqual(systems, parent.ManagedSystems);
         }
 
         [Test] // runtime string formatting
@@ -801,7 +801,7 @@ namespace Unity.Entities.Tests
             LogAssert.Expect(LogType.Warning, "Ignoring invalid [Unity.Entities.UpdateBeforeAttribute(Unity.Entities.Tests.ComponentSystemGroupTests+DummyFirstSystem)] attribute on Unity.Entities.Tests.ComponentSystemGroupTests+LastBeforeFirstSystem because OrderFirst/OrderLast has higher precedence.");
             parent.SortSystems();
             LogAssert.NoUnexpectedReceived();
-            CollectionAssert.AreEqual(systems, parent.Systems);
+            CollectionAssert.AreEqual(systems, parent.ManagedSystems);
         }
 
 #endif
@@ -848,7 +848,7 @@ namespace Unity.Entities.Tests
 
             // Ensure they are always in alphabetical order
             NativeText.ReadOnly prev = default;
-            foreach (var sys in parent.Systems)
+            foreach (var sys in parent.ManagedSystems)
             {
                 var curr = TypeManager.GetSystemName(sys.GetType());
                 // no string.CompareTo() in DOTS Runtime, but in this case we know only the last character will be different
@@ -896,7 +896,7 @@ namespace Unity.Entities.Tests
             // This is where removals are processed
             group.SortSystems();
             var expectedSystems = new List<ComponentSystemBase> {sys};
-            CollectionAssert.AreEqual(expectedSystems, group.Systems);
+            CollectionAssert.AreEqual(expectedSystems, group.ManagedSystems);
         }
 
         [Test]
@@ -997,7 +997,7 @@ namespace Unity.Entities.Tests
             parentGroup.SortSystems(); // parent and child group sort orders should be clean
 
             // If the child group's systems aren't in the correct order, it wasn't recursively sorted by the parent group.
-            CollectionAssert.AreEqual(new TestSystemBase[] {child2, child1}, childGroup.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[] {child2, child1}, childGroup.ManagedSystems);
         }
 
         internal partial class NoSortGroup : ComponentSystemGroup
@@ -1028,7 +1028,7 @@ namespace Unity.Entities.Tests
             parentGroup.SortSystems(); // parent and child group sort orders should be clean
 
             // If the child group's systems aren't in the correct order, it wasn't recursively sorted by the parent group.
-            CollectionAssert.AreEqual(new TestSystemBase[] {child2, child1}, childGroup.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[] {child2, child1}, childGroup.ManagedSystems);
         }
 
         [Test]
@@ -1039,14 +1039,14 @@ namespace Unity.Entities.Tests
             var sibling2 = World.CreateSystemManaged<Sibling2System>();
             group.AddSystemToUpdateList(sibling1);
             group.AddSystemToUpdateList(sibling2);
-            CollectionAssert.AreEqual(new TestSystemBase[]{sibling1, sibling2}, group.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[]{sibling1, sibling2}, group.ManagedSystems);
             // With sorting disabled, the group's systems are updated in insertion order.
             group.Update();
-            CollectionAssert.AreEqual(new TestSystemBase[]{sibling1, sibling2}, group.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[]{sibling1, sibling2}, group.ManagedSystems);
             // sibling1 has [UpdateAfter(sibling2)], so if sorting has happened, they should update as [sibling2, sibling1]
             group.SetSortingEnabled(true);
             group.Update();
-            CollectionAssert.AreEqual(new TestSystemBase[]{sibling2, sibling1}, group.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[]{sibling2, sibling1}, group.ManagedSystems);
         }
 
         [Test]
@@ -1157,7 +1157,7 @@ namespace Unity.Entities.Tests
                 new UpdateIndex(0, false),
                 new UpdateIndex(1, true),
             };
-            CollectionAssert.AreEqual(new TestSystemBase[] {child1, child2}, noSortGroup.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[] {child1, child2}, noSortGroup.ManagedSystems);
             Assert.AreEqual(1, noSortGroup.UnmanagedSystems.Length);
             Assert.AreEqual(unmanagedChild, noSortGroup.UnmanagedSystems[0]);
             for (int i = 0; i < expectedUpdateList.Length; ++i)
@@ -1166,7 +1166,7 @@ namespace Unity.Entities.Tests
             }
             // Sorting the system group should have no effect on the update order
             noSortGroup.SortSystems();
-            CollectionAssert.AreEqual(new TestSystemBase[] {child1, child2}, noSortGroup.Systems);
+            CollectionAssert.AreEqual(new TestSystemBase[] {child1, child2}, noSortGroup.ManagedSystems);
             Assert.AreEqual(1, noSortGroup.UnmanagedSystems.Length);
             Assert.AreEqual(unmanagedChild, noSortGroup.UnmanagedSystems[0]);
             for (int i = 0; i < expectedUpdateList.Length; ++i)
@@ -1200,7 +1200,7 @@ namespace Unity.Entities.Tests
             var emptySystem = World.CreateSystemManaged<EmptySystem>();
             parentGroup.AddSystemToUpdateList(emptySystem);
             
-            CollectionAssert.AreEqual(new [] {genericSystem, emptySystem}, parentGroup.Systems);
+            CollectionAssert.AreEqual(new [] {genericSystem, emptySystem}, parentGroup.ManagedSystems);
 
             parentGroup.SetSortingEnabled(true);
             parentGroup.SortSystems();
@@ -1211,7 +1211,7 @@ namespace Unity.Entities.Tests
                 new UpdateIndex(0, true),
                 new UpdateIndex(1, true)
             };
-            CollectionAssert.AreEqual(new [] {emptySystem, genericSystem}, parentGroup.Systems);
+            CollectionAssert.AreEqual(new [] {emptySystem, genericSystem}, parentGroup.ManagedSystems);
 
             for (int i = 0; i < expectedUpdateList.Length; ++i)
             {
@@ -1225,29 +1225,35 @@ namespace Unity.Entities.Tests
         // Note, we use a Native dictionary type to allow configs that don't support
         // Dictionary to run these tests.
         static NativeParallelHashMap<ulong, OrderInfo> SystemOrderInfoMap;
-        List<Type> SystemTypeList;
+        NativeList<SystemTypeIndex> SystemTypeList;
         World TestWorld;
         static int SystemSequenceNo;
 
         [SetUp]
         public void SetUp()
         {
-            SystemTypeList = new List<Type>()
+            var tmp = new List<SystemTypeIndex>()
             {
-                typeof(TestSystemOrder0_0),
-                typeof(TestSystemOrder3_4),
-                typeof(TestSystemOrderA4_5),
-                typeof(TestSystemOrderB4_7),
-                typeof(TestSystemOrder5_8),
-                typeof(TestSystemOrderB6_9),
-                typeof(TestSystemOrderA7_6),
-                typeof(TestISystemOrder1_3),
-                typeof(TestSystemOrderB8_10),
-                typeof(TestSystemOrder9_11),
-                typeof(TestSystemOrder10_1),
-                typeof(TestISystemOrder2_2)
+                TypeManager.GetSystemTypeIndex<TestSystemOrder0_0>(),
+                TypeManager.GetSystemTypeIndex<TestSystemOrder3_4>(),
+                TypeManager.GetSystemTypeIndex<TestSystemOrderA4_5>(),
+                TypeManager.GetSystemTypeIndex<TestSystemOrderB4_7>(),
+                TypeManager.GetSystemTypeIndex<TestSystemOrder5_8>(),
+                TypeManager.GetSystemTypeIndex<TestSystemOrderB6_9>(),
+                TypeManager.GetSystemTypeIndex<TestSystemOrderA7_6>(),
+                TypeManager.GetSystemTypeIndex<TestISystemOrder1_3>(),
+                TypeManager.GetSystemTypeIndex<TestSystemOrderB8_10>(),
+                TypeManager.GetSystemTypeIndex<TestSystemOrder9_11>(),
+                TypeManager.GetSystemTypeIndex<TestSystemOrder10_1>(),
+                TypeManager.GetSystemTypeIndex<TestISystemOrder2_2>()
             };
-            SystemOrderInfoMap = new NativeParallelHashMap<ulong, OrderInfo>(SystemTypeList.Count, Allocator.Persistent);
+            SystemTypeList = new NativeList<SystemTypeIndex>(tmp.Count, Allocator.Temp);
+            foreach (var idx in tmp)
+            {
+                SystemTypeList.Add(idx);
+            }
+
+            SystemOrderInfoMap = new NativeParallelHashMap<ulong, OrderInfo>(SystemTypeList.Length, Allocator.Persistent);            
             SystemSequenceNo = 0;
 
             // Make a custom world and manually add the systems
@@ -1255,19 +1261,19 @@ namespace Unity.Entities.Tests
             TestWorld = CreateWorldWithSystems(SystemTypeList);
         }
 
-        World CreateWorldWithSystems(List<Type> systemList)
+        World CreateWorldWithSystems(NativeList<SystemTypeIndex> systemList)
         {
             var world = new World("SystemOrdering World");
 
             // Normally this happens when fetching all systems based on world filter flags
             // but since we want to be very specific about which systems are registered with the world while using the machinery to do so
             // we sort them here like what would happen normally
-            var sortedSystemList = new List<Type>(systemList.Count);
-            sortedSystemList.AddRange(systemList);
-            TypeManager.SortSystemTypes(sortedSystemList);
+            var copy = new NativeList<SystemTypeIndex>(systemList.Length, Allocator.Temp);
+            copy.CopyFrom(systemList);
 
-            DefaultWorldInitialization.AddSystemToRootLevelSystemGroupsInternal(world, sortedSystemList);
+            TypeManager.SortSystemTypesInCreationOrder(copy);
 
+            DefaultWorldInitialization.AddSystemToRootLevelSystemGroupsInternal(world, copy);
             return world;
         }
 
@@ -1449,9 +1455,9 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
         [Test]
         public void CreateBefore_CreateAfter_SanityCheck()
         {
-            var systemList = new List<Type>(SystemTypeList.Count);
-            systemList.AddRange(SystemTypeList);
-            TypeManager.SortSystemTypes(systemList);
+            var systemList = new NativeList<SystemTypeIndex>(SystemTypeList.Length, Allocator.Temp);
+            systemList.CopyFrom(SystemTypeList);
+            TypeManager.SortSystemTypesInCreationOrder(systemList);
 
 
             // Confirm CreateBefore|After attributes influence create order
@@ -1516,7 +1522,7 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
                 Assert.IsTrue(SystemOrderInfoMap.ContainsKey(statePtr));
                 var orderInfo = SystemOrderInfoMap[statePtr];
 
-                Assert.AreEqual(orderInfo.CreateSeqNo + SystemTypeList.Count, orderInfo.UpdateSeqNo);
+                Assert.AreEqual(orderInfo.CreateSeqNo + SystemTypeList.Length, orderInfo.UpdateSeqNo);
             }
         }
 
@@ -1529,7 +1535,7 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
             foreach (var type in SystemTypeList)
             {
                 ulong statePtr;
-                if (typeof(ISystem).IsAssignableFrom(type))
+                if (!type.IsManaged)
                     statePtr = (ulong)TestWorld.Unmanaged.ResolveSystemState(
                         TestWorld.Unmanaged.GetExistingUnmanagedSystem(type));
                 else
@@ -1555,7 +1561,7 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
                 Assert.IsTrue(SystemOrderInfoMap.ContainsKey(statePtr));
                 var orderInfo = SystemOrderInfoMap[statePtr];
 
-                Assert.AreEqual(orderInfo.DestroySeqNo + orderInfo.CreateSeqNo, SystemTypeList.Count * 2 - 1);
+                Assert.AreEqual(orderInfo.DestroySeqNo + orderInfo.CreateSeqNo, SystemTypeList.Length * 2 - 1);
             }
         }
 
@@ -1577,11 +1583,12 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void Circular_CreateBefore_Throws()
         {
-            var systems = new List<Type>
+            var systems = new NativeList<SystemTypeIndex>(2, Allocator.Temp);
+            systems.AddRange(new NativeArray<SystemTypeIndex>(new[]
             {
-                typeof(CircularSystem1),
-                typeof(CircularSystem2)
-            };
+                TypeManager.GetSystemTypeIndex<CircularSystem1>(),
+                TypeManager.GetSystemTypeIndex<CircularSystem2>()
+            }, Allocator.Temp));
             var e = Assert.Throws<InvalidOperationException>(() =>
             {
                 using (var world = CreateWorldWithSystems(systems)) { }
@@ -1597,11 +1604,12 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void Circular_CreateAfter_Throws()
         {
-            var systems = new List<Type>
+            var systems = new NativeList<SystemTypeIndex>(2, Allocator.Temp);
+            systems.AddRange(new NativeArray<SystemTypeIndex>(new[]
             {
-                typeof(CircularSystem3),
-                typeof(CircularSystem4)
-            };
+                TypeManager.GetSystemTypeIndex<CircularSystem3>(),
+                TypeManager.GetSystemTypeIndex<CircularSystem4>()
+            }, Allocator.Temp));
             var e =Assert.Throws<InvalidOperationException>(() =>
             {
                 using (var world = CreateWorldWithSystems(systems)) { }
@@ -1617,10 +1625,11 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void ComponentSystem_CreateAfterTargetIsNotSystem_LogsWarning()
         {
-            var systems = new List<Type>
+            var systems = new NativeList<SystemTypeIndex>(2, Allocator.Temp);
+            systems.AddRange(new NativeArray<SystemTypeIndex>(new[]
             {
-                typeof(CreateAfterIsntAComponentSystem),
-            };
+                TypeManager.GetSystemTypeIndex<CreateAfterIsntAComponentSystem>(),
+            }, Allocator.Temp));
             using (var world = CreateWorldWithSystems(systems)) {
 
                 LogAssert.Expect(LogType.Warning,
@@ -1633,10 +1642,11 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
         public void ComponentSystem_CreateBeforeTargetIsNotSystem_LogsWarning()
         {
-            var systems = new List<Type>
+            var systems = new NativeList<SystemTypeIndex>(2, Allocator.Temp);
+            systems.AddRange(new NativeArray<SystemTypeIndex>(new[]
             {
-                typeof(CreateBeforeIsntAComponentSystem),
-            };
+                TypeManager.GetSystemTypeIndex<CreateBeforeIsntAComponentSystem>(),
+            }, Allocator.Temp));
             using (var world = CreateWorldWithSystems(systems)) {
 
                 LogAssert.Expect(LogType.Warning,

@@ -19,7 +19,7 @@ namespace Unity.Transforms
     /// Therefore, while the <see cref="LocalToWorld"/> component may be useful as a fast approximation of an entity's
     /// world-space transformation when its latency is acceptable, it should not be relied one when an accurate,
     /// up-to-date world transform is needed for simulation purposes. In those cases, use the
-    /// <see cref="Unity.Transforms.Helpers.ComputeWorldTransformMatrix"/> method.
+    /// <see cref="TransformHelpers.ComputeWorldTransformMatrix"/> method.
     ///
     /// If a system writes to this component directly outside of the Entities transform systems using a <see cref="WriteGroupAttribute"/>,
     /// <see cref="LocalToWorldSystem"/> will not overwrite this entity's matrix. In this case, the writing system is

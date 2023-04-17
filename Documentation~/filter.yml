@@ -92,3 +92,6 @@ apiRules:
   - exclude:
       uidRegex: ^Unity\.Entities\.ISystemCompilerGenerated
       type: Interface
+  - exclude:
+      uidRegex: ^Unity\.Entities\.Internal
+      type: Namespace

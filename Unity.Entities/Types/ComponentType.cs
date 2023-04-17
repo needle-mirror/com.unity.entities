@@ -524,38 +524,4 @@ namespace Unity.Entities
             return TypeIndex.GetHashCode();
         }
     }
-
-    public static partial class InternalCompilerInterface
-    {
-        [BurstCompile]
-        public static void MergeWith(ref UnsafeList<ComponentType> mergeThese, ref UnsafeList<ComponentType> withThese)
-        {
-            mergeThese.AddRange(withThese);
-            var componentTypeToAccessMode = new NativeHashMap<int, ComponentType.AccessMode>(initialCapacity: mergeThese.Length, Allocator.Temp);
-
-            foreach (var componentType in mergeThese)
-            {
-                if (!componentTypeToAccessMode.TryGetValue(componentType.TypeIndex, out var accessMode))
-                    componentTypeToAccessMode.Add(componentType.TypeIndex, componentType.AccessModeType);
-                else
-                {
-                    if ((accessMode == ComponentType.AccessMode.Exclude && componentType.AccessModeType != ComponentType.AccessMode.Exclude)
-                        || (accessMode != ComponentType.AccessMode.Exclude && componentType.AccessModeType == ComponentType.AccessMode.Exclude))
-                    {
-                        throw new ArgumentException("A component cannot be both excluded and included.");
-                    }
-
-                    if (componentType.AccessModeType == ComponentType.AccessMode.ReadWrite)
-                        componentTypeToAccessMode[componentType.TypeIndex] = ComponentType.AccessMode.ReadWrite;
-                }
-            }
-
-            mergeThese.Clear();
-
-            foreach (var kvp in componentTypeToAccessMode)
-                mergeThese.Add(new ComponentType { TypeIndex = kvp.Key, AccessModeType = kvp.Value });
-
-            componentTypeToAccessMode.Dispose();
-        }
-    }
 }

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Burst;
 using static Unity.Burst.BurstRuntime;
@@ -14,11 +16,243 @@ using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
+        /// <summary>
+    /// Provides a unique id for system types as well as quick lookup information about the system type itself.
+    /// This value is fully deterministic at runtime but should not be considered deterministic across builds
+    /// and thus should not be serialized.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 4)]
+    public struct SystemTypeIndex : IComparable<SystemTypeIndex>, IEquatable<SystemTypeIndex>
+    {
+        /// <summary>
+        /// Raw value used to identify System types at runtime.
+        /// <remarks>
+        /// This value should not be serialized as it is not guaranteed to be deterministic across builds (but is during runtime).
+        /// </remarks>
+        /// </summary>
+        [FieldOffset(0)] public int Value;
+
+        /// <summary>
+        /// An invalid <seealso cref="Unity.Entities.SystemTypeIndex"/> which does not map to a valid System type.
+        /// </summary>
+        public static SystemTypeIndex Null
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return default; }
+        }
+
+        /// <summary>
+        /// The system type is a class and inherits from <seealso cref="Unity.Entities.ComponentSystemBase"/>.
+        /// </summary>
+        public bool IsManaged
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (Value & TypeManager.SystemTypeInfo.kIsSystemManagedFlag) != 0;
+        }
+
+        /// <summary>
+        /// The system type inherits from <seealso cref="Unity.Entities.ComponentSystemGroup"/>
+        /// </summary>
+        public bool IsGroup
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (Value & TypeManager.SystemTypeInfo.kIsSystemGroupFlag) != 0;
+        }
+
+        /// <summary>
+        /// The system type has a default constructor (used for of automatic creation)
+        /// </summary>
+        internal bool HasDefaultCtor
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (Value & TypeManager.SystemTypeInfo.kSystemHasDefaultCtor) != 0;
+        }
+
+        /// <summary>
+        /// The system type inherits from <seealso cref="Unity.Entities.ISystemStartStop"/>
+        /// </summary>
+        public bool IsISystemStartStop
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (Value & TypeManager.SystemTypeInfo.kIsSystemISystemStartStopFlag) != 0;
+        }
+
+        /// <summary>
+        /// Zero-based index for the <seealso cref="Unity.Entities.SystemTypeIndex"/> stored in Value (the type index with no flags).
+        /// </summary>
+        public int Index
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Value & TypeManager.SystemTypeInfo.kClearSystemTypeFlagsMask;
+        }
+
+
+        /// <summary>
+        /// Type flags stored in Value
+        /// </summary>
+        public int Flags
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Value & ~TypeManager.SystemTypeInfo.kClearSystemTypeFlagsMask;
+            set => Value = (Value & TypeManager.SystemTypeInfo.kClearSystemTypeFlagsMask) | value;
+        }
+
+        /// <summary>
+        /// Implicit conversion from SystemTypeIndex to an int.
+        /// </summary>
+        /// <param name="ti">SystemTypeIndex to convert.</param>
+        /// <returns>SystemTypeIndex.Value integer representation.</returns>
+        public static implicit operator int(SystemTypeIndex ti) => ti.Value;
+
+        /// <summary>
+        /// Implicit conversion from an int to a SystemTypeIndex.
+        /// </summary>
+        /// <param name="value">int to convert</param>
+        /// <returns>SystemTypeIndex representation of the int</returns>
+        public static implicit operator SystemTypeIndex(int value) => new SystemTypeIndex { Value = value };
+
+        /// <summary>
+        /// <seealso cref="Unity.Entities.SystemTypeIndex"/> instances are equal if they refer to the same system type.
+        /// </summary>
+        /// <param name="lhs"><seealso cref="Unity.Entities.SystemTypeIndex"/> on left side of the equality expression</param>
+        /// <param name="rhs"><seealso cref="Unity.Entities.SystemTypeIndex"/> on right side of the equality expression</param>
+        /// <returns>True, if both TypeIndices are equal.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator ==(SystemTypeIndex lhs, SystemTypeIndex rhs)
+        {
+            return lhs.Value == rhs.Value;
+        }
+
+        /// <summary>
+        /// <seealso cref="Unity.Entities.SystemTypeIndex"/> instances are equal if they refer to the same system type.
+        /// </summary>
+        /// <param name="lhs"><seealso cref="Unity.Entities.SystemTypeIndex"/> on left side of the equality expression.</param>
+        /// <param name="rhs"><seealso cref="Unity.Entities.SystemTypeIndex"/> on right side of the equality expression.</param>
+        /// <returns>True, if both TypeIndices are equal.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator !=(SystemTypeIndex lhs, SystemTypeIndex rhs)
+        {
+            return !(lhs == rhs);
+        }
+
+        /// <summary>
+        /// Evaluates if one <seealso cref="Unity.Entities.SystemTypeIndex"/> is less than the other.
+        /// </summary>
+        /// <param name="lhs">The left-hand side</param>
+        /// <param name="rhs">The right-hand side</param>
+        /// <returns>True if the left-hand side's <see cref="SystemTypeIndex"/> is less than the right-hand side's.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator <(SystemTypeIndex lhs, SystemTypeIndex rhs)
+        {
+            return lhs.Value < rhs.Value;
+        }
+
+        /// <summary>
+        /// Evaluates if one <seealso cref="Unity.Entities.SystemTypeIndex"/> is greater than the other.
+        /// </summary>
+        /// <param name="lhs">The left-hand side</param>
+        /// <param name="rhs">The right-hand side</param>
+        /// <returns>True if the left-hand side's <see cref="SystemTypeIndex"/> is greater than the right-hand side's.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator >(SystemTypeIndex lhs, SystemTypeIndex rhs)
+        {
+            return lhs.Value > rhs.Value;
+        }
+
+        /// <summary>
+        /// Evaluates if one <seealso cref="Unity.Entities.SystemTypeIndex"/> is less than or equal to the other.
+        /// </summary>
+        /// <param name="lhs">The left-hand side</param>
+        /// <param name="rhs">The right-hand side</param>
+        /// <returns>True if the left-hand side's <see cref="SystemTypeIndex"/> is less than or equal to the right-hand side's.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator <=(SystemTypeIndex lhs, SystemTypeIndex rhs)
+        {
+            return lhs.Value <= rhs.Value;
+        }
+
+        /// <summary>
+        /// Evaluates if one <seealso cref="Unity.Entities.SystemTypeIndex"/> is greater than or equal to the other.
+        /// </summary>
+        /// <param name="lhs">The left-hand side</param>
+        /// <param name="rhs">The right-hand side</param>
+        /// <returns>True if the left-hand side's <see cref="SystemTypeIndex"/> is greater than or equal to the right-hand side's.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator >=(SystemTypeIndex lhs, SystemTypeIndex rhs)
+        {
+            return lhs.Value >= rhs.Value;
+        }
+
+        /// <summary>
+        /// Compare this <seealso cref="Unity.Entities.SystemTypeIndex"/> against a given one
+        /// </summary>
+        /// <param name="other">The other SystemTypeIndex to compare to</param>
+        /// <returns>Difference between SystemTypeIndex values</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int CompareTo(SystemTypeIndex other)
+        {
+            return Value - other.Value;
+        }
+
+        /// <summary>
+        /// <seealso cref="Unity.Entities.SystemTypeIndex"/> instances are equal if they refer to the same system type.
+        /// </summary>
+        /// <param name="compare">The object to compare to this <seealso cref="Unity.Entities.SystemTypeIndex"/>.</param>
+        /// <returns>True, if the compare parameter contains a <seealso cref="Unity.Entities.TypeIndex"/> object equal to this <seealso cref="Unity.Entities.TypeIndex"/> instance.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override bool Equals(object compare)
+        {
+            return (compare is SystemTypeIndex compareTypeIndex && Equals(compareTypeIndex));
+        }
+
+        /// <summary>
+        /// A hash used for comparisons.
+        /// </summary>
+        /// <returns>A unique hash code.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override int GetHashCode()
+        {
+            return Value;
+        }
+
+        /// <summary>
+        /// <seealso cref="Unity.Entities.SystemTypeIndex"/> instances are equal if they refer to the same system type.
+        /// </summary>
+        /// <param name="typeIndex">The other <seealso cref="Unity.Entities.SystemTypeIndex"/>.</param>
+        /// <returns>True, if the <seealso cref="Unity.Entities.SystemTypeIndex"/> instances are equal.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Equals(SystemTypeIndex typeIndex)
+        {
+            return typeIndex.Value == Value;
+        }
+
+        /// <summary>
+        /// Provides a debugging string.
+        /// </summary>
+        /// <returns>A string containing the entity index and generational version.</returns>
+        public override string ToString()
+        {
+            return ToFixedString().ToString();
+        }
+
+        /// <summary>
+        /// Provides a Burst compatible debugging string.
+        /// </summary>
+        /// <returns>A string containing the entity index and generational version.</returns>
+        [GenerateTestsForBurstCompatibility]
+        public FixedString128Bytes ToFixedString()
+        {
+            var fs = new FixedString128Bytes();
+            fs.Append(TypeManager.GetSystemName(this));
+            return fs;
+        }
+    }
+
     static public unsafe partial class TypeManager
     {
         static int s_SystemCount;
         static List<Type> s_SystemTypes;
-        static Dictionary<Type, int> s_ManagedSystemTypeToIndex;
+        static Dictionary<Type, SystemTypeIndex> s_ManagedSystemTypeToIndex;
 
 
         internal enum SystemAttributeKind
@@ -80,7 +314,7 @@ namespace Unity.Entities
             public const int kOrderFirstFlag = 1;
             public const int kOrderLastFlag = 1 << 1;
             public SystemAttributeKind Kind;
-            public int TargetSystemTypeIndex;
+            public SystemTypeIndex TargetSystemTypeIndex;
             public int Flags;
         }
 
@@ -89,7 +323,8 @@ namespace Unity.Entities
             public const int kIsSystemGroupFlag = 1 << 30;
             public const int kIsSystemManagedFlag = 1 << 29;
             public const int kIsSystemISystemStartStopFlag = 1 << 28;
-            public const int kClearSystemTypeFlagsMask = 0x0FFFFFFF;
+            public const int kSystemHasDefaultCtor = 1 << 27;
+            public const int kClearSystemTypeFlagsMask = 0x07FFFFFF;
 
             public readonly int TypeIndex;
             public readonly int Size;
@@ -128,7 +363,7 @@ namespace Unity.Entities
             public WorldSystemFilterFlags OptionalFlags;
             public WorldSystemFilterFlags RequiredFlags;
         }
-        static Dictionary<LookupFlags, IReadOnlyList<Type>> s_SystemFilterTypeMap;
+        static Dictionary<LookupFlags, NativeList<SystemTypeIndex>> s_SystemFilterTypeMap;
 
         static UnsafeList<int> s_SystemTypeFlagsList;
         static UnsafeList<WorldSystemFilterFlags> s_SystemFilterFlagsList;
@@ -148,10 +383,10 @@ namespace Unity.Entities
             const int kInitialSystemCount = 1024;
             s_SystemCount = 0;
             s_SystemTypes = new List<Type>(kInitialSystemCount);
-            s_ManagedSystemTypeToIndex = new Dictionary<Type, int>(kInitialSystemCount);
+            s_ManagedSystemTypeToIndex = new Dictionary<Type, SystemTypeIndex>(kInitialSystemCount);
             s_SystemTypeSizes = new List<int>(kInitialSystemCount);
             s_SystemTypeHashes = new UnsafeList<long>(kInitialSystemCount, Allocator.Persistent);
-            s_SystemFilterTypeMap = new Dictionary<LookupFlags, IReadOnlyList<Type>>(kInitialSystemCount);
+            s_SystemFilterTypeMap = new Dictionary<LookupFlags, NativeList<SystemTypeIndex>>(kInitialSystemCount);
 
             s_SystemTypeFlagsList = new UnsafeList<int>(kInitialSystemCount, Allocator.Persistent);
             s_SystemFilterFlagsList = new UnsafeList<WorldSystemFilterFlags>(kInitialSystemCount, Allocator.Persistent);
@@ -171,7 +406,13 @@ namespace Unity.Entities
             s_SystemTypes.Clear();
             s_ManagedSystemTypeToIndex.Clear();
             s_SystemTypeSizes.Clear();
+            foreach (var v in s_SystemFilterTypeMap.Values)
+            {
+                v.Dispose();
+            }
+            
             s_SystemFilterTypeMap.Clear();
+            
 
             s_SystemTypeFlagsList.Dispose();
             s_SystemFilterFlagsList.Dispose();
@@ -224,6 +465,8 @@ namespace Unity.Entities
                     var hash = GetHashCode64(systemType);
                     // isystems can't be groups
                     var flags = GetSystemTypeFlags(systemType);
+                    if (typeof(ISystem).IsAssignableFrom(systemType) && ((flags & SystemTypeInfo.kIsSystemManagedFlag) != 0))
+                        Debug.LogError($"System {systemType} has managed fields, but implements ISystem, which is not allowed. If you need to use managed fields, please inherit from SystemBase.");
                     var filterFlags = MakeWorldFilterFlags(systemType);
 
                     AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
@@ -409,7 +652,7 @@ namespace Unity.Entities
 
             var systemTypeIndex = GetSystemTypeIndex(systemType);
             s_SystemAttributes.Add(list);
-            Assertions.Assert.IsTrue(systemTypeIndex == s_SystemAttributes.Length - 1);
+            Assertions.Assert.IsTrue(systemTypeIndex.Index == s_SystemAttributes.Length - 1);
         }
 
 //need to implement UnsafeUtility.IsUnmanaged in dotsrt for this to work
@@ -417,6 +660,8 @@ namespace Unity.Entities
         private static int GetSystemTypeFlags(Type systemType)
         {
             var flags = 0;
+            if (systemType.GetConstructors().Any(c => c.GetParameters().Length == 0))
+                flags |= SystemTypeInfo.kSystemHasDefaultCtor;
             if (systemType.IsSubclassOf(typeof(ComponentSystemGroup)))
                 flags |= SystemTypeInfo.kIsSystemGroupFlag;
             if (!UnsafeUtility.IsUnmanaged(systemType))
@@ -434,7 +679,6 @@ namespace Unity.Entities
         /// <returns>Returns the new system.</returns>
         public static ComponentSystemBase ConstructSystem(Type systemType)
         {
-#if !NET_DOTS
             if (!typeof(ComponentSystemBase).IsAssignableFrom(systemType))
                 throw new ArgumentException($"'{systemType.FullName}' cannot be constructed as it does not inherit from ComponentSystemBase");
 
@@ -442,14 +686,6 @@ namespace Unity.Entities
             AddSystemTypeToTablesAfterInit(systemType);
 
             return (ComponentSystemBase)Activator.CreateInstance(systemType);
-#else
-            Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
-
-            var obj = CreateSystem(systemType);
-            if (!(obj is ComponentSystemBase))
-                throw new ArgumentException("Null casting in Construct System. Bug in TypeManager.");
-            return obj as ComponentSystemBase;
-#endif
         }
 
         /// <summary>
@@ -473,15 +709,39 @@ namespace Unity.Entities
             return (T)ConstructSystem(systemType);
         }
 
-
         /// <summary>
         /// Return an array of all System types available to the runtime matching the WorldSystemFilterFlags. By default,
-        /// all systems available to the runtime is returned.
+        /// all systems available to the runtime is returned. Prefer GetSystemTypeIndices over this to avoid
+        /// unnecessary reflection. 
         /// </summary>
         /// <param name="filterFlags">Flags the returned systems can have</param>
         /// <param name="requiredFlags">Flags the returned systems must have</param>
         /// <returns>Returns a list of systems meeting the flag requirements provided</returns>
-        public static IReadOnlyList<Type> GetSystems(WorldSystemFilterFlags filterFlags = WorldSystemFilterFlags.All, WorldSystemFilterFlags requiredFlags = 0)
+        public static IReadOnlyList<Type> GetSystems(
+            WorldSystemFilterFlags filterFlags = WorldSystemFilterFlags.All,
+            WorldSystemFilterFlags requiredFlags = 0)
+        {
+            var ret = new List<Type>();
+            var indices = GetSystemTypeIndices(filterFlags, requiredFlags);
+
+            for (int i = 0; i < indices.Length; i++)
+            {
+                ret.Add(GetSystemType(indices[i]));
+            }
+
+            return ret;
+        }
+        
+        /// <summary>
+        /// Return an array of all System types available to the runtime matching the WorldSystemFilterFlags. By default,
+        /// all systems available to the runtime is returned. This version avoids unnecessary reflection.
+        /// </summary>
+        /// <param name="filterFlags">Flags the returned systems can have</param>
+        /// <param name="requiredFlags">Flags the returned systems must have</param>
+        /// <returns>Returns a list of systems meeting the flag requirements provided</returns>
+        public static NativeList<SystemTypeIndex> GetSystemTypeIndices(
+            WorldSystemFilterFlags filterFlags = WorldSystemFilterFlags.All,
+            WorldSystemFilterFlags requiredFlags = 0)
         {
             // Expand default to proper types
             if ((filterFlags & WorldSystemFilterFlags.Default) != 0)
@@ -495,54 +755,31 @@ namespace Unity.Entities
             requiredFlags &= ~WorldSystemFilterFlags.Default;
             LookupFlags lookupFlags = new LookupFlags() { OptionalFlags = filterFlags, RequiredFlags = requiredFlags };
 
-            if (s_SystemFilterTypeMap.TryGetValue(lookupFlags, out var systemTypes))
-                return systemTypes;
+            
+            if (s_SystemFilterTypeMap.TryGetValue(lookupFlags, out var systemTypeIndices))
+                return systemTypeIndices;
 
-#if !UNITY_DOTSRUNTIME
-            var filteredSystemTypes = new List<Type>();
+            // Use a temp list since we don't know how many systems will be filtered out yet
+            var tempFilteredSystemTypes = new NativeList<SystemTypeIndex>(s_SystemTypes.Count-1, Allocator.Temp);
 
             // Skip index 0 since that is always null
             for (int i = 1; i < s_SystemTypes.Count;++i)
             {
                 var systemType = s_SystemTypes[i];
-                if (FilterSystemType(systemType, lookupFlags))
-                    filteredSystemTypes.Add(systemType);
+                if (FilterSystemType(i, lookupFlags))
+                    tempFilteredSystemTypes.Add(GetSystemTypeIndex(systemType));
             }
 
-            SortSystemTypes(filteredSystemTypes);
+            SortSystemTypesInCreationOrder(tempFilteredSystemTypes);
 
-            s_SystemFilterTypeMap[lookupFlags] = filteredSystemTypes;
-            return filteredSystemTypes;
-#else
+            var persistentSystemList = new NativeList<SystemTypeIndex>(tempFilteredSystemTypes.Length, Allocator.Persistent);
+            persistentSystemList.CopyFrom(tempFilteredSystemTypes);
 
-            var filteredSystemTypes = new List<Type>();
-            if (lookupFlags.OptionalFlags == WorldSystemFilterFlags.All)
-            {
-#if !NET_DOTS
-                // 0 is reserved for null, don't return it
-                filteredSystemTypes = s_SystemTypes.GetRange(1, s_SystemTypes.Count-1);
-#else
-                for(int i = 1; i < s_SystemTypes.Count; ++i)
-                    filteredSystemTypes.Add(s_SystemTypes[i]);
-#endif
-            }
-            else
-            {
-                for (int i = 1; i < s_SystemTypes.Count; ++i)
-                {
-                    if (!IsSystemDisabledForCreation(s_SystemTypes[i]) && (s_SystemFilterFlagsList[i] & lookupFlags.OptionalFlags) != 0 && (s_SystemFilterFlagsList[i] & lookupFlags.RequiredFlags) == lookupFlags.RequiredFlags)
-                        filteredSystemTypes.Add(s_SystemTypes[i]);
-                }
-            }
-
-            SortSystemTypes(filteredSystemTypes);
-            s_SystemFilterTypeMap[lookupFlags] = filteredSystemTypes;
-            return filteredSystemTypes;
-#endif
+            s_SystemFilterTypeMap[lookupFlags] = persistentSystemList;
+            return persistentSystemList;
         }
 
 
-#if !NET_DOTS
         internal static void AddSystemTypeToTablesAfterInit(Type systemType)
         {
             Assertions.Assert.IsTrue(SharedSystemCount.Ref.UnsafeDataPointer != null, "This method must not be called until TypeManager initialization is complete.");
@@ -575,33 +812,60 @@ namespace Unity.Entities
             SharedSystemCount.Ref.Data = s_SystemCount;
             AddSystemAttributesToTable(systemType);
         }
-#endif
-
-        internal static void SortSystemTypes(List<Type> systemTypes)
+        
+        /// <summary>
+        /// Sorts a list of system types based on rules defined via the 
+        /// <see cref="CreateBeforeAttribute"/> and <see cref="CreateAfterAttribute"/>.
+        /// </summary>
+        /// <param name="systemTypes">A List of system types to sort.</param>
+        public static void SortSystemTypesInCreationOrder(List<Type> systemTypes)
         {
-            var systemElements = new UnsafeList<ComponentSystemSorter.SystemElement>(systemTypes.Count, Allocator.Temp);
-            systemElements.Length = systemTypes.Count;
-            for (int i = 0; i < systemTypes.Count; ++i)
+
+            var indices = new NativeList<SystemTypeIndex>(systemTypes.Count, Allocator.Temp);
+            for (int i = 0; i < systemTypes.Count; i++)
+            {
+                indices.Add(GetSystemTypeIndex(systemTypes[i]));
+            }
+
+            SortSystemTypesInCreationOrder(indices);
+
+            for (int i = 0; i < indices.Length; ++i)
+                systemTypes[i] = GetSystemType(indices[i]);
+        }
+
+
+        /// <summary>
+        /// Sort the provided system type indices by their systems' CreateAfter and CreateBefore attributes, for the
+        /// purposes of creating them in an order that respects said constraints. For use in implementing custom world
+        /// creation, such as with ICustomBootstrap.
+        /// </summary>
+        /// <param name="indices">The system type indices to sort</param>
+        public static void SortSystemTypesInCreationOrder(NativeList<SystemTypeIndex> indices)
+        {
+            var systemElements = new UnsafeList<ComponentSystemSorter.SystemElement>(indices.Length, Allocator.Temp);
+            systemElements.Length = indices.Length;
+
+            for (int i = 0; i < indices.Length; ++i)
             {
                 systemElements[i] = new ComponentSystemSorter.SystemElement
                 {
-                    TypeIndex = GetSystemTypeIndex(systemTypes[i]),
+                    SystemTypeIndex = indices[i],
                     Index = new UpdateIndex(i, false),
                     OrderingBucket = 0,
-                    updateBefore = new FixedList512Bytes<int>(),
+                    updateBefore = new NativeList<int>(16, Allocator.Temp),
                     nAfter = 0,
                 };
             }
 
             // Find & validate constraints between systems in the group
-            var lookupDictionary = new NativeHashMap<int, int>(systemElements.Length, Allocator.Temp);
+            var lookupDictionary = new NativeHashMap<SystemTypeIndex, int>(systemElements.Length, Allocator.Temp);
 
-            var lookupDictionaryPtr = (NativeHashMap<int, int>*)UnsafeUtility.AddressOf(ref lookupDictionary);
+            var lookupDictionaryPtr = (NativeHashMap<SystemTypeIndex, int>*)UnsafeUtility.AddressOf(ref lookupDictionary);
             
             var sysElemsPtr = (UnsafeList<ComponentSystemSorter.SystemElement>*)UnsafeUtility.AddressOf(ref systemElements);
 
-            var badSystemTypeIndices = new NativeHashSet<int>(16, Allocator.Temp);
-            var badSystemTypeIndicesPtr = (NativeHashSet<int>*)UnsafeUtility.AddressOf(ref badSystemTypeIndices);
+            var badSystemTypeIndices = new NativeHashSet<SystemTypeIndex>(16, Allocator.Temp);
+            var badSystemTypeIndicesPtr = (NativeHashSet<SystemTypeIndex>*)UnsafeUtility.AddressOf(ref badSystemTypeIndices);
             ComponentSystemSorter.FindConstraints(
                 -1,
                 sysElemsPtr,
@@ -620,7 +884,7 @@ namespace Unity.Entities
                 lookupDictionaryPtr);
             
             for (int i = 0; i < systemElements.Length; ++i)
-                systemTypes[i] = GetSystemType(systemElements[i].TypeIndex);
+                indices[i] = systemElements[i].SystemTypeIndex;
         }
         
         internal static void AddSystemTypeToTables(Type type, string typeName, int typeSize, long typeHash, int systemTypeFlags, WorldSystemFilterFlags filterFlags)
@@ -628,7 +892,7 @@ namespace Unity.Entities
             if (type != null && s_ManagedSystemTypeToIndex.ContainsKey(type))
                 return;
 
-            int systemIndex = s_SystemCount++;
+            SystemTypeIndex systemIndex = s_SystemCount++ | systemTypeFlags;
             if (type != null)
             {
                 s_ManagedSystemTypeToIndex.Add(type, systemIndex);
@@ -654,7 +918,7 @@ namespace Unity.Entities
 
         internal static WorldSystemFilterFlags GetSystemFilterFlags(Type type)
         {
-            var systemIndex = GetSystemTypeIndex(type) & SystemTypeInfo.kClearSystemTypeFlagsMask;
+            var systemIndex = GetSystemTypeIndex(type).Index;
             var flags = s_SystemFilterFlagsList[systemIndex];
 #if !UNITY_DOTSRUNTIME
             if (flags == 0)
@@ -664,6 +928,12 @@ namespace Unity.Entities
             }
 #endif
             return flags;
+        }
+        
+        
+        internal static WorldSystemFilterFlags GetSystemFilterFlags(SystemTypeIndex i)
+        {
+            return s_SystemFilterFlagsList[i.Index];
         }
 
         /// <summary>
@@ -676,9 +946,10 @@ namespace Unity.Entities
             return GetSystemTypeIndexNoThrow(type) != -1;
         }
 
-        public static bool IsSystemTypeIndex(int systemTypeIndex)
+        internal static bool IsSystemTypeIndex(SystemTypeIndex systemTypeIndex)
         {
-            return systemTypeIndex >= 0 && systemTypeIndex < SharedSystemCount.Ref.Data;
+            var systemTypeIndexNoFlags = systemTypeIndex & SystemTypeInfo.kClearSystemTypeFlagsMask;
+            return systemTypeIndexNoFlags >= 0 && systemTypeIndexNoFlags < SharedSystemCount.Ref.Data;
         }
         
 
@@ -687,9 +958,9 @@ namespace Unity.Entities
             return (UnsafeText*) SharedSystemTypeNames.Ref.Data;
         }
 
-        internal static UnsafeText* GetSystemNameInternal(int systemIndex)
+        internal static UnsafeText* GetSystemNameInternal(SystemTypeIndex systemIndex)
         {
-            return GetSystemTypeNamesPointer() + (systemIndex & ClearFlagsMask);
+            return GetSystemTypeNamesPointer() + (systemIndex.Index);
         }
 
         /// <summary>
@@ -709,7 +980,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="systemIndex">System index to lookup the name for</param>
         /// <returns>Returns the name of the system. Otherwise an empty string</returns>
-        public static NativeText.ReadOnly GetSystemName(int systemIndex)
+        public static NativeText.ReadOnly GetSystemName(SystemTypeIndex systemIndex)
         {
             var pUnsafeText = GetSystemNameInternal(systemIndex);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -725,7 +996,7 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="T">System type</typeparam>
         /// <returns>Returns the System index for the input type T</returns>
-        public static int GetSystemTypeIndex<T>()
+        public static SystemTypeIndex GetSystemTypeIndex<T>()
         {
             var index = SharedSystemTypeIndex<T>.Ref.Data;
 
@@ -737,16 +1008,21 @@ namespace Unity.Entities
 
             return index;
         }
+        
+        internal static SystemTypeIndex GetSystemTypeIndexNoThrow<T>()
+        {
+            return SharedSystemTypeIndex<T>.Ref.Data;
+        }
 
         internal static long GetSystemTypeHash(Type type)
         {
             var systemIndex = GetSystemTypeIndex(type);
-            return s_SystemTypeHashes[systemIndex];
+            return s_SystemTypeHashes[systemIndex.Index];
         }
 
-        internal static long GetSystemTypeHash(int systemTypeIndex)
+        internal static long GetSystemTypeHash(SystemTypeIndex systemTypeIndex)
         {
-            return ((long*)SharedSystemTypeHashes.Ref.Data)![systemTypeIndex];
+            return ((long*)SharedSystemTypeHashes.Ref.Data)![systemTypeIndex.Index];
         }
 
         internal static long GetSystemTypeHash<T>()
@@ -756,39 +1032,63 @@ namespace Unity.Entities
 
         internal static int GetSystemTypeSize(Type type)
         {
-            int systemIndex = GetSystemTypeIndex(type);
-            return s_SystemTypeSizes[systemIndex];
+            var systemIndex = GetSystemTypeIndex(type);
+            return s_SystemTypeSizes[systemIndex.Index];
         }
+
+        internal static int GetSystemTypeSize(SystemTypeIndex index)
+        {
+            return s_SystemTypeSizes[index.Index];
+        }
+        
         internal static int GetSystemTypeSize<T>()
         {
-            int systemIndex = GetSystemTypeIndex<T>();
-            return s_SystemTypeSizes[systemIndex];
+            var systemIndex = GetSystemTypeIndex<T>();
+            return s_SystemTypeSizes[systemIndex.Index];
         }
 
 
-        internal static int GetSystemTypeIndexNoThrow(Type type)
+        internal static SystemTypeIndex GetSystemTypeIndexNoThrow(Type type)
         {
             if (type == null)
                 return 0;
 
-            int res;
+            SystemTypeIndex res;
             if (s_ManagedSystemTypeToIndex.TryGetValue(type, out res))
                 return res;
             else
                 return -1;
         }
 
-        internal static int GetSystemTypeIndex(Type type)
+        /// <summary>
+        /// Gets the <see cref="SystemTypeIndex"/> for the given system type.
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static SystemTypeIndex GetSystemTypeIndex(Type type)
         {
             int index = GetSystemTypeIndexNoThrow(type);
             if (index == -1)
-                throw new ArgumentException($"The passed-in Type {type} is not a type that derives from SystemBase or ISystem");
+            {
+                if (!typeof(ISystem).IsAssignableFrom(type) && !typeof(ComponentSystemBase).IsAssignableFrom(type))
+                    throw new ArgumentException(
+                        $"The passed-in Type {type} is not a type that derives from SystemBase or ISystem");
+                else
+                {
+                    var ret = s_SystemCount;
+                    AddSystemTypeToTablesAfterInit(type);
+                    return ret;
+                }
+            }
+            
+            
             return index;
         }
 
-        internal static Type GetSystemType(int systemTypeIndex)
+        internal static Type GetSystemType(SystemTypeIndex systemTypeIndex)
         {
-            int typeIndexNoFlags = systemTypeIndex & SystemTypeInfo.kClearSystemTypeFlagsMask;
+            int typeIndexNoFlags = systemTypeIndex.Index;
             Assertions.Assert.IsTrue(typeIndexNoFlags < s_SystemTypes.Count);
             return s_SystemTypes[typeIndexNoFlags];
         }
@@ -802,8 +1102,7 @@ namespace Unity.Entities
         {
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
 
-            int index = GetSystemTypeIndex(type);
-            return (s_SystemTypeFlagsList[index] & SystemTypeInfo.kIsSystemGroupFlag) != 0;
+            return GetSystemTypeIndex(type).IsGroup;
         }
 
         /// <summary>
@@ -815,8 +1114,7 @@ namespace Unity.Entities
         {
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
 
-            int index = GetSystemTypeIndex(type);
-            return (s_SystemTypeFlagsList[index] & SystemTypeInfo.kIsSystemManagedFlag) != 0;
+            return GetSystemTypeIndex(type).IsManaged;
         }
 
         /// <summary>
@@ -824,35 +1122,43 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="systemTypeIndex">System index to use for flag lookup</param>
         /// <returns>System type flags</returns>
-        public static int GetSystemTypeFlags(int systemTypeIndex)
+        public static int GetSystemTypeFlags(SystemTypeIndex systemTypeIndex)
         {
-            return s_SystemTypeFlagsList[systemTypeIndex];
+            return s_SystemTypeFlagsList[systemTypeIndex.Index];
         }
 
-        internal static FixedList128Bytes<SystemAttribute> GetSystemAttributes(
-            int systemTypeIndex,
-            SystemAttributeKind kind)
+        internal static NativeList<SystemAttribute> GetSystemAttributes(
+            SystemTypeIndex systemTypeIndex,
+            SystemAttributeKind kind,
+            Allocator allocator = Allocator.Temp)
         {
-            Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
+            Assertions.Assert.IsTrue(s_Initialized,
+                "The TypeManager must be initialized before the TypeManager can be used.");
 
-            var ret = new FixedList128Bytes<SystemAttribute>(); 
             var attributesList = (UnsafeList<SystemAttribute>*)SharedSystemAttributes.Ref.Data;
 
             if (IsSystemTypeIndex(systemTypeIndex))
             {
-
-                var list = attributesList[systemTypeIndex];
+                var list = attributesList[systemTypeIndex.Index];
+                var ret = new NativeList<SystemAttribute>(list.Length, allocator);
+                ;
 
                 for (int i = 0; i < list.Length; i++)
                 {
                     if (list[i].Kind == kind)
                         ret.Add(list[i]);
                 }
-            }
 
-            return ret;
+                return ret;
+            }
+            else
+            {
+                UnityEngine.Debug.LogError(
+                    $"System type index {systemTypeIndex} is not valid, returning empty attribute list.");
+                return new NativeList<SystemAttribute>(0, allocator);
+            }
         }
-        
+
         /// <summary>
         /// Get all the attribute objects of Type attributeType for a System.
         /// </summary>
@@ -900,9 +1206,9 @@ namespace Unity.Entities
         
         private struct SharedSystemTypeIndex
         {
-            public static ref int Get(Type systemType)
+            public static ref SystemTypeIndex Get(Type systemType)
             {
-                return ref SharedStatic<int>.GetOrCreate(typeof(TypeManagerKeyContext), systemType).Data;
+                return ref SharedStatic<SystemTypeIndex>.GetOrCreate(typeof(TypeManagerKeyContext), systemType).Data;
             }
         }
         
@@ -931,7 +1237,34 @@ namespace Unity.Entities
         {
             public static readonly SharedStatic<int> Ref = SharedStatic<int>.GetOrCreate<TypeManagerKeyContext, SharedSystemCount>();
         }
+        
+        static bool FilterSystemType(SystemTypeIndex systemTypeIndex, LookupFlags lookupFlags)
+        {
+            var attrs = GetSystemAttributes(systemTypeIndex, SystemAttributeKind.DisableAutoCreation);
 
+            if (systemTypeIndex.IsManaged && !systemTypeIndex.HasDefaultCtor)
+            {
+                if (attrs.Length == 0)
+                    Debug.LogWarning(
+                        $"Missing default ctor on {GetSystemName(systemTypeIndex)} (or if you don't want this to be auto-creatable, tag it with [DisableAutoCreation])");
+                return false;
+            }
+
+            if (attrs.Length > 0)
+                return false;
+
+            if (lookupFlags.OptionalFlags == WorldSystemFilterFlags.All)
+                return true;
+
+
+            var systemFlags = GetSystemFilterFlags(systemTypeIndex);
+
+            if ((lookupFlags.RequiredFlags & WorldSystemFilterFlags.Editor) != 0)
+                lookupFlags.OptionalFlags |= WorldSystemFilterFlags.Editor;
+
+            return (lookupFlags.OptionalFlags & systemFlags) != 0 && (lookupFlags.RequiredFlags & systemFlags) == lookupFlags.RequiredFlags;
+        }
+        
 #if !UNITY_DOTSRUNTIME
         internal static IEnumerable<Type> GetTypesDerivedFrom(Type type)
         {
@@ -968,50 +1301,6 @@ namespace Unity.Entities
 
             return types;
 #endif
-        }
-
-        static bool FilterSystemType(Type type, LookupFlags lookupFlags)
-        {
-            // These types cannot be instantiated
-            if (type.IsAbstract || type.ContainsGenericParameters)
-                return false;
-
-            // Only derivatives of ComponentSystemBase and structs implementing ISystem are systems
-            if (!type.IsSubclassOf(typeof(ComponentSystemBase)) && !typeof(ISystem).IsAssignableFrom(type))
-                throw new System.ArgumentException($"{type} must already be filtered by ComponentSystemBase or ISystem");
-
-            // The auto-creation system instantiates using the default ctor, so if we can't find one, exclude from list
-            if (type.IsClass && type.GetConstructor(Type.EmptyTypes) == null)
-            {
-                // the entire assembly can be marked for no-auto-creation (test assemblies are good candidates for this)
-                var localDisableAllAutoCreation = Attribute.IsDefined(type.Assembly, typeof(DisableAutoCreationAttribute));
-                var localDisableTypeAutoCreation = Attribute.IsDefined(type, typeof(DisableAutoCreationAttribute), false);
-                if (!localDisableAllAutoCreation && !localDisableTypeAutoCreation)
-                    Debug.LogWarning($"Missing default ctor on {type.FullName} (or if you don't want this to be auto-creatable, tag it with [DisableAutoCreation])");
-                return false;
-            }
-
-            if (lookupFlags.OptionalFlags == WorldSystemFilterFlags.All)
-                return true;
-
-            // the entire assembly can be marked for no-auto-creation (test assemblies are good candidates for this)
-            var disableAllAutoCreation = Attribute.IsDefined(type.Assembly, typeof(DisableAutoCreationAttribute));
-            var disableTypeAutoCreation = Attribute.IsDefined(type, typeof(DisableAutoCreationAttribute), false);
-
-            if (disableTypeAutoCreation || disableAllAutoCreation)
-            {
-                if (disableTypeAutoCreation && disableAllAutoCreation)
-                    Debug.LogWarning($"Redundant [DisableAutoCreation] on {type.FullName} (attribute is already present on assembly {type.Assembly.GetName().Name}");
-
-                return false;
-            }
-
-            var systemFlags = GetSystemFilterFlags(type);
-
-            if ((lookupFlags.RequiredFlags & WorldSystemFilterFlags.Editor) != 0)
-                lookupFlags.OptionalFlags |= WorldSystemFilterFlags.Editor;
-
-            return (lookupFlags.OptionalFlags & systemFlags) != 0 && (lookupFlags.RequiredFlags & systemFlags) == lookupFlags.RequiredFlags;
         }
 
         static WorldSystemFilterFlags GetParentGroupDefaultFilterFlags(Type type)
@@ -1072,10 +1361,6 @@ namespace Unity.Entities
             return systemFlags;
         }
 #else
-        static bool IsSystemDisabledForCreation(Type system)
-        {
-            return GetSystemAttributes(system, typeof(DisableAutoCreationAttribute)).Length > 0;
-        }
 
         static object CreateSystem(Type systemType)
         {

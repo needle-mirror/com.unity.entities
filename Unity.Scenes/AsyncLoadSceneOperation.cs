@@ -179,6 +179,9 @@ namespace Unity.Scenes
 
 #if !UNITY_DOTSRUNTIME
         UntypedWeakReferenceId _UnityObjectRefId;
+#if UNITY_EDITOR
+        RuntimeContentManager.InstanceHandle _UnityObjectRefsHandle;
+#endif
 #endif
 
         LoadingStatus           _LoadingStatus;
@@ -259,8 +262,13 @@ namespace Unity.Scenes
 #if !UNITY_DOTSRUNTIME
                 if (_UnityObjectRefId.IsValid)
                 {
+#if UNITY_EDITOR
+                    _UnityObjectRefsHandle = RuntimeContentManager.LoadInstanceAsync(_UnityObjectRefId);
+                    RuntimeContentManager.WaitForInstanceCompletion(_UnityObjectRefsHandle);
+#else
                     RuntimeContentManager.LoadObjectAsync(_UnityObjectRefId);
                     RuntimeContentManager.WaitForObjectCompletion(_UnityObjectRefId);
+#endif
                 }
 #endif
                 ScheduleSceneRead();
@@ -325,7 +333,11 @@ namespace Unity.Scenes
 #if !UNITY_DOTSRUNTIME
                     if (_UnityObjectRefId.IsValid)
                     {
+#if UNITY_EDITOR
+                        _UnityObjectRefsHandle = RuntimeContentManager.LoadInstanceAsync(_UnityObjectRefId);
+#else
                         RuntimeContentManager.LoadObjectAsync(_UnityObjectRefId);
+#endif
                         _LoadingStatus = LoadingStatus.WaitingForUnityObjectReferencesLoad;
                     }
                     else
@@ -349,7 +361,11 @@ namespace Unity.Scenes
             // Once async asset bundle load is done, we can read the asset
             if (_LoadingStatus == LoadingStatus.WaitingForUnityObjectReferencesLoad)
             {
+#if UNITY_EDITOR
+                if (RuntimeContentManager.GetInstanceLoadingStatus(_UnityObjectRefsHandle) == ObjectLoadingStatus.Completed)
+#else
                 if (RuntimeContentManager.GetObjectLoadingStatus(_UnityObjectRefId) == ObjectLoadingStatus.Completed)
+#endif
                     _LoadingStatus = LoadingStatus.WaitingForEntitiesLoad;
             }
 #endif
@@ -397,7 +413,7 @@ namespace Unity.Scenes
                     _LoadingStatus = LoadingStatus.Completed;
                     var currentTime = Time.realtimeSinceStartup;
                     var totalTime = currentTime - _StartTime;
-                    
+
                     System.Console.WriteLine($"Streamed scene with {totalTime * 1000,4:f0}ms latency from {_ScenePath}");
                 }
             }
@@ -420,8 +436,16 @@ namespace Unity.Scenes
             var transaction = _EntityManager.BeginExclusiveEntityTransaction();
 #if !UNITY_DOTSRUNTIME
             UnityEngine.Object[] objectReferences = null;
+#if UNITY_EDITOR
+            if (_UnityObjectRefsHandle.IsValid)
+            {
+                SerializeUtilityHybrid.DeserializeObjectReferences(RuntimeContentManager.GetInstanceValue<ReferencedUnityObjects>(_UnityObjectRefsHandle), out objectReferences);
+                RuntimeContentManager.ReleaseInstancesAsync(_UnityObjectRefsHandle);
+            }
+#else
             if(_UnityObjectRefId.IsValid)
                 SerializeUtilityHybrid.DeserializeObjectReferences(RuntimeContentManager.GetObjectValue<ReferencedUnityObjects>(_UnityObjectRefId), out objectReferences);
+#endif
             var loadJob = new AsyncLoadSceneJob
             {
                 Transaction = transaction,

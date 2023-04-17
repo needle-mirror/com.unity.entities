@@ -141,7 +141,7 @@ namespace Unity.Entities.Editor
                     {
                         EditorGUILayout.TextField(new GUIContent(label, icon), value);
                     }
-                    
+
                     if (GUILayout.Button(SearchUtils.search, SearchUtils.Styles.iconButton, GUILayout.Width(16)))
                     {
                         searchAction();
@@ -191,7 +191,7 @@ namespace Unity.Entities.Editor
         }
     }
 
-    public static class JournalSearchProvider
+    static class JournalSearchProvider
     {
         public const string type = "journal";
 
@@ -571,7 +571,7 @@ namespace Unity.Entities.Editor
             OpenProvider();
         }
 
-        public static void OpenProvider(string query = null)
+        internal static void OpenProvider(string query = null)
         {
             SearchBridge.OpenContextualTable(type, query ?? "", GetDefaultTableConfig(null), viewState => viewState.flags |= UnityEngine.Search.SearchViewFlags.OpenInspectorPreview);
         }

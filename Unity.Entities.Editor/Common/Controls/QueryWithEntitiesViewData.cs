@@ -36,6 +36,7 @@ namespace Unity.Entities.Editor
                 return count != 0;
             }
 
+            Query.CompleteDependency();
             if (!World.EntityManager.IsQueryValid(Query))
                 return false;
 

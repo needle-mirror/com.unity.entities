@@ -49,10 +49,24 @@ namespace Unity.Scenes.Editor
     {
         private string m_BuildWorkingDir = $"../Library/BuildWorkingDir/{PlayerSettings.productName}";
         private BuildPlayerContext m_BuildPlayerContext;
+        // This file is read by unity\Platforms\WebGL\WebGLPlayerBuildProgram\WebGLPlayerBuildProgram.cs when bundling the virtual filesystem
+        private static string k_WebGLStreamingAssetFilesManifest = "Library/PlayerDataCache/WebGL/PreloadedStreamingAssets.manifest";
+        private bool m_IsWebGLBuild;
+        private string m_DirectoryOutput;
 
         void RegisterAdditionalFileToDeploy(string from, string to)
         {
             var realPath = Path.GetFullPath(from);
+
+            if (m_IsWebGLBuild)
+            {
+                // Record this file to a manifest so that WebGL virtual filesystem packager
+                // will know to preload it for synchronous filesystem access.
+                StreamWriter writer = File.AppendText(k_WebGLStreamingAssetFilesManifest);
+                writer.WriteLine(to);
+                writer.Close();
+            }
+
             m_BuildPlayerContext.AddAdditionalPathToStreamingAssets(realPath, to);
         }
 
@@ -101,6 +115,16 @@ namespace Unity.Scenes.Editor
             if (BuildPlayerStep.BuildFromBuildConfiguration)
                 return;
 #endif
+
+            // For WebGL, we need to prepare a manifest list of all generated data files under StreamingAssets/
+            // that need to be synchronously accessible.
+            if (buildPlayerContext.BuildPlayerOptions.target == BuildTarget.WebGL)
+            {
+                m_IsWebGLBuild = true;
+                m_DirectoryOutput = buildPlayerContext.BuildPlayerOptions.locationPathName;
+                if (File.Exists(k_WebGLStreamingAssetFilesManifest)) File.Delete(k_WebGLStreamingAssetFilesManifest); // We'll build the list by appending items one at a time, so clear any old list.
+                else Directory.CreateDirectory(new FileInfo(k_WebGLStreamingAssetFilesManifest).Directory.FullName);
+            }
 
             if(Directory.Exists(m_BuildWorkingDir))
                 Directory.Delete(m_BuildWorkingDir, true);

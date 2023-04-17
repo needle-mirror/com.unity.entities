@@ -1,3 +1,4 @@
+using System;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
@@ -32,11 +33,11 @@ namespace Unity.Entities
     {
         public int UnusedField;
 
-        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, bool isReadOnly)
+        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all)
         {
         }
 
-        BurstCompatibleAspect IAspectCreate<BurstCompatibleAspect>.CreateAspect(Entity entity, ref SystemState system, bool isReadOnly)
+        BurstCompatibleAspect IAspectCreate<BurstCompatibleAspect>.CreateAspect(Entity entity, ref SystemState system)
         {
             throw new System.NotImplementedException();
         }

@@ -66,7 +66,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
             $@"{(UseBurst ? $"[Unity.Burst.NoAlias]{Environment.NewLine}[{BurstCompileAttribute}]" : string.Empty)}
                 public struct Enumerator : global::System.Collections.Generic.IEnumerator<{queryResultTypeName}>
                 {{
-                    Unity.Entities.EntityQueryEnumerator _entityQueryEnumerator;
+                    Unity.Entities.Internal.InternalEntityQueryEnumerator _entityQueryEnumerator;
                     TypeHandle _typeHandle;
                     ResolvedChunk _resolvedChunk;
 
@@ -75,7 +75,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
 
                     public Enumerator(Unity.Entities.EntityQuery entityQuery, TypeHandle typeHandle)
                     {{
-                        _entityQueryEnumerator = new Unity.Entities.EntityQueryEnumerator(entityQuery);
+                        _entityQueryEnumerator = new Unity.Entities.Internal.InternalEntityQueryEnumerator(entityQuery);
 
                         _currentEntityIndex = -1;
                         _endEntityIndex = -1;

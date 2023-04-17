@@ -1,5 +1,92 @@
 # Changelog
 
+## [1.0.8] - 2023-04-17
+
+### Added
+
+* TypeManager.IsSystemTypeIndex was made internal as this function should not be needed as part of the public API.
+* Added `bool EnabledBitUtility.TryGetNextRange(v128 mask, int firstIndexToCheck, out int nextRangeBegin, out int nextRangeEnd)` as a replacement for `bool EnabledBitUtility.GetNextRange(ref v128 mask, ref int beginIndex, ref int endIndex)`. All usages of the latter method have been updated and the latter method deleted.
+* `bool EnabledBitUtility.TryGetNextRange(v128 mask, int firstIndexToCheck, out int nextRangeBegin, out int nextRangeEnd)` is introduced as a replacement for `bool EnabledBitUtility.GetNextRange(ref v128 mask, ref int beginIndex, ref int endIndex)`. All usages of the latter method have been updated and the latter method deleted.
+* Roslyn analyzer to detect and produce a warning for missing BurstCompile attributes on types containing methods marked with the BurstCompile attribute.
+* Message in subscene component to clarify the behaviour of opened subscenes in playmode
+* "using" document for TransformHelpers
+* missing inverse transform operations in TransformHelpers.
+* Use ComponentSystemGroup.GetAllSystems to get the list of systems in update order that live in that group.
+* SystemTypeIndex is now the preferred way to refer to systems, rather than using reflection and Type. Many methods now have versions that take a SystemTypeIndex or a NativeList<SystemTypeIndex>, and these avoid unnecessary reflection.
+* Property drawers for EntitySceneReference and EntityPrefabReference
+* Write a StreamingAssetFiles.manifest file in the build folder of webgl builds containing all files in the streaming asset folder.
+
+### Changed
+
+* Rename Unity.Entities.Transform.Helpers to  Unity.Entities.Transform.TransformHelpers.
+* Burst compiled moving unmanaged shared components during integration of subscenes into the target world, which improves streaming performance
+* If you use JetBrains Rider, you will now get an error for not using the returned JobHandle of an IJobEntity. This is done to clearly distinquish `IJobEntity.Schedule()` from `IJobEntity.Schedule(default(JobHandle)`. As for the latter, where a JobHandle is returned, you should handle whether you want to do complete the job then and there e.g. `handle.Complete()`. Or continue the chain e.g. `state.Dependency = handle` .
+* ComponentSystemGroup.Systems renamed to ManagedSystems, and introduce GetUnmanagedSystems if you only want the unmanaged ones.
+* Reduced the amount of memory allocated by allocating based on the maximum number of worker threads the running platform requires rather than defaulting to using a theoretical upper-bound of 128 worker threads.
+* You can again have an unlimited number of Create/Update Before/After attributes.
+* Includes unit tests.
+* No documentation changes or additions were necessary.
+* Updated Burst version to 1.8.4
+* Updated Serialization version to 3.1.0
+
+### Removed
+
+* Removed ability to get/convert a RefRW as read-only status.  Please use RefRO instead, which should have more type safety.
+* Removed ability to an Aspect with read-only status.  It is possible to create another Aspect type that wraps a read-only aspect that communicates read-write access (and maintains type safety).
+* Warning about entities with no SceneSection not being serialized.
+
+### Fixed
+
+* Allow components to contain NativeContainers whose element type is or contains a NativeContainer. Previously the TypeManager would throw during initialization if a component contained a a nested NativeContainer field. Note: NativeContainers still cannot be verified to be safely accessed when used in jobs. Thus, if a component contains a nested NativeContainer field, that component can only be accessed from the main thread.
+* improved error message when `EntityQuery.GetSingleton()` fails
+* Query window minimum size and scrolling behavior.
+* Query window internal state initialization.
+* Fixed a case where subscene importing could get stuck in some cases when an asset the subscene depends on changes midimport
+* Add null checks in Systems window.
+* Fixed a potential crash when loading managed component data in sub scenes on PS4 and PS5.
+* Companion objects leaking in Editor when loading and unload Entity scenes containing them.
+* `.WithSharedComponentFilter()` usages in different `Entities.ForEach` and `IFE` iterations no longer interfere with one another.
+* ManualOverride in incremental baking
+* Fix internal compiler error if event handler invocations occur in Entities.ForEach.
+* Don't wait on synchronously compiling CompileFunctionPointer to load.
+* Incremental baking with intermediate entities with TransformUsageFlags.None
+* Entities Hierarchy: Potential initialization errors.
+* Fix IJobEntityExtensions.Run(job) throwing an ICE.
+* No more memory leaks caused by the generated code for `IJobEntity` types, since we are no longer allocating `UnsafeList`s which are never disposed of.
+* RuntimeContentSystem was not getting updated when the default set of Worlds was changed
+* Bake dependencies on Transform now depends on the hierarchy.
+* Incremental baking with ManualOverride when a new component is added.
+* Fixes small memory leaks that occurred during domain reload where static native allocations were not cleaned up.
+* Fixes memory leak where entity scene catalogs would not be freed when the scene system is destroyed.
+* Fixed issue where Entities.ForEach was always supplying burst compilation parameters even if you did not provide them.
+* You can now schedule `IJobEntity` instances with custom queries insofar as these custom queries have all the components required for the jobs' `Execute()` methods to run.
+* Allow Entities Hierarchy to be reloaded via the hamburger menu "Reload Window" menu item
+* Fixed a memory leak that would occur when selecting Entities.
+* Companion components with negative scale
+* Fix misleading error message when invalid identifier is captured in Entities.ForEach.
+* Fixed issue with a managed component in an IJobEntity with a ref/in keyword caused generated C# errors. Using in/ref now generates a valid error.
+* When a ComponentSystemGroup calls OnStopRunning, ensure unmanaged systems also call OnStopRunning
+* `Job.WithCode()` can now capture multiple local variables correctly.
+* Systems with only `Job.WithCode` invocations no longer throw runtime exceptions.
+* SystemAPI Issue where using a resolved generic like MyGenericComp<MyData> as a typeargument would give SGSA0001. You can now e.g. do `SystemAPI.GetBufferLookup<MyGenericElement<int>>`.
+* Issue where EFE.WithStructuralChange have broken breakpoints and SystemAPI calls were unsupported. Note: those cases now also no longer support lambda expressions.
+* Resetting a blob asset reference to null would sometimes lead to an invalid reference in the destination world during live baking.
+* A relatively rare hash collision would happen if you had two unmanaged shared components that had the same exact data in them.
+* Fixed the types the Drawers are assigning to the WeakReferencesIds.
+
+### Known Issues
+
+* Jobs using using components (such as `IJobEntity` job types or jobs containing `ComponentLookup` types) scheduled may be synchronized more often than necessary.
+* `SystemAPI` methods do not work in partial or static methods.
+* `Entities.ForEach` with both `WithStructuralChanges` and `SystemAPI` methods can cause exceptions to be thrown and no breakpoints to be hit.
+* `RefRO` and `RefRW` parameters in `IJobEntity` that wrap types with the same name can cause compilation errors.
+* Throwing an exception in an `Entities.ForEach` or `SystemAPI.Query` block will cause subsequent systems to also throw.
+* Using local functions or lambdas inside of `Entities.ForEach` or `Jobs.WithCode` can cause invalid code-generation or run-time errors.
+* It is not possible to view or debug generated code yet in Visual Studio (this does work in Rider).
+* It is not possible to have an `IJobEntity` withthe same component wrapped in both an `EnabledRefRW`/`EnabledRefRO` and `RefRW`/`RefRO` types.
+
+
+
 ## [1.0.0-pre.65] - 2023-03-21
 
 ### Added
@@ -84,7 +171,6 @@
 * Fixed an issue where idiomatic foreach (IFE) would not iterate over all entities that matched its query, if the query contains enableable components
 * Issue where recompilation would retrigger baking unnecessarily.
 
-
 ## [1.0.0-pre.47] - 2023-03-01
 
 ### Fixed
@@ -129,7 +215,7 @@
 * `EditorEntityScenes.GetSubScenes` was made public in order to gather subscenes to pass to the BuildContent API.
 * `EntityManager.GetAllUniqueSharedComponents` now takes an `AllocatorManager.AllocatorHandle` instead of an `Allocator` enum parameter allowing for custom allocators to be used when allocating the `NativeList<T>` return value. `Allocator` implicitly converts to `AllocatorManager.AllocatorHandle` so no action is required to call the changed API.
 * IJobEntity refactored to IncrementalGenerator.
-* IJobEntity now doesn't default to outputting generated files in `Temp/GeneratedCode/`. To turn it on use `DOTS_OUTPUT_SOURCEGEN_FILES`. Turning it on costs compilation time.
+* IJobEntity now doesn't default to outputting generated files in `Temp/GeneratedCode`. To turn it on use `DOTS_OUTPUT_SOURCEGEN_FILES`. Turning it on costs compilation time.
 * Replaced .Name with .FullName for duplicated component message in baking.
 * ManagedComponents and Shared Managed Components can now be Scheduled in IJobEntity (ScheduleParallel still not allowed. Runtime error will be thrown if you try.)
 * Invalid entities now show their index and version when viewed in the inspector

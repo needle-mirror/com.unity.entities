@@ -1,6 +1,7 @@
 
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 
 namespace Unity.Entities.Streaming
 {
@@ -23,14 +24,14 @@ namespace Unity.Entities.Streaming
             }
         }
 
-        internal static void OptimizeInternal(World world, IEnumerable<Type> systemTypes)
+        internal static void OptimizeInternal(World world, NativeList<SystemTypeIndex> systemTypes)
         {
             var entityManager = world.EntityManager;
 
             var group = world.GetOrCreateSystemManaged<OptimizationGroup>();
 
-            foreach (var systemType in systemTypes)
-                AddSystemAndLogException(world, group, systemType);
+            for (int i = 0; i < systemTypes.Length; i++)
+                AddSystemAndLogException(world, group, systemTypes[i]);
             group.SortSystems();
 
             // foreach (var system in group.Systems)
@@ -46,11 +47,11 @@ namespace Unity.Entities.Streaming
             RemoveCleanupComponents(entityManager);
         }
 
-        internal static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)
+        internal static void AddSystemAndLogException(World world, ComponentSystemGroup group, SystemTypeIndex type)
         {
             try
             {
-                group.AddSystemToUpdateList(world.GetOrCreateSystemManaged(type) as ComponentSystemBase);
+                group.AddSystemToUpdateList(world.GetOrCreateSystemManaged(type));
             }
             catch (Exception e)
             {
@@ -58,6 +59,9 @@ namespace Unity.Entities.Streaming
             }
         }
 
-        internal static void Optimize(World world) => OptimizeInternal(world, DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.EntitySceneOptimizations));
-    }
+        internal static void Optimize(World world)
+        {
+            var systemList = DefaultWorldInitialization.GetAllSystemTypeIndices(WorldSystemFilterFlags.EntitySceneOptimizations);
+            OptimizeInternal(world, systemList);
+        }    }
 }

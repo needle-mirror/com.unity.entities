@@ -9,7 +9,7 @@ Unity groups all the entities in a scene into **sections**, with section 0 the d
 If you want to control to what section an entity is assigned to, you can do the following:
 
 * Use the authoring component [`SceneSectionComponent`](xref:Unity.Entities.SceneSectionComponent). This authoring component affects the authoring GameObjects it is present on, and all its children (recursively).
-* Write a [custom baking system](baking.md) to set up the [`SceneSection`](xref:Unity.Entities.SceneSection) value directly. You can't assign the value for the [`SceneSection`](xref:Unity.Entities.SceneSection) in a Baker.
+* Write a [custom baking system](baking-baking-systems-overview.md) to set up the [`SceneSection`](xref:Unity.Entities.SceneSection) value directly. You can't assign the value for the [`SceneSection`](xref:Unity.Entities.SceneSection) in a Baker.
 
 Section indices don't need to be consecutive, but the default section 0 is always present even if it's empty. For example you could have the default section `0` and a section with index `123`. 
 
@@ -49,5 +49,5 @@ In a similar way, to unload the content of a section, remove the component [`Uni
 
 ## Additional resources
 
-* [Baking overview](baking.md)
+* [Baking overview](baking-overview.md)
 * [`SceneSectionComponent` API documentation](xref:Unity.Entities.SceneSectionComponent)

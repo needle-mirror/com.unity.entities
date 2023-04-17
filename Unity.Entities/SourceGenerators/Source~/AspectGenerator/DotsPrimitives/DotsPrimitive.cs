@@ -264,7 +264,7 @@ namespace Unity.Entities.SourceGen.Aspect
                     return printer.Print("this.").Print(fieldName).Print("[entity]");
                 case PrimitiveType.ComponentLookup:
                     return printer.Print("this.").Print(fieldName).Print(".GetRef").Print(Bind.IsReadOnly ? "RO" : "RW")
-                        .PrintIf(Bind.IsOptional, "Optional").Print("(entity").PrintIf(!Bind.IsReadOnly, ", _IsReadOnly").Print(")");
+                        .PrintIf(Bind.IsOptional, "Optional").Print("(entity").PrintIf(!Bind.IsReadOnly, string.Empty).Print(")");
                 case PrimitiveType.EntityLookup:
                     return printer.Print("entity");
                 case PrimitiveType.EntityStorageInfoLookup:
@@ -340,7 +340,7 @@ namespace Unity.Entities.SourceGen.Aspect
                 case PrimitiveType.ComponentLookup:
                     return printer.Print("this.").Print(fieldName).Print(".GetEnabledRef").Print(Bind.IsReadOnly ? "RO" : "RW").PrintIf(Bind.IsOptional, "Optional")
                         .Print("<").Print(Bind.ComponentTypeName).Print(">")
-                        .Print("(entity").PrintIf(!Bind.IsReadOnly, ", _IsReadOnly").Print(")");
+                        .Print("(entity").PrintIf(!Bind.IsReadOnly, String.Empty).Print(")");
 
                 case PrimitiveType.EntityLookup:
                     return printer;
@@ -361,7 +361,6 @@ namespace Unity.Entities.SourceGen.Aspect
         /// Print the code representing the construction of the primitive field
         /// Available symbols:
         ///     "state" : the current SystemState
-        ///     "isReadOnly" : if the aspect instance is read-only
         ///     "this"  : Aspect.TypeHandle or Aspect.Lookup
         /// </summary>
         /// <param name="printer"></param>
@@ -386,18 +385,18 @@ namespace Unity.Entities.SourceGen.Aspect
                 case PrimitiveType.Entity:
                     return printer;
                 case PrimitiveType.BufferTypeHandle:
-                    return printer.PrintLine($"this.{fieldName} = state.GetBufferTypeHandle<{Bind.ComponentTypeName}>({(Bind.IsReadOnly ? "true" : "isReadOnly")});");
+                    return printer.PrintLine($"this.{fieldName} = state.GetBufferTypeHandle<{Bind.ComponentTypeName}>({(Bind.IsReadOnly ? "true" : "false")});");
                 case PrimitiveType.ComponentTypeHandle:
-                    return printer.PrintLine($"this.{fieldName} = state.GetComponentTypeHandle<{Bind.ComponentTypeName}>({(Bind.IsReadOnly ? "true" : "isReadOnly")});");
+                    return printer.PrintLine($"this.{fieldName} = state.GetComponentTypeHandle<{Bind.ComponentTypeName}>({(Bind.IsReadOnly ? "true" : "false")});");
                 case PrimitiveType.EntityTypeHandle:
                     return printer.PrintLine($"this.{fieldName} = state.GetEntityTypeHandle();");
                 case PrimitiveType.SharedComponentTypeHandle:
                     return printer.PrintLine($"this.{fieldName} = state.GetSharedComponentTypeHandle<{Bind.ComponentTypeName}>();");
                 case PrimitiveType.BufferLookup:
                     return printer.PrintBeginLine($"this.").Print(fieldName).Print(" = state.GetBufferLookup<").Print(Bind.ComponentTypeName).Print(">(")
-                        .Print(Bind.IsReadOnly ? "true" : "isReadOnly").PrintEndLine(");");
+                        .Print(Bind.IsReadOnly ? "true" : "false").PrintEndLine(");");
                 case PrimitiveType.ComponentLookup:
-                    return printer.PrintLine($"this.{fieldName} = state.GetComponentLookup<{Bind.ComponentTypeName}>({(Bind.IsReadOnly ? "true" : "isReadOnly")});");
+                    return printer.PrintLine($"this.{fieldName} = state.GetComponentLookup<{Bind.ComponentTypeName}>({(Bind.IsReadOnly ? "true" : "false")});");
                 case PrimitiveType.EntityLookup:
                     return printer;
                 case PrimitiveType.EntityStorageInfoLookup:

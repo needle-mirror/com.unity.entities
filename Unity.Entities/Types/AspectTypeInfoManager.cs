@@ -14,7 +14,7 @@ namespace Unity.Entities
         static readonly SharedStatic<AspectTypeInfo> s_AspectTypeInfo = SharedStatic<AspectTypeInfo>.GetOrCreate<AspectTypeInfoTag>();
         static UnsafeParallelMultiHashMap<ulong, AspectType> m_ArchetypeAspectMap;
 
-        private delegate void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, bool isReadOnly);
+        private delegate void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all);
 
         static void InitializeAspectTypeInfo()
         {
@@ -44,7 +44,7 @@ namespace Unity.Entities
                 var none = new UnsafeList<ComponentType>(8, Allocator.Temp);
                 var disabled = new UnsafeList<ComponentType>(8, Allocator.Temp);
                 var absent = new UnsafeList<ComponentType>(8, Allocator.Temp);
-                addComponentRequirementsTo.Invoke(ref all,  false);
+                addComponentRequirementsTo.Invoke(ref all);
 
                 for (var j = 0; j != all.Length; ++j)
                     s_AspectTypeInfo.Data.AspectRequiredComponents.Add(aspectType, all[j]);

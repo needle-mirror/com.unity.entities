@@ -17,6 +17,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region typical-struct
+    [BurstCompile]
     public struct UpdateTranslationFromVelocityJob : IJobChunk
     {
         public ComponentTypeHandle<VelocityVector> VelocityTypeHandle;
@@ -81,6 +82,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     //For extracting one or a few lines for the docs
+    [BurstCompile]
     public struct UpdateTranslationAndAlignToVelocityJob : IJobChunk
     {
         public ComponentTypeHandle<VelocityVector> VelocityTypeHandle;
@@ -185,6 +187,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region skip-unchanged-chunks-job
+    [BurstCompile]
     struct UpdateOnChangeJob : IJobChunk
     {
         public ComponentTypeHandle<InputA> InputATypeHandle;

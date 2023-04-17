@@ -11,6 +11,7 @@ namespace Unity.Entities.Tests
         public float Value;
     }
 
+    [BurstCompile]
     partial class EntitiesExceptionTestSystem : SystemBase
     {
         protected override void OnUpdate() { }

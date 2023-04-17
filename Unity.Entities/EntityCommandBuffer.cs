@@ -484,13 +484,17 @@ namespace Unity.Entities
             if (m_ThreadedChains != null)
                 return;
 
-            // PERF: It's be great if we had a way to actually get the number of worst-case threads so we didn't have to allocate 128.
-            int allocSize = sizeof(EntityCommandBufferChain) * JobsUtility.MaxJobThreadCount;
+#if UNITY_2022_2_14F1_OR_NEWER
+            int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+            int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+            int allocSize = sizeof(EntityCommandBufferChain) * maxThreadCount;
 
             m_ThreadedChains = (EntityCommandBufferChain*)Memory.Unmanaged.Allocate(allocSize, JobsUtility.CacheLineSize, m_Allocator);
             UnsafeUtility.MemClear(m_ThreadedChains, allocSize);
 
-            for (var i = 0; i < JobsUtility.MaxJobThreadCount; ++i)
+            for (var i = 0; i < maxThreadCount; ++i)
             {
                 EntityCommandBufferChain.InitChain(&m_ThreadedChains[i], m_Allocator);
             }
@@ -1673,7 +1677,12 @@ namespace Unity.Entities
 
                 if (m_Data->m_ThreadedChains != null)
                 {
-                    for (int i = 0; i < JobsUtility.MaxJobThreadCount; ++i)
+#if UNITY_2022_2_14F1_OR_NEWER
+                      int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+                    int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+                    for (int i = 0; i < maxThreadCount; ++i)
                     {
                         FreeChain(&m_Data->m_ThreadedChains[i], m_Data->m_PlaybackPolicy, m_Data->m_DidPlayback);
                     }
@@ -3415,7 +3424,12 @@ namespace Unity.Entities
 
                     if (data->m_ThreadedChains != null)
                     {
-                        for (int i = 0; i < JobsUtility.MaxJobThreadCount; ++i)
+#if UNITY_2022_2_14F1_OR_NEWER
+                        int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+                        int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+                        for (int i = 0; i < maxThreadCount; ++i)
                         {
                             for (var chain = &data->m_ThreadedChains[i]; chain != null; chain = chain->m_NextChain)
                             {
@@ -5682,7 +5696,7 @@ namespace Unity.Entities
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
-            AddEntityManagedComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, default(T));
+            ecb.m_Data->AddEntityComponentTypeWithoutValueCommand(&ecb.m_Data->m_MainThreadChain, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, ComponentType.ReadWrite<T>());
         }
 
         /// <summary> Records a command to set a managed component for an entity.</summary>

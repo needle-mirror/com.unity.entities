@@ -1,8 +1,10 @@
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Mathematics;
 using Unity.Profiling;
 using Unity.Transforms;
+using UnityEngine;
 using UnityEngine.Jobs;
 
 namespace Unity.Entities
@@ -179,9 +181,12 @@ namespace Unity.Entities
             public unsafe void Execute(int index, TransformAccess transform)
             {
                 var ltw = localToWorld[entities[index]];
-                var mat = *(UnityEngine.Matrix4x4*) &ltw;
                 transform.localPosition = ltw.Position;
-                transform.localRotation = mat.rotation;
+
+                // We need to use the safe version as the vectors will not be normalized if there is some scale
+                transform.localRotation = quaternion.LookRotationSafe(ltw.Forward, ltw.Up);
+
+                var mat = *(UnityEngine.Matrix4x4*) &ltw;
                 transform.localScale = mat.lossyScale;
             }
         }

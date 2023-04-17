@@ -1,6 +1,6 @@
 # Create the spawner entity for the spawner example
 
-This task demonstrates how the [baking](baking.md) process creates a primary entity for each authoring GameObject. It then shows you how to create an authoring GameObject and use a baker to attach an entity component system (ECS) [component](concepts-components.md) to the resulting primary entity. This creates an instance of the ECS component that systems can query, transform, and write to.
+This task demonstrates how the [baking](baking-overview.md) process creates a primary entity for each authoring GameObject. It then shows you how to create an authoring GameObject and use a baker to attach an entity component system (ECS) [component](concepts-components.md) to the resulting primary entity. This creates an instance of the ECS component that systems can query, transform, and write to.
 
 To create an entity and attach ECS components to it, you need to create the following:
 
@@ -41,4 +41,4 @@ To continue to create and optimize the spawner system, follow the next task in t
 
 - [Understand the ECS workflow](ecs-workflow-intro.md)
 - [Entity concepts](concepts-entities.md)
-- [Baking](baking.md)
+- [Baking overview](baking-overview.md)

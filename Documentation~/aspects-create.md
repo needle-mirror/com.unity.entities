@@ -27,17 +27,15 @@ If you use `in` to reference an aspect that has read-write access to components,
 
 ## Create aspect instances in a system
 
-To create aspect instances in a system, call [`SystemAPI.GetAspectRW`](xref:Unity.Entities.SystemAPI.GetAspectRW*) or [`SystemAPI.GetAspectRO`](xref:Unity.Entities.SystemAPI.GetAspectRO*):
+To create aspect instances in a system, call [`SystemAPI.GetAspect`](xref:Unity.Entities.SystemAPI.GetAspect*):
 
 ```c#
 // Throws if the entity is missing any of 
 // the required components of MyAspect.
-MyAspect asp = SystemAPI.GetAspectRW<MyAspect>(myEntity);
+MyAspect asp = SystemAPI.GetAspect<MyAspect>(myEntity);
 ```
 
-If you use any method or property that attempts to modify the underlying components, then `SystemAPI.GetAspectRO` throws an error.
-
-To create aspect instances outside of a system, use [`EntityManager.GetAspect`](xref:Unity.Entities.EntityManager.GetAspect*) or [`EntityManager.GetAspectRO`](xref:Unity.Entities.EntityManager.GetAspectRO*).
+To create aspect instances outside of a system, use [`EntityManager.GetAspect`](xref:Unity.Entities.EntityManager.GetAspect*).
 
 ### Iterate over an aspect
 

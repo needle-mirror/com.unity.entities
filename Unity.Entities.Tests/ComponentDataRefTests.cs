@@ -11,7 +11,9 @@ namespace Unity.Entities.Tests
             var e = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(e, new EcsTestData(1));
 
-            var testData = optional ? EmptySystem.GetComponentLookup<EcsTestData>().GetRefRWOptional(e, isReadOnly: false) : EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(e, isReadOnly: false);
+            var testData = optional
+                ? EmptySystem.GetComponentLookup<EcsTestData>().GetRefRWOptional(e)
+                : EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(e);
 
             testData.ValueRW.value = 5;
             Assert.AreEqual(5, testData.ValueRO.value);
@@ -26,8 +28,8 @@ namespace Unity.Entities.Tests
         {
             var e = m_Manager.CreateEntity();
 
-            Assert.Throws<ArgumentException>(() => EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(e, isReadOnly: false));
-            Assert.Throws<ArgumentException>(() => EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(Entity.Null, isReadOnly: false));
+            Assert.Throws<ArgumentException>(() => EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(e));
+            Assert.Throws<ArgumentException>(() => EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(Entity.Null));
         }
 
         // This test works in all managed player configs whether safety checks are enabled or not since accessing a null with throw
@@ -38,8 +40,8 @@ namespace Unity.Entities.Tests
         {
             var e = m_Manager.CreateEntity();
 
-            var missingData = EmptySystem.GetComponentLookup<EcsTestData>().GetRefRWOptional(e, isReadOnly: false);
-            var missingData2 = EmptySystem.GetComponentLookup<EcsTestData>().GetRefRWOptional(Entity.Null, isReadOnly: false);
+            var missingData = EmptySystem.GetComponentLookup<EcsTestData>().GetRefRWOptional(e);
+            var missingData2 = EmptySystem.GetComponentLookup<EcsTestData>().GetRefRWOptional(Entity.Null);
 
             Assert.IsFalse(missingData.IsValid);
             Assert.IsFalse(missingData2.IsValid);

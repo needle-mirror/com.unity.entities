@@ -126,7 +126,7 @@ namespace Unity.Entities.Tests
                 ChunkBaseEntityIndices = chunkBaseEntityIndices,
                 OutPerEntityData = outputPerEntityData
             };
-            InternalCompilerInterface.JobChunkInterface.ScheduleParallelByRef(ref job, query, default, chunkBaseEntityIndices).Complete();
+            Internal.InternalCompilerInterface.JobChunkInterface.ScheduleParallelByRef(ref job, query, default, chunkBaseEntityIndices).Complete();
             for (int i = 0; i < entityCount; ++i)
             {
                 Assertions.Assert.AreEqual(i % archetype.ChunkCapacity,
@@ -177,7 +177,7 @@ namespace Unity.Entities.Tests
             else if (mode == ScheduleMode.Run)
                 job.Run(query);
             else if (mode == ScheduleMode.RunWithoutJobs)
-                InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, query);
+                Internal.InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, query);
 
             var entityTypeHandle = m_Manager.GetEntityTypeHandle();
             int markedEntityCount = 0;
@@ -247,7 +247,7 @@ namespace Unity.Entities.Tests
             else if (mode == ScheduleMode.Run)
                 job.Run(query);
             else if (mode == ScheduleMode.RunWithoutJobs)
-                InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, query);
+                Internal.InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, query);
 
             var entityTypeHandle = m_Manager.GetEntityTypeHandle();
             int markedEntityCount = 0;
@@ -378,7 +378,7 @@ namespace Unity.Entities.Tests
                         job.Run(query);
                         break;
                     case ScheduleMode.RunWithoutJobs:
-                        InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, query);
+                        Internal.InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, query);
                         break;
                 }
             }
@@ -627,7 +627,7 @@ namespace Unity.Entities.Tests
                 case JobRunType.ScheduleByRef: job.ScheduleByRef(_query, state.Dependency).Complete(); break;
                 case JobRunType.Run: job.Run(_query); break;
                 case JobRunType.RunByRef: job.RunByRef(_query); break;
-                case JobRunType.RunWithoutJobs: InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, _query); break;
+                case JobRunType.RunWithoutJobs: Internal.InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, _query); break;
             }
 
             ref var Result = ref state.EntityManager.GetComponentDataRW<ResultData>(state.SystemHandle).ValueRW;

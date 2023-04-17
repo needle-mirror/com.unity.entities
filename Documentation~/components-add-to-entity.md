@@ -1,4 +1,4 @@
-# Add Components to an entity
+# Add components to an entity
 
 To add components to an entity, use the [`EntityManager`](xref:Unity.Entities.EntityManager) for the [world](concepts-worlds.md) that the entity is in. You can add components to an individual entity, or to several entities at the same time.
 

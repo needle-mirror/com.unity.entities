@@ -944,7 +944,7 @@ namespace Unity.Entities
         }
 
         [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
-        internal void GatherEntitiesToArray(out EntityQuery.GatherEntitiesResult result, EntityQuery outer)
+        internal void GatherEntitiesToArray(out Internal.InternalGatherEntitiesResult result, EntityQuery outer)
         {
             result = default;
             result.EntityArray = outer.ToEntityArray(Allocator.TempJob);
@@ -952,7 +952,7 @@ namespace Unity.Entities
             result.EntityCount = result.EntityArray.Length;
         }
 
-        internal void ReleaseGatheredEntities(ref EntityQuery.GatherEntitiesResult result)
+        internal void ReleaseGatheredEntities(ref Internal.InternalGatherEntitiesResult result)
         {
             if (result.EntityArray.IsCreated)
             {
@@ -1125,9 +1125,8 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    int batchStartIndex = 0;
                     int batchEndIndex = 0;
-                    while (EnabledBitUtility.GetNextRange(ref chunkEnabledMask, ref batchStartIndex, ref batchEndIndex))
+                    while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, batchEndIndex, out int batchStartIndex, out batchEndIndex))
                     {
                         int batchEntityCount = batchEndIndex - batchStartIndex;
                         for (int i = 0; i < batchEntityCount; ++i)
@@ -1285,8 +1284,13 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
                 {
-                    // TODO(BUR-1765): replace <T> with <{TypeManager.GetTypeNameFixed(typeIndex)}>. This currently breaks standalone builds when UNITY_DOTS_DEBUG is defined.
-                    throw new InvalidOperationException($"GetSingleton<T>() requires that exactly one entity exist that match this query, but there are {CalculateEntityCountWithoutFiltering()}.");
+                    CheckChunkListCacheConsistency(false);
+                    var typeName = typeIndex.ToFixedString();
+                    if (matchingChunkCache.Length == 0 || matchingChunkCache.Ptr[0]->Count == 0)
+                        throw new InvalidOperationException($"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are none. Are you missing a call to RequireForUpdate<T>()? You could also use TryGetSingleton<T>()");
+                    else
+                        throw new InvalidOperationException(@$"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are {CalculateEntityCountWithoutFiltering()} entities in {matchingChunkCache.Length} chunks.
+First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matchingChunkCache.Ptr[0]->Archetype->ToString()}.");
                 }
 #endif
                 outChunk = matchingChunkCache.Ptr[0]; // only one matching chunk
@@ -1300,7 +1304,11 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 var queryEntityCount = CalculateEntityCount();
                 if (queryEntityCount != 1)
-                    throw new InvalidOperationException($"GetSingleton() requires that exactly one entity exists that matches this query, but there are {queryEntityCount}.");
+                {
+                    CheckChunkListCacheConsistency(false);
+                    throw new InvalidOperationException(
+                        $"GetSingleton() requires that exactly one entity exists that matches this query, but there are {queryEntityCount}.");
+                }
 #endif
                 var indexInQuery = GetIndexInEntityQuery(typeIndex);
 
@@ -1409,11 +1417,13 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
                 {
+                    CheckChunkListCacheConsistency(false);
                     var typeName = typeIndex.ToFixedString();
                     if (matchingChunkCache.Length == 0 || matchingChunkCache.Ptr[0]->Count == 0)
                         throw new InvalidOperationException($"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are none. Are you missing a call to RequireForUpdate<T>()? You could also use TryGetSingleton<T>()");
                     else
-                        throw new InvalidOperationException($"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are {CalculateEntityCountWithoutFiltering()}.");
+                        throw new InvalidOperationException(@$"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are {CalculateEntityCountWithoutFiltering()} entities in {matchingChunkCache.Length} chunks.
+First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matchingChunkCache.Ptr[0]->Archetype->ToString()}.");
                 }
 #endif
                 var chunk = matchingChunkCache.Ptr[0]; // only one matching chunk
@@ -1783,10 +1793,8 @@ namespace Unity.Entities
                         var archetypeChunk = new ArchetypeChunk(chunk, _Access->EntityComponentStore);
                         chunks.Add(archetypeChunk);
                     }
-
-                    int beginIndex = 0;
                     int endIndex = 0;
-                    while (EnabledBitUtility.GetNextRange(ref enabledMask, ref beginIndex, ref endIndex))
+                    while (EnabledBitUtility.TryGetNextRange(enabledMask, endIndex, out int beginIndex, out endIndex))
                     {
                         if (entities != null)
                         {
@@ -1933,9 +1941,9 @@ namespace Unity.Entities
             };
         }
 
-        internal bool CheckChunkListCacheConsistency()
+        internal void CheckChunkListCacheConsistency(bool forceCheckInvalidCache)
         {
-            return UnsafeCachedChunkList.IsConsistent(_QueryData->MatchingChunkCache, *_QueryData);
+            UnsafeCachedChunkList.AssertIsConsistent(_QueryData->MatchingChunkCache, *_QueryData, forceCheckInvalidCache);
         }
 
         internal static EntityQueryImpl* Allocate()
@@ -2002,7 +2010,7 @@ namespace Unity.Entities
     ///
     /// Use an EntityQuery for the following purposes:
     ///
-    /// * To get a [native array] of a the values for a specific <see cref="IComponentData"/> type for all entities matching the query
+    /// * To get a [native array] of the values for a specific <see cref="IComponentData"/> type for all entities matching the query
     /// * To get an [native array] of the <see cref="ArchetypeChunk"/> objects matching the query
     /// * To schedule an <see cref="IJobChunk"/> job
     /// * To control whether a system updates using [ComponentSystemBase.RequireForUpdate(query)]
@@ -2054,7 +2062,7 @@ namespace Unity.Entities
         /// <param name="componentsUsedInExecuteMethod">All the component types that are used in the `Execute()` function of the IJobEntity
         /// instance which the current query is used to schedule.</param>
         /// <returns></returns>
-        internal bool HasComponentsRequiredForExecuteMethodToRun(ref UnsafeList<ComponentType> componentsUsedInExecuteMethod)
+        internal bool HasComponentsRequiredForExecuteMethodToRun(ref Span<ComponentType> componentsUsedInExecuteMethod)
         {
             var requiredComponentsInCurrentQuery = new NativeHashMap<int, ComponentType.AccessMode>(8, Allocator.Temp);
 
@@ -2074,13 +2082,6 @@ namespace Unity.Entities
                 // `IJobEntity.Execute()` functions are required components.
                 switch (executeComponent.AccessModeType)
                 {
-                    // If the Execute() function requires Component A to have read-write access (because the function needs to
-                    // modify Component A), then the current query should also contain Component A with read-write access; otherwise,
-                    // the Execute() function won't be able to run.
-                    case ComponentType.AccessMode.ReadWrite:
-                        if (accessMode != ComponentType.AccessMode.ReadWrite)
-                            return false;
-                        continue;
                     // If the Execute() function simply needs to read from Component A, then it does not matter whether
                     // the current query contains Component A with read-only or read-write access.
                     case ComponentType.AccessMode.ReadOnly:
@@ -2484,30 +2485,8 @@ namespace Unity.Entities
         /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
         public NativeArray<Entity> ToEntityArray(AllocatorManager.AllocatorHandle allocator) => _GetImpl()->ToEntityArray(allocator, this);
 
-        /// <summary>
-        /// This struct should be treated as internal for practical purposes, but must be in the public API to be used by source generators.
-        /// </summary>
-        public struct GatherEntitiesResult
-        {
-            /// <summary>
-            ///
-            /// </summary>
-            public int StartingOffset;
-            /// <summary>
-            ///
-            /// </summary>
-            public int EntityCount;
-            /// <summary>
-            ///
-            /// </summary>
-            public Entity* EntityBuffer;
-            /// <summary>
-            ///
-            /// </summary>
-            public NativeArray<Entity> EntityArray;
-        }
-        internal void GatherEntitiesToArray(out GatherEntitiesResult result) => _GetImpl()->GatherEntitiesToArray(out result, this);
-        internal void ReleaseGatheredEntities(ref GatherEntitiesResult result) => _GetImpl()->ReleaseGatheredEntities(ref result);
+        internal void GatherEntitiesToArray(out Internal.InternalGatherEntitiesResult result) => _GetImpl()->GatherEntitiesToArray(out result, this);
+        internal void ReleaseGatheredEntities(ref Internal.InternalGatherEntitiesResult result) => _GetImpl()->ReleaseGatheredEntities(ref result);
 
         /// <summary>
         /// Obsolete. Use <see cref="ToComponentDataListAsync"/> instead.
@@ -3143,7 +3122,7 @@ namespace Unity.Entities
 
         internal void InvalidateCache() => _GetImpl()->_QueryData->MatchingChunkCache.Invalidate();
         internal void UpdateCache() => UnsafeCachedChunkList.Rebuild(ref _GetImpl()->_QueryData->MatchingChunkCache, *_GetImpl()->_QueryData);
-        internal bool CheckChunkListCacheConsistency() => _GetImpl()->CheckChunkListCacheConsistency();
+        internal void CheckChunkListCacheConsistency(bool forceCheckInvalidCache = false) => _GetImpl()->CheckChunkListCacheConsistency(forceCheckInvalidCache);
         internal bool IsCacheValid => _GetImpl()->_QueryData->MatchingChunkCache.IsCacheValid;
 
         internal UnsafeChunkCache GetCache(out EntityQueryImpl* impl)

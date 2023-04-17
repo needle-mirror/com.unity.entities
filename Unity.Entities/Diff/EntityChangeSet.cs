@@ -707,7 +707,10 @@ namespace Unity.Entities
             CreatedBlobAssets.Dispose();
             DestroyedBlobAssets.Dispose();
             BlobAssetData.Dispose();
-            UnmanagedSharedComponentData.Dispose();
+            if (UnmanagedSharedComponentData.IsCreated)
+            {
+                UnmanagedSharedComponentData.Dispose();
+            }
 
 
             foreach (var managed in SetManagedComponents)
@@ -717,6 +720,7 @@ namespace Unity.Entities
     }
 
 #if !NET_DOTS
+    [BurstCompile]
     internal static unsafe class EntityChangeSetFormatter
     {
         static EntityQueryDesc EntityGuidQueryDesc { get; } = new EntityQueryDesc

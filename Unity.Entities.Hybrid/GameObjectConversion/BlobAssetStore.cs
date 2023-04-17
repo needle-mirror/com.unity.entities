@@ -125,7 +125,6 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="hash">The key associated with the BlobAssetReference when it was added to the cache</param>
         /// <param name="blobAssetReference">The corresponding BlobAssetReference or default if none was found</param>
-        /// <param name="updateRefCount">If the refCounter of this BlobAsset needs to be increased based on the result (temporary until refactor)</param>
         /// <typeparam name="T">The type of BlobAsset</typeparam>
         /// <returns>True if the BlobAsset was found and returned, false if it wasn't</returns>
         public bool TryGet<T>(Hash128 hash, out BlobAssetReference<T> blobAssetReference) where T : unmanaged
@@ -141,7 +140,6 @@ namespace Unity.Entities
         /// <param name="hash">The key associated with the BlobAssetReference when it was added to the cache</param>
         /// <param name="blobAssetReference">The corresponding BlobAssetReference or default if none was found</param>
         /// <param name="typeHash">Hash calculated with ComputeTypeHash for the type of BlobAsset</param>
-        /// <param name="updateRefCount">If the refCounter of this BlobAsset needs to be increased based on the result (temporary until refactor)</param>
         /// <typeparam name="T">The type of BlobAsset</typeparam>
         /// <returns>True if the BlobAsset was found and returned, false if it wasn't</returns>
         internal bool TryGet<T>(Hash128 hash, uint typeHash, out BlobAssetReference<T> blobAssetReference) where T : unmanaged
@@ -156,7 +154,6 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="hash">The key associated with the BlobAssetReference when it was added to the cache</param>
         /// <param name="blobAssetReference">The corresponding BlobAssetReference or default if none was found</param>
-        /// <param name="updateRefCount">If the refCounter of this BlobAsset needs to be increased based on the result (temporary until refactor)</param>
         /// <typeparam name="T">The type of BlobAsset</typeparam>
         /// <returns>True if the BlobAsset was found and returned, false if it wasn't</returns>
         internal bool TryGetTest<T>(Hash128 hash, out BlobAssetReference<T> blobAssetReference) where T : unmanaged
@@ -251,7 +248,6 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="blobAsset">The BlobAssetReference if found or default</param>
         /// <param name="customHash">The key to be associated with the BlobAssetReference</param>
-        /// <param name="updateRefCount">If the refCounter of this BlobAsset needs to be increased based on the result (temporary until refactor)</param>
         /// <typeparam name="T">The type of BlobAsset</typeparam>
         /// <returns>true if the BlobAssetReference was found, false if not found</returns>
         public bool TryAdd<T>(Hash128 customHash, ref BlobAssetReference<T> blobAsset) where T : unmanaged
@@ -269,7 +265,6 @@ namespace Unity.Entities
         /// <param name="blobAsset">The BlobAssetReference if found or default</param>
         /// <param name="customHash">The key to be associated with the BlobAssetReference</param>
         /// <param name="typeHash">Hash calculated with ComputeTypeHash for the type of BlobAsset</param>
-        /// <param name="updateRefCount">If the refCounter of this BlobAsset needs to be increased based on the result (temporary until refactor)</param>
         /// <typeparam name="T">The type of BlobAsset</typeparam>
         /// <returns>true if the BlobAssetReference was found, false if not found</returns>
         internal bool TryAdd<T>(Hash128 customHash, uint typeHash, ref BlobAssetReference<T> blobAsset) where T : unmanaged
@@ -287,7 +282,6 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="blobAsset">The blob asset that will be inserted or replaced</param>
         /// <param name="objectHash">The hash that is based on the content of the BlobAsset</param>
-        /// <param name="updateRefCount">If the refCounter of this BlobAsset needs to be increased based on the result (temporary until refactor)</param>
         /// <typeparam name="T">The type of BlobAsset.</typeparam>
         /// <returns>Returns true if the blob asset was added, returns false if the blob asset was disposed and replaced with the previous blob.</returns>
         unsafe public bool TryAdd<T>(ref BlobAssetReference<T> blobAsset, out Hash128 objectHash) where T : unmanaged
@@ -309,7 +303,6 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="blobAsset">The blob asset that will be inserted or replaced</param>
         /// <param name="typeHash">Hash calculated with ComputeTypeHash for the type of BlobAsset</param>
-        /// <param name="updateRefCount">If the refCounter of this BlobAsset needs to be increased based on the result (temporary until refactor)</param>
         /// <typeparam name="T">The type of BlobAsset.</typeparam>
         /// <returns>Returns true if the blob asset was added, returns false if the blob asset was disposed and replaced with the previous blob.</returns>
         unsafe internal bool TryAdd<T>(ref BlobAssetReference<T> blobAsset, uint typeHash) where T : unmanaged

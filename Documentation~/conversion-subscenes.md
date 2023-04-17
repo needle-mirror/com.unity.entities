@@ -2,9 +2,9 @@
 
 The entity component system (ECS) uses subscenes instead of scenes to manage the content of your application. This is because Unity's core [scene system](xref:CreatingScenes) is incompatible with ECS. 
 
-You can add GameObjects and MonoBehaviour components to a subscene, and [baking](baking.md) then converts the GameObjects and MonoBehaviour components into entities and ECS components.
+You can add GameObjects and MonoBehaviour components to a subscene, and [baking](baking-overview.md) then converts the GameObjects and MonoBehaviour components into entities and ECS components. For more information, refer to the documentation on [Scenes overview](conversion-scene-overview.md).
 
-You can also optionally create your own bakers to attach ECS components to the converted entities. For more information, see the documentation on [Convert data with baking](baking.md).
+You can also optionally create your own bakers to attach ECS components to the converted entities. For more information, refer to the documentation on [Bakers overview](baking-baker-overview.md).
 
 ## Create a subscene
 
@@ -38,13 +38,17 @@ The [`SubScene`](xref:Unity.Scenes.SubScene) component has two modes, which depe
 When a subscene is open, the following happens:
 
 * In the Hierarchy window, Unity displays all the authoring GameObjects from the subscene under the GameObject that has the [`SubScene`](xref:Unity.Scenes.SubScene) component.
-* The Scene View will display the runtime data (Entities) or the authoring data (GameObjects) based on the setting _Scene View Mode_ in the Entities section of the [Preferences window](https://docs.unity3d.com/Manual/Preferences.html). 
+* The Scene View displays the runtime data (Entities) or the authoring data (GameObjects) based on the **Scene View Mode** setting in the Entities section of the [Preferences window](editor-preferences.md). 
 * An initial baking pass runs on all the authoring components in the subscene.
 * Any changes made to the authoring components triggers an incremental baking pass.
 
-When a subscene is closed, Unity streams in the content of the baked scene.
+When a subscene is closed, Unity streams in the content of the baked scene. The entities in a closed subscene take a few frames to become available when you enter Play mode. In builds, subscenes behave the same as closed subscenes in the Editor, so their entities aren't available immediately.
+
+>[!IMPORTANT]
+> Unity doesn't stream the content of opened subscenes. The entities in an open subscene are immediately available when you enter Play mode.
 
 ## Additional resources
 
-* [Baking overview](baking.md)
+* [Baking overview](baking-overview.md)
+* [Scenes overview](conversion-scene-overview.md)
 * [Scene streaming](streaming-scenes.md)

@@ -1,4 +1,4 @@
-# Scheduling data on multiple threads with jobs
+# Use the job system with Entities
 
 The Entities package and Unity's DOTS architecture uses the [C# Job System](https://docs.unity3d.com/Manual/JobSystem.html) extensively. Whenever possible, you should use jobs in your system code. 
 

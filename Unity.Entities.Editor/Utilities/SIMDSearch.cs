@@ -45,7 +45,7 @@ namespace Unity.Entities.Editor
             return matches;
         }
 
-        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+        [BurstCompile(DisableSafetyChecks = true)]
         public struct FindMatchesJob<TSource, TPattern> : IJobParallelFor
             where TSource: unmanaged, IUTF8Bytes, INativeList<byte>, IEquatable<TSource>
             where TPattern: unmanaged, IUTF8Bytes, INativeList<byte>, IEquatable<TPattern>

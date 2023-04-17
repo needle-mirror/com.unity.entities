@@ -69,7 +69,7 @@ namespace Unity.Entities.SourceGen.Common
                 errorMessage = sbMessage.ToString();
                 description = sbDescription.ToString();
             }
-            SourceGenHelpers.LogInfo($"{diagnosticSeverity}: {errorCode}, {title}, {errorMessage}");
+            SourceOutputHelpers.LogInfoToSourceGenLog($"{diagnosticSeverity}: {errorCode}, {title}, {errorMessage}");
             var rule = new DiagnosticDescriptor(errorCode, title, errorMessage, "Source Generator", diagnosticSeverity, true, description);
             Diagnostics.Add(Diagnostic.Create(rule, location));
         }

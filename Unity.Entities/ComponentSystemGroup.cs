@@ -92,11 +92,38 @@ namespace Unity.Entities
         internal UnsafeList<SystemHandle> m_UnmanagedSystemsToRemove;
 
         /// <summary>
-        /// The ordered list of managed systems in this group.
+        /// The ordered list of managed systems in this group, sorted by update order.
         /// </summary>
-        public virtual IReadOnlyList<ComponentSystemBase> Systems => m_managedSystemsToUpdate;
+        public virtual IReadOnlyList<ComponentSystemBase> ManagedSystems => m_managedSystemsToUpdate;
         internal UnsafeList<SystemHandle> UnmanagedSystems => m_UnmanagedSystemsToUpdate;
+        /// <summary>
+        /// Get the list of unmanaged systems in this group, sorted by update order.
+        /// </summary>
+        /// <param name="allocator">Which allocator to use to allocate the returned list.</param>
+        /// <returns>A NativeList of systems</returns>
+        public NativeList<SystemHandle> GetUnmanagedSystems(Allocator allocator = Allocator.Temp)
+        {
+            var ret = new NativeList<SystemHandle>(m_UnmanagedSystemsToUpdate.Length, allocator);
+            ret.CopyFrom(m_UnmanagedSystemsToUpdate);
+            return ret;
+        }
 
+        /// <summary>
+        /// Get the list of all systems in this group, managed and unmanaged alike, sorted by update order.
+        /// </summary>
+        /// <param name="allocator">Which allocator to use to allocate the returned list.</param>
+        /// <returns>A NativeList of systems</returns>
+        public NativeList<SystemHandle> GetAllSystems(Allocator allocator = Allocator.Temp)
+        {
+            var ret = new NativeList<SystemHandle>(m_MasterUpdateList.Length, allocator);
+            for (int i = 0; i < m_MasterUpdateList.Length; i++)
+            {
+                var entry = m_MasterUpdateList[i];
+                ret.Add(entry.IsManaged ? m_managedSystemsToUpdate[entry.Index].SystemHandle : m_UnmanagedSystemsToUpdate[entry.Index]);
+            }
+            return ret;
+        }
+        
         internal DoubleRewindableAllocators* m_RateGroupAllocators = null;
         internal byte RateGroupAllocatorsCreated { get; set; } = 0;
 
@@ -403,10 +430,10 @@ namespace Unity.Entities
                 int orderingBucket = ComputeSystemOrdering(sysTypeIndex, groupTypeIndex);
                 allElems[i] = new ComponentSystemSorter.SystemElement
                 {
-                    TypeIndex = sysTypeIndex,
+                    SystemTypeIndex = sysTypeIndex,
                     Index = new UpdateIndex(i, true),
                     OrderingBucket = orderingBucket,
-                    updateBefore = new FixedList512Bytes<int>(),
+                    updateBefore = new NativeList<int>(16, Allocator.Temp),
                     nAfter = 0,
                 };
                 systemsPerBucket[orderingBucket]++;
@@ -417,10 +444,10 @@ namespace Unity.Entities
                 int orderingBucket = ComputeSystemOrdering(sysTypeIndex, groupTypeIndex);
                 allElems[m_managedSystemsToUpdate.Count + i] = new ComponentSystemSorter.SystemElement
                 {
-                    TypeIndex = sysTypeIndex,
+                    SystemTypeIndex = sysTypeIndex,
                     Index = new UpdateIndex(i, false),
                     OrderingBucket = orderingBucket,
-                    updateBefore = new FixedList512Bytes<int>(),
+                    updateBefore = new NativeList<int>(16, Allocator.Temp),
                     nAfter = 0,
                 };
                 systemsPerBucket[orderingBucket]++;
@@ -429,12 +456,12 @@ namespace Unity.Entities
             var lookupDictionary = new NativeHashMap<int, int>(16, Allocator.Temp);
 
             var nativeHashMap =
-                (NativeHashMap<int, int>*)UnsafeUtility.AddressOf(ref lookupDictionary);
+                (NativeHashMap<SystemTypeIndex, int>*)UnsafeUtility.AddressOf(ref lookupDictionary);
 
-            var badTypeIndices = new NativeHashSet<int>(16, Allocator.Temp);
+            var badTypeIndices = new NativeHashSet<SystemTypeIndex>(16, Allocator.Temp);
             
             // Find & validate constraints between systems in the group
-            var badTypeIndicesPtr = (NativeHashSet<int>*)UnsafeUtility.AddressOf(ref badTypeIndices);
+            var badTypeIndicesPtr = (NativeHashSet<SystemTypeIndex>*)UnsafeUtility.AddressOf(ref badTypeIndices);
             ComponentSystemSorter.FindConstraints(groupTypeIndex,
                 (UnsafeList<ComponentSystemSorter.SystemElement>*)UnsafeUtility.AddressOf(ref allElems),
                 nativeHashMap,
@@ -444,10 +471,11 @@ namespace Unity.Entities
 
             if (badTypeIndices.Count > 0)
             {
-                var enumerator = badTypeIndices.GetEnumerator();
+                var enumerator = badTypeIndices.ToNativeArray(Allocator.Temp);
 
-                foreach (var badTypeIndex in badTypeIndices)
+                for (int i=0; i<enumerator.Length; i++)
                 {
+                    var badTypeIndex = enumerator[i];
                     ComponentSystemSorter.WarnAboutAnySystemAttributeBadness(badTypeIndex, this);
                 }
                 enumerator.Dispose();
@@ -522,7 +550,7 @@ namespace Unity.Entities
             }
         }
 
-        internal static int ComputeSystemOrdering(int sysType, int ourTypeIndex)
+        internal static int ComputeSystemOrdering(SystemTypeIndex sysType, SystemTypeIndex ourTypeIndex)
         {
             if (ourTypeIndex == -1 || sysType == -1)
                 return 1;
@@ -603,8 +631,7 @@ namespace Unity.Entities
                     continue;
 
                 sys->PreviouslyEnabled = false;
-
-                // Optional callback here
+                SystemBaseRegistry.CallOnStopRunning(sys);
             }
         }
 

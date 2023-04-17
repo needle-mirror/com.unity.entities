@@ -50,4 +50,8 @@ public struct Parent : IComponentData
 }
 ```
 
-To make sure that the parents find their children, and to set up their child component, [ParentSystem](xref:Unity.Transforms.ParentSystem) must run.
+To make sure that the parents find their children, and to set up their child component, [`ParentSystem`](xref:Unity.Transforms.ParentSystem) must run.
+
+Use the `static` flag for everything that isn't going to move. This improves performance and reduces memory consumption.
+
+The transform system is optimized for large numbers of hierarchies at the root level. A root level transform is a transform with no parent. Avoid having large hierarchies under a single root. The work of concatenating hierarchical transforms is divided across jobs at the root level. So the worst case scenario is to keep large numbers of non-static entities under a single root.

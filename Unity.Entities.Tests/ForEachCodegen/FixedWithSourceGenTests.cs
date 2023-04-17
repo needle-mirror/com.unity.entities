@@ -23,7 +23,6 @@ namespace Unity.Entities.CodeGen.Tests
             new TestCaseData(typeof(DOTS_1977)),
             new TestCaseData(typeof(DOTS_2700)),
             new TestCaseData(typeof(DOTS_2707)),
-            new TestCaseData(typeof(DOTS_2732)),
             new TestCaseData(typeof(DOTS_2824)),
             new TestCaseData(typeof(DOTS_2976)),
             new TestCaseData(typeof(DOTS_1684)),
@@ -243,28 +242,6 @@ namespace Unity.Entities.CodeGen.Tests
                     .WithoutBurst()
                     .Run();
                 Assert.AreNotEqual(Entity.Null, q);
-            }
-        }
-
-        partial class DOTS_2732 : SystemBase
-        {
-            protected override void OnUpdate()
-            {
-                Entities
-                    .ForEach((Entity actionEntity, in EcsTestData _) =>
-                    {
-                        PerformActionIfCompleted(
-                            () => PerformCollectFoodAction(actionEntity)
-                        );
-                    }).WithStructuralChanges().Run();
-            }
-
-            static void PerformActionIfCompleted(Action actionToPerform)
-            {
-            }
-
-            void PerformCollectFoodAction(Entity playerEntity)
-            {
             }
         }
 

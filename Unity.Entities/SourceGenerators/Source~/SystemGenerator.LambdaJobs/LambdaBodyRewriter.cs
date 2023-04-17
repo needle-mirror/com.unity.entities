@@ -71,26 +71,39 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
             // Go through all local declaration nodes and replace them with assignment nodes (or remove) if they are now captured variables that live in job struct
             // This is needed for variables captured for local methods
-            foreach (var localDeclarationSyntax in rewrittenLambdaExpression.DescendantNodes().OfType<LocalDeclarationStatementSyntax>())
+            var localDeclarationStatements = rewrittenLambdaExpression.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().ToArray();
+
+            var trackedLambdaExpression = rewrittenLambdaExpression.TrackNodes(localDeclarationStatements);
+            foreach (var localDeclaration in localDeclarationStatements)
             {
-                var variableDeclaration = localDeclarationSyntax.DescendantNodes().OfType<VariableDeclarationSyntax>().FirstOrDefault();
-                if (variableDeclaration != null &&
-                    variablesCapturedOnlyByLocals.Any(variable => variable.OriginalVariableName == variableDeclaration.Variables.First().Identifier.Text))
+                var trackedLocalDeclaration = trackedLambdaExpression.GetCurrentNode(localDeclaration);
+                var variableDeclaration = trackedLocalDeclaration.DescendantNodes().OfType<VariableDeclarationSyntax>().FirstOrDefault();
+
+                if (variableDeclaration != null)
                 {
-                    if (variableDeclaration.DescendantTokens().Any(token => token.Kind() == SyntaxKind.EqualsToken))
+                    var variableDeclaratorSyntax = variableDeclaration.Variables.First();
+                    var variableName = variableDeclaratorSyntax.Identifier.Text;
+
+                    bool isCaptured = variablesCapturedOnlyByLocals.Any(v => v.OriginalVariableName == variableName);
+                    if (isCaptured && variableDeclaratorSyntax.Initializer is { } equalsValueClauseSyntax)
                     {
-                        var variableIdentifier = variableDeclaration.Variables.First().Identifier;
-                        var nodeAfter = variableDeclaration.NodeAfter(node => node.Kind() == SyntaxKind.EqualsToken);
-                        rewrittenLambdaExpression = rewrittenLambdaExpression.ReplaceNode(localDeclarationSyntax,
-                                SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
-                                    SyntaxKind.SimpleAssignmentExpression,
-                                    SyntaxFactory.IdentifierName(variableIdentifier.Text),
-                                    (ExpressionSyntax)nodeAfter)));
+                        trackedLambdaExpression =
+                            trackedLambdaExpression.ReplaceNode(
+                                trackedLocalDeclaration,
+                                SyntaxFactory.ExpressionStatement(
+                                    SyntaxFactory.AssignmentExpression(
+                                        SyntaxKind.SimpleAssignmentExpression,
+                                        SyntaxFactory.IdentifierName(variableName),
+                                        equalsValueClauseSyntax.Value)));
                     }
                     else
-                        rewrittenLambdaExpression = rewrittenLambdaExpression.RemoveNode(localDeclarationSyntax, SyntaxRemoveOptions.KeepExteriorTrivia);
+                        trackedLambdaExpression = trackedLambdaExpression.RemoveNode(localDeclaration, SyntaxRemoveOptions.KeepExteriorTrivia);
                 }
+                else
+                    trackedLambdaExpression = trackedLambdaExpression.RemoveNode(localDeclaration, SyntaxRemoveOptions.KeepExteriorTrivia);
             }
+
+            rewrittenLambdaExpression = trackedLambdaExpression;
 
             // Go through all local function statements and omit them as method declarations on the job struct
             // (local methods accessing fields on this are not allowed in C#)
@@ -109,7 +122,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             if (originalNode is InvocationExpressionSyntax originalInvocationNode && replaced is InvocationExpressionSyntax replacedExpression
                 && model.GetSymbolInfo(originalInvocationNode.Expression) is var symbolInfo)
             {
-                var methodSymbol = symbolInfo.Symbol as IMethodSymbol ?? symbolInfo.CandidateSymbols[0] as IMethodSymbol;
+                var methodSymbol = symbolInfo.Symbol as IMethodSymbol ?? symbolInfo.CandidateSymbols.FirstOrDefault() as IMethodSymbol;
                 if (methodSymbol == null)
                     return null;
 

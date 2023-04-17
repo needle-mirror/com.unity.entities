@@ -10,7 +10,7 @@ An ECB can only record commands to happen in the future, so it can only manipula
 
 The following code example walks through some general dynamic buffer-specific `EntityCommandBuffer` APIs. It assumes a dynamic buffer called `MyElement` exists.
 
-[!code-cs[Dynamic buffer in ECB](../DocCodeSamples.Tests/CreateComponentExamples.cs#dynamicbuffer.ecb)]
+[!code-cs[Dynamic buffer in ECB](../DocCodeSamples.Tests/DynamicBufferExamples.cs#dynamicbuffer.ecb)]
 
 When you set the `Length`, `Capacity`, and content of the `DynamicBuffer`, ECS records those changes into the `EntityCommandBuffer`. When you play back the `EntityCommandBuffer`, ECS makes the changes to the dynamic buffer.
 

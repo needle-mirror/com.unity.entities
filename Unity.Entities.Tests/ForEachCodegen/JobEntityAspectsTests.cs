@@ -28,16 +28,6 @@ namespace Unity.Entities.Tests
                 void Execute(MyAspectIJE data) => Count.Value++;
             }
 
-            partial struct InAccessSpecifierJob : IJobEntity {
-                public NativeReference<int> Count;
-                void Execute(in MyAspectIJE data) => Count.Value++;
-            }
-
-            partial struct RefAccessSpecifierJob : IJobEntity {
-                public NativeReference<int> Count;
-                void Execute(ref MyAspectIJE data) => Count.Value++;
-            }
-
             partial struct TwoOverlappingJob : IJobEntity {
                 public NativeReference<int> Count;
                 void Execute(MyAspectIJE myAspect, MyAspectIJE2 myAspect2) => Count.Value++;
@@ -45,7 +35,7 @@ namespace Unity.Entities.Tests
 
             partial struct ComponentOverlappingJob : IJobEntity {
                 public NativeReference<int> Count;
-                void Execute(in MyAspectIJE myAspect, in EcsTestData2 data2) => Count.Value++;
+                void Execute(MyAspectIJE myAspect, in EcsTestData2 data2) => Count.Value++;
             }
 
             protected override void OnUpdate()
@@ -53,14 +43,6 @@ namespace Unity.Entities.Tests
                 using var ref0 = new NativeReference<int>(Allocator.TempJob);
                 new NoAccessSpecifierJob {Count = ref0}.Run();
                 Assert.AreEqual(ref0.Value, 2);
-
-                using var ref1 = new NativeReference<int>(Allocator.TempJob);
-                new InAccessSpecifierJob {Count = ref1}.Run();
-                Assert.AreEqual(ref1.Value, 2);
-
-                using var ref2 = new NativeReference<int>(Allocator.TempJob);
-                new RefAccessSpecifierJob {Count = ref2}.Run();
-                Assert.AreEqual(ref2.Value, 2);
 
                 // overlapping aspects
                 using var ref3 = new NativeReference<int>(Allocator.TempJob);

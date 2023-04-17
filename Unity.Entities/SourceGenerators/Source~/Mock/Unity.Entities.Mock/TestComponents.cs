@@ -89,15 +89,15 @@ namespace Unity.Entities.Tests
 
     public readonly partial struct EcsTestAspect : IAspect, IAspectCreate<EcsTestAspect>
     {
-        public EcsTestAspect CreateAspect(Entity entity, ref SystemState system, bool isReadOnly) =>
+        public EcsTestAspect CreateAspect(Entity entity, ref SystemState system) =>
             throw new NotImplementedException();
 
-        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, bool isReadOnly) =>
+        public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all) =>
             throw new NotImplementedException();
 
         public struct Lookup
         {
-            public Lookup(ref global::Unity.Entities.SystemState state, bool isReadOnly) =>
+            public Lookup(ref global::Unity.Entities.SystemState state) =>
                 throw new NotImplementedException();
             public void Update(ref global::Unity.Entities.SystemState state) =>
                 throw new NotImplementedException();
@@ -114,7 +114,7 @@ namespace Unity.Entities.Tests
 
         public struct TypeHandle
         {
-            public TypeHandle(ref global::Unity.Entities.SystemState state, bool isReadOnly) =>
+            public TypeHandle(ref global::Unity.Entities.SystemState state) =>
                 throw new NotImplementedException();
             public void Update(ref global::Unity.Entities.SystemState state) =>
                 throw new NotImplementedException();

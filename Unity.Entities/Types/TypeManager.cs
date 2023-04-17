@@ -2735,10 +2735,8 @@ namespace Unity.Entities
             }
         }
 
-        internal static void CheckIsAllowedAsComponentData(Type type, string baseTypeDesc, Dictionary<Type, bool> nestedContainerCache, out bool hasNativeContainer, HashSet<Type> allowedComponentCache = null)
+        internal static void CheckIsAllowedAsComponentData(Type type, string baseTypeDesc, HashSet<Type> allowedComponentCache = null)
         {
-            hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
-
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (UnsafeUtility.IsUnmanaged(type))
                 return;
@@ -2787,7 +2785,7 @@ namespace Unity.Entities
         {
             if (type.IsClass && typeof(IComponentData).IsAssignableFrom(type))
             {
-                hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, nestedContainerCache);
+                hasNativeContainer = DoesComponentContainNativeContainer(type, type, nestedContainerCache);
                 ThrowOnDisallowedManagedComponentData(type, baseTypeDesc);
                 return;
             }
@@ -2838,7 +2836,7 @@ namespace Unity.Entities
             }
         }
 
-        internal static bool ThrowOnNestedNativeContainerComponentData(Type type, Type baseType, Dictionary<Type, bool> nestedContainerCache)
+        internal static bool DoesComponentContainNativeContainer(Type type, Type baseType, Dictionary<Type, bool> nestedContainerCache)
         {
             if (type.IsPrimitive)
                 return false;
@@ -2851,7 +2849,7 @@ namespace Unity.Entities
                 hasContainer = false;
                 var elementType = type.GetElementType();
                 if (elementType != null)
-                    hasContainer = ThrowOnNestedNativeContainerComponentData(elementType, baseType, nestedContainerCache);
+                    hasContainer = DoesComponentContainNativeContainer(elementType, baseType, nestedContainerCache);
                 // We may have inserted the ElementType as part of the recursive call above if the type contains
                 // a circular reference (which is not valid for ValueTypes but is possible for ReferenceTypes).
                 // Since we don't know the answer for hasContainer, and it can't have changed since the recursive
@@ -2860,26 +2858,12 @@ namespace Unity.Entities
                 return hasContainer;
             }
 
-
-            if (Attribute.IsDefined(type, typeof(NativeContainerAttribute)))
-            {
-                hasContainer = true;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                foreach (var genericArg in type.GenericTypeArguments)
-                {
-                    const int kScriptTypeNativeContainerFlag = 0x2;
-                    if ((UnsafeUtility.GetScriptingTypeFlags(genericArg) & kScriptTypeNativeContainerFlag) == kScriptTypeNativeContainerFlag)
-                        throw new ArgumentException(
-                            $"{baseType} contains a field of {type} which is a nested native container");
-                }
-#endif
-            }
-
+            hasContainer = Attribute.IsDefined(type, typeof(NativeContainerAttribute));
             nestedContainerCache.Add(type, hasContainer);
 
             foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
             {
-                hasContainer |= ThrowOnNestedNativeContainerComponentData(field.FieldType, baseType, nestedContainerCache);
+                hasContainer |= DoesComponentContainNativeContainer(field.FieldType, baseType, nestedContainerCache);
             }
 
             nestedContainerCache[type] = hasContainer;
@@ -2988,14 +2972,14 @@ namespace Unity.Entities
             if (type.IsInterface)
                 throw new ArgumentException($"{type} is an interface. It must be a concrete type.");
 #endif
+            bool hasNativeContainer = DoesComponentContainNativeContainer(type, type, caches.NestedNativeContainerCache);
             bool hasEntityReferences = false;
-            bool hasNativeContainer = false;
             bool hasBlobReferences = false;
             bool hasWeakAssetReferences = false;
 
             if (typeof(IComponentData).IsAssignableFrom(type) && !isManaged)
             {
-                CheckIsAllowedAsComponentData(type, nameof(IComponentData), caches.NestedNativeContainerCache, out hasNativeContainer, caches.AllowedComponentCache);
+                CheckIsAllowedAsComponentData(type, nameof(IComponentData), caches.AllowedComponentCache);
 
                 category = TypeCategory.ComponentData;
 
@@ -3024,7 +3008,7 @@ namespace Unity.Entities
 #endif
             else if (typeof(IBufferElementData).IsAssignableFrom(type))
             {
-                CheckIsAllowedAsComponentData(type, nameof(IBufferElementData), caches.NestedNativeContainerCache, out hasNativeContainer, caches.AllowedComponentCache);
+                CheckIsAllowedAsComponentData(type, nameof(IBufferElementData), caches.AllowedComponentCache);
 
                 category = TypeCategory.BufferData;
 
@@ -3053,7 +3037,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (!type.IsValueType)
                     throw new ArgumentException($"{type} is an ISharedComponentData, and thus must be a struct.");
-                hasNativeContainer = ThrowOnNestedNativeContainerComponentData(type, type, caches.NestedNativeContainerCache);
+                hasNativeContainer = DoesComponentContainNativeContainer(type, type, caches.NestedNativeContainerCache);
 #endif
                 valueTypeSize = UnsafeUtility.SizeOf(type);
 

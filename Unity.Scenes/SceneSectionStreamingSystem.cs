@@ -232,7 +232,8 @@ namespace Unity.Scenes
 
         struct ProcessAfterLoadRootGroups : DefaultWorldInitialization.IIdentifyRootGroups
         {
-            public bool IsRootGroup(Type type) => type == typeof(ProcessAfterLoadGroup);
+            public bool IsRootGroup(SystemTypeIndex type) =>
+                type == TypeManager.GetSystemTypeIndex<ProcessAfterLoadGroup>();
         }
 
         static internal void AddStreamingWorldSystems(World world)
@@ -240,8 +241,10 @@ namespace Unity.Scenes
             using var marker = new ProfilerMarker("AddSystems").Auto();
 
             var group = world.GetOrCreateSystemManaged<ProcessAfterLoadGroup>();
-            var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.ProcessAfterLoad);
-            DefaultWorldInitialization.AddSystemToRootLevelSystemGroupsInternal(world, systemTypes, group, new ProcessAfterLoadRootGroups());
+            DefaultWorldInitialization.AddSystemToRootLevelSystemGroupsInternal(world,
+                DefaultWorldInitialization.GetAllSystemTypeIndices(WorldSystemFilterFlags.ProcessAfterLoad),
+                group,
+                new ProcessAfterLoadRootGroups());
             group.SortSystems();
         }
 

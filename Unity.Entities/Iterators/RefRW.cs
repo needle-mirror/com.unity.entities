@@ -17,7 +17,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="refRW">The read-write reference to convert to read-only</param>
         /// <returns>Returns a RefRO</returns>
-        public static unsafe implicit operator RefRO<T>(RefRW<T> refRW)
+        public static unsafe explicit operator RefRO<T>(RefRW<T> refRW)
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             => new RefRO<T>(refRW._Data, refRW._Safety);
 #else

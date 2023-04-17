@@ -115,7 +115,7 @@ namespace Unity.Entities
                 var component = packedTypes[packedComponent.PackedTypeIndex];
                 var targetOffset = blobAssetReferenceChanges[i].Offset;
 
-                BlobAssetReferenceData targetBlobAssetReferenceData;
+                BlobAssetReferenceData targetBlobAssetReferenceData = default;
                 if (patcherBlobAssetSystem.TryGetBlobAsset(blobAssetReferenceChanges[i].Value, out var blobAssetPtr))
                 {
                     targetBlobAssetReferenceData = new BlobAssetReferenceData {m_Ptr = (byte*)blobAssetPtr.Data};

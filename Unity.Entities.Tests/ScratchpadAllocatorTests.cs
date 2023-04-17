@@ -24,8 +24,12 @@ namespace Unity.Entities.Tests
             base.Setup();
             m_world = new World("ScratchpadAllocatorTests");
 
-            // Main thread plus maximum worker thread
-            m_scratchpad = new Scratchpad(JobsUtility.MaxJobThreadCount + 1);
+#if UNITY_2022_2_14F1_OR_NEWER
+            int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+            int maxThreadCount = JobsUtility.MaxJobThreadCount + 1;
+#endif
+            m_scratchpad = new Scratchpad(maxThreadCount);
         }
 
         [TearDown]
@@ -227,10 +231,15 @@ namespace Unity.Entities.Tests
         [Test]
         public void AvailalbeBytesCorrect()
         {
+#if UNITY_2022_2_14F1_OR_NEWER
+            int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+            int maxThreadCount = JobsUtility.MaxJobThreadCount + 1; // account for main thread
+#endif
             for (int i = 0; i < 3; i++)
             {
                 int size = (i + 1) * 32768;
-                var test_scratchpad = new Scratchpad(JobsUtility.MaxJobThreadCount + 1, size);
+                var test_scratchpad = new Scratchpad(maxThreadCount, size);
                 ref var allocator = ref test_scratchpad.GetScratchpadAllocator();
                 var array = allocator.AllocateNativeArray<float>(10); // 40 bytes
                 var mask = JobsUtility.CacheLineSize - 1;
@@ -352,16 +361,17 @@ namespace Unity.Entities.Tests
         [Test]
         public void GlobalCanCheaplyAllocateTemporaryMemoryInJob()
         {
+            int arrayLen = AllocatorManager.NumGlobalScratchAllocators;
             GlobalScratchpad.Rewind();
-            using (var results = new NativeArray<float>(10, Allocator.Persistent))
+            using (var results = new NativeArray<float>(arrayLen, Allocator.Persistent))
             {
                 GlobalAccumulatorJob job = new GlobalAccumulatorJob
                 {
                     m_results = results,
                 };
-                job.Schedule(10, 1).Complete();
+                job.Schedule(arrayLen, 1).Complete();
 
-                for (var i = 0; i < 10; ++i)
+                for (var i = 0; i < arrayLen; ++i)
                     Assert.AreEqual(10 * i, results[i]);
             }
             GlobalScratchpad.Rewind();
@@ -391,15 +401,17 @@ namespace Unity.Entities.Tests
         [Test]
         public void GlobalCanRewindTemporaryMemoryInJob()
         {
+            int arrayLen = AllocatorManager.NumGlobalScratchAllocators;
+
             GlobalScratchpad.Rewind();
-            using (var results = new NativeArray<float>(100, Allocator.Persistent))
+            using (var results = new NativeArray<float>(arrayLen, Allocator.Persistent))
             {
                 GlobalRewindJob job = new GlobalRewindJob
                 {
                     m_results = results,
                 };
-                job.Schedule(100, 1).Complete();
-                for (var i = 0; i < 100; ++i)
+                job.Schedule(arrayLen, 1).Complete();
+                for (var i = 0; i < arrayLen; ++i)
                     Assert.AreEqual(8000 * i, results[i]);
             }
             GlobalScratchpad.Rewind();
@@ -427,14 +439,15 @@ namespace Unity.Entities.Tests
         public void GlobalNoRewindBurstCompileInJob()
         {
             GlobalScratchpad.Rewind();
-            using (var results = new NativeArray<float>(100, Allocator.Persistent))
+            int arrayLen = AllocatorManager.NumGlobalScratchAllocators;
+            using (var results = new NativeArray<float>(arrayLen, Allocator.Persistent))
             {
                 GlobalNoRewindBurstCompileJob job = new GlobalNoRewindBurstCompileJob
                 {
                     m_results = results,
                 };
-                job.Schedule(100, 1).Complete();
-                for (var i = 0; i < 100; ++i)
+                job.Schedule(arrayLen, 1).Complete();
+                for (var i = 0; i < arrayLen; ++i)
                     Assert.AreEqual(8000 * i, results[i]);
             }
             GlobalScratchpad.Rewind();

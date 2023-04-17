@@ -10,6 +10,7 @@ namespace Unity.Entities.Editor
     /// <summary>
     /// The <see cref="HierarchySearch"/> is used to handle the shared state for searching/filtering.
     /// </summary>
+    [BurstCompile]
     class HierarchySearch : IDisposable
     {
         struct EntityQueryCache : IDisposable
@@ -135,7 +136,8 @@ namespace Unity.Entities.Editor
             }
 
             // TODO(DOTS-6706): if m_EntityQueryCache.EntityQuery references enableable components, this GetEntityQueryMask() call will throw.
-            FilterByEntityQuery(ref mask, nodes, m_EntityQueryCache.EntityQuery.GetEntityQueryMask());
+            var entityQueryMask = m_EntityQueryCache.EntityQuery.GetEntityQueryMask();
+            FilterByEntityQuery(ref mask, nodes, ref entityQueryMask);
         }
 
         /// <summary>
@@ -204,7 +206,7 @@ namespace Unity.Entities.Editor
             }.Run();
         }
 
-        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+        [BurstCompile(DisableSafetyChecks = true)]
         struct FilterByPrefabStage : IJob
         {
             [ReadOnly] public HierarchyNodeStore.Immutable Nodes;
@@ -225,7 +227,7 @@ namespace Unity.Entities.Editor
             }
         }
 
-        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+        [BurstCompile(DisableSafetyChecks = true)]
         struct FilterByIndex : IJob
         {
             [ReadOnly] public HierarchyNodeStore.Immutable Nodes;
@@ -253,7 +255,7 @@ namespace Unity.Entities.Editor
             }
         }
 
-        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+        [BurstCompile(DisableSafetyChecks = true)]
         struct FilterByKind : IJob
         {
             [ReadOnly] public HierarchyNodeStore.Immutable Nodes;
@@ -276,8 +278,8 @@ namespace Unity.Entities.Editor
             }
         }
 
-        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
-        static void FilterByEntityQuery(ref NativeBitArray nodeMatchesMask, in HierarchyNodeStore.Immutable nodes, EntityQueryMask queryMask)
+        [BurstCompile(DisableSafetyChecks = true)]
+        static void FilterByEntityQuery(ref NativeBitArray nodeMatchesMask, in HierarchyNodeStore.Immutable nodes, ref EntityQueryMask queryMask)
         {
             for (var index = 0; index < nodes.Count; index++)
             {
@@ -302,7 +304,7 @@ namespace Unity.Entities.Editor
         /// Bursted job to compute a search pattern bitmask directly over the <see cref="EntityNameStorage"/>.
         /// </summary>
         /// <typeparam name="TPattern">A fixed string pattern type.</typeparam>
-        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+        [BurstCompile(DisableSafetyChecks = true)]
         struct BuildEntityNameStoragePatternCacheLowerInvariant<TPattern> : IJob
             where TPattern : unmanaged, IUTF8Bytes, INativeList<byte>, IEquatable<TPattern>
         {
@@ -330,7 +332,7 @@ namespace Unity.Entities.Editor
             }
         }
 
-        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+        [BurstCompile(DisableSafetyChecks = true)]
         unsafe struct FilterByNameLowerInvariant<TPattern> : IJob
             where TPattern : unmanaged, IUTF8Bytes, INativeList<byte>, IEquatable<TPattern>
         {
@@ -409,7 +411,7 @@ namespace Unity.Entities.Editor
             }
         }
 
-        [BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true)]
+        [BurstCompile(DisableSafetyChecks = true)]
         struct FilterIncludeSubScene : IJob
         {
             [ReadOnly] public HierarchyNodeStore.Immutable Nodes;

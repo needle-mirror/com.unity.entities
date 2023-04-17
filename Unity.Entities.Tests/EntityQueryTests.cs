@@ -2078,12 +2078,14 @@ namespace Unity.Entities.Tests
             {
                 // Freshly-created empty queries which don't match any chunks yet are invalid, but not inconsistent
                 Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid on freshly-created empty query");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent on freshly-created empty query");
+                // In this one case, we except all the consistency checks to pass even though the IsCacheValid flag is false,
+                // so we need to pass forceCheckInvalidCache=true
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(true), "cached chunk list is inconsistent on freshly-created empty query");
                 // After updating the cache (called automatically when the cache is accessed with GetMatchingChunkCache),
                 // it should be consistent.
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
             }
         }
 
@@ -2097,12 +2099,12 @@ namespace Unity.Entities.Tests
             {
                 // Freshly-created queries are both invalid and inconsistent if they match any chunks
                 Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid on freshly-created query");
-                Assert.IsFalse(query.CheckChunkListCacheConsistency(), "cached chunk list is consistent on freshly-created query");
+                Assert.Throws<ArgumentException>(() => query.CheckChunkListCacheConsistency(true), "cached chunk list is consistent on freshly-created query");
                 // After updating the cache (called automatically when the cache is accessed with GetMatchingChunkCache),
                 // it should be consistent.
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
             }
         }
 
@@ -2117,7 +2119,7 @@ namespace Unity.Entities.Tests
                 // Start with a valid, consistent cache
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(),
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(),
                     "cached chunk list is inconsistent after UpdateCache() call");
                 // Adding a new chunk AND removing an existing chunk to/from one of the matching archetypes should
                 // invalidate the cache AND render it inconsistent.
@@ -2127,11 +2129,11 @@ namespace Unity.Entities.Tests
                 m_Manager.DestroyEntity(ent1);
                 Assert.AreEqual(1, archetype1.ChunkCount);
                 Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid after adding and removing chunk");
-                Assert.IsFalse(query.CheckChunkListCacheConsistency(), "cached chunk list is consistent after adding and removing chunk");
+                Assert.Throws<ArgumentException>(() => query.CheckChunkListCacheConsistency(true), "cached chunk list is consistent after adding and removing chunk");
                 // Updating the cache should leave it valid and consistent.
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
             }
         }
 
@@ -2146,18 +2148,18 @@ namespace Unity.Entities.Tests
                 // Start with a valid, consistent cache
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(),
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(),
                     "cached chunk list is inconsistent after UpdateCache() call");
                 // Adding a new chunk to one of the matching archetypes should invalidate the cache AND render it inconsistent.
                 var ent2 = m_Manager.CreateEntity(archetype1);
                 m_Manager.SetSharedComponentManaged(ent2, new EcsTestSharedComp {value = 17});
                 Assert.AreEqual(2, archetype1.ChunkCount);
                 Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid after adding chunk");
-                Assert.IsFalse(query.CheckChunkListCacheConsistency(), "cached chunk list is consistent after adding chunk");
+                Assert.Throws<ArgumentException>(() => query.CheckChunkListCacheConsistency(true), "cached chunk list is consistent after adding chunk");
                 // Updating the cache should leave it valid and consistent.
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
             }
         }
 
@@ -2175,17 +2177,17 @@ namespace Unity.Entities.Tests
                 // Start with a valid, consistent cache
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(),
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(),
                     "cached chunk list is inconsistent after UpdateCache() call");
                 // Removing a chunk from one of the matching archetypes should invalidate the cache AND render it inconsistent.
                 m_Manager.DestroyEntity(ent2);
                 Assert.AreEqual(1, archetype1.ChunkCount);
                 Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid after removing chunk");
-                Assert.IsFalse(query.CheckChunkListCacheConsistency(), "cached chunk list is consistent after removing chunk");
+                Assert.Throws<ArgumentException>(() => query.CheckChunkListCacheConsistency(true), "cached chunk list is consistent after removing chunk");
                 // Updating the cache should leave it valid and consistent.
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
             }
         }
 
@@ -2200,13 +2202,13 @@ namespace Unity.Entities.Tests
                 // Start with a valid, consistent cache
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
                 // Adding a new archetype that matches the query should NOT immediately invalidate the cache or render it inconsistent,
                 // as the new archetype has no chunks to match.
                 var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData),
                     typeof(EcsTestData2), typeof(EcsTestSharedComp));
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after creating new empty archetype");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after creating new empty archetype");
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after creating new empty archetype");
             }
         }
 
@@ -2221,13 +2223,13 @@ namespace Unity.Entities.Tests
                 // Start with a valid, consistent cache
                 query.UpdateCache();
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
                 // Structural changes which don't add/remove new chunks should neither invalidate the cache nor render it inconsistent;
                 // no chunks were added/removed/changed.
                 var ent2 = m_Manager.CreateEntity(archetype1);
                 Assert.AreEqual(1, archetype1.ChunkCount);
                 Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after adding new entity to existing chunk");
-                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after adding new entity to existing chunk");
+                Assert.DoesNotThrow(() => query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after adding new entity to existing chunk");
             }
         }
 
@@ -2245,7 +2247,7 @@ namespace Unity.Entities.Tests
 
             queryA.UpdateCache();
             Assert.IsTrue(queryA.IsCacheValid);
-            Assert.IsTrue(queryA.CheckChunkListCacheConsistency());
+            Assert.DoesNotThrow(() => queryA.CheckChunkListCacheConsistency());
 
             for (int i = 0; i < entities.Length; ++i)
             {
@@ -2253,7 +2255,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryA.IsCacheValid);
-            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
+            Assert.Throws<ArgumentException>(() => queryA.CheckChunkListCacheConsistency(true));
         }
 
         [Test]
@@ -2271,7 +2273,7 @@ namespace Unity.Entities.Tests
 
             queryA.UpdateCache();
             Assert.IsTrue(queryA.IsCacheValid);
-            Assert.IsTrue(queryA.CheckChunkListCacheConsistency());
+            Assert.DoesNotThrow(() => queryA.CheckChunkListCacheConsistency());
 
             for (int i = 0; i < entities.Length; ++i)
             {
@@ -2279,7 +2281,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryA.IsCacheValid);
-            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
+            Assert.Throws<ArgumentException>(() => queryA.CheckChunkListCacheConsistency(true));
         }
 
         [Test]
@@ -2289,7 +2291,7 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(queryC.IsCacheValid);
             queryC.UpdateCache();
             Assert.IsTrue(queryC.IsCacheValid);
-            Assert.IsTrue(queryC.CheckChunkListCacheConsistency());
+            Assert.DoesNotThrow(() => queryC.CheckChunkListCacheConsistency());
 
             // move from another world
             using(var newWorld = new World("testworld"))
@@ -2300,7 +2302,7 @@ namespace Unity.Entities.Tests
 
                 newWorld.EntityManager.UniversalQuery.UpdateCache();
                 Assert.IsTrue(newWorld.EntityManager.UniversalQuery.IsCacheValid);
-                Assert.IsTrue(newWorld.EntityManager.UniversalQuery.CheckChunkListCacheConsistency());
+                Assert.DoesNotThrow(() => newWorld.EntityManager.UniversalQuery.CheckChunkListCacheConsistency());
 
                 m_Manager.MoveEntitiesFrom(newWorld.EntityManager);
 
@@ -2308,7 +2310,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryC.IsCacheValid);
-            Assert.IsFalse(queryC.CheckChunkListCacheConsistency());
+            Assert.Throws<ArgumentException>(() => queryC.CheckChunkListCacheConsistency(true));
         }
 
         [Test]
@@ -2317,7 +2319,7 @@ namespace Unity.Entities.Tests
             var queryC = m_Manager.CreateEntityQuery(typeof(EcsTestData3));
             queryC.UpdateCache();
             Assert.IsTrue(queryC.IsCacheValid);
-            Assert.IsTrue(queryC.CheckChunkListCacheConsistency());
+            Assert.DoesNotThrow(() => queryC.CheckChunkListCacheConsistency());
 
             // move from another world
             using(var newWorld = new World("testworld"))
@@ -2327,16 +2329,16 @@ namespace Unity.Entities.Tests
 
                 newWorld.EntityManager.UniversalQuery.UpdateCache();
                 Assert.IsTrue(newWorld.EntityManager.UniversalQuery.IsCacheValid);
-                Assert.IsTrue(newWorld.EntityManager.UniversalQuery.CheckChunkListCacheConsistency());
+                Assert.DoesNotThrow(() => newWorld.EntityManager.UniversalQuery.CheckChunkListCacheConsistency());
 
                 m_Manager.CopyAndReplaceEntitiesFrom(newWorld.EntityManager);
 
                 Assert.IsTrue(newWorld.EntityManager.UniversalQuery.IsCacheValid);
-                Assert.IsTrue(newWorld.EntityManager.UniversalQuery.CheckChunkListCacheConsistency());
+                Assert.DoesNotThrow(() => newWorld.EntityManager.UniversalQuery.CheckChunkListCacheConsistency());
             }
 
             Assert.IsFalse(queryC.IsCacheValid);
-            Assert.IsFalse(queryC.CheckChunkListCacheConsistency());
+            Assert.Throws<ArgumentException>(() => queryC.CheckChunkListCacheConsistency(true));
 
         }
 
@@ -2354,12 +2356,12 @@ namespace Unity.Entities.Tests
 
             queryA.UpdateCache();
             Assert.IsTrue(queryA.IsCacheValid);
-            Assert.IsTrue(queryA.CheckChunkListCacheConsistency());
+            Assert.DoesNotThrow(() => queryA.CheckChunkListCacheConsistency());
 
             m_Manager.Instantiate(entityA, archetypeA.ChunkCapacity, Allocator.Temp);
 
             Assert.IsFalse(queryA.IsCacheValid);
-            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
+            Assert.Throws<ArgumentException>(() => queryA.CheckChunkListCacheConsistency(true));
         }
 
         [Test]
@@ -2376,7 +2378,7 @@ namespace Unity.Entities.Tests
 
             queryA.UpdateCache();
             Assert.IsTrue(queryA.IsCacheValid);
-            Assert.IsTrue(queryA.CheckChunkListCacheConsistency());
+            Assert.DoesNotThrow(() => queryA.CheckChunkListCacheConsistency());
 
             for (int i = 0; i < entities.Length; ++i)
             {
@@ -2384,7 +2386,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryA.IsCacheValid);
-            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
+            Assert.Throws<ArgumentException>(() => queryA.CheckChunkListCacheConsistency(true));
         }
 
         [Test]
@@ -2401,7 +2403,7 @@ namespace Unity.Entities.Tests
 
             queryA.UpdateCache();
             Assert.IsTrue(queryA.IsCacheValid);
-            Assert.IsTrue(queryA.CheckChunkListCacheConsistency());
+            Assert.DoesNotThrow(() => queryA.CheckChunkListCacheConsistency());
 
             for (int i = 0; i < entities.Length; ++i)
             {
@@ -2409,7 +2411,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryA.IsCacheValid);
-            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
+            Assert.Throws<ArgumentException>(() => queryA.CheckChunkListCacheConsistency(true));
         }
 
         [Test]
@@ -2427,12 +2429,12 @@ namespace Unity.Entities.Tests
             {
                 queryA.UpdateCache();
                 Assert.IsTrue(queryA.IsCacheValid);
-                Assert.IsTrue(queryA.CheckChunkListCacheConsistency());
+                Assert.DoesNotThrow(() => queryA.CheckChunkListCacheConsistency());
 
                 // destroy entities
                 m_Manager.DestroyEntity(queryA);
                 Assert.IsFalse(queryA.IsCacheValid);
-                Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
+                Assert.Throws<ArgumentException>(() => queryA.CheckChunkListCacheConsistency(true));
             }
         }
 
@@ -3220,7 +3222,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityQueryBuilder_WithAspect_Works()
         {
-            var entityWithAspect = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>(isReadOnly: false));
+            var entityWithAspect = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>());
             var entityWithNothing = m_Manager.CreateEntity();
             var entityWithOtherComponent = m_Manager.CreateEntity(typeof(EcsTestData2));
 
@@ -3228,20 +3230,14 @@ namespace Unity.Entities.Tests
                 .WithAspect<MyAspect>()
                 .Build(EmptySystem);
 
-            var queryRO = new EntityQueryBuilder(Allocator.Temp)
-                .WithAspectRO<MyAspect>()
-                .Build(EmptySystem);
-
             CollectionAssert.AreEquivalent(new[]{entityWithAspect},
                 query.ToEntityArray(Allocator.Temp).ToArray());
-            CollectionAssert.AreEquivalent(new[]{entityWithAspect},
-                queryRO.ToEntityArray(Allocator.Temp).ToArray());
         }
 
         [Test]
         public void EntityQueryBuilder_WithAspect_Alias_WithAll_Works()
         {
-            var entityWithAspect = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>(isReadOnly: false));
+            var entityWithAspect = m_Manager.CreateEntity(GetRequiredComponents<MyAspect>());
             var entityWithNothing = m_Manager.CreateEntity();
             var entityWithOtherComponent = m_Manager.CreateEntity(typeof(EcsTestData2));
 
@@ -3250,15 +3246,8 @@ namespace Unity.Entities.Tests
                 .WithAspect<MyAspect>()
                 .Build(EmptySystem);
 
-            var queryRO = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<EcsTestData>()
-                .WithAspectRO<MyAspect>()
-                .Build(EmptySystem);
-
-            CollectionAssert.AreEquivalent(new[]{entityWithAspect},
+            CollectionAssert.AreEquivalent(new[] { entityWithAspect },
                 query.ToEntityArray(Allocator.Temp).ToArray());
-            CollectionAssert.AreEquivalent(new[]{entityWithAspect},
-                queryRO.ToEntityArray(Allocator.Temp).ToArray());
         }
 
         partial struct EmptyQueryISystem : ISystem
@@ -4316,7 +4305,7 @@ namespace Unity.Entities.Tests
                     RotationTypeHandle = _RotationTypeHandle,
                     RotationSpeedTypeHandle = _RotationSpeedTypeHandle,
                 };
-                InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, _Query);
+                Internal.InternalCompilerInterface.JobChunkInterface.RunWithoutJobs(ref job, _Query);
             }
         }
 

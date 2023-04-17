@@ -19,7 +19,7 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(120, "extDontMatter", AllowCaching = true)]
+    [ScriptedImporter(121, "extDontMatter", AllowCaching = true)]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {
@@ -120,7 +120,6 @@ namespace Unity.Scenes.Editor
                 BuildConfiguration = buildConfig,
 #endif
             };
-            settings.ExtraSystems.AddRange(TestPlayerSettings.AdditionalBakingSystemsTemp);
 
             if (!sceneWithBuildConfiguration.IsBuildingForEditor)
                 settings.BakingFlags |= BakingUtility.BakingFlags.IsBuildingForPlayer;
@@ -172,13 +171,16 @@ namespace Unity.Scenes.Editor
             )
         {
             settingsAsset = null;
-#if USING_PLATFORMS_PACKAGE            
+#if USING_PLATFORMS_PACKAGE
             buildConfig = null;
             buildConfig = BuildConfiguration.LoadAsset(sceneWithBuildConfiguration.BuildConfiguration);
             if (buildConfig != null)
                 return;
             // If we failed to load a BuildConfiguration asset, let's try to load a IEntitiesPlayerSettings one
 #endif
+            // ensure the settings objects are updated and contain the latest changes from the editor
+            DotsGlobalSettings.Instance.ReloadSettingsObjects();
+
             if (sceneWithBuildConfiguration.BuildConfiguration.IsValid)
             {
                 settingsAsset = DotsGlobalSettings.Instance.GetSettingsAsset(sceneWithBuildConfiguration.BuildConfiguration);
@@ -192,8 +194,6 @@ namespace Unity.Scenes.Editor
             }
             if (settingsAsset == null)
             {
-                // ensure the settings objects are updated and contain the latest changes from the editor
-                DotsGlobalSettings.Instance.ReloadSettingsObjects();
                 // if the build config could not be resolved, default to the standard entities client settings asset
                 switch (DotsGlobalSettings.Instance.GetPlayerType())
                 {
@@ -232,9 +232,9 @@ namespace Unity.Scenes.Editor
                 var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneWithBuildConfiguration.SceneGUID);
 
                 UnityEngine.SceneManagement.Scene scene;
-                bool isPrefab = scenePath.EndsWith(".prefab");
+                bool isScene = scenePath.EndsWith(".unity");
                 GameObject prefab = null;
-                if (isPrefab)
+                if (!isScene)
                 {
                     var prefabGUID = sceneWithBuildConfiguration.SceneGUID;
                     scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);

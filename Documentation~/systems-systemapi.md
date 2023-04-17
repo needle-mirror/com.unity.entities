@@ -1,4 +1,4 @@
-# SystemAPI
+# SystemAPI overview
 
 [SystemAPI](xref:Unity.Entities.SystemAPI) is a class that provides caching and utility methods for accessing data in an entity's [world](concepts-worlds.md). It works in non-static methods in [SystemBase](systems-systembase.md) and non-static methods in [ISystem](systems-isystem.md) that take `ref SystemState` as a parameter. 
 
@@ -49,7 +49,7 @@ public void OnUpdate(ref SystemState state){
 |Component data|[GetComponentLookup](xref:Unity.Entities.SystemAPI.GetComponentLookup*)<br/>[GetComponent](xref:Unity.Entities.SystemAPI.GetComponent*)<br/>[SetComponent](xref:Unity.Entities.SystemAPI.SetComponent*)<br/>[HasComponent](xref:Unity.Entities.SystemAPI.HasComponent*)<br/>[IsComponentEnabled](xref:Unity.Entities.SystemAPI.IsComponentEnabled*)<br/>[SetComponentEnabled](xref:Unity.Entities.SystemAPI.SetComponentEnabled*)|
 |Buffers|[GetBufferLookup](xref:Unity.Entities.SystemAPI.GetBufferLookup*)<br/>[GetBuffer](xref:Unity.Entities.SystemAPI.GetBuffer*)<br/>[HasBuffer](xref:Unity.Entities.SystemAPI.HasBuffer*)<br/>[IsBufferEnabled](xref:Unity.Entities.SystemAPI.IsBufferEnabled*)<br/>[SetBufferEnabled](xref:Unity.Entities.SystemAPI.SetBufferEnabled*)|
 |EntityInfo|[GetEntityStorageInfoLookup](xref:Unity.Entities.SystemAPI.GetEntityStorageInfoLookup)<br/>[Exists](xref:Unity.Entities.SystemAPI.Exists*)|
-|Aspects|[GetAspectRW](xref:Unity.Entities.SystemAPI.GetAspectRW*)<br/>[GetAspectRO](xref:Unity.Entities.SystemAPI.GetAspectRO*)|
+|Aspects|[GetAspect](xref:Unity.Entities.SystemAPI.GetAspect*)|
 |Handles|[GetEntityTypeHandle](xref:Unity.Entities.SystemAPI.GetEntityTypeHandle)<br/>[GetComponentTypeHandle](xref:Unity.Entities.SystemAPI.GetComponentTypeHandle*)<br/>[GetBufferTypeHandle](xref:Unity.Entities.SystemAPI.GetBufferTypeHandle*)<br/>[GetSharedComponentTypeHandle](xref:Unity.Entities.SystemAPI.GetSharedComponentTypeHandle*)|
 
 These `SystemAPI` methods cache in your systems' `OnCreate` and call `.Update` before any call. Also, when you call these methods, ECS makes sure that the calls are synced before they get lookup access. This means that a call like `SystemAPI.SetBuffer<MyElement>`, which uses a lookup, in this case `BufferLookup<MyElement>`, causes all jobs that are currently writing to `MyElement` to complete. Calls such as `GetEntityTypeHandle` and `GetBufferLookup` don't cause syncs.
@@ -83,7 +83,7 @@ Only a selection of SystemAPI methods work in [Entities.ForEach](iterating-data-
 |Component data|[GetComponentLookup](xref:Unity.Entities.SystemAPI.GetComponentLookup*)<br/>[GetComponent](xref:Unity.Entities.SystemAPI.GetComponent*)<br/>[SetComponent](xref:Unity.Entities.SystemAPI.SetComponent*)<br/>[HasComponent](xref:Unity.Entities.SystemAPI.HasComponent*)|
 |Buffers|[GetBufferLookup](xref:Unity.Entities.SystemAPI.GetBufferLookup*)<br/>[GetBuffer](xref:Unity.Entities.SystemAPI.GetBuffer*)<br/>[HasBuffer](xref:Unity.Entities.SystemAPI.HasBuffer*)|
 |EntityInfo|[GetEntityStorageInfoLookup](xref:Unity.Entities.SystemAPI.GetEntityStorageInfoLookup)<br/>[Exists](xref:Unity.Entities.SystemAPI.Exists*)|
-|Aspects|[GetAspectRW](xref:Unity.Entities.SystemAPI.GetAspectRW*)<br/>[GetAspectRO](xref:Unity.Entities.SystemAPI.GetAspectRO*)|
+|Aspects|[GetAspect](xref:Unity.Entities.SystemAPI.GetAspect*)|
 
 ## Access singletons
 
@@ -125,3 +125,7 @@ You can also use the [ManagedAPI.UnityEngineComponent](xref:Unity.Entities.Syste
 foreach (var transformRef in SystemAPI.Query<SystemAPI.ManagedAPI.UnityEngineComponent<Transform>>())
     transformRef.Value.Translate(0,1,0);
 ```
+
+## Additional resources
+
+* [`SystemAPI` API documentation](xref:Unity.Entities.SystemAPI)

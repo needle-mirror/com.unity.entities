@@ -19,8 +19,7 @@ namespace Unity.Entities
             [ExcludeFromBurstCompatTesting("Returns managed string")]
             public string Name => m_Name.ToString();
 
-            [ExcludeFromBurstCompatTesting("Takes managed Type")]
-            public SystemData(Type systemType, in SystemHandle systemHandle)
+            public SystemData(SystemTypeIndex systemType, in SystemHandle systemHandle)
             {
                 m_System = systemHandle;
                 m_Name = default;

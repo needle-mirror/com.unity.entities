@@ -1,6 +1,6 @@
 # Scene and section meta entities
 
-[Baking](baking.md) an authoring scene produces an entity scene file. The header of each entity scene file contains:
+[Baking](baking-overview.md) an authoring scene produces an entity scene file. The header of each entity scene file contains:
 
 * A list of [sections](streaming-scene-sections.md), with data such as file names, file sizes, and bounding volumes.
 * A list of AssetBundle dependencies (GUIDs).
@@ -19,7 +19,7 @@ Unity uses these scene and section meta entities to control streaming. Once the 
 
 The section meta entity is available even when the content of the section hasn't loaded, so it can be useful to store custom metadata in this section. For example, you could store the dimensions of a bounding box that the player must enter for that section to be loaded.
 
-To store custom metadata, add a regular ECS component to the section meta entity during [baking](baking.md). You can only do this in a baking system and not in a baker. To access the section meta entity during baking you need to use the [`SerializeUtility.GetSceneSectionEntity`](xref:Unity.Entities.Serialization.SerializeUtility.GetSceneSectionEntity*) method as shown in the following example:
+To store custom metadata, add a regular ECS component to the section meta entity during [baking](baking-overview.md). You can only do this in a baking system and not in a baker. To access the section meta entity during baking you need to use the [`SerializeUtility.GetSceneSectionEntity`](xref:Unity.Entities.Serialization.SerializeUtility.GetSceneSectionEntity*) method as shown in the following example:
 
 [!code-cs[sample](../DocCodeSamples.Tests/StreamingExamples.cs#section_metadata)]
 

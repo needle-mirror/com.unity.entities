@@ -1651,8 +1651,12 @@ namespace Unity.Entities.Tests
         [Test]
         public void UnmanagedSystemRefsBatchCreateWorks()
         {
-            World.Unmanaged.GetOrCreateUnmanagedSystems(new[] { typeof(UnmanagedSystemWithRefA), typeof(UnmanagedSystemWithRefB) });
+            var tmp = new NativeList<SystemTypeIndex>(2, Allocator.Temp);
+            tmp.Add(TypeManager.GetSystemTypeIndex<UnmanagedSystemWithRefA>());
+            tmp.Add(TypeManager.GetSystemTypeIndex<UnmanagedSystemWithRefB>());
 
+            World.Unmanaged.GetOrCreateUnmanagedSystems(tmp);
+            
             var sysA = World.Unmanaged.GetExistingUnmanagedSystem<UnmanagedSystemWithRefA>();
             var sysB = World.Unmanaged.GetExistingUnmanagedSystem<UnmanagedSystemWithRefB>();
 

@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -8,13 +9,15 @@ namespace Unity.Entities.Serialization
     /// <summary>
     /// Encapsulates a serializable reference to a Scene asset.
     /// </summary>
+    [Serializable]
     public struct EntitySceneReference : IEquatable<EntitySceneReference>
     {
-        internal UntypedWeakReferenceId SceneId;
+        [SerializeField]
+        internal UntypedWeakReferenceId Id;
 
         internal EntitySceneReference(UntypedWeakReferenceId sceneId)
         {
-            SceneId = sceneId;
+            Id = sceneId;
         }
 
         /// <summary>
@@ -24,7 +27,7 @@ namespace Unity.Entities.Serialization
         /// <param name="sectionIndex">The subscene section index.</param>
         public EntitySceneReference(Hash128 guid, int sectionIndex)
         {
-            SceneId = new UntypedWeakReferenceId(new RuntimeGlobalObjectId { AssetGUID = guid, IdentifierType = 1, SceneObjectIdentifier0 = sectionIndex }, WeakReferenceGenerationType.EntityScene);
+            Id = new UntypedWeakReferenceId(new RuntimeGlobalObjectId { AssetGUID = guid, IdentifierType = 1, SceneObjectIdentifier0 = sectionIndex }, WeakReferenceGenerationType.EntityScene);
         }
 
 #if UNITY_EDITOR
@@ -45,7 +48,7 @@ namespace Unity.Entities.Serialization
         /// <returns>True if the asset GUID of both are equal.</returns>
         public bool Equals(EntitySceneReference other)
         {
-            return SceneId.Equals(other.SceneId);
+            return Id .Equals(other.Id );
         }
 
         /// <summary>
@@ -64,7 +67,7 @@ namespace Unity.Entities.Serialization
         /// <returns>The hash code of this EntitySceneReference.</returns>
         public override int GetHashCode()
         {
-            return SceneId.GetHashCode();
+            return Id .GetHashCode();
         }
     }
 }

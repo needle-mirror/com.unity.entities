@@ -22,6 +22,7 @@ To upgrade from Entities 0.51 to 1.0, you need to do the following:
 * [Add the Entities Graphics package to your project](#add-the-entities-graphics-package-to-your-project)
 * [Modify blob assets that use new or default](#modify-blob-assets-that-use-new-or-default)
 * [Update partials in your project](#update-partials-in-your-project)
+* [Update SceneSystem](#update-scenesystem)
 
 ## Update ISystem
 
@@ -714,4 +715,19 @@ using Unity.Entities;
 #pragma warning disable EA0007 // Force no sourcegen to take place for this system. E.g. SystemAPI, and IJobEntity scheduling will not be avaiable in this system.
 struct ManualSystem : ISystem {}
 #pragma warning enable EA0007
+```
+
+## Update SceneSystem
+
+SceneSystem is used to manage entity scenes loading. In Entities 0.51 you had to access the SceneSystem instance first and then call its methods to manage a scene. In 1.0 all those methods in SceneSystem are static, so you don't use the system instance. For example in 0.51 the code to load a scene would be:
+
+```c#
+var sceneSystem = World.GetOrCreateSystem<SceneSystem>();
+sceneSystem.LoadSceneAsync(sceneGUID);
+```
+
+For the same example in 1.0 you can call the static method directly, but pass the unmanaged world as the first parameter:
+
+```c#
+SceneSystem.LoadSceneAsync(state.WorldUnmanaged, sceneGUID);
 ```

@@ -1584,16 +1584,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(componentAfterWrite.value, 420, "The written value from the aspect's RefRW did not overwrite the component data");
         }
 
-        [Test]
-        public void GetAspectRO()
-        {
-            var entity0 = m_Manager.CreateEntity();
-            m_Manager.AddComponentData(entity0, new EcsTestData(42));
-            var aspect0 = m_Manager.GetAspectRO<EcsTestAspect0RO>(entity0);
-            Assert.IsTrue(aspect0.EcsTestData.IsValid, "the aspect could not build the RefRO of EcsTestAspect0.EcsTestData");
-            Assert.AreEqual(aspect0.EcsTestData.ValueRO.value, 42, "the component the RefRO of EcsTestAspect0.EcsTestData points to does not have the correct value");
-        }
-
         partial struct ScheduleEcsTestDataForWritingSystem : ISystem
         {
             struct Job : IJob

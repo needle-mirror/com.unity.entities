@@ -53,6 +53,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 , location);
         }
 
+        // TODO: Needs test
         public static void SGJE0010(ISourceGeneratorDiagnosable context, Location location, string parameter, string parameterType)
         {
             context.LogError(
@@ -62,6 +63,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 location);
         }
 
+        // TODO: Needs test
         public static void SGJE0011(ISourceGeneratorDiagnosable diagnosable, Location location, string notValidParam)
         {
             diagnosable.LogError(
@@ -71,6 +73,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 location);
         }
 
+        // TODO: Needs test
         public static void SGJE0012(ISourceGeneratorDiagnosable diagnosable, Location location, string parameterType)
         {
             diagnosable.LogError(
@@ -131,6 +134,24 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 nameof(SGJE0020),
                 k_ErrorTitle,
                 $"`{jobName}` is an IJobEntity job that uses a generic type parameter.  This is not currently supported.  Please use IJobChunk if you need support for generic parameters.",
+                location);
+        }
+        
+        public static void SGJE0021(ISourceGeneratorDiagnosable diagnosable, Location location, string parameterName)
+        {
+            diagnosable.LogError(
+                nameof(SGJE0021),
+                k_ErrorTitle,
+                $"{parameterName} is an Aspect passed with a `ref` or `in` keyword.  Aspects are already act as reference types and should just be passed in by value.",
+                location);
+        }
+        
+        public static void SGJE0022(ISourceGeneratorDiagnosable diagnosable, Location location, string parameterName)
+        {
+            diagnosable.LogError(
+                nameof(SGJE0022),
+                k_ErrorTitle,
+                $"IJobEntity has a Managed component {parameterName} that is used with a `ref` or `in` modifier.  Managed components are already passed by reference and are do not have readonly protection.  Please pass directly instead, without the `ref` or `in` modifier.",
                 location);
         }
     }

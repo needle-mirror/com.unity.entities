@@ -21,9 +21,9 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
         [Test] public void CreateMultipleArchetypeQueries_Test() => _testSystem.CreateMultipleArchetypeQueries();
         [Test] public void ChainedWithEntityQueryMethodAfterBuilding_Test() => _testSystem.ChainedWithEntityQueryMethodAfterBuilding();
 
-        [Test] public void WithAspect([Values] bool forceReadOnly) => _testSystem.WithAspect(forceReadOnly);
-        [Test] public void WithAspect2([Values] bool forceReadOnly) => _testSystem.WithAspect2(forceReadOnly);
-        [Test] public void WithAspectAliased([Values] bool forceReadOnly) => _testSystem.WithAspectAliased(forceReadOnly);
+        [Test] public void WithAspect() => _testSystem.WithAspect();
+        [Test] public void WithAspect2() => _testSystem.WithAspect2();
+        [Test] public void WithAspectAliased() => _testSystem.WithAspectAliased();
 
         partial class MyTestSystem : SystemBase
         {
@@ -145,14 +145,10 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 EntityManager.DestroyEntity(entity);
             }
 
-            public unsafe void WithAspect(bool forceReadOnly)
+            public unsafe void WithAspect()
             {
                 EntityQuery query;
-
-                if(forceReadOnly)
-                    query = SystemAPI.QueryBuilder().WithAspectRO<MyAspect>().Build();
-                else
-                    query = SystemAPI.QueryBuilder().WithAspect<MyAspect>().Build();
+                query = SystemAPI.QueryBuilder().WithAspect<MyAspect>().Build();
                 var queryData = query._GetImpl()->_QueryData;
 
                 Assert.AreEqual(1, queryData->ArchetypeQueryCount);
@@ -164,36 +160,21 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(0, archetypeQuery.AnyCount);
                 Assert.AreEqual(0, archetypeQuery.DisabledCount);
                 Assert.AreEqual(0, archetypeQuery.AbsentCount);
-                if (forceReadOnly)
-                    Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
-                else
-                    Assert.AreEqual(ComponentType.ReadWrite<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
+
+                Assert.AreEqual(ComponentType.ReadWrite<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
             }
 
-            public unsafe void WithAspect2(bool forceReadOnly)
+            public unsafe void WithAspect2()
             {
                 EntityQuery query;
-
-                if (forceReadOnly)
-                    query = SystemAPI.QueryBuilder().WithAspectRO<MyAspect>().WithAspectRO<MyAspectMiscTests>().Build();
-                else
-                    query = SystemAPI.QueryBuilder().WithAspect<MyAspect>().WithAspect<MyAspectMiscTests>().Build();
+                query = SystemAPI.QueryBuilder().WithAspect<MyAspect>().WithAspect<MyAspectMiscTests>().Build();
                 var queryData = query._GetImpl()->_QueryData;
 
                 Assert.AreEqual(1, queryData->ArchetypeQueryCount);
                 var archetypeQuery = queryData->ArchetypeQueries[0];
 
                 using NativeArray<ComponentType> receivedAll = archetypeQuery.SortedComponentTypeAll();
-                using NativeArray<ComponentType> expectedAll = ToSortedNativeArray(forceReadOnly ?
-                    // when read-only
-                    new ComponentType[]
-                    {
-                        ComponentType.ReadOnly<EcsTestData>(),
-                        ComponentType.ReadOnly<EcsTestData2>(),
-                        ComponentType.ReadOnly<EcsTestData3>(),
-                        ComponentType.ReadOnly<EcsTestData4>()
-                    }
-                    : // when not read-only
+                using NativeArray<ComponentType> expectedAll = ToSortedNativeArray(
                     new ComponentType[]
                     {
                         ComponentType.ReadWrite<EcsTestData>(),
@@ -212,14 +193,10 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(0, archetypeQuery.AbsentCount);
             }
 
-            public unsafe void WithAspectAliased(bool forceReadOnly)
+            public unsafe void WithAspectAliased()
             {
                 EntityQuery query;
-
-                if (forceReadOnly)
-                    query = SystemAPI.QueryBuilder().WithAll<EcsTestData>().WithAspectRO<MyAspect>().Build();
-                else
-                    query = SystemAPI.QueryBuilder().WithAll<EcsTestData>().WithAspect<MyAspect>().Build();
+                query = SystemAPI.QueryBuilder().WithAll<EcsTestData>().WithAspect<MyAspect>().Build();
                 var queryData = query._GetImpl()->_QueryData;
 
                 Assert.AreEqual(1, queryData->ArchetypeQueryCount);
@@ -232,10 +209,7 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(0, archetypeQuery.DisabledCount);
                 Assert.AreEqual(0, archetypeQuery.AbsentCount);
 
-                if (forceReadOnly)
-                    Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
-                else
-                    Assert.AreEqual(ComponentType.ReadWrite<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
+                Assert.AreEqual(ComponentType.ReadWrite<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
             }
 
             protected override void OnUpdate()

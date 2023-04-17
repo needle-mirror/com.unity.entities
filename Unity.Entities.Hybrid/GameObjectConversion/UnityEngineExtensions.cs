@@ -78,9 +78,7 @@ namespace Unity.Entities.Conversion
             switch (@this)
             {
                 case Renderer  r: return !r.enabled;
-#if LEGACY_PHYSICS
                 case Collider  c: return !c.enabled;
-#endif
                 case LODGroup  l: return !l.enabled;
                 case Behaviour b: return !b.enabled;
             }

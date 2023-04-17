@@ -409,6 +409,13 @@ namespace Unity.Entities
                                         dstBlobAssetsWithDistinctHash);
                                 }
                             }
+                            catch (Exception e)
+                            {
+                                // Throw a message for the user
+                                Debug.LogException(e);
+                                // Re-Throw with all internal data (doesn't show up in log)
+                                throw e;
+                            }
                             finally
                             {
                                 if (duplicateEntityGuids.IsCreated) duplicateEntityGuids.Dispose();

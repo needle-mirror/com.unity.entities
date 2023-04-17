@@ -115,10 +115,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         #region Aspect
 
         [Test]
-        public void GetAspectRW([Values] SystemAPIAccess access) => World.GetExistingSystemManaged<TestSystemBaseSystem>().TestGetAspectRW(access);
-
-        [Test]
-        public void GetAspectRO([Values] SystemAPIAccess access) => World.GetExistingSystemManaged<TestSystemBaseSystem>().TestGetAspectRO(access);
+        public void GetAspect([Values] SystemAPIAccess access) => World.GetExistingSystemManaged<TestSystemBaseSystem>().TestGetAspect(access);
 
         #endregion
 
@@ -127,6 +124,8 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void Nesting() =>  World.GetExistingSystemManaged<TestSystemBaseSystem>().TestNesting();
         [Test]
         public void StatementInsert() =>  World.GetExistingSystemManaged<TestSystemBaseSystem>().TestStatementInsert();
+        [Test]
+        public void GenericTypeArgument() =>  World.GetExistingSystemManaged<TestSystemBaseSystem>().TestGenericTypeArgument();
         [Test]
         public void GenericSystem() => World.GetExistingSystemManaged<TestSystemBaseSystem.GenericSystem<EcsTestData>>().TestGenericSystem();
         [Test]
@@ -339,14 +338,14 @@ namespace Unity.Entities.Tests.TestSystemAPI
             var e = EntityManager.CreateEntity();
             EntityManager.AddComponent<LocalTransform>(e);
             var t = LocalTransform.FromPosition(0, 2, 0);
-            SystemAPI.GetComponentRW<LocalTransform>(e, false).ValueRW = t;
+            SystemAPI.GetComponentRW<LocalTransform>(e).ValueRW = t;
             switch (memberUnderneath)
             {
                 case MemberUnderneath.WithMemberUnderneath:
-                    Assert.That(SystemAPI.GetComponentRW<LocalTransform>(e,false).ValueRO, Is.EqualTo(t));
+                    Assert.That(SystemAPI.GetComponentRW<LocalTransform>(e).ValueRO, Is.EqualTo(t));
                     break;
                 case MemberUnderneath.WithoutMemberUnderneath:
-                    Assert.That(SystemAPI.GetComponentRW<LocalTransform>(e,false).ValueRO, Is.EqualTo(t));
+                    Assert.That(SystemAPI.GetComponentRW<LocalTransform>(e).ValueRO, Is.EqualTo(t));
                     break;
             }
         }
@@ -747,39 +746,20 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         #region Aspect
 
-        public void TestGetAspectRW(SystemAPIAccess access)
+        public void TestGetAspect(SystemAPIAccess access)
         {
             var entity = EntityManager.CreateEntity(typeof(EcsTestData));
             switch (access)
             {
                 case SystemAPIAccess.SystemAPI:
-                    SystemAPI.GetAspectRW<EcsTestAspect0RW>(entity ).EcsTestData.ValueRW.value = 5;
+                    SystemAPI.GetAspect<EcsTestAspect0RW>(entity ).EcsTestData.ValueRW.value = 5;
                     break;
                 case SystemAPIAccess.Using:
-                    SystemAPI.GetAspectRW<EcsTestAspect0RW>(entity).EcsTestData.ValueRW.value = 5;
+                    SystemAPI.GetAspect<EcsTestAspect0RW>(entity).EcsTestData.ValueRW.value = 5;
                     break;
             }
 
             Assert.AreEqual(5, SystemAPI.GetComponent<EcsTestData>(entity).value);
-        }
-
-        public void TestGetAspectRO(SystemAPIAccess access)
-        {
-            var entity = EntityManager.CreateEntity(typeof(EcsTestData));
-            SystemAPI.SetComponent(entity, new EcsTestData() { value = 5 });
-
-            int result = 0;
-            switch (access)
-            {
-                case SystemAPIAccess.SystemAPI:
-                    result = SystemAPI.GetAspectRO<EcsTestAspect0RO>(entity).EcsTestData.ValueRO.value;
-                    break;
-                case SystemAPIAccess.Using:
-                    result = GetAspectRO<EcsTestAspect0RO>(entity).EcsTestData.ValueRO.value;
-                    break;
-            }
-
-            Assert.AreEqual(5, result);
         }
 
         #endregion
@@ -852,6 +832,11 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     Assert.That(src, Is.Not.EqualTo(dst));
                 }
             }
+        }
+
+        public void TestGenericTypeArgument()
+        {
+            Assert.False(SystemAPI.HasSingleton<EcsTestGenericTag<int>>());
         }
 
         public partial class GenericSystem<T> : SystemBase where T : unmanaged, IComponentData {

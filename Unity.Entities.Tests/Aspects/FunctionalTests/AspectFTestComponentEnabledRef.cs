@@ -62,19 +62,11 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
                 switch (AspectSetup)
                 {
                     case AspectSetup.EnabledRef:
-                        if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                            foreach (var test in SystemAPI.Query<AspectWithEnableableComponentRW>())
-                                testData = test.Read(testData);
-
                         if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess))
                             foreach (var test in SystemAPI.Query<AspectWithEnableableComponentRW>())
                                 testData = test.Write(testData);
                         break;
                     case AspectSetup.EnableRefAndRef:
-                        if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess))
-                            foreach (var test in SystemAPI.Query<AspectWithEnableableComponentRWAndRefRW>())
-                                testData = test.Read(testData);
-
                         if (UseCase.TestPermutation(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess))
                             foreach (var test in SystemAPI.Query<AspectWithEnableableComponentRWAndRefRW>())
                                 testData = test.Write(testData);
@@ -97,18 +89,12 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
                 switch (AspectSetup)
                 {
                     case AspectSetup.EnabledRef:
-                        if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess))
-                            Entities.ForEach((Entity entity, in EnableableComponent comp) => testData = GetAspectRO<AspectWithEnableableComponentRW>(entity).Read(testData)).Run();
-
                         if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess))
-                            Entities.ForEach((Entity entity, in EnableableComponent comp) => testData = GetAspectRW<AspectWithEnableableComponentRW>(entity).Write(testData)).Run();
+                            Entities.ForEach((Entity entity, in EnableableComponent comp) => testData = SystemAPI.GetAspect<AspectWithEnableableComponentRW>(entity).Write(testData)).Run();
                         break;
                     case AspectSetup.EnableRefAndRef:
-                        if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess))
-                            Entities.ForEach((Entity entity, in EnableableComponent comp) => testData = GetAspectRO<AspectWithEnableableComponentRWAndRefRW>(entity).Read(testData)).Run();
-
                         if (UseCase.TestPermutation(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess))
-                            Entities.ForEach((Entity entity, in EnableableComponent comp) => testData = GetAspectRW<AspectWithEnableableComponentRWAndRefRW>(entity).Write(testData)).Run();
+                            Entities.ForEach((Entity entity, in EnableableComponent comp) => testData = SystemAPI.GetAspect<AspectWithEnableableComponentRWAndRefRW>(entity).Write(testData)).Run();
                         break;
                 }
 
@@ -124,7 +110,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
         [Test]
         public void UseCases([Values] AspectSetup aspectSetup, [Values] SystemKind systemKind, [Values] ContextKind contextKind, [Values] AccessKind accessKind)
         {
-            
+
             World.GetOrCreateSystemManaged<TestSystemBase>().AspectSetup = aspectSetup;
             World.Unmanaged.GetUnsafeSystemRef<TestISystem>(World.GetOrCreateSystem<TestISystem>()).AspectSetup = aspectSetup;
 

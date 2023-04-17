@@ -58,6 +58,7 @@ namespace Unity.Entities
     //     - Deallocate
     //     - Remove
 
+    [BurstCompile]
     internal static unsafe class ChunkDataUtility
     {
         public static int GetIndexInTypeArray(Archetype* archetype, TypeIndex typeIndex)

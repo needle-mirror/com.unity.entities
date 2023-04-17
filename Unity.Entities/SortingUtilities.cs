@@ -363,7 +363,12 @@ namespace Unity.Entities
             };
             var copyIndexValuesJobHandle = copyIndexedValuesJob.Schedule(length, 1024, inputDeps);
 
-            var workerSegmentCount = segmentCount / JobsUtility.MaxJobThreadCount; // .JobsWorkerCount
+#if UNITY_2022_2_14F1_OR_NEWER
+            int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+            int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
+            var workerSegmentCount = segmentCount / maxThreadCount;
             var segmentSortJob = new SegmentSortInt
             {
                 Data = copyIndexedValues,

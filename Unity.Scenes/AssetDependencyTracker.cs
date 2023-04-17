@@ -4,6 +4,7 @@ using System;
 using System.Diagnostics;
 using Unity.Collections;
 using UnityEditor;
+using UnityEditor.Experimental;
 using Hash128 = UnityEngine.Hash128;
 
 namespace Unity.Scenes
@@ -190,9 +191,6 @@ namespace Unity.Scenes
                 _RequestRefresh = false;
             }
 
-            //@TODO: If an asset changes while we are importing we need to trigger AssetDatabase.Refresh(); this is currently not possible,
-            //       because there is no status error code on lookup and produce artifact yet. (Coming to trunk soon)
-
             // Assets on disk have changed, we need to re-request artifacts for everything again.
             var globalArtifactDependencyVersion = AssetDatabaseCompatibility.GetArtifactDependencyVersion();
 
@@ -303,6 +301,11 @@ namespace Unity.Scenes
                     }
                     else
                     {
+                        if (AssetDatabaseExperimental.GetOnDemandArtifactProgress(new ArtifactKey(guid, _AssetImportType)).state == OnDemandState.Failed)
+                        {
+                            _RequestRefresh = true;
+                        }
+
                         i++;
                     }
                 }

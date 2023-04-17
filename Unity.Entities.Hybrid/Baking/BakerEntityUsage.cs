@@ -124,10 +124,17 @@ namespace Unity.Entities
             ReferencedEntityUsages.CopyFrom(input.ReferencedEntityUsages);
         }
 
-        public static bool Update(ref UnsafeParallelHashMap<Entity, TransformUsageFlagCounters> referencedEntities, ref bool dirtyUsage, ref BakerEntityUsage bakerStateUsage, ref BakerEntityUsage tempUsage, int component)
+        public static bool Update(ref UnsafeParallelHashMap<Entity, TransformUsageFlagCounters> referencedEntities, ref bool dirtyUsage, ref BakerEntityUsage bakerStateUsage, ref BakerEntityUsage tempUsage, int component, out bool revertTransformComponents)
         {
             if (bakerStateUsage.Equals(tempUsage))
+            {
+                revertTransformComponents = false;
                 return false;
+            }
+
+            // Check if we moved from something else to ManualOverride as we will need to revert previous components
+            revertTransformComponents = (tempUsage.PrimaryEntityFlags.HasManualOverrideFlag() &&
+                                         !bakerStateUsage.PrimaryEntityFlags.HasManualOverrideFlag());
 
             bakerStateUsage.Revert(bakerStateUsage.PrimaryEntity, ref referencedEntities, ref dirtyUsage);
             bakerStateUsage.CopyFrom(tempUsage);

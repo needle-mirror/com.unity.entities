@@ -15,7 +15,7 @@ namespace Unity.Entities
     {
         static Dictionary<ulong, WeakReference<World>> s_WorldWeakRefMap;
         static Dictionary<ulong, string> s_WorldNameMap;
-        static Dictionary<SystemHandle, Type> s_SystemTypeMap;
+        static Dictionary<SystemHandle, SystemTypeIndex> s_SystemTypeMap;
         static Dictionary<RecordView, object> s_RecordDataMap;
 
         sealed class SharedInit { internal static readonly SharedStatic<bool> Ref = SharedStatic<bool>.GetOrCreate<SharedInit>(); }
@@ -126,7 +126,7 @@ namespace Unity.Entities
 
             s_WorldWeakRefMap = new Dictionary<ulong, WeakReference<World>>();
             s_WorldNameMap = new Dictionary<ulong, string>();
-            s_SystemTypeMap = new Dictionary<SystemHandle, Type>();
+            s_SystemTypeMap = new Dictionary<SystemHandle, SystemTypeIndex>();
             s_RecordDataMap = new Dictionary<RecordView, object>();
             s_EntityTypeIndex = TypeManager.GetTypeIndex<Entity>();
             s_State = new JournalingState(Preferences.TotalMemoryMB * 1024 * 1024);
@@ -320,13 +320,13 @@ namespace Unity.Entities
             s_WorldNameMap.TryAdd(world.SequenceNumber, world.Name);
         }
 
-        internal static void OnSystemCreated(Type systemType, in SystemHandle systemHandle)
+        internal static void OnSystemCreated(SystemTypeIndex systemType, in SystemHandle systemHandle)
         {
             if (!s_Initialized)
                 return;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (systemType == null)
+            if (!TypeManager.IsSystemTypeIndex(systemType))
                 throw new ArgumentNullException(nameof(systemType));
             if (systemHandle == default)
                 throw new ArgumentException(nameof(systemHandle));
@@ -353,8 +353,8 @@ namespace Unity.Entities
                 {
                     foreach (var system in systems)
                     {
-                        var systemType = world.Unmanaged.GetTypeOfSystem(system);
-                        if (systemType != null)
+                        var systemType = world.Unmanaged.ResolveSystemState(system)->m_SystemTypeIndex;
+                        if (TypeManager.IsSystemTypeIndex(systemType))
                             s_SystemTypeMap.TryAdd(system, systemType);
                     }
                 }
@@ -380,9 +380,11 @@ namespace Unity.Entities
             return s_WorldNameMap.TryGetValue(worldSeqNumber, out var name) ? name : string.Empty;
         }
 
-        static Type GetSystemType(SystemHandle handle)
+
+        [ExcludeFromBurstCompatTesting("uses managed Dictionary")]
+        static SystemTypeIndex GetSystemType(SystemHandle handle)
         {
-            return s_SystemTypeMap.TryGetValue(handle, out var type) ? type : null;
+            return s_SystemTypeMap.TryGetValue(handle, out var type) ? type : SystemTypeIndex.Null;
         }
 
         static string GetSystemName(SystemHandle handle)

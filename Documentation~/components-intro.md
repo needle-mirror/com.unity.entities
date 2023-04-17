@@ -9,7 +9,7 @@ Components represent the data in the [Entity Component System](concepts-intro.md
 | **Topic**                                                    | **Description**                                              |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | [Component types](components-type.md)                    | Understand different component types and how to use them.    |
-| [Add components to an entity](components-add-to-entity.md) | Use C# scripts to add components from an entity.             |
+| [Add components to an entity](components-add-to-entity.md) | Use C# scripts to add components to an entity.             |
 | [Remove components from an entity](components-remove-from-entity.md) | Use C# scripts to remove components from an entity.          |
 | [Read and write component values](components-read-and-write.md) | Use C# scripts to read or write component values.            |
 | [Native container component support](components-nativecontainers.md) | Understand the behavior and support for NativeContainers in component types.            |

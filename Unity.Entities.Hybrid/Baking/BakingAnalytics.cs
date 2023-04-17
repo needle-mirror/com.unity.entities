@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 #if ENABLE_CLOUD_SERVICES_ANALYTICS
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using UnityEditor;
@@ -57,6 +58,8 @@ namespace Unity.Entities
                 blob_assets_count = 0,
                 prefabs_count = 0,
             };
+
+            AppDomain.CurrentDomain.DomainUnload += (_, __) => { s_BakeTypeIndices.Dispose(); };
         }
 
         static bool EnableAnalytics()

@@ -54,15 +54,6 @@ namespace Unity.Entities.Build
         public Hash128 GUID { get; }
     }
 
-    internal static class TestPlayerSettings
-    {
-        /// <summary>
-        /// TEMP: This was only added to allow NetCode to inject baking systems into the scene asset importer.
-        /// See NetCode's `TestWithSceneAsset.cs` script Setup and Teardown.
-        /// </summary>
-        internal static List<Type> AdditionalBakingSystemsTemp = new List<Type>();
-    }
-
     /// <summary>
     /// Base class for creating an Entities player asset in the Assets folder.
     /// </summary>
@@ -139,12 +130,6 @@ namespace Unity.Entities.Build
         /// Returns the GUID of the asset.
         /// </summary>
         /// <returns>Returns the GUID of the player settings asset.</returns>
-        protected abstract Hash128 DoGetPlayerSettingGUID();
-
-        /// <summary>
-        /// Returns the GUID of the asset.
-        /// </summary>
-        /// <returns>Returns the GUID of the player settings asset.</returns>
         /// <remarks>If there is a settings override, the GUID will correspond to the override rather than the default settings asset.</remarks>
         public Hash128 GetPlayerSettingGUID()
         {
@@ -156,6 +141,35 @@ namespace Unity.Entities.Build
         /// </summary>
         /// <returns>Returns the <see cref="DotsGlobalSettings.PlayerType"/> of the asset.</returns>
         public abstract DotsGlobalSettings.PlayerType GetPlayerType();
+
+        /// <summary>
+        /// Forcibly reload the setting asset from disk. Ensure the in-memory state is consistent with the serialized data.
+        /// </summary>
+        internal void ReloadSettingAsset()
+        {
+            DoReloadAsset();
+        }
+
+        /// <summary>
+        /// Forcibly reload the setting asset from disk. Concrete class can implement their own restoring strategy.
+        /// </summary>
+        protected virtual void DoReloadAsset()
+        {
+            ReloadAsset(GetSettingAsset());
+        }
+
+        protected void ReloadAsset(IEntitiesPlayerSettings settings)
+        {
+            if (settings != null)
+            {
+                UnityEngine.Object.DestroyImmediate(settings.AsScriptableObject());
+                var settingsType = settings.GetType();
+                var instanceField = settingsType.BaseType.GetField("s_Instance", BindingFlags.Static | BindingFlags.NonPublic);
+                instanceField.SetValue(null, null);
+                var loadMethod = settingsType.BaseType.GetMethod("CreateAndLoad", BindingFlags.Static | BindingFlags.NonPublic);
+                loadMethod.Invoke(null, null);
+            }
+        }
     }
 
     /// <summary>
@@ -337,20 +351,9 @@ namespace Unity.Entities.Build
 
         internal void ReloadSettingsObjects()
         {
-            ReloadAsset(GetClientSettingAsset());
-            ReloadAsset(GetServerSettingAsset());
-        }
-
-        private static void ReloadAsset(IEntitiesPlayerSettings settings)
-        {
-            if (settings != null)
+            foreach (var provider in Providers)
             {
-                UnityEngine.Object.DestroyImmediate(settings.AsScriptableObject());
-                var settingsType = settings.GetType();
-                var instanceField = settingsType.BaseType.GetField("s_Instance", BindingFlags.Static | BindingFlags.NonPublic);
-                instanceField.SetValue(null, null);
-                var loadMethod = settingsType.BaseType.GetMethod("CreateAndLoad", BindingFlags.Static | BindingFlags.NonPublic);
-                loadMethod.Invoke(null, null);
+                provider.ReloadSettingAsset();
             }
         }
     }

@@ -77,8 +77,7 @@ namespace Unity.Entities
         [ExcludeFromBurstCompatTesting("Takes managed World")]
         public static void OnWorldCreated(World world) => s_Data.AddWorld(world);
 
-        [ExcludeFromBurstCompatTesting("Takes managed Type")]
-        public static void OnSystemCreated(Type systemType, in SystemHandle systemHandle) => s_Data.AddSystem(systemType, in systemHandle);
+        public static void OnSystemCreated(SystemTypeIndex systemType, in SystemHandle systemHandle) => s_Data.AddSystem(systemType, in systemHandle);
 
         [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_PROFILER")]
         public static unsafe void ArchetypeAdded(Archetype* archetype) => s_Data.AddArchetype(archetype);

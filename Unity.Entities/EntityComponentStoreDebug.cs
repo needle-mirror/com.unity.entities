@@ -14,6 +14,7 @@ using System.Linq;
 
 namespace Unity.Entities
 {
+    [BurstCompile]
     internal unsafe partial struct EntityComponentStore
     {
         const string k_JournalingDisabledMsg = "Entities Journaling may be able to help determine more information. Please enable Entities Journaling for a more helpful error message.";

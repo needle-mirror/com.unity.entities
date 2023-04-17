@@ -44,7 +44,6 @@ namespace Unity.Entities.SourceGen.JobEntity
                     "ScheduleParallelByRef" => ScheduleMode.ScheduleParallelByRef,
                     _ => throw new ArgumentOutOfRangeException()
                 };
-        public static bool IsSchedule(this ScheduleMode mode) => mode == ScheduleMode.Schedule || mode == ScheduleMode.ScheduleByRef;
         public static bool IsRun(this ScheduleMode mode) => mode == ScheduleMode.Run || mode == ScheduleMode.RunByRef;
         public static bool IsByRef(this ScheduleMode mode) => mode == ScheduleMode.RunByRef || mode == ScheduleMode.ScheduleByRef || mode == ScheduleMode.ScheduleParallelByRef;
     }

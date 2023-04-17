@@ -7,7 +7,8 @@ using Unity.Entities.SourceGen.SystemGenerator.Common;
 
 /*
     This is the JobEntityGenerator for the IJobEntity feature.
-    Please read the comment in JobEntityModule for an overview of how these two generators interacts to make this feature work.
+    Please read the comment in JobEntityModule for an overview of how these two generators interacts
+    to make this feature work.
 */
 
 namespace Unity.Entities.SourceGen.JobEntity
@@ -19,7 +20,7 @@ namespace Unity.Entities.SourceGen.JobEntity
 
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            var projectPathProvider = SourceGenHelpers.GetSourceGenConfigProvider(context);
+            var projectPathProvider = IncrementalSourceGenHelpers.GetSourceGenConfigProvider(context);
 
             // Do a simple filter for enums
             var candidateProvider = context.SyntaxProvider
@@ -31,42 +32,51 @@ namespace Unity.Entities.SourceGen.JobEntity
             var compilationProvider = context.CompilationProvider;
             var combined = candidateProvider.Combine(compilationProvider).Combine(projectPathProvider);
 
-            context.RegisterSourceOutput(combined, (productionContext, source) =>
+            context.RegisterSourceOutput(combined, (productionContext, sourceProviderTuple) =>
+            {
+                var ((structDeclarationSyntax, compilation), sourceGenConfig) = sourceProviderTuple;
+
                 Execute(productionContext,
-                    source.Left.Right, source.Left.Left,
-                    source.Right.projectPath, source.Right.performSafetyChecks, source.Right.outputSourceGenFiles));
+                    compilation,
+                    structDeclarationSyntax,
+                    checkUserDefinedQueriesForSchedulingJobs: sourceGenConfig.performSafetyChecks || sourceGenConfig.isDotsDebugMode);
+            });
         }
 
         static void Execute(SourceProductionContext context, Compilation compilation,
-            StructDeclarationSyntax candidate, string projectPath, bool performSafetyChecks, bool outputSourceGenFiles)
+            StructDeclarationSyntax candidate, bool checkUserDefinedQueriesForSchedulingJobs)
         {
             if (!SourceGenHelpers.ShouldRun(compilation, context.CancellationToken))
                 return;
 
             try
             {
-                SourceGenHelpers.ProjectPath = projectPath;
                 context.CancellationToken.ThrowIfCancellationRequested();
                 var syntaxTree = candidate.SyntaxTree;
                 var semanticModel = compilation.GetSemanticModel(syntaxTree);
-                var jobEntityDescription = new JobEntityDescription(candidate, semanticModel, performSafetyChecks);
+
+                var jobEntityDescription = new JobEntityDescription(candidate, semanticModel, checkUserDefinedQueriesForSchedulingJobs);
                 if (jobEntityDescription.Invalid)
                 {
                     foreach (var diagnostic in jobEntityDescription.Diagnostics)
                         context.ReportDiagnostic(diagnostic);
                     return;
                 }
+
                 var generatedJobEntity = jobEntityDescription.Generate();
                 var sourceFilePath = syntaxTree.GetGeneratedSourceFilePath(compilation.Assembly.Name, GeneratorName);
-                var outputSource = TypeCreationHelpers.GenerateSourceTextForRootNodes(sourceFilePath, candidate, generatedJobEntity, context.CancellationToken);
+                var outputSource = TypeCreationHelpers.GenerateSourceTextForRootNodes(sourceFilePath, candidate,
+                    generatedJobEntity, context.CancellationToken);
+
                 context.AddSource(syntaxTree.GetGeneratedSourceFileName(GeneratorName, candidate), outputSource);
-                if (outputSourceGenFiles)
-                    SourceGenHelpers.OutputSourceToFile(context, candidate.GetLocation(), sourceFilePath, outputSource);
+
+                SourceOutputHelpers.OutputSourceToFile(sourceFilePath, () => outputSource.ToString());
             }
             catch (Exception exception)
             {
                 if (exception is OperationCanceledException)
                     throw;
+
                 context.ReportDiagnostic(
                     Diagnostic.Create(JobEntityDiagnostics.SGICE003Descriptor,
                         compilation.SyntaxTrees.First().GetRoot().GetLocation(),

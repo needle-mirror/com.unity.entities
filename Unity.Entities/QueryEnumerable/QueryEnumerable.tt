@@ -1,7 +1,5 @@
 ﻿<#/*THIS IS A T4 FILE - see t4_text_templating.md for what it is and how to run codegen*/#>
-<#@ assembly name="System.Collections" #>
 <#@ assembly name="System.Core" #>
-<#@ assembly name="System.Linq" #>
 <#@ import namespace="System.Linq" #>
 <#@ output extension=".gen.cs" #>
 using System.Collections;
@@ -72,8 +70,8 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithDisabled<TComponent1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithDisabled<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must be present AND disabled.
@@ -81,8 +79,8 @@ namespace Unity.Entities
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <typeparam name="TComponent2">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithDisabled<TComponent1, TComponent2>()  => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithDisabled<TComponent1, TComponent2>()  =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must be present AND disabled.
@@ -91,16 +89,16 @@ namespace Unity.Entities
         /// <typeparam name="TComponent2">A component type</typeparam>
         /// <typeparam name="TComponent3">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithDisabled<TComponent1, TComponent2, TComponent3>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithDisabled<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must NOT be present.
         /// </summary>
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithAbsent<TComponent1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithAbsent<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must NOT be present.
@@ -108,8 +106,8 @@ namespace Unity.Entities
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <typeparam name="TComponent2">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithAbsent<TComponent1, TComponent2>()  => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithAbsent<TComponent1, TComponent2>()  =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must NOT be present.
@@ -118,16 +116,16 @@ namespace Unity.Entities
         /// <typeparam name="TComponent2">A component type</typeparam>
         /// <typeparam name="TComponent3">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithAbsent<TComponent1, TComponent2, TComponent3>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithAbsent<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must be present.
         /// </summary>
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithAll<TComponent1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithAll<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must be present.
@@ -135,8 +133,8 @@ namespace Unity.Entities
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <typeparam name="TComponent2">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithAll<TComponent1, TComponent2>()  => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithAll<TComponent1, TComponent2>()  =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must be present.
@@ -145,16 +143,16 @@ namespace Unity.Entities
         /// <typeparam name="TComponent2">A component type</typeparam>
         /// <typeparam name="TComponent3">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithAll<TComponent1, TComponent2, TComponent3>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithAll<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify optional read-only component types.
         /// </summary>
         /// <typeparam name="TComponent1">Optional component</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithAny<TComponent1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithAny<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify optional read-only component types.
@@ -162,8 +160,8 @@ namespace Unity.Entities
         /// <typeparam name="TComponent1">Optional component</typeparam>
         /// <typeparam name="TComponent2">Optional component</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithAny<TComponent1, TComponent2>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithAny<TComponent1, TComponent2>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify optional read-only component types.
@@ -172,16 +170,16 @@ namespace Unity.Entities
         /// <typeparam name="TComponent2">Optional component</typeparam>
         /// <typeparam name="TComponent3">Optional component</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithAny<TComponent1, TComponent2, TComponent3>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithAny<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify component types that must be absent.
         /// </summary>
         /// <typeparam name="TComponent1">Absent component</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithNone<TComponent1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithNone<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify component types that must be absent.
@@ -189,8 +187,8 @@ namespace Unity.Entities
         /// <typeparam name="TComponent1">Absent component</typeparam>
         /// <typeparam name="TComponent2">Absent component</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithNone<TComponent1, TComponent2>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithNone<TComponent1, TComponent2>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify component types that must be absent.
@@ -199,16 +197,16 @@ namespace Unity.Entities
         /// <typeparam name="TComponent2">Absent component</typeparam>
         /// <typeparam name="TComponent3">Absent component</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithNone<TComponent1, TComponent2, TComponent3>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithNone<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select components in chunks in which the specified component might have changed since the last time the system updated.
         /// </summary>
         /// <typeparam name="TChangeFilter1">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithChangeFilter<TChangeFilter1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithChangeFilter<TChangeFilter1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select components in chunks in which the specified component might have changed since the last time the system updated.
@@ -216,8 +214,8 @@ namespace Unity.Entities
         /// <typeparam name="TChangeFilter1">A component type</typeparam>
         /// <typeparam name="TChangeFilter2">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithChangeFilter<TChangeFilter1, TChangeFilter2>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithChangeFilter<TChangeFilter1, TChangeFilter2>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify your own `EntityQueryOptions`.
@@ -228,8 +226,8 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerable<<#=typeParamString#>> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithOptions(EntityQueryOptions options) =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -237,10 +235,10 @@ namespace Unity.Entities
         /// <typeparam name="TSharedComponent1">The shared component type</typeparam>
         /// <param name="sharedComponent">The value of <typeparamref name="TSharedComponent1"/> which an entity must have in order to match this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<<#=typeParamString#>> WithSharedComponentFilter<TSharedComponent1>(TSharedComponent1 sharedComponent)
             where TSharedComponent1 : struct, ISharedComponentData
-                => throw InternalCompilerInterface.ThrowCodeGenException();
+                =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have the specified values for two shared components.
@@ -250,26 +248,26 @@ namespace Unity.Entities
         /// <param name="sharedComponent1">The value of <typeparamref name="TSharedComponent1"/> which an entity must have in order to match this query</param>
         /// <param name="sharedComponent2">The value of <typeparamref name="TSharedComponent2"/> which an entity must have in order to match this query</param>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<<#=typeParamString#>> WithSharedComponentFilter<TSharedComponent1, TSharedComponent2>(TSharedComponent1 sharedComponent1, TSharedComponent2 sharedComponent2)
             where TSharedComponent1 : struct, ISharedComponentData
             where TSharedComponent2 : struct, ISharedComponentData
-                => throw InternalCompilerInterface.ThrowCodeGenException();
+                =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Invoke this method if you wish to retrieve a tuple with an `Entity` parameter, thus giving you direct access to an entity.
         /// </summary>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components as well as entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithEntityAccess() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithEntityAccess() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.
         /// </summary>
         /// <returns>An IEnumerator interface into the entities matched by this query.</returns>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components as well as entities that match the constructed Query.</returns>
-        public IEnumerator<<#=AsTuple(typeParamString)#>> GetEnumerator() => throw InternalCompilerInterface.ThrowCodeGenException();
-        IEnumerator IEnumerable.GetEnumerator() => throw InternalCompilerInterface.ThrowCodeGenException();
+        public IEnumerator<<#=AsTuple(typeParamString)#>> GetEnumerator() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
+        IEnumerator IEnumerable.GetEnumerator() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
     }
 
     /// <summary>An enumeration interface for the entities that match an <see cref="EntityQuery"/>. This variant includes access the the entity and its component values.</summary>
@@ -329,10 +327,10 @@ namespace Unity.Entities
         /// <typeparam name="TSharedComponent1">The shared component type</typeparam>
         /// <param name="sharedComponent">The value of <typeparamref name="TSharedComponent1"/> which an entity must have in order to match this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerableWithEntity<<#=typeParamString#>> WithSharedComponentFilter<TSharedComponent1>(TSharedComponent1 sharedComponent)
             where TSharedComponent1 : struct, ISharedComponentData
-                => throw InternalCompilerInterface.ThrowCodeGenException();
+                =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select chunks that have a specified value for a shared component.
@@ -345,19 +343,19 @@ namespace Unity.Entities
         /// <param name="sharedComponent1">The value of <typeparamref name="TSharedComponent1"/> which an entity must have in order to match this query</param>
         /// <param name="sharedComponent2">The value of <typeparamref name="TSharedComponent2"/> which an entity must have in order to match this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerableWithEntity<<#=typeParamString#>> WithSharedComponentFilter<TSharedComponent1, TSharedComponent2>(TSharedComponent1 sharedComponent1, TSharedComponent2 sharedComponent2)
             where TSharedComponent1 : struct, ISharedComponentData
             where TSharedComponent2 : struct, ISharedComponentData
-                => throw InternalCompilerInterface.ThrowCodeGenException();
+                =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select components in chunks in which the specified component might have changed since the last time the system updated.
         /// </summary>
         /// <typeparam name="TChangeFilter1">A component type</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithChangeFilter<TChangeFilter1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithChangeFilter<TChangeFilter1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select components in chunks in which the specified component might have changed since the last time the system updated.
@@ -365,16 +363,16 @@ namespace Unity.Entities
         /// <typeparam name="TChangeFilter1">A component type</typeparam>
         /// <typeparam name="TChangeFilter2">A component type</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithChangeFilter<TChangeFilter1, TChangeFilter2>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithChangeFilter<TChangeFilter1, TChangeFilter2>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must be present.
         /// </summary>
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAll<TComponent1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAll<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must be present.
@@ -382,8 +380,8 @@ namespace Unity.Entities
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <typeparam name="TComponent2">A component type</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAll<TComponent1, TComponent2>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAll<TComponent1, TComponent2>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify all read-only component types that must be present.
@@ -392,16 +390,16 @@ namespace Unity.Entities
         /// <typeparam name="TComponent2">A component type</typeparam>
         /// <typeparam name="TComponent3">A component type</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAll<TComponent1, TComponent2, TComponent3>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAll<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify optional read-only component types.
         /// </summary>
         /// <typeparam name="TComponent1">Optional component</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAny<TComponent1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAny<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify optional read-only component types.
@@ -409,8 +407,8 @@ namespace Unity.Entities
         /// <typeparam name="TComponent1">Optional component</typeparam>
         /// <typeparam name="TComponent2">Optional component</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAny<TComponent1, TComponent2>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAny<TComponent1, TComponent2>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify optional read-only component types.
@@ -419,16 +417,16 @@ namespace Unity.Entities
         /// <typeparam name="TComponent2">Optional component</typeparam>
         /// <typeparam name="TComponent3">Optional component</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAny<TComponent1, TComponent2, TComponent3>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithAny<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify component types that must be absent.
         /// </summary>
         /// <typeparam name="TComponent1">Absent component</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithNone<TComponent1>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithNone<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify component types that must be absent.
@@ -436,8 +434,8 @@ namespace Unity.Entities
         /// <typeparam name="TComponent1">Absent component</typeparam>
         /// <typeparam name="TComponent2">Absent component</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithNone<TComponent1, TComponent2>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithNone<TComponent1, TComponent2>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify component types that must be absent.
@@ -446,8 +444,8 @@ namespace Unity.Entities
         /// <typeparam name="TComponent2">Absent component</typeparam>
         /// <typeparam name="TComponent3">Absent component</typeparam>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithNone<TComponent1, TComponent2, TComponent3>() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithNone<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Specify your own `EntityQueryOptions`.
@@ -458,15 +456,15 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="options">The options for this query</param>
         /// <returns>QueryEnumerableWithEntity, which allows enumerating over all Aspects, RefRO, RefRW, components, EnabledRefRO, EnabledRefRW and entities that match the constructed Query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public QueryEnumerableWithEntity<<#=typeParamString#>> WithOptions(EntityQueryOptions options) => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerableWithEntity<<#=typeParamString#>> WithOptions(EntityQueryOptions options) =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Returns an enumerator over the entities in this query.
         /// </summary>
         /// <returns>An IEnumerator interface into the entities matched by this query.</returns>
-        /// <exception cref="InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
-        public IEnumerator<<#=AsTupleWithEntity(typeParamString)#>> GetEnumerator() => throw InternalCompilerInterface.ThrowCodeGenException();
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public IEnumerator<<#=AsTupleWithEntity(typeParamString)#>> GetEnumerator() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 <#

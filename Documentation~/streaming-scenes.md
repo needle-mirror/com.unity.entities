@@ -18,5 +18,5 @@ You can control how scenes are streamed with sections, meta entities, and instan
 
 ## Additional resources
 
-* [Baking overview](baking.md)
+* [Baking overview](baking-overview.md)
 * [Subscenes](conversion-subscenes.md)

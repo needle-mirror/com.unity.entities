@@ -6,7 +6,7 @@ namespace Unity.Entities.Tests
     partial class MultiplePartsInPartialSystemBaseTypeTestFixture : ECSTestsFixture
     {
         public T GetAspect<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T>
-            => default(T).CreateAspect(entity, ref EmptySystem.CheckedStateRef, false);
+            => default(T).CreateAspect(entity, ref EmptySystem.CheckedStateRef);
 
         public T GetComponent<T>(Entity entity) where T : unmanaged, IComponentData => m_Manager.GetComponentData<T>(entity);
 
@@ -52,7 +52,7 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                Entities.ForEach((ref MyAspect myAspect) =>
+                Entities.ForEach((MyAspect myAspect) =>
                 {
                     myAspect._Data.ValueRW.value += myAspect._Data2.ValueRO.value0 + myAspect._Data2.ValueRO.value1; // 10 + 20 + 20 == 50
                 }).Run();

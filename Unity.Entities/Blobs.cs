@@ -40,6 +40,8 @@ namespace Unity.Entities
             BlobAssetBatchPtr = BlobAssetBatch.CreateFromMemory(buffer, expectedTotalDataSize);
         }
 
+        public bool IsCreated => BlobAssetBatchPtr != null;
+
         [BurstCompile]
         public void Release()
         {

@@ -303,6 +303,8 @@ namespace Unity.Entities.Editor
 
         public static void SelectHierarchyNode(Hierarchy hierarchy, HierarchyNodeHandle handle, DataMode dataMode)
         {
+            var undoGroup = Undo.GetCurrentGroup();
+
             switch (handle.Kind)
             {
                 case NodeKind.Entity:
@@ -311,8 +313,6 @@ namespace Unity.Entities.Editor
 
                         if (entity != Entity.Null)
                         {
-                            var undoGroup = Undo.GetCurrentGroup();
-
                             var world = hierarchy.World;
                             var authoringObject = world.EntityManager.Debug.GetAuthoringObjectForEntity(entity);
 
@@ -325,9 +325,8 @@ namespace Unity.Entities.Editor
                                 var context = EntitySelectionProxy.CreateInstance(world, entity);
                                 // Selected entities should always try to show up in Runtime mode
                                 SelectionBridge.SetSelection(authoringObject, context, DataMode.Runtime);
+                                Undo.SetCurrentGroupName($"Select {authoringObject.name} ({authoringObject.GetType().Name})");
                             }
-
-                            Undo.CollapseUndoOperations(undoGroup);
                         }
 
                         break;
@@ -335,24 +334,22 @@ namespace Unity.Entities.Editor
 
                 case NodeKind.SubScene:
                     {
-                        var undoGroup = Undo.GetCurrentGroup();
                         var subScene = hierarchy.SubSceneMap.GetSubSceneMonobehaviourFromHandle(handle);
                         SelectionBridge.SetSelection(subScene ? subScene.gameObject : null, HierarchySelectionContext.CreateInstance(handle), DataMode.Disabled);
-                        Undo.CollapseUndoOperations(undoGroup);
+                        if (subScene)
+                            Undo.SetCurrentGroupName($"Select {subScene.name} ({subScene.GetType().Name})");
+
                         break;
                     }
 
                 case NodeKind.Scene:
                     {
-                        var undoGroup = Undo.GetCurrentGroup();
                         SelectionBridge.SetSelection(null, HierarchySelectionContext.CreateInstance(handle), DataMode.Disabled);
-                        Undo.CollapseUndoOperations(undoGroup);
                         break;
                     }
 
                 case NodeKind.GameObject:
                     {
-                        var undoGroup = Undo.GetCurrentGroup();
                         var gameObject = hierarchy.GetUnityObject(handle) as GameObject;
 
                         // Don't reselect yourself
@@ -362,8 +359,10 @@ namespace Unity.Entities.Editor
                         var world = hierarchy.World;
                         EntitySelectionProxy context;
 
-                        if (world == null || !world.IsCreated)
+                        if (world is not { IsCreated: true })
+                        {
                             context = null;
+                        }
                         else
                         {
                             var primaryEntity = world.EntityManager.Debug.GetPrimaryEntityForAuthoringObject(gameObject);
@@ -375,10 +374,12 @@ namespace Unity.Entities.Editor
 
                         // Selected GameObjects should use whatever the current DataMode for the hierarchy is.
                         SelectionBridge.SetSelection(gameObject, context, dataMode);
-                        Undo.CollapseUndoOperations(undoGroup);
+                        Undo.SetCurrentGroupName($"Select {gameObject.name} ({gameObject.GetType().Name})");
                         break;
                     }
             }
+
+            Undo.CollapseUndoOperations(undoGroup);
         }
 
         void OnHierarchySelectionChanged(HierarchyNodeHandle handle)
@@ -403,7 +404,7 @@ namespace Unity.Entities.Editor
             if (m_Hierarchy == null)
                 return;
 
-            
+
             using (k_OnUpdateMarker.Auto())
             {
                 m_Hierarchy.Update(m_IsVisible);

@@ -397,7 +397,7 @@ namespace Unity.Entities
 
         // Internal system management
 
-        ComponentSystemBase CreateSystemInternal(Type type)
+        ComponentSystemBase CreateSystemInternal(SystemTypeIndex type)
         {
             var system = AllocateSystemInternal(type);
             AddSystem_Add_Internal(system);
@@ -405,19 +405,20 @@ namespace Unity.Entities
             return system;
         }
 
-        ComponentSystemBase AllocateSystemInternal(Type type)
+        ComponentSystemBase AllocateSystemInternal(SystemTypeIndex type)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (!m_Unmanaged.AllowGetSystem)
                 throw new ArgumentException(
                     "During destruction of a system you are not allowed to create more systems.");
 #endif
-            return TypeManager.ConstructSystem(type);
+
+            return TypeManager.ConstructSystem(TypeManager.GetSystemType(type));
         }
 
-        ComponentSystemBase GetExistingSystemInternal(Type type)
+        ComponentSystemBase GetExistingSystemInternal(SystemTypeIndex type)
         {
-            if (m_SystemLookup.TryGetValue(type, out var system))
+            if (m_SystemLookup.TryGetValue(TypeManager.GetSystemType(type), out var system))
                 return system;
 
             return null;
@@ -469,10 +470,10 @@ namespace Unity.Entities
             m_Unmanaged.BumpVersion();
 
 #if ENABLE_PROFILER
-            EntitiesProfiler.OnSystemCreated(system.GetType(), system.SystemHandle);
+            EntitiesProfiler.OnSystemCreated(system.m_StatePtr->m_SystemTypeIndex, system.SystemHandle);
 #endif
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            EntitiesJournaling.OnSystemCreated(system.GetType(), system.SystemHandle);
+            EntitiesJournaling.OnSystemCreated(system.m_StatePtr->m_SystemTypeIndex, system.SystemHandle);
 #endif
 
             SystemCreated?.Invoke(this, system);
@@ -545,9 +546,9 @@ namespace Unity.Entities
         /// does not exist in this World, it will first be created.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point if a system is created, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <typeparam name="T">The system type</typeparam>
@@ -557,9 +558,9 @@ namespace Unity.Entities
         {
             CheckGetOrCreateSystem();
 
-            var type = typeof(T);
-            var system = GetExistingSystemInternal(type);
-            return system == null ? CreateSystemInternal(type).SystemHandle : system.SystemHandle;
+            var systemTypeIndex = TypeManager.GetSystemTypeIndex<T>();
+            var system = GetExistingSystemInternal(systemTypeIndex);
+            return system == null ? CreateSystemInternal(systemTypeIndex).SystemHandle : system.SystemHandle;
         }
 
         /// <summary>
@@ -567,9 +568,9 @@ namespace Unity.Entities
         /// does not exist in this World, it will first be created.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point if a system is created, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         ///
         /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
@@ -591,16 +592,26 @@ namespace Unity.Entities
         /// <returns>The instance of system type <typeparamref name="T"/> in this World. If the system
         /// does not exist in this World, it will first be created.</returns>
         public T GetOrCreateSystemManaged<T>() where T : ComponentSystemBase
-        => (T)GetOrCreateSystemManaged(typeof(T));
+        //sadly, we have to use reflection to account for the fact that T might not have been registered at startup.
+        //someday, we can ban this and avoid reflection here.
+        {
+            var idx = TypeManager.GetSystemTypeIndexNoThrow<T>();
+            if (idx == SystemTypeIndex.Null)
+            {
+                TypeManager.AddSystemTypeToTablesAfterInit(typeof(T));
+                idx = TypeManager.GetSystemTypeIndex<T>();
+            }
+            return (T)GetOrCreateSystemManaged(idx);
+        }
 
         /// <summary>
         /// Retrieve the handle for the instance of a system of type <paramref name="type"/> from the current World. If the system
         /// does not exist in this World, it will first be created.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point if a system is created, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <param name="type">The system type</param>
@@ -608,15 +619,33 @@ namespace Unity.Entities
         /// does not exist in this World, it will first be created.</returns>
         public SystemHandle GetOrCreateSystem(Type type)
         {
+            return GetOrCreateSystem(TypeManager.GetSystemTypeIndex(type));
+        }
+
+        /// <summary>
+        /// Retrieve the handle for the instance of a system with a given system type index <paramref name="typeIndex"/>
+        /// from the current World. If the system does not exist in this World, it will first be created.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This method creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="typeIndex">The system type index</param>
+        /// <returns>The handle for the instance of system type index <paramref name="typeIndex"/> in this World. If the system
+        /// does not exist in this World, it will first be created.</returns>
+        public SystemHandle GetOrCreateSystem(SystemTypeIndex typeIndex)
+        {
             CheckGetOrCreateSystem();
 
-            if (typeof(ComponentSystemBase).IsAssignableFrom(type))
+            if (typeIndex.IsManaged)
             {
-                var system = GetExistingSystemInternal(type);
-                return system == null ? CreateSystemInternal(type).SystemHandle : system.SystemHandle;
+                var system = GetExistingSystemInternal(typeIndex);
+                return system == null ? CreateSystemInternal(typeIndex).SystemHandle : system.SystemHandle;
             }
 
-            return Unmanaged.GetOrCreateUnmanagedSystem(type);
+            return Unmanaged.GetOrCreateUnmanagedSystem(typeIndex);
         }
 
         /// <summary>
@@ -624,9 +653,9 @@ namespace Unity.Entities
         /// does not exist in this World, it will first be created.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point if a system is created, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         ///
         /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
@@ -651,8 +680,42 @@ namespace Unity.Entities
         {
             CheckGetOrCreateSystem();
 
-            var system = GetExistingSystemInternal(type);
-            return system ?? CreateSystemInternal(type);
+            return GetOrCreateSystemManaged(TypeManager.GetSystemTypeIndex(type));
+        }
+
+        /// <summary>
+        /// Retrieve the instance of a system with a system type index <paramref name="typeIndex"/> from the current World.
+        /// If the system does not exist in this World, it will first be created.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This method creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        ///
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="GetOrCreateSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        /// </remarks>
+        /// <param name="typeIndex">The system type index</param>
+        /// <returns>The instance of the system type with the system type index <paramref name="typeIndex"/> in this World.
+        /// If the system does not exist in this World, it will first be created.</returns>
+        public ComponentSystemBase GetOrCreateSystemManaged(SystemTypeIndex typeIndex)
+        {
+            CheckGetOrCreateSystem();
+            var system = GetExistingSystemInternal(typeIndex);
+            return system ?? CreateSystemInternal(typeIndex);
         }
 
         /// <summary>
@@ -661,9 +724,9 @@ namespace Unity.Entities
         /// <remarks>
         /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <typeparam name="T">The system type</typeparam>
@@ -671,7 +734,7 @@ namespace Unity.Entities
         public SystemHandle CreateSystem<T>() where T : ComponentSystemBase, new()
         {
             CheckGetOrCreateSystem();
-            return CreateSystemInternal(typeof(T)).SystemHandle;
+            return CreateSystemInternal(TypeManager.GetSystemTypeIndex<T>()).SystemHandle;
         }
 
         /// <summary>
@@ -680,9 +743,9 @@ namespace Unity.Entities
         /// <remarks>
         /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         ///
         /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
@@ -704,7 +767,16 @@ namespace Unity.Entities
         /// <typeparam name="T">The system type</typeparam>
         /// <returns>The new instance of system type <typeparamref name="T"/> in this World.</returns>
         public T CreateSystemManaged<T>() where T : ComponentSystemBase, new()
-            => (T)CreateSystemManaged(typeof(T));
+        {
+            var idx = TypeManager.GetSystemTypeIndexNoThrow<T>();
+            if (idx <= 0)
+            {
+                TypeManager.AddSystemTypeToTablesAfterInit(typeof(T));
+                idx = TypeManager.GetSystemTypeIndex<T>();
+            }
+
+            return (T)CreateSystemManaged(idx);
+        }
 
         /// <summary>
         /// Create and return a handle to an instance of a system of type <paramref name="type"/> in this World.
@@ -712,21 +784,41 @@ namespace Unity.Entities
         /// <remarks>
         /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <param name="type">The system type</param>
         /// <returns>A handle to the new instance of system type <paramref name="type"/> in this World.</returns>
         public SystemHandle CreateSystem(Type type)
         {
+            return CreateSystem(TypeManager.GetSystemTypeIndex(type));
+        }
+
+        /// <summary>
+        /// Create and return a handle to an instance of a system of with system type index <paramref name="typeIndex"/>
+        /// in this World.
+        /// </summary>
+        /// <remarks>
+        /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
+        ///
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="typeIndex">The system type index</param>
+        /// <returns>A handle to the new instance of system type with system type index<paramref name="typeIndex"/>
+        /// in this World.</returns>
+        public SystemHandle CreateSystem(SystemTypeIndex typeIndex)
+        {
             CheckGetOrCreateSystem();
 
-            if (typeof(ComponentSystemBase).IsAssignableFrom(type))
-                return CreateSystemInternal(type).SystemHandle;
+            if (typeIndex.IsManaged)
+                return CreateSystemInternal(typeIndex).SystemHandle;
 
-            return Unmanaged.GetOrCreateUnmanagedSystem(type);
+            return Unmanaged.GetOrCreateUnmanagedSystem(typeIndex);
         }
 
         /// <summary>
@@ -735,9 +827,9 @@ namespace Unity.Entities
         /// <remarks>
         /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         ///
         /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
@@ -759,8 +851,41 @@ namespace Unity.Entities
         /// <returns>The new instance of system type <paramref name="type"/> in this World.</returns>
         public ComponentSystemBase CreateSystemManaged(Type type)
         {
+            return CreateSystemManaged(TypeManager.GetSystemTypeIndex(type));
+        }
+
+        /// <summary>
+        /// Create and return an instance of a system of with system type index <paramref name="typeIndex"/> in this World.
+        /// </summary>
+        /// <remarks>
+        /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
+        ///
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        ///
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="CreateSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        /// </remarks>
+        /// <param name="typeIndex">The system type index</param>
+        /// <returns>The new instance of system type with system type index <paramref name="typeIndex"/> in this World.</returns>
+        public ComponentSystemBase CreateSystemManaged(SystemTypeIndex typeIndex)
+        {
             CheckGetOrCreateSystem();
-            return CreateSystemInternal(type);
+            return CreateSystemInternal(typeIndex);
         }
 
         /// <summary> Obsolete. Use <see cref="AddSystemManaged{T}(T)"/> instead.</summary>
@@ -775,9 +900,9 @@ namespace Unity.Entities
         /// Adds an existing system instance to this World
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before adding the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         ///
         /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
@@ -802,8 +927,9 @@ namespace Unity.Entities
         public T AddSystemManaged<T>(T system) where T : ComponentSystemBase
         {
             CheckGetOrCreateSystem();
-            if (GetExistingSystemInternal(system.GetType()) != null)
-                throw new Exception($"Attempting to add system '{TypeManager.GetSystemName(system.GetType())}' which has already been added to world '{Name}'");
+            var systemTypeIndex = TypeManager.GetSystemTypeIndex<T>();
+            if (GetExistingSystemInternal(systemTypeIndex) != null)
+                throw new Exception($"Attempting to add system '{TypeManager.GetSystemName(systemTypeIndex)}' which has already been added to world '{Name}'");
 
             AddSystem_Add_Internal(system);
             AddSystem_OnCreate_Internal(system);
@@ -816,7 +942,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The system type</typeparam>
         /// <returns>A handle to the existing instance of system type <typeparamref name="T"/> in this World. If no such instance exists, the method returns default.</returns>
         public SystemHandle GetExistingSystem<T>() where T : ComponentSystemBase
-            => GetExistingSystem(typeof(T));
+            => GetExistingSystem(TypeManager.GetSystemTypeIndex<T>());
 
         /// <summary>
         /// Return an existing instance of a system of type <typeparamref name="T"/> in this World.
@@ -843,7 +969,8 @@ namespace Unity.Entities
             => (T)GetExistingSystemManaged(typeof(T));
 
         /// <summary>
-        /// Return a handle to an existing instance of a system of type <paramref name="type"/> in this World.
+        /// Return a handle to an existing instance of a system of type <paramref name="type"/> in this World. Prefer
+        /// the version that takes a SystemTypeIndex where possible to avoid unnecessary reflection.
         /// </summary>
         /// <param name="type">The system type</param>
         /// <returns>A handle to the existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns default.</returns>
@@ -851,8 +978,20 @@ namespace Unity.Entities
         {
             CheckGetOrCreateSystem();
 
-            if (typeof(ComponentSystemBase).IsAssignableFrom(type))
-            {
+            return GetExistingSystem(TypeManager.GetSystemTypeIndex(type));
+        }
+
+        /// <summary>
+        /// Return a handle to an existing instance of a system of type <paramref name="type"/> in this World. This
+        /// version avoids unnecessary reflection.
+        /// </summary>
+        /// <param name="type">The system type</param>
+        /// <returns>A handle to the existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns default.</returns>
+        public SystemHandle GetExistingSystem(SystemTypeIndex type)
+        {
+            CheckGetOrCreateSystem();
+
+            if (type.IsManaged)            {
                 var system = GetExistingSystemInternal(type);
                 return system == null ? default : system.SystemHandle;
             }
@@ -861,7 +1000,8 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Return an existing instance of a system of type <paramref name="type"/> in this World.
+        /// Return an existing instance of a system of type <paramref name="type"/> in this World. Prefer the version
+        /// that takes a SystemTypeIndex where possible to avoid unnecessary reflection.
         /// </summary>
         /// <remarks>
         /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
@@ -883,6 +1023,34 @@ namespace Unity.Entities
         /// <returns>The existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns null.</returns>
         public ComponentSystemBase GetExistingSystemManaged(Type type)
         {
+            return GetExistingSystemManaged(TypeManager.GetSystemTypeIndex(type));
+        }
+
+        /// <summary>
+        /// Return an existing instance of a system of type <paramref name="type"/> in this World. This avoids
+        /// unnecessary reflection.
+        /// </summary>
+        /// <remarks>
+        /// **Note:** This system reference is not guaranteed to be safe to use. If the system or world is destroyed then the OnDestroy
+        /// and cleanup functionality will have been called for this system.
+        ///
+        /// If possible, using <see cref="GetExistingSystem"/> is preferred, and instead of public member data, component data is recommended for
+        /// system level data that needs to be shared between systems or externally to them. This defines a data protocol for the
+        /// system which is separated from the system functionality.
+        ///
+        /// Private member data which is only used internally to the system is recommended.
+        ///
+        /// Keep in mind using a managed reference for systems
+        /// - encourages coupling of data and functionality
+        /// - couples data to the system type with no direct path to decouple
+        /// - does not provide lifetime or thread safety guarantees for data access
+        /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        /// </remarks>
+        /// <param name="type">The system type</param>
+        /// <returns>The existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns null.</returns>
+
+        public ComponentSystemBase GetExistingSystemManaged(SystemTypeIndex type)
+        {
             CheckGetOrCreateSystem();
             return GetExistingSystemInternal(type);
         }
@@ -891,9 +1059,9 @@ namespace Unity.Entities
         /// Destroys one of the World's existing system instances.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before destroying the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <param name="sysHandle">The system to destroy. Must be an existing instance in this World.</param>
@@ -921,9 +1089,9 @@ namespace Unity.Entities
         /// Destroys one of the World's existing system instances.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before destroying the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <param name="system">The system to destroy. Must be an existing instance in this World.</param>
@@ -1059,27 +1227,25 @@ namespace Unity.Entities
         /// <param name="allocator">The allocator to use to allocate the output system list</param>
         /// <returns>A list of system instances</returns>
         internal NativeList<SystemHandle> GetOrCreateSystemsAndLogException(
-            IEnumerable<Type> types,
+            NativeList<SystemTypeIndex> types,
             int typesCount,
             AllocatorManager.AllocatorHandle allocator)
         {
             CheckGetOrCreateSystem();
 
-            //don't enumerate twice
-            var typesArray = types.ToArray();
-
             var sysHandlesToReturn = new NativeList<SystemHandle>(typesCount, allocator);
 
             var startIndex = sysHandlesToReturn.Length;
-            var actuallyAddedTypesList = new List<Type>();
+            var actuallyAddedTypesList = new NativeList<SystemTypeIndex>(16, Allocator.Temp);
 
-            foreach (var type in typesArray)
+            for (int i=0; i<types.Length; i++)
             {
+                var type = types[i];
                 var handle = SystemHandle.Null;
 
                 try
                 {
-                    if (typeof(ISystem).IsAssignableFrom(type))
+                    if (!type.IsManaged)
                     {
                         handle = m_Unmanaged.GetExistingUnmanagedSystem(type);
                         if (handle != default)
@@ -1087,7 +1253,7 @@ namespace Unity.Entities
                             continue;
                         }
 
-                        handle = Unmanaged.CreateUnmanagedSystem(this, type, false);
+                        handle = Unmanaged.CreateUnmanagedSystem(type, false);
                         actuallyAddedTypesList.Add(type);
                     }
                     else
@@ -1124,18 +1290,18 @@ namespace Unity.Entities
                 finally
                 {
                     sysHandlesToReturn.Add(handle);
-                    if (actuallyAddedTypesList.Count < sysHandlesToReturn.Length)
-                        actuallyAddedTypesList.Add(null);
+                    if (actuallyAddedTypesList.Length < sysHandlesToReturn.Length)
+                        actuallyAddedTypesList.Add(SystemTypeIndex.Null);
                 }
             }
-            for (int i = startIndex; i != startIndex + actuallyAddedTypesList.Count; i++)
+            for (int i = startIndex; i != startIndex + actuallyAddedTypesList.Length; i++)
             {
                 try
                 {
                     var type = actuallyAddedTypesList[i-startIndex];
-                    if (type == null) continue;
+                    if (type == SystemTypeIndex.Null) continue;
 
-                    if (typeof(ISystem).IsAssignableFrom(type))
+                    if (!type.IsManaged)
                     {
                         var handle = m_Unmanaged.GetExistingUnmanagedSystem(type);
                         var systemState = m_Unmanaged.ResolveSystemState(handle);
@@ -1145,7 +1311,7 @@ namespace Unity.Entities
                     else
                     {
                         CheckGetOrCreateSystem();
-                        m_SystemLookup.TryGetValue(type, out var system);
+                        m_SystemLookup.TryGetValue(TypeManager.GetSystemType(type), out var system);
 
                         AddSystem_OnCreate_Internal(system);
                     }
@@ -1164,20 +1330,20 @@ namespace Unity.Entities
         /// Creates systems from the list of types which aren't already created in the current world.
         /// </summary>
         /// <remarks>
-        /// This function creates systems in the order they are passed in, and ignores <see cref="CreateBeforeAttribute"/>
+        /// This method creates systems in the order they are passed in, and ignores <see cref="CreateBeforeAttribute"/>
         /// and <see cref="CreateAfterAttribute"/> validity.
         /// If errors are encountered either when creating the system or when calling OnCreate, a default
         /// <see cref="SystemHandle"/> will be returned for that system.
         ///
-        /// **Important:** This function creates a sync point if any systems are created, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point if any systems are created, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the systems, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <param name="types">The system types to create, in the order in which they should be created.</param>
         /// <param name="allocator">The allocator to use to allocate the output system list</param>
         /// <returns>A list of system instances</returns>
-        public NativeList<SystemHandle> GetOrCreateSystemsAndLogException(Type[] types, AllocatorManager.AllocatorHandle allocator)
+        public NativeList<SystemHandle> GetOrCreateSystemsAndLogException(NativeList<SystemTypeIndex> types, AllocatorManager.AllocatorHandle allocator)
         {
             return GetOrCreateSystemsAndLogException(types, types.Length, allocator);
         }
@@ -1370,9 +1536,9 @@ namespace Unity.Entities
         /// <remarks>
         /// This can result in multiple instances of the same system in a single World, which is generally undesirable.
         ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <param name="self">The World</param>
@@ -1399,9 +1565,9 @@ namespace Unity.Entities
         /// does not exist in this World, it will first be created.
         /// </summary>
         /// <remarks>
-        /// **Important:** This function creates a sync point if a system is created, which means that the EntityManager waits for all
+        /// **Important:** This method creates a sync point if a system is created, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the system, and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
         /// <typeparam name="T">The system type</typeparam>

@@ -8,8 +8,8 @@ This content archive-based content management system was designed to provide opt
 
 During the Player build process, Unity generates content archives to store every object referenced in the [subscenes](conversion-subscenes.md) included in the build. Unity generates at least one content archive per subscene that references objects. If multiple subscenes reference the same object, Unity moves the object into a shared content archive. You can reference objects in the following ways:
 
-* With a [strong reference](#strongly-referenced-objects): When you directly assign an object to a Monobehaviour component property in a subscene.
-* With a [weak reference](#weakly-referenced-objects): When you pass an object's [UntypedWeakReferenceId](xref:Unity.Entities.Serialization.UntypedWeakReferenceId) to an ECS component during the [baking process](baking.md).
+* With a [strong reference](#strongly-referenced-objects): When you directly assign an object to a MonoBehaviour component property in a subscene.
+* With a [weak reference](#weakly-referenced-objects): When you pass an object's [UntypedWeakReferenceId](xref:Unity.Entities.Serialization.UntypedWeakReferenceId) to an ECS component during the [baking process](baking-overview.md).
 
 Unity bundles both strongly-referenced and weakly-referenced objects into the same content archives, but handles them differently at runtime.
 

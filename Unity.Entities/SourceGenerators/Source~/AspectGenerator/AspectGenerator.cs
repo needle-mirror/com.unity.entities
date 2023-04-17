@@ -306,7 +306,7 @@ namespace Unity.Entities.SourceGen.Aspect
             if (!SourceGenHelpers.ShouldRun(context.Compilation, context.CancellationToken))
                 return;
 
-            SourceGenHelpers.Setup(context);
+            SourceOutputHelpers.Setup(context.ParseOptions, context.AdditionalFiles);
 
             // Flush aspect cache
             m_cache = null;
@@ -464,13 +464,13 @@ namespace Unity.Entities.SourceGen.Aspect
 
                     syntaxTreeSourceBuilder.Flush();
 
-                    var generatedSourceHint = syntaxTree.GetGeneratedSourceFileName(s_GeneratorName);
-                    var generatedSourceFullPath = syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, s_GeneratorName);
-
-                    SourceGenHelpers.LogInfo($"Outputting generated aspect source to file {generatedSourceFullPath}...");
-
                     var code = syntaxTreeSourceBuilder.ToString();
-                    SourceGenHelpers.OutputSourceToFile(context, generatedSourceFullPath, Microsoft.CodeAnalysis.Text.SourceText.From(code));
+
+                    SourceOutputHelpers.OutputSourceToFile(
+                        syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, s_GeneratorName),
+                        () => code);
+
+                    var generatedSourceHint = syntaxTree.GetGeneratedSourceFileName(s_GeneratorName);
                     context.AddSource(generatedSourceHint, code);
 
                     syntaxTreeSourceBuilder.Dispose();

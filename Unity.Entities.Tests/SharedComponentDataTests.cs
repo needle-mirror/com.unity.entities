@@ -231,6 +231,7 @@ namespace Unity.Entities.Tests
         }
     }
 
+    [BurstCompile]
     class SharedComponentDataTests : ECSTestsFixture
     {
         //@TODO: No tests for invalid shared components / destroyed shared component data

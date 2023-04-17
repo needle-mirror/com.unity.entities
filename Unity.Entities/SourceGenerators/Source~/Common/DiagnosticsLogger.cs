@@ -28,7 +28,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                     "Errors thrown by source generators must point to locations in source code, NOT locations in metadata. " +
                     $"Please ensure that the `{errorCode}` error points to a valid location in source code.");
 
-            SourceGenHelpers.LogInfo($"{diagnosticSeverity}: {errorCode}, {title}, {errorMessage}");
+            SourceOutputHelpers.LogInfoToSourceGenLog($"{diagnosticSeverity}: {errorCode}, {title}, {errorMessage}");
             var rule = new DiagnosticDescriptor(errorCode, title, errorMessage, "Source Generator", diagnosticSeverity, true, description);
             diagnosable.Diagnostics?.Add(Diagnostic.Create(rule, location));
         }

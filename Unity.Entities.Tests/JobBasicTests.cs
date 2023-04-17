@@ -390,10 +390,15 @@ namespace Unity.Entities.Tests
         public void RunHashWriterParallelFor()
         {
             const int MAPSIZE = 100;
+#if UNITY_2022_2_14F1_OR_NEWER
+            int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+            int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
             // Make sure that each iteration was called and the parallel write worked.
             NativeParallelHashMap<int, int> map = new NativeParallelHashMap<int, int>(MAPSIZE, World.UpdateAllocator.ToAllocator);
             // Tracks the threadIndex used for each job.
-            NativeParallelHashMap<int, bool> threadMap = new NativeParallelHashMap<int, bool>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator);
+            NativeParallelHashMap<int, bool> threadMap = new NativeParallelHashMap<int, bool>(maxThreadCount, World.UpdateAllocator.ToAllocator);
 
             HashWriterParallelFor job = new HashWriterParallelFor()
             {
@@ -429,10 +434,15 @@ namespace Unity.Entities.Tests
         public void RunMultiHashWriterParallelFor()
         {
             const int MAPSIZE = 100;
+#if UNITY_2022_2_14F1_OR_NEWER
+            int maxThreadCount = JobsUtility.ThreadIndexCount;
+#else
+            int maxThreadCount = JobsUtility.MaxJobThreadCount;
+#endif
             // Make sure that each iteration was called and the parallel write worked.
             NativeParallelHashMap<int, int> map = new NativeParallelHashMap<int, int>(MAPSIZE, World.UpdateAllocator.ToAllocator);
             // Tracks the threadIndex used for each job.
-            NativeParallelHashMap<int, bool> threadMap = new NativeParallelHashMap<int, bool>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator);
+            NativeParallelHashMap<int, bool> threadMap = new NativeParallelHashMap<int, bool>(maxThreadCount, World.UpdateAllocator.ToAllocator);
 
             HashWriterParallelFor job = new HashWriterParallelFor()
             {
@@ -538,8 +548,22 @@ namespace Unity.Entities.Tests
             }
         }
 
+        public enum ParallelForBatchedScheduleTypes
+        {
+            Batched, // remove when we deprecate this API
+            BatchedByRef, // remove when we deprecate this API
+            Parallel,
+            ParallelByRef,
+            Single,
+            SingleByRef,
+            Run,
+            RunByRef,
+            RunBatched, // remove when we deprecate this API
+            RunBatchedByRef, // remove when we deprecate this API
+        }
+
         [Test]
-        public void ScheduleSimpleParallelForBatch()
+        public void ScheduleSimpleParallelForBatch([Values] ParallelForBatchedScheduleTypes mode)
         {
             NativeArray<int> a = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleParallelForDefer.N, ref World.UpdateAllocator);
             NativeArray<int> b = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleParallelForDefer.N, ref World.UpdateAllocator);
@@ -556,7 +580,32 @@ namespace Unity.Entities.Tests
             job.b = b;
             job.result = result;
 
-            JobHandle handle = job.ScheduleBatch(SimpleParallelForBatch.N, 20);
+            JobHandle handle = default;
+            switch (mode)
+            {
+                case ParallelForBatchedScheduleTypes.Batched:
+                    handle = job.ScheduleBatch(SimpleParallelForBatch.N, 20); break;
+                case ParallelForBatchedScheduleTypes.BatchedByRef:
+                    handle = job.ScheduleBatchByRef(SimpleParallelForBatch.N, 20); break;
+                case ParallelForBatchedScheduleTypes.Parallel:
+                    handle = job.ScheduleParallel(SimpleParallelForBatch.N, 20); break;
+                case ParallelForBatchedScheduleTypes.ParallelByRef:
+                    handle = job.ScheduleParallelByRef(SimpleParallelForBatch.N, 20); break;
+                case ParallelForBatchedScheduleTypes.Single:
+                    handle = job.Schedule(SimpleParallelForBatch.N, 20); break;
+                case ParallelForBatchedScheduleTypes.SingleByRef:
+                    handle = job.ScheduleByRef(SimpleParallelForBatch.N, 20); break;
+                case ParallelForBatchedScheduleTypes.RunBatched:
+                    IJobParallelForBatchExtensions.RunBatch(job, SimpleParallelForBatch.N); break;
+                case ParallelForBatchedScheduleTypes.RunBatchedByRef:
+                    IJobParallelForBatchExtensions.RunBatchByRef(ref job, SimpleParallelForBatch.N); break;
+                case ParallelForBatchedScheduleTypes.Run:
+                    job.Run(SimpleParallelForBatch.N, 20); break;
+                case ParallelForBatchedScheduleTypes.RunByRef:
+                    job.RunByRef(SimpleParallelForBatch.N, 20); break;
+                default: throw new ArgumentException($"Invalid schedule mode for {nameof(IJobParallelForBatch)}");
+            }
+            
             handle.Complete();
 
             for (int i = 0; i < SimpleParallelFor.N; ++i)

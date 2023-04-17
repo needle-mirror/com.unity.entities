@@ -520,27 +520,6 @@ namespace Unity.Scenes.Editor
                 }
             }
 
-            {
-                var noSectionQuery = entityManager.CreateEntityQuery(
-                    new EntityQueryDesc
-                    {
-                        None = new[] {ComponentType.ReadWrite<SceneSection>()},
-                        Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
-                    }
-                );
-                var sectionEntityQuery = entityManager.CreateEntityQuery(
-                    new EntityQueryDesc
-                    {
-                        All = new[] {ComponentType.ReadWrite<SectionMetadataSetup>()},
-                        None = new[] {ComponentType.ReadWrite<SceneSection>()},
-                        Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
-                    }
-                );
-                var notSerializedCount = noSectionQuery.CalculateEntityCount() - sectionEntityQuery.CalculateEntityCount();
-                if (notSerializedCount != 0)
-                    Debug.LogWarning($"{notSerializedCount} entities in the scene '{sceneName}' had no SceneSection and as a result were not serialized at all.");
-            }
-
             // Save the new header
             var sceneSectionsArray = sceneSectionDataList.ToArray();
             WriteSceneHeader(sceneGUID, sceneSectionsArray, sceneName, importContext, entityManager, writeEntitySceneSettings, sceneSectionBlobHeaders);

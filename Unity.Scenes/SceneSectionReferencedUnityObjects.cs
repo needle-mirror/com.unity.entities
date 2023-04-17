@@ -1,13 +1,15 @@
 #if !UNITY_DOTSRUNTIME
 using System;
 using Unity.Entities;
-using Unity.Entities.Content;
 using Unity.Entities.Serialization;
 
 namespace Unity.Scenes
 {
     [Serializable]
-    internal struct SceneSectionReferencedUnityObjects : ISharedComponentData, IEquatable<SceneSectionReferencedUnityObjects>, IRefCounted
+    internal struct SceneSectionReferencedUnityObjects : ISharedComponentData, IEquatable<SceneSectionReferencedUnityObjects>
+#if !UNITY_EDITOR
+        , IRefCounted
+#endif
     {
         private UntypedWeakReferenceId _sceneBundleHandles;
 
@@ -15,8 +17,12 @@ namespace Unity.Scenes
         {
             _sceneBundleHandles = bundles;
         }
-        public void Release() => RuntimeContentManager.ReleaseObjectAsync(_sceneBundleHandles);
-        public void Retain() => RuntimeContentManager.LoadObjectAsync(_sceneBundleHandles);
+
+#if !UNITY_EDITOR
+        public void Release() => Entities.Content.RuntimeContentManager.ReleaseObjectAsync(_sceneBundleHandles);
+        public void Retain() => Entities.Content.RuntimeContentManager.LoadObjectAsync(_sceneBundleHandles);
+#endif
+
         public bool Equals(SceneSectionReferencedUnityObjects other) => _sceneBundleHandles.Equals(other._sceneBundleHandles);
         public override int GetHashCode() => _sceneBundleHandles.GetHashCode();
     }

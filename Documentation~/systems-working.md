@@ -1,11 +1,11 @@
 # Working with systems
 
-Contains information on how to use `SystemAPI` and entity command buffers to get the most out of your systems
+Contains information on how to access data and schedule data changes efficiently.
 
 |**Topic**|**Description**|
 |---|---|
-|[SystemAPI](systems-systemapi.md)|Use the `SystemAPI` class to accessing data in an entity's world.|
-|[Scheduling data changes with an EntityCommandBuffer](systems-entity-command-buffers.md)|Use an entity command buffer to queue entity data changes and defer structural changes.|
+|[Access data](systems-access-data.md)| Understand the different ways of accessing data in systems.|
+|[Schedule data changes](systems-schedule-changes.md)|Understand the different ways to schedule and defer data changes.|
 
 ## Additional resources
 

@@ -5,9 +5,8 @@ The **Preferences** window in the Editor contains some specific Entities setting
 |**Property**|**Function**|
 |---|---|
 |**Baking**||
-|Live Baking|Enable this property to [bake](baking.md) GameObjects as you edit them.|
 |Scene View Mode|Choose the [data mode](editor-authoring-runtime.md) for Scene view. You can choose from **Authoring Data** or **Runtime Data**. |
-|Live Baking Logging| Enable this property to output a log of live baking triggers. This can help diagnose what causes [baking](baking.md) to happen.|
+|Live Baking Logging| Enable this property to output a log of live baking triggers. This can help diagnose what causes [baking](baking-overview.md) to happen.|
 |Clear Entity cache|Forces Unity to re-bake all Sub Scenes the next time they're loaded in the Editor, or when making a standalone player build.|
 |**Advanced**||
 |Show Advanced Worlds|Enable this property to show advanced worlds in the different world dropdowns. Advanced worlds are specialized worlds like the Staging world or the Streaming world which serve as support to the [main worlds](concepts-worlds.md).|

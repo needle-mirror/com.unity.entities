@@ -7,7 +7,6 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
-using Unity.Editor.Bridge;
 
 namespace Unity.Entities.Editor
 {
@@ -122,7 +121,7 @@ namespace Unity.Entities.Editor
 
         void OnDisable()
         {
-            WorldProxyManager.Dispose();
+            WorldProxyManager?.Dispose();
             m_SystemTreeView?.Dispose();
         }
 
@@ -301,6 +300,9 @@ namespace Unity.Entities.Editor
             using (k_OnUpdateMarker.Auto())
             {
                 if (!m_Cooldown.Update(DateTime.Now))
+                    return;
+
+                if (m_SystemTreeView == null || WorldProxyManager == null)
                     return;
 
                 UpdatePreferences();

@@ -572,42 +572,14 @@ namespace Unity.Entities.Tests
             }
         }
 
-
-        partial struct ISystemWithIncorrectManageField : ISystem
-        {
-            private string BadString;
-            public void OnCreate(ref SystemState state) => Debug.LogError("Should never even get here");
-        }
-
-#if !UNITY_DOTSRUNTIME_IL2CPP
-        /*
-         * these tests rely on throwing and catching exceptions, which is not a thing in tiny il2cpp
-         */
-        [Test]
-        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
-        public void TestCreateISystemAndLogExceptionsFailureIsolation_IncorrectManagedField()
-        {
-            LogAssert.Expect(UnityEngine.LogType.Exception, $"ArgumentException: The system Unity.Entities.Tests.WorldSystemTests+{nameof(ISystemWithIncorrectManageField)} cannot contain managed fields. If you need have to store managed fields in your system, please use SystemBase instead. Reason: ISystemWithIncorrectManageField.BadString is not blittable because it is not of value type (System.String)\n");
-
-            TestCreateISystemAndLogExceptionsFailureIsolation(typeof(ISystemWithIncorrectManageField));
-        }
-
-#if !NET_DOTS // Due to regex usage
-        [Test]
-        [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
-        public void TestCreateISystemAndLogExceptionsFailureIsolation_ThrowInOnCreate()
-        {
-            // Ensure that there is just a single error, not a bunch of follow on errors
-            LogAssert.Expect(UnityEngine.LogType.Exception, new System.Text.RegularExpressions.Regex($"AssertionException"));
-            TestCreateISystemAndLogExceptionsFailureIsolation(typeof(SystemThrowingInOnCreateIsRemovedISystem));
-        }
-#endif
         public void TestCreateISystemAndLogExceptionsFailureIsolation(Type badSystem)
         {
             using (var world = new World("WorldX"))
             {
-                var unmanagedTypes = new Type[] {badSystem, typeof(EmptyTestISystem)};
-
+                var unmanagedTypes = new NativeList<SystemTypeIndex>(2, Allocator.Temp);
+                unmanagedTypes.Add(TypeManager.GetSystemTypeIndex(badSystem));
+                unmanagedTypes.Add(TypeManager.GetSystemTypeIndex<EmptyTestISystem>());
+                
                 var unmanagedSystemHandles =
                     world.GetOrCreateSystemsAndLogException(unmanagedTypes, unmanagedTypes.Length, Allocator.Temp);
 
@@ -622,6 +594,5 @@ namespace Unity.Entities.Tests
                 unmanagedSystemHandles.Dispose();
             }
         }
-#endif
     }
 }

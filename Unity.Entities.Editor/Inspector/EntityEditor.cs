@@ -38,9 +38,14 @@ namespace Unity.Entities.Editor
             m_SelectionContext = context as EntitySelectionProxy;
         }
 
+        EntitySelectionProxy GetTargetProxy()
+        {
+            return target as EntitySelectionProxy ?? m_SelectionContext;
+        }
+
         void OnEnable()
         {
-            m_Root = new BindableElement() { name = "Entity Inspector", binding = this };
+            m_Root = new BindableElement { name = "Entity Inspector", binding = this };
             m_Root.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
 
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
@@ -49,6 +54,18 @@ namespace Unity.Entities.Editor
         void OnDisable()
         {
             AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
+        }
+
+        void OnDestroy()
+        {
+            if (!m_Initialized)
+                return;
+
+            m_Initialized = false;
+
+            var targetProxy = GetTargetProxy();
+            if (targetProxy != null)
+                targetProxy.Release();
         }
 
         static EntityEditor()
@@ -96,7 +113,7 @@ namespace Unity.Entities.Editor
             Resources.Templates.Inspector.EntityInspector.AddStyles(m_Root);
             Resources.Templates.DotsEditorCommon.AddStyles(m_Root);
 
-            var actualTarget = target as EntitySelectionProxy ?? m_SelectionContext;
+            var actualTarget = GetTargetProxy();
 
             Assert.IsNotNull(actualTarget, "Neither the target or the selection context is valid for this inspector.");
 
@@ -130,6 +147,8 @@ namespace Unity.Entities.Editor
 
         void Initialize(EntitySelectionProxy proxy)
         {
+            proxy.Retain();
+
             m_InspectorContext.SetContext(proxy);
             m_Root.Clear();
             m_Root.AddToClassList(UssClasses.Inspector.EntityInspector);

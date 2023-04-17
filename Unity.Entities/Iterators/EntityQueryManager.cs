@@ -1392,34 +1392,156 @@ namespace Unity.Entities
         }
 
         // Expensive debug validation, to make sure cached data is consistent with the associated query.
-        internal static bool IsConsistent(in UnsafeCachedChunkList cache, in EntityQueryData queryData)
+        // Throws an ArgumentException if anything's wrong, including if the cache.IsCacheValid flag is clear.
+        // The forceCheckInvalidCache allows the validity flag check to skipped, e.g. by unit tests that want to
+        // make sure this method actually detects the expected inconsistencies in a known invalid cache.
+        internal static void AssertIsConsistent(in UnsafeCachedChunkList cache, in EntityQueryData queryData, bool forceCheckInvalidCache)
         {
+            // Sanity check that the provided cache is associated with the provided query
             Assert.AreEqual((ulong)queryData.MatchingChunkCache.MatchingChunks, (ulong)cache.MatchingChunks);
+            // If the input cache doesn't even think it's valid, its contents are definitely not guaranteed to be consistent.
+            // Allow the caller to skip this check and check a known invalid cache any, for unit testing purposes
+            if (!forceCheckInvalidCache && !cache.IsCacheValid)
+            {
+                throw new ArgumentException($"Can't check an invalid cache for consistency. Did you call queryData.GetMatchingChunkCache() to access this cache?");
+            }
+            // The cache's lists must all be the same length
+            if (cache.ChunkIndexInArchetype->Length != cache.Length)
+            {
+                // This indicates an error in the cache update logic; every chunk in the cache must have a valid entry in the ChunkIndexInArchetype list.
+                throw new ArgumentException($"query chunk cache inconsistency: ChunkIndexInArchetypeLength={cache.ChunkIndexInArchetype->Length}, cache length={cache.Length}");
+            }
+            if (cache.PerChunkMatchingArchetypeIndex->Length != cache.Length)
+            {
+                // This indicates an error in the cache update logic; every chunk in the cache must have a valid entry in the PerChunkMatchingArchetypeIndex list.
+                throw new ArgumentException($"query chunk cache inconsistency: PerChunkMatchingArchetypeIndex={cache.PerChunkMatchingArchetypeIndex->Length}, cache length={cache.Length}");
+            }
 
-            var chunkCounter = 0;
+            // count the expected number of chunks in all matching archetypes
             int archetypeCount = queryData.MatchingArchetypes.Length;
-            var ptrs = queryData.MatchingArchetypes.Ptr;
+            var matchingArchetypes = queryData.MatchingArchetypes.Ptr;
+            int matchingArchetypeChunkCount = 0;
             for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
             {
-                var archetype = ptrs[archetypeIndex]->Archetype;
-                for (int chunkIndex = 0; chunkIndex < archetype->Chunks.Count; ++chunkIndex)
+                var archetype = matchingArchetypes[archetypeIndex]->Archetype;
+                matchingArchetypeChunkCount += archetype->Chunks.Count;
+            }
+            // If this fails, a cache that thinks it's valid definitely contains the wrong number of chunks.
+            // This would indicate an error in the cache update logic.
+            // However, instead of failing immediately, let's keep going and see if we can log more data about the missing/extra
+            // chunk in the loop below. This same check appears at the end of the function, in case nothing else fires.
+            //if (matchingArchetypeChunkCount != cache.Length)
+            //{
+            //    //throw new ArgumentException($"query chunk cache inconsistency: {archetypeCount} matching archetypes contain {matchingArchetypeChunkCount} chunks, but cache only contains {cache.MatchingChunks->Length} chunks");
+            //}
+
+            // Iterate over chunks in matching archetypes, and make sure they're at the correct location in the cache
+            var chunkCounter = 0;
+            for (int archetypeIndex = 0; archetypeIndex < archetypeCount; ++archetypeIndex)
+            {
+                var archetype = matchingArchetypes[archetypeIndex]->Archetype;
+                int archetypeChunkCount = archetype->Chunks.Count;
+                for (int chunkIndex = 0; chunkIndex < archetypeChunkCount; ++chunkIndex)
                 {
-                    if (chunkCounter >= cache.MatchingChunks->Length)
-                        return false;
+                    if (chunkCounter >= cache.Length)
+                    {
+                        // This should *never* happen; it should have been caught in the check just above this loop.
+                        // This would indicate that either the matching archetypes or the chunk cache are being modified
+                        // concurrently with this consistency check.
+                        throw new ArgumentException($"query chunk cache inconsistency: matching archetype chunk {chunkCounter} exceeds chunk cache length {cache.Length}");
+                    }
+
                     var chunk = cache.MatchingChunks->Ptr[chunkCounter];
-                    if(chunk != archetype->Chunks[chunkIndex])
-                        return false;
+                    if (chunk != archetype->Chunks[chunkIndex])
+                    {
+                        // This means the chunk may actually be in the cache, but not at the index we expect it to be.
+                        // This may indicate that the chunk cache update logic is iterating over matching archetypes/chunks in a different
+                        // order than this consistency check.
+                        throw new ArgumentException(@$"query chunk cache inconsistency: cached chunk at index {chunkCounter} should be at chunkIndex={chunkIndex} of archetype {archetypeIndex}.
+Archetype has {archetypeChunkCount} chunks and {archetype->EntityCount} entities, with types {archetype->ToString()}.
+Query matches {archetypeCount} archetypes.");
+                    }
+                    if (chunk->SequenceNumber != archetype->Chunks[chunkIndex]->SequenceNumber)
+                    {
+                        // Chunk* comparisons are not sufficient, because chunk allocations are pooled. The chunk may have
+                        // been freed and reallocated into a new archetype.
+                        // This would indicate that some operation is not invalidating the appropriate query caches.
+                        throw new ArgumentException(@$"query chunk cache inconsistency: cached chunk at index {chunkCounter} has a different sequence number {chunk->SequenceNumber} than chunk in matching archetype with sequence number {archetype->Chunks[chunkIndex]->SequenceNumber}.
+Archetype has {archetypeChunkCount} chunks and {archetype->EntityCount} entities, with types {archetype->ToString()}.
+Query matches {archetypeCount} archetypes.");
+                    }
                     if (cache.ChunkIndexInArchetype->Ptr[chunkCounter] != chunk->ListIndex)
-                        return false;
+                    {
+                        // This chunk in the cache corresponds to the correct chunk in the archetype, but
+                        // its entry in ChunkIndexInArchetype is incorrect.
+                        // This would indicate that the cache's ChunkIndexInArchetype list is not being updated correctly when the
+                        // cache is updated.
+                        throw new ArgumentException(@$"query chunk cache inconsistency: cached chunk at index {chunkCounter} thinks it should be at index {cache.ChunkIndexInArchetype->Ptr[chunkCounter]} in archetype {archetypeIndex}'s chunk list, but it's actually at index {chunk->ListIndex}.
+Archetype has {archetypeChunkCount} chunks and {archetype->EntityCount} entities, with types {archetype->ToString()}.
+Query matches {archetypeCount} archetypes.");
+                    }
+                    if (cache.PerChunkMatchingArchetypeIndex->Ptr[chunkCounter] != archetypeIndex)
+                    {
+                        // This chunk in the cache corresponds to the correct chunk in the archetype, but
+                        // its entry in PerChunkMatchingArchetypeIndex is incorrect.
+                        // This would indicate that the cache's PerChunkMatchingArchetypeIndex list is not being updated correctly when the
+                        // cache is updated.
+                        throw new ArgumentException(@$"query chunk cache inconsistency: cached chunk at index {chunkCounter} thinks it should be in matching archetype {cache.PerChunkMatchingArchetypeIndex->Ptr[chunkCounter]}, but it's actually in archetype {archetypeIndex}.
+Archetype has {archetypeChunkCount} chunks and {archetype->EntityCount} entities, with types {archetype->ToString()}.
+Query matches {archetypeCount} archetypes.");
+                    }
                     chunkCounter += 1;
                 }
             }
+            // Iterate over chunks in the cache, and make sure they're in the correct location in the matching archetypes.
+            for (int cacheChunkIndex = 0; cacheChunkIndex < cache.Length; ++cacheChunkIndex)
+            {
+                var chunk = cache.MatchingChunks->Ptr[cacheChunkIndex];
+                int expectedArchetypeIndex = cache.PerChunkMatchingArchetypeIndex->Ptr[cacheChunkIndex];
+                int expectedChunkIndexInArchetype = cache.ChunkIndexInArchetype->Ptr[cacheChunkIndex];
+                if (expectedArchetypeIndex < 0 || expectedArchetypeIndex >= archetypeCount)
+                {
+                    // This indicates objectively invalid data in the cache's PerChunkMatchingArchetypeIndex array.
+                    // Be especially concerned about negative numbers; that would be a pretty clear sign of a memory stomp.
+                    throw new ArgumentException(@$"query chunk cache inconsistency: matching archetype index {expectedArchetypeIndex} for cached chunk {cacheChunkIndex} is out of range.
+Query matches {archetypeCount} archetypes.");
+                }
+                var archetype = matchingArchetypes[expectedArchetypeIndex]->Archetype;
+                if (expectedChunkIndexInArchetype < 0 || expectedChunkIndexInArchetype >= archetype->Chunks.Count)
+                {
+                    // This indicates objectively invalid data in the cache's ChunkIndexInArchetype array.
+                    // Be especially concerned about negative numbers; that would be a pretty clear sign of a memory stomp.
+                    throw new ArgumentException(@$"query chunk cache inconsistency: chunk index in archetype {expectedChunkIndexInArchetype} for cached chunk {cacheChunkIndex} is out of range. Archetype {expectedArchetypeIndex} contains {archetype->Chunks.Count} chunks.
+Archetype has {archetype->Chunks.Count} chunks and {archetype->EntityCount} entities, with types {archetype->ToString()}.
+Query matches {archetypeCount} archetypes.");
+                }
+                if (archetype->Chunks[expectedChunkIndexInArchetype] != chunk)
+                {
+                    // This means there's a chunk in the cache that didn't come from the query's matching archetypes.
+                    // That would either be due to an error in the cache update logic, or the matching archetypes changing
+                    // without invalidating the cache.
+                    throw new ArgumentException(@$"query chunk cache inconsistency: cached chunk {cacheChunkIndex} not found at expected chunk index {expectedChunkIndexInArchetype} of expected matching archetype {expectedArchetypeIndex}.
+Archetype has {archetype->Chunks.Count} chunks and {archetype->EntityCount} entities, with types {archetype->ToString()}.
+Query matches {archetypeCount} archetypes.");
+                }
+                if (archetype->Chunks[expectedChunkIndexInArchetype]->SequenceNumber != chunk->SequenceNumber)
+                {
+                    // Chunk* comparisons are not sufficient, because chunk allocations are pooled. The chunk may have
+                    // been freed and reallocated into a new archetype.
+                    // This would indicate that some operation is not invalidating the appropriate query caches.
+                    throw new ArgumentException(@$"query chunk cache inconsistency: cached chunk {cacheChunkIndex} has a different sequence number {chunk->SequenceNumber} than chunk in matching archetype with sequence number {archetype->Chunks[expectedChunkIndexInArchetype]->SequenceNumber}.
+Archetype has {archetype->Chunks.Count} chunks and {archetype->EntityCount} entities, with types {archetype->ToString()}.
+Query matches {archetypeCount} archetypes.");
+                }
+            }
 
-            // All chunks in cache are accounted for
+            // All chunks in cache are accounted for.
             if (chunkCounter != cache.Length)
-                return false;
-
-            return true;
+            {
+                // This should *never* happen; we've already checked twice that these counts match.
+                // This would indicate that the chunk cache is being modified concurrently with this consistency check.
+                throw new ArgumentException($"query chunk cache inconsistency: we checked {chunkCounter} chunks from matching archetypes, but chunk cache length is {cache.Length}.");
+            }
         }
     }
 

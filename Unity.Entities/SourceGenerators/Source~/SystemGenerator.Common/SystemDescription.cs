@@ -50,6 +50,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
         public readonly bool IsForDotsRuntime;
         public readonly bool IsDotsRuntimeProfilerEnabled;
         public readonly bool IsProfilerEnabled;
+        public readonly bool IsDotsDebugMode;
         public readonly bool IsUnityCollectionChecksEnabled;
 
         public SystemDescription(
@@ -57,7 +58,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             SystemType systemType,
             INamedTypeSymbol systemTypeSymbol,
             SemanticModel semanticModel,
-            Compilation compilation,
             IEnumerable<string> preprocessorSymbolNames,
             SyntaxTreeInfo syntaxTreeInfo)
         {
@@ -81,6 +81,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             IsForDotsRuntime = false;
             IsDotsRuntimeProfilerEnabled = false;
             IsProfilerEnabled = false;
+            IsDotsDebugMode = false;
 
             foreach (var name in PreprocessorSymbolNames)
             {
@@ -97,6 +98,9 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                         break;
                     case "ENABLE_PROFILER":
                         IsProfilerEnabled = true;
+                        break;
+                    case "UNITY_DOTS_DEBUG":
+                        IsDotsDebugMode = true;
                         break;
                 }
             }

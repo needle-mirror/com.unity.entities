@@ -277,16 +277,11 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(3, SystemAPI.GetSingleton<EcsTestData>().value);
             }
 
-            public struct GenericDataType<T> : IComponentData where T : unmanaged
+            public void GetSingletonWithGeneric()
             {
-                public T value;
-            }
-            public void GetSingletonWithGenericThrows()
-            {
-                EntityManager.CreateEntity(typeof(GenericDataType<int>));
-
-                SystemAPI.SetSingleton(new GenericDataType<int>() { value = 10 });
-                Assert.AreEqual(10, SystemAPI.GetSingleton<GenericDataType<int>>().value);
+                EntityManager.CreateEntity(typeof(EcsTestGeneric<int>));
+                SystemAPI.SetSingleton(new EcsTestGeneric<int>{ value = 10 });
+                Assert.AreEqual(10, SystemAPI.GetSingleton<EcsTestGeneric<int>>().value);
             }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -370,9 +365,7 @@ namespace Unity.Entities.Tests
         public void SystemBase_SetSingletonWithExpressionWithPreprocessorTriviaWorks() => TestSystem.SetSingletonWithExpressionWithPreprocessorTriviaWorks();
 
         [Test]
-        public void SystemBase_GetSingletonWithGenericThrows() =>
-            // Will now throw exception around not knowing component types at compile time instead of crashing
-            Assert.Throws<ArgumentException>(()=>TestSystem.GetSingletonWithGenericThrows());
+        public void SystemBase_GetSingletonWithGeneric() => TestSystem.GetSingletonWithGeneric();
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]

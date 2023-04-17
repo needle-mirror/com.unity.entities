@@ -12,7 +12,7 @@ namespace Unity.Entities.Editor
             Resources.Templates.FoldoutWithoutActionButton.AddStyles(this);
             this.Q(className: "unity-toggle__input").AddToClassList(UssClasses.FoldoutWithoutActionButton.ToggleInput);
 
-            Header = Resources.Templates.FoldoutWithoutActionButton.CloneTemplate();
+            Header = Resources.Templates.FoldoutWithoutActionButton.Clone();
             HeaderName = Header.Q<Label>(className: UssClasses.FoldoutWithoutActionButton.Name);
             MatchingCount = Header.Q<Label>(className: UssClasses.FoldoutWithoutActionButton.Count);
         }

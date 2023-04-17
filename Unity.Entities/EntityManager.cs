@@ -1241,6 +1241,7 @@ namespace Unity.Entities
         {
             var access = GetCheckedEntityDataAccess();
             sharedComponentValues = new NativeList<T>(0, allocator);
+            sharedComponentValues.m_ListData->Dispose();
             access->GetAllUniqueSharedComponents_Unmanaged<T>(out *sharedComponentValues.m_ListData, allocator);
         }
 
@@ -3272,6 +3273,7 @@ namespace Unity.Entities
         /// must be included in the query's required types, and must implement <see cref="IEnableableComponent"/>.</param>
         /// <param name="value">If true, the component <typeparamref name="T"/> will be enabled on all entities in all
         /// matching chunks. Otherwise, the component will be disabled on all components in all chunks.</param>
+        /// <param name="query">The query to match.</param>
         /// <remarks>The current value of the bits are ignored; this function will enable disabled components on
         /// entities, even if the component being disabled would cause the entity to not match the query. If any jobs
         /// are currently running which read or write the target component, this function will block until they complete
@@ -4715,37 +4717,11 @@ namespace Unity.Entities
         /// When calling from a SystemBase, use SystemBase.GetAspect instead.
         /// Use this method when calling from outside the dots runtime, e.g. from the editor code.
         /// </remarks>
-        [ExcludeFromBurstCompatTesting("Seems like a mistake")]
+        [ExcludeFromBurstCompatTesting("This unfortunately needs access to the managed world for the ExternalAPIState.")]
         public T GetAspect<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T>
         {
             T aspect = default;
-            return aspect.CreateAspect(entity, ref *World.ExternalAPIState, false);
-        }
-
-        /// <summary>
-        /// Look up an aspect for an entity with readonly access.
-        /// </summary>
-        /// <param name="entity">The entity.</param>
-        /// <typeparam name="T">The type of aspect to retrieve.</typeparam>
-        /// <returns>An aspect struct of type T representing the aspect on the entity.</returns>
-        /// <remarks>
-        /// T must implement the <see cref="IAspect"/> interface.
-        /// The given entity is assumed to have all the components required by the aspect type.
-        /// </remarks>
-        /// <remarks>
-        /// This method will create an instance of the aspect struct using
-        /// an internal SystemState.
-        /// </remarks>
-        /// <remarks>
-        /// When calling from an ISystem, use SystemAPI.GetAspectRO instead.
-        /// When calling from a SystemBase, use SystemBase.GetAspectRO instead.
-        /// Use this method when calling from outside the dots runtime, e.g. from the editor code.
-        /// </remarks>
-        [ExcludeFromBurstCompatTesting("Seems like a mistake")]
-        public T GetAspectRO<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T>
-        {
-            T aspect = default;
-            return aspect.CreateAspect(entity, ref *World.ExternalAPIState, true);
+            return aspect.CreateAspect(entity, ref *World.ExternalAPIState);
         }
 
         /// <summary>

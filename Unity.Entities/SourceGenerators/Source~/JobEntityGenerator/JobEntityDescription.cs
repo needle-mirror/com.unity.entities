@@ -13,15 +13,13 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
     {
         public bool IsReadOnly;
         public ITypeSymbol TypeSymbol;
-        public bool IsAspect;
 
+        // .ToString() assumes that the parameter type is IComponentData
         public override string ToString()
         {
-            if (!IsAspect)
-                return IsReadOnly
-                    ? $"Unity.Entities.ComponentType.ReadOnly<{TypeSymbol.ToFullName()}>()"
-                    : $"Unity.Entities.ComponentType.ReadWrite<{TypeSymbol.ToFullName()}>()";
-            return $"default({TypeSymbol.ToFullName()}).AddComponentRequirementsTo(ref __ComponentTypesRequiredForExecuteMethodToRun, {(IsReadOnly ? "true" : "false")});";
+            return IsReadOnly
+                ? $"Unity.Entities.ComponentType.ReadOnly<{TypeSymbol.ToFullName()}>()"
+                : $"Unity.Entities.ComponentType.ReadWrite<{TypeSymbol.ToFullName()}>()";
         }
     }
 
@@ -30,7 +28,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
         readonly List<ParameterTypeInJobEntityExecuteMethod> m_ComponentTypesInExecuteMethod;
         readonly List<ParameterTypeInJobEntityExecuteMethod> m_AspectTypesInExecuteMethod;
         readonly INamedTypeSymbol m_JobEntityTypeSymbol;
-        readonly bool m_PerformSafetyChecks;
+        readonly bool m_CheckUserDefinedQueryForScheduling;
 
         public List<Diagnostic> Diagnostics { get; }
         public string FullTypeName => m_JobEntityTypeSymbol.ToFullName();
@@ -46,14 +44,14 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
 
         static string GetUserExecuteMethodSignature(IMethodSymbol userExecuteMethod) => $"{userExecuteMethod.Name}({userExecuteMethod.Parameters.Select(p => $"{p.Type.Name} {p.Name}").SeparateByComma()})";
 
-        public JobEntityDescription(StructDeclarationSyntax candidate, SemanticModel semanticModel, bool performSafetyChecks)
+        public JobEntityDescription(StructDeclarationSyntax candidate, SemanticModel semanticModel, bool checkUserDefinedQueryForScheduling)
         {
             Invalid = false;
             Diagnostics = new List<Diagnostic>();
 
             m_JobEntityTypeSymbol = semanticModel.GetDeclaredSymbol(candidate);
             m_HandlesDescription = HandlesDescription.Create(candidate);
-            m_PerformSafetyChecks = performSafetyChecks;
+            m_CheckUserDefinedQueryForScheduling = checkUserDefinedQueryForScheduling;
 
             // Find valid user made execute method - can likely be shortened if we remove the SGJE0008 error :3
             var userExecuteMethods = new List<IMethodSymbol>();
@@ -77,7 +75,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             UserExecuteMethodParams = new JobEntityParam[userExecuteMethod.Parameters.Length];
 
             for (var parameterIndex = 0; parameterIndex < userExecuteMethod.Parameters.Length; parameterIndex++)
-                UserExecuteMethodParams[parameterIndex] = CreateJobEntityParam(userExecuteMethod.Parameters[parameterIndex], performSafetyChecks, queryInfo.QueryAllTypes, queryInfo.QueryChangeFilterTypes);
+                UserExecuteMethodParams[parameterIndex] = CreateJobEntityParam(userExecuteMethod.Parameters[parameterIndex], checkUserDefinedQueryForScheduling, queryInfo.QueryAllTypes, queryInfo.QueryChangeFilterTypes);
 
             // Generate Query
             queryInfo.FillFromAttributes(candidate.AttributeLists, semanticModel);
@@ -219,7 +217,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                 {
                                     IsReadOnly = jobEntityParameter.IsReadOnly,
                                     TypeSymbol = jobEntityParameter.TypeSymbol,
-                                    IsAspect = false
                                 });
                                 if (hasChangeFilter)
                                 {
@@ -266,7 +263,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                         {
                                             IsReadOnly = jobEntityParameter.IsReadOnly,
                                             TypeSymbol = jobEntityParameter.TypeSymbol,
-                                            IsAspect = false
                                         });
                                         if (hasChangeFilter)
                                         {
@@ -287,6 +283,14 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                 // Aspects
                                 if (typeSymbol.IsAspect())
                                 {
+                                    if (parameterSymbol.RefKind == RefKind.In || parameterSymbol.RefKind == RefKind.Ref
+                                                                              || parameterSymbol.RefKind == RefKind.RefReadOnly)
+                                    {
+                                        JobEntityGeneratorErrors.SGJE0021(this, parameterSymbol.Locations.Single(), typeSymbol.Name);
+                                        Invalid = true;
+                                        return null;
+                                    }
+
                                     var typeHandleName = m_HandlesDescription.GetOrCreateTypeHandleField(typeSymbol, parameterSymbol.IsReadOnly());
                                     var jobEntityParameter = new JobEntityParam_Aspect(parameterSymbol, typeHandleName);
                                     queryAllTypes.Add(new Query
@@ -299,7 +303,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                     {
                                         IsReadOnly = jobEntityParameter.IsReadOnly,
                                         TypeSymbol = jobEntityParameter.TypeSymbol,
-                                        IsAspect = true
                                     });
                                     return jobEntityParameter;
                                 }
@@ -316,36 +319,45 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                 Invalid = true;
                                 return new JobEntityParamValueTypesPassedWithDefaultArguments(parameterSymbol);
                             }
-
-                            // Managed Components
-                            var isUnityEngineComponent = JobEntityParam.IsUnityEngineComponent(typeSymbol);
-                            if (isUnityEngineComponent != null)
+                            else // We are a reference type if we get here
                             {
-                                var typeHandleName = m_HandlesDescription.GetOrCreateTypeHandleField(typeSymbol, parameterSymbol.IsReadOnly());
-                                m_RequiresEntityManager = true;
-                                var jobEntityParameter = new JobEntityParam_ManagedComponent(parameterSymbol, typeHandleName);
-                                queryAllTypes.Add(new Query
+                                if (typeSymbol.InheritsFromInterface("Unity.Entities.IComponentData")
+                                    || typeSymbol.InheritsFromType("UnityEngine.Component")
+                                    || typeSymbol.InheritsFromType("UnityEngine.GameObject")
+                                    || typeSymbol.InheritsFromType("UnityEngine.ScriptableObject"))
                                 {
-                                    IsReadOnly = jobEntityParameter.IsReadOnly,
-                                    Type = QueryType.All,
-                                    TypeSymbol = jobEntityParameter.TypeSymbol
-                                });
-                                m_ComponentTypesInExecuteMethod.Add(new ParameterTypeInJobEntityExecuteMethod
-                                {
-                                    IsReadOnly = jobEntityParameter.IsReadOnly,
-                                    TypeSymbol = jobEntityParameter.TypeSymbol,
-                                    IsAspect = false
-                                });
-                                if (hasChangeFilter)
-                                {
-                                    queryChangeFilterTypes.Add(new Query
+                                    if (parameterSymbol.RefKind == RefKind.Ref || parameterSymbol.RefKind == RefKind.In)
+                                    {
+                                        JobEntityGeneratorErrors.SGJE0022(this, parameterSymbol.Locations.Single(), typeSymbol.Name);
+                                        Invalid = true;
+                                        return null;
+                                    }
+
+                                    var typeHandleName = m_HandlesDescription.GetOrCreateTypeHandleField(typeSymbol, parameterSymbol.IsReadOnly());
+                                    m_RequiresEntityManager = true;
+                                    var jobEntityParameter = new JobEntityParam_ManagedComponent(parameterSymbol, typeHandleName);
+                                    queryAllTypes.Add(new Query
                                     {
                                         IsReadOnly = jobEntityParameter.IsReadOnly,
-                                        Type = QueryType.ChangeFilter,
+                                        Type = QueryType.All,
                                         TypeSymbol = jobEntityParameter.TypeSymbol
                                     });
+                                    m_ComponentTypesInExecuteMethod.Add(new ParameterTypeInJobEntityExecuteMethod
+                                    {
+                                        IsReadOnly = jobEntityParameter.IsReadOnly,
+                                        TypeSymbol = jobEntityParameter.TypeSymbol,
+                                    });
+                                    if (hasChangeFilter)
+                                    {
+                                        queryChangeFilterTypes.Add(new Query
+                                        {
+                                            IsReadOnly = jobEntityParameter.IsReadOnly,
+                                            Type = QueryType.ChangeFilter,
+                                            TypeSymbol = jobEntityParameter.TypeSymbol
+                                        });
+                                    }
+                                    return jobEntityParameter;
                                 }
-                                return jobEntityParameter;
                             }
 
                             JobEntityGeneratorErrors.SGJE0010(this, parameterSymbol.Locations.Single(), parameterSymbol.Name, typeSymbol.ToFullName());
@@ -661,10 +673,10 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
         internal JobEntityParam_Entity(IParameterSymbol parameterSymbol, string typeHandleFieldName) : base(parameterSymbol, typeHandleFieldName)
         {
             const string entityArrayPointer = "entityPointer";
-            VariableDeclarationAtStartOfExecuteMethod = $@"var {entityArrayPointer} = InternalCompilerInterface.UnsafeGetChunkEntityArrayIntPtr(chunk, __TypeHandle.{TypeHandleFieldName});";
+            VariableDeclarationAtStartOfExecuteMethod = $@"var {entityArrayPointer} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkEntityArrayIntPtr(chunk, __TypeHandle.{TypeHandleFieldName});";
 
             const string argumentInExecuteMethod = "entity";
-            ExecuteMethodArgumentSetup = $"var {argumentInExecuteMethod} = InternalCompilerInterface.UnsafeGetCopyOfNativeArrayPtrElement<Entity>({entityArrayPointer}, entityIndexInChunk);";
+            ExecuteMethodArgumentSetup = $"var {argumentInExecuteMethod} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetCopyOfNativeArrayPtrElement<Entity>({entityArrayPointer}, entityIndexInChunk);";
 
             ExecuteMethodArgumentValue = argumentInExecuteMethod;
         }
@@ -702,13 +714,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             // Per entity
             var executeMethodArgument = $"{variableName}Array";
             ExecuteMethodArgumentSetup = $"var {executeMethodArgument} = {variableName}[entityIndexInChunk];";
-
-            ExecuteMethodArgumentValue = parameterSymbol.RefKind switch
-            {
-                RefKind.Ref => $"ref {executeMethodArgument}",
-                RefKind.In => $"in {executeMethodArgument}",
-                _ => executeMethodArgument
-            };
+            ExecuteMethodArgumentValue = executeMethodArgument;
         }
     }
 
@@ -721,10 +727,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
 
             var localName = ExecuteMethodArgumentValue = $"retrievedByIndexIn{accessorVariableName}";
             ExecuteMethodArgumentSetup = $"var {localName} = {accessorVariableName}[entityIndexInChunk];";
-
-            // We do not allow managed components to be used by ref. See SourceGenerationErrors.DC0024.
-            if(parameterSymbol.RefKind == RefKind.In)
-                ExecuteMethodArgumentValue = $"in {localName}";
         }
     }
 
@@ -771,14 +773,14 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                             IsZeroSizedComponent
                                 ? string.Empty
                                 : IsReadOnly
-                                    ? $"var {requiredVariableName} = InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});"
-                                    : $"var {requiredVariableName} = InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
+                                    ? $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});"
+                                    : $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
 
                         value = $"{requiredVariableName}Ref";
                         setUp =
                             IsZeroSizedComponent
                                 ? string.Empty
-                                : $"ref var {value} = ref InternalCompilerInterface.UnsafeGetRefToNativeArrayPtrElement<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
+                                : $"ref var {value} = ref Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetRefToNativeArrayPtrElement<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
 
                         value = ParameterSymbol.RefKind switch
                         {
@@ -791,25 +793,25 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                     case RefWrapperType.RefRW:
                     {
                         requiredVariableName = $"{char.ToLowerInvariant(typeName[0])}{typeName.Substring(1)}IntPtr";
-                        requiredVariableDeclaration = $"var {requiredVariableName} = InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
+                        requiredVariableDeclaration = $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
 
                         value = $"{requiredVariableName}Ref";
                         setUp =
                             performSafetyChecks
-                                ? $"var {value} = Unity.Entities.InternalCompilerInterface.GetRefRW<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk, ref __TypeHandle.{TypeHandleFieldName});"
-                                : $"var {value} = Unity.Entities.InternalCompilerInterface.GetRefRW<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
+                                ? $"var {value} = Unity.Entities.Internal.InternalCompilerInterface.GetRefRW<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk, ref __TypeHandle.{TypeHandleFieldName});"
+                                : $"var {value} = Unity.Entities.Internal.InternalCompilerInterface.GetRefRW<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
                         return (requiredVariableDeclaration, setUp, value);
                     }
                     case RefWrapperType.RefRO:
                     {
                         requiredVariableName = $"{char.ToLowerInvariant(typeName[0])}{typeName.Substring(1)}ArrayIntPtr";
-                        requiredVariableDeclaration = $"var {requiredVariableName} = InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
+                        requiredVariableDeclaration = $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
 
                         value = $"{requiredVariableName}Ref";
                         setUp =
                             performSafetyChecks
-                                ? $"var {value} = Unity.Entities.InternalCompilerInterface.GetRefRO<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk, ref __TypeHandle.{TypeHandleFieldName});"
-                                : $"var {value} = Unity.Entities.InternalCompilerInterface.GetRefRO<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
+                                ? $"var {value} = Unity.Entities.Internal.InternalCompilerInterface.GetRefRO<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk, ref __TypeHandle.{TypeHandleFieldName});"
+                                : $"var {value} = Unity.Entities.Internal.InternalCompilerInterface.GetRefRO<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
                         return (requiredVariableDeclaration, setUp, value);
                     }
                     case RefWrapperType.EnabledRefRO:
@@ -915,18 +917,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 return (false, default);
             }
             return (true, new JobEntityParam_ComponentData(parameterSymbol, componentTypeSymbol, isReadOnly, refWrapperType, performSafetyChecks, typeHandleFieldName));
-        }
-
-        internal static bool? IsUnityEngineComponent(ITypeSymbol typeSymbol)
-        {
-            return
-                typeSymbol.InheritsFromInterface("Unity.Entities.IComponentData")
-                    ? false
-                    : typeSymbol.InheritsFromType("UnityEngine.Component")
-                      || typeSymbol.InheritsFromType("UnityEngine.GameObject")
-                      || typeSymbol.InheritsFromType("UnityEngine.ScriptableObject")
-                        ? (bool?)true
-                        : null;
         }
 
         internal JobEntityParam(IParameterSymbol parameterSymbol, string typeHandleFieldName)

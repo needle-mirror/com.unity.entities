@@ -550,12 +550,14 @@ namespace Unity.Entities.Tests
         public void TestGetSystems()
         {
             // Remove disabled systems since in Entities.Tests we have systems that are intentionally broken and will throw exceptions
-            var allSystemTypes = TypeManager.GetSystems(WorldSystemFilterFlags.All & ~WorldSystemFilterFlags.Disabled);
+            var allSystemTypes = TypeManager.GetSystemTypeIndices(WorldSystemFilterFlags.All & ~WorldSystemFilterFlags.Disabled);
             bool foundTestSystem = false;
-            for(int i = 0; i < allSystemTypes.Count;++i)
+            for(int i = 0; i < allSystemTypes.Length;++i)
             {
                 var sys = allSystemTypes[i];
-                if(sys == typeof(PresentationSystemGroup)) // A group we know will always exist
+                var systemTypeIndex = TypeManager.GetSystemTypeIndex<PresentationSystemGroup>();// A group we know will always exist
+
+                if(sys == systemTypeIndex) 
                 {
                     foundTestSystem = true;
                     break;
@@ -629,7 +631,7 @@ namespace Unity.Entities.Tests
                 expectedFilterFlags |= WorldSystemFilterFlags.LocalSimulation | WorldSystemFilterFlags.Presentation;
             }
 
-            var filteredTypes = TypeManager.GetSystems(expectedFilterFlags, requiredFlags);
+            var filteredTypes = TypeManager.GetSystemTypeIndices(expectedFilterFlags, requiredFlags);
             requiredFlags &= ~WorldSystemFilterFlags.Default;
             foreach(var t in filteredTypes)
             {
@@ -639,13 +641,13 @@ namespace Unity.Entities.Tests
                 Assert.GreaterOrEqual((int)actualFilterFlags, (int)requiredFlags, $"Actual Flags for system {t} should be greater than or equal to required flags");
             }
 
-            return filteredTypes.Count;
+            return filteredTypes.Length;
         }
 
         [Test]
         public void GetSystemsWorldSystemFilterFlags()
         {
-            var allTypesCount = TypeManager.GetSystems(WorldSystemFilterFlags.All & ~WorldSystemFilterFlags.Disabled).Count;
+            var allTypesCount = TypeManager.GetSystemTypeIndices(WorldSystemFilterFlags.All & ~WorldSystemFilterFlags.Disabled).Length;
 
             var numDefaultSystems = ValidateFilterFlags(WorldSystemFilterFlags.Default, 0);
             var numProcessAfterLoadSystems = ValidateFilterFlags(WorldSystemFilterFlags.ProcessAfterLoad, WorldSystemFilterFlags.ProcessAfterLoad);
@@ -694,11 +696,11 @@ namespace Unity.Entities.Tests
         {
             // All systems in the test assembly are disabled by default. If we fetch disabled systems we will trip on intentionally
             // broken systems, so we instead stuff our disabled systems into the Editor world filter which will exclude the broken systems
-            var allTypes = new List<Type>(TypeManager.GetSystems(WorldSystemFilterFlags.All, WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.Disabled));
+            var allTypes = TypeManager.GetSystemTypeIndices(WorldSystemFilterFlags.All, WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.Disabled);
 
-            var indexOfA = allTypes.IndexOf(typeof(Test_CreateOrder_A));
-            var indexOfB = allTypes.IndexOf(typeof(Test_CreateOrder_B));
-            var indexOfC = allTypes.IndexOf(typeof(Test_CreateOrder_C));
+            var indexOfA = allTypes.IndexOf(TypeManager.GetSystemTypeIndex<Test_CreateOrder_A>());
+            var indexOfB = allTypes.IndexOf(TypeManager.GetSystemTypeIndex<Test_CreateOrder_B>());
+            var indexOfC = allTypes.IndexOf(TypeManager.GetSystemTypeIndex<Test_CreateOrder_C>());
 
             Assert.Less(indexOfA, indexOfB);
             Assert.Less(indexOfB, indexOfC);
@@ -1074,11 +1076,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
-        public void TestNestedNativeContainersFails()
+        public void TestNestedNativeContainersDoesNotThrow()
         {
-            Assert.Throws<ArgumentException>(
-                () => TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new TypeManager.BuildComponentCache()));
+            Assert.DoesNotThrow(() =>
+            {
+                Assert.IsTrue(TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer); 
+            });
         }
 #endif
 
@@ -1290,11 +1293,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
-        public void TestNestedArrayNativeContainersFails()
+        public void TestNestedArrayNativeContainersDoesNotThrow()
         {
-            Assert.Throws<ArgumentException>(
-                () => TypeManager.BuildComponentType(typeof(NestedArrayNativeContainerComponent), new TypeManager.BuildComponentCache()));
+            Assert.DoesNotThrow(() =>
+            {
+                Assert.IsTrue(TypeManager.BuildComponentType(typeof(NestedArrayNativeContainerComponent), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer);
+            });
         }
 
         [Test]
@@ -1354,11 +1358,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         public void TestNestedNativeContainerCachingHandlesTypeWithValidCircularReference_StillDetectsNestedNativeContainers()
         {
-            Assert.Throws<ArgumentException>(
-                () => TypeManager.BuildComponentType(typeof(ComponentWithValidCircularReferenceAndNestedNativeContainer), new TypeManager.BuildComponentCache()));
+            Assert.DoesNotThrow(() =>
+            {
+                Assert.IsTrue(TypeManager.BuildComponentType(typeof(ComponentWithValidCircularReferenceAndNestedNativeContainer), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer);
+            });
         }
 #endif
     }

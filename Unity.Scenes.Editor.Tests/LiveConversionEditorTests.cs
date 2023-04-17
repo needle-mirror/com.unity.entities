@@ -4016,6 +4016,125 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [UnityTest]
+        public IEnumerator IncrementalBaking_EntityDiffer_PointerInComponentThrows([Values] Mode mode)
+        {
+            using var overrideBake = new BakerDataUtility.OverrideBakers(true, typeof(NonSerializableComponentsBaker));
+            string mainEntityName = "A";
+
+            SubScene subScene;
+            {
+                subScene = CreateEmptySubScene("TestSubScene", true);
+
+                var a = new GameObject("A");
+                var aComponent = a.AddComponent<NonSerializableComponentsAuthoring>();
+
+                SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
+            }
+
+            var componentType = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex<EcsTestDataPointer>()).Type;
+            var mainEntityVariables = $"'{componentType}' on GameObject '{mainEntityName}'";
+
+            var regexMain = new Regex($"ArgumentException: Blittable component type {mainEntityVariables}");
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Exception, regexMain);
+
+            yield return GetEnterPlayMode(mode);
+            {
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_EntityDiffer_PointerInComponentThrows_AdditionalEntity([Values] Mode mode)
+        {
+            using var overrideBake = new BakerDataUtility.OverrideBakers(true, typeof(NonSerializableComponentsAdditionalEntityBaker));
+            string mainEntityName = "A";
+            string addEntityMB;
+
+            SubScene subScene;
+            {
+                subScene = CreateEmptySubScene("TestSubScene", true);
+
+                var a = new GameObject("A");
+                var aComponent = a.AddComponent<NonSerializableComponentsAuthoring>();
+                addEntityMB = aComponent.GetType().ToString();
+
+                SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
+            }
+
+            var componentType = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex<EcsTestDataPointer>()).Type;
+            var addEntityVariables = $"'{componentType}' on GameObject '{mainEntityName}', '{addEntityMB}'";
+
+            var regexAdd = new Regex($"ArgumentException: Blittable component type {addEntityVariables}");
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Exception, regexAdd);
+
+            yield return GetEnterPlayMode(mode);
+            {
+            }
+        }
+
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_EntityDiffer_EntityInSharedComponentThrows([Values] Mode mode)
+        {
+            using var overrideBake = new BakerDataUtility.OverrideBakers(true, typeof(NonSerializableSharedComponentsBaker));
+            string mainEntityName = "A";
+
+            SubScene subScene;
+
+            {
+                subScene = CreateEmptySubScene("TestSubScene", true);
+
+                var a = new GameObject("A");
+                var aComponent = a.AddComponent<NonSerializableComponentsAuthoring>();
+
+                SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
+            }
+
+            var componentType = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex<EcsTestDataEntityShared>()).Type;
+            var mainEntityVariables = $"'{componentType}' on GameObject '{mainEntityName}'";
+
+            var regexMain = new Regex($"ArgumentException: Shared component type {mainEntityVariables}");
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Exception, regexMain);
+
+            yield return GetEnterPlayMode(mode);
+            {
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_EntityDiffer_EntityInSharedComponentThrows_AdditionalEntity([Values] Mode mode)
+        {
+            using var overrideBake = new BakerDataUtility.OverrideBakers(true, typeof(NonSerializableSharedComponentAdditionalEntityBaker));
+            string mainEntityName = "A";
+            string addEntityMB;
+
+            SubScene subScene;
+            {
+                subScene = CreateEmptySubScene("TestSubScene", true);
+
+                var a = new GameObject("A");
+                var aComponent = a.AddComponent<NonSerializableComponentsAuthoring>();
+                addEntityMB = aComponent.GetType().ToString();
+
+                SceneManager.MoveGameObjectToScene(a, subScene.EditingScene);
+            }
+
+            var componentType = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex<EcsTestDataEntityShared>()).Type;
+            var addEntityVariables = $"'{componentType}' on GameObject '{mainEntityName}', '{addEntityMB}'";
+
+            var regexAdd = new Regex($"ArgumentException: Shared component type {addEntityVariables}");
+            LogAssert.ignoreFailingMessages = true;
+            LogAssert.Expect(LogType.Exception, regexAdd);
+
+            yield return GetEnterPlayMode(mode);
+            {
+            }
+        }
+
+
+        [UnityTest]
         public IEnumerator IncrementalBaking_GameObjectPropertyChanged([Values]Mode mode)
         {
             GameObject root = null;
@@ -5191,8 +5310,7 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-        // TODO: This test fails because of an incremental bug. This test should be reenabled once that is fixed. (DOTS-8025)
-        //[UnityTest]
+        [UnityTest]
         public IEnumerator IncrementalBaking_TransformUsage_ManualOverrideSwap([Values]Mode mode)
         {
             // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
@@ -5239,6 +5357,7 @@ namespace Unity.Scenes.Editor.Tests
 
                 // Dynamic
                 ChangeFlag(a, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
                 TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
                                                                                      ExpectedConvertedTransformResults.HasLocalTransform );
 
@@ -5246,7 +5365,58 @@ namespace Unity.Scenes.Editor.Tests
                 AssignTransformUsageBaker.AddManualComponents[a] = RuntimeTransformComponentFlags.LocalTransform;
                 ChangeFlag(a, TransformUsageFlags.ManualOverride);
                 yield return UpdateEditorAndWorld(w);
-                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld );
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalTransform );
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_AddComponentWithManualOverride([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(MockDataAuthoringBaker_AddComponentWithManualOverride), typeof(AssignTransformUsageBaker));
+            AssignTransformUsageBaker.Flags.Clear();
+            AssignTransformUsageBaker.AddManualComponents.Clear();
+
+            GameObject a = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    a = new GameObject("Child");
+                    return new List<GameObject> {a};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                var aEntity = bakingSystem.GetEntity(a);
+                Assert.AreNotEqual(Entity.Null, aEntity);
+
+                // Dynamic
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                yield return UpdateEditorAndWorld(w);
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasLocalTransform );
+
+                // This will add Manual Override
+                Undo.AddComponent<MockDataAuthoring>(a);
+
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.Nothing);
+
+                // This will remove Manual Override
+                Undo.DestroyObjectImmediate(a.GetComponent<MockDataAuthoring>());
+                yield return UpdateEditorAndWorld(w);
+
+                TestTransformUsageChange(bakingWorld, null, a, Entity.Null, aEntity, ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasLocalTransform );
             }
         }
 
@@ -5312,7 +5482,6 @@ namespace Unity.Scenes.Editor.Tests
 
                 // Renderable/Renderable
                 ChangeFlag(a, TransformUsageFlags.Renderable);
-                ChangeFlag(intermediates, TransformUsageFlags.None);
                 ChangeFlag(b, TransformUsageFlags.Renderable);
                 yield return UpdateEditorAndWorld(w);
 
@@ -5397,9 +5566,6 @@ namespace Unity.Scenes.Editor.Tests
                     ExpectedConvertedTransformResults.HasLocalToWorld |
                     ExpectedConvertedTransformResults.HasValidRuntimeParent);
 
-                // TODO: There is an incremental bug with manual override that prevents testing these last cases
-                // These need to be reenabled once that bug is fixed. (DOTS-8025)
-                /*
                 // Dynamic/ManualOverride
                 ChangeFlag(b, TransformUsageFlags.ManualOverride);
                 yield return UpdateEditorAndWorld(w);
@@ -5434,7 +5600,253 @@ namespace Unity.Scenes.Editor.Tests
                 TestTransformUsageChangeIntermediates(bakingWorld, a, intermediates, aEntity, intermediateEntities, ExpectedConvertedTransformResults.HasParent |
                     ExpectedConvertedTransformResults.HasLocalTransform |
                     ExpectedConvertedTransformResults.HasLocalToWorld |
-                    ExpectedConvertedTransformResults.HasValidRuntimeParent);*/
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_TransformUsage_HierarchyParentChangeIntermediateNone([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(AssignTransformUsageBaker));
+            AssignTransformUsageBaker.Flags.Clear();
+            AssignTransformUsageBaker.AddManualComponents.Clear();
+
+            GameObject a = null;
+            GameObject b = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    a = new GameObject("Root");
+                    b = new GameObject("Child");
+
+                    a.transform.localPosition = new float3(1f, 1f, 1f);
+                    a.transform.localRotation = quaternion.Euler(45f,45f,45f);
+                    a.transform.localScale = new float3(0.5f, 0.5f, 0.5f);
+                    b.transform.localPosition = new float3(2f, 2f, 2f);
+                    b.transform.localRotation = quaternion.Euler(10f,10f,10f);
+                    b.transform.localScale = new float3(4f, 4f, 4f);
+                    b.transform.SetParent(a.transform, false);
+
+                    return new List<GameObject> {a};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                // Root Dynamic, Child Renderable
+                ChangeFlag(a, TransformUsageFlags.Dynamic);
+                ChangeFlag(b, TransformUsageFlags.Renderable);
+                yield return UpdateEditorAndWorld(w);
+
+                var aEntity = bakingSystem.GetEntity(a);
+                Assert.AreNotEqual(Entity.Null, aEntity);
+                var bEntity = bakingSystem.GetEntity(b);
+                Assert.AreNotEqual(Entity.Null, bEntity);
+
+                // Create a new gameobject to become the intermediate one
+                GameObject intermediate = new GameObject($"Intermediate");
+                intermediate.transform.localPosition = new float3(1f, 1f, 1f);
+                intermediate.transform.localRotation = quaternion.Euler(45f,45f,45f);
+                intermediate.transform.localScale = new float3(0.5f, 0.5f, 0.5f);
+                SceneManager.MoveGameObjectToScene(intermediate, subScene.EditingScene);
+                Undo.RegisterCreatedObjectUndo(intermediate, "Creating intermediate");
+
+                // Intermediate is at the root
+                // a
+                // -- b
+                // intermediate
+                yield return UpdateEditorAndWorld(w);
+
+                // The intermediate entity should exist in the baking world
+                var intermediateEntity = bakingSystem.GetEntity(intermediate);
+                Assert.AreNotEqual(Entity.Null, intermediateEntity);
+
+                var aGUID = bakingWorld.EntityManager.GetComponentData<EntityGuid>(aEntity);
+                var bGUID = bakingWorld.EntityManager.GetComponentData<EntityGuid>(bEntity);
+
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, aGUID));
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, bGUID));
+
+                // The intermediate entity should not have a runtime parent and it should not have any transform component on it
+                TestTransformUsageChange(bakingWorld, null, intermediate, Entity.Null, intermediateEntity, ExpectedConvertedTransformResults.Nothing);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasParent |
+                                                                              ExpectedConvertedTransformResults.HasLocalTransform |
+                                                                              ExpectedConvertedTransformResults.HasLocalToWorld |
+                                                                              ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                // The intermediate entity should not be in the final world because it has been stripped out
+                var intermediateGUID = bakingWorld.EntityManager.GetComponentData<EntityGuid>(intermediateEntity);
+                Assert.AreEqual(Entity.Null, GetEntityByGUID(w, intermediateGUID));
+
+                // Intermediate becomes a child of a, but b is still a child of a
+                // a
+                // -- b
+                // -- intermediate
+                ChangeParent(intermediate, a);
+
+                yield return UpdateEditorAndWorld(w);
+
+                Assert.AreNotEqual(Entity.Null, intermediateEntity);
+
+                // The intermediate entity should not have a runtime parent and it should not have any transform component on it
+                TestTransformUsageChange(bakingWorld, a, intermediate, aEntity, intermediateEntity, ExpectedConvertedTransformResults.Nothing);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, aGUID));
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, bGUID));
+
+                // The intermediate entity should not be in the final world because it has been stripped out
+                Assert.AreEqual(Entity.Null, GetEntityByGUID(w, intermediateGUID));
+
+                // b becomes a child of intermediate
+                // a
+                // -- intermediate
+                // ---- b
+                ChangeParent(b, intermediate);
+
+                yield return UpdateEditorAndWorld(w);
+
+                Assert.AreNotEqual(Entity.Null, intermediateEntity);
+
+                // The intermediate entity should not have a runtime parent and it should not have any transform component on it
+                TestTransformUsageChange(bakingWorld, a, intermediate, aEntity, intermediateEntity, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+                TestTransformUsageChange(bakingWorld, intermediate, b, intermediateEntity, bEntity, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, aGUID));
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, bGUID));
+                // The intermediate entity should be in the final world because now it has a parent that is dynamic and a child that is not World or None
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, intermediateGUID));
+
+                // Move the intermediate subtree to the root. Child still there
+                // a
+                // intermediate
+                // -- b
+                ChangeParent(intermediate, null);
+
+                yield return UpdateEditorAndWorld(w);
+
+                Assert.AreNotEqual(Entity.Null, intermediateEntity);
+
+                // The intermediate entity should not have a runtime parent and it should not have any transform component on it
+                TestTransformUsageChange(bakingWorld, null, intermediate, Entity.Null, intermediateEntity, ExpectedConvertedTransformResults.Nothing);
+                TestTransformUsageChange(bakingWorld, intermediate, b, intermediateEntity, bEntity, ExpectedConvertedTransformResults.HasLocalToWorld);
+
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, aGUID));
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, bGUID));
+                // The intermediate entity should not be in the final world because it hasn't got a parent
+                Assert.AreEqual(Entity.Null, GetEntityByGUID(w, intermediateGUID));
+
+                // Move the intermediate subtree back under a. Child still there
+                // a
+                // -- intermediate
+                // ---- b
+                ChangeParent(intermediate, a);
+
+                yield return UpdateEditorAndWorld(w);
+
+                Assert.AreNotEqual(Entity.Null, intermediateEntity);
+
+                // The intermediate entity should not have a runtime parent and it should not have any transform component on it
+                TestTransformUsageChange(bakingWorld, a, intermediate, aEntity, intermediateEntity, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+                TestTransformUsageChange(bakingWorld, intermediate, b, intermediateEntity, bEntity, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, aGUID));
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, bGUID));
+                // The intermediate entity should be in the final world because now it has a parent that is dynamic and a child that is not World or None
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, intermediateGUID));
+
+                // b becomes a child of a again
+                // a
+                // -- b
+                // -- intermediate
+                ChangeParent(b, a);
+
+                yield return UpdateEditorAndWorld(w);
+
+                Assert.AreNotEqual(Entity.Null, intermediateEntity);
+
+                // The intermediate entity should not have a runtime parent and it should not have any transform component on it
+                TestTransformUsageChange(bakingWorld, a, intermediate, aEntity, intermediateEntity, ExpectedConvertedTransformResults.Nothing);
+                TestTransformUsageChange(bakingWorld, a, b, aEntity, bEntity, ExpectedConvertedTransformResults.HasParent |
+                    ExpectedConvertedTransformResults.HasLocalTransform |
+                    ExpectedConvertedTransformResults.HasLocalToWorld |
+                    ExpectedConvertedTransformResults.HasValidRuntimeParent);
+
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, aGUID));
+                Assert.AreNotEqual(Entity.Null, GetEntityByGUID(w, bGUID));
+                // The intermediate entity should not be in the final world because it hasn't got a child
+                Assert.AreEqual(Entity.Null, GetEntityByGUID(w, intermediateGUID));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_CreateParent([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(MockDataAuthoringBaker_ManualOverrideCopyPosBaker));
+
+            GameObject child = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    child = new GameObject("Child");
+                    child.transform.localPosition = new float3(1f, 1f, 1f);
+                    child.AddComponent<MockDataAuthoring>();
+                    return new List<GameObject> {child};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                yield return UpdateEditorAndWorld(w);
+
+                var childEntity = bakingSystem.GetEntity(child);
+                Assert.AreNotEqual(Entity.Null, childEntity);
+
+                // Create a new gameobject to become the root
+                GameObject root = new GameObject($"Root");
+
+                SceneManager.MoveGameObjectToScene(root, subScene.EditingScene);
+
+                Undo.RegisterCreatedObjectUndo(root, "Creating intermediate");
+                Undo.AddComponent<MockDataAuthoring>(root);
+                ChangeLocalPosition(root, new float3(1f, 1f, 1f));
+                ChangeParent(child, root, false);
+
+                yield return UpdateEditorAndWorld(w);
+
+                var mockData = bakingWorld.EntityManager.GetComponentData<MockData>(childEntity);
+                Assert.AreEqual(2, mockData.Value);
             }
         }
 
@@ -6147,11 +6559,10 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-        void ChangeParent(GameObject obj, GameObject parent)
+        void ChangeParent(GameObject obj, GameObject parent, bool worldPositionStays = false)
         {
             var parentTransform = parent != null ? parent.transform : null;
-            Undo.SetTransformParent(obj.transform, parentTransform, "");
-            obj.transform.SetParent(parentTransform, false);
+            Undo.SetTransformParent(obj.transform, parentTransform, worldPositionStays, "");
         }
 
         void ChangeFlag(List<GameObject> objs, TransformUsageFlags flags)
@@ -6191,6 +6602,27 @@ namespace Unity.Scenes.Editor.Tests
             var bTransformAuthoring = bakingWorld.EntityManager.GetComponentData<TransformAuthoring>(childEntity);
 
             TestTransformUsageFlagsHelper.VerifyBakedTransformData(bakingWorld.EntityManager, expectedDescriptionChild, childGo.transform, bTransformAuthoring, childEntity, parentEntity);
+        }
+
+        Entity GetEntityByGUID(World w, EntityGuid guid)
+        {
+            Entity result = Entity.Null;
+            var query = w.EntityManager.CreateEntityQuery(typeof(EntityGuid));
+            if (!query.IsEmpty)
+            {
+                var entities = query.ToEntityArray(Allocator.Temp);
+                var guids = query.ToComponentDataArray<EntityGuid>(Allocator.Temp);
+                for (int index = 0; index < guids.Length; ++index)
+                {
+                    if (guids[index] == guid)
+                    {
+                        result = entities[index];
+                        break;
+                    }
+                }
+            }
+            query.Dispose();
+            return result;
         }
 
         public World GetBakingWorld(World w, Unity.Entities.Hash128 sceneGUID)
@@ -7950,6 +8382,10 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
+#if false
+        // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
+        // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
+        [Ignore("Needs ADDR-3368 to work reliably in APV.")]
         [UnityTest]
         public IEnumerator LiveConversion_TestSectionCrossReferences()
         {
@@ -8061,13 +8497,13 @@ namespace Unity.Scenes.Editor.Tests
 
                 sceneQuery.Dispose();
                 rootQuery.Dispose();
-
-                yield return UpdateEditorAndWorld(w);
-
                 entities.Dispose();
                 parents.Dispose();
                 rootArray.Dispose();
+
+                yield return UpdateEditorAndWorld(w);
             }
         }
+#endif
     }
 }

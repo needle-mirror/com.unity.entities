@@ -177,6 +177,14 @@ namespace Unity.Scenes.Editor
                         SubSceneInspectorUtility.CloseAndAskSaveIfUserWantsTo(scene);
                     }
                 }
+
+                if (Application.isPlaying)
+                {
+                    GUILayout.Space(EditorGUIUtility.singleLineHeight);
+                    EditorGUILayout.HelpBox(
+                        "Opened subscenes are just for live editing in the editor. Opened subscenes don't stream in and their entities are immediately available when entering playmode in the editor.\n\nClosed subscenes are streamed in and their entities will take a few frames to be available when entering playmode. \n\nIn builds, subscenes will behave as closed subscenes in the editor, therefore their entities will not be available immediately.",
+                        MessageType.Warning);
+                }
             }
         }
 

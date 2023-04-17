@@ -2,6 +2,7 @@
 
 using System;
 using Unity.Burst.Intrinsics;
+using Unity.Entities.Internal;
 using Unity.Jobs;
 using UnityEngine;
 
@@ -262,6 +263,7 @@ namespace Unity.Entities
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        [JetBrains.Annotations.MustUseReturnValue]
         public static JobHandle Schedule<T>(this T jobData, JobHandle dependsOn)
             where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
@@ -277,6 +279,7 @@ namespace Unity.Entities
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        [JetBrains.Annotations.MustUseReturnValue]
         public static JobHandle ScheduleByRef<T>(this ref T jobData, JobHandle dependsOn)
             where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
@@ -292,6 +295,7 @@ namespace Unity.Entities
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        [JetBrains.Annotations.MustUseReturnValue]
         public static JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn)
             where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
@@ -308,6 +312,7 @@ namespace Unity.Entities
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        [JetBrains.Annotations.MustUseReturnValue]
         public static JobHandle ScheduleByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn)
             where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
@@ -369,6 +374,7 @@ namespace Unity.Entities
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        [JetBrains.Annotations.MustUseReturnValue]
         public static JobHandle ScheduleParallel<T>(this T jobData, JobHandle dependsOn)
             where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
@@ -384,6 +390,7 @@ namespace Unity.Entities
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        [JetBrains.Annotations.MustUseReturnValue]
         public static JobHandle ScheduleParallelByRef<T>(this ref T jobData, JobHandle dependsOn)
             where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
@@ -399,6 +406,7 @@ namespace Unity.Entities
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        [JetBrains.Annotations.MustUseReturnValue]
         public static JobHandle ScheduleParallel<T>(this T jobData, EntityQuery query, JobHandle dependsOn)
             where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 
@@ -415,6 +423,7 @@ namespace Unity.Entities
         /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
         /// parameter.</returns>
         /// <remarks>Can't schedule managed components or managed shared components, use Run instead.</remarks>
+        [JetBrains.Annotations.MustUseReturnValue]
         public static JobHandle ScheduleParallelByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn)
             where T : unmanaged, IJobEntity  => throw InternalCompilerInterface.ThrowCodeGenException();
 

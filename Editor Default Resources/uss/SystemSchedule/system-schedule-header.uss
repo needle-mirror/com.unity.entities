@@ -1,5 +1,5 @@
 
-.system-schedule-header {
+.system-schedule-treeview-header {
     justify-content: flex-start;
     align-items: center;
     padding-right: 10px;

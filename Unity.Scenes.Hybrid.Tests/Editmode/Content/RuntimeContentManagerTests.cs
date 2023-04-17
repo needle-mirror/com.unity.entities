@@ -44,6 +44,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         private static string DeleteStreamingAssetsFolder => GetSessionStateKey("DeleteStreamingAssetsFolder");
         private static string RefObjRuntimeId => GetSessionStateKey("RefObjRuntimeId");
         private static string DirectObjRuntimeId => GetSessionStateKey("DirectObjRuntimeId");
+        private static string SubSceneArtifactHash => GetSessionStateKey("SSArtifactHash");
         private static string GetSessionStateKey(string name)
         {
             return $"{TestAssetFolder}.{name}";
@@ -146,9 +147,9 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             AssetDatabaseCompatibility.ProduceArtifactsRefreshIfNecessary(new ArtifactKey[1] { artifactKeys[directSubScene.SceneGUID] }, artifactHashes);
             AssetDatabaseCompatibility.GetArtifactPaths(artifactHashes[0], out var artifactPaths);
             var sectionIndex = EntityScenesPaths.GetSectionIndexFromPath(artifactPaths[0]);
-            var address = $"{artifactHashes[0]}.{sectionIndex}";
             var ssh = SceneHeaderUtility.CreateSceneSectionHash(directSubScene.SceneGUID, sectionIndex, default);
             SessionState.SetString(DirectObjRuntimeId, ssh.ToString());
+            SessionState.SetString(SubSceneArtifactHash, artifactHashes[0].ToString());
         }
 
         static void DoCopy(string src, string dst)
@@ -200,6 +201,10 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             p.Item2.Set();
         }
 
+#if false
+        // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
+        // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
+        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadAndReleaseFromThreads()
         {
@@ -240,6 +245,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             }
             ids.Dispose();
         }
+#endif
 
         struct LoadObjectJob : IJob
         {
@@ -258,6 +264,11 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
                 RuntimeContentManager.ReleaseObjectAsync(id);
             }
         }
+
+#if false
+        // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
+        // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
+        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadAdditive_GOScenes()
         {
@@ -282,11 +293,12 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             Assert.True(sceneInstance2.IsValid());
             sceneRef.Unload(ref sceneInstance2);
             Assert.IsFalse(sceneInstance2.IsValid());
-            
+
             var sceneFileCount2 = Loading.ContentLoadInterface.GetSceneFiles(RuntimeContentManager.Namespace).Length;
             Assert.AreEqual(sceneFileCount, sceneFileCount2);
         }
 
+        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadAndReleaseFromJobs()
         {
@@ -326,6 +338,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             }
             ids.Dispose();
         }
+#endif
 
         IEnumerator AssertCanLoadAndRelease<TObject>(UntypedWeakReferenceId id) where TObject : UnityEngine.Object
         {
@@ -342,6 +355,10 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             Assert.AreEqual(ObjectLoadingStatus.None, RuntimeContentManager.GetObjectLoadingStatus(id));
         }
 
+#if false
+        // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
+        // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
+        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadLocalAssets()
         {
@@ -354,6 +371,36 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             ids.Dispose();
         }
 
+        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
+        [UnityTest]
+        public IEnumerator RuntimeContentManager_CanLoadLocalInstances()
+        {
+            var artifachHash = Hash128.Parse(SessionState.GetString(SubSceneArtifactHash, string.Empty));
+            var id = new UntypedWeakReferenceId
+            {
+                GenerationType = WeakReferenceGenerationType.SubSceneObjectReferences,
+                GlobalId = new RuntimeGlobalObjectId { AssetGUID = artifachHash, SceneObjectIdentifier0 = 0 }
+            };
+            var handle1 = RuntimeContentManager.LoadInstanceAsync(id);
+            var handle2 = RuntimeContentManager.LoadInstanceAsync(id);
+            Assert.AreNotEqual(handle1, handle2);
+            while (RuntimeContentManager.GetInstanceLoadingStatus(handle1) != ObjectLoadingStatus.Completed ||
+                RuntimeContentManager.GetInstanceLoadingStatus(handle2) != ObjectLoadingStatus.Completed)
+            {
+                RuntimeContentManager.ProcessQueuedCommands();
+                yield return null;
+            }
+            var obj1 = RuntimeContentManager.GetInstanceValue<UnityEngine.Object>(handle1);
+            Assert.NotNull(obj1);
+            var obj2 = RuntimeContentManager.GetInstanceValue<UnityEngine.Object>(handle2);
+            Assert.NotNull(obj2);
+            Assert.AreNotEqual(obj1, obj2);
+            RuntimeContentManager.ReleaseInstancesAsync(handle1);
+            RuntimeContentManager.ReleaseInstancesAsync(handle2);
+            RuntimeContentManager.ProcessQueuedCommands();
+        }
+#endif
+
         bool InitializeCatalogForTest()
         {
             string catalogPath = Path.Combine(TestStreamingAssetsFullPath, RuntimeContentManager.RelativeCatalogPath);
@@ -362,10 +409,14 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             return RuntimeContentManager.LoadLocalCatalogData(catalogPath, RuntimeContentManager.DefaultContentFileNameFunc, f => $"{TestStreamingAssetsFullPath}/{RuntimeContentManager.DefaultArchivePathFunc(f)}");
         }
 
+#if false
+        // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
+        // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
         [UnityTest]
-#if UNITY_EDITOR_LINUX
-        [Ignore("DOTS-7790 - Ubuntu editor often crashes when running this test")]
-#endif
+//#if UNITY_EDITOR_LINUX
+        //[Ignore("DOTS-7790 - Ubuntu editor often crashes when running this test")] reenable when ADDR-3368 is fixed
+//#endif
+        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         public IEnumerator WeakObjectReference_CanLoadAndRelease()
         {
             yield return new EnterPlayMode();
@@ -390,8 +441,8 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             Assert.AreEqual(ObjectLoadingStatus.None, matRef.LoadingStatus);
         }
 
-
         [Test]
+        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         public void WeakObjectReference_WhenNotLoaded_LoadingStatus_IsNone()
         {
             WeakObjectReference<UnityEngine.Object> objRef = default;
@@ -399,11 +450,13 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [Test]
+        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         public void WeakObjectReference_WhenNotLoaded_Value_IsNull()
         {
             WeakObjectReference<UnityEngine.Object> objRef = default;
             Assert.IsNull(objRef.Result);
         }
+#endif
     }
 }
 #endif

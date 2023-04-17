@@ -10,8 +10,13 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Properties;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 namespace Unity.Entities
 {
+    [BurstCompile]
     static unsafe partial class EntityDiffer
     {
         // This value has to be power of two.
@@ -569,6 +574,8 @@ namespace Unity.Entities
                                 if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType)
                                     continue;
 
+                                ValidateTypeForSerialization(afterTypeInArchetype, entityGuid);
+
                                 typeSet.Add(afterTypeInArchetype.TypeIndex);
                             }
 
@@ -653,6 +660,8 @@ namespace Unity.Entities
                         // This means we are dealing with a newly added component.
                         if (-1 == beforeIndexInTypeArray)
                         {
+                            ValidateTypeForSerialization(afterTypeInArchetype, entityGuid);
+
                             // This type does not exist on the before world. This was a newly added component.
                             AddComponentData(
                                 afterChunk,
@@ -955,6 +964,26 @@ namespace Unity.Entities
                         AppendComponentData(packedComponent, afterAddress,
                             beforeArchetype->SizeOfs[beforeIndexInTypeArray], isEnabledAfter);
                     }
+                }
+            }
+
+
+
+            void ValidateTypeForSerialization(ComponentTypeInArchetype afterTypeInArchetype, EntityGuid entityGuid)
+            {
+                // Make sure that the component is serializable
+                if (!afterTypeInArchetype.IsChunkSerializable)
+                {
+                    bool sharedComponent = afterTypeInArchetype.IsSharedComponent && afterTypeInArchetype.TypeIndex.HasEntityReferences;
+
+                    CacheData.NonSerializableComponents.Add(new NonSerializableDebugInfo()
+                    {
+                        OriginatingId = entityGuid.OriginatingId,
+                        OriginatingSubId = entityGuid.OriginatingSubId,
+                        TypeIndex = afterTypeInArchetype.TypeIndex,
+                        SharedComponent = sharedComponent ? 1 : 0
+                    });
+
                 }
             }
 
@@ -1379,7 +1408,16 @@ namespace Unity.Entities
                 WriteArray(OutputData.ComponentData, ref CacheData.ComponentData);
                 WriteArray(OutputData.SharedComponentChanges, ref CacheData.SharedComponentChanges);
                 WriteArray(OutputData.ManagedComponentChanges, ref CacheData.ManagedComponentChanges);
+                WriteArray(OutputData.NonSerializableComponents, ref CacheData.NonSerializableComponents);
             }
+        }
+
+        struct NonSerializableDebugInfo
+        {
+            public int OriginatingId;
+            public int OriginatingSubId;
+            public TypeIndex TypeIndex;
+            public int SharedComponent;
         }
 
         struct GatherComponentChangesOutput
@@ -1395,6 +1433,7 @@ namespace Unity.Entities
             [WriteOnly] public NativeList<byte> ComponentData;
             [WriteOnly] public NativeList<DeferredSharedComponentChange> SharedComponentChanges;
             [WriteOnly] public NativeList<DeferredManagedComponentChange> ManagedComponentChanges;
+            [WriteOnly] public NativeList<NonSerializableDebugInfo> NonSerializableComponents;
         }
 
         struct GatherComponentChangesReadOnlyData
@@ -1441,6 +1480,7 @@ namespace Unity.Entities
             [WriteOnly] public NativeList<byte> ComponentData;
             [WriteOnly] public NativeList<DeferredSharedComponentChange> SharedComponentChanges;
             [WriteOnly] public NativeList<DeferredManagedComponentChange> ManagedComponentChanges;
+            [WriteOnly] public NativeList<NonSerializableDebugInfo> NonSerializableComponents;
         }
 
         [BurstCompile]
@@ -1462,6 +1502,7 @@ namespace Unity.Entities
                 var componentDataSize = ComponentChangesBatchCount * 256;
                 var sharedComponentChangesSize = ComponentChangesBatchCount * 16;
                 var managedComponentChangesSize = ComponentChangesBatchCount;
+                var nonSerializableComponentsSize = ComponentChangesBatchCount;
 
                 var cacheData = new GatherComponentChangesWriteOnlyData
                 {
@@ -1476,6 +1517,7 @@ namespace Unity.Entities
                     ComponentData = new NativeList<byte>(componentDataSize, Allocator.Temp),
                     SharedComponentChanges = new NativeList<DeferredSharedComponentChange>(sharedComponentChangesSize, Allocator.Temp),
                     ManagedComponentChanges = new NativeList<DeferredManagedComponentChange>(managedComponentChangesSize, Allocator.Temp),
+                    NonSerializableComponents = new NativeList<NonSerializableDebugInfo>(nonSerializableComponentsSize, Allocator.Temp)
                 };
                 var addedArchetypes = new NativeHashMap<ulong, int>(16, Allocator.Temp);
 
@@ -1512,6 +1554,7 @@ namespace Unity.Entities
                     arch.PackedEntityIndices.Dispose();
                 }
                 data.CacheData.AddArchetypes.Dispose();
+                data.CacheData.NonSerializableComponents.Dispose();
                 addedArchetypes.Dispose();
             }
         }
@@ -1561,6 +1604,7 @@ namespace Unity.Entities
                 ComponentData = componentChanges.ComponentData,
                 SharedComponentChanges = componentChanges.SharedComponentChanges,
                 ManagedComponentChanges = componentChanges.ManagedComponentChanges,
+                NonSerializableComponents = new NativeList<NonSerializableDebugInfo>(16, Allocator.TempJob)
             };
         }
 
@@ -1603,14 +1647,46 @@ namespace Unity.Entities
                 new GatherComponentChangesJob
                 {
                     ReadData = readOnlyData,
-                    OutputData = outputData,
+                    OutputData = outputData
                 }.Run();
             }
+#if UNITY_EDITOR
+            ThrowNonSerializationExceptions(outputData.NonSerializableComponents);
+#endif
+            outputData.NonSerializableComponents.Dispose();
 
             jobHandle = default;
 
             return componentChanges;
         }
+
+#if UNITY_EDITOR
+        static void ThrowNonSerializationExceptions(NativeList<NonSerializableDebugInfo> debugInfo)
+        {
+            foreach (var info in debugInfo)
+            {
+                var typeName = TypeManager.GetTypeInfo(info.TypeIndex).DebugTypeName;
+                var gameObject = EditorUtility.InstanceIDToObject(info.OriginatingId).name;
+                string variables = info.OriginatingSubId == 0 ?
+                    $"'{typeName}' on GameObject '{gameObject}'" :
+                    $"'{typeName}' on GameObject '{gameObject}', '{EditorUtility.InstanceIDToObject(info.OriginatingSubId).GetType()}'";
+
+                if (info.SharedComponent == 1)
+                {
+                    throw new ArgumentException(
+                        $"Shared component type {variables} might contain a (potentially nested) Entity field. " +
+                        $"Serializing of shared components with Entity fields is not supported as Entity references are not patched when deserializing. " +
+                        $"If for whatever reason this component should still be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
+                }
+
+                throw new ArgumentException($"Blittable component type {variables} contains a (potentially nested) pointer field. " +
+                                            $"Serializing bare pointers will likely lead to runtime errors. Remove this field and consider serializing the data " +
+                                            $"it points to another way such as by using a BlobAssetReference or a [Serializable] ISharedComponent. If for whatever " +
+                                            $"reason the pointer field should in fact be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
+
+            }
+        }
+#endif
 
         static EntityChangeSet CreateEntityChangeSet(
             EntityInChunkChanges entityInChunkChanges,

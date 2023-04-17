@@ -15,9 +15,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
     {
         public struct BurstSettings
         {
-            public BurstFloatMode BurstFloatMode;
-            public BurstFloatPrecision BurstFloatPrecision;
-            public bool SynchronousCompilation;
+            public BurstFloatMode? BurstFloatMode;
+            public BurstFloatPrecision? BurstFloatPrecision;
+            public bool? SynchronousCompilation;
         }
 
         public SystemType SystemType => SystemDescription.SystemType;
@@ -33,7 +33,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         public (bool IsEnabled, BurstSettings Settings) Burst { get; }
         public (ScheduleMode Mode, ArgumentSyntax DependencyArgument) Schedule { get; }
 
-        public List<ArgumentSyntax> WithStoreEntityQueryInFieldArgumentSyntaxes { get; }
         public Query[] WithAllTypes { get; }
         public Query[] WithNoneTypes { get ; }
         public Query[] WithAnyTypes { get ; }
@@ -42,8 +41,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         public Query[] WithChangeFilterTypes { get ; }
         public Query[] WithSharedComponentFilterTypes { get ; }
 
-        public List<ArgumentSyntax> WithSharedComponentFilterArgumentSyntaxes { get; }
-        public List<ArgumentSyntax> WithScheduleGranularityArgumentSyntaxes { get; }
+        public bool HasSharedComponentFilter { get; }
+        public IReadOnlyCollection<ArgumentSyntax> WithSharedComponentFilterArgumentSyntaxes { get; }
+        public IReadOnlyCollection<ArgumentSyntax> WithStoreEntityQueryInFieldArgumentSyntaxes { get; }
+        public IReadOnlyCollection<ArgumentSyntax> WithScheduleGranularityArgumentSyntaxes { get; }
         public Location Location { get; }
         public EntityQueryOptions EntityQueryOptions { get; }
 
@@ -68,8 +69,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         internal readonly List<DataLookupFieldDescription> AdditionalFields;
         public readonly List<MethodDeclarationSyntax> MethodsForLocalFunctions;
         public readonly BlockSyntax RewrittenLambdaBody;
-
-        public readonly bool WithStructuralChangesAndLambdaBodyInSystem;
 
         internal readonly List<LambdaParamDescription> LambdaParameters = new List<LambdaParamDescription>();
         public readonly List<(LocalFunctionStatementSyntax localFunction, bool onlyUsedInLambda)> LocalFunctionUsedInLambda = new List<(LocalFunctionStatementSyntax, bool)>();
@@ -172,9 +171,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     ).ToArray();
 
                 WithDeferredPlaybackSystemTypes = AllTypeArgumentSymbolsOfMethod("WithDeferredPlaybackSystem");
-                WithSharedComponentFilterArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithSharedComponentFilter");
-                WithStoreEntityQueryInFieldArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithStoreEntityQueryInField");
-                WithScheduleGranularityArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithScheduleGranularity");
+                WithSharedComponentFilterArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithSharedComponentFilter").ToArray();
+                HasSharedComponentFilter = WithSharedComponentFilterArgumentSyntaxes.Count > 0;
+                WithStoreEntityQueryInFieldArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithStoreEntityQueryInField").ToArray();
+                WithScheduleGranularityArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithScheduleGranularity").ToArray();
 
                 if (!SystemDescription.TryGetSystemStateParameterName(candidate, out var systemStateExpression))
                 {
@@ -333,8 +333,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 				    }
 				}
 
-                WithStructuralChangesAndLambdaBodyInSystem = WithStructuralChanges && VariablesCaptured.All(variable => variable.IsThis);
-
                 // If we are also using any managed components or doing structural changes, we also need to capture this
                 if ((HasManagedParameters || HasSharedComponentParameters || WithStructuralChanges)
                     && VariablesCaptured.All(variable => !variable.IsThis))
@@ -416,10 +414,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 }
 
                 // Rewrite lambda body and get additional fields that are needed if lambda body is not emitted into system
-                if (WithStructuralChangesAndLambdaBodyInSystem || !hasNonParameterIdentifier)
-                {
+                if (!hasNonParameterIdentifier)
                     RewrittenLambdaBody = OriginalLambdaExpression.ToBlockSyntax();
-                }
                 else
                 {
                     SyntaxNode rewrittenLambdaExpression;
@@ -442,10 +438,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 {
                     VariablesCaptured.RemoveAll(variable => variable.IsThis);
                 }
-
-                // Also need to make sure we reference this if we are emitting lambda back into the system
-                if (WithStructuralChangesAndLambdaBodyInSystem && VariablesCaptured.All(variable => !variable.IsThis))
-                    VariablesCaptured.Add(new LambdaCapturedVariableDescription(systemDescription.SystemTypeSymbol, true));
 
                 this.Verify();
             }
@@ -529,9 +521,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             if (!MethodInvocations.TryGetValue("WithBurst", out var burstInvocations))
                 return (true, default);
 
-            var burstFloatMode = BurstFloatMode.Default;
-            var burstFloatPrecision = BurstFloatPrecision.Standard;
-            var synchronousCompilation = false;
+            BurstFloatMode? burstFloatMode = null;
+            BurstFloatPrecision? burstFloatPrecision = null;
+            bool? synchronousCompilation = null;
             var invocation = burstInvocations.First();
 
             // handle both named and unnamed arguments
@@ -673,18 +665,12 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             }
         }
 
-        List<ArgumentSyntax> AllArgumentSyntaxesOfMethod(string methodName)
+        IEnumerable<ArgumentSyntax> AllArgumentSyntaxesOfMethod(string methodName)
         {
-            var result = new List<ArgumentSyntax>();
-            if (!MethodInvocations.ContainsKey(methodName))
-            {
-                return result;
-            }
-            foreach (var methodInvocation in MethodInvocations[methodName])
-            {
-                result.AddRange(methodInvocation.ArgumentList.Arguments);
-            }
-            return result;
+            if (MethodInvocations.TryGetValue(methodName, out var invocations))
+                foreach (var inv in invocations)
+                    foreach (var arg in inv.ArgumentList.Arguments)
+                        yield return arg;
         }
 
         List<INamedTypeSymbol> AllTypeArgumentSymbolsOfMethod(string methodName)

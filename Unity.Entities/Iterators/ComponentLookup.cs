@@ -357,7 +357,7 @@ namespace Unity.Entities
         public RefRW<T> GetRefRW(SystemHandle system)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(system.m_Entity, m_TypeIndex, ref m_Cache);
@@ -378,13 +378,12 @@ namespace Unity.Entities
         /// Gets a safe reference to the component data.
         /// </summary>
         /// <param name="entity">The referenced entity</param>
-        /// <param name="isReadOnly">True if you only want to read from the returned component; false if you also want to write to it</param>
         /// <returns>Returns a safe reference to the component data. Throws an
         /// exception if the component doesn't exist.</returns>
-        public RefRW<T> GetRefRW(Entity entity, bool isReadOnly)
+        public RefRW<T> GetRefRW(Entity entity)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
@@ -392,10 +391,7 @@ namespace Unity.Entities
             if (m_IsZeroSized != 0)
                 return default;
 
-            void* ptr =
-                isReadOnly
-                    ? ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache)
-                    : ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
+            void* ptr = ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             return new RefRW<T> (ptr, m_Safety);
@@ -433,12 +429,11 @@ namespace Unity.Entities
         /// Gets a safe reference to the component data and a default RefRW (RefRW.IsValid == false).
         /// /// </summary>
         /// <param name="entity">The referenced entity</param>
-        /// <param name="isReadOnly">True if you only want to read from the returned component; false if you also want to write to it</param>
         /// <returns>Returns a safe reference to the component data and a default RefRW.</returns>
-        public RefRW<T> GetRefRWOptional(Entity entity, bool isReadOnly)
+        public RefRW<T> GetRefRWOptional(Entity entity)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
             if (!HasComponent(entity))
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -451,10 +446,7 @@ namespace Unity.Entities
                 return default;
 
             var ecs = m_Access->EntityComponentStore;
-            void* ptr =
-                isReadOnly
-                    ? ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache)
-                    : ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
+            void* ptr = ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             return new RefRW<T> (ptr, m_Safety);
@@ -504,23 +496,20 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="T2">The component type</typeparam>
         /// <param name="entity">The referenced entity</param>
-        /// <param name="isReadOnly">True if you only want to read from the returned component enabled state; false if you also want to write to it</param>
         /// <returns>Returns a safe reference to the component enabled state.
         /// Throws an exception if the component doesn't exist.</returns>
-        public EnabledRefRW<T2> GetEnabledRefRW<T2>(Entity entity, bool isReadOnly) where T2 : unmanaged, IEnableableComponent, IComponentData
+        public EnabledRefRW<T2> GetEnabledRefRW<T2>(Entity entity) where T2 : unmanaged, IEnableableComponent, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
 
             int indexInBitField;
             int* ptrChunkDisabledCount;
-            var ptr =
-                isReadOnly
-                    ? ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out ptrChunkDisabledCount)
-                    : ecs->GetEnabledRawRW(entity, m_TypeIndex, ref m_Cache, m_GlobalSystemVersion, out indexInBitField, out ptrChunkDisabledCount);
+            var ptr = ecs->GetEnabledRawRW(entity, m_TypeIndex, ref m_Cache, m_GlobalSystemVersion,
+                out indexInBitField, out ptrChunkDisabledCount);
 
             return new EnabledRefRW<T2>(MakeSafeBitRef(ptr, indexInBitField), ptrChunkDisabledCount);
         }
@@ -530,14 +519,13 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="T2">The component type</typeparam>
         /// <param name="entity">The referenced entity</param>
-        /// <param name="isReadOnly">True if you only want to read from the returned component enabled state; false if you also want to write to it</param>
         /// <returns>Returns a safe reference to the component enabled state. If the component
         /// doesn't exist, it returns a default ComponentEnabledRefRW.</returns>
-        public EnabledRefRW<T2> GetComponentEnabledRefRWOptional<T2>(Entity entity, bool isReadOnly)
+        public EnabledRefRW<T2> GetComponentEnabledRefRWOptional<T2>(Entity entity)
             where T2 : unmanaged, IComponentData, IEnableableComponent
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
             if (!HasComponent(entity))
                 return new EnabledRefRW<T2>(default, default);
@@ -545,12 +533,8 @@ namespace Unity.Entities
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
 
-            int indexInBitField;
-            int* ptrChunkDisabledCount;
-            var ptr =
-                isReadOnly
-                    ? ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out ptrChunkDisabledCount)
-                    : ecs->GetEnabledRawRW(entity, m_TypeIndex, ref m_Cache, m_GlobalSystemVersion, out indexInBitField, out ptrChunkDisabledCount);
+            var ptr = ecs->GetEnabledRawRW(entity, m_TypeIndex, ref m_Cache, m_GlobalSystemVersion,
+                out var indexInBitField, out var ptrChunkDisabledCount);
 
             return new EnabledRefRW<T2>(MakeSafeBitRef(ptr, indexInBitField), ptrChunkDisabledCount);
         }
@@ -593,7 +577,7 @@ namespace Unity.Entities
             var ecs = m_Access->EntityComponentStore;
             ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
             int indexInBitField;
-            var ptr = ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out var ptrChunkDisabledCount);
+            var ptr = ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out _);
             return new EnabledRefRO<T2>(MakeSafeBitRef(ptr, indexInBitField));
         }
     }

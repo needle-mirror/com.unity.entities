@@ -10,7 +10,7 @@ Enableable components don't create [structural changes](concepts-structural-chan
 
 ## Tag component alternative
 
-You can also use enableable components instead of a set of zero-size [tag components](components-tag-introducing.md) to represent entity states. This reduces the number of unique entity archetypes, and encourages better [chunk](concepts-archetypes.md#archetype-chunks) utilization to reduce memory consumption.
+You can also use enableable components instead of a set of zero-size [tag components](components-tag.md) to represent entity states. This reduces the number of unique entity archetypes, and encourages better [chunk](concepts-archetypes.md#archetype-chunks) utilization to reduce memory consumption.
 
 ## Enabled component semantics 
 

@@ -1,10 +1,5 @@
 using System;
-using System.Collections;
 using NUnit.Framework;
-using Unity.Collections;
-using Unity.Entities;
-using Unity;
-using static Unity.Entities.SystemAPI;
 
 namespace Unity.Entities.Tests.Aspects.FunctionalTests
 {
@@ -28,8 +23,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
 
     public enum AccessKind
     {
-        ReadWriteAccess,
-        ReadOnlyAccess,
+        ReadWriteAccess
     }
 
     public enum OptionalKind
@@ -87,13 +81,13 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             ContextKind = contextKind;
             AccessKind = accessKind;
             ValueToOverwrite = valueToOverwrite;
-            ValueInitial = accessKind == AccessKind.ReadOnlyAccess ? valueToRead : ValueToOverwrite;
+            ValueInitial = ValueToOverwrite;
             ValueToRead = valueToRead;
             ValueToWrite = valueToWrite;
             ExpectedOperationCount = expectedOperationCount;
             TestData = new TestData
             {
-                Data = accessKind == AccessKind.ReadOnlyAccess ? ValueToOverwrite : valueToWrite,
+                Data = valueToWrite,
                 DataEntity = entity,
                 OperationCount = 0
             };
@@ -163,7 +157,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
         public T GetAspect<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T>
         {
             T aspect = default;
-            return aspect.CreateAspect(entity, ref EmptySystem.CheckedStateRef, false);
+            return aspect.CreateAspect(entity, ref EmptySystem.CheckedStateRef);
         }
 
         public UseCase MakeUseCase(Entity entity, SystemKind systemKind, ContextKind contextKind, AccessKind accessKind, int valueInitial = k_ValueInit, int valueToRead = k_ValueRead, int valueToWrite = k_ValueWrite, int expectedOperationCount = 0)
@@ -218,10 +212,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
                             Assert.AreEqual(testISystemStruct.UseCase.ExpectedOperationCount, testISystemStruct.UseCase.TestData.OperationCount, $"Expecting exactly {testISystemStruct.UseCase.ExpectedOperationCount} operation(s) to be performed. (Make sure you increment TestData.OperationCount in your read/write operations)");
                             switch (useCase.AccessKind)
                             {
-                                case AccessKind.ReadOnlyAccess:
-                                    // ReadOnly tests will read from aspect and write the result into UseCase.TestData.Data.
-                                    Assert.AreEqual(useCase.ValueToRead, testISystemStruct.UseCase.TestData.Data, "The operation failed to read data from the aspect and write the result in TestData.Data");
-                                    break;
                                 case AccessKind.ReadWriteAccess:
                                     if (getWrittenValue != null)
                                     {
@@ -273,10 +263,6 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
                             Assert.AreEqual(testISystemStruct.UseCase.ExpectedOperationCount, testISystemStruct.UseCase.TestData.OperationCount, $"Expecting exactly {testISystemStruct.UseCase.ExpectedOperationCount} operation(s) to be performed. (Make sure you call '++data.OperationCount' in your read/write operations)");
                             switch (useCase.AccessKind)
                             {
-                                case AccessKind.ReadOnlyAccess:
-                                    // ReadOnly tests will read from aspect and write the result into UseCase.TestData.Data.
-                                    Assert.AreEqual(useCase.ValueToRead, testTSystemBase.UseCase.TestData.Data, "The operation failed to read data from the aspect and write the result in TestData.Data");
-                                    break;
                                 case AccessKind.ReadWriteAccess:
                                     if (getWrittenValue != null)
                                     {
@@ -315,9 +301,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             public void OnUpdate(ref SystemState state)
             {
                 UseCase.MarkNotSupported(SystemKind.ISystem, ContextKind.GetAspect, AccessKind.ReadWriteAccess);
-                UseCase.MarkNotSupported(SystemKind.ISystem, ContextKind.GetAspect, AccessKind.ReadOnlyAccess);
                 UseCase.MarkNotSupported(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadWriteAccess);
-                UseCase.MarkNotSupported(SystemKind.ISystem, ContextKind.Foreach, AccessKind.ReadOnlyAccess);
             }
         }
 
@@ -331,9 +315,7 @@ namespace Unity.Entities.Tests.Aspects.FunctionalTests
             protected override void OnUpdate()
             {
                 UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadWriteAccess);
-                UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.GetAspect, AccessKind.ReadOnlyAccess);
                 UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.Foreach, AccessKind.ReadWriteAccess);
-                UseCase.MarkNotSupported(SystemKind.SystemBase, ContextKind.Foreach, AccessKind.ReadOnlyAccess);
             }
         }
     }

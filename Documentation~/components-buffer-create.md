@@ -13,8 +13,8 @@ Like other components, you can add a dynamic buffer component to an entity. Howe
 ```c#
 public void GetDynamicBufferComponentExample(Entity e)
 {
-	DynamicBuffer<MyElement> myDynamicBuffer = EntityManager.GetBuffer<MyElement>(e);
-}
+	DynamicBuffer<ExampleBufferComponent> myDynamicBuffer = EntityManager.GetBuffer<ExampleBufferComponent>(e);
+} 
 ```
 
 ## Additional resources

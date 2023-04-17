@@ -72,7 +72,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
             CheckCorrectStateInSystem(ref state, false);
 
             var job = new ThrowExceptionJob {};
-            InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, _Query);
+            Unity.Entities.Internal.InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, _Query);
         }
     }
 
@@ -90,7 +90,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
             CheckCorrectStateInSystem(ref *m_StatePtr, false);
 
             var job = new ThrowExceptionJob {};
-            InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, _Query);
+            Unity.Entities.Internal.InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, _Query);
         }
     }
 
@@ -204,7 +204,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
 
                 var job = this;
                 job.depth++;
-                InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, Query);
+                Unity.Entities.Internal.InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, Query);
             }
         }
 
@@ -221,7 +221,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
             using var value = new NativeReference<int>(state.WorldUnmanaged.UpdateAllocator.ToAllocator);
 
             var job = new RecursiveForEachJob { depth = 0, Sum = value, Debug = state.EntityManager.Debug, Query = _Query};
-            InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, _Query);
+            Unity.Entities.Internal.InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, _Query);
 
             CheckCorrectStateInSystem(ref state, false);
 
@@ -248,7 +248,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
             try
             {
                 var job = new ThrowExceptionJob {};
-                InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, GetEntityQuery(ComponentType.ReadOnly<EcsTestData>()));
+                Unity.Entities.Internal.InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, GetEntityQuery(ComponentType.ReadOnly<EcsTestData>()));
             }
             catch
             {
@@ -286,7 +286,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
             try
             {
                 var job = new ThrowExceptionJob {};
-                InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, systemState.GetEntityQuery(ComponentType.ReadOnly<EcsTestData>()));
+                Unity.Entities.Internal.InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, systemState.GetEntityQuery(ComponentType.ReadOnly<EcsTestData>()));
             }
             catch
             {

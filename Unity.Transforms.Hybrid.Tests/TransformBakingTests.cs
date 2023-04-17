@@ -296,6 +296,27 @@ namespace Unity.Entities.Tests.Conversion
                 }
                 return expected;
             }
+
+            // Handle manual override
+            // Parent is Dynamic or Manual
+            // Child is Manual or it has a value but not WorldSpace (!None && !WorldSpace)
+            if ((input.parentConfig == ConvertGameObjectParent.Dynamic || input.parentConfig == ConvertGameObjectParent.ManualOverride) &&
+                (((input.flags & TransformUsageFlags.ManualOverride) != 0) || ((input.flags != TransformUsageFlags.None) && ((input.flags & TransformUsageFlags.WorldSpace) == 0))))
+            {
+                // I need to be promoted
+                ExpectedConvertedTransformResults expected = new ExpectedConvertedTransformResults();
+                expected |= ExpectedConvertedTransformResults.HasParent |
+                            ExpectedConvertedTransformResults.HasValidRuntimeParent |
+                            ExpectedConvertedTransformResults.HasLocalTransform |
+                            ExpectedConvertedTransformResults.HasLocalToWorld;
+
+                if (input.nonUniformScale)
+                {
+                    expected |= ExpectedConvertedTransformResults.HasPostTransformMatrix | ExpectedConvertedTransformResults.HasNonUniformScale;
+                }
+                return expected;
+            }
+
             return ExpectedConvertedTransformResults.Nothing;
         }
 

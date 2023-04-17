@@ -23,7 +23,7 @@ namespace Unity.Entities.Editor
         {
         }
 
-        static readonly UITemplate k_Template = new UITemplate("Spinner/spinner");
+        static readonly VisualElementTemplate k_Template = new(Resources.PackageId, "Spinner/spinner");
 
         readonly IVisualElementScheduledItem m_ScheduledItem;
         

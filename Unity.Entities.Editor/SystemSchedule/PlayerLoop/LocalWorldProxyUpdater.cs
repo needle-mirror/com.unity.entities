@@ -129,7 +129,7 @@ namespace Unity.Entities.Editor
 
                     if (updateIndex.IsManaged)
                     {
-                        sys = group.Systems[updateIndex.Index];
+                        sys = group.ManagedSystems[updateIndex.Index];
                         sd = new ScheduledSystemData(sys, groupIndex);
                     }
                     else

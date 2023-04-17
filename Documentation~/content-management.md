@@ -1,6 +1,6 @@
 # Content management
 
-Unity's entity component system (ECS) includes its own content management and delivery system. This system provides a performant interface to load and release Unity objects and scenes in a data-oriented application. The API is available to both ECS [systems](concepts-systems.md) and MonoBehaviour code which means you can use it in [Bakers](baking.md).
+Unity's entity component system (ECS) includes its own content management and delivery system. This system provides a performant interface to load and release Unity objects and scenes in a data-oriented application. The API is available to both ECS [systems](concepts-systems.md) and MonoBehaviour code which means you can use it in [bakers](baking-baker-overview.md).
 
 > [!NOTE]
 > This system is built on top of Unity's [ContentLoadModule](https://docs.unity3d.com/2023.1/Documentation/ScriptReference/UnityEngine.ContentLoadModule.html) assembly.

@@ -16,6 +16,7 @@ namespace Unity.Entities
         public bool IsEnableable => TypeIndex.IsEnableable;
         public bool IsManagedComponent => TypeIndex.IsManagedComponent;
         public bool IsBakeOnlyType => TypeIndex.IsBakingOnlyType;
+        public bool IsChunkSerializable => TypeIndex.IsChunkSerializable;
 
         public ComponentTypeInArchetype(ComponentType type)
         {

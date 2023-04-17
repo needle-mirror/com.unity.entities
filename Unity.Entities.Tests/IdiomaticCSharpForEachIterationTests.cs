@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using NUnit.Framework;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
@@ -48,8 +48,8 @@ namespace Unity.Entities.Tests
         T GetManagedComponent<T>(Entity entity) where T : IComponentData => m_Manager.GetComponentObject<T>(entity);
 #endif
 
-        T GetAspect<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T> => default(T).CreateAspect(entity, ref EmptySystem.CheckedStateRef, false);
-        T GetAspect<T>(SystemHandle system) where T : struct, IAspect, IAspectCreate<T> => default(T).CreateAspect(system.m_Entity, ref EmptySystem.CheckedStateRef, false);
+        T GetAspect<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T> => default(T).CreateAspect(entity, ref EmptySystem.CheckedStateRef);
+        T GetAspect<T>(SystemHandle system) where T : struct, IAspect, IAspectCreate<T> => default(T).CreateAspect(system.m_Entity, ref EmptySystem.CheckedStateRef);
         T GetComponent<T>(Entity entity) where T : unmanaged, IComponentData => m_Manager.GetComponentData<T>(entity);
         T GetComponent<T>(SystemHandle system) where T : unmanaged, IComponentData => m_Manager.GetComponentData<T>(system);
         T GetSharedComponent<T>(Entity entity) where T : struct, ISharedComponentData => m_Manager.GetSharedComponentManaged<T>(entity);
@@ -293,12 +293,23 @@ namespace Unity.Entities.Tests
             {
                 state.EntityManager.AddComponent<SumData>(state.SystemHandle);
             }
-
             public void OnUpdate(ref SystemState state)
             {
                 ref var sumData = ref state.EntityManager.GetComponentDataRW<SumData>(state.SystemHandle).ValueRW;
                 foreach (var ecsTestData in Query<RefRO<EcsTestData>>().WithSharedComponentFilter(new SharedData1(1)))
                     sumData.sum += ecsTestData.ValueRO.value;
+            }
+        }
+
+        partial struct SameBackingQuery_NoInterferenceSystem : ISystem
+        {
+            public void OnUpdate(ref SystemState state)
+            {
+                foreach (var ecsTestData in Query<RefRW<EcsTestData>>().WithSharedComponentFilter(new SharedData1(1)))
+                    ecsTestData.ValueRW.value = 1111;
+
+                foreach (var ecsTestData in Query<RefRW<EcsTestData>>().WithAll<SharedData1>())
+                    ecsTestData.ValueRW.value = 2222;
             }
         }
 
@@ -1087,6 +1098,36 @@ namespace Unity.Entities.Tests
             system.Update(World.Unmanaged);
 
             Assert.AreEqual(11, World.EntityManager.GetComponentData<SumData>(system).sum);
+
+            World.EntityManager.DestroyEntity(entity0);
+            World.EntityManager.DestroyEntity(entity1);
+            World.EntityManager.DestroyEntity(entity2);
+        }
+
+        [Test]
+        public void TwoForEachIterationsWithSameBackingQuery_OneWithSharedComponentFilter_OneWithout_TestNoFilterInterference()
+        {
+            // Creating entities here instead of inside `IterateThroughComponent_WithSharedComponentFilterSystem.OnCreate()`
+            // in order to circumvent a bug in `EntityManagerDebug.CheckInternalConsistency()`:
+            // See: https://unity.slack.com/archives/C01HYKXLM42/p1654006277589939
+            var entity0 = World.EntityManager.CreateEntity(typeof(EcsTestData));
+            World.EntityManager.SetComponentData(entity0, new EcsTestData(1));
+            World.EntityManager.AddSharedComponentManaged(entity0, new SharedData1(1));
+
+            var entity1 = World.EntityManager.CreateEntity(typeof(EcsTestData));
+            World.EntityManager.SetComponentData(entity1, new EcsTestData(10));
+            World.EntityManager.AddSharedComponentManaged(entity1, new SharedData1(1));
+
+            var entity2 = World.EntityManager.CreateEntity(typeof(EcsTestData));
+            World.EntityManager.SetComponentData(entity2, new EcsTestData(100));
+            World.EntityManager.AddSharedComponentManaged(entity2, new SharedData1(2));
+
+            var system = World.GetOrCreateSystem<SameBackingQuery_NoInterferenceSystem>();
+            system.Update(World.Unmanaged);
+
+            Assert.AreEqual(2222, World.EntityManager.GetComponentData<EcsTestData>(entity0).value);
+            Assert.AreEqual(2222, World.EntityManager.GetComponentData<EcsTestData>(entity1).value);
+            Assert.AreEqual(2222, World.EntityManager.GetComponentData<EcsTestData>(entity2).value);
 
             World.EntityManager.DestroyEntity(entity0);
             World.EntityManager.DestroyEntity(entity1);

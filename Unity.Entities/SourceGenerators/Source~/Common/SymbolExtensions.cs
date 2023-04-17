@@ -102,7 +102,13 @@ namespace Unity.Entities.SourceGen.Common
 
         public static string ToFullName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormat);
         public static string ToSimpleName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormatWithoutGlobalPrefix);
-        public static string ToValidIdentifier(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormatWithoutGlobalPrefix).Replace('.', '_');
+        public static string ToValidIdentifier(this ITypeSymbol symbol)
+        {
+            var validIdentifier = symbol.ToDisplayString(QualifiedFormatWithoutGlobalPrefix).Replace('.', '_');
+            if (symbol is INamedTypeSymbol { IsGenericType: true })
+                validIdentifier = validIdentifier.Replace('<', '_').Replace('>', '_');
+            return validIdentifier;
+        }
 
         public static bool ImplementsInterface(this ISymbol symbol, string interfaceName)
         {

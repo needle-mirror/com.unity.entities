@@ -279,7 +279,7 @@ namespace Unity.Entities
         public static void AddComponent<T>(this ForEachLambdaJobDescription description) where T : unmanaged, IComponentData => ThrowCodeGenException_ForEachLambdaJobDescription();
 
         /// <summary>
-        /// Removes a component from a set of entities se3lected by the query you have defined using WithAny/WithAll/WithNone
+        /// Removes a component from a set of entities selected by the query you have defined using WithAny/WithAll/WithNone
         /// </summary>
         /// <remarks>
         /// Can remove any kind of component.

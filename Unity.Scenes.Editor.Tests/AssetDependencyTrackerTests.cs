@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.Tests;
@@ -146,6 +148,67 @@ namespace Unity.Scenes.Tests
                 test.GetCompleted(list);
 
                 AssertOne(list, guid, 1, "Boings");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator AsyncDependencyChangeIsDetected_AndRetriggersOnError_WithFileChange()
+        {
+            return AsyncDependencyChangeIsDetected_AndRetriggersOnError_Impl(true);
+        }
+
+        [UnityTest]
+        [Ignore("The current approach to detecting failures does not detect cases where only the file modification date changes.")]
+        public IEnumerator AsyncDependencyChangeIsDetected_AndRetriggersOnError_WithoutFileChange()
+        {
+            return AsyncDependencyChangeIsDetected_AndRetriggersOnError_Impl(false);
+        }
+
+        public IEnumerator AsyncDependencyChangeIsDetected_AndRetriggersOnError_Impl(bool modifyFile)
+        {
+            // This test is specifically designed to exercise the case where a source asset dependency is changed during import.
+            // This can happen in entity scene imports. Regular asset imports just detect this and retrigger the import.
+            // However, the special code path that we are taking for on demand importing circumvents this error handling
+            // and means that we need to do it ourselves in the AssetDependencyTracker.
+            var path = _Temp.GetNextPath();
+            var dependencyPath = _Temp.GetNextPath();
+            WriteFileAndRefresh(dependencyPath, "test data");
+
+            using (var tracker = new AssetDependencyTracker<int>(typeof(TestImporterWithSourceDependency), "TestImporterWithSourceDependency"))
+            using (var list = new NativeList<AssetDependencyTracker<int>.Completed>(0, Allocator.Persistent))
+            {
+                // The results of importing an asset are cached by content and importer, so we have to actually use a
+                // different content every time to get the importer to run. This is crucial for this test as we are
+                // relying on the importer to stall and give us time to modify some files.
+                var dependencyGuid = AssetDatabase.GUIDFromAssetPath(dependencyPath).ToString();
+                var guid = WriteFileAndRefresh(path, dependencyGuid + " " + DateTime.UtcNow.Ticks);
+
+                // This triggers the import. The test importer declares a source dependency and then immediately stalls
+                // for a few seconds.
+                tracker.Add(guid, 1, true);
+                tracker.AddCompleted(list);
+                Thread.Sleep(2000);
+
+                // While the importer is running, we are going to touch the source dependency file. This will confuse
+                // the asset database and make the import fail, which is required for our test.
+                var fullDependencyPath = Path.GetFullPath(dependencyPath);
+                if (modifyFile)
+                    File.WriteAllText(fullDependencyPath, "test data 2");
+                else
+                    File.SetLastWriteTime(fullDependencyPath, DateTime.Now);
+
+                // The changed source asset should trigger a reimport of the asset that depends on it to handle the
+                // failed import. If it does not, then we'll eventually time out.
+                var sw = Stopwatch.StartNew();
+                while (list.IsEmpty)
+                {
+                    if (sw.Elapsed.TotalSeconds > 50)
+                        throw new Exception("Timed out waiting for import to complete");
+                    yield return null;
+                    tracker.AddCompleted(list);
+                }
+
+                AssertOne(list, guid, 1, dependencyGuid);
             }
         }
 

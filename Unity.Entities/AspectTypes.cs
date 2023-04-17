@@ -34,17 +34,14 @@ namespace Unity.Entities
         /// <param name="entity">Entity that this Aspect will reflect.</param>
         /// <param name="system">SystemState for the system where the Aspect originates from. You should only use Aspects
         /// in their originating system.</param>
-        /// <param name="isReadOnly">Whether to modify the data associated with an Entity. To assist in scheduling,
-        /// you should only access the Aspect as read-only if possible.</param>
         /// <returns>Instance of Aspect of this type for the Entity.</returns>
-        T CreateAspect(Entity entity, ref SystemState system, bool isReadOnly);
+        T CreateAspect(Entity entity, ref SystemState system);
 
         /// <summary>
         /// Add the query component requirements of this aspect to NativeLists.
         /// </summary>
         /// <param name="all">The UnsafeList to add the "All" ComponentTypes requirements to</param>
-        /// <param name="isReadOnly">Force read-only access</param>
-        void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all, bool isReadOnly);
+        void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all);
     }
 
     /// <summary>

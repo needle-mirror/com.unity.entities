@@ -71,6 +71,74 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
+        private float DiffMatrices(Matrix4x4 a, Matrix4x4 b)
+        {
+            float diff = 0f;
+            for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+                diff += math.abs(b[i, j] - a[i, j]);
+            return diff;
+        }
+
+        [Test]
+        public void CompanionComponent_TransformSync_NegativeScale()
+        {
+            BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
+
+            // Convert to create companions
+            var gameObjects = new GameObject[2];
+            for (int i = 0; i < gameObjects.Length; i++)
+            {
+                var gameObject = CreateGameObject();
+                gameObject.AddComponent<ConversionTestCompanionComponent>().SomeValue = 123;
+                // Add non uniform scale so the post transform matrix is added
+                gameObject.transform.localScale = new Vector3(1, 2, 3);
+                gameObjects[i] = gameObject;
+            }
+            // We parent the second gameobject to the first one
+            gameObjects[1].transform.parent = gameObjects[0].transform;
+
+            using var blobAssetStore = new BlobAssetStore(128);
+            var bakingSettings = MakeDefaultBakingSettings();
+            bakingSettings.BlobAssetStore = blobAssetStore;
+            // We only bake the root
+            BakingUtility.BakeGameObjects(m_World, new []{gameObjects[0]}, bakingSettings);
+
+            // Verify we have created the correct number of companions
+            var query = m_Manager.CreateEntityQuery(typeof(CompanionLink));
+            Assert.AreEqual(gameObjects.Length, query.CalculateEntityCount());
+
+            var entities = query.ToEntityArray(Allocator.Persistent);
+            m_World.EntityManager.SetComponentData(entities[0], LocalTransform.FromPositionRotation(new float3(0.1f, 0.5f, -0.3f), quaternion.Euler(math.PI * new float3(0.1f, 0.5f, -0.75f))));
+            m_World.EntityManager.SetComponentData(entities[1], LocalTransform.FromPositionRotation(new float3(-1f, 2f, 3f), quaternion.Euler(math.PI * new float3(-0.5f, -0.3f, -0.1f))));
+
+            // Add a negative scale to the parent
+            m_World.EntityManager.SetComponentData(entities[0], new PostTransformMatrix {Value = float4x4.Scale(-1, 1, 1)});
+
+            var companionGameObjectUpdateTransformSystem = m_World.GetExistingSystemManaged<CompanionGameObjectUpdateTransformSystem>();
+
+            // Validate positions not moved
+            for (int i = 0; i < gameObjects.Length; i++)
+            {
+                var companionLink = m_World.EntityManager.GetComponentObject<CompanionLink>(entities[i]);
+                Assert.AreEqual(0f, companionLink.Companion.transform.localPosition.y);
+            }
+
+            m_World.Update();
+            companionGameObjectUpdateTransformSystem.CompleteDependencyInternal();
+
+            // Validate things moved and to the correct place
+            var companionLink0 = m_World.EntityManager.GetComponentObject<CompanionLink>(entities[0]);
+            var companionLink1 = m_World.EntityManager.GetComponentObject<CompanionLink>(entities[1]);
+
+            var localToWorld0 = m_World.EntityManager.GetComponentData<LocalToWorld>(entities[0]);
+            var localToWorld1 = m_World.EntityManager.GetComponentData<LocalToWorld>(entities[1]);
+
+            Assert.IsTrue(DiffMatrices(localToWorld0.Value, companionLink0.Companion.transform.localToWorldMatrix) < 0.0001f);
+            Assert.IsTrue(DiffMatrices(localToWorld1.Value, companionLink1.Companion.transform.localToWorldMatrix) < 0.0001f);
+            entities.Dispose();
+        }
+
         [Test]
         public void CompanionComponent_OnDisabledGameObject_IsConvertedAndDisabled()
         {

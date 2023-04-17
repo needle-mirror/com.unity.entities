@@ -9,6 +9,7 @@ using Unity.Entities.Conversion;
 using Unity.Entities.Hybrid.Baking;
 using Unity.Jobs;
 using Unity.Profiling;
+using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -432,6 +433,7 @@ namespace Unity.Entities
 
             var tempDependencies = new BakeDependencies.RecordedDependencies(16, Allocator.TempJob);
             var tempUsage = new BakerEntityUsage(default, 16, Allocator.TempJob);
+            var revertTransformsList = new NativeList<Entity>(100, Allocator.TempJob);
 
             // Base size on created game objects, as worse case is initial bake and this will avoid too many allocations in that case
             var entitiesBaked = new NativeParallelHashSet<Entity>(instructions.CreatedGameObjects.Count, Allocator.Temp);
@@ -563,8 +565,11 @@ namespace Unity.Entities
 
                                     using (s_RegisterDependencies.Auto())
                                     {
-                                        UpdateDependencies(ref dependencies, instanceID, ref bakerState,
-                                            ref tempDependencies, ref tempUsage);
+                                        UpdateDependencies(ref dependencies, instanceID, ref bakerState, ref tempDependencies, ref tempUsage, out var revertTransforms);
+                                        if (revertTransforms)
+                                        {
+                                            revertTransformsList.Add(tempUsage.PrimaryEntity);
+                                        }
                                     }
                                 }
                                 else
@@ -608,7 +613,11 @@ namespace Unity.Entities
 
                                     using (s_RegisterDependencies.Auto())
                                     {
-                                        AddDependencies(ref dependencies, instanceID, ref bakerState);
+                                        AddDependencies(ref dependencies, instanceID, ref bakerState, out var revertTransforms);
+                                        if (revertTransforms)
+                                        {
+                                            revertTransformsList.Add(bakerState.PrimaryEntity);
+                                        }
                                     }
                                 }
                             }
@@ -697,8 +706,11 @@ namespace Unity.Entities
                                 // We need to update the dependencies even if the component is disabled
                                 using (s_RegisterDependencies.Auto())
                                 {
-                                    UpdateDependencies(ref dependencies, instanceID, ref bakerState,
-                                        ref tempDependencies, ref tempUsage);
+                                    UpdateDependencies(ref dependencies, instanceID, ref bakerState, ref tempDependencies, ref tempUsage, out var revertTransforms);
+                                    if (revertTransforms)
+                                    {
+                                        revertTransformsList.Add(tempUsage.PrimaryEntity);
+                                    }
                                 }
                             }
                             // Added baker for the first time, can just add.
@@ -746,7 +758,11 @@ namespace Unity.Entities
 
                                     using (s_RegisterDependencies.Auto())
                                     {
-                                        AddDependencies(ref dependencies, instanceID, ref bakerState);
+                                        AddDependencies(ref dependencies, instanceID, ref bakerState, out var revertTransforms);
+                                        if (revertTransforms)
+                                        {
+                                            revertTransformsList.Add(bakerState.PrimaryEntity);
+                                        }
                                     }
                                 }
                             }
@@ -836,6 +852,16 @@ namespace Unity.Entities
             BakingAnalytics.LogBlobAssetCount(blobAssetStore.BlobAssetCount);
 #endif
 #endif
+            // Revert all the transform components for the entities moved to ManualOverride
+            if (revertTransformsList.Length > 0)
+            {
+                var revertTransformsArray = revertTransformsList.AsArray();
+                revertEcb.RemoveComponent<LocalToWorld>(revertTransformsArray);
+                revertEcb.RemoveComponent<LocalTransform>(revertTransformsArray);
+                revertEcb.RemoveComponent<PostTransformMatrix>(revertTransformsArray);
+                revertEcb.RemoveComponent<Parent>(revertTransformsArray);
+            }
+            revertTransformsList.Dispose();
 
             // Play back the entity command buffer so it can be done in batch.
             using (s_BuilderPlayback.Auto())
@@ -849,20 +875,28 @@ namespace Unity.Entities
             }
         }
 
-        void AddDependencies(ref BakeDependencies dependencies, int instanceID, ref BakerState bakerState)
+        void AddDependencies(ref BakeDependencies dependencies, int instanceID, ref BakerState bakerState, out bool revertTransformComponents)
         {
             BakeDependencies.AddDependencies(ref dependencies, instanceID, ref bakerState.Dependencies);
+
+            revertTransformComponents = false;
+            if (!bakerState.Usage.PrimaryEntityFlags.IsUnused && bakerState.Usage.PrimaryEntityFlags.HasManualOverrideFlag())
+            {
+                _ReferencedEntities.TryGetValue(bakerState.Usage.PrimaryEntity, out var oldFlags);
+                revertTransformComponents = !oldFlags.HasManualOverrideFlag();
+            }
+
             bakerState.Usage.AddTransformUsage(ref _ReferencedEntities, ref _IsReferencedEntitiesDirty, instanceID);
         }
 
-        void UpdateDependencies(ref BakeDependencies dependencies, int instanceID, ref BakerState bakerState, ref BakeDependencies.RecordedDependencies tempDependencies, ref BakerEntityUsage tempUsage)
+        void UpdateDependencies(ref BakeDependencies dependencies, int instanceID, ref BakerState bakerState, ref BakeDependencies.RecordedDependencies tempDependencies, ref BakerEntityUsage tempUsage, out bool revertTransformComponents)
         {
             if (BakeDependencies.UpdateDependencies(ref dependencies, instanceID, ref bakerState.Dependencies, ref tempDependencies))
             {
                 //Debug.Log($"Updating dependencies for: '{Resources.InstanceIDToObject(component.GameObjectInstanceID).name}' {component.Component.GetType().Name}");
             }
 
-            if (BakerEntityUsage.Update(ref _ReferencedEntities, ref _IsReferencedEntitiesDirty, ref bakerState.Usage, ref tempUsage, instanceID))
+            if (BakerEntityUsage.Update(ref _ReferencedEntities, ref _IsReferencedEntitiesDirty, ref bakerState.Usage, ref tempUsage, instanceID, out revertTransformComponents))
             {
                 //Debug.Log($"Updating usage for: '{Resources.InstanceIDToObject(component.GameObjectInstanceID).name}' {component.Component.GetType().Name}");
             }
@@ -1130,7 +1164,7 @@ namespace Unity.Entities
 
         public void UpdateTransforms(TransformAuthoringBaking transformAuthoringBaking)
         {
-            transformAuthoringBaking.UpdateTransforms(_GameObjectToEntity, _ReferencedEntities, _IsReferencedEntitiesDirty);
+            transformAuthoringBaking.UpdateTransforms(_GameObjectToEntity, _ReferencedEntities, ref _IsReferencedEntitiesDirty);
         }
 
         private void ResetComponentAdditionalEntityCount(int authoringInstanceId, Entity entity)

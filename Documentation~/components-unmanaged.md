@@ -1,8 +1,29 @@
 # Unmanaged components
 
-Unmanaged components store the most common data types which means they are useful in the majority of use-cases.
+Unmanaged components store the most common data types which means they're useful in the majority of use-cases.
 
-| **Topic**                                                    | **Description**                                              |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-| [Introducing unmanaged components](components-unmanaged-introducing.md) | Understand unmanaged components and the types of properties that they can store. |
-| [Create an unmanaged component](components-unmanaged-create.md) | Create a new unmanaged component to use in your application. |
+Unmanaged components can store properties of the following types:
+
+* [Blittable types](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types)
+* `bool`
+* `char`
+* `BlobAssetReference<T>` (a reference to a Blob data structure)
+* `Collections.FixedString` (a fixed-sized character buffer)
+* `Collections.FixedList`
+* [Fixed array](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/fixed-statement) (only allowed in an [unsafe](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/unsafe) context)
+* Other structs that conform to these same restrictions
+
+## Create an unmanaged component
+
+To create an unmanaged component, create a struct that inherits from `IComponentData`.
+
+The following code sample shows an unmanaged component:
+
+[!code-cs[Create an unmanaged component](../DocCodeSamples.Tests/CreateComponentExamples.cs#unmanaged)]
+
+Add properties that use compatible types to the struct to define data for the component. If you don't add any properties to the component, it acts as a [tag component](components-tag.md).
+
+## Additional resources
+
+* [Tag components](components-tag.md)
+* [Managed components](components-managed.md)
