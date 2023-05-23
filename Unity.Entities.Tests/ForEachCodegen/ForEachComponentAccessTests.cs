@@ -238,25 +238,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
-            public void GetComponentSetComponentThroughLocalFunction_GetsSetsValue()
-            {
-                Entities.ForEach((Entity entity, in EcsTestDataEntity tde) =>
-                {
-                    int GetEntityValue(Entity e)
-                    {
-                        return SystemAPI.GetComponent<EcsTestData>(e).value;
-                    }
-
-                    void SetEntityValue(Entity e, int value)
-                    {
-                        SystemAPI.SetComponent(e, new EcsTestData(value));
-                    }
-
-                    SetEntityValue(entity, GetEntityValue(tde.value1));
-                }).Schedule();
-                Dependency.Complete();
-            }
-
             public void GetSameComponentInTwoEntitiesForEach_GetsValue()
             {
                 Entities.ForEach((Entity entity, ref EcsTestDataEntity tde) =>
@@ -450,13 +431,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void GetComponentSetComponent_ThroughComponentLookup_SetsValue()
         {
             TestSystem.GetComponentSetComponent_ThroughComponentLookup_SetsValue();
-            Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
-        }
-
-        [Test]
-        public void GetComponentSetComponentThroughLocalFunction_GetsSetsValue()
-        {
-            TestSystem.GetComponentSetComponentThroughLocalFunction_GetsSetsValue();
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Unity.Assertions;
 using Unity.Burst;
@@ -217,10 +218,10 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void ValidateEntity(Entity entity)
         {
-            if (entity.Index < 0)
+            if (Hint.Unlikely(entity.Index < 0))
                 throw new ArgumentException(
                     $"All entities created using EntityCommandBuffer.CreateEntity must be realized via playback(). One of the entities is still deferred (Index: {entity.Index}).");
-            if ((uint)entity.Index >= (uint)EntitiesCapacity)
+            if (Hint.Unlikely((uint)entity.Index >= (uint)EntitiesCapacity))
                 throw new ArgumentException(
                     "An Entity index is larger than the capacity of the EntityManager. This means the entity was created by a different world or the entity.Index got corrupted or incorrectly assigned and it may not be used on this EntityManager.");
         }
@@ -344,6 +345,19 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        public void AssertNonEmptyArchetypesHaveComponent(UnsafeMatchingArchetypePtrList archetypeList, ComponentType componentType)
+        {
+            int archetypeCount = archetypeList.Length;
+            var ptrs = archetypeList.Ptr;
+            TypeIndex typeIndex = componentType.TypeIndex;
+            for (int i = 0; i < archetypeCount; i++)
+            {
+                if (Hint.Unlikely(ptrs[i]->Archetype->EntityCount > 0 && ChunkDataUtility.GetIndexInTypeArray(ptrs[i]->Archetype, typeIndex) == -1))
+                    throw new ArgumentException($"Archetype does not have component {componentType}");
+            }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void AssertComponentIsUnmanaged(TypeIndex componentTypeIndex)
         {
             if (TypeManager.IsManagedType(componentTypeIndex))
@@ -353,17 +367,20 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void AssertCanAddComponent(Archetype* archetype, ComponentType componentType)
         {
-            if (componentType == m_EntityComponentType)
+            if (Hint.Unlikely(componentType == m_EntityComponentType))
                 throw new ArgumentException("Cannot add Entity as a component.");
 
-            if (componentType.IsSharedComponent && (archetype->NumSharedComponents == kMaxSharedComponentCount))
+            if (ChunkDataUtility.GetIndexInTypeArray(archetype, componentType.TypeIndex) != -1)
+                return; // archetype already has the component, so "add" will be a no-op.
+
+            if (Hint.Unlikely(componentType.IsSharedComponent && (archetype->NumSharedComponents == kMaxSharedComponentCount)))
                 throw new InvalidOperationException($"Cannot add more than {kMaxSharedComponentCount} SharedComponent's to a single Archetype. Attempting to add '{componentType}'. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
 
             var componentTypeInfo = GetTypeInfo(componentType.TypeIndex);
             var componentInstanceSize = GetComponentArraySize(componentTypeInfo.SizeInChunk, 1);
             var archetypeInstanceSize = archetype->InstanceSizeWithOverhead + componentInstanceSize;
             var chunkDataSize = Chunk.GetChunkBufferSize();
-            if (archetypeInstanceSize > chunkDataSize)
+            if (Hint.Unlikely(archetypeInstanceSize > chunkDataSize))
                 throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead} bytes. Attempting to add component '{componentType}' with size {componentInstanceSize} bytes. Maximum chunk size {chunkDataSize}.");
         }
 
@@ -538,73 +555,67 @@ namespace Unity.Entities
                 AssertCanRemoveComponent(ComponentType.FromTypeIndex(typeSet.GetTypeIndex(i)));
         }
 
-        [BurstCompile]
-        static void CheckWillDestroyAllInLinkedEntityGroup(ref NativeArray<ArchetypeChunk> chunkArray,
-            ref BufferTypeHandle<LinkedEntityGroup> linkedGroupTypeHandle,
-            ref Entity errorEntity,
-            ref Entity errorReferencedEntity,
-            ref EntityComponentStore ecs)
-        {
-            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
-            var chunksCount = chunkArray.Length;
 
-            var tempChunkStateFlag = (uint)ChunkFlags.TempAssertWillDestroyAllInLinkedEntityGroup;
-            for (int i = 0; i != chunksCount; i++)
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        void AssertWillDestroyAllInLinkedEntityGroup(UnsafeList<ChunkAndEnabledMask> chunksToProcess,
+            ref BufferTypeHandle<LinkedEntityGroup> linkedGroupTypeHandle, bool queryHasEnableableComponents)
+        {
+            var sortedChunksToProcess = new UnsafeList<ChunkAndEnabledMask>(chunksToProcess.Length, Allocator.Temp);
+            sortedChunksToProcess.CopyFrom(chunksToProcess);
+            sortedChunksToProcess.Sort();
+            var sortedChunkPtrs = new UnsafeList<ulong>(sortedChunksToProcess.Length, Allocator.Temp);
+            for (int i = 0, chunkCount = sortedChunksToProcess.Length; i < chunkCount; ++i)
             {
-                var chunk = chunks[i].m_Chunk;
-                Assert.IsTrue((chunk->Flags & tempChunkStateFlag) == 0);
-                chunk->Flags |= tempChunkStateFlag;
+                sortedChunkPtrs.AddNoResize((ulong)sortedChunksToProcess[i].Chunk);
             }
 
-            errorEntity = default;
-            errorReferencedEntity = default;
-
-            for (int i = 0; i < chunkArray.Length; ++i)
+            fixed (EntityComponentStore* pThis = &this)
             {
-                if (!chunks[i].Has(ref linkedGroupTypeHandle))
-                    continue;
-
-                var chunk = chunks[i];
-                var buffers = chunk.GetBufferAccessor(ref linkedGroupTypeHandle);
-
-                for (int b = 0; b != buffers.Length; b++)
+                for (int i = 0, chunkCount = chunksToProcess.Length; i < chunkCount; ++i)
                 {
-                    var buffer = buffers[b];
-                    int entityCount = buffer.Length;
-                    var entities = (Entity*)buffer.GetUnsafeReadOnlyPtr();
-                    for (int e = 0; e != entityCount; e++)
-                    {
-                        var referencedEntity = entities[e];
-                        if (ecs.Exists(referencedEntity))
-                        {
-                            var referencedChunk = ecs.GetChunk(referencedEntity);
+                    var archetypeChunk = new ArchetypeChunk
+                        { m_Chunk = chunksToProcess[i].Chunk, m_EntityComponentStore = pThis };
+                    if (!archetypeChunk.Has(ref linkedGroupTypeHandle))
+                        continue;
 
-                            if ((referencedChunk->Flags & tempChunkStateFlag) == 0)
+                    var chunkLegBuffers = archetypeChunk.GetBufferAccessor(ref linkedGroupTypeHandle);
+                    for (int b = 0, bufferCount = chunkLegBuffers.Length; b < bufferCount; b++)
+                    {
+                        var buffer = chunkLegBuffers[b];
+                        var legEntities = (Entity*)buffer.GetUnsafeReadOnlyPtr();
+                        for (int e = 0, entityCount = buffer.Length; e < entityCount; e++)
+                        {
+                            var referencedEntity = legEntities[e];
+                            if (!Exists(referencedEntity))
+                                continue;
+                            var referencedEntityInChunk = GetEntityInChunk(referencedEntity);
+                            int sortedChunkIndex = sortedChunkPtrs.BinarySearch((ulong)referencedEntityInChunk.Chunk);
+                            if (Hint.Likely(sortedChunkIndex >= 0))
                             {
-                                errorEntity = entities[0];
-                                errorReferencedEntity = referencedEntity;
+                                // referencedEntity's chunk matches the query.
+                                if (queryHasEnableableComponents && sortedChunksToProcess[sortedChunkIndex].UseEnabledMask != 0)
+                                {
+                                    // TODO: we only care about the lowest bit of the result, so computing the high 64 bits of the result here is wasted work.
+                                    v128 shiftedMask = EnabledBitUtility.ShiftRight(sortedChunksToProcess[sortedChunkIndex].EnabledMask,
+                                        referencedEntityInChunk.IndexInChunk);
+                                    if (Hint.Unlikely((shiftedMask.ULong0 & 0x1) == 0))
+                                    {
+                                        // referencedChunk matches the query, but referencedEntity is not enabled in this query & will not be deleted
+                                        var chunkEntities = (Entity*)chunksToProcess[i].Chunk->Buffer;
+                                        ThrowDestroyEntityError(chunkEntities[b], referencedEntity);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // referencedChunk isn't in chunksToProcess at all, and won't be destroyed.
+                                var chunkEntities = (Entity*)chunksToProcess[i].Chunk->Buffer;
+                                ThrowDestroyEntityError(chunkEntities[b], referencedEntity);
                             }
                         }
                     }
                 }
             }
-
-            for (int i = 0; i != chunksCount; i++)
-            {
-                var chunk = chunks[i].m_Chunk;
-                Assert.IsTrue((chunk->Flags & tempChunkStateFlag) != 0);
-                chunk->Flags &= ~tempChunkStateFlag;
-            }
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertWillDestroyAllInLinkedEntityGroup(NativeArray<ArchetypeChunk> chunkArray,
-            BufferTypeHandle<LinkedEntityGroup> linkedGroupTypeHandle,
-            ref Entity errorEntity,
-            ref Entity errorReferencedEntity)
-        {
-            CheckWillDestroyAllInLinkedEntityGroup(ref chunkArray, ref linkedGroupTypeHandle, ref errorEntity,
-                ref errorReferencedEntity, ref this);
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]

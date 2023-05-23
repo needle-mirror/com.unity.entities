@@ -100,7 +100,7 @@ namespace Unity.Entities.SourceGen.Common
 
         public static bool IsEnableableComponent(this ITypeSymbol symbol) => symbol.InheritsFromInterface("Unity.Entities.IEnableableComponent");
 
-        public static string ToFullName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormat);
+        public static string ToFullName(this ISymbol symbol) => symbol.ToDisplayString(QualifiedFormat);
         public static string ToSimpleName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormatWithoutGlobalPrefix);
         public static string ToValidIdentifier(this ITypeSymbol symbol)
         {

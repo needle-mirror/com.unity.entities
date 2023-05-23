@@ -1,4 +1,3 @@
-using System;
 using Unity.Editor.Bridge;
 using UnityEditor;
 
@@ -36,8 +35,12 @@ namespace Unity.Entities.Editor
             m_Hierarchy.SetDataMode(newDataMode);
             SelectionBridge.SetSelection(Selection.activeObject, Selection.activeContext, newDataMode);
 
-            if (arg.changedThroughUI)
-                Analytics.SendEditorEvent(Analytics.Window.Hierarchy, Analytics.EventType.DataModeSwitch, newDataMode.ToString());
+            Analytics.SendEditorEvent(
+                Analytics.Window.Hierarchy,
+                arg.changedThroughUI
+                    ? Analytics.EventType.DataModeManualSwitch
+                    : Analytics.EventType.DataModeSwitch,
+                newDataMode.ToString());
         }
     }
 }

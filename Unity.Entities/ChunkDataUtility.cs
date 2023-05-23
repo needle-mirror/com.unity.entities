@@ -120,14 +120,33 @@ namespace Unity.Entities
         public static void SetSharedComponentDataIndex(Entity entity, Archetype* archetype, in SharedComponentValues sharedComponentValues, TypeIndex typeIndex)
         {
             var entityComponentStore = archetype->EntityComponentStore;
-            var globalSystemVersion = entityComponentStore->GlobalSystemVersion;
 
             entityComponentStore->Move(entity, archetype, sharedComponentValues);
 
             var chunk = entityComponentStore->GetChunk(entity);
-            var indexInTypeArray = GetIndexInTypeArray(chunk->Archetype, typeIndex);
-            chunk->SetChangeVersion(indexInTypeArray, globalSystemVersion);
+            Assert.AreEqual((ulong)archetype, (ulong)chunk->Archetype); // chunk should still be in the same archetype
+            var indexInTypeArray = GetIndexInTypeArray(archetype, typeIndex);
+            var globalSystemVersion = entityComponentStore->GlobalSystemVersion;
+            archetype->Chunks.SetChangeVersion(indexInTypeArray, chunk->ListIndex, globalSystemVersion);
         }
+
+        public static void SetSharedComponentDataIndex(Chunk* chunk, Archetype* archetype, in SharedComponentValues sharedComponentValues, TypeIndex typeIndex)
+        {
+            var entityComponentStore = archetype->EntityComponentStore;
+            entityComponentStore->Move(chunk, archetype, sharedComponentValues);
+
+            Assert.AreEqual((ulong)archetype, (ulong)chunk->Archetype); // chunk should still be in the same archetype
+            var indexInTypeArray = GetIndexInTypeArray(archetype, typeIndex);
+            var globalSystemVersion = entityComponentStore->GlobalSystemVersion;
+            archetype->Chunks.SetChangeVersion(indexInTypeArray, chunk->ListIndex, globalSystemVersion);
+        }
+
+        public static void SetSharedComponentDataIndex(EntityBatchInChunk batch, Archetype* archetype, in SharedComponentValues sharedComponentValues, TypeIndex typeIndex)
+        {
+            var entityComponentStore = archetype->EntityComponentStore;
+            entityComponentStore->MoveAndSetChangeVersion(batch, archetype, sharedComponentValues, typeIndex);
+        }
+
         // This variant returns an invalid pointer if the component is not present.
         // If you'd like a null pointer in this case instead, use GetOptionalComponentDataWithTypeRO()
         public static byte* GetComponentDataWithTypeRO(Chunk* chunk, Archetype* archetype, int baseEntityIndex, TypeIndex typeIndex, ref LookupCache lookupCache)
@@ -1067,35 +1086,48 @@ namespace Unity.Entities
 
             int chunkIndexInSrcArchetype = srcChunk->ListIndex;
 
-            //Change version is overriden below
-            dstArchetype->AddToChunkList(srcChunk, sharedComponentValues, 0, ref entityComponentStore->m_ChunkListChangesTracker);
-            int chunkIndexInDstArchetype = srcChunk->ListIndex;
+            if (Hint.Likely(dstArchetype != srcArchetype))
+            {
+                //Change version is overriden below
+                dstArchetype->AddToChunkList(srcChunk, sharedComponentValues, 0,
+                    ref entityComponentStore->m_ChunkListChangesTracker);
+                int chunkIndexInDstArchetype = srcChunk->ListIndex;
 
-            // For unchanged components: Copy versions from src to dst archetype
-            // For different components:
-            //   - (srcArchetype->Chunks) Remove Component In-Place. ChangeVersion:No OrderVersion:No
-            //   - (dstArchetype->Chunks) Add Component In-Place. ChangeVersion:Yes OrderVersion:No
+                // For unchanged components: Copy versions from src to dst archetype
+                // For different components:
+                //   - (srcArchetype->Chunks) Remove Component In-Place. ChangeVersion:No OrderVersion:No
+                //   - (dstArchetype->Chunks) Add Component In-Place. ChangeVersion:Yes OrderVersion:No
 
-            CloneChangeVersions(srcArchetype, chunkIndexInSrcArchetype, dstArchetype, chunkIndexInDstArchetype);
+                CloneChangeVersions(srcArchetype, chunkIndexInSrcArchetype, dstArchetype, chunkIndexInDstArchetype);
 
-            // Since we're not getting a clean chunk, we need to initialize the new bits here
-            InitializeBitsForNewChunk(dstArchetype, chunkIndexInDstArchetype);
-            MoveEnabledBits(srcArchetype, chunkIndexInSrcArchetype, dstArchetype, chunkIndexInDstArchetype, count);
+                // Since we're not getting a clean chunk, we need to initialize the new bits here
+                InitializeBitsForNewChunk(dstArchetype, chunkIndexInDstArchetype);
+                MoveEnabledBits(srcArchetype, chunkIndexInSrcArchetype, dstArchetype, chunkIndexInDstArchetype, count);
 
-            srcChunk->ListIndex = chunkIndexInSrcArchetype;
-            srcArchetype->RemoveFromChunkList(srcChunk, ref entityComponentStore->m_ChunkListChangesTracker);
-            srcChunk->ListIndex = chunkIndexInDstArchetype;
+                srcChunk->ListIndex = chunkIndexInSrcArchetype;
+                srcArchetype->RemoveFromChunkList(srcChunk, ref entityComponentStore->m_ChunkListChangesTracker);
+                srcChunk->ListIndex = chunkIndexInDstArchetype;
 
-            entityComponentStore->SetArchetype(srcChunk, dstArchetype);
+                srcArchetype->EntityCount -= count;
+                dstArchetype->EntityCount += count;
+                entityComponentStore->SetArchetype(srcChunk, dstArchetype);
+
+                // Also set the order version. Even though the ORDER hasn't changed, the archetype HAS, which must be tracked.
+                // Note that srcChunk is now in dstArchetype!
+                dstArchetype->Chunks.SetOrderVersion(srcChunk->ListIndex, entityComponentStore->GlobalSystemVersion);
+            }
+            else
+            {
+                // This path is used when setting the shared component value for an entire chunk.
+                // We don't know which value changed at this point, so just copy them all.
+                for (int i = 0, sharedComponentCount = srcArchetype->NumSharedComponents; i < sharedComponentCount; ++i)
+                {
+                    srcArchetype->Chunks.SetSharedComponentValue(i, chunkIndexInSrcArchetype, sharedComponentValues[i]);
+                }
+            }
 
             if (hasEmptySlots)
                 dstArchetype->EmptySlotTrackingAddChunk(srcChunk);
-
-            // Also set the order version. Even though the ORDER hasn't changed, the archetype HAS, which must be tracked
-            srcChunk->SetOrderVersion(entityComponentStore->GlobalSystemVersion);
-
-            srcArchetype->EntityCount -= count;
-            dstArchetype->EntityCount += count;
 
             if (srcArchetype->MetaChunkArchetype != dstArchetype->MetaChunkArchetype)
             {

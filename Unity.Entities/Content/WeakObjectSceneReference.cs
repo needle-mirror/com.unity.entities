@@ -17,10 +17,24 @@ namespace Unity.Entities.Content
         public UntypedWeakReferenceId Id;
 
         /// <summary>
-        /// Returns if the id of the referenced scene is valid.
+        /// Returns true if the reference has a valid id.  In the editor, additional checks for the correct GenerationType and the existence of the referenced asset are performed.
         /// </summary>
-        public bool IsReferenceValid => Id.IsValid;
+        public bool IsReferenceValid
+        {
+            get
+            {
+                if (!Id.IsValid)
+                    return false;
+#if UNITY_EDITOR
+                if (Id.GenerationType != WeakReferenceGenerationType.GameObjectScene)
+                    return false;
 
+                if (UnityEditor.AssetDatabase.GetMainAssetTypeAtPath(UnityEditor.AssetDatabase.GUIDToAssetPath(Id.GlobalId.AssetGUID)) != typeof(UnityEditor.SceneAsset))
+                    return false;
+#endif
+                return true;
+            }
+        }
         /// <summary>
         /// Loads a scene.
         /// </summary>

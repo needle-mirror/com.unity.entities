@@ -8,7 +8,7 @@ You can use `EntityQuery` to do the following:
 
 * Run a job to process the selected entities and components
 * Get a `NativeArray` that contains all the selected entities
-* Get a `NativeArray` of the selected components by component type
+* Get a `NativeArray` of the selected entities by component type
 
 The entity and component arrays that `EntityQuery` returns are parallel. This means that the same index value always applies to the same entity in any array. 
 

@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 using Unity.Entities.SourceGen.Common;
 using Unity.Entities.SourceGen.SystemGenerator;
 using Unity.Entities.SourceGen.SystemGenerator.Common;
@@ -20,12 +21,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             public bool? SynchronousCompilation;
         }
 
-        public SystemType SystemType => SystemDescription.SystemType;
-
         public LambdaParamDescription_EntityCommandBuffer EntityCommandBufferParameter { get; }
-        public string SystemStateParameterName { get; }
-        public bool InStructSystem => SystemType == SystemType.ISystem;
-        public bool IsInSystemBase => SystemType == SystemType.SystemBase || SystemType == SystemType.ISystem;
         public SystemDescription SystemDescription { get; }
         public MethodDeclarationSyntax ContainingMethod { get; }
         public InvocationExpressionSyntax ContainingInvocationExpression { get; }
@@ -57,7 +53,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
         public readonly ParenthesizedLambdaExpressionSyntax OriginalLambdaExpression;
         public readonly List<LambdaCapturedVariableDescription> VariablesCaptured = new List<LambdaCapturedVariableDescription>();
-        public readonly List<LambdaCapturedVariableDescription> VariablesCapturedOnlyByLocals = new List<LambdaCapturedVariableDescription>();
         public readonly List<LambdaCapturedVariableDescription> DisposeOnJobCompletionVariables = new List<LambdaCapturedVariableDescription>();
         public readonly List<(string Name, ISymbol Symbol)> AdditionalVariablesCapturedForScheduling = new List<(string, ISymbol)>();
 
@@ -67,12 +62,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         public readonly ArgumentSyntax WithFilterEntityArray;
 
         internal readonly List<DataLookupFieldDescription> AdditionalFields;
-        public readonly List<MethodDeclarationSyntax> MethodsForLocalFunctions;
         public readonly BlockSyntax RewrittenLambdaBody;
 
         internal readonly List<LambdaParamDescription> LambdaParameters = new List<LambdaParamDescription>();
-        public readonly List<(LocalFunctionStatementSyntax localFunction, bool onlyUsedInLambda)> LocalFunctionUsedInLambda = new List<(LocalFunctionStatementSyntax, bool)>();
-
         public string JobStructName => $"{Name}_Job";
         public string LambdaBodyMethodName => $"{Name}_LambdaBody";
         public bool NeedsJobFunctionPointers => Schedule.Mode == ScheduleMode.Run && (Burst.IsEnabled || LambdaJobKind == LambdaJobKind.Job);
@@ -105,7 +97,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 Location = candidate.Node.GetLocation();
                 ContainingMethod = containingMethod;
                 MethodInvocations = candidate.MethodInvocations;
-                Burst = GetBurstSettings();
                 Schedule = GetScheduleModeAndDependencyArgument();
                 ContainingInvocationExpression = MethodInvocations[Schedule.Mode.ToString()].FirstOrDefault();
 
@@ -176,44 +167,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 WithStoreEntityQueryInFieldArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithStoreEntityQueryInField").ToArray();
                 WithScheduleGranularityArgumentSyntaxes = AllArgumentSyntaxesOfMethod("WithScheduleGranularity").ToArray();
 
-                if (!SystemDescription.TryGetSystemStateParameterName(candidate, out var systemStateExpression))
-                {
-                    Success = false;
-                    return;
-                }
-                SystemStateParameterName = systemStateExpression.ToFullString();
-
-                if (SystemType == SystemType.ISystem)
-                {
-                    // Make sure we our top-level MemberAccessExpressionSyntax is not "Entities" (we should be accessing via a SystemState parameter)
-                    if (!(candidate.Node.Parent is MemberAccessExpressionSyntax parentMemberAccessExpression) ||
-                        parentMemberAccessExpression.Expression.ToString() == "Entities")
-                    {
-                        LambdaJobsErrors.DC0072(SystemDescription, candidate.Node.GetLocation(), LambdaJobKind);
-                        Success = false;
-                        throw new InvalidDescriptionException();
-                    }
-
-                    // Do quick check here for invocations not permitted in ISystem and error out if so
-                    var invalidISystemInvocations = new[] {"WithoutBurst", "WithSharedComponentFilter", "WithStructuralChanges"};
-
-                    var invalidInvocationFound = false;
-                    foreach (var invalidInvocation in MethodInvocations.Where(invocation => invalidISystemInvocations.Contains(invocation.Key)))
-                    {
-                        LambdaJobsErrors.DC0071(SystemDescription, candidate.Node.GetLocation(), invalidInvocation.Key, LambdaJobKind);
-                        invalidInvocationFound = true;
-                    }
-                    if (invalidInvocationFound)
-                    {
-                        Success = false;
-                        throw new InvalidDescriptionException();
-                    }
-                }
-
                 EntityQueryOptions = GetEntityQueryOptions();
 
                 AdditionalFields = new List<DataLookupFieldDescription>();
-                MethodsForLocalFunctions = new List<MethodDeclarationSyntax>();
 
                 var methodSymbol = systemDescription.SemanticModel.GetDeclaredSymbol(ContainingMethod);
                 var stableHashCodeForMethod = GetStableHashCode($"{methodSymbol.ContainingType.ToFullName()}_{methodSymbol.GetMethodAndParamsAsString()}") & 0x7fffffff;
@@ -222,6 +178,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 WithStructuralChanges = MethodInvocations.ContainsKey("WithStructuralChanges");
                 WithImmediatePlayback = MethodInvocations.ContainsKey("WithImmediatePlayback");
                 WithFilterEntityArray = SingleOptionalArgumentSyntaxOfMethod("WithFilter");
+                Burst = GetBurstSettings();
 
                 var methodInvocationWithLambdaExpression = LambdaJobKind switch
                 {
@@ -242,11 +199,23 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     throw new InvalidDescriptionException();
                 }
 
-                LambdaParameters = GetLambdaParameters().ToList();
+
+                // Create parameter description from lambda parameters.
+                if (OriginalLambdaExpression?.ParameterList.Parameters is {} parameters)
+                {
+                    LambdaParameters = new List<LambdaParamDescription>(parameters.Count);
+                    foreach (var param in parameters)
+                    {
+                        var paramDescription = LambdaParamDescription.From(this, param, Name);
+                        if (paramDescription != null)
+                            LambdaParameters.Add(paramDescription);
+                        else
+                            Success = false;
+                    }
+                }
 
                 var entityCommandsParameters =
                     LambdaParameters.OfType<LambdaParamDescription_EntityCommandBuffer>().ToArray();
-
                 if (entityCommandsParameters.Any())
                 {
                     var result = VerifyEcbCommandParameter(systemDescription, entityCommandsParameters);
@@ -271,66 +240,50 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
 				// Can early out of a lot of analysis if we are only dealing with identifiers that are lambda params
 				// (no captured variables or additional method calls)
-                var hasNonParameterIdentifier = lambdaSyntax.DescendantNodes().OfType<IdentifierNameSyntax>().Any(identifier => LambdaParameters.All(param => param.Name != identifier.Identifier.ToString()));
+                var hasNonParameterIdentifier = lambdaSyntax.DescendantNodes().OfType<SimpleNameSyntax>().Any(identifier => LambdaParameters.All(param => param.Name != identifier.Identifier.ToString()));
 
 				if (hasNonParameterIdentifier)
 				{
-				    // Check to see if we have a local method declaration in our parent block, if so we will need to move that into the job struct
-                    // (and capture variables that it uses)
-                    var localFunctionStatementsInContainingMethodButNotLambda =
-                        ContainingMethod.DescendantNodes().OfType<LocalFunctionStatementSyntax>().Where(statement =>
-                            !lambdaSyntax.DescendantNodes().OfType<LocalFunctionStatementSyntax>().Contains(statement));
-                    if (localFunctionStatementsInContainingMethodButNotLambda.Any())
-                    {
-                        var invocationsInLambda = lambdaSyntax.DescendantNodes().OfType<InvocationExpressionSyntax>();
-                        var invocationsInContainingMethodButNotLambda = ContainingMethod.DescendantNodes().OfType<InvocationExpressionSyntax>().Where(invocation => !invocationsInLambda.Contains(invocation));
-
-                        static bool InvocationsContainsInvocationOfMethod(IEnumerable<InvocationExpressionSyntax> invocations,  string methodName) =>
-                            invocations.Any(invocation => invocation.Expression is IdentifierNameSyntax invocationMethodIdentifier &&
-                                                          invocationMethodIdentifier.Identifier.ToString() == methodName);
-
-                        foreach (var localFunction in localFunctionStatementsInContainingMethodButNotLambda)
-                        {
-                            if (InvocationsContainsInvocationOfMethod(invocationsInLambda, localFunction.Identifier.ToString()))
-                            {
-                                var onlyUsedInLambda = !InvocationsContainsInvocationOfMethod(invocationsInContainingMethodButNotLambda, localFunction.Identifier.ToString());
-                                LocalFunctionUsedInLambda.Add((localFunction, onlyUsedInLambda));
-                            }
-                        }
-                    }
-
                     // Discover captured variables
                     // this must not include parameters as they can be captured by inner lambdas
-                    // or variables declared inside of lambda (marked as captured if they are used by local methods inside lambda)
-                    var syntaxesToAnalyze = LocalFunctionUsedInLambda.Select(tuple => tuple.localFunction).Concat(new[] {lambdaSyntax});
-                    foreach (var analyzeSyntax in syntaxesToAnalyze)
+                    // or variables declared inside of lamba
+                    var dataFlowAnalysis = systemDescription.SemanticModel.AnalyzeDataFlow(lambdaSyntax);
+                    if (dataFlowAnalysis.Succeeded)
                     {
-                        var dataFlowAnalysis = systemDescription.SemanticModel.AnalyzeDataFlow(analyzeSyntax);
-                        if (dataFlowAnalysis.Succeeded)
+                        foreach (var capturedVariable in dataFlowAnalysis.CapturedInside)
                         {
-                            foreach (var capturedVariable in dataFlowAnalysis.CapturedInside)
+                            // Make sure not already captured or a lambda param
+                            if (LambdaParameters.All(param => param.Name != capturedVariable.Name) &&
+                                VariablesCaptured.All(param => param.Symbol.Name != capturedVariable.Name))
                             {
-                                // Make sure not already captured or a lambda param
-                                if (LambdaParameters.All(param => param.Name != capturedVariable.Name) &&
-                                    VariablesCapturedOnlyByLocals.All(param => param.Symbol.Name != capturedVariable.Name) &&
-                                    VariablesCaptured.All(param => param.Symbol.Name != capturedVariable.Name))
+                                var capturedVariableDescription = new LambdaCapturedVariableDescription(capturedVariable);
+                                VariablesCaptured.Add(capturedVariableDescription);
+                                if (Schedule.Mode != ScheduleMode.Run && !capturedVariableDescription.IsNativeContainer &&
+                                    dataFlowAnalysis.AlwaysAssigned.Contains(capturedVariable) && dataFlowAnalysis.DataFlowsOut.Contains(capturedVariable))
                                 {
-                                    var capturedVariableDescription = new LambdaCapturedVariableDescription(capturedVariable);
-                                    if (dataFlowAnalysis.VariablesDeclared.Contains(capturedVariable))
-                                        VariablesCapturedOnlyByLocals.Add(capturedVariableDescription);
-                                    else
-                                        VariablesCaptured.Add(capturedVariableDescription);
-
-                                    if (Schedule.Mode != ScheduleMode.Run && !capturedVariableDescription.IsNativeContainer &&
-                                        dataFlowAnalysis.AlwaysAssigned.Contains(capturedVariable) && dataFlowAnalysis.DataFlowsOut.Contains(capturedVariable))
-                                    {
-                                        LambdaJobsErrors.DC0013(SystemDescription, Location, capturedVariable.Name, LambdaJobKind);
-                                        Success = false;
-                                    }
+                                    LambdaJobsErrors.DC0013(SystemDescription, Location, capturedVariable.Name, LambdaJobKind);
+                                    Success = false;
                                 }
                             }
                         }
-				    }
+
+                        foreach (var localFunc in dataFlowAnalysis.UsedLocalFunctions)
+                        {
+                            var location = OriginalLambdaExpression.GetLocation();
+
+                            // Find first invocation in lambda using that MethodSymbol and return location of it.
+                            foreach (var node in lambdaSyntax.DescendantNodes())
+                                if (node is InvocationExpressionSyntax { Expression: SimpleNameSyntax nameSyntax } invocation && nameSyntax.Identifier.ValueText == localFunc.Name
+                                    && SymbolEqualityComparer.Default.Equals(SystemDescription.SemanticModel.GetSymbolInfo(invocation.Expression).Symbol.OriginalDefinition, localFunc))
+                                {
+                                    location = invocation.GetLocation();
+                                    break;
+                                }
+
+                            LambdaJobsErrors.DC0083(SystemDescription, location, LambdaJobKind, Schedule.Mode);
+                            Success = false;
+                        }
+                    }
 				}
 
                 // If we are also using any managed components or doing structural changes, we also need to capture this
@@ -362,14 +315,24 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                             var capturedVariable = VariablesCaptured.FirstOrDefault(v => v.Symbol.Name == identifier.Identifier.Text);
                             if (capturedVariable != null)
                             {
-                                if (entityAttribute.CheckAttributeApplicable(SystemDescription, systemDescription.SemanticModel, capturedVariable))
+                                if (entityAttribute.IsApplicableToCaptured(SystemDescription, capturedVariable))
                                     capturedVariable.Attributes.Add(entityAttribute.AttributeName);
                                 else
                                     Success = false;
                             }
                             else
                             {
-                                LambdaJobsErrors.DC0012(SystemDescription, argumentSyntax.GetLocation(), identifier.ToString(), entityAttribute.MethodName);
+                                var symbolInfo = systemDescription.SemanticModel.GetSymbolInfo(identifier);
+                                if (symbolInfo.Symbol is ILocalSymbol)
+                                {
+                                    // Captured variable is not used
+                                    LambdaJobsErrors.DC0035(SystemDescription, argumentSyntax.GetLocation(), identifier.ToString(), entityAttribute.MethodName);
+                                }
+                                else
+                                {
+                                    // Not a local variable
+                                    LambdaJobsErrors.DC0012(SystemDescription, argumentSyntax.GetLocation(), identifier.ToString(), entityAttribute.MethodName);
+                                }
                                 Success = false;
                             }
                         }
@@ -420,7 +383,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 {
                     SyntaxNode rewrittenLambdaExpression;
                     var rewriter = new LambdaBodyRewriter(this);
-                    (rewrittenLambdaExpression, AdditionalFields, MethodsForLocalFunctions) = rewriter.Rewrite();
+                    (rewrittenLambdaExpression, AdditionalFields) = rewriter.Rewrite();
                     NeedsTimeData = rewriter.NeedsTimeData;
                     RewrittenLambdaBody = ((ParenthesizedLambdaExpressionSyntax) rewrittenLambdaExpression).ToBlockSyntax();
                 }
@@ -491,20 +454,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             return (IsSuccess: isSuccess, ecbCommandParameter);
         }
 
-        private IEnumerable<LambdaParamDescription> GetLambdaParameters()
-        {
-            var parameterList = OriginalLambdaExpression?.DescendantNodes().OfType<ParameterListSyntax>().FirstOrDefault();
-
-            foreach (var param in parameterList?.DescendantNodes().OfType<ParameterSyntax>())
-            {
-                var paramDescription = LambdaParamDescription.From(this, param, Name);
-                if (paramDescription != null)
-                    yield return paramDescription;
-                else
-                    Success = false;
-            }
-        }
-
         ArgumentSyntax SingleOptionalArgumentSyntaxOfMethod(string methodName)
         {
             return
@@ -515,7 +464,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
         (bool IsEnabled, BurstSettings Settings) GetBurstSettings()
         {
-            if (MethodInvocations.ContainsKey("WithoutBurst") || MethodInvocations.ContainsKey("WithStructuralChanges"))
+            if (MethodInvocations.ContainsKey("WithoutBurst") || WithStructuralChanges)
                 return (false, default);
 
             if (!MethodInvocations.TryGetValue("WithBurst", out var burstInvocations))
@@ -640,7 +589,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             if (MethodInvocations.TryGetValue("ScheduleParallel", out var schedulingParallelInvocations))
                 return (ScheduleMode.ScheduleParallel, schedulingParallelInvocations.First().ArgumentList.Arguments.SingleOrDefault());
 
-            LambdaJobsErrors.DC0011(SystemDescription, Location, LambdaJobKind);
             Success = false;
             throw new InvalidDescriptionException();
         }

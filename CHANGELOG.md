@@ -1,5 +1,55 @@
 # Changelog
 
+
+## [1.0.10] - 2023-05-23
+
+### Added
+
+* Write a WebGLPreloadedStreamingAssets.manifest file into the Library/PlayerDataCache folder for webgl builds containing all files in the streaming asset folder to be preloaded at runtime by the webgl player build program.
+* Added IsReferenceValid property to EntityPrefabReference and EntitySceneReference.
+* Added `EntityManager.AddComponentData<T>(SystemHandle, T)` for managed components.
+
+### Changed
+
+* Significantly optimized bulk-structural change operations in `EntityManager`, including:
+* `EntityManager.AddComponent<T>(EntityQuery)`
+* `EntityManager.AddComponent(EntityQuery, ComponentType)`
+* `EntityManager.AddComponent(EntityQuery, ComponentTypeSet)`
+* `EntityManager.RemoveComponent<T>(EntityQuery)`
+* `EntityManager.RemoveComponent(EntityQuery, ComponentType)`
+* `EntityManager.RemoveComponent<T>(EntityQuery, ComponentTypeSet)`
+* `EntityManager.AddSharedComponent<T>(EntityQuery, T)`
+* `EntityManager.AddSharedComponentManaged<T>(EntityQuery, T)`
+* `EntityManager.DestroyEntity(EntityQuery)` is now up to 4x faster in release builds.
+* Added analyzer to detect several ways an "Entities.ForEach" or  "Job.WithCode" chain can be malformed.
+
+
+### Removed
+
+* Entities.ForEach and Job.WithCode now generate an error if their lambda contains other lambdas or local functions. This never fully worked or was fully implemented.  Instead, try using APIs, like SystemAPI.Query, IJobEntity and IJobChunk. These all work with both local functions and lambdas.
+
+### Fixed
+
+* SystemAPI methods now work inside of partial methods.
+* All aspect generated type references to their full name beginning with `global::` (Type Shadowing)
+* Do not generate aspect from type with shadowed IAspect type
+* Fixed sourcegen issues with user types and namespaces that conflict with Unity and Entities types.
+* Identically named types in different namespaces no longer trigger `CS0128` and `CS1503` when used as parameters in `IJobEntity.Execute()`.
+* If you update multiple packages, create a new section with a new header for the other package.
+* Assets loaded in edit mode through the content system are not forcibly unloaded.
+* LocalToWorld.Transform now works with nonuniform scale
+* Introduce clear error message (`SGJE0023`) when parameter types in `IJobEntity.Execute()` methods are less accessible than the `IJobEntity` types in which they are used.
+* `EntityCommandBuffer.AddComponent<T>(Entity)` for managed `T` no longer leaves the managed component store in an invalid state.
+* The constructor for `ComponentTypeSet` no longer throws an exception if the provided list of component types is empty.
+* `EntityManager.AddSharedComponent<T>(EntityQuery,T)` and `EntityManager.AddSharedComponentManaged<T>(EntityQuery,T)`now set the shared component `T` to the provided value, even if the target chunk already has component `T`. This changes makes this method consistent with other "add component and set to value" operations. *All existing call sites should be reviewed to ensure that they're not relying on the function's previous behavior!*
+* `EntityManager.DestroyEntity(EntityQuery)` had an undocumented constraint: if any of the target entities have a `LinkedEntityGroup` buffer component, the entities in that buffer must also match the target query. This constraint is now documented, and consistently applied in all code paths of this function.
+* You now can register generic ISystems so that they can be discovered and created automatically with world creation, or created manually via CreateSystem. Register each generic instance of them with `[assembly: RegisterGenericSystemType(typeof(YourGenericSystem<YourParticularType>))]` to allow such usage.
+
+### Known Issues
+
+* Some errors are surfaced when importing the Entities package into a 2D project. To bypass this issue, restart the editor once the package has been imported.
+
+
 ## [1.0.8] - 2023-04-17
 
 ### Added
@@ -37,6 +87,8 @@
 
 ### Fixed
 
+* Allow components to contain NativeContainers whose element type is or contains a NativeContainer. Previously the TypeManager would throw during initialization if a component contained a a nested NativeContainer field. Note: NativeContainers still cannot be verified to be safely accessed when used in jobs. Thus, if a component contains a nested NativeContainer field, that component can only be accessed from the main thread.
+* Fixed memory leak in content loading system when scenes are unloaded before fully loading.
 * Allow components to contain NativeContainers whose element type is or contains a NativeContainer. Previously the TypeManager would throw during initialization if a component contained a a nested NativeContainer field. Note: NativeContainers still cannot be verified to be safely accessed when used in jobs. Thus, if a component contains a nested NativeContainer field, that component can only be accessed from the main thread.
 * improved error message when `EntityQuery.GetSingleton()` fails
 * Query window minimum size and scrolling behavior.
@@ -141,6 +193,9 @@
 
 ### Fixed
 
+* Assets loaded in edit mode through the RuntimeContentManager will no longer be unloaded.  They will be unloaded by the editor garbage collection.  This is to prevent unloading assets that may be in use in other parts of the project.
+* Fixed memory leak in content loading system when scenes are unloaded before fully loading.
+* IsReferenceValid now checks for the correct generation type and the existence of the referenced asset when called in the editor.
 * Baker IEntitiesPlayerSettings were not setup correctly if the com.unity.platforms package was not installed/present in the project.
 * IJobEntity now no longer caches the default query when scheduling with a dynamic query. For example. `new MyJob().Schedule();` will use the query matching its execute signature whereas `new MyJob().Schedule(myQuery)` will now only use myQuery. This is useful in cases like RequireMatchingQueriesForUpdate, where you don't want to accidentally create extra queries.
 * Jobs implementing IJobEntity can now be created in one assembly and scheduled in another.

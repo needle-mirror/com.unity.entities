@@ -155,54 +155,33 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         };
                     }
 
-                    foreach (var lambdaParameter in lambdaJobDescription.AdditionalFields)
-                    {
-                        switch (lambdaParameter.AccessorDataType)
-                        {
-                            case LambdaJobsPatchableMethod.AccessorDataType.ComponentLookup:
-                                systemDescription.HandlesDescription.GetOrCreateComponentLookupField(
-                                    lambdaParameter.Type,
-                                    lambdaParameter.IsReadOnly);
-                                break;
-                            case LambdaJobsPatchableMethod.AccessorDataType.BufferLookup:
-                                systemDescription.HandlesDescription.GetOrCreateBufferLookupField(
-                                    lambdaParameter.Type,
-                                    lambdaParameter.IsReadOnly);
-                                break;
-                            case LambdaJobsPatchableMethod.AccessorDataType.AspectLookup:
-                                systemDescription.HandlesDescription.GetOrCreateAspectLookup(
-                                    lambdaParameter.Type,
-                                    lambdaParameter.IsReadOnly);
-                                break;
-                        }
-                    }
                     if (lambdaJobDescription.EntityCommandBufferParameter is { Playback: { SystemType: { } } })
                         lambdaJobDescription.EntityCommandBufferParameter.GeneratedEcbFieldNameInSystemBaseType =
                             systemDescription.GetOrCreateEntityCommandBufferSystemField(lambdaJobDescription.EntityCommandBufferParameter.Playback.SystemType);
                 }
-                else
+
+                foreach (var lambdaParameter in lambdaJobDescription.AdditionalFields)
                 {
-                    // consider fields for Jobs.WithCode() { GetComponentLookup(); } situations
-                    foreach (var lambdaParameter in lambdaJobDescription.AdditionalFields)
+                    switch (lambdaParameter.AccessorDataType)
                     {
-                        switch (lambdaParameter.AccessorDataType)
-                        {
-                            case LambdaJobsPatchableMethod.AccessorDataType.ComponentLookup:
-                                systemDescription.HandlesDescription.GetOrCreateComponentLookupField(
-                                    lambdaParameter.Type,
-                                    lambdaParameter.IsReadOnly);
-                                break;
-                            case LambdaJobsPatchableMethod.AccessorDataType.BufferLookup:
-                                systemDescription.HandlesDescription.GetOrCreateBufferLookupField(
-                                    lambdaParameter.Type,
-                                    lambdaParameter.IsReadOnly);
-                                break;
-                            case LambdaJobsPatchableMethod.AccessorDataType.AspectLookup:
-                                systemDescription.HandlesDescription.GetOrCreateAspectLookup(
-                                    lambdaParameter.Type,
-                                    lambdaParameter.IsReadOnly);
-                                break;
-                        }
+                        case LambdaJobsPatchableMethod.AccessorDataType.ComponentLookup:
+                            systemDescription.HandlesDescription.GetOrCreateComponentLookupField(
+                                lambdaParameter.Type,
+                                lambdaParameter.IsReadOnly);
+                            break;
+                        case LambdaJobsPatchableMethod.AccessorDataType.BufferLookup:
+                            systemDescription.HandlesDescription.GetOrCreateBufferLookupField(
+                                lambdaParameter.Type,
+                                lambdaParameter.IsReadOnly);
+                            break;
+                        case LambdaJobsPatchableMethod.AccessorDataType.AspectLookup:
+                            systemDescription.HandlesDescription.GetOrCreateAspectLookup(
+                                lambdaParameter.Type,
+                                lambdaParameter.IsReadOnly);
+                            break;
+                        case LambdaJobsPatchableMethod.AccessorDataType.EntityStorageInfoLookup:
+                            systemDescription.HandlesDescription.GetOrCreateEntityStorageInfoLookupField();
+                            break;
                     }
                 }
 
@@ -210,38 +189,12 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                 if (lambdaJobDescription.NeedsJobFunctionPointers)
                 {
-                    string delegateName = lambdaJobDescription.LambdaJobKind switch
-                    {
-                        LambdaJobKind.Job => "Unity.Entities.Internal.InternalCompilerInterface.JobRunWithoutJobSystemDelegate",
-                        LambdaJobKind.Entities when lambdaJobDescription.WithFilterEntityArray != null =>
-                            "Unity.Entities.Internal.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegateLimitEntities",
-                        LambdaJobKind.Entities =>
-                            "Unity.Entities.Internal.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegate",
-                        _ => string.Empty
-                    };
-
-                    if (lambdaJobDescription.InStructSystem)
+                    systemDescription.AdditionalStatementsInOnCreateForCompilerMethod.Add(
+                        $"{lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst = {lambdaJobDescription.JobStructName}.RunWithoutJobSystem;");
+                    if (lambdaJobDescription.Burst.IsEnabled)
                     {
                         systemDescription.AdditionalStatementsInOnCreateForCompilerMethod.Add(
-                            @$"{lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst.Data =
-                                new Unity.Burst.FunctionPointer<{delegateName}>(
-                                    global::System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(({delegateName}){lambdaJobDescription.JobStructName}.RunWithoutJobSystem));");
-                        if (lambdaJobDescription.Burst.IsEnabled)
-                        {
-                            systemDescription.AdditionalStatementsInOnCreateForCompilerMethod.Add(
-                                @$"{lambdaJobDescription.JobStructName}.FunctionPtrFieldBurst.Data = Unity.Burst.BurstCompiler
-                                .CompileFunctionPointer<{delegateName}>({lambdaJobDescription.JobStructName}.RunWithoutJobSystem);");
-                        }
-                    }
-                    else
-                    {
-                        systemDescription.AdditionalStatementsInOnCreateForCompilerMethod.Add(
-                            $"{lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst = {lambdaJobDescription.JobStructName}.RunWithoutJobSystem;");
-                        if (lambdaJobDescription.Burst.IsEnabled)
-                        {
-                            systemDescription.AdditionalStatementsInOnCreateForCompilerMethod.Add(
-                                $"{lambdaJobDescription.JobStructName}.FunctionPtrFieldBurst = Unity.Entities.Internal.InternalCompilerInterface.BurstCompile({lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst);");
-                        }
+                            $"{lambdaJobDescription.JobStructName}.FunctionPtrFieldBurst = Unity.Entities.Internal.InternalCompilerInterface.BurstCompile({lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst);");
                     }
                 }
 
@@ -265,16 +218,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 if (!lambdaJobDescriptionsInMethods.Any())
 	                continue;
 
+	            // Replace original invocation expressions for scheduling with replacement syntax
 	            foreach (var lambdaJobDescriptionInMethod in lambdaJobDescriptionsInMethods)
-	            {
-	                // Replace original invocation expressions for scheduling with replacement syntax
-	                systemDescription.ReplaceNodeNonNested(lambdaJobDescriptionInMethod.ContainingInvocationExpression, EntitiesSourceFactory.Common.SchedulingInvocationFor(lambdaJobDescriptionInMethod));
-
-                    // Also need to replace local functions that are used in the lambda but nowhere else
-                    foreach (var localMethodUsedOnlyInLambda in lambdaJobDescriptionInMethod.LocalFunctionUsedInLambda.Where(tuple => tuple.onlyUsedInLambda))
-                        systemDescription.ReplaceNodeNonNested(localMethodUsedOnlyInLambda.localFunction, replacement: null);
-	            }
-	        }
+                    systemDescription.ReplaceNodeNonNested(lambdaJobDescriptionInMethod.ContainingInvocationExpression, EntitiesSourceFactory.Common.SchedulingInvocationFor(lambdaJobDescriptionInMethod));
+            }
             return true;
         }
     }

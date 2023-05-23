@@ -96,6 +96,7 @@ namespace Unity.Entities.Tests
 
             Assert.Throws<InvalidOperationException>(() => { m_Manager.CreateEntity(typeof(EcsTestData)); });
             Assert.Throws<InvalidOperationException>(() => { m_Manager.Exists(new Entity()); });
+            m_Manager.EndExclusiveEntityTransaction();
         }
 
         [Test]
@@ -106,6 +107,7 @@ namespace Unity.Entities.Tests
 
             var transaction = m_Manager.BeginExclusiveEntityTransaction();
             Assert.AreEqual(42, transaction.GetComponentData<EcsTestData>(entity).value);
+            m_Manager.EndExclusiveEntityTransaction();
         }
 
         [Test]
@@ -119,6 +121,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => { job.Schedule(); });
 
             jobHandle.Complete();
+            m_Manager.EndExclusiveEntityTransaction();
         }
 
         [Test]
@@ -133,6 +136,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => { job.entities.CreateEntity(typeof(EcsTestData)); });
 
             jobHandle.Complete();
+            m_Manager.EndExclusiveEntityTransaction();
         }
 
         [Test]
@@ -144,6 +148,7 @@ namespace Unity.Entities.Tests
             var entities = new NativeArray<Entity>(1000, Allocator.Persistent);
             transaction.CreateEntity(arch, entities);
             entities.Dispose();
+            m_Manager.EndExclusiveEntityTransaction();
         }
 
         struct DynamicBufferElement : IBufferElementData
@@ -266,6 +271,7 @@ namespace Unity.Entities.Tests
                 new SyncIJobChunk {}.ScheduleParallel(m_Manager.UniversalQuery, default).Complete();
             });
             middle.Complete();
+            m_Manager.EndExclusiveEntityTransaction();
         }
 
         [Test]
@@ -383,6 +389,7 @@ namespace Unity.Entities.Tests
         {
             m_Manager.BeginExclusiveEntityTransaction();
             Assert.Throws<InvalidOperationException>(() => m_Manager.BeginExclusiveEntityTransaction());
+            m_Manager.EndExclusiveEntityTransaction();
         }
 
         [Test]

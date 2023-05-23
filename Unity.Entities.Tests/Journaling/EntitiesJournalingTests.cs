@@ -1318,9 +1318,7 @@ namespace Unity.Entities.Tests
             }
 
             CheckRecords(
-                new RecordDesc(0, RecordType.RemoveComponent, World, entities: ToArray(entity), componentTypes: ToArray(typeof(EcsTestSharedComp))),
-                new RecordDesc(1, RecordType.AddComponent, World, entities: ToArray(entity), componentTypes: ToArray(typeof(EcsTestSharedComp))),
-                new RecordDesc(2, RecordType.SetSharedComponentData, World, entities: ToArray(entity), componentTypes: ToArray(typeof(EcsTestSharedComp)), data: ToArray(new EcsTestSharedComp(42)))
+                new RecordDesc(0, RecordType.SetSharedComponentData, World, entities: ToArray(entity), componentTypes: ToArray(typeof(EcsTestSharedComp)), data: ToArray(new EcsTestSharedComp(42)))
             );
         }
 
@@ -1367,9 +1365,7 @@ namespace Unity.Entities.Tests
             }
 
             CheckRecords(
-                new RecordDesc(0, RecordType.RemoveComponent, World, entities: ToArray(entity), componentTypes: ToArray(typeof(EcsTestSharedCompManaged))),
-                new RecordDesc(1, RecordType.AddComponent, World, entities: ToArray(entity), componentTypes: ToArray(typeof(EcsTestSharedCompManaged))),
-                new RecordDesc(2, RecordType.SetSharedComponentData, World, entities: ToArray(entity), componentTypes: ToArray(typeof(EcsTestSharedCompManaged)))
+                new RecordDesc(0, RecordType.SetSharedComponentData, World, entities: ToArray(entity), componentTypes: ToArray(typeof(EcsTestSharedCompManaged)))
             );
         }
 

@@ -2,6 +2,8 @@ using System;
 using System.Runtime.CompilerServices;
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -34,13 +36,64 @@ namespace Unity.Entities
             }
         }
 
-        public void DestroyEntities(NativeArray<ArchetypeChunk> chunkArray)
+        public void DestroyEntities(EntityQueryImpl* queryImpl, ref BufferTypeHandle<LinkedEntityGroup> linkedEntityGroupTypeHandle)
         {
-            var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
-            for (int i = 0; i != chunkArray.Length; i++)
+            var chunkCacheIterator = new UnsafeChunkCacheIterator(queryImpl->_Filter,
+                queryImpl->_QueryData->HasEnableableComponents != 0,
+                queryImpl->GetMatchingChunkCache(), queryImpl->_QueryData->MatchingArchetypes.Ptr);
+            int chunkIndex = -1;
+            v128 chunkEnabledMask = default;
+            int maxChunkCount = chunkCacheIterator.Length;
+            using var chunksToProcess = new UnsafeList<ChunkAndEnabledMask>(maxChunkCount, Allocator.TempJob);
+            while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var archetypeChunk, out int chunkEntityCount,
+                       out byte useEnabledMask, ref chunkEnabledMask))
             {
-                var chunk = chunks[i].m_Chunk;
-                DestroyBatch(new EntityBatchInChunk {Chunk = chunk, StartIndex = 0, Count = chunk->Count});
+                // Structural changes are not allowed while using an UnsafeChunkCacheIterator, so we just track
+                // the chunks & metadata to process outside the loop.
+                chunksToProcess.AddNoResize(new ChunkAndEnabledMask
+                {
+                    Chunk = archetypeChunk.m_Chunk,
+                    EnabledMask = chunkEnabledMask,
+                    ChunkEntityCount = chunkEntityCount,
+                    UseEnabledMask = useEnabledMask,
+                });
+            }
+            // Validate that for all LinkedEntityGroup roots that we're about to destroy, all the entities in their
+            // LinkedEntityGroup buffers are also destroyed.
+            // Architecturally this validation should happen in EntityDataAccess, but it is more efficient to implement
+            // once we've already computed the chunksToProcess array.
+            AssertWillDestroyAllInLinkedEntityGroup(chunksToProcess, ref linkedEntityGroupTypeHandle,
+                queryImpl->_QueryData->HasEnableableComponents != 0);
+            // Apply the structural change to all chunks
+            var chunkBatches = stackalloc EntityBatchInChunk[TypeManager.MaximumChunkCapacity];
+            for(int iChunk=0,chunkCount=chunksToProcess.Length; iChunk<chunkCount; ++iChunk)
+            {
+                var chunk = chunksToProcess[iChunk].Chunk;
+                if (chunksToProcess[iChunk].UseEnabledMask == 0)
+                {
+                    // All entities in the chunk are enabled; process it en masse
+                    DestroyBatch(new EntityBatchInChunk {Chunk = chunk, StartIndex = 0, Count = chunksToProcess[iChunk].ChunkEntityCount});
+                }
+                else
+                {
+                    // Populate a list of entity batches in this chunk to process
+                    int batchCount = 0;
+                    int batchEndIndex = 0;
+                    chunkEnabledMask = chunksToProcess[iChunk].EnabledMask;
+                    while (EnabledBitUtility.TryGetNextRange(chunkEnabledMask, batchEndIndex, out int batchStartIndex, out batchEndIndex))
+                    {
+                        chunkBatches[batchCount++] = new EntityBatchInChunk
+                        {
+                            Chunk = chunk, Count = batchEndIndex - batchStartIndex, StartIndex = batchStartIndex
+                        };
+                    }
+                    Assert.IsTrue(batchCount <= TypeManager.MaximumChunkCapacity);
+                    // Iterate batches backwards, to avoid mutating entities we haven't processed yet
+                    for (int i = batchCount - 1; i >= 0; i--)
+                    {
+                        DestroyBatch(chunkBatches[i]);
+                    }
+                }
             }
         }
 

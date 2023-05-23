@@ -20,6 +20,14 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             LambdaJobKind.Entities => "Entities.ForEach",
             _ => throw new ArgumentOutOfRangeException()
         };
+
+        public static string ToNameOfValidAlternativeFeatures(this LambdaJobKind lambdaJobKind, ScheduleMode scheduleMode) => lambdaJobKind switch
+        {
+            LambdaJobKind.Job => "IJob",
+            LambdaJobKind.Entities when scheduleMode == ScheduleMode.Run => "SystemAPI.Query, IJobEntity or IJobChunk",
+            LambdaJobKind.Entities => "IJobEntity or IJobChunk",
+            _ => throw new ArgumentOutOfRangeException(nameof(lambdaJobKind), lambdaJobKind, null)
+        };
     }
 
     public struct LambdaJobsCandidate : ISystemCandidate

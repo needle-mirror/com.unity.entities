@@ -58,8 +58,9 @@ namespace Unity.Entities.Editor
             else
                 OnAttachToPanel(null);
 
-            m_TextField.RegisterCallback<KeyDownEvent>(OnInputKeyDown);
-            m_TextField.RegisterCallback<KeyUpEvent>(OnInputKeyUp);
+            var textElement = m_TextField.Q<TextElement>();
+            textElement.RegisterCallback<KeyDownEvent>(OnInputKeyDown);
+            textElement.RegisterCallback<KeyUpEvent>(OnInputKeyUp);
             m_TextField.RegisterCallback<FocusOutEvent>(OnFocusOut);
             m_CompletionContainer.RegisterCallback<FocusOutEvent>(OnFocusOut);
             m_TextField.RegisterValueChangedCallback(OnValueChanged);

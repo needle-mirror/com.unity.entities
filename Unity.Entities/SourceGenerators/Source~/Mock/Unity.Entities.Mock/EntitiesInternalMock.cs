@@ -73,6 +73,7 @@ public static partial class InternalCompilerInterface
         public static void RunByRefWithoutJobs<T>(ref T jobData, EntityQuery query) where T : struct, IJobChunk {}
         public static JobHandle Schedule<T>(T jobData, EntityQuery query, JobHandle dependsOn) where T : struct, IJobChunk => default;
         public static JobHandle ScheduleParallel<T>(T jobData, EntityQuery query, JobHandle dependsOn) where T : struct, IJobChunk => default;
+        public static JobHandle ScheduleParallel<T>(T jobData, EntityQuery query, JobHandle dependsOn, NativeArray<int> chunkBaseEntityIndices) where T : struct, IJobChunk => default;
         public static JobHandle Schedule<T>(T jobData, EntityQuery query, NativeArray<Entity> limitToEntityArray, JobHandle dependsOn) where T : struct, IJobChunk => default;
 #pragma warning disable 618
         public static JobHandle ScheduleParallel<T>(T jobData, EntityQuery query, ScheduleGranularity scheduleGranularity, NativeArray<Entity> limitToEntityArray, JobHandle dependsOn) where T : struct, IJobChunk => default;

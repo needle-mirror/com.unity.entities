@@ -83,10 +83,10 @@ namespace Unity.Entities.SourceGen.Aspect
         /// Returns true if type name is likely equal.
         /// </summary>
         /// <param name="syntaxNode"></param>
-        /// <param name="typeNameNamesapce">The host namepsace of the type name. e.g. "Unity.Entities"</param>
+        /// <param name="typeNameNamespace">The host namespace of the type name. e.g. "Unity.Entities"</param>
         /// <param name="typeName">The unqualified type name of the generic type. e.g. "Entity" </param>
         /// <returns></returns>
-        public static bool IsTypeNameCandidate(this SyntaxNode syntaxNode, string typeNameNamesapce, string typeName) => IsTypeNameCandidate(syntaxNode, typeNameNamesapce, typeName, out var typeArgumentListSyntax);
+        public static bool IsTypeNameCandidate(this SyntaxNode syntaxNode, string typeNameNamespace, string typeName) => IsTypeNameCandidate(syntaxNode, typeNameNamespace, typeName, out var typeArgumentListSyntax);
 
         /// <summary>
         /// Figures out as fast as possible if the syntax node does not represent a type name.
@@ -97,11 +97,11 @@ namespace Unity.Entities.SourceGen.Aspect
         /// Returns true if type name is likely equal.
         /// </summary>
         /// <param name="syntaxNode"></param>
-        /// <param name="typeNameNamesapce">The host namepsace of the type name. e.g. "Unity.Entities"</param>
+        /// <param name="typeNameNamespace">The host namespace of the type name. e.g. "Unity.Entities"</param>
         /// <param name="typeName">The unqualified type name of the generic type. e.g. "Entity" </param>
         /// <param name="typeArgumentListSyntax">output the TypeArgumentListSyntax node if the type represented by this SyntaxNode is generic</param>
         /// <returns></returns>
-        public static bool IsTypeNameCandidate(this SyntaxNode syntaxNode, string typeNameNamesapce, string typeName, out TypeArgumentListSyntax typeArgumentListSyntax)
+        public static bool IsTypeNameCandidate(this SyntaxNode syntaxNode, string typeNameNamespace, string typeName, out TypeArgumentListSyntax typeArgumentListSyntax)
         {
             switch (syntaxNode)
             {
@@ -111,19 +111,19 @@ namespace Unity.Entities.SourceGen.Aspect
                     {
                         return false;
                     }
-                    var iLastDot = typeNameNamesapce.LastIndexOf('.');
+                    var iLastDot = typeNameNamespace.LastIndexOf('.');
                     if (iLastDot < 0)
                     {
                         //End of qualified names
                         var typename = qualifiedNameSyntax.Left.ToString();
                         if (typename.StartsWith("global::")) typename = typename.Substring(8);
                         typeArgumentListSyntax = default;
-                        return typename == typeNameNamesapce;
+                        return typename == typeNameNamespace;
                     }
                     else if (qualifiedNameSyntax.Left != null)
                     {
                         // Fast estimate left part without extracting any TypeArgumentListSyntax
-                        return qualifiedNameSyntax.Left.IsTypeNameCandidate(typeNameNamesapce.Substring(0, iLastDot), typeNameNamesapce.Substring(iLastDot + 1));
+                        return qualifiedNameSyntax.Left.IsTypeNameCandidate(typeNameNamespace.Substring(0, iLastDot), typeNameNamespace.Substring(iLastDot + 1));
                     } else
                     {
                         // Limit the test here, any remaining qualified name is assumed to be a known scope. e.g. part of a using statement or other type defined withing the same unit.
@@ -145,13 +145,13 @@ namespace Unity.Entities.SourceGen.Aspect
         /// Returns true if type name is likely equal and extract the first generic type parameter into genericParam0.
         /// </summary>
         /// <param name="syntaxNode">Node to test type name against</param>
-        /// <param name="typeNameNamesapce">The host namepsace of the type name. e.g. "Unity.Entities"</param>
+        /// <param name="typeNameNamespace">The host namespace of the type name. e.g. "Unity.Entities"</param>
         /// <param name="typeName">The unqualified type name of the generic type. e.g. "ComponentDataRef" </param>
         /// <param name="genericParam0">TypeSyntax of the first generic type name represented by the SyntaxNode</param>
         /// <returns></returns>
-        public static bool IsTypeNameGenericCandidate(this SyntaxNode syntaxNode, string typeNameNamesapce, string typeName, out TypeSyntax genericParam0)
+        public static bool IsTypeNameGenericCandidate(this SyntaxNode syntaxNode, string typeNameNamespace, string typeName, out TypeSyntax genericParam0)
         {
-            if (IsTypeNameCandidate(syntaxNode, typeNameNamesapce, typeName, out var typeArgumentList))
+            if (IsTypeNameCandidate(syntaxNode, typeNameNamespace, typeName, out var typeArgumentList))
             {
                 if (typeArgumentList != null && TryGetFirstChildByType<TypeSyntax>(typeArgumentList, out var typeSyntax))
                 {
@@ -188,7 +188,7 @@ namespace Unity.Entities.SourceGen.Aspect
         /// Returns true if an attribute is likely equal.
         /// </summary>
         /// <param name="syntaxNode">Node to test type name against</param>
-        /// <param name="attributeNameSpace">The host namepsace of the attribute type name. e.g. "Unity.Entities"</param>
+        /// <param name="attributeNameSpace">The host namespace of the attribute type name. e.g. "Unity.Entities"</param>
         /// <param name="attributeName">The unqualified attribute name. e.g. "UpdateBefore" </param>
         /// <returns></returns>
         public static bool HasAttributeCandidate(this SyntaxNode syntaxNode, string attributeNameSpace, string attributeName)

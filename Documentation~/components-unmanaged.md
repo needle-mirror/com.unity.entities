@@ -2,7 +2,7 @@
 
 Unmanaged components store the most common data types which means they're useful in the majority of use-cases.
 
-Unmanaged components can store properties of the following types:
+Unmanaged components can store fields of the following types:
 
 * [Blittable types](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types)
 * `bool`

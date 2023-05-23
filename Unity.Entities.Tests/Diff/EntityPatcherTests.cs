@@ -279,7 +279,7 @@ namespace Unity.Entities.Tests
 
                 PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
                 var dstEntity = GetEntity(DstEntityManager, entityGuid);
-                Assert.AreEqual(0, DstEntityManager.GetSharedComponentDataIndex<EcsTestSharedComp>(dstEntity));
+                Assert.AreEqual(0, DstEntityManager.GetSharedComponentIndex<EcsTestSharedComp>(dstEntity));
                 Assert.AreEqual(0, DstEntityManager.GetSharedComponentManaged<EcsTestSharedComp>(dstEntity).value);
 
                 SrcEntityManager.SetSharedComponentManaged(entity, new EcsTestSharedComp {value = 2});
@@ -292,7 +292,7 @@ namespace Unity.Entities.Tests
 
                 SrcEntityManager.SetSharedComponentManaged(entity, new EcsTestSharedComp {value = 0});
                 PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
-                Assert.AreEqual(0, DstEntityManager.GetSharedComponentDataIndex<EcsTestSharedComp>(dstEntity));
+                Assert.AreEqual(0, DstEntityManager.GetSharedComponentIndex<EcsTestSharedComp>(dstEntity));
                 Assert.AreEqual(0, DstEntityManager.GetSharedComponentManaged<EcsTestSharedComp>(dstEntity).value);
             }
         }

@@ -8382,10 +8382,6 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-#if false
-        // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
-        // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
-        [Ignore("Needs ADDR-3368 to work reliably in APV.")]
         [UnityTest]
         public IEnumerator LiveConversion_TestSectionCrossReferences()
         {
@@ -8504,6 +8500,5 @@ namespace Unity.Scenes.Editor.Tests
                 yield return UpdateEditorAndWorld(w);
             }
         }
-#endif
     }
 }

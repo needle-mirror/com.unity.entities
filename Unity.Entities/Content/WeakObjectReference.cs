@@ -18,9 +18,24 @@ namespace Unity.Entities.Content
         internal UntypedWeakReferenceId Id;
 
         /// <summary>
-        /// Returns true if the reference has a valid id.  This does not imply that the referenced object is loaded.
+        /// Returns true if the reference has a valid id.  In the editor, additional checks for the correct GenerationType and the existence of the referenced asset are performed.
         /// </summary>
-        public bool IsReferenceValid => Id.IsValid;
+        public bool IsReferenceValid
+        {
+            get
+            {
+                if (!Id.IsValid)
+                    return false;
+#if UNITY_EDITOR
+                if (Id.GenerationType != WeakReferenceGenerationType.UnityObject)
+                    return false;
+
+                if (UntypedWeakReferenceId.GetEditorObject(Id) == null)
+                    return false;
+#endif
+                return true;
+            }
+        }
 
         /// <summary>
         /// Get the loading status of the referenced object.

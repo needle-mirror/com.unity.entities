@@ -9,7 +9,6 @@ using Unity.Burst;
 using static Unity.Burst.BurstRuntime;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Entities;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Profiling;
@@ -455,9 +454,21 @@ namespace Unity.Entities
             try
             {
                 Profiler.BeginSample(nameof(InitializeAllSystemTypes));
-                foreach (var systemType in GetTypesDerivedFrom(typeof(ISystem)))
+                var isystemTypes = GetTypesDerivedFrom(typeof(ISystem)).ToList();
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    foreach (var attr in asm.GetCustomAttributes<RegisterGenericSystemTypeAttribute>())
+                    {
+                        isystemTypes.Add(attr.ConcreteType);
+                    }
+                }
+
+                foreach (var systemType in isystemTypes)
                 {
                     if (!systemType.IsValueType)
+                        continue;
+                    if (systemType
+                        .ContainsGenericParameters) // don't register the open versions of generic isystems, only the closed
                         continue;
 
                     var name = systemType.FullName;

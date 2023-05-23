@@ -38,9 +38,15 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void AddComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, in ComponentTypeSet typeSet)
+        public static void AddComponentQuery(EntityComponentStore* entityComponentStore, EntityQueryImpl *queryImpl, TypeIndex typeIndex)
         {
-            entityComponentStore->AddComponents(chunks, chunkCount, typeSet);
+            entityComponentStore->AddComponent(queryImpl, ComponentType.FromTypeIndex(typeIndex));
+        }
+
+        [BurstCompile]
+        public static void AddComponentsQuery(EntityComponentStore* entityComponentStore, EntityQueryImpl* queryImpl, in ComponentTypeSet typeSet)
+        {
+            entityComponentStore->AddComponents(queryImpl, typeSet);
         }
 
         [BurstCompile]
@@ -74,9 +80,15 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void RemoveComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, in ComponentTypeSet typeSet)
+        public static void RemoveComponentQuery(EntityComponentStore* entityComponentStore, EntityQueryImpl* queryImpl, TypeIndex typeIndex)
         {
-            entityComponentStore->RemoveComponents(chunks, chunkCount, typeSet);
+            entityComponentStore->RemoveComponent(queryImpl, ComponentType.FromTypeIndex(typeIndex));
+        }
+
+        [BurstCompile]
+        public static void RemoveComponentsQuery(EntityComponentStore* entityComponentStore, EntityQueryImpl* queryImpl, in ComponentTypeSet typeSet)
+        {
+            entityComponentStore->RemoveComponents(queryImpl, typeSet);
         }
 
         [BurstCompile]
@@ -101,9 +113,22 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
+        public static void SetSharedComponentDataIndexWithBurst(EntityComponentStore* entityComponentStore, EntityQueryImpl* queryImpl,
+            in ComponentType componentType, int newSharedComponentDataIndex)
+        {
+            entityComponentStore->SetSharedComponentDataIndex(queryImpl, componentType, newSharedComponentDataIndex);
+        }
+
+        [BurstCompile]
         public static void AddSharedComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, TypeIndex componentTypeIndex, int sharedComponentIndex)
         {
             entityComponentStore->AddComponent(chunks, chunkCount, ComponentType.FromTypeIndex(componentTypeIndex), sharedComponentIndex);
+        }
+
+        [BurstCompile]
+        public static void AddSharedComponentQuery(EntityComponentStore* entityComponentStore, EntityQueryImpl* queryImpl, TypeIndex componentTypeIndex, int sharedComponentIndex)
+        {
+            entityComponentStore->AddComponent(queryImpl, ComponentType.FromTypeIndex(componentTypeIndex), sharedComponentIndex);
         }
 
         [BurstCompile]
@@ -131,9 +156,10 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void DestroyChunks(EntityComponentStore* entityComponentStore, in NativeArray<ArchetypeChunk> chunks)
+        public static void DestroyChunksQuery(EntityComponentStore* entityComponentStore, EntityQueryImpl* queryImpl,
+            ref BufferTypeHandle<LinkedEntityGroup> linkedEntityGroupTypeHandle)
         {
-            entityComponentStore->DestroyEntities(chunks);
+            entityComponentStore->DestroyEntities(queryImpl, ref linkedEntityGroupTypeHandle);
         }
 
         [BurstCompile]

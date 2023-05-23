@@ -22,7 +22,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 : $"Unity.Entities.ComponentType.ReadWrite<{TypeSymbol.ToFullName()}>()";
         }
     }
-
     public partial class JobEntityDescription : ISourceGeneratorDiagnosable
     {
         readonly List<ParameterTypeInJobEntityExecuteMethod> m_ComponentTypesInExecuteMethod;
@@ -124,6 +123,19 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                 // Dynamic Buffer
                                 case "global::Unity.Entities.DynamicBuffer<T>":
                                 {
+                                    if (IsLessAccessibleThan(typeArgSymbol, m_JobEntityTypeSymbol))
+                                    {
+                                        JobEntityGeneratorErrors.SGJE0023(
+                                            this,
+                                            parameterSymbol.Locations[0],
+                                            typeArgSymbol.ToFullName(),
+                                            Enum.GetName(typeof(Accessibility), typeArgSymbol.DeclaredAccessibility),
+                                            m_JobEntityTypeSymbol.ToFullName(),
+                                            Enum.GetName(typeof(Accessibility), m_JobEntityTypeSymbol.DeclaredAccessibility));
+                                        Invalid = true;
+                                        return null;
+                                    }
+
                                     var typeHandleName = m_HandlesDescription.GetOrCreateTypeHandleField(typeArgSymbol, parameterSymbol.IsReadOnly());
                                     var jobEntityParameter = new JobEntityParam_DynamicBuffer(parameterSymbol, typeArgSymbol, typeHandleName);
                                     queryAllTypes.Add(new Query
@@ -163,6 +175,18 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
 
                                         if (success)
                                         {
+                                            if (IsLessAccessibleThan(typeArgSymbol, m_JobEntityTypeSymbol))
+                                            {
+                                                JobEntityGeneratorErrors.SGJE0023(
+                                                    this,
+                                                    parameterSymbol.Locations[0],
+                                                    typeArgSymbol.ToFullName(),
+                                                    Enum.GetName(typeof(Accessibility), typeArgSymbol.DeclaredAccessibility),
+                                                    m_JobEntityTypeSymbol.ToFullName(),
+                                                    Enum.GetName(typeof(Accessibility), m_JobEntityTypeSymbol.DeclaredAccessibility));
+                                                Invalid = true;
+                                                return null;
+                                            }
                                             queryAllTypes.Add(new Query
                                             {
                                                 IsReadOnly = jobEntityParameter.IsReadOnly,
@@ -204,6 +228,19 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                             // Shared Components
                             if (typeSymbol.InheritsFromInterface("Unity.Entities.ISharedComponentData"))
                             {
+                                if (IsLessAccessibleThan(typeSymbol, m_JobEntityTypeSymbol))
+                                {
+                                    JobEntityGeneratorErrors.SGJE0023(
+                                        this,
+                                        parameterSymbol.Locations[0],
+                                        typeSymbol.ToFullName(),
+                                        Enum.GetName(typeof(Accessibility), typeSymbol.DeclaredAccessibility),
+                                        m_JobEntityTypeSymbol.ToFullName(),
+                                        Enum.GetName(typeof(Accessibility), m_JobEntityTypeSymbol.DeclaredAccessibility));
+                                    Invalid = true;
+                                    return null;
+                                }
+
                                 var typeHandleName = m_HandlesDescription.GetOrCreateTypeHandleField(typeSymbol, parameterSymbol.IsReadOnly());
                                 m_RequiresEntityManager |= !typeSymbol.IsUnmanagedType;
                                 var jobEntityParameter = new JobEntityParam_SharedComponent(parameterSymbol, typeHandleName);
@@ -253,6 +290,19 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
 
                                     if (success)
                                     {
+                                        if (IsLessAccessibleThan(typeSymbol, m_JobEntityTypeSymbol))
+                                        {
+                                            JobEntityGeneratorErrors.SGJE0023(
+                                                this,
+                                                parameterSymbol.Locations[0],
+                                                typeSymbol.ToFullName(),
+                                                Enum.GetName(typeof(Accessibility), typeSymbol.DeclaredAccessibility),
+                                                m_JobEntityTypeSymbol.ToFullName(),
+                                                Enum.GetName(typeof(Accessibility), m_JobEntityTypeSymbol.DeclaredAccessibility));
+                                            Invalid = true;
+                                            return null;
+                                        }
+
                                         queryAllTypes.Add(new Query
                                         {
                                             IsReadOnly = jobEntityParameter.IsReadOnly,
@@ -283,6 +333,19 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                 // Aspects
                                 if (typeSymbol.IsAspect())
                                 {
+                                    if (IsLessAccessibleThan(typeSymbol, m_JobEntityTypeSymbol))
+                                    {
+                                        JobEntityGeneratorErrors.SGJE0023(
+                                            this,
+                                            parameterSymbol.Locations[0],
+                                            typeSymbol.ToFullName(),
+                                            Enum.GetName(typeof(Accessibility), typeSymbol.DeclaredAccessibility),
+                                            m_JobEntityTypeSymbol.ToFullName(),
+                                            Enum.GetName(typeof(Accessibility), m_JobEntityTypeSymbol.DeclaredAccessibility));
+                                        Invalid = true;
+                                        return null;
+                                    }
+
                                     if (parameterSymbol.RefKind == RefKind.In || parameterSymbol.RefKind == RefKind.Ref
                                                                               || parameterSymbol.RefKind == RefKind.RefReadOnly)
                                     {
@@ -319,45 +382,57 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                 Invalid = true;
                                 return new JobEntityParamValueTypesPassedWithDefaultArguments(parameterSymbol);
                             }
-                            else // We are a reference type if we get here
-                            {
-                                if (typeSymbol.InheritsFromInterface("Unity.Entities.IComponentData")
-                                    || typeSymbol.InheritsFromType("UnityEngine.Component")
-                                    || typeSymbol.InheritsFromType("UnityEngine.GameObject")
-                                    || typeSymbol.InheritsFromType("UnityEngine.ScriptableObject"))
-                                {
-                                    if (parameterSymbol.RefKind == RefKind.Ref || parameterSymbol.RefKind == RefKind.In)
-                                    {
-                                        JobEntityGeneratorErrors.SGJE0022(this, parameterSymbol.Locations.Single(), typeSymbol.Name);
-                                        Invalid = true;
-                                        return null;
-                                    }
 
-                                    var typeHandleName = m_HandlesDescription.GetOrCreateTypeHandleField(typeSymbol, parameterSymbol.IsReadOnly());
-                                    m_RequiresEntityManager = true;
-                                    var jobEntityParameter = new JobEntityParam_ManagedComponent(parameterSymbol, typeHandleName);
-                                    queryAllTypes.Add(new Query
+                            // We are a reference type if we get here
+                            if (typeSymbol.InheritsFromInterface("Unity.Entities.IComponentData")
+                                || typeSymbol.InheritsFromType("UnityEngine.Component")
+                                || typeSymbol.InheritsFromType("UnityEngine.GameObject")
+                                || typeSymbol.InheritsFromType("UnityEngine.ScriptableObject"))
+                            {
+                                if (parameterSymbol.RefKind == RefKind.Ref || parameterSymbol.RefKind == RefKind.In)
+                                {
+                                    JobEntityGeneratorErrors.SGJE0022(this, parameterSymbol.Locations.Single(), typeSymbol.Name);
+                                    Invalid = true;
+                                    return null;
+                                }
+
+                                if (IsLessAccessibleThan(typeSymbol, m_JobEntityTypeSymbol))
+                                {
+                                    JobEntityGeneratorErrors.SGJE0023(
+                                        this,
+                                        parameterSymbol.Locations[0],
+                                        typeSymbol.ToFullName(),
+                                        Enum.GetName(typeof(Accessibility), typeSymbol.DeclaredAccessibility),
+                                        m_JobEntityTypeSymbol.ToFullName(),
+                                        Enum.GetName(typeof(Accessibility), m_JobEntityTypeSymbol.DeclaredAccessibility));
+                                    Invalid = true;
+                                    return null;
+                                }
+
+                                var typeHandleName = m_HandlesDescription.GetOrCreateTypeHandleField(typeSymbol, parameterSymbol.IsReadOnly());
+                                m_RequiresEntityManager = true;
+                                var jobEntityParameter = new JobEntityParam_ManagedComponent(parameterSymbol, typeHandleName);
+                                queryAllTypes.Add(new Query
+                                {
+                                    IsReadOnly = jobEntityParameter.IsReadOnly,
+                                    Type = QueryType.All,
+                                    TypeSymbol = jobEntityParameter.TypeSymbol
+                                });
+                                m_ComponentTypesInExecuteMethod.Add(new ParameterTypeInJobEntityExecuteMethod
+                                {
+                                    IsReadOnly = jobEntityParameter.IsReadOnly,
+                                    TypeSymbol = jobEntityParameter.TypeSymbol,
+                                });
+                                if (hasChangeFilter)
+                                {
+                                    queryChangeFilterTypes.Add(new Query
                                     {
                                         IsReadOnly = jobEntityParameter.IsReadOnly,
-                                        Type = QueryType.All,
+                                        Type = QueryType.ChangeFilter,
                                         TypeSymbol = jobEntityParameter.TypeSymbol
                                     });
-                                    m_ComponentTypesInExecuteMethod.Add(new ParameterTypeInJobEntityExecuteMethod
-                                    {
-                                        IsReadOnly = jobEntityParameter.IsReadOnly,
-                                        TypeSymbol = jobEntityParameter.TypeSymbol,
-                                    });
-                                    if (hasChangeFilter)
-                                    {
-                                        queryChangeFilterTypes.Add(new Query
-                                        {
-                                            IsReadOnly = jobEntityParameter.IsReadOnly,
-                                            Type = QueryType.ChangeFilter,
-                                            TypeSymbol = jobEntityParameter.TypeSymbol
-                                        });
-                                    }
-                                    return jobEntityParameter;
                                 }
+                                return jobEntityParameter;
                             }
 
                             JobEntityGeneratorErrors.SGJE0010(this, parameterSymbol.Locations.Single(), parameterSymbol.Name, typeSymbol.ToFullName());
@@ -659,7 +734,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
         internal JobEntityParam_SharedComponent(IParameterSymbol parameterSymbol, string typeHandleFieldName) : base(parameterSymbol, typeHandleFieldName)
         {
             var typeName = TypeSymbol.Name;
-            var variableName = $"{char.ToLowerInvariant(typeName[0])}{typeName.Substring(1)}Data";
+            var variableName = $"{parameterSymbol.Name}Data";
             VariableDeclarationAtStartOfExecuteMethod = TypeSymbol.IsUnmanagedType
                 ? $"var {variableName} = chunk.GetSharedComponent(__TypeHandle.{TypeHandleFieldName});"
                 : $"var {variableName} = chunk.GetSharedComponentManaged(__TypeHandle.{TypeHandleFieldName}, __EntityManager);";
@@ -745,7 +820,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             IsZeroSizedComponent = componentTypeSymbol.IsZeroSizedComponent();
             IsEnableableComponent = componentTypeSymbol.IsEnableableComponent();
 
-            string typeName = componentTypeSymbol.Name;
             string fullyQualifiedTypeName = componentTypeSymbol.ToFullName();
 
             var executeMethodArg = GetIJobEntityExecuteMethodArgument();
@@ -768,7 +842,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                         requiredVariableName =
                             IsZeroSizedComponent
                                 ? string.Empty
-                                : $"{char.ToLowerInvariant(typeName[0])}{typeName.Substring(1)}IntPtr";
+                                : $"{parameterSymbol.Name}ArrayIntPtr";
                         requiredVariableDeclaration =
                             IsZeroSizedComponent
                                 ? string.Empty
@@ -792,7 +866,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                     }
                     case RefWrapperType.RefRW:
                     {
-                        requiredVariableName = $"{char.ToLowerInvariant(typeName[0])}{typeName.Substring(1)}IntPtr";
+                        requiredVariableName = $"{parameterSymbol.Name}ArrayIntPtr";
                         requiredVariableDeclaration = $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
 
                         value = $"{requiredVariableName}Ref";
@@ -804,7 +878,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                     }
                     case RefWrapperType.RefRO:
                     {
-                        requiredVariableName = $"{char.ToLowerInvariant(typeName[0])}{typeName.Substring(1)}ArrayIntPtr";
+                        requiredVariableName = $"{parameterSymbol.Name}ArrayIntPtr";
                         requiredVariableDeclaration = $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
 
                         value = $"{requiredVariableName}Ref";
@@ -817,7 +891,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                     case RefWrapperType.EnabledRefRO:
                     case RefWrapperType.EnabledRefRW:
                     {
-                        requiredVariableName = $"{char.ToLowerInvariant(typeName[0])}{typeName.Substring(1)}EnabledMask_{(IsReadOnly ? "RO" : "RW")}";
+                        requiredVariableName = $"{parameterSymbol.Name}EnabledMask_{(IsReadOnly ? "RO" : "RW")}";
                         requiredVariableDeclaration = $"var {requiredVariableName} = chunk.GetEnabledMask(ref __TypeHandle.{TypeHandleFieldName});";
 
                         value = $"{requiredVariableName}.{(IsReadOnly ? "GetEnabledRefRO" : "GetEnabledRefRW")}<{fullyQualifiedTypeName}>(entityIndexInChunk)";

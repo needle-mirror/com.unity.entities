@@ -48,12 +48,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 $"The {lambdaJobKind.ToName()} statement contains dynamic code in {methodName} that cannot be statically analyzed.", location);
         }
 
-        public static void DC0011(SystemDescription systemDescription, Location location, LambdaJobKind lambdaJobKind)
-        {
-            systemDescription.LogError(nameof(DC0011), k_ErrorTitle,
-                $"Every {lambdaJobKind.ToName()} statement needs to end with a .Schedule(){", .ScheduleParallel()".EmitIfTrue(lambdaJobKind != LambdaJobKind.Job)} or .Run() invocation.", location);
-        }
-
         public static void DC0012(SystemDescription systemDescription, Location location, string argumentName, string constructionMethodName)
         {
             systemDescription.LogError(nameof(DC0012), k_ErrorTitle,
@@ -72,16 +66,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 $"Execute() parameter '{parameterName}' is not a supported parameter in an IJobEntitiesForEach type. Supported `int` parameter names are {supportedParameters.SeparateByComma()}.", location);
         }
 
-        public static void DC0223(SystemDescription systemDescription, Location location, string typeName, SystemType systemType, bool isManagedIComponentData, LambdaJobKind lambdaJobKind)
+        public static void DC0223(SystemDescription systemDescription, Location location, string typeName, bool isManagedIComponentData, LambdaJobKind lambdaJobKind)
         {
             var componentText = isManagedIComponentData ? $"managed IComponentData `{typeName}`" : $"ISharedComponentData type {typeName}";
-
-            var message = systemType switch
-            {
-                SystemType.SystemBase => $"{lambdaJobKind.ToName()} uses {componentText}. This is only supported when using .WithoutBurst() and .Run().",
-                SystemType.ISystem => $"{lambdaJobKind.ToName()} uses {componentText}. This is not supported in ISystem systems.",
-                _ => throw new ArgumentOutOfRangeException(nameof(systemType), systemType, null)
-            };
+            var message = $"{lambdaJobKind.ToName()} uses {componentText}. This is only supported when using .WithoutBurst() and .Run().";
             systemDescription.LogError(nameof(DC0223), k_ErrorTitle, message, location);
         }
 
@@ -121,10 +109,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             systemDescription.LogError(nameof(DC0029), k_ErrorTitle, $"{lambdaJobKindName} Lambda expression has a nested {lambdaJobKindName} Lambda expression. Only a single {lambdaJobKindName} Lambda expression is currently supported.", location);
         }
 
-        public static void DC0031(SystemDescription systemDescription, Location location, SystemType systemType)
+        public static void DC0031(SystemDescription systemDescription, Location location)
         {
           systemDescription.LogError(nameof(DC0031), k_ErrorTitle,
-                $"Entities.ForEach Lambda expression stores the EntityQuery with a .WithStoreEntityQueryInField invocation but does not store it in a valid field.  Entity Queries can only be stored in fields of the containing {systemType}.", location);
+                $"Entities.ForEach Lambda expression stores the EntityQuery with a .WithStoreEntityQueryInField invocation but does not store it in a valid field.  Entity Queries can only be stored in fields of the containing SystemBase.", location);
         }
 
         public static void DC0033(SystemDescription systemDescription, Location location, string parameterName, string unsupportedTypeName)
@@ -133,22 +121,16 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 $"{unsupportedTypeName} implements IBufferElementData and must be used as DynamicBuffer<{unsupportedTypeName}>. Parameter '{parameterName}' is not a IComponentData / ISharedComponentData and is therefore not a supported parameter type for Entities.ForEach.", location);
         }
 
-        public static void DC0034(SystemDescription systemDescription, Location location, string argumentName, string unsupportedTypeName)
+        public static void DC0034(SystemDescription systemDescription, Location location, string argumentName, string unsupportedTypeName, string constructionMethodName)
         {
             systemDescription.LogError(nameof(DC0034), k_ErrorTitle,
-                $"Entities.WithReadOnly is called with an argument {argumentName} of unsupported type {unsupportedTypeName}. It can only be called with an argument that is marked with [NativeContainerAttribute] or a type that has a field marked with [NativeContainerAttribute].", location);
+                $"Entities.{constructionMethodName} is called with an argument {argumentName} of unsupported type {unsupportedTypeName}. It can only be called with an argument that is marked with [NativeContainerAttribute] or a type that has a field marked with [NativeContainerAttribute].", location);
         }
 
-        public static void DC0036(SystemDescription systemDescription, Location location, string argumentName, string unsupportedTypeName)
+        public static void DC0035(SystemDescription systemDescription, Location location, string argumentName, string constructionMethodName)
         {
-            systemDescription.LogError(nameof(DC0036), k_ErrorTitle,
-                $"Entities.WithNativeDisableContainerSafetyRestriction is called with an invalid argument {argumentName} of unsupported type {unsupportedTypeName}. It can only be called with an argument that is marked with [NativeContainerAttribute] or a type that has a field marked with [NativeContainerAttribute].", location);
-        }
-
-        public static void DC0037(SystemDescription systemDescription, Location location, string argumentName, string unsupportedTypeName)
-        {
-            systemDescription.LogError(nameof(DC0037), k_ErrorTitle,
-                $"Entities.WithNativeDisableParallelForRestriction is called with an invalid argument {argumentName} of unsupported type {unsupportedTypeName}. It can only be called with an argument that is marked with [NativeContainerAttribute] or a type that has a field marked with [NativeContainerAttribute].", location);
+            systemDescription.LogError(nameof(DC0035), k_ErrorTitle,
+                $"Entities.{constructionMethodName} is called with argument {argumentName}, but that value is not used in the lambda function.", location);
         }
 
         public static void DC0043(SystemDescription systemDescription, Location location, string jobName)
@@ -202,7 +184,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         public static void DC0057(SystemDescription systemDescription, Location location)
         {
             systemDescription.LogError(nameof(DC0057), k_ErrorTitle,
-                $"WithStructuralChanges cannot be used with Job.WithCode.  WithStructuralChanges should instead be used with Entities.ForEach.", location);
+                "WithStructuralChanges cannot be used with Job.WithCode.  WithStructuralChanges should instead be used with Entities.ForEach.", location);
         }
 
         public static void DC0059(SystemDescription systemDescription, Location location, string methodName, LambdaJobKind lambdaJobKind)
@@ -216,18 +198,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             systemDescription.LogError(
                 nameof(DC0070), k_ErrorTitle,
                 $"{duplicateType.Name} is used multiple times as a lambda parameter. Each IComponentData, ISharedComponentData, DynamicBuffer<T> type may only be used once in Entities.ForEach().", location);
-        }
-
-        public static void DC0071(SystemDescription systemDescription, Location location, string methodName, LambdaJobKind lambdaJobKind)
-        {
-            systemDescription.LogError(nameof(DC0071), k_ErrorTitle,
-                $"Invocation {methodName} cannot be used in an {lambdaJobKind.ToName()} in system implementing ISystem.", location);
-        }
-
-        public static void DC0072(SystemDescription systemDescription, Location location, LambdaJobKind lambdaJobKind)
-        {
-            systemDescription.LogError(nameof(DC0072), k_ErrorTitle,
-                $"{lambdaJobKind.ToName()} in ISystem systems must be accessed through the SystemState argument passed into the containing method (state.{lambdaJobKind.ToName()}(...).", location);
         }
 
         public static void DC0073(SystemDescription systemDescription, Location location)
@@ -323,6 +293,24 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         {
             systemDescription.LogError(nameof(DC0082), k_ErrorTitle,
                 $"{parameterName} is an passed with a `ref` or `in` keyword.  Aspects are already act as reference types and should just be passed in by value.", location);
+        }
+
+        public static void DC0083(SystemDescription systemDescription, Location location, LambdaJobKind kind, ScheduleMode scheduleMode)
+        {
+            systemDescription.LogError(nameof(DC0083), k_ErrorTitle,
+                $"Capturing local functions are not allowed in {kind.ToName()}. Consider using {kind.ToNameOfValidAlternativeFeatures(scheduleMode)} instead.", location);
+        }
+
+        public static void DC0084(SystemDescription systemDescription, Location location, LambdaJobKind kind, ScheduleMode scheduleMode)
+        {
+            systemDescription.LogError(nameof(DC0084), k_ErrorTitle,
+                $"Anonymous functions are not allowed in {kind.ToName()}. Consider using {kind.ToNameOfValidAlternativeFeatures(scheduleMode)} instead, without burst.", location);
+        }
+
+        public static void DC0085(SystemDescription systemDescription, Location location, LambdaJobKind kind, ScheduleMode scheduleMode)
+        {
+            systemDescription.LogError(nameof(DC0085), k_ErrorTitle,
+                $"Defining local functions are not allowed in {kind.ToName()}. Consider using {kind.ToNameOfValidAlternativeFeatures(scheduleMode)} instead.", location);
         }
     }
 }

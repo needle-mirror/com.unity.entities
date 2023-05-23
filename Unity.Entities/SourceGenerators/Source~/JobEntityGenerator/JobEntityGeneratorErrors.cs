@@ -145,13 +145,23 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 $"{parameterName} is an Aspect passed with a `ref` or `in` keyword.  Aspects are already act as reference types and should just be passed in by value.",
                 location);
         }
-        
+
         public static void SGJE0022(ISourceGeneratorDiagnosable diagnosable, Location location, string parameterName)
         {
             diagnosable.LogError(
                 nameof(SGJE0022),
                 k_ErrorTitle,
                 $"IJobEntity has a Managed component {parameterName} that is used with a `ref` or `in` modifier.  Managed components are already passed by reference and are do not have readonly protection.  Please pass directly instead, without the `ref` or `in` modifier.",
+                location);
+        }
+
+        public static void SGJE0023(ISourceGeneratorDiagnosable diagnosable, Location location, string parameterTypeFullName, string parameterAccessibility, string jobEntityTypeFullName, string jobAccessibility)
+        {
+            diagnosable.LogError(
+                nameof(SGJE0023),
+                k_ErrorTitle,
+                "All parameter types in `IJobEntity.Execute()` methods must be as accessible as *or* more accessible than the the `IJobEntity` types in which they are used. " +
+                $"`{parameterTypeFullName}` is {parameterAccessibility}, but is used as a parameter type in the `Execute()` method of `{jobEntityTypeFullName}`, which is {jobAccessibility}. This is not allowed.",
                 location);
         }
     }

@@ -66,18 +66,17 @@ public static class AspectSyntaxFactory
 
     static Printer PrintAddComponentTypes(Printer printer, AspectDefinition aspect)
     {
-        printer.PrintBeginLine(
-            $@"var allRequiredComponentsInAspect =
-                    new Unity.Collections.LowLevel.Unsafe.UnsafeList<Unity.Entities.ComponentType>(initialCapacity: 8, allocator: Unity.Collections.Allocator.Temp, options: Unity.Collections.NativeArrayOptions.ClearMemory)
-                    {{
-                        {aspect.PrimitivesRouter.QueryBindings
-                            .Select(
-                                q =>
-                                    q.IsReadOnly ? $"Unity.Entities.ComponentType.ReadOnly<{q.ComponentTypeName}>()" : $"Unity.Entities.ComponentType.ReadWrite<{q.ComponentTypeName}>()")
-                            .SeparateByComma()}
-                    }};
-                global::Unity.Entities.Internal.InternalCompilerInterface.MergeWith(ref all, ref allRequiredComponentsInAspect);
-                allRequiredComponentsInAspect.Dispose();");
+        printer.PrintLine("var allRequiredComponentsInAspect =");
+        printer.IncreasedIndent();
+        printer.PrintBeginLine("new global::Unity.Collections.LowLevel.Unsafe.UnsafeList<global::Unity.Entities.ComponentType>(initialCapacity: 8, allocator: global::Unity.Collections.Allocator.Temp, options: global::Unity.Collections.NativeArrayOptions.ClearMemory)");
+
+        printer.OpenScope();
+        foreach (var q in aspect.PrimitivesRouter.QueryBindings)
+            printer.PrintBeginLine("global::Unity.Entities.ComponentType.").Print(q.IsReadOnly ? "ReadOnly<" : "ReadWrite<").Print(q.ComponentTypeName).PrintEndLine(">(),");
+        printer.CloseScope("};");
+        printer.DecreasedIndent();
+        printer.PrintLine("global::Unity.Entities.Internal.InternalCompilerInterface.MergeWith(ref all, ref allRequiredComponentsInAspect);");
+        printer.PrintLine("allRequiredComponentsInAspect.Dispose();");
 
         return printer;
     }
@@ -87,7 +86,7 @@ public static class AspectSyntaxFactory
         var addComponents =
             aspect.PrimitivesRouter.QueryBindings
                 .Select((q, i) =>
-                    $"componentTypes[{i}] = {(q.IsReadOnly ? $"Unity.Entities.ComponentType.ReadOnly<{q.ComponentTypeName}>();" : $"Unity.Entities.ComponentType.ReadWrite<{q.ComponentTypeName}>();")}")
+                    $"componentTypes[{i}] = {(q.IsReadOnly ? $"global::Unity.Entities.ComponentType.ReadOnly<{q.ComponentTypeName}>();" : $"global::Unity.Entities.ComponentType.ReadWrite<{q.ComponentTypeName}>();")}")
                 .SeparateBy($"{Environment.NewLine}				");
 
         return printer.PrintBeginLine(addComponents).PrintBeginLine(Environment.NewLine);
@@ -138,7 +137,7 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@"/// </summary>");
             printer.PrintLine(@"/// <param name=""all"">Archetype ""all"" component requirements.</param>");
             printer.PrintBeginLine(
-                    "public void AddComponentRequirementsTo(ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<ComponentType> all)")
+                    "public void AddComponentRequirementsTo(ref global::Unity.Collections.LowLevel.Unsafe.UnsafeList<global::Unity.Entities.ComponentType> all)")
                 .OpenScope()
                 .PrintWith(x => PrintAddComponentTypes(x, aspect))
                 .CloseScope();
@@ -154,7 +153,7 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@"/// </summary>");
             printer.PrintLine(@"/// <param name=""componentTypes"">The span to which all required components in this aspect are added.</param>");
             printer.PrintBeginLine(
-                    "public static void AddRequiredComponentTypes(ref global::System.Span<Unity.Entities.ComponentType> componentTypes)")
+                    "public static void AddRequiredComponentTypes(ref global::System.Span<global::Unity.Entities.ComponentType> componentTypes)")
                 .OpenScope()
                 .PrintWith(x => PrintAddComponentTypesToSpan(x, aspect))
                 .CloseScope();
@@ -163,7 +162,7 @@ public static class AspectSyntaxFactory
             printer.PrintEndLine();
             printer.PrintLine(@"/// <summary>");
             printer.PrintLine(@"/// A container type that provides access to instances of the enclosing Aspect type, indexed by <see cref=""Unity.Entities.Entity""/>.");
-            printer.PrintLine(@"/// Equivalent to <see cref=""Unity.Entities.ComponentLookup{T}""/> but for aspect types.");
+            printer.PrintLine(@"/// Equivalent to <see cref=""global::Unity.Entities.ComponentLookup{T}""/> but for aspect types.");
             printer.PrintLine(@"/// Constructed from an system state via its constructor.");
             printer.PrintBeginLine("public struct Lookup");
             {
@@ -279,7 +278,7 @@ public static class AspectSyntaxFactory
                 // TypeHandle Decay to Chunk
                 printer.PrintEndLine();
                 printer.PrintLine(@"/// <summary>");
-                printer.PrintLine(@"/// Get the enclosing aspect's <see cref=""ResolvedChunk""/> from an <see cref=""Unity.Entities.ArchetypeChunk""/>.");
+                printer.PrintLine(@"/// Get the enclosing aspect's <see cref=""ResolvedChunk""/> from an <see cref=""global::Unity.Entities.ArchetypeChunk""/>.");
                 printer.PrintLine(@"/// </summary>");
                 printer.PrintLine(@"/// <param name=""chunk"">The ArchetypeChunk to extract the aspect's ResolvedChunk from.</param>");
                 printer.PrintLine(@"/// <returns>A ResolvedChunk representing all instances of the aspect in the chunk.</returns>");
@@ -371,7 +370,7 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@$"/// Completes the dependency chain required for this aspect to have read access.");
             printer.PrintLine(@$"/// So it completes all write dependencies of the components, buffers, etc. to allow for reading.");
             printer.PrintLine(@$"/// </summary>");
-            printer.PrintLine(@$"/// <param name=""state"">The <see cref=""SystemState""/> containing an <see cref=""EntityManager""/> storing all dependencies.</param>");
+            printer.PrintLine(@$"/// <param name=""state"">The <see cref=""global::Unity.Entities.SystemState""/> containing an <see cref=""global::Unity.Entities.EntityManager""/> storing all dependencies.</param>");
             printer.PrintBeginLine($"public static void CompleteDependencyBeforeRO(ref global::Unity.Entities.SystemState state)");
             printer.OpenScope();
             aspect.PrimitivesRouter.PrintCompleteDependency(printer, true);
@@ -382,7 +381,7 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@$"/// So it completes all write dependencies of the components, buffers, etc. to allow for reading,");
             printer.PrintLine(@$"/// and it completes all read dependencies, so we can write to it.");
             printer.PrintLine(@$"/// </summary>");
-            printer.PrintLine(@$"/// <param name=""state"">The <see cref=""SystemState""/> containing an <see cref=""EntityManager""/> storing all dependencies.</param>");
+            printer.PrintLine(@$"/// <param name=""state"">The <see cref=""global::Unity.Entities.SystemState""/> containing an <see cref=""global::Unity.Entities.EntityManager""/> storing all dependencies.</param>");
             printer.PrintBeginLine(@$"public static void CompleteDependencyBeforeRW(ref global::Unity.Entities.SystemState state)");
             printer.OpenScope();
             aspect.PrimitivesRouter.PrintCompleteDependency(printer, false);

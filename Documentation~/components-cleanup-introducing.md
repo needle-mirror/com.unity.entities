@@ -8,7 +8,7 @@ The following code sample explains the lifecycle of an entity that contains a cl
 
 ```c#
 // Creates an entity that contains a cleanup component.
-Entity e = EntityManger.CreateEntity(
+Entity e = EntityManager.CreateEntity(
     typeof(Translation), typeof(Rotation), typeof(ExampleCleanup));
 
 // Attempts to destroy the entity but, because the entity has a cleanup component, Unity doesn't actually destroy the entity. Instead, Unity just removes the Translation and Rotation components. 

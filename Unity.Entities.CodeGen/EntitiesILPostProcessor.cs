@@ -51,10 +51,11 @@ namespace Unity.Entities.CodeGen
                 var postProcessors = FindAllEntitiesILPostProcessors();
 
                 TypeDefinition[] componentSystemTypes;
+                var allTypes = assemblyDefinition.MainModule.GetAllTypes().ToArray();
                 try
                 {
                     using (marker.CreateChildMarker("GetAllComponentTypes"))
-                        componentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where(type => type.IsComponentSystem()).ToArray();
+                        componentSystemTypes = allTypes.Where(type => type.IsComponentSystem()).ToArray();
                     // Make sure IL2CPP doesn't strip systems
                     if (componentSystemTypes.Length > 0) {
                         var alwaysLinkAssemblyAttributeConstructors = typeof(AlwaysLinkAssemblyAttribute).GetConstructors();
@@ -81,7 +82,7 @@ namespace Unity.Entities.CodeGen
                     }
                 }
 
-                var unmanagedComponentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where((x) => x.TypeImplements(typeof(ISystem))).ToArray();
+                var unmanagedComponentSystemTypes = allTypes.Where((x) => x.TypeImplements(typeof(ISystem))).ToArray();
                 foreach (var postProcessor in postProcessors)
                 {
                     diagnostics.AddRange(postProcessor.PostProcessUnmanaged(assemblyDefinition, unmanagedComponentSystemTypes, out var madeChange));
@@ -397,7 +398,7 @@ namespace Unity.Entities.CodeGen
 
         protected abstract bool PostProcessImpl(TypeDefinition[] componentSystemTypes);
         protected abstract bool PostProcessUnmanagedImpl(TypeDefinition[] unmanagedComponentSystemTypes);
-
+        
         protected void AddDiagnostic(DiagnosticMessage diagnosticMessage)
         {
             _diagnosticMessages.Add(diagnosticMessage);

@@ -115,15 +115,20 @@ namespace Unity.Entities.Content
             spinLock.Release();
         }
 
-        internal void RemoveEntry(in UntypedWeakReferenceId objectId)
+        internal bool RemoveEntry(in UntypedWeakReferenceId objectId, out ObjectLoadingStatus status)
         {
+            bool hasEntry = false;
+            status = default;
             spinLock.Acquire();
             if (Values.TryGetValue(objectId, out var entry))
             {
+                status = entry.LoadingStatus;
                 Values.Remove(objectId);
                 entry.Dispose();
+                hasEntry = true;
             }
             spinLock.Release();
+            return hasEntry;
         }
 
         internal int Count()

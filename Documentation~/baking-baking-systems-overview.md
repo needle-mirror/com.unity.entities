@@ -8,7 +8,7 @@ The baking process creates all entities before it runs the baking systems (excep
 
 Baking systems don't automatically track dependencies and [structural changes](concepts-structural-changes.md). As such, you have to declare dependencies explicitly. Also, you must manually track and revert changes when adding components to maintain [incremental baking](baking-overview.md#incremental-baking).
 
-Baking systems can alter the [world](concepts-worlds.md) in any way, including creating new entities. However, baking systems can only work with entities that have a GUID that the baking process provides. It's best practice to only create entities in baking systems when those entities are used during baking, such as to transfer data from one baking system to another. Additionally, you should only create antities in a baker when you need the entities to contribute to the result.
+Baking systems can alter the [world](concepts-worlds.md) in any way, including creating new entities. However, any entities you create in a baking system won't end up in a baked entity scene. You can create an entity in a baking system to transfer data between baking systems, but if you want the entity to end up in the baked entity scene, you must create it in a [baker](baking-baker-overview.md). When you create an entity in a baker, [`CreateAdditionalEntity`](xref:Unity.Entities.IBaker.CreateAdditionalEntity) configures the entity to properly work with baking and live baking.
 
 ## Create a baking system
 

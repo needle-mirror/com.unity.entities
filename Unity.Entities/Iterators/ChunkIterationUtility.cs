@@ -175,10 +175,10 @@ namespace Unity.Entities
             in UnsafeCachedChunkList cache, ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList)
         {
             Entity* copyDest = entities;
-            var chunkCache = new UnsafeChunkCache(filter, true, cache, matchingArchetypePtrList.Ptr);
+            var chunkCacheIterator = new UnsafeChunkCacheIterator(filter, true, cache, matchingArchetypePtrList.Ptr);
             int chunkIndex = -1;
             v128 chunkEnabledMask = default;
-            while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount, out byte useEnableBits, ref chunkEnabledMask))
+            while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount, out byte useEnableBits, ref chunkEnabledMask))
             {
                 Entity* chunkEntities = (Entity*)chunk.m_Chunk->Buffer; // Entity is always the first table in the chunk buffer
                 if (useEnableBits == 0)
@@ -205,11 +205,11 @@ namespace Unity.Entities
         public static void GatherEntitiesWithoutFilter(Entity* entities, in UnsafeCachedChunkList cachedChunkList,
             in UnsafeMatchingArchetypePtrList matchingArchetypes)
         {
-            var chunkCache = new UnsafeChunkCache(default, false, cachedChunkList, matchingArchetypes.Ptr);
+            var chunkCacheIterator = new UnsafeChunkCacheIterator(default, false, cachedChunkList, matchingArchetypes.Ptr);
             int chunkIndex = -1;
             v128 chunkEnabledBits = default;
             Entity* copyDest = entities;
-            while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out int chunkEntityCount,
+            while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out int chunkEntityCount,
                        out byte useEnabledBits, ref chunkEnabledBits))
             {
                 Entity* copySrc = (Entity*)chunk.m_Chunk->Buffer; // Entity is always the first table in the chunk buffer
@@ -234,7 +234,7 @@ namespace Unity.Entities
             EntityQuery entityQuery,
             int entityCount)
         {
-            var cache = entityQuery.__impl->_QueryData->GetMatchingChunkCache();
+            var cache = entityQuery.__impl->GetMatchingChunkCache();
             var entities = CollectionHelper.CreateNativeArray<Entity>(entityCount, allocator, NativeArrayOptions.UninitializedMemory);
 
             var requiresFilter = entityQuery.HasFilter();
@@ -340,14 +340,14 @@ namespace Unity.Entities
             ref EntityQueryFilter filter)
         {
             byte* copyDest = componentData;
-            var chunkCache = new UnsafeChunkCache(filter, true, cache, matchingArchetypePtrList.Ptr);
+            var chunkCacheIterator = new UnsafeChunkCacheIterator(filter, true, cache, matchingArchetypePtrList.Ptr);
             int chunkIndex = -1;
             v128 chunkEnabledMask = default;
             LookupCache typeLookupCache = default;
-            while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
+            while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
                        out byte useEnableBits, ref chunkEnabledMask))
             {
-                var chunkArchetype = chunkCache._CurrentMatchingArchetype->Archetype;
+                var chunkArchetype = chunkCacheIterator._CurrentMatchingArchetype->Archetype;
                 if (chunkArchetype != typeLookupCache.Archetype)
                     typeLookupCache.Update(chunkArchetype, typeIndex);
                 var chunkComponentData = chunk.m_Chunk->Buffer + typeLookupCache.ComponentOffset;
@@ -376,15 +376,15 @@ namespace Unity.Entities
         public static void GatherComponentDataWithoutFilter(byte* componentData, TypeIndex typeIndex, in UnsafeCachedChunkList cachedChunkList,
             in UnsafeMatchingArchetypePtrList matchingArchetypePtrList)
         {
-            var chunkCache = new UnsafeChunkCache(default, false, cachedChunkList, matchingArchetypePtrList.Ptr);
+            var chunkCacheIterator = new UnsafeChunkCacheIterator(default, false, cachedChunkList, matchingArchetypePtrList.Ptr);
             int chunkIndex = -1;
             v128 chunkEnabledBits = default;
             LookupCache typeLookupCache = default;
             byte* copyDest = componentData;
-            while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out int chunkEntityCount,
+            while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out int chunkEntityCount,
                        out byte useEnabledBits, ref chunkEnabledBits))
             {
-                var chunkArchetype = chunkCache._CurrentMatchingArchetype->Archetype;
+                var chunkArchetype = chunkCacheIterator._CurrentMatchingArchetype->Archetype;
                 if (chunkArchetype != typeLookupCache.Archetype)
                     typeLookupCache.Update(chunkArchetype, typeIndex);
                 var copySrc = chunk.m_Chunk->Buffer + typeLookupCache.ComponentOffset;
@@ -500,7 +500,7 @@ namespace Unity.Entities
             EntityQuery entityQuery)
             where T : unmanaged, IComponentData
         {
-            var cache = entityQuery.__impl->_QueryData->GetMatchingChunkCache();
+            var cache = entityQuery.__impl->GetMatchingChunkCache();
             var matchingArchetypes = entityQuery.__impl->_QueryData->MatchingArchetypes;
 
             var componentData = CollectionHelper.CreateNativeArray<T>(entityCount, allocator, NativeArrayOptions.UninitializedMemory);
@@ -525,14 +525,14 @@ namespace Unity.Entities
             uint globalSystemVersion)
         {
             byte* copySrc = componentData;
-            var chunkCache = new UnsafeChunkCache(filter, true, cache, matchingArchetypePtrList.Ptr);
+            var chunkCacheIterator = new UnsafeChunkCacheIterator(filter, true, cache, matchingArchetypePtrList.Ptr);
             int chunkIndex = -1;
             v128 chunkEnabledMask = default;
             LookupCache typeLookupCache = default;
-            while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
+            while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
                        out byte useEnableBits, ref chunkEnabledMask))
             {
-                var chunkArchetype = chunkCache._CurrentMatchingArchetype->Archetype;
+                var chunkArchetype = chunkCacheIterator._CurrentMatchingArchetype->Archetype;
                 var chunkComponentData = ChunkDataUtility.GetComponentDataWithTypeRW(chunk.m_Chunk, chunkArchetype,
                     0, typeIndex, globalSystemVersion, ref typeLookupCache);
 
@@ -560,15 +560,15 @@ namespace Unity.Entities
         public static void CopyComponentArrayToChunksWithoutFilter(byte* componentData, TypeIndex typeIndex, in UnsafeCachedChunkList cachedChunkList,
             in UnsafeMatchingArchetypePtrList matchingArchetypePtrList, uint globalSystemVersion)
         {
-            var chunkCache = new UnsafeChunkCache(default, false, cachedChunkList, matchingArchetypePtrList.Ptr);
+            var chunkCacheIterator = new UnsafeChunkCacheIterator(default, false, cachedChunkList, matchingArchetypePtrList.Ptr);
             int chunkIndex = -1;
             v128 chunkEnabledBits = default;
             LookupCache typeLookupCache = default;
             byte* copySrc = componentData;
-            while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out int chunkEntityCount,
+            while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out int chunkEntityCount,
                        out byte useEnabledBits, ref chunkEnabledBits))
             {
-                var chunkArchetype = chunkCache._CurrentMatchingArchetype->Archetype;
+                var chunkArchetype = chunkCacheIterator._CurrentMatchingArchetype->Archetype;
                 var copyDest = ChunkDataUtility.GetComponentDataWithTypeRW(chunk.m_Chunk, chunkArchetype, 0, typeIndex,
                     globalSystemVersion, ref typeLookupCache);
                 var copySize = typeLookupCache.ComponentSizeOf * chunkEntityCount;
@@ -638,7 +638,7 @@ namespace Unity.Entities
             where T : unmanaged, IComponentData
         {
             var matchingArchetypePtrList = entityQuery.__impl->_QueryData->MatchingArchetypes;
-            var cache = entityQuery.__impl->_QueryData->GetMatchingChunkCache();
+            var cache = entityQuery.__impl->GetMatchingChunkCache();
 
             var requiresFilter = entityQuery.HasFilter();
             var hasEnableableComponents = entityQuery.__impl->_QueryData->HasEnableableComponents != 0;
@@ -727,13 +727,13 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static bool IsEmpty(EntityQueryData *queryData, in EntityQueryFilter filter)
+        public static bool IsEmpty(ref EntityQueryImpl queryImpl, in EntityQueryFilter filter)
         {
-            var chunkCache = new UnsafeChunkCache(filter, queryData->HasEnableableComponents != 0,
-                queryData->GetMatchingChunkCache(), queryData->MatchingArchetypes.Ptr);
+            var chunkCacheIterator = new UnsafeChunkCacheIterator(filter, queryImpl._QueryData->HasEnableableComponents != 0,
+                queryImpl.GetMatchingChunkCache(), queryImpl._QueryData->MatchingArchetypes.Ptr);
             int chunkIndex = -1;
             v128 chunkEnabledMask = default;
-            while (chunkCache.MoveNextChunk(ref chunkIndex, out var archetypeChunk, out var chunkEntityCount,
+            while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var archetypeChunk, out var chunkEntityCount,
                        out byte chunkUsesEnabledBits, ref chunkEnabledMask))
             {
                 // if we make it here at all, we found a chunk with >1 enabled entity, so the query isn't empty
@@ -1148,7 +1148,7 @@ namespace Unity.Entities
         [BurstCompile]
         public static void SetEnabledBitsOnAllChunks(ref EntityQueryImpl queryImpl, TypeIndex typeIndex, bool value)
         {
-            var chunkList = queryImpl._QueryData->GetMatchingChunkCache();
+            var chunkList = queryImpl.GetMatchingChunkCache();
             var chunkCount = chunkList.Length;
             Chunk** chunkListPtr = chunkList.Ptr;
             int* chunkIndexInArchetypePtr = chunkList.ChunkIndexInArchetype->Ptr;

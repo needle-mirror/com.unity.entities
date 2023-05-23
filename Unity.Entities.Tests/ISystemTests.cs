@@ -1,12 +1,46 @@
 using System;
 using NUnit.Framework;
 using Unity.Burst;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Entities.Tests;
+using Unity.Entities.Tests.InAnotherAssembly;
+
+[assembly: RegisterGenericSystemType(typeof(ISystemTests.MyGenericISystem<float>))]
+[assembly: RegisterGenericComponentType(typeof(ISystemTests.MySentinelGenericComponent<float>))]
+[assembly: RegisterGenericSystemType(typeof(MyGenericISystem_FromAnotherAssembly<float>))]
+[assembly: RegisterGenericComponentType(typeof(MySentinelGenericComponent_FromAnotherAssembly<float>))]
+
+[assembly: RegisterGenericSystemType(typeof(MyGenericISystem_FromAnotherAssembly<TypeManagerTests.TestType1>))]
+[assembly: RegisterGenericComponentType(typeof(MySentinelGenericComponent_FromAnotherAssembly<TypeManagerTests.TestType1>))]
+
+[assembly: RegisterGenericSystemType(typeof(MyGenericNestingType<float>.MyNestedGenericISystem))] 
+
+[assembly: RegisterGenericComponentType(typeof(MySentinelGenericComponent_FromAnotherAssembly<MyGenericNestingType<float>.MyNestedGenericISystem>))]
+
 
 namespace Unity.Entities.Tests
 {
     [BurstCompile]
     public partial class ISystemTests : ECSTestsFixture
     {
+        public struct MySentinelGenericComponent<T> : IComponentData
+        {
+        }
+        
+        [BurstCompile]
+        public partial struct MyGenericISystem<T> : ISystem   
+        {
+            [BurstCompile]
+            public void OnCreate(ref SystemState state)
+            {
+                var types = new NativeArray<ComponentType>(1, Allocator.Temp);
+                types[0] = ComponentType.ReadWrite<MySentinelGenericComponent<T>>();
+                
+                state.EntityManager.CreateEntity(state.EntityManager.CreateArchetype(types));
+            }
+        } 
+        
         struct MySystemData2 : IComponentData
         {
             public int UpdateCount;
@@ -294,7 +328,7 @@ namespace Unity.Entities.Tests
 
                 var sysRef = world.CreateSystem<SnoopSystem>();
 
-                @group.AddSystemToUpdateList(sysRef);
+                group.AddSystemToUpdateList(sysRef);
 
                 SnoopSystem.AssertCallsWereMade(SnoopSystem.CallFlags.OnCreate);
 
@@ -304,6 +338,51 @@ namespace Unity.Entities.Tests
             }
 
             SnoopSystem.AssertCallsWereMade(SnoopSystem.CallFlags.OnDestroy | SnoopSystem.CallFlags.OnStopRunning);
+        }
+
+        [Test]
+        public void GenericUnmanagedSystem_Works()
+        {
+            using (var world = new World("Temp"))
+            {
+                var group = world.GetOrCreateSystemManaged<SimulationSystemGroup>();
+
+                var sysRefFloat = world.CreateSystem<MyGenericISystem<float>>();
+
+                group.AddSystemToUpdateList(sysRefFloat);
+
+                Assert.That(world.EntityManager
+                                .CreateEntityQuery(ComponentType.ReadWrite<MySentinelGenericComponent<float>>())
+                                .CalculateEntityCount() ==
+                            1);
+                
+                var sysRefAnotherAssemblyFloat = world.CreateSystem<MyGenericISystem_FromAnotherAssembly<float>>();
+
+                group.AddSystemToUpdateList(sysRefAnotherAssemblyFloat);
+
+                Assert.That(world.EntityManager
+                                .CreateEntityQuery(ComponentType.ReadWrite<MySentinelGenericComponent_FromAnotherAssembly<float>>())
+                                .CalculateEntityCount() ==
+                            1);
+
+                var sysRefAnotherAssemblyTestType1 = world.CreateSystem<MyGenericISystem_FromAnotherAssembly<TypeManagerTests.TestType1>>();
+
+                group.AddSystemToUpdateList(sysRefFloat);
+
+                Assert.That(world.EntityManager
+                                .CreateEntityQuery(ComponentType.ReadWrite<MySentinelGenericComponent_FromAnotherAssembly<TypeManagerTests.TestType1>>())
+                                .CalculateEntityCount() ==
+                            1);
+
+                var sysRefNested = world.CreateSystem<MyGenericNestingType<float>.MyNestedGenericISystem>();
+
+                group.AddSystemToUpdateList(sysRefFloat);
+
+                Assert.That(world.EntityManager
+                                .CreateEntityQuery(ComponentType.ReadWrite<MySentinelGenericComponent_FromAnotherAssembly<MyGenericNestingType<float>.MyNestedGenericISystem>>())
+                                .CalculateEntityCount() ==
+                            1);
+            }
         }
 
         [Test]

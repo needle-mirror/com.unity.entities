@@ -384,6 +384,7 @@ namespace Unity.Entities
         public EntityStorageInfoLookup GetEntityStorageInfoLookup() => default;
         public JobHandle Dependency { get; set; }
         public SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>() => default;
+        public Allocator WorldUpdateAllocator => default;
     }
 
     public struct ComponentType
@@ -402,6 +403,7 @@ namespace Unity.Entities
         public void SetChangedVersionFilter(ComponentType componentType) {}
         public void SetChangedVersionFilter(ComponentType[] componentType) {}
         public void ResetFilter() {}
+        public NativeArray<int> CalculateBaseEntityIndexArrayAsync(AllocatorHandle allocator, JobHandle additionalInputDep, out JobHandle outJobHandle) => default;
     }
 
     public static class EntityQueryExtentions {
@@ -463,6 +465,7 @@ namespace Unity.Entities
 
         // Singletons
         public static RefRW<T> GetSingletonRW<T>() where T : unmanaged, IComponentData => throw new Exception();
+        public static T GetSingleton<T>() where T : unmanaged, IComponentData => throw new Exception();
 
         // Aspects
         public static T GetAspect<T>(Entity entity) where T : struct, IAspect => default;
@@ -638,16 +641,6 @@ namespace Unity.Collections
     {
     }
 
-    public enum Allocator
-    {
-        Invalid = 0,
-        None = 1,
-        Temp = 2,
-        TempJob = 3,
-        Persistent = 4,
-        AudioKernel = 5,
-        FirstUserIndex = 64, // 0x00000040
-    }
     public struct NativeArray<T> : IDisposable, IEnumerable<T>, IEnumerable, IEquatable<NativeArray<T>>
     {
         public unsafe ReadOnly AsReadOnly() => default;

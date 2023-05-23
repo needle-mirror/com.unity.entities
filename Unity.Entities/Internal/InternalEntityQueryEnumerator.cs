@@ -35,7 +35,7 @@ namespace Unity.Entities.Internal
         byte               _QueryHasFilterOrEnableable;
         byte               _UseEnableBitsForChunk;
         v128               _EnableBitMask;
-        UnsafeChunkCache      _CacheIfFilteringOrEnableable;
+        UnsafeChunkCacheIterator      _ChunkCacheIterator;
         UnsafeCachedChunkList _CachedChunkList;
         private int _CachedChunkListLength;
 
@@ -70,8 +70,8 @@ namespace Unity.Entities.Internal
             _QueryHasFilterOrEnableable = impl->_Filter.RequiresMatchesFilter || impl->_QueryData->HasEnableableComponents == 1 ? (byte)1 : (byte)0;
             if (_QueryHasFilterOrEnableable == 1)
             {
-                _CacheIfFilteringOrEnableable =
-                    new UnsafeChunkCache(impl->_Filter, impl->_QueryData->HasEnableableComponents != 0, impl->_QueryData->GetMatchingChunkCache(), impl->_QueryData->MatchingArchetypes.Ptr);
+                _ChunkCacheIterator =
+                    new UnsafeChunkCacheIterator(impl->_Filter, impl->_QueryData->HasEnableableComponents != 0, impl->GetMatchingChunkCache(), impl->_QueryData->MatchingArchetypes.Ptr);
                 _CachedChunkList = default;
                 _CachedChunkListLength = -1;
 
@@ -79,8 +79,8 @@ namespace Unity.Entities.Internal
             }
             else
             {
-                _CacheIfFilteringOrEnableable = default;
-                _CachedChunkList = impl->_QueryData->GetMatchingChunkCache();
+                _ChunkCacheIterator = default;
+                _CachedChunkList = impl->GetMatchingChunkCache();
                 _CachedChunkListLength = _CachedChunkList.Length;
             }
 
@@ -180,7 +180,7 @@ namespace Unity.Entities.Internal
 
             // We have finished processing the current chunk. Are there more we need to process?
             _EndIndexInChunk = 0;
-            bool hasChunksLeft = _CacheIfFilteringOrEnableable.MoveNextChunk(ref _ChunkIndex, out chunk, out int chunkEntityCount, out _UseEnableBitsForChunk, ref _EnableBitMask);
+            bool hasChunksLeft = _ChunkCacheIterator.MoveNextChunk(ref _ChunkIndex, out chunk, out int chunkEntityCount, out _UseEnableBitsForChunk, ref _EnableBitMask);
 
             // If there are no more chunks we need to process
             if (Hint.Unlikely(!hasChunksLeft))
@@ -234,7 +234,7 @@ namespace Unity.Entities.Internal
                 return true;
             }
 
-            bool hasChunksLeft = _CacheIfFilteringOrEnableable.MoveNextChunk(ref _ChunkIndex, out chunk, out int chunkEntityCount, out _UseEnableBitsForChunk, ref _EnableBitMask);
+            bool hasChunksLeft = _ChunkCacheIterator.MoveNextChunk(ref _ChunkIndex, out chunk, out int chunkEntityCount, out _UseEnableBitsForChunk, ref _EnableBitMask);
 
             // Should we setup indices so it's clear we are done???
             if (Hint.Unlikely(!hasChunksLeft))

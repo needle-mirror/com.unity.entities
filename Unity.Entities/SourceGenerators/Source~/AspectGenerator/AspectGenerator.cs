@@ -337,6 +337,9 @@ namespace Unity.Entities.SourceGen.Aspect
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     var aspectDeclarationSymbol = GetSemanticModel(aspectCandidate).GetDeclaredSymbol(aspectCandidate);
+                    // skip if not an aspect.
+                    if (!aspectDeclarationSymbol.IsAspect()) continue;
+
                     var aspectFullName = aspectDeclarationSymbol.ToFullName();
                     if (!fullNameToAspectDefinition.ContainsKey(aspectFullName))
                         fullNameToAspectDefinition[aspectFullName] = new AspectDefinition(aspectDeclarationSymbol);

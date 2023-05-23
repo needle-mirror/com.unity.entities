@@ -12,7 +12,7 @@ As an alternative, you can use an [entity command buffer](systems-entity-command
 
 The main differences between using `EntityManager` and an ECB to manage the entities in your project are as follows:
 
-* If you want to perform structural changes instantly on the main thread, use `EntityManager`. This is more performant than using an ECB to do so.
+* If you want to perform structural changes instantly on the main thread, use `EntityManager`. This is more efficient than using an ECB to do so.
 * You can’t use `EntityManager` in jobs, so it’s incompatible with job types like `IJobChunk` and `IJobEntity`. You can use an ECB in jobs to queue structural changes but you must then execute the structural changes on the main thread after the jobs finish. For more information, refer to [Ways to schedule data changes](systems-schedule-changes-intro.md).
 * You can only use `CreateEntity`, `CreateArchetype`, and `Instantiate` in [SystemAPI.Query](systems-systemapi-query.md). If you want to add a component in `SystemAPI.Query` then you need to use `EntityCommandBuffer.AddComponent`.
 
@@ -28,10 +28,8 @@ The entities in a world are created, destroyed, and modified through the world's
 |[`AddComponent<T>`](xref:Unity.Entities.EntityManager.AddComponent*)|Adds a component of type T to an existing entity.|
 |[`RemoveComponent<T>`](xref:Unity.Entities.EntityManager.RemoveComponent*)|Removes a component of type T from an existing entity.|
 |[`HasComponent<T>`](xref:Unity.Entities.EntityManager.HasComponent*)|Returns true if an entity has a component of type T.|
-|[`GetComponentData<T>`](xref:Unity.Entities.EntityManager.GetComponentData*)|Retrieves the value of an entity's component of type T.|
-|[`SetComponentData<T>`](xref:Unity.Entities.EntityManager.SetComponentData*)|Overwrites the value of an entity's component of type T.|
 
-All of the above methods, except `GetComponent` and `SetComponent`, are structural change operations.
+All of the above methods are structural change operations.
 
 ## Additional resources
 

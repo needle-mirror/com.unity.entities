@@ -61,6 +61,98 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddComponent_Entity_EmptyComponentTypeSet_Works()
+        {
+            var emptyTypeSet = new ComponentTypeSet(Array.Empty<ComponentType>());
+            var e = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var beforeArchetypeChunk = m_Manager.GetChunk(e);
+            Assert.DoesNotThrow(() => { m_Manager.AddComponent(e, emptyTypeSet); });
+            var afterArchetypeChunk = m_Manager.GetChunk(e);
+            Assert.AreEqual(beforeArchetypeChunk, afterArchetypeChunk, "Entity chunk/archetype changed after adding empty component set");
+        }
+
+        [Test]
+        public void AddComponent_EntityArray_EmptyComponentTypeSet_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var emptyTypeSet = new ComponentTypeSet(Array.Empty<ComponentType>());
+            using var entities = m_Manager.CreateEntity(archetype, 100, Allocator.Temp);
+            var beforeChunks = new NativeArray<ArchetypeChunk>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; ++i)
+                beforeChunks[i] = m_Manager.GetChunk(entities[i]);
+            Assert.DoesNotThrow(() => { m_Manager.AddComponent(entities, emptyTypeSet); });
+            var afterChunks = new NativeArray<ArchetypeChunk>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; ++i)
+                afterChunks[i] = m_Manager.GetChunk(entities[i]);
+            CollectionAssert.AreEqual(beforeChunks.ToArray(), afterChunks.ToArray(),
+                "Entity chunk/archetype changed after adding empty component set");
+        }
+
+        [Test]
+        public void AddComponent_EntityQuery_EmptyComponentTypeSet_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var emptyTypeSet = new ComponentTypeSet(Array.Empty<ComponentType>());
+            using var entities = m_Manager.CreateEntity(archetype, 100, Allocator.Temp);
+            var beforeChunks = new NativeArray<ArchetypeChunk>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; ++i)
+                beforeChunks[i] = m_Manager.GetChunk(entities[i]);
+            using var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().Build(m_Manager);
+            Assert.DoesNotThrow(() => { m_Manager.AddComponent(query, emptyTypeSet); });
+            var afterChunks = new NativeArray<ArchetypeChunk>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; ++i)
+                afterChunks[i] = m_Manager.GetChunk(entities[i]);
+            CollectionAssert.AreEqual(beforeChunks.ToArray(), afterChunks.ToArray(),
+                "Entity chunk/archetype changed after adding empty component set");
+        }
+
+        [Test]
+        public void RemoveComponent_Entity_EmptyComponentTypeSet_Works()
+        {
+            var emptyTypeSet = new ComponentTypeSet(Array.Empty<ComponentType>());
+            var e = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var beforeArchetypeChunk = m_Manager.GetChunk(e);
+            Assert.DoesNotThrow(() => { m_Manager.RemoveComponent(e, emptyTypeSet); });
+            var afterArchetypeChunk = m_Manager.GetChunk(e);
+            Assert.AreEqual(beforeArchetypeChunk, afterArchetypeChunk, "Entity chunk/archetype changed after adding empty component set");
+        }
+
+        [Test]
+        public void RemoveComponent_EntityArray_EmptyComponentTypeSet_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var emptyTypeSet = new ComponentTypeSet(Array.Empty<ComponentType>());
+            using var entities = m_Manager.CreateEntity(archetype, 100, Allocator.Temp);
+            var beforeChunks = new NativeArray<ArchetypeChunk>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; ++i)
+                beforeChunks[i] = m_Manager.GetChunk(entities[i]);
+            Assert.DoesNotThrow(() => { m_Manager.RemoveComponent(entities, emptyTypeSet); });
+            var afterChunks = new NativeArray<ArchetypeChunk>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; ++i)
+                afterChunks[i] = m_Manager.GetChunk(entities[i]);
+            CollectionAssert.AreEqual(beforeChunks.ToArray(), afterChunks.ToArray(),
+                "Entity chunk/archetype changed after adding empty component set");
+        }
+
+        [Test]
+        public void RemoveComponent_EntityQuery_EmptyComponentTypeSet_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var emptyTypeSet = new ComponentTypeSet(Array.Empty<ComponentType>());
+            using var entities = m_Manager.CreateEntity(archetype, 100, Allocator.Temp);
+            var beforeChunks = new NativeArray<ArchetypeChunk>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; ++i)
+                beforeChunks[i] = m_Manager.GetChunk(entities[i]);
+            using var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().Build(m_Manager);
+            Assert.DoesNotThrow(() => { m_Manager.RemoveComponent(query, emptyTypeSet); });
+            var afterChunks = new NativeArray<ArchetypeChunk>(entities.Length, Allocator.Temp);
+            for (int i = 0; i < entities.Length; ++i)
+                afterChunks[i] = m_Manager.GetChunk(entities[i]);
+            CollectionAssert.AreEqual(beforeChunks.ToArray(), afterChunks.ToArray(),
+                "Entity chunk/archetype changed after adding empty component set");
+        }
+
+        [Test]
         public void AddComponentEmptyNativeArray()
         {
             var array = new NativeArray<Entity>(0, Allocator.Temp);

@@ -60,22 +60,22 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
 
         string GenerateQueryMethod() =>
             "[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]" +
-            $"{Environment.NewLine}public static Enumerator Query(Unity.Entities.EntityQuery entityQuery, TypeHandle typeHandle) => new Enumerator(entityQuery, typeHandle);";
+            $"{Environment.NewLine}public static Enumerator Query(global::Unity.Entities.EntityQuery entityQuery, TypeHandle typeHandle) => new Enumerator(entityQuery, typeHandle);";
 
         string GenerateEnumerator(string queryResultTypeName) =>
-            $@"{(UseBurst ? $"[Unity.Burst.NoAlias]{Environment.NewLine}[{BurstCompileAttribute}]" : string.Empty)}
+            $@"{(UseBurst ? $"[global::Unity.Burst.NoAlias]{Environment.NewLine}[{BurstCompileAttribute}]" : string.Empty)}
                 public struct Enumerator : global::System.Collections.Generic.IEnumerator<{queryResultTypeName}>
                 {{
-                    Unity.Entities.Internal.InternalEntityQueryEnumerator _entityQueryEnumerator;
+                    global::Unity.Entities.Internal.InternalEntityQueryEnumerator _entityQueryEnumerator;
                     TypeHandle _typeHandle;
                     ResolvedChunk _resolvedChunk;
 
                     int _currentEntityIndex;
                     int _endEntityIndex;
 
-                    public Enumerator(Unity.Entities.EntityQuery entityQuery, TypeHandle typeHandle)
+                    public Enumerator(global::Unity.Entities.EntityQuery entityQuery, TypeHandle typeHandle)
                     {{
-                        _entityQueryEnumerator = new Unity.Entities.Internal.InternalEntityQueryEnumerator(entityQuery);
+                        _entityQueryEnumerator = new global::Unity.Entities.Internal.InternalEntityQueryEnumerator(entityQuery);
 
                         _currentEntityIndex = -1;
                         _endEntityIndex = -1;
@@ -91,11 +91,11 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                     {{
                         _currentEntityIndex++;
 
-                        {(UseBurst ? "if (Unity.Burst.CompilerServices.Hint.Unlikely(_currentEntityIndex >= _endEntityIndex))" : "if (_currentEntityIndex >= _endEntityIndex)")}
+                        {(UseBurst ? "if (global::Unity.Burst.CompilerServices.Hint.Unlikely(_currentEntityIndex >= _endEntityIndex))" : "if (_currentEntityIndex >= _endEntityIndex)")}
                         {{
                             {(UseBurst
-                                ? "if (Unity.Burst.CompilerServices.Hint.Likely(_entityQueryEnumerator.MoveNextEntityRange(out bool movedToNewChunk, out ArchetypeChunk chunk, out int entityStartIndex, out int entityEndIndex)))"
-                                : "if (_entityQueryEnumerator.MoveNextEntityRange(out bool movedToNewChunk, out ArchetypeChunk chunk, out int entityStartIndex, out int entityEndIndex))")}
+                                ? "if (global::Unity.Burst.CompilerServices.Hint.Likely(_entityQueryEnumerator.MoveNextEntityRange(out bool movedToNewChunk, out global::Unity.Entities.ArchetypeChunk chunk, out int entityStartIndex, out int entityEndIndex)))"
+                                : "if (_entityQueryEnumerator.MoveNextEntityRange(out bool movedToNewChunk, out global::Unity.Entities.ArchetypeChunk chunk, out int entityStartIndex, out int entityEndIndex))")}
                             {{
                                 if (movedToNewChunk)
                                     _resolvedChunk = _typeHandle.Resolve(chunk);
@@ -167,10 +167,10 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
             string generatedType =
                 $@"
                    {TypeCreationHelpers.GeneratedLineTriviaToGeneratedSource}
-                   {(UseBurst ? $"[Unity.Burst.NoAlias]{Environment.NewLine}[{BurstCompileAttribute}]" : string.Empty)}
+                   {(UseBurst ? $"[global::Unity.Burst.NoAlias]{Environment.NewLine}[{BurstCompileAttribute}]" : string.Empty)}
                    readonly struct {TypeName}
                    {{
-                        {(UseBurst ? $"[Unity.Burst.NoAlias]{Environment.NewLine}[{BurstCompileAttribute}]" : string.Empty)}
+                        {(UseBurst ? $"[global::Unity.Burst.NoAlias]{Environment.NewLine}[{BurstCompileAttribute}]" : string.Empty)}
                         public struct ResolvedChunk
                         {{
                             {resolvedChunk.Select(field => field.Field.Declaration).SeparateByNewLine()}
@@ -179,19 +179,19 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                             public {resultType.FullName} Get(int index) {{ return {resultType.Creation}; }}
                         }}
 
-                        {(UseBurst ? $"[Unity.Burst.NoAlias]{Environment.NewLine}[{BurstCompileAttribute}]" : string.Empty)}
+                        {(UseBurst ? $"[global::Unity.Burst.NoAlias]{Environment.NewLine}[{BurstCompileAttribute}]" : string.Empty)}
                         public struct TypeHandle
                         {{
-                            {"public Unity.Entities.EntityManager _entityManager;".EmitIfTrue(typeHandle.Any(f => f.Field.DependsOnEntityManagerField))}
+                            {"public global::Unity.Entities.EntityManager _entityManager;".EmitIfTrue(typeHandle.Any(f => f.Field.DependsOnEntityManagerField))}
                             {typeHandle.Select(field => field.Field.Declaration).Distinct().SeparateByNewLine()}
 
-                            public TypeHandle(ref Unity.Entities.SystemState systemState, bool isReadOnly)
+                            public TypeHandle(ref global::Unity.Entities.SystemState systemState, bool isReadOnly)
                             {{
                                 {"_entityManager = systemState.EntityManager;".EmitIfTrue(typeHandle.Any(f => f.Field.DependsOnEntityManagerField))}
                                 {typeHandle.Select(f => f.Field.AssignmentInNestedStructConstructor).Distinct().SeparateByNewLine()}
                             }}
 
-                            public void Update(ref Unity.Entities.SystemState systemState)
+                            public void Update(ref global::Unity.Entities.SystemState systemState)
                             {{
                                 {typeHandle.Select(kvp => kvp.Field.Name)
                                     .Where(name => !string.IsNullOrEmpty(name))
@@ -200,7 +200,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.SystemAPI.Query
                             }}
 
                             [global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-                            public ResolvedChunk Resolve(Unity.Entities.ArchetypeChunk archetypeChunk)
+                            public ResolvedChunk Resolve(global::Unity.Entities.ArchetypeChunk archetypeChunk)
                             {{
                                 var resolvedChunk = new ResolvedChunk();
                                 {NestedStruct.InitializeResolvedChunkInstanceInTypeHandle(pairedFields).SeparateByNewLine()}

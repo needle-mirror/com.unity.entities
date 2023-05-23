@@ -5696,7 +5696,7 @@ namespace Unity.Entities
         {
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
-            ecb.m_Data->AddEntityComponentTypeWithoutValueCommand(&ecb.m_Data->m_MainThreadChain, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, ComponentType.ReadWrite<T>());
+            AddEntityManagedComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, default(T));
         }
 
         /// <summary> Records a command to set a managed component for an entity.</summary>

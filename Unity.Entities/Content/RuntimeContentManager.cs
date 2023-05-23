@@ -572,16 +572,15 @@ namespace Unity.Entities.Content
         {
             try
             {
-                var data = SharedStaticLoadingObjects.Data;
-                for (int i = 0; i < data.Length;)
+                for (int i = 0; i < SharedStaticLoadingObjects.Data.Length;)
                 {
-                    var id = data[i];
+                    var id = SharedStaticLoadingObjects.Data[i];
                     var s = ComputeObjectLoadingStatus(id);
                     if (s >= ObjectLoadingStatus.Completed)
                     {
                         var gcHandle = GetObjectHandleImpl(id);
                         SharedStaticObjectValueCache.Data.SetObjectStatus(id, gcHandle.IsAllocated ? ObjectLoadingStatus.Completed : ObjectLoadingStatus.Error, gcHandle);
-                        data.RemoveAtSwapBack(i);
+                        SharedStaticLoadingObjects.Data.RemoveAtSwapBack(i);
                     }
                     else
                     {
@@ -729,6 +728,13 @@ namespace Unity.Entities.Content
                 if (GetObjectLoadingStatus(a.Key) < ObjectLoadingStatus.Completed)
                     count++;
             return count;
+        }
+
+        //used by tests
+        [ExcludeFromBurstCompatTesting("SharedStaticLoadingObjects is static and not shared")]
+        internal unsafe static int LoadingObjectsCount()
+        {
+            return SharedStaticLoadingObjects.Data.Length;
         }
 
         [ExcludeFromBurstCompatTesting("References static data")]
@@ -975,8 +981,20 @@ namespace Unity.Entities.Content
 #if ENABLE_CONTENT_DIAGNOSTICS
                 LogFunc?.Invoke($"Removing object {activeObject.ObjectReferenceId}");
 #endif
-                SharedStaticObjectValueCache.Data.RemoveEntry(objectId);
                 ActiveObjects.Remove(objectId);
+                if (SharedStaticObjectValueCache.Data.RemoveEntry(objectId, out var status) && status < ObjectLoadingStatus.Completed)
+                {
+                    //the object has not completed loading so we need to remove it from the loading objects list
+                    for (int i = 0; i < SharedStaticLoadingObjects.Data.Length;i++)
+                    {
+                        if (SharedStaticLoadingObjects.Data[i] == objectId)
+                        {
+                            SharedStaticLoadingObjects.Data.RemoveAtSwapBack(i);
+                            break;
+                        }
+                    }
+                }
+
 #if ENABLE_PROFILER
                 RuntimeContentManagerProfiler.RecordReleaseObject();
 #endif

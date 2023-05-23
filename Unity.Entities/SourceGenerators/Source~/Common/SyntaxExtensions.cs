@@ -83,9 +83,6 @@ namespace Unity.Entities.SourceGen.Common
             return argumentList?.DescendantNodes().OfType<ConditionalExpressionSyntax>().FirstOrDefault() != null;
         }
 
-        public static bool HasModifier(this ClassDeclarationSyntax cls, SyntaxKind modifier)
-            => cls.Modifiers.Any(m => m.IsKind(modifier));
-
         public static T AncestorOfKind<T>(this SyntaxNode node) where T : SyntaxNode
         {
             foreach (var ancestor in node.Ancestors())
@@ -141,10 +138,13 @@ namespace Unity.Entities.SourceGen.Common
 
         public static string GetModifierString(this ParameterSyntax parameter)
         {
-            if (parameter.Modifiers.Any(mod => mod.IsKind(SyntaxKind.InKeyword)))
-                return "in";
-            if (parameter.Modifiers.Any(mod => mod.IsKind(SyntaxKind.RefKeyword)))
-                return "ref";
+            foreach (var mod in parameter.Modifiers)
+            {
+                if (mod.IsKind(SyntaxKind.InKeyword))
+                    return "in";
+                if (mod.IsKind(SyntaxKind.RefKeyword))
+                    return "ref";
+            }
             return "";
         }
 

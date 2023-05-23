@@ -38,10 +38,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             _lambdaJobDescription = lambdaJobDescription;
         }
 
-        internal (SyntaxNode rewrittenLambdaExpression, List<DataLookupFieldDescription> additionalFields, List<MethodDeclarationSyntax> methodsForLocalFunctions) Rewrite()
+        internal (SyntaxNode rewrittenLambdaExpression, List<DataLookupFieldDescription> additionalFields) Rewrite()
         {
-            var variablesCapturedOnlyByLocals = _lambdaJobDescription.VariablesCapturedOnlyByLocals;
-
             // Find all locations where we are accessing a member on the declaring SystemBase
             // and change them to access through "__this" instead.
             // This also annotates the changed nodes so that we can find them later for patching (and get their original symbols).
@@ -52,69 +50,21 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
             // Go through all changed nodes and check to see if they are a component access method that we need to patch (GetComponent/SetComponent/etc)
             // Only need to do this if we are not doing structural changes (in which case we can't as structural changes will invalidate)
-            if (!_lambdaJobDescription.WithStructuralChanges)
+            var replacedToOriginal = new Dictionary<SyntaxNode, SyntaxNode>(rewrittenLambdaBodyData.thisAccessNodesNeedingReplacement.Count);
+            foreach (var originalNode in rewrittenLambdaBodyData.thisAccessNodesNeedingReplacement)
             {
-                var replacedToOriginal = new Dictionary<SyntaxNode, SyntaxNode>(rewrittenLambdaBodyData.thisAccessNodesNeedingReplacement.Count);
-                foreach (var originalNode in rewrittenLambdaBodyData.thisAccessNodesNeedingReplacement)
-                {
-                    var originalInvocation = originalNode.AncestorOfKind<InvocationExpressionSyntax>();
+                var originalInvocation = originalNode.AncestorOfKind<InvocationExpressionSyntax>();
 
-                    var currentNode = rewrittenLambdaExpression.GetCurrentNode(originalNode);
-                    var currentNodeInvocationExpression = currentNode.AncestorOfKindOrDefault<InvocationExpressionSyntax>();
-                    if (currentNodeInvocationExpression == null)
-                        continue;
-                    replacedToOriginal[currentNodeInvocationExpression] = originalInvocation;
-                }
-                rewrittenLambdaExpression = rewrittenLambdaExpression.ReplaceNodes(replacedToOriginal.Keys, (node, replacedNode)
-                    => CreateDataLookupFields_AndReplaceMemberAccessExpressionNodes(_lambdaJobDescription, replacedToOriginal[node], replacedNode, _lambdaJobDescription.SystemDescription.SemanticModel) ?? replacedNode);
+                var currentNode = rewrittenLambdaExpression.GetCurrentNode(originalNode);
+                var currentNodeInvocationExpression = currentNode.AncestorOfKindOrDefault<InvocationExpressionSyntax>();
+                if (currentNodeInvocationExpression == null)
+                    continue;
+                replacedToOriginal[currentNodeInvocationExpression] = originalInvocation;
             }
+            rewrittenLambdaExpression = rewrittenLambdaExpression.ReplaceNodes(replacedToOriginal.Keys, (node, replacedNode)
+                => CreateDataLookupFields_AndReplaceMemberAccessExpressionNodes(_lambdaJobDescription, replacedToOriginal[node], replacedNode, _lambdaJobDescription.SystemDescription.SemanticModel) ?? replacedNode);
 
-            // Go through all local declaration nodes and replace them with assignment nodes (or remove) if they are now captured variables that live in job struct
-            // This is needed for variables captured for local methods
-            var localDeclarationStatements = rewrittenLambdaExpression.DescendantNodes().OfType<LocalDeclarationStatementSyntax>().ToArray();
-
-            var trackedLambdaExpression = rewrittenLambdaExpression.TrackNodes(localDeclarationStatements);
-            foreach (var localDeclaration in localDeclarationStatements)
-            {
-                var trackedLocalDeclaration = trackedLambdaExpression.GetCurrentNode(localDeclaration);
-                var variableDeclaration = trackedLocalDeclaration.DescendantNodes().OfType<VariableDeclarationSyntax>().FirstOrDefault();
-
-                if (variableDeclaration != null)
-                {
-                    var variableDeclaratorSyntax = variableDeclaration.Variables.First();
-                    var variableName = variableDeclaratorSyntax.Identifier.Text;
-
-                    bool isCaptured = variablesCapturedOnlyByLocals.Any(v => v.OriginalVariableName == variableName);
-                    if (isCaptured && variableDeclaratorSyntax.Initializer is { } equalsValueClauseSyntax)
-                    {
-                        trackedLambdaExpression =
-                            trackedLambdaExpression.ReplaceNode(
-                                trackedLocalDeclaration,
-                                SyntaxFactory.ExpressionStatement(
-                                    SyntaxFactory.AssignmentExpression(
-                                        SyntaxKind.SimpleAssignmentExpression,
-                                        SyntaxFactory.IdentifierName(variableName),
-                                        equalsValueClauseSyntax.Value)));
-                    }
-                    else
-                        trackedLambdaExpression = trackedLambdaExpression.RemoveNode(localDeclaration, SyntaxRemoveOptions.KeepExteriorTrivia);
-                }
-                else
-                    trackedLambdaExpression = trackedLambdaExpression.RemoveNode(localDeclaration, SyntaxRemoveOptions.KeepExteriorTrivia);
-            }
-
-            rewrittenLambdaExpression = trackedLambdaExpression;
-
-            // Go through all local function statements and omit them as method declarations on the job struct
-            // (local methods accessing fields on this are not allowed in C#)
-            // https://sharplab.io/#v2:EYLgtghgzgLgpgJwDQxNGAfAAgJgIwCwAUFgMwAEu5AwuQN7HlOUVYAs5AsgBQCU9jZgF9BTUeVgIArgGMY5AKIA7GAEsYAT3oiizCTGlyaAezAAHY0rgqAKhrNwAEhCUATADZwAPDYB828UlZeWpTCysVABEIGAgAMQRTZTVNH386HT0gowUZKBs4WGjY5PUtcQZdPWYyRRUy8gA3CHcpODwAbnFM5mz5XPzCmGKIASrqlkU8gqKYiG5VFSaWtv4M7vFN8fJF+AQAMwgZOHIASQApY2BqAAspJQBrAO2+8gAZCDBgVwhL4AB9AAM/z+5BAZz+t3uDwq4j0tVC5ks1hgdgczjcni8AxmwzmpU0/n+MFccDRThcHjgXW28IoiPCKJGCSS9VSOKGIyJ/w5s1i/xZYAJGhpEzEtJqHAA8ghVABzRYtD5fH4AIWMrg03GF5BRZSQOyUU0GfIgOpJcF4cOYlTF1V25AA4nAYMKAGorODatlaS3Wia2u1irAAdnI/x5005cwFiSFPoA2nAALoAOmarWp/uqOmz8I4AGUXe7Pd6Ur6DQ6M6s8zbaxMI7y8fzBcKk8nyABechWADuxtxI241ctoqDTB64/r5CLrp9Hsz3D1mgNzrn5YXbW4FvTnrwvF4Y4muYlTAA9AAqbO1e5QCD7E7sRQADzgMik8G4AEEEDIbi77DgKFHnIP9oUrJYwMeU43DgZ8IPkfZVAQWBhRg0lnytU8xnHJhmgQXUfQABQMLtyDLMoL14KCHlTNcADkYlURo4B/BAIC1f5lw0ckMSpXg6JdABVJQ7wfAAlOAIFcKUlHcDQSIQPgjyDfDyAtL8ZGOKAoGMAju21KNTWFKiaMEmBGLUFi2I47hiVJXjKU8AS1xEsS4Ek6TZPkxTlOnB1uNCe55G7MygpUFS7X2PTyIdVQyMBDodnIABCbtAuMYKktUABqHKsNwnDCuYGV5UVdxlW+CB1U1bgLyXYjSJynZeANeqNK0wpdII5rVAPSKxUnHNswvM8NiIIQgA===
-            var localFunctions = rewrittenLambdaExpression.DescendantNodes().OfType<LocalFunctionStatementSyntax>();
-            rewrittenLambdaExpression = rewrittenLambdaExpression.RemoveNodes(localFunctions, SyntaxRemoveOptions.KeepNoTrivia);
-            var methodsForLocalFunctions = new List<MethodDeclarationSyntax>();
-            foreach (var localFunction in localFunctions)
-                methodsForLocalFunctions.Add((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(localFunction.ToString()));
-
-            return (rewrittenLambdaExpression, DataLookupFields.Values.ToList(), methodsForLocalFunctions);
+            return (rewrittenLambdaExpression, DataLookupFields.Values.ToList());
         }
 
         SyntaxNode CreateDataLookupFields_AndReplaceMemberAccessExpressionNodes(LambdaJobDescription description, SyntaxNode originalNode, SyntaxNode replaced, SemanticModel model)

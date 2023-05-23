@@ -293,12 +293,11 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             Assert.True(sceneInstance2.IsValid());
             sceneRef.Unload(ref sceneInstance2);
             Assert.IsFalse(sceneInstance2.IsValid());
-
+            
             var sceneFileCount2 = Loading.ContentLoadInterface.GetSceneFiles(RuntimeContentManager.Namespace).Length;
             Assert.AreEqual(sceneFileCount, sceneFileCount2);
         }
 
-        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadAndReleaseFromJobs()
         {
@@ -354,10 +353,29 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             RuntimeContentManager.ProcessQueuedCommands();
             Assert.AreEqual(ObjectLoadingStatus.None, RuntimeContentManager.GetObjectLoadingStatus(id));
         }
-
+        
 #if false
-        // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
+         // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
         // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
+        [Test]
+        public void LoadingObjectsCountIsCorrectAfterLoadsAndReleases()
+        {
+            Assert.IsTrue(InitializeCatalogForTest());
+            Assert.AreEqual(0, RuntimeContentManager.LoadingObjectsCount());
+            var ids = RuntimeContentManager.GetObjectIds(Allocator.Persistent);
+            for (int i = 0; i < ids.Length; i++)
+                RuntimeContentManager.LoadObjectAsync(ids[i]);
+            Assert.AreEqual(0, RuntimeContentManager.LoadingObjectsCount());
+            RuntimeContentManager.ProcessQueuedCommands();
+            Assert.AreEqual(ids.Length, RuntimeContentManager.LoadingObjectsCount());
+            for (int i = 0; i < ids.Length; i++)
+                RuntimeContentManager.ReleaseObjectAsync(ids[i]);
+            Assert.AreEqual(ids.Length, RuntimeContentManager.LoadingObjectsCount());
+            RuntimeContentManager.ProcessQueuedCommands();
+            Assert.AreEqual(0, RuntimeContentManager.LoadingObjectsCount());
+            ids.Dispose();
+        }
+
         [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadLocalAssets()
@@ -371,7 +389,6 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             ids.Dispose();
         }
 
-        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadLocalInstances()
         {
@@ -413,10 +430,9 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
         // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
         [UnityTest]
-//#if UNITY_EDITOR_LINUX
-        //[Ignore("DOTS-7790 - Ubuntu editor often crashes when running this test")] reenable when ADDR-3368 is fixed
-//#endif
-        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
+#if UNITY_EDITOR_LINUX
+        [Ignore("DOTS-7790 - Ubuntu editor often crashes when running this test")]
+#endif
         public IEnumerator WeakObjectReference_CanLoadAndRelease()
         {
             yield return new EnterPlayMode();
@@ -442,7 +458,6 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [Test]
-        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         public void WeakObjectReference_WhenNotLoaded_LoadingStatus_IsNone()
         {
             WeakObjectReference<UnityEngine.Object> objRef = default;
@@ -450,12 +465,57 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [Test]
-        [Ignore("Needs ADDR-3368 to work reliably on APV.")]
         public void WeakObjectReference_WhenNotLoaded_Value_IsNull()
         {
             WeakObjectReference<UnityEngine.Object> objRef = default;
             Assert.IsNull(objRef.Result);
         }
+
+
+        [Test]
+        public void WeakEntitySceneReference_IsReferenceValid_ReturnsFalse_When_Asset_DoesntExist()
+        {
+            var wr = new EntitySceneReference();
+            Assert.IsFalse(wr.IsReferenceValid);
+            wr.Id = new UntypedWeakReferenceId(new Hash128(1, 2, 3, 4), 1, 1, WeakReferenceGenerationType.Unknown);
+            Assert.IsFalse(wr.IsReferenceValid);
+            wr.Id.GenerationType = WeakReferenceGenerationType.EntityScene;
+            Assert.IsFalse(wr.IsReferenceValid);
+        }
+
+        [Test]
+        public void WeakEntityPrefabReference_IsReferenceValid_ReturnsFalse_When_Asset_DoesntExist()
+        {
+            var wr = new EntityPrefabReference();
+            Assert.IsFalse(wr.IsReferenceValid);
+            wr.Id = new UntypedWeakReferenceId(new Hash128(1, 2, 3, 4), 1, 1, WeakReferenceGenerationType.Unknown);
+            Assert.IsFalse(wr.IsReferenceValid);
+            wr.Id.GenerationType = WeakReferenceGenerationType.EntityPrefab;
+            Assert.IsFalse(wr.IsReferenceValid);
+        }
+
+        [Test]
+        public void WeakObjectSceneReference_IsReferenceValid_ReturnsFalse_When_Asset_DoesntExist()
+        {
+            var wr = new WeakObjectSceneReference();
+            Assert.IsFalse(wr.IsReferenceValid);
+            wr.Id = new UntypedWeakReferenceId(new Hash128(1, 2, 3, 4), 1, 1, WeakReferenceGenerationType.Unknown);
+            Assert.IsFalse(wr.IsReferenceValid);
+            wr.Id.GenerationType = WeakReferenceGenerationType.GameObjectScene;
+            Assert.IsFalse(wr.IsReferenceValid);
+        }
+
+        [Test]
+        public void WeakObjectReference_IsReferenceValid_ReturnsFalse_When_Asset_DoesntExist()
+        {
+            var wr = new WeakObjectReference<Material>();
+            Assert.IsFalse(wr.IsReferenceValid);
+            wr.Id = new UntypedWeakReferenceId(new Hash128(1, 2, 3, 4), 1, 1, WeakReferenceGenerationType.Unknown);
+            Assert.IsFalse(wr.IsReferenceValid);
+            wr.Id.GenerationType = WeakReferenceGenerationType.UnityObject;
+            Assert.IsFalse(wr.IsReferenceValid);
+        }
+
 #endif
     }
 }

@@ -767,27 +767,8 @@ namespace Unity.Scenes.Editor
 
             internal void Unload()
             {
-                if (loadingOperation == null)
-                    return;
-
-                if (IsDone)
-                {
-                    if (refId.GenerationType == WeakReferenceGenerationType.UnityObject)
-                    {
-                        var obj = GetResult() as Object;
-                        if (obj != null && obj.IsAsset())
-                            Resources.UnloadAsset(obj);
-                    }
-                }
-                else
-                {
-                    loadingOperation.completed += UnloadDeferred;
-                }
-            }
-
-            private void UnloadDeferred(AsyncOperation op)
-            {
-                Unload();
+                //in the editor, it is best to not unload anything as it may invalidate other direct references.
+                //in a player build, any direct references that get pulled into player data will be duplicated
             }
         }
 

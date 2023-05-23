@@ -369,8 +369,9 @@ namespace Unity.Entities.Tests
                 .Build(m_Manager);
             Assert.AreEqual(0, query.CalculateChunkCount());
             Assert.AreEqual(1, query.CalculateChunkCountWithoutFiltering());
-            var queryData = query._GetImpl()->_QueryData;
-            var queryChunkCache = queryData->GetMatchingChunkCache();
+            var queryImpl = query._GetImpl();
+            var queryData = queryImpl->_QueryData;
+            var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
             var chunk = queryChunkCache.Ptr[0];
@@ -396,8 +397,9 @@ namespace Unity.Entities.Tests
                 .Build(m_Manager);
             Assert.AreEqual(0, query.CalculateChunkCount());
             Assert.AreEqual(1, query.CalculateChunkCountWithoutFiltering());
-            var queryData = query._GetImpl()->_QueryData;
-            var queryChunkCache = queryData->GetMatchingChunkCache();
+            var queryImpl = query._GetImpl();
+            var queryData = queryImpl->_QueryData;
+            var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
             var chunk = queryChunkCache.Ptr[0];
@@ -424,8 +426,9 @@ namespace Unity.Entities.Tests
                 .WithNone<EcsTestDataEnableable2>()
                 .Build(m_Manager);
             Assert.AreEqual(1, query.CalculateChunkCount());
-            var queryData = query._GetImpl()->_QueryData;
-            var queryChunkCache = queryData->GetMatchingChunkCache();
+            var queryImpl = query._GetImpl();
+            var queryData = queryImpl->_QueryData;
+            var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
             var chunk = queryChunkCache.Ptr[0];
@@ -449,8 +452,9 @@ namespace Unity.Entities.Tests
                 .WithNone<EcsTestDataEnableable2>()
                 .Build(m_Manager);
             Assert.AreEqual(1, query.CalculateChunkCount());
-            var queryData = query._GetImpl()->_QueryData;
-            var queryChunkCache = queryData->GetMatchingChunkCache();
+            var queryImpl = query._GetImpl();
+            var queryData = queryImpl->_QueryData;
+            var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
             var chunk = queryChunkCache.Ptr[0];
@@ -474,8 +478,9 @@ namespace Unity.Entities.Tests
                 .WithDisabled<EcsTestDataEnableable2>()
                 .Build(m_Manager);
             Assert.AreEqual(1, query.CalculateChunkCount());
-            var queryData = query._GetImpl()->_QueryData;
-            var queryChunkCache = queryData->GetMatchingChunkCache();
+            var queryImpl = query._GetImpl();
+            var queryData = queryImpl->_QueryData;
+            var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
             var chunk = queryChunkCache.Ptr[0];
@@ -502,8 +507,9 @@ namespace Unity.Entities.Tests
                 .WithNone<EcsTestDataEnableable2>()
                 .Build(m_Manager);
             Assert.AreEqual(1, query.CalculateChunkCount());
-            var queryData = query._GetImpl()->_QueryData;
-            var queryChunkCache = queryData->GetMatchingChunkCache();
+            var queryImpl = query._GetImpl();
+            var queryData = queryImpl->_QueryData;
+            var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
             var chunk = queryChunkCache.Ptr[0];

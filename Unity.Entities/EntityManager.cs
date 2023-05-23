@@ -698,65 +698,14 @@ namespace Unity.Entities
         {
             var access = GetCheckedEntityDataAccess();
             access->AssertQueryIsValid(query);
-            var queryData = query._GetImpl()->_QueryData;
-            if (queryData->HasEnableableComponents != 0)
-            {
-                // Complete jobs that may be writing to any enableable types in this query
-                for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
-                    access->DependencyManager->CompleteWriteDependency(queryData->EnableableComponentTypeIndices[i]);
-                using var entities = query.ToEntityArray(Allocator.TempJob);
-                var changes = access->BeginStructuralChanges();
-                var ti = TypeManager.GetTypeIndex<T>();
-                var defaultValue = default(T);
-
-                foreach (var ent in entities)
-                    access->SetSharedComponentData_Unmanaged(ent,
-                        ti,
-                        UnsafeUtility.AddressOf(ref componentData),
-                        UnsafeUtility.AddressOf(ref defaultValue));
-                access->EndStructuralChanges(ref changes);
+            var queryImpl = query._GetImpl();
+            if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-            }
-
-            using (var chunks = query.ToArchetypeChunkArray(Allocator.TempJob))
-            {
-                if (chunks.Length == 0)
-                    return;
-
-#if ENABLE_PROFILER
-                if (StructuralChangesProfiler.Enabled)
-                {
-                    access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
-                    access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in access->m_WorldUnmanaged);
-                }
-#endif
-
-                var changes = access->BeginStructuralChanges();
-
-                var type = ComponentType.ReadWrite<T>();
-                access->RemoveComponentDuringStructuralChange(chunks, type);
-
-                int sharedComponentIndex = access->InsertSharedComponent_Unmanaged(componentData);
-                access->AddSharedComponentDataDuringStructuralChange(chunks, sharedComponentIndex, type);
-                access->EndStructuralChanges(ref changes);
-
-#if ENABLE_PROFILER
-                if (StructuralChangesProfiler.Enabled)
-                {
-                    access->StructuralChangesRecorder.End(); // SetSharedComponent
-                    access->StructuralChangesRecorder.End(); // AddComponent
-                }
-#endif
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                if (Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
-                {
-                    var typeIndex = type.TypeIndex;
-                    access->JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
-                    access->JournalAddRecord_SetSharedComponent(default, in chunks, typeIndex, &componentData, TypeManager.GetTypeInfo(typeIndex).TypeSize);
-                }
-#endif
-            }
+            var changes = access->BeginStructuralChanges();
+            var newSharedComponentDataIndex = access->InsertSharedComponent_Unmanaged(componentData);
+            access->SetSharedComponentDataOnQueryDuringStructuralChange_Unmanaged(queryImpl, newSharedComponentDataIndex,
+                ComponentType.ReadWrite<T>(), UnsafeUtility.AddressOf(ref componentData));
+            access->EndStructuralChanges(ref changes);
         }
         /// <summary> Obsolete. Use <see cref="SetSharedComponentManaged{T}(Unity.Entities.Entity,T)"/> instead.</summary>
         /// <param name="query">The query where matching entities will be assigned the shared component to.</param>
@@ -785,68 +734,23 @@ namespace Unity.Entities
         {
             var access = GetCheckedEntityDataAccess();
             access->AssertQueryIsValid(query);
-            var queryData = query._GetImpl()->_QueryData;
-            if (queryData->HasEnableableComponents != 0)
-            {
-                // Complete jobs that may be writing to any enableable types in this query
-                for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
-                    access->DependencyManager->CompleteWriteDependency(queryData->EnableableComponentTypeIndices[i]);
-                using var entities = query.ToEntityArray(Allocator.TempJob);
-                var changes = access->BeginStructuralChanges();
-                var ti = TypeManager.GetTypeIndex<T>();
-                var defaultValue = default(T);
-                if (TypeManager.IsManagedSharedComponent(ti))
-                {
-                    foreach (var ent in entities)
-                        access->SetSharedComponentData_Managed(ent, componentData);
-                }
-                else
-                {
-                    foreach (var ent in entities)
-                        access->SetSharedComponentData_Unmanaged(ent, ti, UnsafeUtility.AddressOf(ref componentData), UnsafeUtility.AddressOf(ref defaultValue));
-                }
-                access->EndStructuralChanges(ref changes);
+            var queryImpl = query._GetImpl();
+            if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-            }
-            using (var chunks = query.ToArchetypeChunkArray(Allocator.TempJob))
+            var componentType = ComponentType.ReadWrite<T>();
+            var changes = access->BeginStructuralChanges();
+            var newSharedComponentDataIndex = access->InsertSharedComponent(componentData);
+            if (TypeManager.IsManagedSharedComponent(componentType.TypeIndex))
             {
-                if (chunks.Length == 0)
-                    return;
-
-#if ENABLE_PROFILER
-                if (StructuralChangesProfiler.Enabled)
-                {
-                    access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
-                    access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in access->m_WorldUnmanaged);
-                }
-#endif
-
-                var changes = access->BeginStructuralChanges();
-
-                var type = ComponentType.ReadWrite<T>();
-                access->RemoveComponentDuringStructuralChange(chunks, type);
-
-                int sharedComponentIndex = access->InsertSharedComponent(componentData);
-                access->AddSharedComponentDataDuringStructuralChange(chunks, sharedComponentIndex, type);
-                access->EndStructuralChanges(ref changes);
-
-#if ENABLE_PROFILER
-                if (StructuralChangesProfiler.Enabled)
-                {
-                    access->StructuralChangesRecorder.End(); // SetSharedComponent
-                    access->StructuralChangesRecorder.End(); // AddComponent
-                }
-#endif
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                if (Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
-                {
-                    var typeIndex = type.TypeIndex;
-                    access->JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
-                    access->JournalAddRecord_SetSharedComponentManaged(default, in chunks, typeIndex);
-                }
-#endif
+                access->SetSharedComponentDataOnQueryDuringStructuralChange(queryImpl, newSharedComponentDataIndex,
+                    componentType);
             }
+            else
+            {
+                access->SetSharedComponentDataOnQueryDuringStructuralChange_Unmanaged(queryImpl, newSharedComponentDataIndex,
+                    componentType, UnsafeUtility.AddressOf(ref componentData));
+            }
+            access->EndStructuralChanges(ref changes);
         }
 
         /// <summary>
@@ -1740,25 +1644,14 @@ namespace Unity.Entities
         public void AddComponent(EntityQuery entityQuery, ComponentType componentType)
         {
             var access = GetCheckedEntityDataAccess();
+            access->AssertMainThread();
             access->AssertQueryIsValid(entityQuery);
             var queryImpl = entityQuery._GetImpl();
 
             if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-
-            access->AssertMainThread();
-            var queryData = entityQuery._GetImpl()->_QueryData;
-            if (queryData->HasEnableableComponents != 0)
-            {
-                // Complete jobs that may be writing to any enableable types in this query
-                for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
-                    access->DependencyManager->CompleteWriteDependency(queryData->EnableableComponentTypeIndices[i]);
-                using var entities = entityQuery.ToEntityArray(Allocator.TempJob);
-                AddComponent(entities, componentType);
-                return;
-            }
             var changes = access->BeginStructuralChanges();
-            access->AddComponentToChunksDuringStructuralChange(queryImpl, componentType);
+            access->AddComponentToQueryDuringStructuralChange(queryImpl, componentType);
             access->EndStructuralChanges(ref changes);
         }
 
@@ -1789,19 +1682,7 @@ namespace Unity.Entities
 
             access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
-            var queryData = queryImpl->_QueryData;
-            if (queryData->HasEnableableComponents != 0)
-            {
-                // Complete jobs that may be writing to any enableable types in this query
-                for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
-                    access->DependencyManager->CompleteWriteDependency(queryData->EnableableComponentTypeIndices[i]);
-                using var entities = entityQuery.ToEntityArray(Allocator.TempJob);
-                access->AddMultipleComponentsDuringStructuralChange(entities, componentTypeSet);
-            }
-            else
-            {
-                access->AddComponentsToChunksDuringStructuralChange(queryImpl, componentTypeSet);
-            }
+            access->AddComponentsToQueryDuringStructuralChange(queryImpl, componentTypeSet);
             access->EndStructuralChanges(ref changes);
         }
 
@@ -2264,25 +2145,13 @@ namespace Unity.Entities
         public void RemoveComponent(EntityQuery entityQuery, ComponentType componentType)
         {
             var access = GetCheckedEntityDataAccess();
+            access->AssertMainThread();
             access->AssertQueryIsValid(entityQuery);
             var queryImpl = entityQuery._GetImpl();
             if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-            var queryData = queryImpl->_QueryData;
-            access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
-            if (queryData->HasEnableableComponents != 0)
-            {
-                // Complete jobs that may be writing to any enableable types in this query
-                for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
-                    access->DependencyManager->CompleteWriteDependency(queryData->EnableableComponentTypeIndices[i]);
-                using var entities = entityQuery.ToEntityArray(Allocator.TempJob);
-                access->RemoveComponentDuringStructuralChange(entities, componentType);
-            }
-            else
-            {
-                access->RemoveComponentFromChunksDuringStructuralChange(queryImpl, componentType);
-            }
+            access->RemoveComponentFromQueryDuringStructuralChange(queryImpl, componentType);
             access->EndStructuralChanges(ref changes);
         }
 
@@ -2314,22 +2183,10 @@ namespace Unity.Entities
             var queryImpl = entityQuery._GetImpl();
             if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-            var queryData = queryImpl->_QueryData;
 
             access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
-            if (queryData->HasEnableableComponents != 0)
-            {
-                // Complete jobs that may be writing to any enableable types in this query
-                for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
-                    access->DependencyManager->CompleteWriteDependency(queryData->EnableableComponentTypeIndices[i]);
-                using var entities = entityQuery.ToEntityArray(Allocator.TempJob);
-                access->RemoveMultipleComponentsDuringStructuralChange(entities, componentTypeSet);
-            }
-            else
-            {
-                access->RemoveMultipleComponentsFromChunksDuringStructuralChange(queryImpl, componentTypeSet);
-            }
+            access->RemoveMultipleComponentsFromQueryDuringStructuralChange(queryImpl, componentTypeSet);
             access->EndStructuralChanges(ref changes);
         }
 
@@ -2852,6 +2709,9 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
+        /// Chunks that already have component <typeparamref name="T"/> will still update the component value
+        /// to <paramref name="componentData"/>.
+        ///
         /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running jobs to complete before adding the component. No additional jobs can start before
         /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
@@ -2867,69 +2727,18 @@ namespace Unity.Entities
             where T : unmanaged, ISharedComponentData
         {
             var access = GetCheckedEntityDataAccess();
-            access->AssertQueryIsValid(entityQuery);
-            if (entityQuery.IsEmptyIgnoreFilter)
-                return;
-
             access->AssertMainThread();
+            access->AssertQueryIsValid(entityQuery);
+            var queryImpl = entityQuery._GetImpl();
+            if (queryImpl->IsEmptyIgnoreFilter)
+                return;
             var componentType = ComponentType.ReadWrite<T>();
-            var queryData = entityQuery._GetImpl()->_QueryData;
-            var defaultValue = default(T);
-            if (queryData->HasEnableableComponents != 0)
-            {
-                // Complete jobs that may be writing to any enableable types in this query
-                for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
-                    access->DependencyManager->CompleteWriteDependency(queryData->EnableableComponentTypeIndices[i]);
-                using var entities = entityQuery.ToEntityArray(Allocator.TempJob);
-                var changes = access->BeginStructuralChanges();
 
-                foreach (var ent in entities)
-                    access->AddSharedComponentDataDuringStructuralChange_Unmanaged(ent,
-                        componentType,
-                        UnsafeUtility.AddressOf(ref componentData),
-                        UnsafeUtility.AddressOf(ref defaultValue));
-                access->EndStructuralChanges(ref changes);
-            }
-            else
-            {
-                using (var chunks = entityQuery.ToArchetypeChunkArray(Allocator.TempJob))
-                {
-                    if (chunks.Length == 0)
-                        return;
-
-#if ENABLE_PROFILER
-                    if (StructuralChangesProfiler.Enabled)
-                    {
-                        access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
-                        access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in access->m_WorldUnmanaged);
-                    }
-#endif
-
-                    var changes = access->BeginStructuralChanges();
-
-                    var newSharedComponentDataIndex = access->InsertSharedComponent_Unmanaged(componentData);
-                    access->AddSharedComponentDataDuringStructuralChange(chunks, newSharedComponentDataIndex, componentType);
-
-                    access->EndStructuralChanges(ref changes);
-
-#if ENABLE_PROFILER
-                    if (StructuralChangesProfiler.Enabled)
-                    {
-                        access->StructuralChangesRecorder.End(); // SetSharedComponent
-                        access->StructuralChangesRecorder.End(); // AddComponent
-                    }
-#endif
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    if (Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
-                    {
-                        var typeIndex = componentType.TypeIndex;
-                        access->JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
-                        access->JournalAddRecord_SetSharedComponent(default, in chunks, typeIndex, &componentData, TypeManager.GetTypeInfo(typeIndex).TypeSize);
-                    }
-#endif
-                }
-            }
+            var changes = access->BeginStructuralChanges();
+            var newSharedComponentDataIndex = access->InsertSharedComponent_Unmanaged(componentData);
+            access->AddSharedComponentDataToQueryDuringStructuralChange_Unmanaged(queryImpl, newSharedComponentDataIndex, componentType,
+                UnsafeUtility.AddressOf(ref componentData));
+            access->EndStructuralChanges(ref changes);
         }
 
         /// <summary> Obsolete. Use <see cref="AddSharedComponentManaged{T}(Unity.Entities.Entity,T)"/> instead.</summary>
@@ -2949,6 +2758,9 @@ namespace Unity.Entities
         /// different chunk. The entity moves to a chunk with other entities that have the same shared component values.
         /// A new chunk is created if no chunk with the same archetype and shared component values currently exists.
         ///
+        /// Chunks that already have component <typeparamref name="T"/> will still update the component value
+        /// to <paramref name="componentData"/>.
+        ///
         /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running jobs to complete before adding the component. No additional jobs can start before
         /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
@@ -2965,70 +2777,23 @@ namespace Unity.Entities
         {
             var access = GetCheckedEntityDataAccess();
             access->AssertQueryIsValid(entityQuery);
-            if (entityQuery.IsEmptyIgnoreFilter)
+            var queryImpl = entityQuery._GetImpl();
+            if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-
             var componentType = ComponentType.ReadWrite<T>();
-            var queryData = entityQuery._GetImpl()->_QueryData;
-            var defaultValue = default(T);
-            if (queryData->HasEnableableComponents != 0)
+            var changes = access->BeginStructuralChanges();
+            var newSharedComponentDataIndex = access->InsertSharedComponent(componentData);
+            if (TypeManager.IsManagedSharedComponent(componentType.TypeIndex))
             {
-                // Complete jobs that may be writing to any enableable types in this query
-                for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
-                    access->DependencyManager->CompleteWriteDependency(queryData->EnableableComponentTypeIndices[i]);
-                using var entities = entityQuery.ToEntityArray(Allocator.Temp);
-                var changes = access->BeginStructuralChanges();
-                if (TypeManager.IsManagedSharedComponent(componentType.TypeIndex))
-                {
-                    foreach (var ent in entities)
-                        access->AddSharedComponentDataDuringStructuralChange_Managed(ent, componentData);
-                }
-                else
-                {
-                    foreach (var ent in entities)
-                        access->AddSharedComponentDataDuringStructuralChange_Unmanaged(ent, componentType,
-                            UnsafeUtility.AddressOf(ref componentData), UnsafeUtility.AddressOf(ref defaultValue));
-                }
-                access->EndStructuralChanges(ref changes);
+                access->AddSharedComponentDataToQueryDuringStructuralChange(queryImpl, newSharedComponentDataIndex,
+                    componentType);
             }
             else
             {
-                using (var chunks = entityQuery.ToArchetypeChunkArray(Allocator.Temp))
-                {
-                    if (chunks.Length == 0)
-                        return;
-#if ENABLE_PROFILER
-                    if (StructuralChangesProfiler.Enabled)
-                    {
-                        access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in access->m_WorldUnmanaged);
-                        access->StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in access->m_WorldUnmanaged);
-                    }
-#endif
-
-                    var changes = access->BeginStructuralChanges();
-                    var newSharedComponentDataIndex = access->InsertSharedComponent(componentData);
-                    access->AddSharedComponentDataDuringStructuralChange(chunks, newSharedComponentDataIndex,
-                        componentType);
-                    access->EndStructuralChanges(ref changes);
-
-#if ENABLE_PROFILER
-                    if (StructuralChangesProfiler.Enabled)
-                    {
-                        access->StructuralChangesRecorder.End(); // SetSharedComponent
-                        access->StructuralChangesRecorder.End(); // AddComponent
-                    }
-#endif
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    if (Hint.Unlikely(access->EntityComponentStore->m_RecordToJournal != 0))
-                    {
-                        var typeIndex = componentType.TypeIndex;
-                        access->JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
-                        access->JournalAddRecord_SetSharedComponentManaged(default, in chunks, typeIndex);
-                    }
-#endif
-                }
+                access->AddSharedComponentDataToQueryDuringStructuralChange_Unmanaged(queryImpl, newSharedComponentDataIndex,
+                    componentType, UnsafeUtility.AddressOf(ref componentData));
             }
+            access->EndStructuralChanges(ref changes);
         }
 
         /// <summary>
@@ -3456,29 +3221,27 @@ namespace Unity.Entities
         /// <summary>
         /// Destroy all entities having a common set of component types.
         /// </summary>
-        /// <remarks>Since entities in the same chunk share the same component structure, this function effectively destroys
-        /// the chunks holding any entities identified by the `entityQueryFilter` parameter.</remarks>
+        /// <remarks>
+        /// Since entities in the same chunk share the same component structure, this function effectively destroys
+        /// the chunks holding any entities identified by the `entityQueryFilter` parameter.
+        ///
+        /// If any entities matching the query have the <see cref="LinkedEntityGroup"/> component, this operation
+        /// will fail if any entities in a <see cref="LinkedEntityGroup"/> buffer do not also match the query.
+        /// </remarks>
         /// <param name="entityQuery">Defines the components an entity must have to qualify for destruction.</param>
+        /// <exception cref="ArgumentException">Thrown if this operation would not destroy all entities in all
+        /// <see cref="LinkedEntityGroup"/> buffers on all entities matched by <paramref name="entityQuery"/>.</exception>
         [StructuralChangeMethod]
         public void DestroyEntity(EntityQuery entityQuery)
         {
             var access = GetCheckedEntityDataAccess();
             access->AssertQueryIsValid(entityQuery);
             var queryImpl = entityQuery._GetImpl();
-            var queryData = queryImpl->_QueryData;
-            if (queryData->HasEnableableComponents != 0)
-            {
-                // Complete jobs that may be writing to any enableable types in this query
-                for (int i = 0; i < queryData->EnableableComponentTypeIndexCount; ++i)
-                    access->DependencyManager->CompleteWriteDependency(queryData->EnableableComponentTypeIndices[i]);
-                using var entities = entityQuery.ToEntityArray(Allocator.TempJob);
-                DestroyEntityInternal((Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length);
-            }
-            else
-            {
-                DestroyEntitiesInChunks(queryImpl);
-            }
-
+            if (queryImpl->IsEmptyIgnoreFilter)
+                return;
+            var changes = access->BeginStructuralChanges();
+            access->DestroyEntitiesInQueryDuringStructuralChange(queryImpl);
+            access->EndStructuralChanges(ref changes);
         }
 
         /// <summary>
@@ -4960,16 +4723,6 @@ namespace Unity.Entities
             access->EndStructuralChanges(ref changes);
         }
 
-        void DestroyEntitiesInChunks(EntityQueryImpl* queryImpl)
-        {
-            var access = GetCheckedEntityDataAccess();
-            var changes = access->BeginStructuralChanges();
-            access->DestroyEntitiesInChunksDuringStructuralChange(queryImpl);
-            access->EndStructuralChanges(ref changes);
-        }
-
-
-
         void MoveEntitiesFromInternalQuery(EntityManager srcEntities, EntityQuery filter, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
         {
             var srcAccess = srcEntities.GetCheckedEntityDataAccess();
@@ -5907,7 +5660,7 @@ namespace Unity.Entities
         /// <param name="componentData">The data to set.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if the system isn't from thie world.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the system isn't from this world.</exception>
         public static void SetComponentData<T>(this EntityManager manager, SystemHandle system, T componentData) where T : class, IComponentData, new()
         {
             var access = manager.GetCheckedEntityDataAccess();
@@ -6014,6 +5767,28 @@ namespace Unity.Entities
 
             manager.AddComponent(entity, type);
             manager.SetComponentData(entity, componentData);
+        }
+
+        /// <summary>
+        /// Adds a managed component to an entity associated with a system and set the value of that component.
+        /// </summary>
+        /// <remarks>
+        /// Adding a component changes an entity's archetype and results in the entity being moved to a different
+        /// chunk.
+        ///
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before adding the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
+        /// </remarks>
+        /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+        /// <param name="manager">This entity manager.</param>
+        /// <param name="system">The system handle.</param>
+        /// <param name="componentData">The data to set.</param>
+        /// <typeparam name="T">The type of component.</typeparam>
+        public static void AddComponentData<T>(this EntityManager manager, SystemHandle system, T componentData) where T : class, IComponentData, new()
+        {
+            manager.AddComponentData(system.m_Entity, componentData);
         }
 
         /// <summary>

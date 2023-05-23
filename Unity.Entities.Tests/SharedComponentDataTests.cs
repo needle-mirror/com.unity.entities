@@ -635,7 +635,7 @@ namespace Unity.Entities.Tests
             Assert.That(indices[0] == 0);
             var firstrealindex = indices[1];
             Assert.That(EntityComponentStore.IsUnmanagedSharedComponentIndex(firstrealindex));
-            Assert.That(firstrealindex == m_Manager.GetSharedComponentDataIndex<SharedDataRefCounter>(e2));
+            Assert.That(firstrealindex == m_Manager.GetSharedComponentIndex<SharedDataRefCounter>(e2));
             m_Manager.RemoveComponent<SharedDataRefCounter>(e2);
         }
 

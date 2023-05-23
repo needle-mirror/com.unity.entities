@@ -40,6 +40,25 @@ namespace Unity.Entities.Serialization
         {
         }
 #endif
+        /// <summary>
+        /// Returns true if the reference has a valid id.  In the editor, additional checks for the correct GenerationType and the existence of the referenced asset are performed.
+        /// </summary>
+        public bool IsReferenceValid
+        {
+            get
+            {
+                if (!Id.IsValid)
+                    return false;
+#if UNITY_EDITOR
+                if (Id.GenerationType != WeakReferenceGenerationType.EntityScene)
+                    return false;
+
+                if (UnityEditor.AssetDatabase.GetMainAssetTypeAtPath(UnityEditor.AssetDatabase.GUIDToAssetPath(Id.GlobalId.AssetGUID)) != typeof(UnityEditor.SceneAsset))
+                    return false;
+#endif
+                return true;
+            }
+        }
 
         /// <summary>
         /// Checks if this reference holds the same asset GUID as the other reference.

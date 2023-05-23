@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -544,42 +545,27 @@ namespace Unity.Entities
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
         /// <param name="queryImpl"></param>
-        public void DestroyEntitiesInChunksDuringStructuralChange(EntityQueryImpl* queryImpl,
+        public void DestroyEntitiesInQueryDuringStructuralChange(EntityQueryImpl* queryImpl,
             in SystemHandle originSystem = default)
         {
-            if (queryImpl->IsEmptyIgnoreFilter)
-                return;
-
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
                 StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.DestroyEntity, in m_WorldUnmanaged);
 #endif
-
-            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
-            {
-                var errorEntity = Entity.Null;
-                var errorReferencedEntity = Entity.Null;
-                if (chunks.Length > 0)
-                {
-                    EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks,
-                        GetBufferTypeHandle<LinkedEntityGroup>(false), ref errorEntity, ref errorReferencedEntity);
-
-                    // #todo @macton DestroyEntities should support IJobChunk. But internal writes need to be handled.
-                    if (errorEntity == Entity.Null)
-                    {
+            queryImpl->SyncFilterTypes();
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                        if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
-                            JournalAddRecord_DestroyEntity(in originSystem, in chunks);
-#endif
-                        StructuralChange.DestroyChunks(EntityComponentStore, chunks);
-                    }
-                    else
-                    {
-                        EntityComponentStore->ThrowDestroyEntityError(errorEntity, errorReferencedEntity);
-                    }
+            if (Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                // TODO: Allocating and populating this filtered chunk array is redundant work, but that's what the journaling interface requires.
+                using var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob);
+                if (Hint.Likely(chunks.Length > 0))
+                {
+                    JournalAddRecord_DestroyEntity(in originSystem, in chunks);
                 }
             }
-
+#endif
+            var linkedEntityGroupTypeHandle = GetBufferTypeHandle<LinkedEntityGroup>(true);
+            StructuralChange.DestroyChunksQuery(EntityComponentStore, queryImpl, ref linkedEntityGroupTypeHandle);
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
                 StructuralChangesRecorder.End();
@@ -834,7 +820,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if the component type being added is Entity type.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the component increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the component causes the size of the archetype to exceed the size of a chunk.</exception>
-        public void AddComponentToChunksDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentType componentType,
+        public void AddComponentToQueryDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentType componentType,
             in SystemHandle originSystem = default)
         {
             if (queryImpl->IsEmptyIgnoreFilter)
@@ -846,21 +832,17 @@ namespace Unity.Entities
                 StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
 
-            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
-            {
-                if (chunks.Length > 0)
-                {
+            queryImpl->SyncFilterTypes();
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
-                        JournalAddRecord_AddComponent(in originSystem, in chunks, &componentType.TypeIndex, 1);
-#endif
-
-                    StructuralChange.AddComponentChunks(EntityComponentStore,
-                        (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length,
-                        componentType.TypeIndex);
-                }
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                // TODO: Allocating and populating this filtered chunk array is redundant work, but that's what the journaling interface requires.
+                using var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob);
+                if (Hint.Likely(chunks.Length > 0))
+                    JournalAddRecord_AddComponent(in originSystem, in chunks, &componentType.TypeIndex, 1);
             }
-
+#endif
+            StructuralChange.AddComponentQuery(EntityComponentStore, queryImpl, componentType.TypeIndex);
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
                 StructuralChangesRecorder.End();
@@ -876,7 +858,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if one of the component types being added is Entity type.</exception>
         /// <exception cref="InvalidOperationException">Thrown if one of the components increases the shared component count of the entity's archetype to more than the maximum allowed.</exception>
         /// <exception cref="InvalidOperationException">Thrown if one of the components causes the size of the archetype to exceed the size of a chunk.</exception>
-        internal void AddComponentsToChunksDuringStructuralChange(EntityQueryImpl* queryImpl, in ComponentTypeSet typeSet,
+        internal void AddComponentsToQueryDuringStructuralChange(EntityQueryImpl* queryImpl, in ComponentTypeSet typeSet,
             in SystemHandle originSystem = default)
         {
             if (queryImpl->IsEmptyIgnoreFilter || typeSet.Length == 0)
@@ -888,20 +870,16 @@ namespace Unity.Entities
                 StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
 
-            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
-            {
-                if (chunks.Length > 0)
-                {
+            queryImpl->SyncFilterTypes();
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
-                        JournalAddRecord_AddComponent(in originSystem, in chunks, typeSet.UnsafeTypesPtrRO, typeSet.Length);
-#endif
-
-                    StructuralChange.AddComponentsChunks(EntityComponentStore,
-                        (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, typeSet);
-                }
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                // TODO: Allocating and populating this filtered chunk array is redundant work, but that's what the journaling interface requires.
+                using var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob);
+                JournalAddRecord_AddComponent(in originSystem, in chunks, typeSet.UnsafeTypesPtrRO, typeSet.Length);
             }
-
+#endif
+            StructuralChange.AddComponentsQuery(EntityComponentStore, queryImpl, typeSet);
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
                 StructuralChangesRecorder.End();
@@ -1117,7 +1095,7 @@ namespace Unity.Entities
         /// <param name="queryImpl"></param>
         /// <param name="componentType"></param>
         /// <exception cref="InvalidOperationException">Thrown if the componentType is Entity type.</exception>
-        public void RemoveComponentFromChunksDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentType componentType,
+        public void RemoveComponentFromQueryDuringStructuralChange(EntityQueryImpl* queryImpl, ComponentType componentType,
             in SystemHandle originSystem = default)
         {
             if (queryImpl->IsEmptyIgnoreFilter)
@@ -1128,22 +1106,16 @@ namespace Unity.Entities
             if (StructuralChangesProfiler.Enabled)
                 StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
-
-            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
-            {
-                if (chunks.Length > 0)
-                {
+            queryImpl->SyncFilterTypes();
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
-                        JournalAddRecord_RemoveComponent(in originSystem, in chunks, &componentType.TypeIndex, 1);
-#endif
-
-                    StructuralChange.RemoveComponentChunks(EntityComponentStore,
-                        (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length,
-                        componentType.TypeIndex);
-                }
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                // TODO: Allocating and populating this filtered chunk array is redundant work, but that's what the journaling interface requires.
+                using var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob);
+                JournalAddRecord_RemoveComponent(in originSystem, in chunks, &componentType.TypeIndex, 1);
             }
-
+#endif
+            StructuralChange.RemoveComponentQuery(EntityComponentStore, queryImpl, componentType.TypeIndex);
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
                 StructuralChangesRecorder.End();
@@ -1155,7 +1127,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="queryImpl"></param>
         /// <param name="componentTypeSet"></param>
-        internal void RemoveMultipleComponentsFromChunksDuringStructuralChange(EntityQueryImpl* queryImpl, in ComponentTypeSet componentTypeSet,
+        internal void RemoveMultipleComponentsFromQueryDuringStructuralChange(EntityQueryImpl* queryImpl, in ComponentTypeSet componentTypeSet,
             in SystemHandle originSystem = default)
         {
             if (queryImpl->IsEmptyIgnoreFilter || componentTypeSet.Length == 0)
@@ -1166,22 +1138,17 @@ namespace Unity.Entities
             if (StructuralChangesProfiler.Enabled)
                 StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.RemoveComponent, in m_WorldUnmanaged);
 #endif
-
-            using (var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob))
-            {
-                if (chunks.Length > 0)
-                {
+            queryImpl->SyncFilterTypes();
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-                    if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
-                        JournalAddRecord_RemoveComponent(in originSystem, in chunks, componentTypeSet.UnsafeTypesPtrRO, componentTypeSet.Length);
-#endif
-
-                    StructuralChange.RemoveComponentsChunks(EntityComponentStore,
-                        (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length,
-                        componentTypeSet);
-                }
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                // TODO: Allocating and populating this filtered chunk array is redundant work, but that's what the journaling interface requires.
+                using var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob);
+                JournalAddRecord_RemoveComponent(in originSystem, in chunks, componentTypeSet.UnsafeTypesPtrRO,
+                    componentTypeSet.Length);
             }
-
+#endif
+            StructuralChange.RemoveComponentsQuery(EntityComponentStore, queryImpl, componentTypeSet);
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
                 StructuralChangesRecorder.End();
@@ -1590,6 +1557,105 @@ namespace Unity.Entities
             StructuralChange.AddSharedComponentChunks(EntityComponentStore,
                 (ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex,
                 sharedComponentIndex);
+        }
+
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="chunks"></param>
+        /// <param name="sharedComponentIndex"></param>
+        /// <param name="componentType"></param>
+        internal void AddSharedComponentDataToQueryDuringStructuralChange(
+            EntityQueryImpl* queryImpl,
+            int sharedComponentIndex,
+            ComponentType componentType,
+            in SystemHandle originSystem = default)
+        {
+            Assert.IsTrue(componentType.IsSharedComponent);
+            Assert.IsTrue(TypeManager.IsManagedSharedComponent(componentType.TypeIndex));
+            if (queryImpl->IsEmptyIgnoreFilter)
+                return;
+            EntityComponentStore->AssertCanAddComponent(queryImpl->_QueryData->MatchingArchetypes, componentType);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+            {
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+            }
+#endif
+            queryImpl->SyncFilterTypes();
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                // TODO: Allocating and populating this filtered chunk array is redundant work, but that's what the journaling interface requires.
+                using var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob);
+                if (Hint.Likely(chunks.Length > 0))
+                {
+                    var typeIndex = componentType.TypeIndex;
+                    JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
+                    JournalAddRecord_SetSharedComponentManaged(default, in chunks, typeIndex);
+                }
+            }
+#endif
+            StructuralChange.AddSharedComponentQuery(EntityComponentStore, queryImpl, componentType.TypeIndex, sharedComponentIndex);
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+            {
+                StructuralChangesRecorder.End(); // SetSharedComponent
+                StructuralChangesRecorder.End(); // AddComponent
+            }
+#endif
+        }
+
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="queryImpl"></param>
+        /// <param name="sharedComponentIndex"></param>
+        /// <param name="componentType"></param>
+        /// <param name="componentValue"></param>
+        internal void AddSharedComponentDataToQueryDuringStructuralChange_Unmanaged(
+            EntityQueryImpl* queryImpl,
+            int sharedComponentIndex,
+            ComponentType componentType,
+            void* componentValue,
+            in SystemHandle originSystem = default)
+        {
+            Assert.IsTrue(componentType.IsSharedComponent);
+            if (queryImpl->IsEmptyIgnoreFilter)
+                return;
+            EntityComponentStore->AssertCanAddComponent(queryImpl->_QueryData->MatchingArchetypes, componentType);
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+            {
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+            }
+#endif
+            queryImpl->SyncFilterTypes();
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                var typeIndex = componentType.TypeIndex;
+                // TODO: Allocating and populating this filtered chunk array is redundant work, but that's what the journaling interface requires.
+                using var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob);
+                if (Hint.Likely(chunks.Length > 0))
+                {
+                    JournalAddRecord_AddComponent(default, in chunks, &typeIndex, 1);
+                    JournalAddRecord_SetSharedComponent(default, in chunks, typeIndex, componentValue,
+                        TypeManager.GetTypeInfo(typeIndex).TypeSize);
+                }
+            }
+#endif
+            StructuralChange.AddSharedComponentQuery(EntityComponentStore, queryImpl, componentType.TypeIndex, sharedComponentIndex);
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+            {
+                StructuralChangesRecorder.End(); // SetSharedComponent
+                StructuralChangesRecorder.End(); // AddComponent
+            }
+#endif
         }
 
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
@@ -2039,6 +2105,12 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="newData"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
         public int InsertSharedComponent<T>(T newData) where T : struct, ISharedComponentData
         {
@@ -2060,6 +2132,12 @@ namespace Unity.Entities
             return index;
         }
 
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="newData"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
         public int InsertSharedComponent_Unmanaged<T>(T newData) where T : unmanaged, ISharedComponentData
         {
@@ -2237,6 +2315,14 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="typeIndex"></param>
+        /// <param name="hashCode"></param>
+        /// <param name="newData"></param>
+        /// <param name="defaultValue"></param>
+        /// <returns></returns>
         [GenerateTestsForBurstCompatibility]
         public int InsertSharedComponent_Unmanaged(TypeIndex typeIndex, int hashCode, void* newData, void* defaultValue)
         {
@@ -2307,6 +2393,93 @@ namespace Unity.Entities
             if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
                 JournalAddRecord_SetSharedComponent(in originSystem, in entities, componentType.TypeIndex, componentData, TypeManager.GetTypeInfo(componentType.TypeIndex).TypeSize);
 #endif
+        }
+
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="queryImpl"></param>
+        /// <param name="sharedComponentIndex"></param>
+        /// <param name="componentType"></param>
+        /// <param name="originSystem"></param>
+        public void SetSharedComponentDataOnQueryDuringStructuralChange(
+            EntityQueryImpl* queryImpl,
+            int sharedComponentIndex,
+            ComponentType componentType,
+            in SystemHandle originSystem = default)
+        {
+            Assert.IsTrue(TypeManager.IsManagedSharedComponent(componentType.TypeIndex));
+            EntityComponentStore->AssertNonEmptyArchetypesHaveComponent(queryImpl->_QueryData->MatchingArchetypes, componentType);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+            queryImpl->SyncFilterTypes();
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                // TODO: Allocating and populating this filtered chunk array is redundant work, but that's what the journaling interface requires.
+                using var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob);
+                if (Hint.Likely(chunks.Length > 0))
+                {
+                    JournalAddRecord_SetSharedComponentManaged(default, in chunks, componentType.TypeIndex);
+                }
+            }
+#endif
+            StructuralChange.SetSharedComponentDataIndexWithBurst(EntityComponentStore,
+                queryImpl, componentType, sharedComponentIndex);
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.End();
+#endif
+
+        }
+
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="queryImpl"></param>
+        /// <param name="sharedComponentIndex"></param>
+        /// <param name="componentType"></param>
+        /// <param name="componentData"></param>
+        /// <param name="originSystem"></param>
+        [GenerateTestsForBurstCompatibility]
+        public void SetSharedComponentDataOnQueryDuringStructuralChange_Unmanaged(
+            EntityQueryImpl* queryImpl,
+            int sharedComponentIndex,
+            ComponentType componentType,
+            void* componentData,
+            in SystemHandle originSystem = default)
+        {
+            Assert.IsTrue(componentType.IsSharedComponent);
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(componentType.TypeIndex));
+            EntityComponentStore->AssertNonEmptyArchetypesHaveComponent(queryImpl->_QueryData->MatchingArchetypes, componentType);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+            queryImpl->SyncFilterTypes();
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+            {
+                // TODO: Allocating and populating this filtered chunk array is redundant work, but that's what the journaling interface requires.
+                using var chunks = queryImpl->ToArchetypeChunkArray(Allocator.TempJob);
+                if (Hint.Likely(chunks.Length > 0))
+                {
+                    JournalAddRecord_SetSharedComponent(in originSystem, in chunks, componentType.TypeIndex,
+                        componentData, TypeManager.GetTypeInfo(componentType.TypeIndex).TypeSize);
+                }
+            }
+#endif
+            StructuralChange.SetSharedComponentDataIndexWithBurst(EntityComponentStore,
+                queryImpl, componentType, sharedComponentIndex);
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.End();
+#endif
+
         }
 
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]

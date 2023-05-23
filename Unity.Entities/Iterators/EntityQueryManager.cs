@@ -702,7 +702,7 @@ namespace Unity.Entities
                 var ecs = access->EntityComponentStore;
 
                 queryData->MatchingArchetypes = new UnsafeMatchingArchetypePtrList(access->EntityComponentStore);
-                queryData->MatchingChunkCache = new UnsafeCachedChunkList(access->EntityComponentStore);
+                queryData->CreateMatchingChunkCache(access->EntityComponentStore);
 
                 queryData->EntityQueryMask = new EntityQueryMask();
 
@@ -714,7 +714,7 @@ namespace Unity.Entities
 
                 entityQueryCache.Add(hash, m_EntityQueryDatas.Length);
                 m_EntityQueryDatas.Add(queryData);
-                queryData->MatchingChunkCache.Invalidate();
+                queryData->InvalidateChunkCache();
             }
 
             return EntityQuery.Construct(queryData, access);
@@ -1373,8 +1373,6 @@ namespace Unity.Entities
         [BurstCompile]
         internal static void Rebuild(ref UnsafeCachedChunkList cache, in EntityQueryData queryData)
         {
-            Assert.AreEqual((ulong)queryData.MatchingChunkCache.MatchingChunks, (ulong)cache.MatchingChunks);
-
             cache.MatchingChunks->Clear();
             cache.PerChunkMatchingArchetypeIndex->Clear();
             cache.ChunkIndexInArchetype->Clear();
@@ -1397,8 +1395,6 @@ namespace Unity.Entities
         // make sure this method actually detects the expected inconsistencies in a known invalid cache.
         internal static void AssertIsConsistent(in UnsafeCachedChunkList cache, in EntityQueryData queryData, bool forceCheckInvalidCache)
         {
-            // Sanity check that the provided cache is associated with the provided query
-            Assert.AreEqual((ulong)queryData.MatchingChunkCache.MatchingChunks, (ulong)cache.MatchingChunks);
             // If the input cache doesn't even think it's valid, its contents are definitely not guaranteed to be consistent.
             // Allow the caller to skip this check and check a known invalid cache any, for unit testing purposes
             if (!forceCheckInvalidCache && !cache.IsCacheValid)
@@ -1566,17 +1562,41 @@ Query matches {archetypeCount} archetypes.");
         public EntityQueryMask      EntityQueryMask;
 
         public UnsafeMatchingArchetypePtrList MatchingArchetypes;
-        internal UnsafeCachedChunkList MatchingChunkCache;
+        private UnsafeCachedChunkList MatchingChunkCache; // Direct access to this field is not thread-safe; use the helper methods on EntityQueryData instead.
 
         public byte HasEnableableComponents; // 0 = no, 1 = yes
 
-        public unsafe UnsafeCachedChunkList GetMatchingChunkCache()
+        internal void CreateMatchingChunkCache(EntityComponentStore* ecs)
         {
-            // TODO(DOTS-5721): not thread safe, should only be called on the main thread.
-            if (!MatchingChunkCache.IsCacheValid)
-                UnsafeCachedChunkList.Rebuild(ref MatchingChunkCache, this);
+            MatchingChunkCache = new UnsafeCachedChunkList(ecs);
+        }
 
+        internal void RebuildMatchingChunkCache()
+        {
+            UnsafeCachedChunkList.Rebuild(ref MatchingChunkCache, this);
+        }
+
+        // This method should *only* be called by EntityQueryImpl.GetMatchingChunkCache(), which includes some critical
+        // thread-safety and cache validity checks. Using this return value directly in any other context is not guaranteed
+        // to return a valid, up-to-date cache!
+        internal UnsafeCachedChunkList UnsafeGetMatchingChunkCache()
+        {
             return MatchingChunkCache;
+        }
+
+        internal void CheckChunkListCacheConsistency(bool forceCheckInvalidCache)
+        {
+            UnsafeCachedChunkList.AssertIsConsistent(MatchingChunkCache, this, forceCheckInvalidCache);
+        }
+
+        internal void InvalidateChunkCache()
+        {
+            MatchingChunkCache.Invalidate();
+        }
+
+        internal bool IsChunkCacheValid()
+        {
+            return MatchingChunkCache.IsCacheValid;
         }
 
         public void Dispose()

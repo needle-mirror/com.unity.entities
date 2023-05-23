@@ -2,9 +2,14 @@ using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Core;
+using Unity.Entities;
+using Unity.Entities.Tests;
+using Unity.Entities.Tests.TestSystemAPI;
 using Unity.Mathematics;
 using Unity.Transforms;
 using static Unity.Entities.SystemAPI;
+
+[assembly: RegisterGenericSystemType(typeof(TestSystemBaseSystem.GenericISystem<EcsTestData>))]
 namespace Unity.Entities.Tests.TestSystemAPI
 {
     /// <summary>
@@ -17,6 +22,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void SetUp() {
             World.GetOrCreateSystemManaged<TestSystemBaseSystem>();
             World.GetOrCreateSystemManaged<TestSystemBaseSystem.GenericSystem<EcsTestData>>();
+            World.GetOrCreateSystem<TestSystemBaseSystem.GenericISystem<EcsTestData>>();
         }
 
         #region Query Access
@@ -128,6 +134,16 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void GenericTypeArgument() =>  World.GetExistingSystemManaged<TestSystemBaseSystem>().TestGenericTypeArgument();
         [Test]
         public void GenericSystem() => World.GetExistingSystemManaged<TestSystemBaseSystem.GenericSystem<EcsTestData>>().TestGenericSystem();
+        
+        [Test]
+        public unsafe void GenericISystem()
+        {
+            ref var state =
+                ref World.Unmanaged.ResolveSystemStateRef(World
+                    .GetExistingSystem<TestSystemBaseSystem.GenericISystem<EcsTestData>>());
+            ((TestSystemBaseSystem.GenericISystem<EcsTestData>*)state.m_SystemPtr)->TestGenericSystem(ref state);
+        }
+
         [Test]
         public void VariableInOnCreate() => World.CreateSystemManaged<TestSystemBaseSystem.VariableInOnCreateSystem>();
         #endregion
@@ -844,6 +860,15 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
             public void TestGenericSystem() {
                 var e = EntityManager.CreateEntity(typeof(EcsTestData));
+                Assert.True(SystemAPI.HasComponent<T>(e));
+            }
+        }
+        
+        public partial struct GenericISystem<T> : ISystem where T : unmanaged, IComponentData {
+            public void OnUpdate() {}
+
+            public void TestGenericSystem(ref SystemState state) {
+                var e = state.EntityManager.CreateEntity(typeof(EcsTestData));
                 Assert.True(SystemAPI.HasComponent<T>(e));
             }
         }

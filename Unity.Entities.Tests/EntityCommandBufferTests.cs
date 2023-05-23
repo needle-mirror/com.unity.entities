@@ -666,7 +666,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(10, m_Manager.GetSharedComponent<EcsTestSharedComp>(entity).value);
             Assert.AreEqual(20, m_Manager.GetSharedComponent<EcsTestSharedComp2>(entity).value1);
             Assert.AreEqual(0, m_Manager.GetSharedComponent<EcsTestSharedComp3>(entity).value0);
-            Assert.AreEqual(0, m_Manager.GetSharedComponentDataIndex<EcsTestSharedComp3>(entity));
+            Assert.AreEqual(0, m_Manager.GetSharedComponentIndex<EcsTestSharedComp3>(entity));
         }
 
         [Test]

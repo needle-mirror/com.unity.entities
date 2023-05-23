@@ -9,7 +9,7 @@ namespace Unity.Entities
 {
     [NoAlias]
     [GenerateTestsForBurstCompatibility]
-    unsafe struct UnsafeChunkCache
+    unsafe struct UnsafeChunkCacheIterator
     {
         [NoAlias]
         public int                              Length;
@@ -36,7 +36,7 @@ namespace Unity.Entities
         [NoAlias] int*                         _CurrentArchetypeChunkEntityCounts;
         ChunkIterationUtility.EnabledMaskMatchingArchetypeState _CurrentArchetypeState;
 
-        internal UnsafeChunkCache(in EntityQueryFilter filter, bool hasEnableableComponents, UnsafeCachedChunkList list, MatchingArchetype** matchingArchetypes)
+        internal UnsafeChunkCacheIterator(in EntityQueryFilter filter, bool hasEnableableComponents, UnsafeCachedChunkList list, MatchingArchetype** matchingArchetypes)
         {
             _Chunks = list.Ptr;
             Length = list.Length;
@@ -56,6 +56,9 @@ namespace Unity.Entities
         /// <summary>
         /// Advance to the next non-empty, non-filtered chunk in the cache, if possible.
         /// </summary>
+        /// <remarks>It is critical that no structural changes occur while using this iterator! It caches various pointers
+        /// to archetype-level data which would be quietly invalidated by structural changes. There are currently no
+        /// checks to detect or report this error. Caller beware!</remarks>
         /// <param name="chunkIndexInCache">The index of the current chunk in the iteration. Calling this function will
         /// increment this index. The caller should initialize this value to -1 before the first call.</param>
         /// <param name="outputChunk">If the function is successful, the next chunk in the iteration is stored here.</param>

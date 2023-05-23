@@ -28,7 +28,7 @@ namespace Unity.Entities.SourceGen.Aspect
             {
                 foreach (var type in structDeclaration.BaseList.Types)
                 {
-                    if (type.Type is IdentifierNameSyntax { Identifier: { ValueText: "IAspect" } })
+                    if (type.Type.IsTypeNameCandidate("Unity.Entities", "IAspect"))
                     {
                         var hasPartial = false;
                         foreach (var modifier in structDeclaration.Modifiers)

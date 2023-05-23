@@ -19,6 +19,9 @@ namespace Unity.Entities.CodeGen
 {
     internal class UnmanagedSystemPostprocessor : EntitiesILPostProcessor
     {
+        private static readonly string RegisterGenericSystemTypeAttributeName = typeof(RegisterGenericSystemTypeAttribute).FullName;
+        private TypeDefinition _registrationClassDef;
+
         protected override bool PostProcessImpl(TypeDefinition[] types)
         {
             return false;
@@ -26,7 +29,7 @@ namespace Unity.Entities.CodeGen
 
         struct TypeMemo
         {
-            public TypeDefinition m_SystemType;
+            public TypeReference m_SystemType;
             public MethodDefinition[] m_Wrappers;
             public int m_BurstCompileBits;
         }
@@ -34,6 +37,16 @@ namespace Unity.Entities.CodeGen
         protected override bool PostProcessUnmanagedImpl(TypeDefinition[] unmanagedComponentSystemTypes)
         {
             bool changes = false;
+            
+            //create the registration class first so that if we need to put forwarders for generic isystems into it, it's ready
+            var autoClassName = $"__UnmanagedPostProcessorOutput__{(uint)AssemblyDefinition.FullName.GetHashCode()}";
+            var mod = AssemblyDefinition.MainModule;
+
+            _registrationClassDef = new TypeDefinition("", autoClassName, TypeAttributes.Class, AssemblyDefinition.MainModule.ImportReference(typeof(object)));
+            _registrationClassDef.IsBeforeFieldInit = false;
+            var burstCompileAttributeConstructor = typeof(BurstCompileAttribute).GetConstructor(Type.EmptyTypes);
+            _registrationClassDef.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(burstCompileAttributeConstructor)));
+            mod.Types.Add(_registrationClassDef);
 
             var memos = new List<TypeMemo>();
 
@@ -47,6 +60,27 @@ namespace Unity.Entities.CodeGen
                 // We will be generating functions using these types (e.g. GetHashCode64<T>()) which will require internal access rights
                 td.MakeTypeInternal();
                 memos.Add(AddStaticForwarders(td));
+            }
+
+            var assemblyAttributes = AssemblyDefinition.CustomAttributes;
+            foreach (var attr in assemblyAttributes)
+            {
+                if (attr.AttributeType.Resolve().FullName == RegisterGenericSystemTypeAttributeName)
+                {
+                    var typeRef = (TypeReference)attr.ConstructorArguments[0].Value;
+                    var openType = typeRef.Resolve();
+
+                    typeRef = mod.ImportReference(typeRef);
+
+                    if (!typeRef.IsGenericInstance || !openType.IsValueType)
+                    {
+                        _diagnosticMessages.Add(UserError.DC3002(openType));
+                        continue;
+                    }
+
+                    memos.Add(AddStaticForwarders(openType, typeRef, _registrationClassDef));
+                    changes = true;
+                }
             }
 
             if (!changes)
@@ -71,14 +105,63 @@ namespace Unity.Entities.CodeGen
             "Unity.Entities.ISystemCompilerGenerated.OnCreateForCompiler"
         };
 
-        private TypeMemo AddStaticForwarders(TypeDefinition systemType)
+        private MethodReference _targetMethodRef;
+        private MethodDefinition _targetMethodDef;
+        private MethodDefinition _methodDef;
+
+        
+        /// <summary>
+        /// https://www.ecma-international.org/wp-content/uploads/ECMA-335_6th_edition_june_2012.pdf section II.7.3
+        /// basically if you don't do this, sometimes when you refer to types from another assembly, and you ldtoken
+        /// those types, you will get an error like
+        /// "System.BadImageFormatException: Expected reference type but got type kind 17"
+        /// so if you are searching for that error and you find this code, use this to launder your type refs, and
+        /// it will probably go away!
+        /// </summary>
+        /// <param name="r_"></param>
+        /// <returns></returns>
+        private TypeReference LaunderTypeRef(TypeReference r_)
         {
-            var mod = systemType.Module;
+            ModuleDefinition mod = AssemblyDefinition.MainModule;
+            TypeDefinition def = r_.Resolve();
+            TypeReference result;
+
+            if (r_ is GenericInstanceType git)
+            {
+                var gt = new GenericInstanceType(LaunderTypeRef(def));
+                foreach (var gp in git.GenericParameters)
+                {
+                    gt.GenericParameters.Add(gp);
+                }
+
+                foreach (var ga in git.GenericArguments)
+                {
+                    gt.GenericArguments.Add(LaunderTypeRef(ga));
+                }
+
+                result = gt;
+
+            }
+            else
+            {
+                result = new TypeReference(def.Namespace, def.Name, def.Module, def.Scope, def.IsValueType);
+                if (def.DeclaringType != null)
+                {
+                    result.DeclaringType = LaunderTypeRef(def.DeclaringType);
+                }
+            }
+
+            return mod.ImportReference(result);
+        }
+        
+        private TypeMemo AddStaticForwarders(TypeDefinition systemType, TypeReference specializedSystemType = null, TypeDefinition alternateTypeToInsertForwarders = null)
+        {
+            var mod = AssemblyDefinition.MainModule;
             var intPtrRef = mod.ImportReference(typeof(IntPtr));
             var intPtrToVoid = mod.ImportReference(intPtrRef.Resolve().Methods.FirstOrDefault(x => x.Name == nameof(IntPtr.ToPointer)));
 
             TypeMemo memo = default;
-            memo.m_SystemType = systemType;
+            memo.m_SystemType = LaunderTypeRef(specializedSystemType ?? systemType);
             memo.m_Wrappers = new MethodDefinition[6];
 
             var hasStartStop = systemType.Interfaces.Any((x) => x.InterfaceType.FullName == "Unity.Entities.ISystemStartStop");
@@ -95,23 +178,45 @@ namespace Unity.Entities.CodeGen
                 if (!hasCompilerGenerated && i == 5)
                     break;
 
-                var methodDef = new MethodDefinition(GeneratedPrefix + name, MethodAttributes.Static | MethodAttributes.Assembly, mod.ImportReference(typeof(void)));
-                methodDef.Parameters.Add(new ParameterDefinition("self", ParameterAttributes.None, intPtrRef));
-                methodDef.Parameters.Add(new ParameterDefinition("state", ParameterAttributes.None, intPtrRef));
+                var wrapperName = name;
 
-                var targetMethod = systemType.Methods.FirstOrDefault(x => x.Parameters.Count == 1 && (x.Name == name || x.Name == fullName));
-                if (targetMethod == null)
+                if (specializedSystemType != null)
+                {
+                    wrapperName =
+                        specializedSystemType.FullName.Replace('/', '_')
+                            .Replace('`', '_')
+                            .Replace('.', '_')
+                            .Replace('<', '_')
+                            .Replace('>', '_') +
+                        "_" +
+                        name;
+                }
+                
+                _methodDef = new MethodDefinition(GeneratedPrefix + wrapperName, MethodAttributes.Static | MethodAttributes.Assembly, mod.ImportReference(typeof(void)));
+                _methodDef.Parameters.Add(new ParameterDefinition("self", ParameterAttributes.None, intPtrRef));
+                _methodDef.Parameters.Add(new ParameterDefinition("state", ParameterAttributes.None, intPtrRef));
+
+                _targetMethodDef = systemType.Methods.FirstOrDefault(x => x.Parameters.Count == 1 && (x.Name == name || x.Name == fullName)); 
+                if (_targetMethodDef == null)
+                    continue;
+                _targetMethodRef = mod.ImportReference(_targetMethodDef);
+                if (_targetMethodDef.DeclaringType.HasGenericParameters)
+                {
+                    _targetMethodRef =
+                        mod.ImportReference(_targetMethodRef.MakeGenericHostMethod(specializedSystemType));
+                }
+                if (_targetMethodRef == null)
                     continue;
 
                 // Transfer any BurstCompile attribute from target function to the forwarding wrapper
                 Func<CustomAttribute, bool> isBurstAttribute = x => x.Constructor.DeclaringType.Name == nameof(BurstCompileAttribute);
-                var burstAttribute = targetMethod.CustomAttributes.FirstOrDefault(isBurstAttribute);
+                var burstAttribute = _targetMethodDef.CustomAttributes.FirstOrDefault(isBurstAttribute);
                 if (burstAttribute != null)
                 {
-                    if (!targetMethod.DeclaringType.CustomAttributes.Any(isBurstAttribute))
-                        targetMethod.DeclaringType.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(typeof(BurstCompileAttribute).GetConstructor(Type.EmptyTypes))));
+                    if (!_targetMethodDef.DeclaringType.CustomAttributes.Any(isBurstAttribute))
+                        _targetMethodDef.DeclaringType.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(typeof(BurstCompileAttribute).GetConstructor(Type.EmptyTypes))));
 
-                    methodDef.CustomAttributes.Add(new CustomAttribute(burstAttribute.Constructor, burstAttribute.GetBlob()));
+                    _methodDef.CustomAttributes.Add(new CustomAttribute(burstAttribute.Constructor, burstAttribute.GetBlob()));
                     memo.m_BurstCompileBits |= 1 << i;
                 }
 
@@ -119,27 +224,28 @@ namespace Unity.Entities.CodeGen
                 // Burst CompileFunctionPointer in DOTS Runtime will not currently decorate methods as [MonoPInvokeCallback]
                 // so we add that here until that is supported
                 var monoPInvokeCallbackAttributeConstructor = typeof(Jobs.MonoPInvokeCallbackAttribute).GetConstructor(Type.EmptyTypes);
-                methodDef.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(monoPInvokeCallbackAttributeConstructor)));
+                _methodDef.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(monoPInvokeCallbackAttributeConstructor)));
 #else
                 // Adding MonoPInvokeCallbackAttribute needed for IL2CPP to work when burst is disabled
                 var monoPInvokeCallbackAttributeConstructors = typeof(MonoPInvokeCallbackAttribute).GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 var monoPInvokeCallbackAttribute = new CustomAttribute(mod.ImportReference(monoPInvokeCallbackAttributeConstructors[0]));
                 monoPInvokeCallbackAttribute.ConstructorArguments.Add(new CustomAttributeArgument(mod.ImportReference(typeof(Type)), mod.ImportReference(typeof(SystemBaseDelegates.Function))));
-                methodDef.CustomAttributes.Add(monoPInvokeCallbackAttribute);
+
+                _methodDef.CustomAttributes.Add(monoPInvokeCallbackAttribute);
 #endif
 
 
-                var processor = methodDef.Body.GetILProcessor();
+                var processor = _methodDef.Body.GetILProcessor();
 
                 processor.Emit(OpCodes.Ldarga, 0);
                 processor.Emit(OpCodes.Call, intPtrToVoid);
                 processor.Emit(OpCodes.Ldarga, 1);
                 processor.Emit(OpCodes.Call, intPtrToVoid);
-                processor.Emit(OpCodes.Call, targetMethod);
+                processor.Emit(OpCodes.Call, _targetMethodRef);
                 processor.Emit(OpCodes.Ret);
 
-                systemType.Methods.Add(methodDef);
-                memo.m_Wrappers[i] = methodDef;
+                (alternateTypeToInsertForwarders ?? systemType).Methods.Add(_methodDef);
+                memo.m_Wrappers[i] = _methodDef;
             }
 
             return memo;
@@ -147,13 +253,7 @@ namespace Unity.Entities.CodeGen
 
         private void AddRegistrationCode(List<TypeMemo> memos)
         {
-            var autoClassName = $"__UnmanagedPostProcessorOutput__{(uint)AssemblyDefinition.FullName.GetHashCode()}";
             var mod = AssemblyDefinition.MainModule;
-
-            var classDef = new TypeDefinition("", autoClassName, TypeAttributes.Class, AssemblyDefinition.MainModule.ImportReference(typeof(object)));
-            classDef.IsBeforeFieldInit = false;
-            mod.Types.Add(classDef);
-
             var funcDef = new MethodDefinition("EarlyInit", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig, AssemblyDefinition.MainModule.ImportReference(typeof(void)));
             funcDef.Body.InitLocals = false;
 
@@ -178,7 +278,7 @@ namespace Unity.Entities.CodeGen
             }
 #endif
 
-            classDef.Methods.Add(funcDef);
+            _registrationClassDef.Methods.Add(funcDef);
 
             var processor = funcDef.Body.GetILProcessor();
 
@@ -192,17 +292,16 @@ namespace Unity.Entities.CodeGen
             foreach (var memo in memos)
             {
                 // This craziness is equivalent to typeof(n)
-                processor.Emit(OpCodes.Ldtoken, memo.m_SystemType);
+                processor.Emit(OpCodes.Ldtoken, mod.ImportReference(memo.m_SystemType));
                 processor.Emit(OpCodes.Call, getTypeFromHandle);
-
-                processor.Emit(OpCodes.Call, mod.ImportReference(genericHashFunc.MakeGenericInstanceMethod(memo.m_SystemType)));
+                processor.Emit(OpCodes.Call, mod.ImportReference(genericHashFunc.MakeGenericInstanceMethod(mod.ImportReference(memo.m_SystemType))));
 
                 for (int i = 0; i < memo.m_Wrappers.Length; ++i)
                 {
                     if (memo.m_Wrappers[i] != null)
                     {
                         processor.Emit(OpCodes.Ldnull);
-                        processor.Emit(OpCodes.Ldftn, memo.m_Wrappers[i]);
+                        processor.Emit(OpCodes.Ldftn, mod.ImportReference(memo.m_Wrappers[i]));
                         processor.Emit(OpCodes.Newobj, delegateCtor);
                     }
                     else
@@ -211,7 +310,7 @@ namespace Unity.Entities.CodeGen
                     }
                 }
 
-                processor.Emit(OpCodes.Ldstr, memo.m_SystemType.Name);
+                processor.Emit(OpCodes.Ldstr, memo.m_SystemType.FullName);
                 processor.Emit(OpCodes.Ldc_I4, memo.m_BurstCompileBits);
                 processor.Emit(OpCodes.Call, addMethod);
             }

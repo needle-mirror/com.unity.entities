@@ -54,6 +54,31 @@ namespace Unity.Entities.Serialization
 #endif
 
         /// <summary>
+        /// Returns the prefab GUID.
+        /// </summary>
+        public Hash128 AssetGUID => Id.GlobalId.AssetGUID;
+
+        /// <summary>
+        /// Returns true if the reference has a valid id.  In the editor, additional checks for the correct GenerationType and the existence of the referenced asset are performed.
+        /// </summary>
+        public bool IsReferenceValid
+        {
+            get
+            {
+                if (!Id.IsValid)
+                    return false;
+#if UNITY_EDITOR
+                if (Id.GenerationType != WeakReferenceGenerationType.EntityPrefab)
+                    return false;
+
+                if (UnityEditor.AssetDatabase.GetMainAssetTypeAtPath(UnityEditor.AssetDatabase.GUIDToAssetPath(Id.GlobalId.AssetGUID)) != typeof(GameObject))
+                    return false;
+#endif
+                return true;
+            }
+        }
+
+        /// <summary>
         /// Checks if this reference holds the same asset GUID as the other reference.
         /// </summary>
         /// <param name="other">The other weak reference object to compare to.</param>

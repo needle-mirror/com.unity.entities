@@ -18,12 +18,14 @@ using UnityEngine;
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<BlobAssetReference<float>>))]
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<NativeArray<int>>))]
 
-namespace Unity.Entities.Tests
+  
+ 
+namespace Unity.Entities.Tests 
 {
     partial class TypeManagerTests : ECSTestsFixture
     {
-        struct TestType1 : IComponentData
-        {
+        internal struct TestType1 : IComponentData
+        { 
             int empty;
         }
         struct TestTypeWithEntity : IComponentData

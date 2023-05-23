@@ -150,10 +150,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void WithJob_MultipleCapturedVariablesInNestedFunction() =>
-            TestSystem.WithJob_MultipleCapturedVariablesInNestedFunction();
-
-        [Test]
         public void WithJobAndThenEntitiesForEach()
         {
             TestSystem.WithJobAndThenEntitiesForEach();
@@ -211,13 +207,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.WithAny_DoesntExecute_OnEntityWithoutThatComponent();
             AssertNothingChanged();
-        }
-
-        [Test]
-        public void ExecuteLocalFunctionThatCapturesTest()
-        {
-            TestSystem.ExecuteLocalFunctionInLambdaThatCaptures();
-            Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 
         [Test]
@@ -516,36 +505,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void DoExecuteCodeInElseDirective()
         {
             TestSystem.DoExecuteCodeInElseDirective();
-        }
-
-        [Test]
-        public void ExecuteLocalFunction()
-        {
-            TestSystem.ExecuteLocalFunction();
-        }
-
-        [Test]
-        public void ExecuteLocalFunctionThatCaptures()
-        {
-            TestSystem.ExecuteLocalFunctionThatCaptures();
-        }
-
-        [Test]
-        public void ExecuteLocalFunctionWithSameFunctionNameInClass()
-        {
-            TestSystem.ExecuteLocalFunctionWithSameFunctionNameInClass();
-        }
-
-        [Test]
-        public void ExecuteLocalFunctionAlsoInvokedInMethod()
-        {
-            TestSystem.ExecuteLocalFunctionAlsoInvokedInMethod();
-        }
-
-        [Test]
-        public void ExecuteLocalFunctionThatAccessesEntity()
-        {
-            TestSystem.ExecuteLocalFunctionThatAccessesEntity();
         }
 
         [Test]
@@ -926,31 +885,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .Run();
             }
 
-            public void WithJob_MultipleCapturedVariablesInNestedFunction()
-            {
-                Job.WithCode(() =>
-                {
-                    int valueA = 0;
-                    int valueB = 0;
-                    int valueC = 0;
-
-                    NestedFunction();
-
-                    void NestedFunction()
-                    {
-                        valueA = 1;
-                        valueB = 2;
-                        valueC = 3;
-                    }
-
-                    Assert.AreEqual(valueA, 1);
-                    Assert.AreEqual(valueB, 2);
-                    Assert.AreEqual(valueC, 3);
-                }).Run();
-
-                Dependency.Complete();
-            }
-
             public void WithJobAndThenEntitiesForEach()
             {
                 int multiplier = 1;
@@ -1067,23 +1001,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                             .Schedule();
                     }
                 }
-                Dependency.Complete();
-            }
-
-            public void ExecuteLocalFunctionInLambdaThatCaptures()
-            {
-                int capture_from_outer_scope = 1;
-                Entities
-                    .ForEach((ref EcsTestData e1) =>
-                    {
-                        int capture_from_delegate_scope = 8;
-                        int MyLocalFunction()
-                        {
-                            return capture_from_outer_scope + capture_from_delegate_scope;
-                        }
-                        e1.value = MyLocalFunction();
-                    })
-                    .Schedule();
                 Dependency.Complete();
             }
 
@@ -1501,70 +1418,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     }).Run();
 
                 Assert.IsTrue(someBool);
-            }
-
-            public void ExecuteLocalFunction()
-            {
-                var value = 0;
-                int LocalFunction() { return 3; }
-
-                Entities.ForEach((Entity entity) =>
-                {
-                    value = LocalFunction();
-                }).Run();
-
-                Assert.AreEqual(3, value);
-            }
-
-            public void ExecuteLocalFunctionThatCaptures()
-            {
-                var value = 0;
-                var capturedValue = 3;
-                int LocalFunction() { return capturedValue; }
-
-                Entities.ForEach((Entity entity) =>
-                {
-                    value = LocalFunction();
-                }).Run();
-
-                Assert.AreEqual(3, value);
-            }
-
-            int LocalFunctionWithSameNameInClass() { return 5; }
-            public void ExecuteLocalFunctionWithSameFunctionNameInClass()
-            {
-                var value = 0;
-                int LocalFunctionWithSameNameInClass() { return 3; }
-
-                Entities.WithoutBurst().ForEach((Entity entity) =>
-                {
-                    value = LocalFunctionWithSameNameInClass() * this.LocalFunctionWithSameNameInClass();
-                }).Run();
-
-                Assert.AreEqual(15, value);
-            }
-
-            public void ExecuteLocalFunctionAlsoInvokedInMethod()
-            {
-                var value = 0;
-                int LocalFunction() { return 3; }
-
-                Entities.ForEach((Entity entity) => { value = LocalFunction(); }).Run();
-
-                Assert.AreEqual(9, value * LocalFunction());
-            }
-
-            public void ExecuteLocalFunctionThatAccessesEntity()
-            {
-                var value = 0;
-                var dataFromEntity = GetComponentLookup<EcsTestData>();
-                int SomeLocalFunc(Entity entity) { return dataFromEntity[entity].value; }
-
-                Entities.ForEach((Entity entity, in EcsTestData data) => {
-                    value = SomeLocalFunc(entity);
-                }).Run();
-
-                Assert.AreEqual(3, value);
             }
 
             static bool TakesFloat(float val) => (val > 0.0);

@@ -2781,7 +2781,7 @@ namespace Unity.Entities
                 for (int queryIndex = 0; queryIndex < matchingQueryCount; ++queryIndex)
                 {
                     var queryData = (EntityQueryData*) archetype->MatchingQueryData.Ptr[queryIndex];
-                    queryData->MatchingChunkCache.Invalidate();
+                    queryData->InvalidateChunkCache();
                 }
 
                 var nextArchetype = archetype->NextChangedArchetype;

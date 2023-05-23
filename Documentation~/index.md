@@ -21,4 +21,3 @@ To install the package, open the Package Manager window (**Window &gt; Package M
 * [Upgrade guide](upgrade-guide.md)
 * [What's new](whats-new.md)
 * [ECS packages](ecs-packages.md)
-* [Prerelease (1.0.0-pre.65) documentation](pre-release.md)

@@ -59,22 +59,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     LambdaJobsErrors.DC0027(description.SystemDescription, invocationExpression.GetLocation(), description.LambdaJobKind);
                     success = false;
                 }
-
-                var theInvocationSymbol = description.SystemDescription.SemanticModel.GetSymbolInfo(invocationExpression.Expression).Symbol;
-                if (theInvocationSymbol == null)
-                    continue;
-
-                var isForEach = theInvocationSymbol is IMethodSymbol {Name: "ForEach"} methodSymbolForEach // Is ForEach method called as LambdaForEach
-                    && methodSymbolForEach.ContainingType.Is("LambdaForEachDescriptionConstructionMethods");
-
-               var isJobWithCode =  theInvocationSymbol is IMethodSymbol {Name: "WithCode"} methodSymbolWithCode // Is WithCode method called as LambdaSingleJob
-                    && methodSymbolWithCode.ContainingType.Is("LambdaSingleJobDescriptionConstructionMethods");
-
-                if (isForEach || isJobWithCode)
-                {
-                    LambdaJobsErrors.DC0029(description.SystemDescription, invocationExpression.GetLocation(), description.LambdaJobKind);
-                    success = false;
-                }
             }
 
             foreach (var methodInvocations in description.MethodInvocations)
@@ -100,11 +84,46 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 }
             }
 
+            foreach (var node in description.OriginalLambdaExpression.DescendantNodes())
+            {
+                switch (node)
+                {
+                    case AnonymousFunctionExpressionSyntax anonymousFunction:
+                        // Give better error if user tries to nest EFE/JWC.
+                        if (anonymousFunction is ParenthesizedLambdaExpressionSyntax
+                            && node.Parent.Parent.Parent is InvocationExpressionSyntax invocation) // read node.Parent.Parent.Parent as lambda.argument.argumentlist.invocation
+                        {
+                            var theInvocationSymbol = description.SystemDescription.SemanticModel.GetSymbolInfo(invocation.Expression).Symbol;
+
+                            var isForEach = theInvocationSymbol is IMethodSymbol {Name: "ForEach"} methodSymbolForEach // Is ForEach method called as LambdaForEach
+                                && methodSymbolForEach.ContainingType.Is("LambdaForEachDescriptionConstructionMethods");
+
+                            var isJobWithCode =  theInvocationSymbol is IMethodSymbol {Name: "WithCode"} methodSymbolWithCode // Is WithCode method called as LambdaSingleJob
+                                && methodSymbolWithCode.ContainingType.Is("LambdaSingleJobDescriptionConstructionMethods");
+
+                            if (isForEach || isJobWithCode)
+                            {
+                                LambdaJobsErrors.DC0029(description.SystemDescription, invocation.GetLocation(), description.LambdaJobKind);
+                                success = false;
+                                break;
+                            }
+                        }
+
+                        LambdaJobsErrors.DC0084(description.SystemDescription, anonymousFunction.GetLocation(), description.LambdaJobKind, description.Schedule.Mode);
+                        description.Success = false;
+                        break;
+                    case LocalFunctionStatementSyntax localFunction:
+                        LambdaJobsErrors.DC0085(description.SystemDescription, localFunction.GetLocation(), description.LambdaJobKind, description.Schedule.Mode);
+                        description.Success = false;
+                        break;
+                }
+            }
+
             foreach (var storeInQuerySyntax in description.WithStoreEntityQueryInFieldArgumentSyntaxes)
             {
                 if (!(storeInQuerySyntax.Expression is IdentifierNameSyntax storeInQueryIdentifier) || !(description.SystemDescription.SemanticModel.GetSymbolInfo(storeInQueryIdentifier).Symbol is IFieldSymbol))
                 {
-                    LambdaJobsErrors.DC0031(description.SystemDescription, description.Location, description.SystemType);
+                    LambdaJobsErrors.DC0031(description.SystemDescription, description.Location);
                     description.Success = false;
                 }
             }
@@ -113,12 +132,12 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             {
                 foreach (var param in description.LambdaParameters.OfType<IManagedComponentParamDescription>())
                 {
-                    LambdaJobsErrors.DC0223(description.SystemDescription, description.Location, param.Name, description.SystemType, true, description.LambdaJobKind);
+                    LambdaJobsErrors.DC0223(description.SystemDescription, description.Location, param.Name, true, description.LambdaJobKind);
                     description.Success = false;
                 }
                 foreach (var param in description.LambdaParameters.OfType<ISharedComponentParamDescription>())
                 {
-                    LambdaJobsErrors.DC0223(description.SystemDescription, description.Location, param.TypeSymbol.Name, description.SystemType, false, description.LambdaJobKind);
+                    LambdaJobsErrors.DC0223(description.SystemDescription, description.Location, param.TypeSymbol.Name, false, description.LambdaJobKind);
                     description.Success = false;
                 }
             }

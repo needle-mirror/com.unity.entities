@@ -243,10 +243,12 @@ namespace Unity.Entities
                 // But if they DO care, and they forget this sync, they'll have an undetected race condition. So, let's play it safe.
                 queryImpl->SyncFilterTypes();
 
-                var chunkCache = query.GetCache(out _);
+                var chunkCacheIterator = new UnsafeChunkCacheIterator(queryImpl->_Filter, queryImpl->_QueryData->HasEnableableComponents != 0,
+                    queryImpl->GetMatchingChunkCache(), queryImpl->_QueryData->MatchingArchetypes.Ptr);
+
                 int chunkIndex = -1;
                 v128 chunkEnabledMask = default;
-                while (chunkCache.MoveNextChunk(ref chunkIndex, out var archetypeChunk, out _,
+                while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var archetypeChunk, out _,
                            out byte useEnabledMask, ref chunkEnabledMask))
                 {
                     jobData.Execute(archetypeChunk, chunkIndex, useEnabledMask != 0, chunkEnabledMask);
@@ -255,7 +257,7 @@ namespace Unity.Entities
             else
             {
                 // Fast path for queries with no filtering and no enableable components
-                var cachedChunkList = queryImpl->_QueryData->GetMatchingChunkCache();
+                var cachedChunkList = queryImpl->GetMatchingChunkCache();
                 var chunkPtr = cachedChunkList.Ptr;
                 int chunkCount = cachedChunkList.Length;
                 ArchetypeChunk chunk = new ArchetypeChunk(null, cachedChunkList.EntityComponentStore);
@@ -282,7 +284,7 @@ namespace Unity.Entities
         {
             var queryImpl = query._GetImpl();
             var queryData = queryImpl->_QueryData;
-            var cachedChunks = queryData->GetMatchingChunkCache();
+            var cachedChunks = queryImpl->GetMatchingChunkCache();
             var totalChunkCount = cachedChunks.Length;
             bool isParallel = (mode == ScheduleMode.Parallel);
 
@@ -302,7 +304,7 @@ namespace Unity.Entities
                 JobData = jobData,
                 IsParallel = isParallel ? 1 : 0,
 
-                QueryHasEnableableComponents = queryData->HasEnableableComponents == 0 ? 1 : 0
+                QueryHasEnableableComponents = queryData->HasEnableableComponents != 0 ? 1 : 0
             };
             JobChunkProducer<T>.Initialize();
             var reflectionData = JobChunkProducer<T>.reflectionData.Data;
@@ -364,8 +366,8 @@ namespace Unity.Entities
                 int jobIndex)
             {
                 var chunks = jobWrapper.CachedChunks;
-                var chunkCache = new UnsafeChunkCache(jobWrapper.Filter,
-                    jobWrapper.QueryHasEnableableComponents == 0,
+                var chunkCacheIterator = new UnsafeChunkCacheIterator(jobWrapper.Filter,
+                    jobWrapper.QueryHasEnableableComponents != 0,
                     jobWrapper.CachedChunks, jobWrapper.MatchingArchetypes.Ptr);
 
                 bool isParallel = jobWrapper.IsParallel == 1;
@@ -389,8 +391,9 @@ namespace Unity.Entities
                     }
 
                     // Do the actual user work.
-                    if (jobWrapper.QueryHasEnableableComponents != 0 && !isFiltering)
+                    if (jobWrapper.QueryHasEnableableComponents == 0 && !isFiltering)
                     {
+                        // Fast path with no entity/chunk filtering active: we can just iterate over the cached chunk list directly.
                         var chunkPtr = chunks.Ptr;
                         ArchetypeChunk chunk = new ArchetypeChunk(null, chunks.EntityComponentStore);
                         v128 defaultMask = default;
@@ -411,12 +414,13 @@ namespace Unity.Entities
                     }
                     else
                     {
+                        // With any filtering active, we need to iterate using the UnsafeChunkCacheIterator.
                         // Update cache range
-                        chunkCache.Length = endChunkIndex;
+                        chunkCacheIterator.Length = endChunkIndex;
                         int chunkIndex = beginChunkIndex - 1;
 
                         v128 chunkEnabledMask = default;
-                        while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
+                        while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
                                    out byte useEnabledMask, ref chunkEnabledMask))
                         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

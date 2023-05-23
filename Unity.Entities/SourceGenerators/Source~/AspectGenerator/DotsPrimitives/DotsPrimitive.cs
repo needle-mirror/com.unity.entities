@@ -339,8 +339,10 @@ namespace Unity.Entities.SourceGen.Aspect
                     return printer;
                 case PrimitiveType.ComponentLookup:
                     return printer.Print("this.").Print(fieldName).Print(".GetEnabledRef").Print(Bind.IsReadOnly ? "RO" : "RW").PrintIf(Bind.IsOptional, "Optional")
-                        .Print("<").Print(Bind.ComponentTypeName).Print(">")
-                        .Print("(entity").PrintIf(!Bind.IsReadOnly, String.Empty).Print(")");
+                        .Print("<")
+                        .Print(Bind.ComponentTypeName)
+                        .Print(">")
+                        .Print("(entity)");
 
                 case PrimitiveType.EntityLookup:
                     return printer;
@@ -393,7 +395,8 @@ namespace Unity.Entities.SourceGen.Aspect
                 case PrimitiveType.SharedComponentTypeHandle:
                     return printer.PrintLine($"this.{fieldName} = state.GetSharedComponentTypeHandle<{Bind.ComponentTypeName}>();");
                 case PrimitiveType.BufferLookup:
-                    return printer.PrintBeginLine($"this.").Print(fieldName).Print(" = state.GetBufferLookup<").Print(Bind.ComponentTypeName).Print(">(")
+                    return printer.PrintBeginLine($"this.").Print(fieldName)
+                        .Print(" = state.GetBufferLookup<").Print(Bind.ComponentTypeName).Print(">(")
                         .Print(Bind.IsReadOnly ? "true" : "false").PrintEndLine(");");
                 case PrimitiveType.ComponentLookup:
                     return printer.PrintLine($"this.{fieldName} = state.GetComponentLookup<{Bind.ComponentTypeName}>({(Bind.IsReadOnly ? "true" : "false")});");

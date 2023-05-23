@@ -47,5 +47,11 @@ namespace Unity.Entities.CodeGen
         {
             return MakeInternal(DiagnosticType.Warning, errorCode, messageData, method, instruction);
         }
+
+        public static DiagnosticMessage DC3002(TypeReference type)
+        {
+            return MakeInternal(DiagnosticType.Error, nameof(DC3002),
+                $"{type.FullName}: [RegisterGenericJobType] requires an instance of a generic value type", null, null);
+        }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Mathematics;
 
@@ -25,7 +26,7 @@ namespace Unity.Entities
     /// </remarks>
     [GenerateTestsForBurstCompatibility]
     [DebuggerTypeProxy(typeof(ComponentTypeSetDebugView))]
-    public unsafe readonly struct ComponentTypeSet
+    public readonly unsafe struct ComponentTypeSet
     {
         readonly FixedList64Bytes<TypeIndex> _sorted;
         internal readonly struct Masks
@@ -253,11 +254,13 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private readonly void CheckForDuplicates()
         {
+            if (Hint.Unlikely(_sorted.IsEmpty))
+                return;
             var prev = _sorted[0];
             for (int i = 1; i < _sorted.Length; i++)
             {
                 var current = _sorted[i];
-                if (prev == current)
+                if (Hint.Unlikely(prev == current))
                 {
                     throw new ArgumentException(
                         $"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"{GetComponentType(i).ToString()}\"");

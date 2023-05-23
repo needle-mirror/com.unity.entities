@@ -8,7 +8,7 @@ The following code sample shows how to add, set, and get a chunk component. It a
 private void ChunkComponentExample(Entity e)
 {
     // Adds ExampleChunkComp to the passed in entity's chunk.
-    EntityManager.AddChunkComponent<ExampleChunkComp>(e);
+    EntityManager.AddChunkComponentData<ExampleChunkComp>(e);
 
     // Finds all chunks with an ExampleComponent and an ExampleChunkComponent.
     // To distinguish chunk components from a regular IComponentData, You must

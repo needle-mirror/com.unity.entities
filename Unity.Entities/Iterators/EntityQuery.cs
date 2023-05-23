@@ -10,6 +10,7 @@ using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 namespace Unity.Entities
@@ -448,7 +449,7 @@ namespace Unity.Entities
 
                 SyncFilterTypes();
 
-                return ChunkIterationUtility.IsEmpty(_QueryData, _Filter);
+                return ChunkIterationUtility.IsEmpty(ref this, _Filter);
             }
         }
 
@@ -477,7 +478,7 @@ namespace Unity.Entities
 #endif
         }
 
-        public bool IsEmptyIgnoreFilter => _QueryData->GetMatchingChunkCache().Length == 0;
+        public bool IsEmptyIgnoreFilter => GetMatchingChunkCache().Length == 0;
 
         [ExcludeFromBurstCompatTesting("Returns managed array")]
         internal ComponentType[] GetQueryTypes()
@@ -594,14 +595,14 @@ namespace Unity.Entities
         public int CalculateEntityCount()
         {
             SyncFilterTypes();
-            return ChunkIterationUtility.CalculateEntityCount(_QueryData->GetMatchingChunkCache(),
+            return ChunkIterationUtility.CalculateEntityCount(GetMatchingChunkCache(),
                 ref _QueryData->MatchingArchetypes, ref _Filter, _QueryData->HasEnableableComponents);
         }
 
         public int CalculateEntityCountWithoutFiltering()
         {
             var dummyFilter = default(EntityQueryFilter);
-            return ChunkIterationUtility.CalculateEntityCount(_QueryData->GetMatchingChunkCache(),
+            return ChunkIterationUtility.CalculateEntityCount(GetMatchingChunkCache(),
                 ref _QueryData->MatchingArchetypes, ref dummyFilter, 0);
         }
 
@@ -609,14 +610,14 @@ namespace Unity.Entities
         {
             SyncChangeFilterTypes();
             SyncEnableableTypes();
-            return ChunkIterationUtility.CalculateChunkCount(_QueryData->GetMatchingChunkCache(),
+            return ChunkIterationUtility.CalculateChunkCount(GetMatchingChunkCache(),
                 ref _QueryData->MatchingArchetypes, ref _Filter, _QueryData->HasEnableableComponents);
         }
 
         public int CalculateChunkCountWithoutFiltering()
         {
             var dummyFilter = default(EntityQueryFilter);
-            return ChunkIterationUtility.CalculateChunkCount(_QueryData->GetMatchingChunkCache(),
+            return ChunkIterationUtility.CalculateChunkCount(GetMatchingChunkCache(),
                 ref _QueryData->MatchingArchetypes, ref dummyFilter, 0);
         }
 
@@ -630,7 +631,7 @@ namespace Unity.Entities
             var outputArray =
                 CollectionHelper.CreateNativeArray<int>(unfilteredChunkCount, allocator, NativeArrayOptions.UninitializedMemory);
 
-            ChunkIterationUtility.CalculateFilteredChunkIndexArray(_QueryData->GetMatchingChunkCache(),
+            ChunkIterationUtility.CalculateFilteredChunkIndexArray(GetMatchingChunkCache(),
                 _QueryData->MatchingArchetypes, ref _Filter, _QueryData->HasEnableableComponents, ref outputArray);
 
             return outputArray;
@@ -669,7 +670,7 @@ namespace Unity.Entities
 
             var job = new FilteredChunkIndexJob
             {
-                CachedChunkList = _QueryData->GetMatchingChunkCache(),
+                CachedChunkList = GetMatchingChunkCache(),
                 Filter = _Filter,
                 MatchingArchetypes = _QueryData->MatchingArchetypes,
                 OutFilteredChunkIndices = outputArray,
@@ -694,7 +695,7 @@ namespace Unity.Entities
             var outputArray =
                 CollectionHelper.CreateNativeArray<int>(chunkCount, allocator, NativeArrayOptions.UninitializedMemory);
 
-            ChunkIterationUtility.CalculateBaseEntityIndexArray(_QueryData->GetMatchingChunkCache(),
+            ChunkIterationUtility.CalculateBaseEntityIndexArray(GetMatchingChunkCache(),
                 _QueryData->MatchingArchetypes, ref _Filter, _QueryData->HasEnableableComponents, ref outputArray);
 
             return outputArray;
@@ -733,7 +734,7 @@ namespace Unity.Entities
 
             var job = new ChunkBaseEntityIndexJob
             {
-                CachedChunkList = _QueryData->GetMatchingChunkCache(),
+                CachedChunkList = GetMatchingChunkCache(),
                 Filter = _Filter,
                 MatchingArchetypes = _QueryData->MatchingArchetypes,
                 OutChunkBaseEntityIndices = outputArray,
@@ -807,7 +808,7 @@ namespace Unity.Entities
 
             var job = new GatherChunksJob
             {
-                ChunkCache = _QueryData->GetMatchingChunkCache(),
+                ChunkCache = GetMatchingChunkCache(),
                 Filter = _Filter,
                 MatchingArchetypes = _QueryData->MatchingArchetypes,
                 QueryContainsEnableableComponents = _QueryData->HasEnableableComponents,
@@ -843,7 +844,7 @@ namespace Unity.Entities
             }
 
             var outputList = new NativeList<ArchetypeChunk>(unfilteredChunkCount, allocator);
-            ChunkIterationUtility.ToArchetypeChunkList(_QueryData->GetMatchingChunkCache(),
+            ChunkIterationUtility.ToArchetypeChunkList(GetMatchingChunkCache(),
                 _QueryData->MatchingArchetypes, ref _Filter, _QueryData->HasEnableableComponents, ref outputList);
 
             // A NativeList contains two memory allocations: one for the actual list contents, and one for the
@@ -1103,16 +1104,16 @@ namespace Unity.Entities
             T[] res = new T[entityCount];
             int outputIndex = 0;
 
-            var chunkCache = new UnsafeChunkCache(_Filter, true, _QueryData->GetMatchingChunkCache(),
+            var chunkCacheIterator = new UnsafeChunkCacheIterator(_Filter, true, GetMatchingChunkCache(),
                 matches.Ptr);
 
             int chunkIndex = -1;
             v128 chunkEnabledMask = default;
             LookupCache typeLookupCache = default;
-            while (chunkCache.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
+            while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount,
                        out byte useEnableBits, ref chunkEnabledMask))
             {
-                var chunkArchetype = chunkCache._CurrentMatchingArchetype->Archetype;
+                var chunkArchetype = chunkCacheIterator._CurrentMatchingArchetype->Archetype;
                 if (chunkArchetype != typeLookupCache.Archetype)
                     typeLookupCache.Update(chunkArchetype, typeIndex);
                 var chunkManagedComponentArray = (int*)ChunkDataUtility.GetComponentDataRO(chunk.m_Chunk, 0, typeLookupCache.IndexInArchetype);
@@ -1280,11 +1281,11 @@ namespace Unity.Entities
             if (!_Filter.RequiresMatchesFilter && _QueryData->RequiredComponentsCount <= 2 && _QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
                 // Fast path with no filtering
-                var matchingChunkCache = _QueryData->GetMatchingChunkCache();
+                var matchingChunkCache = GetMatchingChunkCache();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
                 {
-                    CheckChunkListCacheConsistency(false);
+                    _QueryData->CheckChunkListCacheConsistency(false);
                     var typeName = typeIndex.ToFixedString();
                     if (matchingChunkCache.Length == 0 || matchingChunkCache.Ptr[0]->Count == 0)
                         throw new InvalidOperationException($"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are none. Are you missing a call to RequireForUpdate<T>()? You could also use TryGetSingleton<T>()");
@@ -1305,14 +1306,14 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
                 var queryEntityCount = CalculateEntityCount();
                 if (queryEntityCount != 1)
                 {
-                    CheckChunkListCacheConsistency(false);
+                    _QueryData->CheckChunkListCacheConsistency(false);
                     throw new InvalidOperationException(
                         $"GetSingleton() requires that exactly one entity exists that matches this query, but there are {queryEntityCount}.");
                 }
 #endif
                 var indexInQuery = GetIndexInEntityQuery(typeIndex);
 
-                var matchingChunkCache = _QueryData->GetMatchingChunkCache();
+                var matchingChunkCache = GetMatchingChunkCache();
                 var chunkList = *matchingChunkCache.MatchingChunks;
                 var matchingArchetypeIndices = *matchingChunkCache.PerChunkMatchingArchetypeIndex;
                 var matchingArchetypes = _QueryData->MatchingArchetypes.Ptr;
@@ -1413,11 +1414,11 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
             // (All other singleton implementations simply use GetSingletonChunk which has the same early out)
             if (!_Filter.RequiresMatchesFilter && _QueryData->RequiredComponentsCount <= 2 && _QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
-                var matchingChunkCache = _QueryData->GetMatchingChunkCache();
+                var matchingChunkCache = GetMatchingChunkCache();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
                 {
-                    CheckChunkListCacheConsistency(false);
+                    _QueryData->CheckChunkListCacheConsistency(false);
                     var typeName = typeIndex.ToFixedString();
                     if (matchingChunkCache.Length == 0 || matchingChunkCache.Ptr[0]->Count == 0)
                         throw new InvalidOperationException($"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are none. Are you missing a call to RequireForUpdate<T>()? You could also use TryGetSingleton<T>()");
@@ -1941,9 +1942,25 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
             };
         }
 
-        internal void CheckChunkListCacheConsistency(bool forceCheckInvalidCache)
+        internal UnsafeCachedChunkList GetMatchingChunkCache()
         {
-            UnsafeCachedChunkList.AssertIsConsistent(_QueryData->MatchingChunkCache, *_QueryData, forceCheckInvalidCache);
+            // TODO(DOTS-8574): This debug check is currently too slow to enable by default.
+#if UNITY_DOTS_DEBUG_ENTITYQUERY_THREAD_CHECKS
+            if (Hint.Unlikely(JobsUtility.IsExecutingJob && !_Access->IsInExclusiveTransaction))
+                throw new InvalidOperationException($"This EntityQuery operation is not safe to use in job code outside of an ExclusiveEntityTransaction. Rebuilding the EntityQuery chunk cache is not thread-safe. [EET={_Access->IsInExclusiveTransaction} job={JobsUtility.IsExecutingJob}].");
+#endif
+            if (Hint.Unlikely(!_QueryData->IsChunkCacheValid()))
+            {
+                UpdateMatchingChunkCache();
+            }
+            return _QueryData->UnsafeGetMatchingChunkCache();
+        }
+
+        internal void UpdateMatchingChunkCache()
+        {
+            // This method is intended for tests of the chunk cache itself. Under normal operation,
+            // GetMatchingChunkCache() will check if the cache is valid, and rebuild it if not.
+            _QueryData->RebuildMatchingChunkCache();
         }
 
         internal static EntityQueryImpl* Allocate()
@@ -3120,16 +3137,13 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
         [ExcludeFromBurstCompatTesting("Returns class")]
         public EntityQueryDesc GetEntityQueryDesc() => _GetImpl()->GetEntityQueryDesc();
 
-        internal void InvalidateCache() => _GetImpl()->_QueryData->MatchingChunkCache.Invalidate();
-        internal void UpdateCache() => UnsafeCachedChunkList.Rebuild(ref _GetImpl()->_QueryData->MatchingChunkCache, *_GetImpl()->_QueryData);
-        internal void CheckChunkListCacheConsistency(bool forceCheckInvalidCache = false) => _GetImpl()->CheckChunkListCacheConsistency(forceCheckInvalidCache);
-        internal bool IsCacheValid => _GetImpl()->_QueryData->MatchingChunkCache.IsCacheValid;
-
-        internal UnsafeChunkCache GetCache(out EntityQueryImpl* impl)
-        {
-            impl = _GetImpl();
-            return new UnsafeChunkCache(impl->_Filter, impl->_QueryData->HasEnableableComponents != 0, impl->_QueryData->GetMatchingChunkCache(), impl->_QueryData->MatchingArchetypes.Ptr);
-        }
+        // These methods are intended for chunk-cache self-test code.
+        // Under normal operation, most code should use EntityQueryImpl.GetMatchingChunkCache() to access the cached chunk list.
+        // This method will automatically update the cache if it is stale.
+        internal void InvalidateCache() => _GetImpl()->_QueryData->InvalidateChunkCache();
+        internal void ForceUpdateCache() => _GetImpl()->UpdateMatchingChunkCache();
+        internal void CheckChunkListCacheConsistency(bool forceCheckInvalidCache = false) => _GetImpl()->_QueryData->CheckChunkListCacheConsistency(forceCheckInvalidCache);
+        internal bool IsCacheValid => _GetImpl()->_QueryData->IsChunkCacheValid();
 
         unsafe internal EntityQueryImpl* _Debugger_GetImpl()
         {

@@ -1017,5 +1017,17 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Manager.HasComponent<Parent>(child));
             Assert.IsFalse(m_Manager.HasComponent<PreviousParent>(child));
         }
+
+        [Test]
+        public void TRS_LocalToWorldRotationWithNonuniformScale()
+        {
+            var entity = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalTransform), typeof(PostTransformMatrix));
+            m_Manager.SetComponentData(entity, LocalTransform.FromRotation(quaternion.Euler(math.radians(new float3(10f, 20f, 30f)))));
+            m_Manager.SetComponentData(entity, new PostTransformMatrix {Value = float4x4.Scale(1f, 2f, 3f)});
+            World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged);
+            var rotationFromTransform = m_Manager.GetComponentData<LocalTransform>(entity).Rotation;
+            var rotationFromMatrix = m_Manager.GetComponentData<LocalToWorld>(entity).Rotation;
+            Assert.IsTrue(AreNearlyEqual(rotationFromMatrix.value, rotationFromTransform.value, k_Tolerance));
+        }
     }
 }

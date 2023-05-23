@@ -277,6 +277,19 @@ namespace Unity.Entities.CodeGen
                 }
             }
 
+
+            foreach (var attr in AssemblyDefinition.CustomAttributes)
+            {
+                if (attr.AttributeType.Name.Contains(nameof(RegisterGenericSystemTypeAttribute)))
+                {
+                    var closedSystemType = AssemblyDefinition.MainModule.ImportReference((GenericInstanceType)attr.ConstructorArguments[0].Value);
+
+                    closedSystemType.Resolve().MakeTypeInternal();
+                    systemList.Add(closedSystemType);
+                }
+
+            }
+
             // For any found generic components, validate the user has registered the closed form with the assembly
             var genericComponents = AssemblyDefinition.CustomAttributes
                 .Where(ca => ca.AttributeType.Name == nameof(RegisterGenericComponentTypeAttribute))

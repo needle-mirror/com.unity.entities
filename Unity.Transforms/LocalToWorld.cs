@@ -56,6 +56,6 @@ namespace Unity.Transforms
         /// <summary>
         /// The "entity's" orientation in world-space.
         /// </summary>
-        public quaternion Rotation => new quaternion(Value);
+        public quaternion Rotation => new quaternion(math.orthonormalize(new float3x3(Value)));
     }
 }

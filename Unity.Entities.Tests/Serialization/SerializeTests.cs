@@ -847,6 +847,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<ArgumentException>(() =>
                 SerializeUtility.DeserializeWorld(m_Manager.BeginExclusiveEntityTransaction(), reader)
             );
+            m_Manager.EndExclusiveEntityTransaction();
         }
 
 #if UNITY_EDITOR
