@@ -24,7 +24,7 @@ The different allocators have the following different features:
 |[Entity command buffer allocator](allocators-entity-command-buffer.md)|Yes - a rewindable allocator|No|Same as the entity command buffer|Yes|Yes|
 |[System group allocator](allocators-system-group.md)|Yes - a double rewindable allocator|Yes|2 fixed rate system group updates|Yes|Yes|
 
-## Further information
+## Additional resources
 
 * [Custom prebuilt allocators overview](allocators-custom-prebuilt-intro.md)
 * [Rewindable allocators](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/manual/allocator-rewindable.html)

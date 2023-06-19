@@ -18,6 +18,7 @@ namespace Unity.Entities.Editor
         readonly Cooldown m_Cooldown = new Cooldown(TimeSpan.FromMilliseconds(Constants.Inspector.CoolDownTime));
 
         static readonly string k_WindowName = L10n.Tr("Systems");
+        static readonly string k_SystemContentName = L10n.Tr("System");
         static readonly string k_ShowFullPlayerLoopString = L10n.Tr("Show Full Player Loop");
         static readonly string k_WorldOptionString = L10n.Tr("World");
         static readonly string k_NamespaceOptionString = L10n.Tr("Namespace");
@@ -117,12 +118,16 @@ namespace Unity.Entities.Editor
 
             if (!string.IsNullOrEmpty(SearchFilter))
                 m_SearchElement.Search(SearchFilter);
+
+            Selection.selectionChanged += OnGlobalSelectionChanged;
         }
 
         void OnDisable()
         {
             WorldProxyManager?.Dispose();
             m_SystemTreeView?.Dispose();
+
+            Selection.selectionChanged -= OnGlobalSelectionChanged;
         }
 
         void CreateToolBar(VisualElement root)
@@ -386,6 +391,16 @@ namespace Unity.Entities.Editor
                 menu.AddItem(new GUIContent($"Debug..."), false, () =>
                     SelectionUtility.ShowInWindow(new SystemsWindowDebugContentProvider()));
             }
+        }
+
+        void OnGlobalSelectionChanged()
+        {
+            if (Selection.activeObject is InspectorContent content && content.Content.Name.Equals(k_SystemContentName))
+                return;
+
+            SystemTreeView.SelectedSystem = default;
+            m_SystemTreeView.m_SystemTreeView.ClearSelection();
+            m_SystemTreeView.m_SystemListView.ClearSelection();
         }
     }
 }

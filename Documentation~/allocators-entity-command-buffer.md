@@ -10,7 +10,7 @@ During the registration, the entity command buffer allocator of the parent entit
 
 The entity command buffer allocator works in the background, and you don't need to make specific code changes to use it.
 
-## Further information
+## Additional resources
 
 * [Allocators overview](allocators-overview.md)
 * [Rewindable allocators](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/manual/allocator-rewindable.html)

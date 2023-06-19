@@ -135,7 +135,7 @@ namespace Unity.Entities.Tests
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             using(var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.SinglePlayback))
             {
-                cmds.AddComponent<EcsTestTag>(query);
+                cmds.AddComponent<EcsTestTag>(query, EntityQueryCaptureMode.AtRecord);
                 Assert.IsFalse(CleanupListsAreEmpty(cmds), "ECB has empty cleanup lists prior to playback");
 
                 cmds.Playback(m_Manager);
@@ -157,7 +157,7 @@ namespace Unity.Entities.Tests
             using(var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.SinglePlayback))
             {
                 cmds.AddComponent<EcsTestData2>(ent);
-                cmds.AddComponent<EcsTestTag>(query); // entity array is captured here
+                cmds.AddComponent<EcsTestTag>(query, EntityQueryCaptureMode.AtRecord); // entity array is captured here
                 Assert.IsFalse(CleanupListsAreEmpty(cmds), "ECB has empty cleanup lists prior to playback");
 
                 m_Manager.DestroyEntity(ent); // this will force an ECB playback error before the entity array command is played back
@@ -1263,7 +1263,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddComponentForEntityQuery_CaptureAtRecord()
+        public void AddComponentForEntityQuery([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity();
             var entity2 = m_Manager.CreateEntity();
@@ -1279,7 +1279,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2), queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1436,7 +1436,7 @@ namespace Unity.Entities.Tests
 
 
         [Test]
-        public void AddSharedComponentForEntityQuery_CaptureAtRecord_WithValue()
+        public void AddSharedComponentForEntityQuery_WithValue([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity();
             var entity2 = m_Manager.CreateEntity();
@@ -1458,7 +1458,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddSharedComponent(entityQuery, testVal);
+                cmds.AddSharedComponent(entityQuery, testVal, queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1480,7 +1480,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SetSharedComponentForEntityQuery_CaptureAtRecord_AllEntitiesHaveTheSharedComponent()
+        public void SetSharedComponentForEntityQuery_AllEntitiesHaveTheSharedComponent([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity();
             var entity2 = m_Manager.CreateEntity();
@@ -1503,7 +1503,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.SetSharedComponent(entityQuery, testVal);
+                cmds.SetSharedComponent(entityQuery, testVal, queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1538,7 +1538,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
-        public void SetSharedComponentForEntityQuery_CaptureAtRecord_Playback_AllEntitiesMustExistAndHaveTheSharedComponent()
+        public void SetSharedComponentForEntityQuery_Playback_AllEntitiesMustExistAndHaveTheSharedComponent([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity();
             var entity2 = m_Manager.CreateEntity();
@@ -1557,7 +1557,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.SetSharedComponent(entityQuery, testVal);
+                cmds.SetSharedComponent(entityQuery, testVal, queryCaptureMode);
                 TestDelegate testDelegate = () => cmds.Playback(m_Manager);
                 Assert.Throws<ArgumentException>(testDelegate);
             }
@@ -1565,7 +1565,7 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        public void AddComponentForEntityQuery_CaptureAtRecord_ManagedComponent()
+        public void AddComponentForEntityQuery_ManagedComponent([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity();
             var entity2 = m_Manager.CreateEntity();
@@ -1581,7 +1581,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent));
+                cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent), queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1601,7 +1601,7 @@ namespace Unity.Entities.Tests
 #endif
 
         [Test]
-        public void AddComponentForEntityQuery_CaptureAtRecord_SharedComponent()
+        public void AddComponentForEntityQuery_SharedComponent([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity();
             var entity2 = m_Manager.CreateEntity();
@@ -1617,7 +1617,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddComponent(entityQuery, typeof(EcsTestSharedComp));
+                cmds.AddComponent(entityQuery, typeof(EcsTestSharedComp), queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1637,7 +1637,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires move entities safety checks")]
-        public void AddComponentForEntityQuery_CaptureAtRecord_SharedComponent_TooMany()
+        public void AddComponentForEntityQuery_SharedComponent_TooMany([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             // test must be updated when kMaxSharedComponentCount is changed
             Assert.AreEqual(16, EntityComponentStore.kMaxSharedComponentCount);
@@ -1654,7 +1654,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 var types = new ComponentTypeSet(typeof(EcsTestSharedComp15), typeof(EcsTestSharedComp16), typeof(EcsTestSharedComp17));
-                cmds.AddComponent(entityQuery, types);
+                cmds.AddComponent(entityQuery, types, queryCaptureMode);
 
                 // Assert.Throws "Cannot add more than {kMaxSharedComponentCount} SharedComponent to a single Archetype"
                 Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager));
@@ -1662,7 +1662,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddComponentForEntityQuery_CaptureAtRecord_MultipleComponents()
+        public void AddComponentForEntityQuery_MultipleComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity();
             var entity2 = m_Manager.CreateEntity();
@@ -1679,7 +1679,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 var types = new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData3));
-                cmds.AddComponent(entityQuery, types);
+                cmds.AddComponent(entityQuery, types, queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1697,7 +1697,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RemoveComponentForEntityQuery_CaptureAtRecord()
+        public void RemoveComponentForEntityQuery([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -1710,7 +1710,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.RemoveComponent(entityQuery, typeof(EcsTestData2));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestData2), queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1732,7 +1732,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RemoveComponentForEntityQuery_CaptureAtRecord_SharedComponent()
+        public void RemoveComponentForEntityQuery_SharedComponent([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var entity = m_Manager.CreateEntity(archetype);
@@ -1746,7 +1746,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.RemoveComponent(entityQuery, typeof(EcsTestSharedComp));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestSharedComp), queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1768,7 +1768,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RemoveComponentForEntityQuery_CaptureAtRecord_MultipleComponents()
+        public void RemoveComponentForEntityQuery_MultipleComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
             var entity = m_Manager.CreateEntity(archetype);
@@ -1783,7 +1783,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
                 var types = new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData3));
-                cmds.RemoveComponent(entityQuery, types);
+                cmds.RemoveComponent(entityQuery, types, queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1804,7 +1804,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DestroyEntitiesForEntityQuery_CaptureAtRecord()
+        public void DestroyEntitiesForEntityQuery([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             m_Manager.CreateEntity(archetype, 5);
@@ -1817,7 +1817,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.DestroyEntity(entityQuery);
+                cmds.DestroyEntity(entityQuery, queryCaptureMode);
                 cmds.Playback(m_Manager);
             }
 
@@ -1834,7 +1834,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddComponentToEntityQueryWithFilter_CaptureAtRecord()
+        public void AddComponentToEntityQueryWithFilter([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
 
@@ -1846,43 +1846,33 @@ namespace Unity.Entities.Tests
             var sharedComponent2 = new EcsTestSharedComp {value = 130};
             m_Manager.SetSharedComponentManaged(entity2, sharedComponent2);
 
+            var entity3 = m_Manager.CreateEntity(archetype);
+            m_Manager.SetSharedComponentManaged(entity3, sharedComponent2);
+
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2), queryCaptureMode);
 
-                // modifying the entity in between recording and playback should be OK
-                m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp {value = 200});
+                // modifying an entity in between recording and playback means it won't be processed by AtPlayback,
+                // but will still be processed by AtRecord
+                m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp { value = 200 });
                 m_Manager.AddComponent<EcsTestData3>(entity2);
 
                 cmds.Playback(m_Manager);
 
-                using (var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator))
-                {
-                    Assert.AreEqual(2, entities.Length);
-                    for (var i = 0; i < entities.Length; i++)
-                    {
-                        var e = entities[i];
-                        var shared = m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(e);
-                        if (shared.value == 10)
-                        {
-                            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(e),
-                                "The component was incorrectly added based on the EntityQueryFilter.");
-                        }
-                        else
-                        {
-                            Assert.AreEqual(200, shared.value);
-                            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(e),
-                                "The component was not added to the entities within the entity query.");
-                        }
-                    }
-                }
+                using var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator);
+                CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity1), "EcsTestData2 should not have been added");
+                Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
+                    m_Manager.HasComponent<EcsTestData2>(entity2)); // this entity was modified between recording and playback
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity3), "EcsTestData2 should have been added");
             }
         }
 
         [Test]
-        public void AddComponentsToEntityQueryWithFilter_CaptureAtRecord()
+        public void AddComponentsToEntityQueryWithFilter([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
 
@@ -1898,11 +1888,15 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData3)));
+                cmds.AddComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData3)),
+                    queryCaptureMode);
 
-                // modifying the entity in between recording and playback should be OK
-                m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp {value = 200});
-                m_Manager.AddComponent<EcsTestData3>(entity2);
+                if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                {
+                    // modifying the entity in between recording and playback should be OK
+                    m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp { value = 200 });
+                    m_Manager.AddComponent<EcsTestData3>(entity2);
+                }
 
                 cmds.Playback(m_Manager);
 
@@ -1920,7 +1914,7 @@ namespace Unity.Entities.Tests
                             Assert.IsFalse(m_Manager.HasComponent<EcsTestData3>(e));
                         } else
                         {
-                            Assert.AreEqual(200, shared.value);
+                            Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord ? 200 : 130, shared.value);
                             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(e));
                             Assert.IsTrue(m_Manager.HasComponent<EcsTestData3>(e));
                         }
@@ -1931,7 +1925,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires move entities safety checks")]
-        public void AddComponentToEntityQuery_OnDifferentEntityManager_Throws_CaptureAtRecord()
+        public void AddComponentToEntityQuery_OnDifferentEntityManager_Throws([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity();
             var data1 = new EcsTestData();
@@ -1942,13 +1936,13 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2), queryCaptureMode);
                 Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager2));
             }
         }
 
         [Test]
-        public void RemoveComponentFromEntityQueryWithFilter_CaptureAtRecord()
+        public void RemoveComponentFromEntityQueryWithFilter([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestData));
 
@@ -1960,40 +1954,33 @@ namespace Unity.Entities.Tests
             var sharedComponent2 = new EcsTestSharedComp {value = 130};
             m_Manager.SetSharedComponentManaged(entity2, sharedComponent2);
 
+            var entity3 = m_Manager.CreateEntity(archetype);
+            m_Manager.SetSharedComponentManaged(entity3, sharedComponent2);
+
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.RemoveComponent(entityQuery, typeof(EcsTestData));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestData), queryCaptureMode);
 
-                // modifying the entity in between recording and playback should be OK
-                m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp {value = 200});
+                // modifying an entity in between recording and playback means it won't be processed by AtPlayback,
+                // but will still be processed by AtRecord
+                m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp { value = 200 });
                 m_Manager.AddComponent<EcsTestData3>(entity2);
 
                 cmds.Playback(m_Manager);
 
-                using (var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator))
-                {
-                    Assert.AreEqual(2, entities.Length);
-                    for (var i = 0; i < entities.Length; i++)
-                    {
-                        var e = entities[i];
-                        var shared = m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(e);
-                        if (shared.value == 10)
-                        {
-                            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(e));
-                        } else
-                        {
-                            Assert.AreEqual(200, shared.value);
-                            Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(e));
-                        }
-                    }
-                }
+                using var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator);
+                CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity1), "EcsTestData should not have been remove");
+                Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
+                    !m_Manager.HasComponent<EcsTestData>(entity2)); // this entity was modified between recording and playback
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(entity3), "EcsTestData2 should have been removed");
             }
         }
 
         [Test]
-        public void RemoveComponentsFromEntityQueryWithFilter_CaptureAtRecord()
+        public void RemoveComponentsFromEntityQueryWithFilter([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestData), typeof(EcsTestData2));
 
@@ -2005,43 +1992,38 @@ namespace Unity.Entities.Tests
             var sharedComponent2 = new EcsTestSharedComp {value = 130};
             m_Manager.SetSharedComponentManaged(entity2, sharedComponent2);
 
+            var entity3 = m_Manager.CreateEntity(archetype);
+            m_Manager.SetSharedComponentManaged(entity3, sharedComponent2);
+
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2)));
+                cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2)),
+                    queryCaptureMode);
 
-                // modifying the entity in between recording and playback should be OK
-                m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp {value = 200});
+                // modifying an entity in between recording and playback means it won't be processed by AtPlayback,
+                // but will still be processed by AtRecord
+                m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp { value = 200 });
                 m_Manager.AddComponent<EcsTestData3>(entity2);
 
                 cmds.Playback(m_Manager);
 
-                using (var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator))
-                {
-                    Assert.AreEqual(2, entities.Length);
-
-                    for (var i = 0; i < entities.Length; i++)
-                    {
-                        var e = entities[i];
-                        var shared = m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(e);
-                        if (shared.value == 10)
-                        {
-                            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(e));
-                            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(e));
-                        } else
-                        {
-                            Assert.AreEqual(200, shared.value);
-                            Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(e));
-                            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(e));
-                        }
-                    }
-                }
+                using var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator);
+                CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity1), "EcsTestData should not have been removed");
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity1), "EcsTestData2 should not have been removed");
+                Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
+                    !m_Manager.HasComponent<EcsTestData>(entity2)); // this entity was modified between recording and playback
+                Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
+                    !m_Manager.HasComponent<EcsTestData2>(entity2)); // this entity was modified between recording and playback
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(entity3), "EcsTestData should have been removed");
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity3), "EcsTestData2 should have been removed");
             }
         }
 
         [Test]
-        public void AddSharedComponentDataToEntityQueryWithFilter_CaptureAtRecord()
+        public void AddSharedComponentDataToEntityQueryWithFilter([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestData));
 
@@ -2067,7 +2049,7 @@ namespace Unity.Entities.Tests
             {
                 entityQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(0));
                 var shared2 = new EcsTestSharedComp2();
-                cmds.AddSharedComponent(entityQuery, shared2);
+                cmds.AddSharedComponent(entityQuery, shared2, queryCaptureMode);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -2088,7 +2070,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DestroyEntitiesFromEntityQuery_CaptureAtRecord()
+        public void DestroyEntitiesFromEntityQuery([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
 
@@ -2104,7 +2086,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                cmds.DestroyEntity(entityQuery);
+                cmds.DestroyEntity(entityQuery, queryCaptureMode);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -2120,7 +2102,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DestroyEntitiesFromEntityQueryWithFilter_CaptureAtRecord()
+        public void DestroyEntitiesFromEntityQueryWithFilter([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestData));
 
@@ -2136,7 +2118,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestData)))
             {
                 entityQuery.SetSharedComponentFilterManaged(new EcsTestSharedComp(0));
-                cmds.DestroyEntity(entityQuery);
+                cmds.DestroyEntity(entityQuery, queryCaptureMode);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -2173,7 +2155,7 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2), EntityQueryCaptureMode.AtRecord);
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent1);
 
                 // modifying the entity in between recording and playback should be OK
@@ -2219,7 +2201,7 @@ namespace Unity.Entities.Tests
             {
                 var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponent(entityQuery, typeof(EcsTestData2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestData2), EntityQueryCaptureMode.AtRecord);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4481,12 +4463,12 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddSharedComponent_WithEntityQuery_ThatHasNoMatch_WillNotCorruptInternalState_CaptureAtRecord()
+        public void AddSharedComponent_WithEntityQuery_ThatHasNoMatch_WillNotCorruptInternalState([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
                 var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-                cmds.AddSharedComponent(entityQuery, new EcsTestSharedComp(1));
+                cmds.AddSharedComponent(entityQuery, new EcsTestSharedComp(1), queryCaptureMode);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4669,7 +4651,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddComponentToEntityQuery_ManagedComponents_CaptureAtRecord()
+        public void AddComponentToEntityQuery_ManagedComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var entity = m_Manager.CreateEntity();
             var data1 = new EcsTestManagedComponent();
@@ -4679,7 +4661,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent)))
             {
-                cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent2), queryCaptureMode);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4695,7 +4677,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddComponentToEntityQueryWithFilter_ManagedComponents_CaptureAtRecord()
+        public void AddComponentToEntityQueryWithFilter_ManagedComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
 
@@ -4707,41 +4689,33 @@ namespace Unity.Entities.Tests
             var sharedComponent2 = new EcsTestSharedComp { value = 130 };
             m_Manager.SetSharedComponentManaged(entity2, sharedComponent2);
 
+            var entity3 = m_Manager.CreateEntity(archetype);
+            m_Manager.SetSharedComponentManaged(entity3, sharedComponent2);
+
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent2));
+                cmds.AddComponent(entityQuery, typeof(EcsTestManagedComponent2), queryCaptureMode);
 
-                // modifying the entity in between recording and playback should be OK
+                // modifying an entity in between recording and playback means it won't be processed by AtPlayback,
+                // but will still be processed by AtRecord
+                m_Manager.SetSharedComponent(entity2, new EcsTestSharedComp { value = 200 });
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
 
                 cmds.Playback(m_Manager);
 
-                using (var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator))
-                {
-                    Assert.AreEqual(2, entities.Length);
-
-                    for (var i = 0; i < entities.Length; i++)
-                    {
-                        var e = entities[i];
-                        var shared = m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(e);
-                        if (shared.value == 10)
-                        {
-                            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(e));
-                            Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent2>(e));
-                        } else
-                        {
-                            Assert.AreEqual(130, shared.value);
-                            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent2>(e));
-                        }
-                    }
-                }
+                using var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator);
+                CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent2>(entity1), "EcsTestManagedComponent2 should not have been added");
+                Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
+                    m_Manager.HasComponent<EcsTestManagedComponent2>(entity2)); // this entity was modified between recording and playback
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent2>(entity3), "EcsTestManagedComponent2 should have been added");
             }
         }
 
         [Test]
-        public void AddComponentsToEntityQueryWithFilter_ManagedComponents_CaptureAtRecord()
+        public void AddComponentsToEntityQueryWithFilter_ManagedComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp));
 
@@ -4753,41 +4727,34 @@ namespace Unity.Entities.Tests
             var sharedComponent2 = new EcsTestSharedComp { value = 130 };
             m_Manager.SetSharedComponentManaged(entity2, sharedComponent2);
 
+            var entity3 = m_Manager.CreateEntity(archetype);
+            m_Manager.SetSharedComponentManaged(entity3, sharedComponent2);
+
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.AddComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent2)));
+                cmds.AddComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent2)),
+                    queryCaptureMode);
 
-                // modifying the entity in between recording and playback should be OK
+                // modifying an entity in between recording and playback means it won't be processed by AtPlayback,
+                // but will still be processed by AtRecord
+                m_Manager.SetSharedComponent(entity2, new EcsTestSharedComp { value = 200 });
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
 
                 cmds.Playback(m_Manager);
 
-                using (var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator))
-                {
-                    Assert.AreEqual(2, entities.Length);
-
-                    for (var i = 0; i < entities.Length; i++)
-                    {
-                        var e = entities[i];
-                        var shared = m_Manager.GetSharedComponentManaged<EcsTestSharedComp>(e);
-                        if (shared.value == 10)
-                        {
-                            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(e));
-                            Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent2>(e));
-                        } else
-                        {
-                            Assert.AreEqual(130, shared.value);
-                            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent2>(e));
-                        }
-                    }
-                }
+                using var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator);
+                CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent2>(entity1), "EcsTestManagedComponent2 should not have been added");
+                Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
+                    m_Manager.HasComponent<EcsTestManagedComponent2>(entity2)); // this entity was modified between recording and playback
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent2>(entity3), "EcsTestManagedComponent2 should have been added");
             }
         }
 
         [Test]
-        public void RemoveComponentFromEntityQuery_ManagedComponents_CaptureAtRecord()
+        public void RemoveComponentFromEntityQuery_ManagedComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent));
             var entity = m_Manager.CreateEntity(archetype);
@@ -4797,7 +4764,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent)))
             {
-                cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent), queryCaptureMode);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4814,7 +4781,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RemoveComponentFromEntityQuery_ValidateComponents_ManagedComponents_CaptureAtRecord()
+        public void RemoveComponentFromEntityQuery_ValidateComponents_ManagedComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2), typeof(EcsTestManagedComponent3), typeof(EcsTestManagedComponent4));
 
@@ -4843,7 +4810,7 @@ namespace Unity.Entities.Tests
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent2));
+            cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent2), queryCaptureMode);
 
             // modifying the entity in between recording and playback should be OK
             m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4868,7 +4835,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RemoveComponentFromEntityQueryWithFilter_ManagedComponents_CaptureAtRecord()
+        public void RemoveComponentFromEntityQueryWithFilter_ManagedComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent));
 
@@ -4885,7 +4852,7 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent));
+                cmds.RemoveComponent(entityQuery, typeof(EcsTestManagedComponent), queryCaptureMode);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4914,7 +4881,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RemoveComponentsFromEntityQueryWithFilter_ManagedComponents_CaptureAtRecord()
+        public void RemoveComponentsFromEntityQueryWithFilter_ManagedComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent));
 
@@ -4930,7 +4897,8 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
-                cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent)));
+                cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent)),
+                    queryCaptureMode);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4959,7 +4927,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RemoveComponentsFromEntityQuery_ManagedComponents_CaptureAtRecord()
+        public void RemoveComponentsFromEntityQuery_ManagedComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestSharedComp), typeof(EcsTestManagedComponent));
 
@@ -4970,7 +4938,7 @@ namespace Unity.Entities.Tests
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent)))
             {
-                cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent)));
+                cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent)), queryCaptureMode);
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4986,7 +4954,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void RemoveComponentsFromEntityQuery_ValidateComponents_ManagedComponents_CaptureAtRecord()
+        public void RemoveComponentsFromEntityQuery_ValidateComponents_ManagedComponents([Values] EntityQueryCaptureMode queryCaptureMode)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2), typeof(EcsTestManagedComponent3), typeof(EcsTestManagedComponent4));
 
@@ -5015,7 +4983,8 @@ namespace Unity.Entities.Tests
 
             var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent2)));
+            cmds.RemoveComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestManagedComponent2)),
+                queryCaptureMode);
 
             // modifying the entity in between recording and playback should be OK
             m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -5216,7 +5185,8 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(() => cmds.Instantiate(e,outEntities));
             }
             Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(e));
-            Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(query));
+            Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(query, EntityQueryCaptureMode.AtRecord));
+            Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(query, EntityQueryCaptureMode.AtPlayback));
             Assert.Throws<InvalidOperationException>(() => cmds.AddBuffer<EcsIntElement>(e));
             Assert.Throws<InvalidOperationException>(() => cmds.SetBuffer<EcsIntElement>(e));
             Assert.Throws<InvalidOperationException>(() => cmds.AddSharedComponent(e, new EcsTestSharedComp(10)));
@@ -5225,10 +5195,12 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>())));
             Assert.Throws<InvalidOperationException>(() => cmds.SetComponent(e, new EcsTestData2(10)));
             Assert.Throws<InvalidOperationException>(() => cmds.SetComponent(e, new EcsTestData2(10)));
-            Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(query, ComponentType.ReadOnly<EcsTestData2>()));
+            Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(query, ComponentType.ReadOnly<EcsTestData2>(), EntityQueryCaptureMode.AtRecord));
+            Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(query, ComponentType.ReadOnly<EcsTestData2>(), EntityQueryCaptureMode.AtPlayback));
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>())));
             Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent<EcsTestData>(e));
-            Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(query, ComponentType.ReadOnly<EcsTestData>()));
+            Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(query, ComponentType.ReadOnly<EcsTestData>(), EntityQueryCaptureMode.AtRecord));
+            Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(query, ComponentType.ReadOnly<EcsTestData>(), EntityQueryCaptureMode.AtPlayback));
             Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(e, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData>())));
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new EcsTestManagedComponent()));

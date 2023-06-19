@@ -1,4 +1,6 @@
 using Unity.Entities;
+using Unity.Burst;
+using Unity.Collections;
 
 [assembly: DisableAutoCreation]
 
@@ -20,12 +22,14 @@ namespace Unity.Entities.Tests.InAnotherAssembly
     {
         public partial struct MyNestedGenericISystem : ISystem
         {
+	    [BurstCompile]
             public void OnCreate(ref SystemState state)
             {
-                state.EntityManager.CreateEntity(ComponentType.ReadWrite<MySentinelGenericComponent_FromAnotherAssembly<MyNestedGenericISystem>>());
+                var nativeArray = new NativeArray<ComponentType>(1, Allocator.Temp);
+                nativeArray[0] = ComponentType.ReadWrite<MySentinelGenericComponent_FromAnotherAssembly<MyNestedGenericISystem>>();
+                state.EntityManager.CreateEntity(state.EntityManager.CreateArchetype(nativeArray));
             }
         }
-            
     }
 
     public struct EcsTestDataInAnotherAssembly : IComponentData

@@ -1697,10 +1697,10 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
                 var ecb = World.GetOrCreateSystemManaged<TestECBPlaybackSystem>().CreateCommandBuffer();
-                ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
                 var e = ecb.CreateEntity();
+                // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
+                ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
                 ecb.DestroyEntity(e);
                 ecb.AddComponent<EcsTestData>(e);
             }
@@ -1710,10 +1710,10 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
-                // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
                 var ecb = World.GetOrCreateSystemManaged<TestECBPlaybackSystem>().CreateCommandBuffer();
-                ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
                 var e = ecb.CreateEntity();
+                // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
+                ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
                 ecb.AddComponent<EcsTestData>(e);
                 ecb.RemoveComponent<EcsTestData>(e);
                 ecb.SetComponent(e, new EcsTestData { value = 42 });
@@ -1756,11 +1756,11 @@ namespace Unity.Entities.Tests
         [TestRequiresCollectionChecks]
         public void EntityJournalErrorAdded_DoesNotExist_EntityCommandBuffer()
         {
-            // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
             var e = m_Manager.CreateEntity();
             var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
             ecb.AddComponent<EcsTestData>(e);
+            // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
+            ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
             m_Manager.DestroyEntity(e);
             Assert.That(() => ecb.Playback(m_Manager),
                 Throws.InvalidOperationException.With.Message.Contains("(" + e.Index + ":" + e.Version + ")"));
@@ -1771,11 +1771,12 @@ namespace Unity.Entities.Tests
             var destroyedEntity = entities[0];
 
             var ecb2 = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb2.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                ecb2.AddComponent(query, typeof(EcsTestData));
+                ecb2.AddComponent(query, typeof(EcsTestData), EntityQueryCaptureMode.AtRecord);
             }
+            // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
+            ecb2.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
 
             m_Manager.DestroyEntity(entities[0]);
             Assert.That(() => ecb2.Playback(m_Manager),
@@ -1786,12 +1787,12 @@ namespace Unity.Entities.Tests
         [TestRequiresCollectionChecks]
         public void EntityJournalErrorAdded_DoesNotHaveComponent_EntityCommandBuffer()
         {
-            // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
             var e = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.RemoveComponent<EcsTestData>(e);
             var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
             ecb.SetComponent(e, new EcsTestData { value = 10 });
+            // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
+            ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
             Assert.That(() => ecb.Playback(m_Manager),
                 Throws.ArgumentException.With.Message.Contains("(" + e.Index + ":" + e.Version + ")"));
 
@@ -1800,11 +1801,12 @@ namespace Unity.Entities.Tests
             var removedEntity = entities[0];
 
             var ecb2 = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
-            ecb2.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
-                ecb2.SetSharedComponent(query, new EcsTestSharedComp { value = 10 });
+                ecb2.SetSharedComponent(query, new EcsTestSharedComp { value = 10 }, EntityQueryCaptureMode.AtRecord);
             }
+            // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
+            ecb2.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
 
             m_Manager.RemoveComponent<EcsTestSharedComp>(entities[0]);
             Assert.That(() => ecb2.Playback(m_Manager),

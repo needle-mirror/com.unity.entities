@@ -48,7 +48,7 @@ namespace Unity.Scenes.Hybrid.Tests
 
 #if UNITY_EDITOR
         GUID m_DotsSettingsGUID;
-        string m_SceneWithBuildSettingsPath;
+        List<string> m_SceneWithBuildSettingsPaths = new();
         static string m_TempPath = "Assets/Temp";
 #endif
 
@@ -60,31 +60,41 @@ namespace Unity.Scenes.Hybrid.Tests
             return world;
         }
 
-        public void SetUpOnce()
-        {
 #if UNITY_EDITOR
+        public Hash128 SetupTestScene(string scenePath)
+        {
+            Hash128 sceneGuid;
+            var sceneWithBuildSettingsPath = "";
             try
             {
-                m_DotsSettingsGUID = DotsGlobalSettings.Instance.GetClientGUID();
-                m_PlayModeSceneGUID = new GUID(AssetDatabase.AssetPathToGUID(PlayModeScenePath));
-
-                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(m_PlayModeSceneGUID, m_DotsSettingsGUID, true,
+                sceneGuid = new GUID(AssetDatabase.AssetPathToGUID(scenePath));
+                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGuid, m_DotsSettingsGUID, true,
                     out var requestRefresh);
                 if (requestRefresh)
                     AssetDatabase.Refresh();
-                m_SceneWithBuildSettingsPath = SceneWithBuildConfigurationGUIDs.GetSceneWithBuildSettingsPath(guid);
+                sceneWithBuildSettingsPath = SceneWithBuildConfigurationGUIDs.GetSceneWithBuildSettingsPath(guid);
                 EntityScenesPaths.GetSubSceneArtifactHash(m_PlayModeSceneGUID, m_DotsSettingsGUID, true,
                     ImportMode.Synchronous);
             }
             catch
             {
                 AssetDatabase.DeleteAsset(m_TempPath);
-                AssetDatabase.DeleteAsset(m_SceneWithBuildSettingsPath);
+                AssetDatabase.DeleteAsset(sceneWithBuildSettingsPath);
                 throw;
             }
 
+            m_SceneWithBuildSettingsPaths.Add(sceneWithBuildSettingsPath);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+            return sceneGuid;
+        }
+#endif
+
+        public void SetUpOnce()
+        {
+#if UNITY_EDITOR
+            m_DotsSettingsGUID = DotsGlobalSettings.Instance.GetClientGUID();
+            m_PlayModeSceneGUID = SetupTestScene(PlayModeScenePath);
 #endif
         }
 
@@ -92,7 +102,8 @@ namespace Unity.Scenes.Hybrid.Tests
         {
 #if UNITY_EDITOR
             AssetDatabase.DeleteAsset(m_TempPath);
-            AssetDatabase.DeleteAsset(m_SceneWithBuildSettingsPath);
+            foreach (var path in m_SceneWithBuildSettingsPaths)
+                AssetDatabase.DeleteAsset(path);
 #endif
         }
 

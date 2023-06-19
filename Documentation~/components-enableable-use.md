@@ -6,7 +6,7 @@ When you use enableable components, the target entity doesn't change its archety
 
 However, to prevent race conditions, jobs with write access to enableable components might cause main-thread operations to block until the job completes, even if the job doesn't enable or disable the component on any entities.
 
-All enableable components are enabled by default on new entities created with `CreateEntity()`. Entities which are instantiated from Prefabs inherit the enabled or disabled state of the Prefab.
+All enableable components are enabled by default on new entities created with `CreateEntity()`. Entities which are instantiated from prefabs inherit the enabled or disabled state of the prefab.
 
 ## Enableable component methods
 
@@ -17,23 +17,9 @@ To work with enableable components, you can use the following methods on `Entity
 
 For example:
 
-```c#
-    // ... in a SystemBase OnUpdate()
-    Entity e = this.EntityManager.CreateEntity(typeof(Health));
+[!code-cs[Enableable component example](../DocCodeSamples.Tests/EnableableComponentExample.cs#enableable-example)]
 
-    ComponentLookup<Health> healthLookup = this.GetComponentLookup<>();
-
-    // true
-    bool b = healthLookup.IsComponentEnabled(e);
-
-    // disable the Health component of the entity
-    healthLookup.SetComponentEnabled(e, false);
-
-    // though disabled, the component can still be read and modified
-    Health h = healthLookup(e);
-```
-
-You can use `ComponentLookup<T>.SetComponentEnabled(Entity,bool)` to safely enable or disable entities from worker threads, because no structural change is needed. The job must have write access to component `T`. You should avoid enabling or disabling a component on an entity that another thread might process in a running because this often leads to a race condition.
+You can use `ComponentLookup<T>.SetComponentEnabled(Entity,bool)` to safely enable or disable entities from worker threads, because no structural change is needed. The job must have write access to component `T`. Avoid enabling or disabling a component on an entity that another thread might process in a job because this often leads to a race condition.
 
 ## Querying enableable components
 
@@ -50,38 +36,7 @@ All `EntityQuery` methods automatically handle enableable components. For exampl
 
 The following is an example of querying a component that has been disabled with [`EntityManager.IsComponentEnabled`](xref:Unity.Entities.EntityManager.IsComponentEnabled*):
 
-```c#
-    public struct Health : IComponentData, IEnableableComponent
-    {
-        public float Value;
-    }
-    // ... in a SystemBase OnUpdate()
-    Entity e1 = this.EntityManager.CreateEntity(typeof(Health), typeof(Translation));
-    Entity e2 = this.EntityManager.CreateEntity(typeof(Health), typeof(Translation));
-
-    // true (components begin life enabled)
-    bool b = this.EntityManager.IsComponentEnabled<Health>(e1);
-
-    // disable the Health component on the first entity
-    this.EntityManager.SetComponentEnabled<Health>(e1, false);
-
-    EntityQuery query = new EntityQueryBuilder(Allocator.Temp).WithAll<Health, Translation>().Build(this);
-
-    // the returned array does not include the first entity
-    var entities = query.ToEntityArray(Allocator.Temp);
-
-    // the returned array does not include the Health of the first entity
-    var healths = query.ToComponentDataArray<Health>(Allocator.Temp);
-
-    // the returned array does not include the Translation of the first entity
-    var translations = query.ToComponentDataArray<Translation>(Allocator.Temp);
-
-    // This query matches components whether they're enabled or disabled
-    var queryIgnoredEnableable = new EntityQueryBuilder(Allocator.Temp).WithAll<Health, Translation>().WithOptions(EntityQueryOptions.IgnoreComponentEnabledState).Build(this);
-
-    // the returned array includes the Translations of both entities
-    var translationsAll = queryIgnoreEnableable.ToComponentDataArray<Translation>(Allocator.Temp);
-```
+[!code-cs[Enableable component example](../DocCodeSamples.Tests/EnableableComponentExample.cs#enableable-health-example)]
 
 ## Asynchronous operations
 

@@ -100,41 +100,43 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
-        public void CommandBuffer_AddComponentWithEntityQuery_Syncs_ChangeFilterTypes()
+        public void CommandBuffer_AddComponentWithEntityQuery_CaptureAtRecord_Syncs_ChangeFilterTypes()
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddComponent(_syncChangeFilterTypesSystem.EntityQuery, typeof(EcsTestData3)));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddComponent(_syncChangeFilterTypesSystem.EntityQuery,
+                    typeof(EcsTestData3), EntityQueryCaptureMode.AtRecord));
             }
         }
 
         [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
-        public void CommandBuffer_RemoveComponentWithEntityQuery_Syncs_ChangeFilterTypes()
+        public void CommandBuffer_RemoveComponentWithEntityQuery_CaptureAtRecord_Syncs_ChangeFilterTypes()
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.RemoveComponent(_syncChangeFilterTypesSystem.EntityQuery, typeof(EcsTestData)));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.RemoveComponent(_syncChangeFilterTypesSystem.EntityQuery,
+                    typeof(EcsTestData), EntityQueryCaptureMode.AtRecord));
             }
         }
 
         [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
-        public void CommandBuffer_DestroyEntityWithEntityQuery_Syncs_ChangeFilterTypes()
+        public void CommandBuffer_DestroyEntityWithEntityQuery_CaptureAtRecord_Syncs_ChangeFilterTypes()
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.DestroyEntity(_syncChangeFilterTypesSystem.EntityQuery));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.DestroyEntity(_syncChangeFilterTypesSystem.EntityQuery, EntityQueryCaptureMode.AtRecord));
             }
         }
 
         [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
-        public void CommandBuffer_AddSharedComponentWithEntityQuery_Syncs_ChangeFilterTypes()
+        public void CommandBuffer_AddSharedComponentWithEntityQuery_CaptureAtRecord_Syncs_ChangeFilterTypes()
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddSharedComponent(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7)));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddSharedComponent(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7), EntityQueryCaptureMode.AtRecord));
             }
         }
 

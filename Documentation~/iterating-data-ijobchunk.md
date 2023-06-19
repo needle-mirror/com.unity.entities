@@ -19,6 +19,6 @@ The job invokes your `Execute` method once for each matching chunk, and excludes
 
 For more information, the [ECS samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples) contains a simple HelloCube example that demonstrates how to use `IJobChunk`.
 
-## Further information
+## Additional resources
 
 * [Implementing IJobChunk](iterating-data-ijobchunk-implement.md)

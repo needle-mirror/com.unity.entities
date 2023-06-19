@@ -227,17 +227,13 @@ namespace Unity.Entities
             self->m_UniversalQuery = self->m_EntityQueryManager.CreateEntityQuery(self, builder);
 
             builder.Reset();
-            builder.WithAllRW<ChunkHeader>()
-                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
-                .AddAdditionalQuery()
-                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab);
+            builder.WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab |
+                                EntityQueryOptions.IncludeMetaChunks);
             self->m_UniversalQueryWithChunks = self->m_EntityQueryManager.CreateEntityQuery(self, builder);
 
             builder.Reset();
-            builder.WithAllRW<ChunkHeader>()
-                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeSystems)
-                .AddAdditionalQuery()
-                .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeSystems);
+            builder.WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab |
+                                EntityQueryOptions.IncludeMetaChunks | EntityQueryOptions.IncludeSystems);
             self->m_UniversalQueryWithChunksAndSystems = self->m_EntityQueryManager.CreateEntityQuery(self, builder);
 
 #if UNITY_EDITOR
@@ -314,6 +310,7 @@ namespace Unity.Entities
             {
                 var queryPtr = (EntityQueryImpl*)keys[i];
                 queryPtr->Dispose();
+                EntityQueryImpl.Free(queryPtr);
             }
             AliveEntityQueries.Dispose();
             AliveEntityQueries = default;
@@ -825,7 +822,7 @@ namespace Unity.Entities
         {
             if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-            EntityComponentStore->AssertCanAddComponent(queryImpl->_QueryData->MatchingArchetypes, componentType);
+            EntityComponentStore->AssertCanAddComponent(queryImpl, componentType);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
@@ -1265,7 +1262,7 @@ namespace Unity.Entities
             EntityComponentStore->AssertComponentIsUnmanaged(typeIndex);
 
             if (!IsInExclusiveTransaction)
-                DependencyManager->CompleteWriteDependency(typeIndex);
+                DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
             return EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex, EntityComponentStore->GlobalSystemVersion);
         }
@@ -1575,7 +1572,7 @@ namespace Unity.Entities
             Assert.IsTrue(TypeManager.IsManagedSharedComponent(componentType.TypeIndex));
             if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-            EntityComponentStore->AssertCanAddComponent(queryImpl->_QueryData->MatchingArchetypes, componentType);
+            EntityComponentStore->AssertCanAddComponent(queryImpl, componentType);
 
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
@@ -1625,7 +1622,7 @@ namespace Unity.Entities
             Assert.IsTrue(componentType.IsSharedComponent);
             if (queryImpl->IsEmptyIgnoreFilter)
                 return;
-            EntityComponentStore->AssertCanAddComponent(queryImpl->_QueryData->MatchingArchetypes, componentType);
+            EntityComponentStore->AssertCanAddComponent(queryImpl, componentType);
 #if ENABLE_PROFILER
             if (StructuralChangesProfiler.Enabled)
             {
@@ -1967,7 +1964,6 @@ namespace Unity.Entities
             var newSharedComponentDataIndex = 0;
             if (componentData != null) // null means default
             {
-
                 newSharedComponentDataIndex =
                     ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, componentData);
             }
@@ -2327,6 +2323,23 @@ namespace Unity.Entities
         public int InsertSharedComponent_Unmanaged(TypeIndex typeIndex, int hashCode, void* newData, void* defaultValue)
         {
             var sharedComponentIndex = EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, newData, defaultValue);
+            if (sharedComponentIndex != 0)
+                m_ManagedReferenceIndexList.Add(sharedComponentIndex);
+            return sharedComponentIndex;
+        }
+
+        /// <summary>
+        /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
+        /// </summary>
+        /// <param name="typeIndex"></param>
+        /// <param name="hashCode"></param>
+        /// <param name="newData"></param>
+        /// <returns></returns>
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public int InsertSharedComponent_Managed(TypeIndex typeIndex, int hashCode, object newData)
+        {
+            var sharedComponentIndex =
+                ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, newData);
             if (sharedComponentIndex != 0)
                 m_ManagedReferenceIndexList.Add(sharedComponentIndex);
             return sharedComponentIndex;

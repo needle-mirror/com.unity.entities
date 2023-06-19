@@ -343,11 +343,11 @@ public class BurstTests : BurstTestFixture
     [Test]
     public void DynamicBuffer()
     {
-        var ecb = new EntityCommandBuffer(Allocator.Temp);
+        using var world = new World("Test World");
 
-        var entity = ecb.CreateEntity();
+        var entity = world.EntityManager.CreateEntity();
 
-        var buffer = ecb.AddBuffer<Data>(entity);
+        var buffer = world.EntityManager.AddBuffer<Data>(entity);
 
         buffer.Add(42);
         buffer.Add(13);
@@ -356,26 +356,21 @@ public class BurstTests : BurstTestFixture
         var d = BurstCompiler.CompileFunctionPointer<MinInDynamicBufferDelegate>(MinInDynamicBuffer);
 
         Assert.AreEqual(-4, d.Invoke(in buffer));
-
-        ecb.Dispose();
     }
 
     [Test]
     public void DirectCallDynamicBuffer()
     {
-        var ecb = new EntityCommandBuffer(Allocator.Temp);
+        using var world = new World("Test World");
+        var entity = world.EntityManager.CreateEntity();
 
-        var entity = ecb.CreateEntity();
-
-        var buffer = ecb.AddBuffer<Data>(entity);
+        var buffer = world.EntityManager.AddBuffer<Data>(entity);
 
         buffer.Add(42);
         buffer.Add(13);
         buffer.Add(-4);
 
         Assert.AreEqual(-4, MinInDynamicBuffer(in buffer));
-
-        ecb.Dispose();
     }
 
 #if UNITY_EDITOR

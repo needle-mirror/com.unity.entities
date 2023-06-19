@@ -19,7 +19,7 @@ For a full list of changes, see the [Changelog](xref:changelog). For information
 * You can now use the [Build Settings window](https://docs.unity3d.com/Manual/BuildSettings.html) to build your project, and don’t need to use Build Configuration assets. For any specialized use cases, you can use the [Scriptable Build Pipeline](https://docs.unity3d.com/Packages/com.unity.scriptablebuildpipeline@1.20/manual/index.html).
 * Settings that were previously in the **DOTS menu** have moved to the **Preferences** window. For more information, see the [Entities Preferences reference](editor-preferences.md).
 
-## Further information
+## Additional resources
 
 * [Upgrade guide](upgrade-guide.md)
 * [Changelog](xref:changelog)

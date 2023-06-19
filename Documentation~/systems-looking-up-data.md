@@ -4,13 +4,15 @@ uid: accessing-looking-up-data
 
 # Look up arbitrary data
 
-The most efficient way to access and modify your data is to use a [system](concepts-systems.md) with an [entity query](systems-entityquery.md) and a job. This utilizes the CPU resources in the most performant way, with minimal memory cache misses. Ideally you should use the most efficient, fastest path to perform the bulk of data transformations. However, there are times when you might need to access an arbitrary component of an arbitrary entity at an arbitrary point in your program.
+
+The most efficient way to access and change data is to use a [system](concepts-systems.md) with an [entity query](systems-entityquery.md) and a job. This utilizes the CPU resources in the most efficient way, with minimal memory cache misses. It's best practice to use the most efficient, fastest path to perform the bulk of data transformations. However, there are times when you might need to access an arbitrary component of an arbitrary entity at an arbitrary point in your program.
+
 
 You can look up data in an entity's [`IComponentData`](xref:Unity.Entities.IComponentData) and its [dynamic buffers](components-buffer-introducing.md). The way you look up data depends on whether your code uses [`Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities), or an `IJobChunk` job, or some other method on the main thread to execute in a system.
 
 ## Look up entity data in a system
 
-To look up data stored in a component of an arbitrary entity from inside a system's `Entities.ForEach` or `Job.WithCode` mthod, use [`GetComponent<T>(Entity)`](xref:Unity.Entities.SystemBase.GetComponent``1(Unity.Entities.Entity)) 
+To look up data stored in a component of an arbitrary entity from inside a system's `Entities.ForEach` or `Job.WithCode` method, use [`GetComponent<T>(Entity)`](xref:Unity.Entities.SystemBase.GetComponent``1(Unity.Entities.Entity)) 
 
 For example, the following code uses `GetComponent<T>(Entity)` to get a `Target` component, which has an entity field that identifies the entity to target. It then rotates the tracking entities towards their target:
 
@@ -28,7 +30,7 @@ To access component data at random in a job struct such as [`IJobChunk`](xref:Un
 * [`ComponentLookup`](xref:Unity.Entities.ComponentLookup`1)
 * [`BufferLookup`](xref:Unity.Entities.BufferLookup`1 )
 
-These types get an array-like interface to component, indexed by [`Entity`](xref:Unity.Entities.Entity) object.
+These types get an array-like interface to component, indexed by [`Entity`](xref:Unity.Entities.Entity) object. You can also use `ComponentLookup` to determine whether an entity's [enableable components](components-enableable-intro.md) are enabled or disabled, or to toggle the state of these components.
 
 To use them, declare a field of type `ComponentLookup` or `BufferLookup`, set the value of the field, and then schedule the job.
 
@@ -37,7 +39,7 @@ For example, you can use the `ComponentLookup` field to look up the world positi
 [!code-cs[lookup-ijobchunk-declare](../DocCodeSamples.Tests/LookupDataExamples.cs#lookup-ijobchunk-declare)]
 
 >[!NOTE]
->This declaration uses the [`ReadOnly`](https://docs.unity3d.com/ScriptReference/Unity.Collections.ReadOnlyAttribute.html) attribute. You should always declare `ComponentLookup` objects as read-only unless you want to write to the components you access.
+>This declaration uses the [`ReadOnly`](https://docs.unity3d.com/ScriptReference/Unity.Collections.ReadOnlyAttribute.html) attribute. Always declare `ComponentLookup` objects as read-only unless you want to write to the components you access.
     
 The following example illustrates how to set the data fields and schedule the job:
 

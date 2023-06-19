@@ -461,8 +461,14 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
-        public void AssertCanAddComponent(UnsafeMatchingArchetypePtrList archetypeList, ComponentType componentType)
+        public void AssertCanAddComponent(EntityQueryImpl* queryImpl, ComponentType componentType)
         {
+            fixed (EntityComponentStore* pThis = &this)
+            {
+                if (Hint.Unlikely((ulong)queryImpl->_Access->EntityComponentStore != (ulong)pThis))
+                    throw new InvalidOperationException("Provided query belongs to a different World.");
+            }
+            var archetypeList = queryImpl->_QueryData->MatchingArchetypes;
             int archetypeCount = archetypeList.Length;
             var ptrs = archetypeList.Ptr;
             for (int i = 0; i < archetypeCount; i++)

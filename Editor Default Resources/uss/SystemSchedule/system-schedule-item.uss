@@ -67,7 +67,7 @@
 
 .system-schedule-item__world-label
 {
-    -unity-text-align: upper-right;
+    -unity-text-align: middle-left;
     padding-right: 40px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -75,7 +75,7 @@
 
 .system-schedule-item__namespace-label
 {
-    -unity-text-align: upper-right;
+    -unity-text-align: middle-left;
     padding-right: 20px;
     overflow: hidden;
     text-overflow: ellipsis;

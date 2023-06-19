@@ -1,4 +1,4 @@
-# Converting data
+# Convert data
 
 Data in your Unity project gets converted to entities and components through the baking process. This section contains information on how Unity converts your data.
 

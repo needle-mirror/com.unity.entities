@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Burst.Intrinsics;
@@ -403,6 +403,7 @@ namespace Unity.Entities
         public void SetChangedVersionFilter(ComponentType componentType) {}
         public void SetChangedVersionFilter(ComponentType[] componentType) {}
         public void ResetFilter() {}
+        public bool IsEmptyIgnoreFilter => default;
         public NativeArray<int> CalculateBaseEntityIndexArrayAsync(AllocatorHandle allocator, JobHandle additionalInputDep, out JobHandle outJobHandle) => default;
     }
 

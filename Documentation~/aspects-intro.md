@@ -10,6 +10,6 @@ This section explains how to use aspects within your project.
 |[Create an aspect](aspects-create.md)|Create an aspect with the `IAspect` interface.|
 |[Aspect source generation](aspects-source-generation.md)|Use aspect source generators.|
 
-## Further information
+## Additional resources
 
 * [`IAspect` API documentation](xref:Unity.Entities.IAspect)

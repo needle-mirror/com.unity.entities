@@ -20,7 +20,7 @@ In the example below, the system group allocator is used in `ExampleSystemGroupA
 
 [!code-cs[world-update-allocator-worl](../Unity.Entities.Tests/AllocatorsCustomPrebuiltTests.cs#world-update-allocator-system-state)]
 
-## Further information
+## Additional resources
 
 * [Allocators overview](allocators-overview.md)
 * [Rewindable allocators](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/manual/allocator-rewindable.html)

@@ -817,11 +817,10 @@ namespace Unity.Entities
 
             var filterFlags = default(WorldSystemFilterFlags);
             AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
-
-            //the above method can't use the SharedSystemCount shared static because it's called in TypeManager.Initialize
-            //before shared statics are inited. but here, shared statics are already set up, so we need to keep them in sync.
-            SharedSystemCount.Ref.Data = s_SystemCount;
             AddSystemAttributesToTable(systemType);
+
+            // Since we may have regrown our static arrays, ensure the shared statics are updated to use the new addresses
+            InitializeSystemSharedStatics();
         }
         
         /// <summary>
@@ -925,6 +924,14 @@ namespace Unity.Entities
 
             s_SystemTypeFlagsList.Add(systemTypeFlags);
             s_SystemFilterFlagsList.Add(filterFlags);
+        }
+
+        internal static void InitializeSystemSharedStatics()
+        {
+            SharedSystemTypeNames.Ref.Data = new IntPtr(s_SystemTypeNames.Ptr);
+            SharedSystemAttributes.Ref.Data = new IntPtr(s_SystemAttributes.Ptr);
+            SharedSystemCount.Ref.Data = s_SystemCount;
+            SharedSystemTypeHashes.Ref.Data = new IntPtr(s_SystemTypeHashes.Ptr);
         }
 
         internal static WorldSystemFilterFlags GetSystemFilterFlags(Type type)

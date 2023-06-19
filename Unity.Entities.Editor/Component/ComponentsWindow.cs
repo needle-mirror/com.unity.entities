@@ -8,13 +8,38 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 using ListView = UnityEngine.UIElements.ListView;
-using Unity.Editor.Bridge;
 
 namespace Unity.Entities.Editor
 {
     class ComponentsWindow : EditorWindow
     {
         static readonly string k_ComponentWindowName = L10n.Tr("Components");
+        static readonly string k_ComponentContentName = L10n.Tr("Component");
+        internal static readonly List<ComponentTypeViewData> s_Types = new List<ComponentTypeViewData>();
+        static bool s_Initialized;
+        static Type s_SelectedComponent;
+        SearchElement m_SearchElement;
+        ListView m_ListView;
+        List<ComponentTypeViewData> m_FilteredTypes;
+
+        State m_State;
+        class State
+        {
+            public string SearchString;
+        }
+
+        [SerializeField]
+        string m_ComponentsWindowInstanceKey;
+        string ComponentsWindowInstanceKey
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(m_ComponentsWindowInstanceKey))
+                    m_ComponentsWindowInstanceKey = Guid.NewGuid().ToString("N");
+
+                return m_ComponentsWindowInstanceKey;
+            }
+        }
 
         [Flags]
         internal enum DebugTypeCategory
@@ -84,30 +109,6 @@ namespace Unity.Entities.Editor
             }
         }
 
-        internal static readonly List<ComponentTypeViewData> s_Types = new List<ComponentTypeViewData>();
-        static bool s_Initialized;
-        List<ComponentTypeViewData> m_FilteredTypes;
-
-        [SerializeField]
-        string m_ComponentsWindowInstanceKey;
-        string ComponentsWindowInstanceKey
-        {
-            get
-            {
-                if (string.IsNullOrEmpty(m_ComponentsWindowInstanceKey))
-                    m_ComponentsWindowInstanceKey = Guid.NewGuid().ToString("N");
-
-                return m_ComponentsWindowInstanceKey;
-            }
-        }
-
-        class State
-        {
-            public string SearchString;
-        }
-
-        State m_State;
-
         [MenuItem(Constants.MenuItems.ComponentsWindow, false, Constants.MenuItems.ComponentsWindowPriority)]
         static void Open()
         {
@@ -154,10 +155,17 @@ namespace Unity.Entities.Editor
             m_FilteredTypes.AddRange(s_Types);
             m_State = SessionState<State>.GetOrCreate($"{nameof(ComponentsWindow)}.{nameof(State)}.{ComponentsWindowInstanceKey}");
 
+            Selection.selectionChanged += OnGlobalSelectionChanged;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+
             Build();
         }
 
-        ListView m_ListView;
+        void OnDisable()
+        {
+            Selection.selectionChanged -= OnGlobalSelectionChanged;
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+        }
 
         void Build()
         {
@@ -206,9 +214,6 @@ namespace Unity.Entities.Editor
             SetSelection();
         }
 
-        static Type s_SelectedComponent;
-        SearchElement m_SearchElement;
-
         void SetSelection()
         {
             if (s_SelectedComponent == null || s_Types.Count == 0)
@@ -222,6 +227,33 @@ namespace Unity.Entities.Editor
             m_ListView.ClearSelection();
             m_ListView.ScrollToItem(index);
             m_ListView.selectedIndex = index;
+        }
+
+        void OnGlobalSelectionChanged()
+        {
+            if (Selection.activeObject is InspectorContent content && content.Content.Name.Equals(k_ComponentContentName))
+                return;
+
+            s_SelectedComponent = null;
+            m_ListView.ClearSelection();
+        }
+
+        void OnPlayModeStateChanged(PlayModeStateChange obj)
+        {
+            if (obj is not (PlayModeStateChange.ExitingEditMode or PlayModeStateChange.ExitingPlayMode))
+                return;
+
+            s_SelectedComponent = null;
+            m_ListView.ClearSelection();
+
+            SelectionUtility.ShowInInspector(new ComponentContentProvider
+            {
+                ComponentType = null
+            }, new InspectorContentParameters
+            {
+                ApplyInspectorStyling = false,
+                UseDefaultMargins = false
+            });
         }
 
         public static void HighlightComponent(Type componentType)

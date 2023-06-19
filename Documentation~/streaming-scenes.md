@@ -2,7 +2,7 @@
 uid: loading-scenes
 ---
 
-# Streaming scenes
+# Scene streaming
 
 To avoid stalls, all scene loading in Entities is asynchronous. This is called **streaming**.
 

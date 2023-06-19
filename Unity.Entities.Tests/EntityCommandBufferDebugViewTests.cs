@@ -886,7 +886,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void EntityCommandBufferDebugView_AddComponentForEntityQuery_ContainsExpectedData()
+        public void EntityCommandBufferDebugView_AddComponentForEntityQuery_CaptureAtRecord_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
@@ -894,7 +894,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
-            ecb.AddComponent<EcsTestData2>(query);
+            ecb.AddComponent<EcsTestData2>(query, EntityQueryCaptureMode.AtRecord);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -928,7 +928,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void EntityCommandBufferDebugView_AddComponentTypeForEntityQuery_ContainsExpectedData()
+        public void EntityCommandBufferDebugView_AddComponentTypeForEntityQuery_CaptureAtRecord_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
@@ -936,7 +936,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
-            ecb.AddComponent(query, ComponentType.ReadWrite<EcsTestData2>());
+            ecb.AddComponent(query, ComponentType.ReadWrite<EcsTestData2>(), EntityQueryCaptureMode.AtRecord);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1014,7 +1014,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void EntityCommandBufferDebugView_AddComponentTypesForEntityQuery_ContainsExpectedData()
+        public void EntityCommandBufferDebugView_AddComponentTypesForEntityQuery_CaptureAtRecord_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var componentTypes = new ComponentTypeSet(typeof(EcsTestData2),
@@ -1024,7 +1024,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
-            ecb.AddComponent(query, componentTypes);
+            ecb.AddComponent(query, componentTypes, EntityQueryCaptureMode.AtRecord);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1062,7 +1062,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void EntityCommandBufferDebugView_AddSharedComponentForEntityQuery_ContainsExpectedData()
+        public void EntityCommandBufferDebugView_AddSharedComponentForEntityQuery_CaptureAtRecord_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
@@ -1070,7 +1070,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
-            ecb.AddSharedComponent(query, new EcsTestSharedComp { value = 17 });
+            ecb.AddSharedComponent(query, new EcsTestSharedComp { value = 17 }, EntityQueryCaptureMode.AtRecord);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1201,8 +1201,8 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-            [Test]
-        public void EntityCommandBufferDebugView_SetSharedComponentForEntityQuery_ContainsExpectedData()
+        [Test]
+        public void EntityCommandBufferDebugView_SetSharedComponentForEntityQuery_CaptureAtRecord_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
@@ -1210,7 +1210,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
-            ecb.SetSharedComponent(query, new EcsTestSharedComp { value = 17 });
+            ecb.SetSharedComponent(query, new EcsTestSharedComp { value = 17 }, EntityQueryCaptureMode.AtRecord);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1247,7 +1247,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void EntityCommandBufferDebugView_RemoveComponentTypeForEntityQuery_ContainsExpectedData()
+        public void EntityCommandBufferDebugView_RemoveComponentTypeForEntityQuery_CaptureAtRecord_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
@@ -1255,7 +1255,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
-            ecb.RemoveComponent(query, ComponentType.ReadWrite<EcsTestData>());
+            ecb.RemoveComponent(query, ComponentType.ReadWrite<EcsTestData>(), EntityQueryCaptureMode.AtRecord);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1289,7 +1289,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void EntityCommandBufferDebugView_RemoveComponentForEntityQuery_ContainsExpectedData()
+        public void EntityCommandBufferDebugView_RemoveComponentForEntityQuery_CaptureAtRecord_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             int entityCount = 10;
@@ -1297,7 +1297,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
-            ecb.RemoveComponent<EcsTestData>(query);
+            ecb.RemoveComponent<EcsTestData>(query, EntityQueryCaptureMode.AtRecord);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1331,7 +1331,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void EntityCommandBufferDebugView_RemoveComponentTypesForEntityQuery_ContainsExpectedData()
+        public void EntityCommandBufferDebugView_RemoveComponentTypesForEntityQuery_CaptureAtRecord_ContainsExpectedData()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData),
                 typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
@@ -1342,7 +1342,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
-            ecb.RemoveComponent(query, componentTypes);
+            ecb.RemoveComponent(query, componentTypes, EntityQueryCaptureMode.AtRecord);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1388,7 +1388,7 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
-            ecb.DestroyEntity(query);
+            ecb.DestroyEntity(query, EntityQueryCaptureMode.AtRecord);
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;

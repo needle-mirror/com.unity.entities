@@ -166,6 +166,7 @@ namespace Unity.Entities.Editor
             m_SubSceneChanges.Dispose();
             m_HierarchyEntityChanges.Dispose();
             m_HierarchyGameObjectChanges.Dispose();
+            m_HierarchyPrefabStageChanges.Dispose();
             m_ExportImmutableState.Dispose();
             m_SubSceneChangeTracker?.Dispose();
             m_HierarchyEntityChangeTracker?.Dispose();

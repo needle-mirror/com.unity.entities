@@ -18,7 +18,7 @@ namespace Unity.Entities.Editor
 
         internal readonly TreeView m_SystemTreeView; // internal for test.
         internal readonly IList<ITreeViewItem> m_TreeViewRootItems = new List<ITreeViewItem>();
-        readonly ListView m_SystemListView; // For search results.
+        internal readonly ListView m_SystemListView; // For search results.
         internal readonly List<SystemTreeViewItem> m_ListViewFilteredItems = new List<SystemTreeViewItem>();
 
         int m_LastSelectedItemId;

@@ -94,7 +94,9 @@ namespace Unity.Scenes
         }
 
         EntityQuery m_AddScenes;
-        EntityQuery m_RemoveScenes;
+        EntityQuery m_RemoveScenesWithoutSceneReference;
+        EntityQuery m_RemoveScenesWithDisableSceneResolveAndLoad;
+        EntityQuery m_RemoveScenesWithDisabled;
         EntityQuery m_ValidSceneQuery;
         EntityQueryMask m_ValidSceneMask;
         ResolveSceneSectionArchetypes m_ResolveSceneSectionArchetypes;
@@ -157,21 +159,9 @@ namespace Unity.Scenes
             }
 
             // Remove scene entities that were added and should no longer be tracked
-            if (!m_RemoveScenes.IsEmptyIgnoreFilter)
-            {
-                using (var removeEntities = m_RemoveScenes.ToEntityArray(Allocator.TempJob))
-                using (var removeGuids =
-                    m_RemoveScenes.ToComponentDataArray<AssetDependencyTrackerState>(Allocator.TempJob))
-                {
-                    for (int i = 0; i != removeEntities.Length; i++)
-                    {
-                        LogResolving("Removing", removeGuids[i].SceneAndBuildConfigGUID);
-                        _AssetDependencyTracker.Remove(removeGuids[i].SceneAndBuildConfigGUID, removeEntities[i]);
-                    }
-                }
-
-                EntityManager.RemoveComponent<AssetDependencyTrackerState>(m_RemoveScenes);
-            }
+            RemoveSceneEntities(m_RemoveScenesWithoutSceneReference);
+            RemoveSceneEntities(m_RemoveScenesWithDisableSceneResolveAndLoad);
+            RemoveSceneEntities(m_RemoveScenesWithDisabled);
 
             // Process any scenes that have completed their asset import
             var isDone = _AssetDependencyTracker.GetCompleted(_Changed);
@@ -274,6 +264,25 @@ namespace Unity.Scenes
                 EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
         }
 
+        private void RemoveSceneEntities(EntityQuery query)
+        {
+            if (!query.IsEmptyIgnoreFilter)
+            {
+                using (var removeEntities = query.ToEntityArray(Allocator.TempJob))
+                using (var removeGuids =
+                       query.ToComponentDataArray<AssetDependencyTrackerState>(Allocator.TempJob))
+                {
+                    for (int i = 0; i != removeEntities.Length; i++)
+                    {
+                        LogResolving("Removing", removeGuids[i].SceneAndBuildConfigGUID);
+                        _AssetDependencyTracker.Remove(removeGuids[i].SceneAndBuildConfigGUID, removeEntities[i]);
+                    }
+                }
+
+                EntityManager.RemoveComponent<AssetDependencyTrackerState>(query);
+            }
+        }
+
         protected override void OnCreate()
         {
             _sceneSystem = World.GetExistingSystem<SceneSystem>();
@@ -292,13 +301,12 @@ namespace Unity.Scenes
                 .WithAll<SceneReference,RequestSceneLoaded>()
                 .WithNone<DisableSceneResolveAndLoad,AssetDependencyTrackerState>()
                 .Build(this);
-            m_RemoveScenes = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<AssetDependencyTrackerState>().WithNone<SceneReference,RequestSceneLoaded>()
-                .AddAdditionalQuery()
-                .WithAll<AssetDependencyTrackerState,DisableSceneResolveAndLoad>()
-                .AddAdditionalQuery()
-                .WithAll<AssetDependencyTrackerState,Disabled>()
-                .Build(this);
+            m_RemoveScenesWithoutSceneReference = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AssetDependencyTrackerState>().WithNone<SceneReference,RequestSceneLoaded>().Build(this);
+            m_RemoveScenesWithDisableSceneResolveAndLoad = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AssetDependencyTrackerState,DisableSceneResolveAndLoad>().Build(this);
+            m_RemoveScenesWithDisabled = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<AssetDependencyTrackerState,Disabled>().Build(this);
 
             m_ResolveSceneSectionArchetypes = ResolveSceneSectionUtility.CreateResolveSceneSectionArchetypes(EntityManager);
         }

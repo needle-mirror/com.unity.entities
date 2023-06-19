@@ -300,6 +300,10 @@ namespace Unity.Entities
         /// The query does not exclude the special <see cref="SystemInstance"/> component.
         /// </summary>
         IncludeSystems = 16,
+        /// <summary>
+        /// The query does not exclude the special <see cref="ChunkHeader"/> component, used by meta-chunks.
+        /// </summary>
+        IncludeMetaChunks = 32,
     }
 
     /// <summary>

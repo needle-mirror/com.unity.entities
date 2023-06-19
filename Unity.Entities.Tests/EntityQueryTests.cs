@@ -4245,8 +4245,13 @@ namespace Unity.Entities.Tests
             // access violation or other crash.
             try
             {
+#if UNITY_DOTSRUNTIME
+                Assert.AreEqual((IntPtr)0xECECECECECECECEC, (IntPtr)queryFromEntityManager.__impl->_QueryData);
+                Assert.AreEqual((IntPtr)0xECECECECECECECEC, (IntPtr)queryFromBuild.__impl->_QueryData);
+#else
                 Assert.AreEqual((IntPtr)0, (IntPtr)queryFromEntityManager.__impl->_QueryData);
                 Assert.AreEqual((IntPtr)0, (IntPtr)queryFromBuild.__impl->_QueryData);
+#endif
             }
             catch (AccessViolationException e)
             {

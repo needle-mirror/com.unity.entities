@@ -22,7 +22,7 @@ The following is an example of accessing the world update allocator through Syst
 
 [!code-cs[Access world update allocator through SystemState.WorldUpdateAllocator](../Unity.Entities.Tests/AllocatorsCustomPrebuiltTests.cs#world-update-allocator-system-state)]
 
-## Further information
+## Additional resources
 
 * [Allocators overview](allocators-overview.md)
 * [Rewindable allocators](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/manual/allocator-rewindable.html)

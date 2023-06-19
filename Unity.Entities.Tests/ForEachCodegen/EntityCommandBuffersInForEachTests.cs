@@ -713,10 +713,11 @@ namespace Unity.Entities.Tests
                                 {
                                     ecb.AddComponent(entityQuery, new EcsTestData());
 
-                                    ecb.AddComponent<EcsTestData2>(entityQuery);
-                                    ecb.AddComponent(entityQuery, ComponentType.ReadOnly<EcsTestData3>());
-                                    ecb.AddComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData4>(), ComponentType.ReadOnly<EcsTestData5>()));
-                                    ecb.AddSharedComponent(entityQuery, new EcsTestSharedComp());
+                                    ecb.AddComponent<EcsTestData2>(entityQuery, EntityQueryCaptureMode.AtPlayback);
+                                    ecb.AddComponent(entityQuery, ComponentType.ReadOnly<EcsTestData3>(), EntityQueryCaptureMode.AtPlayback);
+                                    ecb.AddComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData4>(), ComponentType.ReadOnly<EcsTestData5>()),
+                                        EntityQueryCaptureMode.AtPlayback);
+                                    ecb.AddSharedComponent(entityQuery, new EcsTestSharedComp(), EntityQueryCaptureMode.AtPlayback);
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                                     ecb.AddComponent(entityQuery, new EcsTestManagedComponent());
                                     ecb.AddComponentObject(entityQuery, new EcsTestManagedComponent2());
@@ -737,10 +738,11 @@ namespace Unity.Entities.Tests
                                 {
                                     ecb.AddComponent(entityQuery, new EcsTestData());
 
-                                    ecb.AddComponent<EcsTestData2>(entityQuery);
-                                    ecb.AddComponent(entityQuery, ComponentType.ReadOnly<EcsTestData3>());
-                                    ecb.AddComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData4>(), ComponentType.ReadOnly<EcsTestData5>()));
-                                    ecb.AddSharedComponent(entityQuery, new EcsTestSharedComp());
+                                    ecb.AddComponent<EcsTestData2>(entityQuery, EntityQueryCaptureMode.AtPlayback);
+                                    ecb.AddComponent(entityQuery, ComponentType.ReadOnly<EcsTestData3>(), EntityQueryCaptureMode.AtPlayback);
+                                    ecb.AddComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData4>(), ComponentType.ReadOnly<EcsTestData5>()),
+                                        EntityQueryCaptureMode.AtPlayback);
+                                    ecb.AddSharedComponent(entityQuery, new EcsTestSharedComp(), EntityQueryCaptureMode.AtPlayback);
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                                     ecb.AddComponent(entityQuery, new EcsTestManagedComponent());
                                     ecb.AddComponentObject(entityQuery, new EcsTestManagedComponent2());
@@ -797,7 +799,7 @@ namespace Unity.Entities.Tests
                                     ecb.SetComponentObject(entityQuery, new EcsTestManagedComponent{ value = "MyNewValue1" });
                                     ecb.SetComponent(entityQuery, new EcsTestManagedComponent2 { value2 = "MyNewValue2" });
 #endif
-                                    ecb.SetSharedComponent(entityQuery, new EcsTestSharedComp { value = 10 });
+                                    ecb.SetSharedComponent(entityQuery, new EcsTestSharedComp { value = 10 }, EntityQueryCaptureMode.AtPlayback);
                                 })
                             .Run();
                         break;
@@ -814,7 +816,7 @@ namespace Unity.Entities.Tests
                                     ecb.SetComponentObject(entityQuery, new EcsTestManagedComponent{ value = "MyNewValue1" });
                                     ecb.SetComponent(entityQuery, new EcsTestManagedComponent2 { value2 = "MyNewValue2" });
 #endif
-                                    ecb.SetSharedComponent(entityQuery, new EcsTestSharedComp { value = 10 });
+                                    ecb.SetSharedComponent(entityQuery, new EcsTestSharedComp { value = 10 }, EntityQueryCaptureMode.AtPlayback);
                                 })
                             .Run();
 
@@ -831,8 +833,8 @@ namespace Unity.Entities.Tests
 
             public void RemoveComponentForEntityQuery(PlaybackType playbackType)
             {
-                var entity = EntityManager.CreateEntity(ComponentType.ReadOnly<EcsTestTag>(), ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>(), ComponentType.ReadOnly<EcsTestData3>());
-                var entityQuery = EntityManager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestTag>(), ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>(), ComponentType.ReadOnly<EcsTestData3>());
+                var entity = EntityManager.CreateEntity(ComponentType.ReadOnly<EcsTestTag>(), ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>(), ComponentType.ReadOnly<EcsTestData3>(), ComponentType.ReadOnly<EcsTestData4>());
+                var entityQuery = EntityManager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestTag>());
 
                 switch (playbackType)
                 {
@@ -842,9 +844,10 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.RemoveComponent<EcsTestTag>(entityQuery);
-                                    ecb.RemoveComponent(entityQuery, ComponentType.ReadOnly<EcsTestData>());
-                                    ecb.RemoveComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>(), ComponentType.ReadOnly<EcsTestData3>()));
+                                    ecb.RemoveComponent<EcsTestData>(entityQuery, EntityQueryCaptureMode.AtPlayback);
+                                    ecb.RemoveComponent(entityQuery, ComponentType.ReadOnly<EcsTestData2>(), EntityQueryCaptureMode.AtPlayback);
+                                    ecb.RemoveComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData3>(), ComponentType.ReadOnly<EcsTestData4>()),
+                                        EntityQueryCaptureMode.AtPlayback);
                                 })
                             .Run();
                         break;
@@ -854,9 +857,10 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.RemoveComponent<EcsTestTag>(entityQuery);
-                                    ecb.RemoveComponent(entityQuery, ComponentType.ReadOnly<EcsTestData>());
-                                    ecb.RemoveComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>(), ComponentType.ReadOnly<EcsTestData3>()));
+                                    ecb.RemoveComponent<EcsTestData>(entityQuery, EntityQueryCaptureMode.AtPlayback);
+                                    ecb.RemoveComponent(entityQuery, ComponentType.ReadOnly<EcsTestData2>(), EntityQueryCaptureMode.AtPlayback);
+                                    ecb.RemoveComponent(entityQuery, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData3>(), ComponentType.ReadOnly<EcsTestData4>()),
+                                        EntityQueryCaptureMode.AtPlayback);
                                 })
                             .Run();
 
@@ -865,10 +869,11 @@ namespace Unity.Entities.Tests
                         break;
                 }
 
-                Assert.IsFalse(EntityManager.HasComponent<EcsTestTag>(entity));
+                Assert.IsTrue(EntityManager.HasComponent<EcsTestTag>(entity));
                 Assert.IsFalse(EntityManager.HasComponent<EcsTestData>(entity));
                 Assert.IsFalse(EntityManager.HasComponent<EcsTestData2>(entity));
                 Assert.IsFalse(EntityManager.HasComponent<EcsTestData3>(entity));
+                Assert.IsFalse(EntityManager.HasComponent<EcsTestData4>(entity));
             }
 
             public void DestroyEntitiesForEntityQuery(PlaybackType playbackType)
@@ -890,7 +895,7 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.DestroyEntity(entityQuery);
+                                    ecb.DestroyEntity(entityQuery, EntityQueryCaptureMode.AtPlayback);
                                 })
                             .Run();
                         break;
@@ -902,7 +907,7 @@ namespace Unity.Entities.Tests
                             .ForEach(
                                 (EntityCommandBuffer ecb) =>
                                 {
-                                    ecb.DestroyEntity(entityQuery);
+                                    ecb.DestroyEntity(entityQuery, EntityQueryCaptureMode.AtPlayback);
                                 })
                             .Run();
 

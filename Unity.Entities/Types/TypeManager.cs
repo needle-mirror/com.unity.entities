@@ -1494,10 +1494,7 @@ namespace Unity.Entities
             SharedFastEqualityTypeInfo.Ref.Data = new IntPtr(s_FastEqualityTypeInfoList.GetUnsafePtr());
             SharedTypeNames.Ref.Data = new IntPtr(s_TypeNames.Ptr);
             SharedTypeFullNameHashes.Ref.Data = new IntPtr(s_TypeFullNameHashes.Ptr);
-            SharedSystemTypeNames.Ref.Data = new IntPtr(s_SystemTypeNames.Ptr);
-            SharedSystemAttributes.Ref.Data = new IntPtr(s_SystemAttributes.Ptr);
-            SharedSystemCount.Ref.Data = s_SystemCount;
-            SharedSystemTypeHashes.Ref.Data = new IntPtr(s_SystemTypeHashes.Ptr);
+            InitializeSystemSharedStatics();
         }
 
         static void ShutdownSharedStatics()

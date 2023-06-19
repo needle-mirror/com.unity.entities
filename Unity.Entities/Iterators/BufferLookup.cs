@@ -198,7 +198,7 @@ namespace Unity.Entities
         /// in a parallel Job. This restriction is in place because multiple threads could write to the same buffer,
         /// leading to a race condition and nondeterministic results. However, when you are certain that your algorithm
         /// cannot write to the same buffer from different threads, you can manually disable this safety check
-        /// by putting the [NativeDisableParallelForRestrictions] attribute on the BufferLookup field in the Job.
+        /// by putting the [NativeDisableParallelForRestriction] attribute on the BufferLookup field in the Job.
         ///
         /// [NativeDisableParallelForRestrictionAttribute]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeDisableParallelForRestrictionAttribute.html
         /// </remarks>

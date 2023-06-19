@@ -1,6 +1,46 @@
 # Changelog
 
 
+## [1.0.11] - 2023-6-19
+
+### Added
+
+* The new `EntityQueryOptions.IncludeMetaChunks` flag allows queries to match archetypes with the `ChunkHeader` component (which is excluded from queries by default).
+
+### Changed
+
+* Idiomatic `foreach` and `Entities.ForEach` will now only sync jobs read/writing to component data the foreach will iterate over when the underlying EntityQuery used by the foreach indeed has entities to iterate over. Previously jobs would be unilaterally sync'd when using these constructs which could create stalls on the main thread on jobs that did not need to occur.
+* Significantly improved the performance of `EntityCommandBuffer.AsParallelWriter()` and `EntityCommandBuffer.Dispose()`.
+* Change component attribute name from `Alignment in Chunk` to `Component Type Alignment in Chunk` when displaying component attributes in Inspector window.
+* LinkedEntityGroup internal buffer capacity set to 1.
+
+### Deprecated
+
+* `EntityCommandBuffer` methods which target an `EntityQuery` now take a new `EntityQueryCaptureMode` parameter, used to specify whether the provided query should be evaluated at record time (immediately) or at playback time (deferred). `.AtRecord` matches the existing behavior for compatibility, but `.AtPlayback` is up to 200x faster for some commands. The variants which do not include this extra parameter have been deprecated, but their existing behavior and semantics are preserved. The safe and easy fix is to add `EntityQueryCaptureMode.AtRecord` to all call sites; however, users are encouraged to review all call sites to see if the faster `.AtPlayback` mode would be appropriate.
+
+### Removed
+
+* Alignment attribute is removed when displaying component attributes in Inspector window.
+
+### Fixed
+
+* Updated code samples in documentation for building content archives and content delivery.
+* Systems window's tree view indents are now enforced to the proper width.
+* Systems window's world and namespace columns are now left aligned.
+* You now can register generic ISystems so that they can be discovered and created automatically with world creation, or created manually via CreateSystem. Register each generic instance of them with `[assembly: RegisterGenericSystemType(typeof(YourGenericSystem<YourParticularType>))]` to allow such usage.
+* Entities Hierarchy: Fix an exception happening when dragging a gameobject over a subscene node.
+* Entities Hierarchy: Disable Empty Scene menu item when creating new subscenes where the main scene is not saved.
+* Entities Hierarchy: fix a missing dispose in change collectors.
+* Current selection is cleared if an object is selected outside Systems window.
+* Current selection is cleared if an object is selected outside Components window.
+* Current selection is cleared from Components window when entering/exiting play mode.
+* Native memory leak when creating EntityQuery with EntityManager.CreateEntityQuery
+* Ensures both readers and writer dependencies are completed when accessing read/write components in certain code paths
+* Fixed a crash happening in `EntityCommandBuffer.Dispose` due to a use-after-free bug
+* `TypeManager` methods such as `GetSystemName` previously could crash after adding new system type information at runtime due to the `TypeManager` referring to invalid memory.
+* Bursted generic ISystems defined in one assembly and registered in another no longer break compilation.
+
+
 ## [1.0.10] - 2023-05-23
 
 ### Added
@@ -44,6 +84,7 @@
 * `EntityManager.AddSharedComponent<T>(EntityQuery,T)` and `EntityManager.AddSharedComponentManaged<T>(EntityQuery,T)`now set the shared component `T` to the provided value, even if the target chunk already has component `T`. This changes makes this method consistent with other "add component and set to value" operations. *All existing call sites should be reviewed to ensure that they're not relying on the function's previous behavior!*
 * `EntityManager.DestroyEntity(EntityQuery)` had an undocumented constraint: if any of the target entities have a `LinkedEntityGroup` buffer component, the entities in that buffer must also match the target query. This constraint is now documented, and consistently applied in all code paths of this function.
 * You now can register generic ISystems so that they can be discovered and created automatically with world creation, or created manually via CreateSystem. Register each generic instance of them with `[assembly: RegisterGenericSystemType(typeof(YourGenericSystem<YourParticularType>))]` to allow such usage.
+
 
 ### Known Issues
 

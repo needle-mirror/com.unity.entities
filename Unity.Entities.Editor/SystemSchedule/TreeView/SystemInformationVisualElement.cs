@@ -10,7 +10,8 @@ namespace Unity.Entities.Editor
         SystemTreeViewItem m_Target;
         public SystemTreeView TreeView { get; set; }
         const float k_SystemNameLabelWidth = 100f;
-        const float k_SingleIndentWidth = 12f;
+        const float k_SingleIndentWidth = 15f;
+        const string k_UnityTreeViewItemIndentsName = "unity-tree-view__item-indents";
 
         public SystemTreeViewItem Target
         {
@@ -98,7 +99,7 @@ namespace Unity.Entities.Editor
 
             m_Icon.style.display = string.Empty == GetSystemClass(Target.SystemProxy) ? DisplayStyle.None : DisplayStyle.Flex;
             SetText(m_SystemNameLabel, Target.GetSystemName());
-            SetSystemNameLabelWidth(m_SystemNameLabel, k_SystemNameLabelWidth);
+            SetSystemNameLabelWidth(m_SystemNameLabel);
 
             // world name column
             var worldName = Target.GetWorldName();
@@ -207,11 +208,20 @@ namespace Unity.Entities.Editor
             }
         }
 
-        void SetSystemNameLabelWidth(VisualElement label, float fixedWidth)
+        void SetSystemNameLabelWidth(VisualElement label)
         {
             var treeViewItemVisualElement = parent?.parent;
-            var itemIndentsContainerName = treeViewItemVisualElement?.Q("unity-tree-view__item-indents");
-            label.style.width = itemIndentsContainerName == null ? fixedWidth : fixedWidth - itemIndentsContainerName.childCount * k_SingleIndentWidth;
+            var itemIndentsContainerName = treeViewItemVisualElement?.Q(k_UnityTreeViewItemIndentsName);
+            if (itemIndentsContainerName == null)
+            {
+                label.style.width = k_SystemNameLabelWidth;
+            }
+            else
+            {
+                var indentWidth = itemIndentsContainerName.childCount * k_SingleIndentWidth;
+                label.style.width = k_SystemNameLabelWidth - indentWidth;
+                itemIndentsContainerName.style.width = indentWidth;
+            }
         }
 
         static void SetSystemClass(VisualElement element, SystemProxy systemProxy)

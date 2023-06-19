@@ -216,7 +216,7 @@ namespace Unity.Entities.CodeGen
                     if (!_targetMethodDef.DeclaringType.CustomAttributes.Any(isBurstAttribute))
                         _targetMethodDef.DeclaringType.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(typeof(BurstCompileAttribute).GetConstructor(Type.EmptyTypes))));
 
-                    _methodDef.CustomAttributes.Add(new CustomAttribute(burstAttribute.Constructor, burstAttribute.GetBlob()));
+                    _methodDef.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(burstAttribute.Constructor), burstAttribute.GetBlob()));
                     memo.m_BurstCompileBits |= 1 << i;
                 }
 

@@ -234,7 +234,7 @@ namespace Unity.Entities.Editor.Tests
 
             new TestCase() { token = "c:", shouldAutoComplete = false },
             new TestCase() { token = "C:", shouldAutoComplete = false },
-            
+
             new TestCase() { token = "k=a", shouldAutoComplete = false },
             new TestCase() { token = "dummy=a", shouldAutoComplete = false },
         };

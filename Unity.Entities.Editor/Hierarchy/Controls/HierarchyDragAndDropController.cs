@@ -69,7 +69,7 @@ namespace Unity.Entities.Editor
 
             if (dropFlags is HierarchyDropFlags.DropUpon or HierarchyDropFlags.DropBetween
                 && destinationHandle.Kind is NodeKind.SubScene
-                && m_Hierarchy.SubSceneMap.GetSubSceneStateImmediate(destinationHandle, null) is not (SubSceneLoadedState.Opened or SubSceneLoadedState.LiveConverted))
+                && m_Hierarchy.SubSceneMap.GetSubSceneStateImmediate(destinationHandle, m_Hierarchy.World) is not (SubSceneLoadedState.Opened or SubSceneLoadedState.LiveConverted))
                 return DragVisualMode.Rejected;
 
             var targetDropId = GetDestinationInstanceId(destination);

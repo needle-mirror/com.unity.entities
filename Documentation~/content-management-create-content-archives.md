@@ -7,28 +7,15 @@ The process to create a custom content archive that you can load into Unity at r
 * Build: Unity finds all the objects that should go into the content archive and copies the object files into a target directory.
 * Publish: Unity takes all the files in the directory and organizes them into a structure that allows Unity to directly install the files onto the target platform. To do this, Unity renames the files to be a hash of the contents of the file. It then builds a catalog alongside the content archive to map the files to their original object.
 
-The results of this process are a content archive to store the files, and a catalog to enable Unity to find the correct file for an object.
+The results of this process are content archives to store the files, and a catalog to enable Unity to find the correct file for an object.
 
 The Unity Editor contains menu items that you can use to build and publish your own content archives. They take a set of subscenes, extract the objects that the subscenes reference, and build the objects into a content archive. You can use the menu items on a specific list of subscenes to add additional content to your application, or on the subscenes specified in [Build Settings](xref:UnityEditor.EditorBuildSettings.scenes) to rebuild all the content for the application's Standalone Player without needing to rebuild the Player itself.
-
-## Build content archives for a specific set of subscenes
-
-To build content archives for the objects in a specific set of scenes, use a [Build Configuration](https://docs.unity3d.com/Packages/com.unity.platforms@latest?subfolder=/api/Unity.Build.BuildConfiguration.html) asset. The Build Configuration asset can specify a list of scenes and a target platform to build content archives for. To use it to build content archives for a set of subscenes:
-
-1. Create an empty build configuration (menu: **Assets** > **Create** > **Build Configuration** > **Empty Build Configuration**).
-2. In the [Project window](xref:ProjectView), select the new build configuration and view it in the [Inspector window](xref:UsingTheInspector).
-3. Select **Add Component** > **Unity.Build.Common** > **Scene List**.
-4. In the new **Scene List** section, add the subscene assets you want to build content archives for to the **Scene Infos** list.
-5. Select **Add Component** > **Unity.Build.Classic** > **Classic Build Profile**.
-6. In the new **Classic Build Profile** section, set **Platform** to the platform that you want to build content archives for.
-7. With the build configuration still selected, select **Assets** > **Publish** > **Content Update**. This begins the content archive build and publish process. After this finishes, the result content archive and catalog will be in your [Streaming Assets](xref:StreamingAssets) folder. 
 
 ## Rebuild the content for your application's Player
 
 During the Player build process, Unity automatically generates content archives to store all the objects referenced from the [subscenes](conversion-subscenes.md) included in the build. For more information, refer to [How Unity generates content archives](content-management-intro.md#how-unity-generates-content-archives). To improve iteration time, Unity can generate this same set of content archives without building a new Player. You can then update the content in your application with the new content archives. To do this:
 
-1. Deselect any Build Configuration assets. If you have one selected, Unity instead builds content archives for the subscenes referenced from the Build Configuration.
-2. Select **Assets** > **Publish** > **Content Update**. This begins the content archive build and publish process. After this finishes, the result content archive and catalog will be in your [Streaming Assets](xref:StreamingAssets) folder. 
+1. Select **Assets** > **Publish** > **Content Update**. This begins the content archive build and publish process. After this finishes, the result content archive and catalog will be in your [Streaming Assets](xref:StreamingAssets) folder. 
 
 ## Build content archives from a C# script
 
@@ -78,31 +65,23 @@ static class BuildUtilities
             var buildTarget = EditorUserBuildSettings.activeBuildTarget;
             var tmpBuildFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath),
                         $"/Library/ContentUpdateBuildDir/{PlayerSettings.productName}");
-    
+
             var instance = DotsGlobalSettings.Instance;
             var playerGuid = instance.GetPlayerType() == DotsGlobalSettings.PlayerType.Client ? instance.GetClientGUID() : instance.GetServerGUID();
             if (!playerGuid.IsValid)
                 throw new Exception("Invalid Player GUID");
-    
-            var subSceneGuids = new HashSet<Hash128>();
+
+            var subSceneGuids = new HashSet<Unity.Entities.Hash128>();
             for (int i = 0; i < EditorBuildSettings.scenes.Length; i++)
             {
                 var ssGuids = EditorEntityScenes.GetSubScenes(EditorBuildSettings.scenes[i].guid);
                 foreach (var ss in ssGuids)
                     subSceneGuids.Add(ss);
             }
-            var artifactKeys = new Dictionary<Hash128, ArtifactKey>();
-            var binaryFiles = new EntitySectionBundlesInBuild();
-    
-            EntitySceneBuildUtility.PrepareEntityBinaryArtifacts(playerGuid, subSceneGuids, artifactKeys);
-            binaryFiles.Add(artifactKeys.Keys, artifactKeys.Values);
-            var entitySceneGUIDs = binaryFiles.SceneGUIDs.ToArray();
-    
-            EntitySceneBuildUtility.PrepareAdditionalFiles(default, artifactKeys.Keys.ToArray(), 
-              artifactKeys.Values.ToArray(), buildTarget, (s, d) => DoCopy(s, Path.Combine(tmpBuildFolder, d)));
-    
+            RemoteContentCatalogBuildUtility.BuildContent(subSceneGuids, playerGuid, buildTarget, tmpBuildFolder);
+
             var publishFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildFolder}-RemoteContent");
-            PublishContent(tmpBuildFolder, publishFolder, f => new string[] { "all" });
+            RemoteContentCatalogBuildUtility.PublishContent(tmpBuildFolder, publishFolder, f => new string[] { "all" });
         }
     }
 }

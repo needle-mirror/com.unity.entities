@@ -202,7 +202,7 @@ namespace Unity.Entities.Editor
             foreach (var (sceneGuid, subSceneHandle) in m_SubScenes)
             {
                 if (subSceneHandle == handle)
-                    return GetSubSceneStateImmediate(m_SceneGuidToSubScene[sceneGuid], world);
+                    return GetSubSceneStateImmediate(m_PreviousSceneGuidToSubScene[sceneGuid], world);
             }
 
             return SubSceneLoadedState.None;

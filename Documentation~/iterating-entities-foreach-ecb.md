@@ -4,9 +4,9 @@ To use an entity command buffer (ECB) in the `Entities.ForEach` method, pass an 
 
 * `Entity Instantiate(Entity entity)`
 * `void DestroyEntity(Entity entity)`
-* `void AddComponent&lt;T>(Entity e, T component) where T : unmanaged, IComponentData`
-* `void SetComponent&lt;T>(Entity e, T component) where T : unmanaged, IComponentData`
-* `void RemoveComponent&lt;T>(Entity e)`
+* `void AddComponent<T>(Entity e, T component) where T : unmanaged, IComponentData`
+* `void SetComponent<T>(Entity e, T component) where T : unmanaged, IComponentData`
+* `void RemoveComponent<T>(Entity e)`
 
 For example, the following code does this:
 

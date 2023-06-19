@@ -10,9 +10,9 @@ The [methods in `EntityCommandBuffer`](xref:Unity.Entities.EntityCommandBuffer) 
 
 * `CreateEntity(EntityArchetype)`: Registers a command that creates a new entity with the specified archetype.
 * `DestroyEntity(Entity)`: Registers a command that destroys the entity.
-* `SetComponent&lt;T>(Entity, T)`: Registers a command that sets the value for a component of type `T` on the entity.
-* `AddComponent&lt;T>(Entity)`: Registers a command that adds a component of type `T` to the entity.
-* `RemoveComponent&lt;T>(EntityQuery)`: Registers a command that removes a component of type `T` from all entities that match the query.
+* `SetComponent<T>(Entity, T)`: Registers a command that sets the value for a component of type `T` on the entity.
+* `AddComponent<T>(Entity)`: Registers a command that adds a component of type `T` to the entity.
+* `RemoveComponent<T>(EntityQuery)`: Registers a command that removes a component of type `T` from all entities that match the query.
 
 ## Entity command buffer safety
 

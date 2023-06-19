@@ -1680,7 +1680,6 @@ namespace Unity.Entities
             if (queryImpl->IsEmptyIgnoreFilter)
                 return;
 
-            access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
             access->AddComponentsToQueryDuringStructuralChange(queryImpl, componentTypeSet);
             access->EndStructuralChanges(ref changes);
@@ -1849,11 +1848,8 @@ namespace Unity.Entities
         public void AddComponent(NativeArray<Entity> entities, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess();
-            access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
-
             access->AddMultipleComponentsDuringStructuralChange(entities, componentTypeSet);
-
             access->EndStructuralChanges(ref changes);
         }
 
@@ -1882,11 +1878,8 @@ namespace Unity.Entities
         public void RemoveComponent(NativeArray<Entity> entities, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess();
-            access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
-
             access->RemoveMultipleComponentsDuringStructuralChange(entities, componentTypeSet);
-
             access->EndStructuralChanges(ref changes);
 
         }
@@ -1917,8 +1910,6 @@ namespace Unity.Entities
                 return;
 
             var access = GetCheckedEntityDataAccess();
-            access->AssertMainThread();
-
             var changes = access->BeginStructuralChanges();
             access->RemoveComponentDuringStructuralChange(entities, componentType);
             access->EndStructuralChanges(ref changes);
@@ -2115,7 +2106,6 @@ namespace Unity.Entities
         public void RemoveComponent(Entity entity, in ComponentTypeSet componentTypeSet)
         {
             var access = GetCheckedEntityDataAccess();
-            access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
             access->RemoveComponentDuringStructuralChange(entity, componentTypeSet);
             access->EndStructuralChanges(ref changes);
@@ -2184,7 +2174,6 @@ namespace Unity.Entities
             if (queryImpl->IsEmptyIgnoreFilter)
                 return;
 
-            access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
             access->RemoveMultipleComponentsFromQueryDuringStructuralChange(queryImpl, componentTypeSet);
             access->EndStructuralChanges(ref changes);
@@ -4492,7 +4481,7 @@ namespace Unity.Entities
         /// So it completes all write dependencies of the component to allow for reading,
         /// and it completes all read dependencies, so we can write to it.
         /// </summary>
-        /// <typeparam name="T">The type of component you wanna complete dependencies on</typeparam>
+        /// <typeparam name="T">The type of component you want to complete dependencies on</typeparam>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void CompleteDependencyBeforeRW<T>()
@@ -4502,7 +4491,7 @@ namespace Unity.Entities
         /// Completes the dependency chain required for this component to have read access.
         /// So it completes all write dependencies of the component to allow for reading.
         /// </summary>
-        /// <typeparam name="T">The type of component you wanna complete dependencies on</typeparam>
+        /// <typeparam name="T">The type of component you want to complete dependencies on</typeparam>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void CompleteDependencyBeforeRO<T>()

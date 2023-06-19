@@ -10,7 +10,7 @@ You can use prebuilt custom allocators to manage allocations in [worlds](concept
 
 These prebuilt allocators are custom allocators. To allocate and deallocate `Native-` collection types and `Unsafe-` collection types see the Collections package documentation on [How to use a custom allocator](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/manual/allocator-custom-use.html).
 
-## Further information
+## Additional resources
 
 * [Allocators overview](allocators-overview.md)
 * [Rewindable allocators](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/manual/allocator-rewindable.html)

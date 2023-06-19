@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Assertions;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
@@ -38,6 +39,51 @@ namespace Unity.Entities
         public Entity Entity;
         public int IdentityIndex;
         public int BatchCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct EntityQueryCommand
+    {
+        public BasicCommand Header;
+        public EntityQueryImpl* QueryImpl;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct EntityQueryComponentCommand
+    {
+        public EntityQueryCommand Header;
+        public TypeIndex ComponentTypeIndex;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct EntityQueryComponentTypeSetCommand
+    {
+        public EntityQueryCommand Header;
+        public ComponentTypeSet TypeSet;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct EntityQueryComponentCommandWithUnmanagedSharedComponent
+    {
+        public EntityQueryComponentCommand Header;
+        public int ComponentSize;
+        public int HashCode;
+        public int IsDefault;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct EntityQueryComponentCommandWithObject
+    {
+        public EntityQueryComponentCommand Header;
+        public int HashCode;
+        public EntityComponentGCNode GCNode;
+
+        internal object GetBoxedObject()
+        {
+            if (GCNode.BoxedObject.IsAllocated)
+                return GCNode.BoxedObject.Target;
+            return null;
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -397,21 +443,34 @@ namespace Unity.Entities
 
         AddSharedComponentData,
         SetSharedComponentData,
-
         AddUnmanagedSharedComponentData,
         SetUnmanagedSharedComponentData,
+
         AddUnmanagedSharedComponentValueForMultipleEntities,
         SetUnmanagedSharedComponentValueForMultipleEntities,
+        AddUnmanagedSharedComponentValueForEntityQuery,
+        SetUnmanagedSharedComponentValueForEntityQuery,
+
+        AddComponentForEntityQuery,
+        AddMultipleComponentsForMultipleEntities,
+        AddMultipleComponentsForEntityQuery,
+        RemoveComponentForEntityQuery,
+        RemoveMultipleComponentsForMultipleEntities,
+        RemoveMultipleComponentsForEntityQuery,
+
+        AddSharedComponentWithValueForMultipleEntities,
+        AddSharedComponentWithValueForEntityQuery,
+        SetSharedComponentValueForMultipleEntities,
+        SetSharedComponentValueForEntityQuery,
 
         AddComponentForMultipleEntities,
         AddComponentObjectForMultipleEntities,
-        AddSharedComponentWithValueForMultipleEntities,
-        AddMultipleComponentsForMultipleEntities,
+        AddComponentObjectForEntityQuery,
         SetComponentObjectForMultipleEntities,
-        SetSharedComponentValueForMultipleEntities,
         RemoveComponentForMultipleEntities,
-        RemoveMultipleComponentsForMultipleEntities,
-        DestroyMultipleEntities
+
+        DestroyMultipleEntities,
+        DestroyForEntityQuery,
     }
 
     /// <summary>
@@ -493,11 +552,7 @@ namespace Unity.Entities
 
             m_ThreadedChains = (EntityCommandBufferChain*)Memory.Unmanaged.Allocate(allocSize, JobsUtility.CacheLineSize, m_Allocator);
             UnsafeUtility.MemClear(m_ThreadedChains, allocSize);
-
-            for (var i = 0; i < maxThreadCount; ++i)
-            {
-                EntityCommandBufferChain.InitChain(&m_ThreadedChains[i], m_Allocator);
-            }
+            // each thread's chain is lazily initialized inside Reserve() when its first command is written.
         }
 
         internal void DestroyForParallelWriter()
@@ -692,7 +747,7 @@ namespace Unity.Entities
             return false;
         }
 
-        internal void AddEntityComponentCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, T component) where T : unmanaged, IComponentData
+        internal void AddEntityComponentTypeWithValueCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, T component) where T : unmanaged, IComponentData
         {
             var ctype = ComponentType.ReadWrite<T>();
             if (ctype.IsZeroSized)
@@ -1042,6 +1097,41 @@ namespace Unity.Entities
             return true;
         }
 
+        internal bool AppendEntityQueryComponentCommandWithSharedValue<T>(EntityCommandBufferChain* chain,
+            int sortKey, ECBCommand op, EntityQuery entityQuery, int hashCode,
+            object boxedComponent) where T : struct, ISharedComponentData
+        {
+            var ctype = ComponentType.ReadWrite<T>();
+            var sizeNeeded = Align(sizeof(EntityQueryComponentCommandWithObject), ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+
+            var cmd = (EntityQueryComponentCommandWithObject*)Reserve(chain, sortKey, sizeNeeded);
+
+            cmd->Header.Header.Header.CommandType = op;
+            cmd->Header.Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.Header.SortKey = chain->m_LastSortKey;
+
+            cmd->Header.Header.QueryImpl = entityQuery._GetImpl();
+
+            cmd->Header.ComponentTypeIndex = ctype.TypeIndex;
+
+            cmd->HashCode = hashCode;
+            // TODO(DOTS-3465): if boxedComponent contains Entity references to temporary Entities, they will not currently be fixed up.
+            if (boxedComponent != null)
+            {
+                cmd->GCNode.BoxedObject = GCHandle.Alloc(boxedComponent);
+                // We need to store all GCHandles on a cleanup list so we can dispose them later, regardless of if playback occurs or not.
+                cmd->GCNode.Prev = chain->m_Cleanup->CleanupList;
+                chain->m_Cleanup->CleanupList = &(cmd->GCNode);
+            }
+            else
+            {
+                cmd->GCNode.BoxedObject = new GCHandle();
+            }
+            return true;
+        }
+
         internal bool AppendMultipleEntitiesComponentCommandWithSharedValue<T>(EntityCommandBufferChain* chain,
             int sortKey, ECBCommand op, EntityQuery entityQuery, int hashCode,
             object boxedComponent) where T : struct, ISharedComponentData
@@ -1144,6 +1234,48 @@ namespace Unity.Entities
             return true;
         }
 
+        internal bool AppendEntityQueryComponentCommandWithUnmanagedSharedValue<T>(
+            EntityCommandBufferChain* chain,
+            int sortKey,
+            ECBCommand op,
+            EntityQuery entityQuery,
+            int hashCode,
+            void* componentAddr)
+            where T : struct, ISharedComponentData
+        {
+            var ctype = ComponentType.ReadWrite<T>();
+            var typeSize = UnsafeUtility.SizeOf<T>();
+            var sizeNeeded = Align(sizeof(EntityQueryComponentCommandWithUnmanagedSharedComponent) + typeSize, ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+
+            var cmd = (EntityQueryComponentCommandWithUnmanagedSharedComponent*) Reserve(chain, sortKey, sizeNeeded);
+
+            cmd->Header.Header.Header.CommandType = op;
+            cmd->Header.Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.Header.SortKey = chain->m_LastSortKey;
+
+            cmd->Header.Header.QueryImpl = entityQuery._GetImpl();
+
+            cmd->Header.ComponentTypeIndex = ctype.TypeIndex;
+
+            cmd->ComponentSize = typeSize;
+            cmd->HashCode = hashCode;
+            cmd->IsDefault = componentAddr == null ? 1 : 0;
+
+            byte* data = (byte*) (cmd + 1);
+            if (componentAddr != null)
+            {
+                UnsafeUtility.MemCpy(data, componentAddr, typeSize);
+            }
+            else
+            {
+                UnsafeUtility.MemSet(data, 0, typeSize);
+            }
+
+            return true;
+        }
+
         internal bool AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
             EntityCommandBufferChain* chain,
             int sortKey,
@@ -1188,6 +1320,67 @@ namespace Unity.Entities
                 UnsafeUtility.MemSet(data, 0, typeSize);
             }
 
+            return true;
+        }
+
+        internal bool AppendEntityQueryCommand(
+            EntityCommandBufferChain* chain,
+            int sortKey,
+            ECBCommand op,
+            EntityQuery entityQuery)
+        {
+            var sizeNeeded = Align(sizeof(EntityQueryCommand), ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+
+            var cmd = (EntityQueryCommand*)Reserve(chain, sortKey, sizeNeeded);
+            cmd->QueryImpl = entityQuery._GetImpl();
+
+            cmd->Header.CommandType = op;
+            cmd->Header.TotalSize = sizeNeeded;
+            cmd->Header.SortKey = chain->m_LastSortKey;
+            return true;
+        }
+
+        internal bool AppendEntityQueryComponentCommand(
+            EntityCommandBufferChain* chain,
+            int sortKey,
+            ECBCommand op,
+            EntityQuery entityQuery,
+            ComponentType t)
+        {
+            var sizeNeeded = Align(sizeof(EntityQueryComponentCommand), ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+
+            var cmd = (EntityQueryComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
+            cmd->Header.QueryImpl = entityQuery._GetImpl();
+
+            cmd->Header.Header.CommandType = op;
+            cmd->Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.SortKey = chain->m_LastSortKey;
+            cmd->ComponentTypeIndex = t.TypeIndex;
+            return true;
+        }
+
+        internal bool AppendEntityQueryComponentTypeSetCommand(
+            EntityCommandBufferChain* chain,
+            int sortKey,
+            ECBCommand op,
+            EntityQuery entityQuery,
+            in ComponentTypeSet typeSet)
+        {
+            var sizeNeeded = Align(sizeof(EntityQueryComponentTypeSetCommand), ALIGN_64_BIT);
+
+            ResetCommandBatching(chain);
+
+            var cmd = (EntityQueryComponentTypeSetCommand*)Reserve(chain, sortKey, sizeNeeded);
+            cmd->Header.QueryImpl = entityQuery._GetImpl();
+
+            cmd->Header.Header.CommandType = op;
+            cmd->Header.Header.TotalSize = sizeNeeded;
+            cmd->Header.Header.SortKey = chain->m_LastSortKey;
+            cmd->TypeSet = typeSet;
             return true;
         }
 
@@ -1359,9 +1552,11 @@ namespace Unity.Entities
             if(align != size)
                 Assert.IsTrue(false, $"Misaligned size. Expected alignment of {ALIGN_64_BIT} but was {align}. Unaligned access can cause crashes on platforms such as ARM.");
 #endif
+            if (Hint.Unlikely(chain->m_Head == null))
+                EntityCommandBufferChain.InitChain(chain, m_Allocator);
 
             int newSortKey = sortKey;
-            if (newSortKey < chain->m_LastSortKey)
+            if (Hint.Unlikely(newSortKey < chain->m_LastSortKey))
             {
                 // copy current chain to new next and reset current chain
                 EntityCommandBufferChain* nextChain = (EntityCommandBufferChain*)Memory.Unmanaged.Allocate(sizeof(EntityCommandBufferChain), ALIGN_64_BIT, m_Allocator);
@@ -1371,7 +1566,7 @@ namespace Unity.Entities
             }
             chain->m_LastSortKey = newSortKey;
 
-            if (chain->m_Tail == null || chain->m_Tail->Capacity < size)
+            if (Hint.Unlikely(chain->m_Tail == null || chain->m_Tail->Capacity < size))
             {
                 var chunkSize = math.max(m_MinimumChunkSize, size);
 
@@ -1463,6 +1658,44 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>Even though the EntityCommandBuffer can be played back more than once, no commands can be added after the first playback.</remarks>
         MultiPlayback
+    }
+
+    /// <summary>
+    /// Specifies when an <see cref="EntityQuery"/> passed to an <see cref="EntityCommandBuffer"/> should be evaluated.
+    /// </summary>
+    /// <remarks>
+    /// This can significantly affect which entities are matched by the query, as well as the overall performance of the
+    /// requested operation.
+    /// </remarks>
+    public enum EntityQueryCaptureMode
+    {
+        /// <summary>
+        /// Request that the query's results be captured immediately, when the command is recorded.
+        /// </summary>
+        /// <remarks>
+        /// The entire array of matching entities will be serialized into the command buffer, and this exact set of
+        /// entities will be processed at playback time. This approach is far less efficient, but may lead to a more
+        /// predictable set of entities being processed.
+        ///
+        /// At playback time, the command throws an error if one of these entities is destroyed before playback. (With
+        /// safety checks enabled, an exception is thrown. Without safety checks, playback will perform invalid and
+        /// unsafe memory access.)
+        /// </remarks>
+        AtRecord,
+
+        /// <summary>
+        /// Request that the query's results be captured when the corresponding command is played back.
+        /// </summary>
+        /// <remarks>
+        /// Only a reference to the query itself is serialized into the command buffer. The requested operation is applied
+        /// to the query during playback. This approach is generally far more efficient, but may lead to unexpected
+        /// entities being processed (if entities which match the query are created or destroyed between recording the
+        /// command buffer and playing it back).
+        ///
+        /// Since the serialized query is stored by reference, modifying or deleting the query after the
+        /// command is recorded may affect the set of chunks and entities matched at playback time.
+        /// </remarks>
+        AtPlayback,
     }
 
     /// <summary>
@@ -1586,9 +1819,9 @@ namespace Unity.Entities
         /// <summary>
         ///  Creates a new command buffer.
         /// </summary>
-        /// <param name="label">Memory allocator to use for chunks and data</param>
-        public EntityCommandBuffer(AllocatorManager.AllocatorHandle label)
-            : this(label, PlaybackPolicy.SinglePlayback)
+        /// <param name="allocator">Memory allocator to use for chunks and data</param>
+        public EntityCommandBuffer(AllocatorManager.AllocatorHandle allocator)
+            : this(allocator, PlaybackPolicy.SinglePlayback)
         {
         }
 
@@ -1605,12 +1838,12 @@ namespace Unity.Entities
         /// <summary>
         ///  Creates a new command buffer.
         /// </summary>
-        /// <param name="label">Memory allocator to use for chunks and data</param>
+        /// <param name="allocator">Memory allocator to use for chunks and data</param>
         /// <param name="playbackPolicy">Specifies if the EntityCommandBuffer can be played a single time or more than once.</param>
-        public EntityCommandBuffer(AllocatorManager.AllocatorHandle label, PlaybackPolicy playbackPolicy)
+        public EntityCommandBuffer(AllocatorManager.AllocatorHandle allocator, PlaybackPolicy playbackPolicy)
         {
-            m_Data = (EntityCommandBufferData*)Memory.Unmanaged.Allocate(sizeof(EntityCommandBufferData), UnsafeUtility.AlignOf<EntityCommandBufferData>(), label);
-            m_Data->m_Allocator = label;
+            m_Data = (EntityCommandBufferData*)Memory.Unmanaged.Allocate(sizeof(EntityCommandBufferData), UnsafeUtility.AlignOf<EntityCommandBufferData>(), allocator);
+            m_Data->m_Allocator = allocator;
             m_Data->m_PlaybackPolicy = playbackPolicy;
             m_Data->m_MinimumChunkSize = kDefaultMinimumChunkSize;
             m_Data->m_ShouldPlayback = true;
@@ -1619,7 +1852,7 @@ namespace Unity.Entities
             m_Data->m_BufferWithFixups = new UnsafeAtomicCounter32(&m_Data->m_BufferWithFixupsCount);
             m_Data->m_CommandBufferID = --ms_CommandBufferIDAllocator;
 
-            EntityCommandBufferChain.InitChain(&m_Data->m_MainThreadChain, label);
+            m_Data->m_MainThreadChain = default; // initial chains are lazily initialized when the first command is recorded
 
             m_Data->m_ThreadedChains = null;
             m_Data->m_RecordedChainCount = 0;
@@ -1629,16 +1862,16 @@ namespace Unity.Entities
             OriginSystemHandle = default;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_Safety0 = CollectionHelper.CreateSafetyHandle(label);
+            m_Safety0 = CollectionHelper.CreateSafetyHandle(allocator);
 
             // Used for all buffers returned from the API, so we can invalidate them once Playback() has been called.
             m_BufferSafety = AtomicSafetyHandle.Create();
             // Used to invalidate array aliases to buffers
             m_ArrayInvalidationSafety = AtomicSafetyHandle.Create();
 
-            label.AddSafetyHandle(m_Safety0); // so that when allocator rewinds, this handle will invalidate
-            label.AddSafetyHandle(m_BufferSafety); // so that when allocator rewinds, this handle will invalidate
-            label.AddSafetyHandle(m_ArrayInvalidationSafety); // so that when allocator rewinds, this handle will invalidate
+            allocator.AddSafetyHandle(m_Safety0); // so that when allocator rewinds, this handle will invalidate
+            allocator.AddSafetyHandle(m_BufferSafety); // so that when allocator rewinds, this handle will invalidate
+            allocator.AddSafetyHandle(m_ArrayInvalidationSafety); // so that when allocator rewinds, this handle will invalidate
 
             m_SafetyReadOnlyCount = 0;
             m_SafetyReadWriteCount = 3;
@@ -1657,49 +1890,60 @@ namespace Unity.Entities
         /// </summary>
         public bool IsCreated   { get { return m_Data != null; } }
 
-        /// <summary>
-        /// Deals with freeing and releasing unmanaged memory allocated by the entity command buffer.
-        /// </summary>
-        public void Dispose()
+        [BurstCompile]
+        static void DisposeInternal(ref EntityCommandBuffer ecb)
         {
 #if !UNITY_DOTSRUNTIME
             k_ProfileEcbDispose.Begin();
 #endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            CollectionHelper.DisposeSafetyHandle(ref m_Safety0);
-            AtomicSafetyHandle.Release(m_ArrayInvalidationSafety);
-            AtomicSafetyHandle.Release(m_BufferSafety);
+            CollectionHelper.DisposeSafetyHandle(ref ecb.m_Safety0);
+            AtomicSafetyHandle.Release(ecb.m_ArrayInvalidationSafety);
+            AtomicSafetyHandle.Release(ecb.m_BufferSafety);
 #endif
 
-            if (m_Data != null)
+            // There's no need to walk chains and dispose individual allocations if the provided allocator
+            // uses auto-dispose; they'll all be freed automatically when the allocator rewinds.
+            if (ecb.m_Data != null && !ecb.m_Data->m_Allocator.IsAutoDispose)
             {
-                FreeChain(&m_Data->m_MainThreadChain, m_Data->m_PlaybackPolicy, m_Data->m_DidPlayback);
+                ecb.FreeChain(&ecb.m_Data->m_MainThreadChain, ecb.m_Data->m_PlaybackPolicy, ecb.m_Data->m_DidPlayback);
 
-                if (m_Data->m_ThreadedChains != null)
+                if (ecb.m_Data->m_ThreadedChains != null)
                 {
 #if UNITY_2022_2_14F1_OR_NEWER
-                      int maxThreadCount = JobsUtility.ThreadIndexCount;
+                    int maxThreadCount = JobsUtility.ThreadIndexCount;
 #else
                     int maxThreadCount = JobsUtility.MaxJobThreadCount;
 #endif
                     for (int i = 0; i < maxThreadCount; ++i)
                     {
-                        FreeChain(&m_Data->m_ThreadedChains[i], m_Data->m_PlaybackPolicy, m_Data->m_DidPlayback);
+                        ecb.FreeChain(&ecb.m_Data->m_ThreadedChains[i], ecb.m_Data->m_PlaybackPolicy, ecb.m_Data->m_DidPlayback);
                     }
 
-                    m_Data->DestroyForParallelWriter();
+                    ecb.m_Data->DestroyForParallelWriter();
                 }
 
-                Memory.Unmanaged.Free(m_Data, m_Data->m_Allocator);
-                m_Data = null;
+                Memory.Unmanaged.Free(ecb.m_Data, ecb.m_Data->m_Allocator);
             }
+            ecb.m_Data = null;
 #if !UNITY_DOTSRUNTIME
             k_ProfileEcbDispose.End();
 #endif
         }
 
+        /// <summary>
+        /// Deals with freeing and releasing unmanaged memory allocated by the entity command buffer.
+        /// </summary>
+        public void Dispose()
+        {
+            DisposeInternal(ref this); // forward to Burst-compiled function
+        }
+
         private void FreeChain(EntityCommandBufferChain* chain, PlaybackPolicy playbackPolicy, bool didPlayback)
         {
+            if (chain->m_Head == null)
+                return; // skip uninitialized chains;
+            bool first = true;
             while (chain != null)
             {
                 ECBInterop.CleanupManaged(chain);        // Buffers played in ecbs which can be played back more than once are always copied during playback.
@@ -1736,8 +1980,13 @@ namespace Unity.Entities
 
                 var chainToFree = chain;
                 chain = chain->m_NextChain;
-                Memory.Unmanaged.Free(chainToFree->m_NextChain, m_Data->m_Allocator);
                 chainToFree->m_NextChain = null;
+                if (!first)
+                {
+                    // we need to free the chain we have just visited, but only if it is not the first one
+                    Memory.Unmanaged.Free(chainToFree, m_Data->m_Allocator);
+                }
+                first = false;
             }
         }
 
@@ -1934,7 +2183,7 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, component);
+            m_Data->AddEntityComponentTypeWithValueCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, component);
         }
 
         /// <summary> Records a command to add component of type T to a NativeArray of entities. </summary>
@@ -2090,7 +2339,7 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetComponent, e, component);
+            m_Data->AddEntityComponentTypeWithValueCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetComponent, e, component);
         }
 
         /// <summary> Records a command to set a component value on an entity.</summary>
@@ -2285,69 +2534,69 @@ namespace Unity.Entities
                 ECBCommand.RemoveMultipleComponentsForMultipleEntities, entitiesCopy, entities.Length, containsDeferredEntities, componentTypeSet);
         }
 
-        /// <summary>Obsolete. Use <see cref="AddComponent"/> instead.</summary>
+        /// <summary>Records a command to add a component to all entities matching a query.</summary>
+        /// <remarks>
+        /// Does not affect entities which already have the component.
+        /// </remarks>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
+        /// <param name="componentType">The type of component to add.</param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        public void AddComponent(EntityQuery entityQuery, ComponentType componentType, EntityQueryCaptureMode queryCaptureMode)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                m_Data->AppendMultipleEntitiesComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.AddComponentForMultipleEntities, entityQuery, componentType);
+            else
+                m_Data->AppendEntityQueryComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.AddComponentForEntityQuery, entityQuery, componentType);
+        }
+        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery,ComponentType,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        /// <param name="componentType">The type of component to add.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void AddComponent(EntityQuery entityQuery, ComponentType componentType)
+            => AddComponent(entityQuery, componentType, EntityQueryCaptureMode.AtRecord);
+        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery,ComponentType,EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
         /// <param name="componentType">The type of component to add.</param>
         [SupportedInEntitiesForEach]
         [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent(*)")]
         public void AddComponentForEntityQuery(EntityQuery entityQuery, ComponentType componentType)
-            => AddComponent(entityQuery, componentType);
+            => AddComponent(entityQuery, componentType, EntityQueryCaptureMode.AtRecord);
 
         /// <summary>Records a command to add a component to all entities matching a query.</summary>
-        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
-        ///
+        /// <remarks>
         /// Does not affect entities which already have the component.
-        ///
-        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
-        /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
-        /// <param name="componentType">The type of component to add.</param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
+        /// <typeparam name="T"> The type of component to add. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponent(EntityQuery entityQuery, ComponentType componentType)
-        {
-            EnforceSingleThreadOwnership();
-            AssertDidNotPlayback();
-            m_Data->AppendMultipleEntitiesComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.AddComponentForMultipleEntities, entityQuery, componentType);
-        }
-
-        /// <summary>Obsolete. Use <see cref="AddComponent{T}(EntityQuery)"/> instead.</summary>
+        public void AddComponent<T>(EntityQuery entityQuery, EntityQueryCaptureMode queryCaptureMode)
+            => AddComponent(entityQuery, ComponentType.ReadWrite<T>(), queryCaptureMode);
+        /// <summary>Obsolete. Use <see cref="AddComponent{T}(EntityQuery,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        /// <typeparam name="T"> The type of component to add. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void AddComponent<T>(EntityQuery entityQuery)
+            => AddComponent(entityQuery, ComponentType.ReadWrite<T>(), EntityQueryCaptureMode.AtRecord);
+        /// <summary>Obsolete. Use <see cref="AddComponent{T}(EntityQuery,EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
         /// <typeparam name="T"> The type of component to add. </typeparam>
         [SupportedInEntitiesForEach]
         [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent<T>(*)")]
         public void AddComponentForEntityQuery<T>(EntityQuery entityQuery)
-            => AddComponent<T>(entityQuery);
+            => AddComponent(entityQuery, ComponentType.ReadWrite<T>(), EntityQueryCaptureMode.AtRecord);
 
-        /// <summary>Records a command to add a component to all entities matching a query.</summary>
-        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
-        ///
-        /// Does not affect entities which already have the component.
-        ///
-        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
-        /// playback will perform invalid and unsafe memory access.)
-        /// </remarks>
-        /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
-        /// <typeparam name="T"> The type of component to add. </typeparam>
-        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        [SupportedInEntitiesForEach]
-        public void AddComponent<T>(EntityQuery entityQuery)
-        {
-            AddComponent(entityQuery, ComponentType.ReadWrite<T>());
-        }
-
-        /// <summary>Obsolete. Use <see cref="AddComponent{T}(EntityQuery, T)"/> instead.</summary>
-        /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
-        /// <param name="value">The value to set on the new component in playback for all entities matching the query.</param>
-        /// <typeparam name="T"> The type of component to add. </typeparam>
-        [SupportedInEntitiesForEach]
-        [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent<T>(*)")]
-        public void AddComponentForEntityQuery<T>(EntityQuery entityQuery, T value) where T : unmanaged, IComponentData
-            => AddComponent<T>(entityQuery, value);
 
         /// <summary>Records a command to add a component to all entities matching a query. Also sets the value of this new component on all the matching entities.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2365,19 +2614,20 @@ namespace Unity.Entities
         [SupportedInEntitiesForEach]
         public void AddComponent<T>(EntityQuery entityQuery, T value) where T : unmanaged, IComponentData
         {
+            // TODO(DOTS-8709): There is no efficient capture-at-playback path for this operation. Add one, or remove this method.
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AppendMultipleEntitiesComponentCommandWithValue(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.AddComponentForMultipleEntities, entityQuery, value);
         }
-
-        /// <summary>Obsolete. Use <see cref="AddComponent"/> instead.</summary>
-        /// <param name="entityQuery">The query specifying the entities to which the components are added. </param>
-        /// <param name="componentTypeSet">The types of components to add.</param>
+        /// <summary>Obsolete. Use <see cref="AddComponent{T}(EntityQuery, T)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added. </param>
+        /// <param name="value">The value to set on the new component in playback for all entities matching the query.</param>
+        /// <typeparam name="T"> The type of component to add. </typeparam>
         [SupportedInEntitiesForEach]
-        [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent(*)")]
-        public void AddComponentForEntityQuery(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
-            => AddComponent(entityQuery, componentTypeSet);
+        [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent<T>(*)")]
+        public void AddComponentForEntityQuery<T>(EntityQuery entityQuery, T value) where T : unmanaged, IComponentData
+            => AddComponent<T>(entityQuery, value);
 
         /// <summary>Records a command to add multiple components to all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2389,32 +2639,49 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities to which the components are added. </param>
         /// <param name="componentTypeSet">The types of components to add.</param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
+        public void AddComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet, EntityQueryCaptureMode queryCaptureMode)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AppendMultipleEntitiesMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.AddMultipleComponentsForMultipleEntities, entityQuery, componentTypeSet);
+            if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                m_Data->AppendMultipleEntitiesMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.AddMultipleComponentsForMultipleEntities, entityQuery, componentTypeSet);
+            else
+                m_Data->AppendEntityQueryComponentTypeSetCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.AddMultipleComponentsForEntityQuery, entityQuery, componentTypeSet);
         }
+        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery,ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        /// <param name="componentTypeSet">The types of components to add.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void AddComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
+            => AddComponent(entityQuery, componentTypeSet, EntityQueryCaptureMode.AtRecord);
+        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery,ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the components are added. </param>
+        /// <param name="componentTypeSet">The types of components to add.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use AddComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponent(*)")]
+        public void AddComponentForEntityQuery(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
+            => AddComponent(entityQuery, componentTypeSet, EntityQueryCaptureMode.AtRecord);
+
 
         /// <summary> Records a command to add a possibly-managed shared component to all entities matching a query.</summary>
-        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
-        ///
+        /// <remarks>
         /// Entities which already have the component type will have the component set to the value.
-        ///
-        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
-        /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
         /// <param name="component"> The component value to add. </param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddSharedComponentManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+        public void AddSharedComponentManaged<T>(EntityQuery entityQuery, T component, EntityQueryCaptureMode queryCaptureMode) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2425,54 +2692,76 @@ namespace Unity.Entities
 
             if (isManaged)
             {
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain,
-                    MainThreadSortKey,
-                    ECBCommand.AddSharedComponentWithValueForMultipleEntities,
-                    entityQuery,
-                    hashCode,
-                    isDefaultObject ? null : component);
+                if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                    m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain,
+                        MainThreadSortKey,
+                        ECBCommand.AddSharedComponentWithValueForMultipleEntities,
+                        entityQuery,
+                        hashCode,
+                        isDefaultObject ? null : component);
+                else
+                    m_Data->AppendEntityQueryComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain,
+                        MainThreadSortKey,
+                        ECBCommand.AddSharedComponentWithValueForEntityQuery,
+                        entityQuery,
+                        hashCode,
+                        isDefaultObject ? null : component);
             }
             else
             {
                 var componentAddr = UnsafeUtility.AddressOf(ref component);
-                var entities = entityQuery.ToEntityArray(Allocator.Temp);
-                m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
-                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
-                    &m_Data->m_MainThreadChain,
-                    MainThreadSortKey,
-                    ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
-                    entityQuery,
-                    containsDeferredEntities, // is this right? --elliotc, 09/17/2021
-                    hashCode,
-                    isDefaultObject ? null : componentAddr);
+                if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                {
+                    m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                        &m_Data->m_MainThreadChain,
+                        MainThreadSortKey,
+                        ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                        entityQuery,
+                        false,
+                        hashCode,
+                        isDefaultObject ? null : componentAddr);
+                }
+                else
+                {
+                    m_Data->AppendEntityQueryComponentCommandWithUnmanagedSharedValue<T>(
+                        &m_Data->m_MainThreadChain,
+                        MainThreadSortKey,
+                        ECBCommand.AddUnmanagedSharedComponentValueForEntityQuery,
+                        entityQuery,
+                        hashCode,
+                        isDefaultObject ? null : componentAddr);
+                }
             }
         }
-
-
-        /// <summary>Obsolete. Use <see cref="AddSharedComponent{T}(EntityQuery, T)"/> instead.</summary>
+        /// <summary>Obsolete. Use <see cref="AddSharedComponentManaged{T}(EntityQuery,T,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void AddSharedComponentManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+            => AddSharedComponentManaged(entityQuery, component, EntityQueryCaptureMode.AtRecord);
+        /// <summary>Obsolete. Use <see cref="AddSharedComponentManaged{T}(EntityQuery,T,EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
         /// <param name="component"> The component value to add. </param>
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         [SupportedInEntitiesForEach]
-        [Obsolete("Use AddSharedComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddSharedComponent<T>(*)")]
+        [Obsolete("Use AddSharedComponentManaged (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddSharedComponent<T>(*)")]
         public void AddSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component) where T : unmanaged, ISharedComponentData
-            => AddSharedComponent<T>(entityQuery, component);
+            => AddSharedComponentManaged<T>(entityQuery, component, EntityQueryCaptureMode.AtRecord);
 
         /// <summary> Records a command to add a unmanaged shared component to all entities matching a query.</summary>
-        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
-        ///
+        /// <remarks>
         /// Entities which already have the component type will have the component set to the value.
-        ///
-        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
-        /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
         /// <param name="component"> The component value to add. </param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void AddSharedComponent<T>(EntityQuery entityQuery, T component)
+        public void AddSharedComponent<T>(EntityQuery entityQuery, T component, EntityQueryCaptureMode queryCaptureMode)
             where T : unmanaged, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
@@ -2485,25 +2774,37 @@ namespace Unity.Entities
             var isDefaultObject = IsDefaultObjectUnmanaged(ref component, out var hashCode);
 
             var componentAddr = UnsafeUtility.AddressOf(ref component);
-            var entities = entityQuery.ToEntityArray(Allocator.Temp);
-            m_Data->CloneAndSearchForDeferredEntities(entities, out var containsDeferredEntities);
-            m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
-                &m_Data->m_MainThreadChain,
-                MainThreadSortKey,
-                ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
-                entityQuery,
-                containsDeferredEntities,
-                hashCode,
-                isDefaultObject ? null : componentAddr);
+            if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+            {
+                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities,
+                    entityQuery,
+                    false,
+                    hashCode,
+                    isDefaultObject ? null : componentAddr);
+            }
+            else
+            {
+                m_Data->AppendEntityQueryComponentCommandWithUnmanagedSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.AddUnmanagedSharedComponentValueForEntityQuery,
+                    entityQuery,
+                    hashCode,
+                    isDefaultObject ? null : componentAddr);
+            }
         }
-
-        /// <summary>Obsolete. Use <see cref="AddComponentObject(EntityQuery, object)"/> instead.</summary>
-        /// <param name="entityQuery"> The query specifying which entities to add the component value to.</param>
-        /// <param name="componentData"> The component object to add. </param>
+        /// <summary>Obsolete. Use <see cref="AddSharedComponent{T}(EntityQuery,T,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
         [SupportedInEntitiesForEach]
-        [Obsolete("Use AddComponentObject (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponentObject(*)")]
-        public void AddComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
-            => AddComponentObject(entityQuery, componentData);
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void AddSharedComponent<T>(EntityQuery entityQuery, T component) where T : unmanaged, ISharedComponentData
+                => AddSharedComponent(entityQuery, component, EntityQueryCaptureMode.AtRecord);
+
 
         /// <summary> Records a command to add a hybrid component and set its value for all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2521,6 +2822,7 @@ namespace Unity.Entities
         [SupportedInEntitiesForEach]
         public void AddComponentObject(EntityQuery entityQuery, object componentData)
         {
+            // TODO(DOTS-8709): There is no efficient capture-at-playback path for this operation. Add one, or remove this method.
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 
@@ -2533,14 +2835,13 @@ namespace Unity.Entities
             m_Data->AppendMultipleEntitiesComponentCommandWithObject(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.AddComponentObjectForMultipleEntities, entityQuery, componentData, type);
         }
-
-        /// <summary> Obsolete. Use <see cref="SetComponentObject(EntityQuery, object)"/> instead.</summary>
-        /// <param name="entityQuery"> The query specifying which entities to set the component value for.</param>
-        /// <param name="componentData"> The component object to set.</param>
+        /// <summary>Obsolete. Use <see cref="AddComponentObject(EntityQuery, object)"/> instead.</summary>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to.</param>
+        /// <param name="componentData"> The component object to add. </param>
         [SupportedInEntitiesForEach]
-        [Obsolete("Use SetComponentObject (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetComponentObject(*)")]
-        public void SetComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
-            => SetComponentObject(entityQuery, componentData);
+        [Obsolete("Use AddComponentObject (RemovedAfter Entities 1.0) (UnityUpgradable) -> AddComponentObject(*)")]
+        public void AddComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
+            => AddComponentObject(entityQuery, componentData);
 
         /// <summary> Records a command to set a hybrid component value for all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2558,6 +2859,7 @@ namespace Unity.Entities
         [SupportedInEntitiesForEach]
         public void SetComponentObject(EntityQuery entityQuery, object componentData)
         {
+            // TODO(DOTS-8709): There is no efficient capture-at-playback path for this operation. Add one, or remove this method.
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 
@@ -2570,32 +2872,26 @@ namespace Unity.Entities
             m_Data->AppendMultipleEntitiesComponentCommandWithObject(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.SetComponentObjectForMultipleEntities, entityQuery, componentData, type);
         }
-
-        /// <summary>Obsolete. Use <see cref="SetSharedComponentManaged{T}(EntityQuery, T)"/> instead.</summary>
-        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
-        /// <param name="component"> The component value to add. </param>
-        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        /// <summary> Obsolete. Use <see cref="SetComponentObject(EntityQuery, object)"/> instead.</summary>
+        /// <param name="entityQuery"> The query specifying which entities to set the component value for.</param>
+        /// <param name="componentData"> The component object to set.</param>
         [SupportedInEntitiesForEach]
-        [Obsolete("Use SetSharedComponentManaged (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetSharedComponentManaged<T>(*)")]
-        public void SetSharedComponentForEntityQueryManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
-            => SetSharedComponentManaged<T>(entityQuery, component);
+        [Obsolete("Use SetComponentObject (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetComponentObject(*)")]
+        public void SetComponentObjectForEntityQuery(EntityQuery entityQuery, object componentData)
+            => SetComponentObject(entityQuery, componentData);
 
         /// <summary> Records a command to set a possibly-managed shared component value on all entities matching a query.</summary>
-        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
-        ///
+        /// <remarks>
         /// Fails if any of the entities do not have the type of shared component. [todo: should it be required that the component type is included in the query?]
-        ///
-        /// At playback, this command throws an error if one of these entities is destroyed before playback or
-        /// if any entity has the <see cref="Prefab"/> tag. (With safety checks enabled, an exception is thrown. Without safety checks,
-        /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
         /// <param name="component"> The component value to add. </param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void SetSharedComponentManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+        public void SetSharedComponentManaged<T>(EntityQuery entityQuery, T component, EntityQueryCaptureMode queryCaptureMode) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -2606,52 +2902,72 @@ namespace Unity.Entities
 
             if (isManaged)
             {
-                m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain,
-                    MainThreadSortKey,
-                    ECBCommand.SetSharedComponentValueForMultipleEntities,
-                    entityQuery,
-                    hashCode,
-                    isDefaultObject ? null : component);
+                if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                    m_Data->AppendMultipleEntitiesComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain,
+                        MainThreadSortKey,
+                        ECBCommand.SetSharedComponentValueForMultipleEntities,
+                        entityQuery,
+                        hashCode,
+                        isDefaultObject ? null : component);
+                else
+                    m_Data->AppendEntityQueryComponentCommandWithSharedValue<T>(&m_Data->m_MainThreadChain,
+                        MainThreadSortKey,
+                        ECBCommand.SetSharedComponentValueForEntityQuery,
+                        entityQuery,
+                        hashCode,
+                        isDefaultObject ? null : component);
             }
             else
             {
                 var componentAddr = UnsafeUtility.AddressOf(ref component);
-                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
-                    &m_Data->m_MainThreadChain,
-                    MainThreadSortKey,
-                    ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
-                    entityQuery,
-                    false, // is this right? --elliotc, 09/17/2021
-                    hashCode,
-                    isDefaultObject ? null : componentAddr);
+                if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                    m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                        &m_Data->m_MainThreadChain,
+                        MainThreadSortKey,
+                        ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                        entityQuery,
+                        false,
+                        hashCode,
+                        isDefaultObject ? null : componentAddr);
+                else
+                    m_Data->AppendEntityQueryComponentCommandWithUnmanagedSharedValue<T>(
+                        &m_Data->m_MainThreadChain,
+                        MainThreadSortKey,
+                        ECBCommand.SetUnmanagedSharedComponentValueForEntityQuery,
+                        entityQuery,
+                        hashCode,
+                        isDefaultObject ? null : componentAddr);
             }
         }
-
-        /// <summary>Obsolete. Use <see cref="SetSharedComponent{T}(Unity.Entities.EntityQuery,T)"/> instead.</summary>
-        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
-        /// <param name="component"> The component value to add. </param>
+        /// <summary>Obsolete. Use <see cref="SetSharedComponentManaged{T}(EntityQuery,T,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        /// <param name="component"> The component value to set. </param>
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         [SupportedInEntitiesForEach]
-        [Obsolete("Use SetSharedComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetSharedComponent<T>(*)")]
-        public void SetSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component) where T : unmanaged, ISharedComponentData
-            => SetSharedComponent<T>(entityQuery, component);
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void SetSharedComponentManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+            => SetSharedComponentManaged(entityQuery, component, EntityQueryCaptureMode.AtRecord);
+        /// <summary>Obsolete. Use <see cref="SetSharedComponentManaged{T}(EntityQuery, T, EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
+        /// <param name="component"> The component value to set. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use SetSharedComponentManaged (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetSharedComponentManaged<T>(*)")]
+        public void SetSharedComponentForEntityQueryManaged<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
+            => SetSharedComponentManaged<T>(entityQuery, component, EntityQueryCaptureMode.AtRecord);
 
         /// <summary> Records a command to set an unmanaged shared component value on all entities matching a query.</summary>
-        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
-        ///
+        /// <remarks>
         /// Fails if any of the entities do not have the type of shared component. [todo: should it be required that the component type is included in the query?]
-        ///
-        /// At playback, this command throws an error if one of these entities is destroyed before playback or
-        /// if any entity has the <see cref="Prefab"/> tag. (With safety checks enabled, an exception is thrown. Without safety checks,
-        /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
         /// <param name="component"> The component value to add. </param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
         /// <typeparam name="T"> The type of shared component to set. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void SetSharedComponent<T>(EntityQuery entityQuery, T component)
+        public void SetSharedComponent<T>(EntityQuery entityQuery, T component, EntityQueryCaptureMode queryCaptureMode)
             where T : unmanaged, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
@@ -2664,78 +2980,104 @@ namespace Unity.Entities
             var isDefaultObject = IsDefaultObjectUnmanaged(ref component, out var hashCode);
 
             var componentAddr = UnsafeUtility.AddressOf(ref component);
-            m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
-                &m_Data->m_MainThreadChain,
-                MainThreadSortKey,
-                ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
-                entityQuery,
-                false,
-                hashCode,
-                isDefaultObject ? null : componentAddr);
+            if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                m_Data->AppendMultipleEntitiesCommand_WithUnmanagedSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities,
+                    entityQuery,
+                    false,
+                    hashCode,
+                    isDefaultObject ? null : componentAddr);
+            else
+                m_Data->AppendEntityQueryComponentCommandWithUnmanagedSharedValue<T>(
+                    &m_Data->m_MainThreadChain,
+                    MainThreadSortKey,
+                    ECBCommand.SetUnmanagedSharedComponentValueForEntityQuery,
+                    entityQuery,
+                    hashCode,
+                    isDefaultObject ? null : componentAddr);
         }
+        /// <summary>Obsolete. Use <see cref="SetSharedComponent{T}(EntityQuery,T,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        /// <param name="component"> The component value to set. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void SetSharedComponent<T>(EntityQuery entityQuery, T component) where T : unmanaged, ISharedComponentData
+            => SetSharedComponent(entityQuery, component, EntityQueryCaptureMode.AtRecord);
+        /// <summary>Obsolete. Use <see cref="SetSharedComponent{T}(Unity.Entities.EntityQuery,T,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
+        /// <param name="component"> The component value to add. </param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use SetSharedComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> SetSharedComponent<T>(*)")]
+        public void SetSharedComponentForEntityQuery<T>(EntityQuery entityQuery, T component) where T : unmanaged, ISharedComponentData
+            => SetSharedComponent<T>(entityQuery, component, EntityQueryCaptureMode.AtRecord);
 
-        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery, ComponentType)"/> instead.</summary>
+        /// <summary>Records a command to remove a component from all entities matching a query.</summary>
+        /// <remarks>
+        /// Does not affect entities already missing the component.
+        /// </remarks>
+        /// <param name="entityQuery">The query specifying the entities from which the component is removed. </param>
+        /// <param name="componentType">The types of component to remove.</param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        public void RemoveComponent(EntityQuery entityQuery, ComponentType componentType, EntityQueryCaptureMode queryCaptureMode)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                m_Data->AppendMultipleEntitiesComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.RemoveComponentForMultipleEntities, entityQuery, componentType);
+            else
+                m_Data->AppendEntityQueryComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.RemoveComponentForEntityQuery, entityQuery, componentType);
+        }
+        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery,ComponentType,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        /// <param name="componentType">The type of component to add.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void RemoveComponent(EntityQuery entityQuery, ComponentType componentType)
+            => RemoveComponent(entityQuery, componentType, EntityQueryCaptureMode.AtRecord);
+        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery, ComponentType, EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities from which the component is removed. </param>
         /// <param name="componentType">The types of component to remove.</param>
         [SupportedInEntitiesForEach]
         [Obsolete("Use RemoveComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> RemoveComponent(*)")]
         public void RemoveComponentForEntityQuery(EntityQuery entityQuery, ComponentType componentType)
-            => RemoveComponent(entityQuery, componentType);
+            => RemoveComponent(entityQuery, componentType, EntityQueryCaptureMode.AtRecord);
+
 
         /// <summary>Records a command to remove a component from all entities matching a query.</summary>
-        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
-        ///
+        /// <remarks>
         /// Does not affect entities already missing the component.
-        ///
-        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
-        /// playback will perform invalid and unsafe memory access.)
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities from which the component is removed. </param>
-        /// <param name="componentType">The types of component to remove.</param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
+        /// <typeparam name="T"> The type of component to remove. </typeparam>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void RemoveComponent(EntityQuery entityQuery, ComponentType componentType)
-        {
-            EnforceSingleThreadOwnership();
-            AssertDidNotPlayback();
-            m_Data->AppendMultipleEntitiesComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.RemoveComponentForMultipleEntities, entityQuery, componentType);
-        }
-
+        public void RemoveComponent<T>(EntityQuery entityQuery, EntityQueryCaptureMode queryCaptureMode)
+            => RemoveComponent(entityQuery, ComponentType.ReadWrite<T>(), queryCaptureMode);
+        /// <summary>Obsolete. Use <see cref="RemoveComponent{T}(EntityQuery,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void RemoveComponent<T>(EntityQuery entityQuery)
+            => RemoveComponent(entityQuery, ComponentType.ReadWrite<T>(), EntityQueryCaptureMode.AtRecord);
         /// <summary>Obsolete. Use <see cref="RemoveComponent{T}(EntityQuery)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities from which the component is removed. </param>
         /// <typeparam name="T"> The type of component to remove. </typeparam>
         [SupportedInEntitiesForEach]
         [Obsolete("Use RemoveComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> RemoveComponent<T>(*)")]
         public void RemoveComponentForEntityQuery<T>(EntityQuery entityQuery)
-            => RemoveComponent<T>(entityQuery);
+            => RemoveComponent<T>(entityQuery, EntityQueryCaptureMode.AtRecord);
 
-        /// <summary>Records a command to remove a component from all entities matching a query.</summary>
-        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
-        ///
-        /// Does not affect entities already missing the component.
-        ///
-        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
-        /// playback will perform invalid and unsafe memory access.)
-        /// </remarks>
-        /// <param name="entityQuery">The query specifying the entities from which the component is removed. </param>
-        /// <typeparam name="T"> The type of component to remove. </typeparam>
-        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        [SupportedInEntitiesForEach]
-        public void RemoveComponent<T>(EntityQuery entityQuery)
-        {
-            RemoveComponent(entityQuery, ComponentType.ReadWrite<T>());
-        }
-
-        /// <summary>Obsolete. Use <see cref="RemoveComponent"/> instead.</summary>
-        /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
-        /// <param name="componentTypeSet">The types of components to remove.</param>
-        [SupportedInEntitiesForEach]
-        [Obsolete("Use RemoveComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> RemoveComponent(*)")]
-        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
-            => RemoveComponent(entityQuery, componentTypeSet);
 
         /// <summary>Records a command to remove multiple components from all entities matching a query.</summary>
         /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
@@ -2747,41 +3089,68 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
         /// <param name="componentTypeSet">The types of components to remove.</param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
         /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
         [SupportedInEntitiesForEach]
-        public void RemoveComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
+        public void RemoveComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet, EntityQueryCaptureMode queryCaptureMode)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AppendMultipleEntitiesMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.RemoveMultipleComponentsForMultipleEntities, entityQuery, componentTypeSet);
+            if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                m_Data->AppendMultipleEntitiesMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.RemoveMultipleComponentsForMultipleEntities, entityQuery, componentTypeSet);
+            else
+                m_Data->AppendEntityQueryComponentTypeSetCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.RemoveMultipleComponentsForEntityQuery, entityQuery, componentTypeSet);
         }
+        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery,ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
+        /// <param name="componentTypeSet">The types of components to remove.</param>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void RemoveComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
+            => RemoveComponent(entityQuery, componentTypeSet, EntityQueryCaptureMode.AtRecord);
+        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery,ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
+        /// <param name="componentTypeSet">The types of components to remove.</param>
+        [SupportedInEntitiesForEach]
+        [Obsolete("Use RemoveComponent (RemovedAfter Entities 1.0) (UnityUpgradable) -> RemoveComponent(*)")]
+        public void RemoveComponentForEntityQuery(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
+            => RemoveComponent(entityQuery, componentTypeSet, EntityQueryCaptureMode.AtRecord);
 
-        /// <summary>Obsolete. Use <see cref="DestroyEntity(Unity.Entities.EntityQuery)"/> instead.</summary>
+        /// <summary>Records a command to destroy all entities matching a query.</summary>
+        /// <param name="entityQuery">The query specifying the entities to destroy.</param>
+        /// <param name="queryCaptureMode">Controls when the entities matching <paramref name="entityQuery"/> are computed and captured.</param>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        [SupportedInEntitiesForEach]
+        public void DestroyEntity(EntityQuery entityQuery, EntityQueryCaptureMode queryCaptureMode)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+                m_Data->AppendMultipleEntitiesCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.DestroyMultipleEntities, entityQuery);
+            else
+                m_Data->AppendEntityQueryCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                    ECBCommand.DestroyForEntityQuery, entityQuery);
+        }
+        /// <summary>Obsolete. Use <see cref="DestroyEntity(EntityQuery,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <param name="entityQuery">The query specifying the entities to destroy.</param>
+        /// <typeparam name="T"> The type of shared component to set. </typeparam>
+        [SupportedInEntitiesForEach]
+        [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
+        public void DestroyEntity(EntityQuery entityQuery)
+            => DestroyEntity(entityQuery, EntityQueryCaptureMode.AtRecord);
+        /// <summary>Obsolete. Use <see cref="DestroyEntity(Unity.Entities.EntityQuery, EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities to destroy.</param>
         [SupportedInEntitiesForEach]
         [Obsolete("Use DestroyEntity (RemovedAfter Entities 1.0) (UnityUpgradable) -> DestroyEntity(*)")]
         public void DestroyEntitiesForEntityQuery(EntityQuery entityQuery)
-            => DestroyEntity(entityQuery);
-
-        /// <summary>Records a command to destroy all entities matching a query.</summary>
-        /// <remarks>The set of entities matching the query is 'captured' in the method call, and the recorded command stores an array of all these entities.
-        ///
-        /// At playback, this command throws an error if one of these entities is destroyed before playback. (With safety checks enabled, an exception is thrown. Without safety checks,
-        /// playback will perform invalid and unsafe memory access.)
-        /// </remarks>
-        /// <param name="entityQuery">The query specifying the entities to destroy.</param>
-        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
-        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
-        [SupportedInEntitiesForEach]
-        public void DestroyEntity(EntityQuery entityQuery)
-        {
-            EnforceSingleThreadOwnership();
-            AssertDidNotPlayback();
-            m_Data->AppendMultipleEntitiesCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.DestroyMultipleEntities, entityQuery);
-        }
+            => DestroyEntity(entityQuery, EntityQueryCaptureMode.AtRecord);
 
         static bool IsDefaultObject<T>(ref T component, out int hashCode) where T : struct, ISharedComponentData
         {
@@ -3204,7 +3573,7 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+            m_Data->AddEntityComponentTypeWithValueCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.ReplaceComponentLinkedEntityGroup, e, component);
         }
 
@@ -3318,11 +3687,16 @@ namespace Unity.Entities
             public void SetBufferWithEntityFixUp(BasicCommand* header);
             public void AppendToBuffer(BasicCommand* header);
             public void AppendToBufferWithEntityFixUp(BasicCommand* header);
+            public void AddComponentForEntityQuery(BasicCommand* header);
             public void AddComponentForMultipleEntities(BasicCommand* header);
+            public void RemoveComponentForEntityQuery(BasicCommand* header);
             public void RemoveComponentForMultipleEntities(BasicCommand* header);
             public void AddMultipleComponentsForMultipleEntities(BasicCommand* header);
+            public void AddMultipleComponentsForEntityQuery(BasicCommand* header);
             public void RemoveMultipleComponentsForMultipleEntities(BasicCommand* header);
+            public void RemoveMultipleComponentsForEntityQuery(BasicCommand* header);
             public void DestroyMultipleEntities(BasicCommand* header);
+            public void DestroyForEntityQuery(BasicCommand* header);
             public void AddComponentLinkedEntityGroup(BasicCommand* header);
             public void SetComponentLinkedEntityGroup(BasicCommand* header);
             public void ReplaceComponentLinkedEntityGroup(BasicCommand* header);
@@ -3331,13 +3705,17 @@ namespace Unity.Entities
             public void SetComponentObjectForMultipleEntities(BasicCommand* header);
             public void AddSharedComponentData(BasicCommand* header);
             public void AddSharedComponentWithValueForMultipleEntities(BasicCommand* header);
+            public void AddSharedComponentWithValueForEntityQuery(BasicCommand* header);
             public void SetSharedComponentValueForMultipleEntities(BasicCommand* header);
+            public void SetSharedComponentValueForEntityQuery(BasicCommand* header);
             public void SetManagedComponentData(BasicCommand* header);
             public void SetSharedComponentData(BasicCommand* header);
             public void AddUnmanagedSharedComponentData(BasicCommand* header);
             public void SetUnmanagedSharedComponentData(BasicCommand* header);
             public void AddUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header);
+            public void AddUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header);
             public void SetUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header);
+            public void SetUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header);
 
             public ECBProcessorType ProcessorType { get; }
         }
@@ -3368,6 +3746,14 @@ namespace Unity.Entities
 
                 case ECBCommand.SetSharedComponentValueForMultipleEntities:
                     processor->SetSharedComponentValueForMultipleEntities(header);
+                    break;
+
+                case ECBCommand.AddSharedComponentWithValueForEntityQuery:
+                    processor->AddSharedComponentWithValueForEntityQuery(header);
+                    break;
+
+                case ECBCommand.SetSharedComponentValueForEntityQuery:
+                    processor->SetSharedComponentValueForEntityQuery(header);
                     break;
 
                 case ECBCommand.SetManagedComponentData:
@@ -3629,8 +4015,16 @@ namespace Unity.Entities
                         processor.AppendToBufferWithEntityFixUp(header);
                         return true;
 
+                    case ECBCommand.AddComponentForEntityQuery:
+                        processor.AddComponentForEntityQuery(header);
+                        return true;
+
                     case ECBCommand.AddComponentForMultipleEntities:
                         processor.AddComponentForMultipleEntities(header);
+                        return true;
+
+                    case ECBCommand.RemoveComponentForEntityQuery:
+                        processor.RemoveComponentForEntityQuery(header);
                         return true;
 
                     case ECBCommand.RemoveComponentForMultipleEntities:
@@ -3641,12 +4035,23 @@ namespace Unity.Entities
                         processor.AddMultipleComponentsForMultipleEntities(header);
                         return true;
 
+                    case ECBCommand.AddMultipleComponentsForEntityQuery:
+                        processor.AddMultipleComponentsForEntityQuery(header);
+                        return true;
+
                     case ECBCommand.RemoveMultipleComponentsForMultipleEntities:
                         processor.RemoveMultipleComponentsForMultipleEntities(header);
                         return true;
 
+                    case ECBCommand.RemoveMultipleComponentsForEntityQuery:
+                        processor.RemoveMultipleComponentsForEntityQuery(header);
+                        return true;
+
                     case ECBCommand.DestroyMultipleEntities:
                         processor.DestroyMultipleEntities(header);
+                        return true;
+                    case ECBCommand.DestroyForEntityQuery:
+                        processor.DestroyForEntityQuery(header);
                         return true;
 
                     case ECBCommand.AddUnmanagedSharedComponentData:
@@ -3660,6 +4065,12 @@ namespace Unity.Entities
                         return true;
                     case ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities:
                         processor.SetUnmanagedSharedComponentValueForMultipleEntities(header);
+                        return true;
+                    case ECBCommand.AddUnmanagedSharedComponentValueForEntityQuery:
+                        processor.AddUnmanagedSharedComponentValueForEntityQuery(header);
+                        return true;
+                    case ECBCommand.SetUnmanagedSharedComponentValueForEntityQuery:
+                        processor.SetUnmanagedSharedComponentValueForEntityQuery(header);
                         return true;
 
                     case ECBCommand.AddComponentLinkedEntityGroup:
@@ -4014,6 +4425,20 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddComponentForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommand*)header;
+                var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary).
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
+                mgr->AddComponentToQueryDuringStructuralChange(cmd->Header.QueryImpl, componentType, in originSystem);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddComponentForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommand*)header;
@@ -4037,6 +4462,20 @@ namespace Unity.Entities
                         mgr->SetComponentDataRaw(entities[i], cmd->ComponentTypeIndex, cmd + 1, cmd->ComponentSize, in originSystem);
                     }
                 }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void RemoveComponentForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommand*)header;
+                var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary).
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
+                mgr->RemoveComponentFromQueryDuringStructuralChange(cmd->Header.QueryImpl, componentType, in originSystem);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -4077,6 +4516,19 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddMultipleComponentsForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentTypeSetCommand*)header;
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary).
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
+                mgr->AddComponentsToQueryDuringStructuralChange(cmd->Header.QueryImpl, cmd->TypeSet, in originSystem);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void RemoveMultipleComponentsForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesAndComponentsCommand*)header;
@@ -4095,6 +4547,19 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void RemoveMultipleComponentsForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentTypeSetCommand*)header;
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary).
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
+                mgr->RemoveMultipleComponentsFromQueryDuringStructuralChange(cmd->Header.QueryImpl, cmd->TypeSet, in originSystem);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void DestroyMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesCommand*)header;
@@ -4110,6 +4575,20 @@ namespace Unity.Entities
                 }
 
                 mgr->DestroyEntityDuringStructuralChange(entities, in originSystem);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void DestroyForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryCommand*)header;
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary). And then immediately begin
+                    // a new batch, to track the changes made by this operation.
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
+                mgr->DestroyEntitiesInQueryDuringStructuralChange(cmd->QueryImpl, in originSystem);
             }
 
             public void AddComponentLinkedEntityGroup(BasicCommand* header)
@@ -4288,6 +4767,29 @@ namespace Unity.Entities
 
             [BurstDiscard]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddSharedComponentWithValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithObject*)header;
+
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary). And then immediately begin
+                    // a new batch, to track the changes made by this operation.
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
+                var typeIndex = cmd->Header.ComponentTypeIndex;
+                int newSharedComponentDataIndex = mgr->InsertSharedComponent_Managed(typeIndex,
+                    cmd->HashCode, cmd->GetBoxedObject());
+                // TODO: we aren't yet doing fix-up for Entity fields (see DOTS-3465)
+                mgr->AddSharedComponentDataToQueryDuringStructuralChange(cmd->Header.Header.QueryImpl,
+                    newSharedComponentDataIndex, ComponentType.FromTypeIndex(typeIndex), in originSystem);
+
+                CommitStructuralChanges(mgr, ref archetypeChanges);
+            }
+
+            [BurstDiscard]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommandWithObject*)header;
@@ -4312,6 +4814,29 @@ namespace Unity.Entities
                     mgr->SetSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(e, typeIndex,
                         hashcode, boxedObject, in originSystem);
                 }
+
+                CommitStructuralChanges(mgr, ref archetypeChanges);
+            }
+
+            [BurstDiscard]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void SetSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithObject*)header;
+
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary). And then immediately begin
+                    // a new batch, to track the changes made by this operation.
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
+                var typeIndex = cmd->Header.ComponentTypeIndex;
+                int newSharedComponentDataIndex = mgr->InsertSharedComponent_Managed(typeIndex,
+                    cmd->HashCode, cmd->GetBoxedObject());
+                // TODO: we aren't yet doing fix-up for Entity fields (see DOTS-3465)
+                mgr->SetSharedComponentDataOnQueryDuringStructuralChange(cmd->Header.Header.QueryImpl,
+                    newSharedComponentDataIndex, ComponentType.FromTypeIndex(typeIndex), in originSystem);
 
                 CommitStructuralChanges(mgr, ref archetypeChanges);
             }
@@ -4350,6 +4875,7 @@ namespace Unity.Entities
                     (cmd->IsDefault == 0) ? (cmd + 1) : null);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*)header;
@@ -4375,6 +4901,32 @@ namespace Unity.Entities
                 CommitStructuralChanges(mgr, ref archetypeChanges);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithUnmanagedSharedComponent*)header;
+
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary). And then immediately begin
+                    // a new batch, to track the changes made by this operation.
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
+                var typeIndex = cmd->Header.ComponentTypeIndex;
+                int newSharedComponentDataIndex = mgr->InsertSharedComponent_Unmanaged(typeIndex, cmd->HashCode,
+                    cmd->IsDefault == 1 ? null : cmd + 1,
+                    null);
+                // TODO: we aren't yet doing fix-up for Entity fields (see DOTS-3465)
+                mgr->AddSharedComponentDataToQueryDuringStructuralChange_Unmanaged(cmd->Header.Header.QueryImpl,
+                    newSharedComponentDataIndex, ComponentType.FromTypeIndex(typeIndex),
+                    cmd->IsDefault == 1 ? null : cmd + 1,
+                    in originSystem);
+
+                CommitStructuralChanges(mgr, ref archetypeChanges);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*)header;
@@ -4394,6 +4946,31 @@ namespace Unity.Entities
                     cmd->ComponentTypeIndex,
                     cmd->HashCode,
                     cmd->IsDefault == 1 ? null : cmd + 1);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void SetUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithUnmanagedSharedComponent*)header;
+
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary). And then immediately begin
+                    // a new batch, to track the changes made by this operation.
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
+                var typeIndex = cmd->Header.ComponentTypeIndex;
+                int newSharedComponentDataIndex = mgr->InsertSharedComponent_Unmanaged(typeIndex, cmd->HashCode,
+                    cmd->IsDefault == 1 ? null : cmd + 1,
+                    null);
+                // TODO: we aren't yet doing fix-up for Entity fields (see DOTS-3465)
+                mgr->SetSharedComponentDataOnQueryDuringStructuralChange_Unmanaged(cmd->Header.Header.QueryImpl,
+                    newSharedComponentDataIndex, ComponentType.FromTypeIndex(typeIndex),
+                    cmd->IsDefault == 1 ? null : cmd + 1,
+                    in originSystem);
+
+                CommitStructuralChanges(mgr, ref archetypeChanges);
             }
 
             public ECBProcessorType ProcessorType => ECBProcessorType.PlaybackProcessor;
@@ -4794,7 +5371,7 @@ namespace Unity.Entities
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentCommand(chain, sortKey, ECBCommand.AddComponent, e, component);
+                m_Data->AddEntityComponentTypeWithValueCommand(chain, sortKey, ECBCommand.AddComponent, e, component);
             }
 
             /// <summary> Records a command to add a component to an entity. </summary>
@@ -5037,7 +5614,7 @@ namespace Unity.Entities
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentCommand(chain, sortKey, ECBCommand.SetComponent, e, component);
+                m_Data->AddEntityComponentTypeWithValueCommand(chain, sortKey, ECBCommand.SetComponent, e, component);
             }
 
             /// <summary> Records a command to set a component value on an entity.</summary>
@@ -5654,7 +6231,7 @@ namespace Unity.Entities
                 CheckWriteAccess();
                 var chain = ThreadChain;
 
-                m_Data->AddEntityComponentCommand(chain, sortKey, ECBCommand.ReplaceComponentLinkedEntityGroup, e, component);
+                m_Data->AddEntityComponentTypeWithValueCommand(chain, sortKey, ECBCommand.ReplaceComponentLinkedEntityGroup, e, component);
             }
         }
     }

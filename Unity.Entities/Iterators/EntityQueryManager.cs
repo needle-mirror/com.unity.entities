@@ -989,7 +989,7 @@ namespace Unity.Entities
             var includeDisabledEntities = (options & EntityQueryOptions.IncludeDisabledEntities) != 0;
             var includePrefab = (options & EntityQueryOptions.IncludePrefab) != 0;
             var includeSystems = (options & EntityQueryOptions.IncludeSystems) != 0;
-            var includeChunkHeader = false;
+            var includeChunkHeader = (options & EntityQueryOptions.IncludeMetaChunks) != 0;
 
             for (var i = 0; i < componentTypesCount; i++)
             {

@@ -1,6 +1,5 @@
 using System.Collections;
 using NUnit.Framework;
-using Unity.Collections;
 using UnityEngine.TestTools;
 using Unity.Entities;
 using Unity.Entities.Serialization;
@@ -33,6 +32,24 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
             base.TearDownOnce();
         }
 
+#if !UNITY_EDITOR
+        private Entity FindPrefabTestEntity(EntityManager entityManager, int prefabIndex)
+        {
+            using var prefabQuery = entityManager.CreateEntityQuery(typeof(PrefabTestComponent));
+            using var prefabTestEntities = prefabQuery.ToEntityArray(Collections.Allocator.Temp);
+            using var prefabTestComponents = prefabQuery.ToComponentDataArray<PrefabTestComponent>(Collections.Allocator.Temp);
+
+            // TestSceneWithPrefabReferenced has 2 prefab references.
+            Assert.AreEqual(2, prefabTestEntities.Length);
+            for (int i = 0; i < prefabTestEntities.Length; ++i)
+            {
+                if (prefabTestComponents[i].PrefabIndex == prefabIndex)
+                    return prefabTestEntities[i];
+            }
+            return Entity.Null;
+        }
+#endif
+
         [UnityTest]
         //No need to run this test in a standalone player. Loading a prefab as a scene is already tested in the next test CanLoadPrefabWithWeakAssetReference
         [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
@@ -55,7 +72,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 
                 Assert.AreNotEqual(Entity.Null, prefabSceneEntity);
                 Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, prefabSceneEntity));
-                
+
                 var ecsTestDataQuery = em.CreateEntityQuery(typeof(SubSceneSectionTestData));
                 var ecsTestDataInPrefabQuery = em.CreateEntityQuery(new EntityQueryDesc
                 {
@@ -72,6 +89,52 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 Assert.AreEqual(2, ecsTestDataQuery.CalculateEntityCount());
                 Assert.AreEqual(4, ecsTestDataInPrefabQuery.CalculateEntityCount());
             }
+        }
+
+        [UnityTest]
+        public IEnumerator CanLoadModelPrefab()
+        {
+            using var world = CreateEntityWorld("World");
+            var em = world.EntityManager;
+            var sceneSectionStreamingSystem = world.GetExistingSystemManaged<SceneSectionStreamingSystem>();
+            var loadParams = new SceneSystem.LoadParameters { Flags = SceneLoadFlags.BlockOnImport };
+
+#if UNITY_EDITOR
+            var modelPrefabGUID = SetupTestScene("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/TestModel.fbx");
+            Assert.IsTrue(modelPrefabGUID.IsValid);
+            var prefabReference = new EntityPrefabReference(modelPrefabGUID);
+#else
+            //Player build test: Retrieve the prefabReference from the scene referencing it.
+            Assert.IsTrue(BuildSceneGUID.IsValid);
+            SceneSystem.LoadSceneAsync(world.Unmanaged, BuildSceneGUID, loadParams);
+            world.Update();
+            while (!sceneSectionStreamingSystem.AllStreamsComplete)
+            {
+                world.Update();
+                yield return null;
+            }
+            var prefabTestEntity = FindPrefabTestEntity(em, 1);
+            Assert.AreNotEqual(prefabTestEntity, Entity.Null);
+            EntityPrefabReference prefabReference = em.GetComponentData<PrefabTestComponent>(prefabTestEntity).PrefabReference;
+            Assert.IsTrue(prefabReference.AssetGUID.IsValid);
+#endif
+
+            var prefabSceneEntity = SceneSystem.LoadPrefabAsync(world.Unmanaged, prefabReference, loadParams);
+            world.Update();
+            while (!sceneSectionStreamingSystem.AllStreamsComplete)
+            {
+                world.Update();
+                yield return null;
+            }
+
+            Assert.AreNotEqual(Entity.Null, prefabSceneEntity);
+            Assert.IsTrue(SceneSystem.IsSceneLoaded(world.Unmanaged, prefabSceneEntity));
+
+            Assert.IsTrue(em.HasComponent<PrefabRoot>(prefabSceneEntity));
+            var prefabRoot = em.GetComponentData<PrefabRoot>(prefabSceneEntity).Root;
+            Assert.AreNotEqual(prefabRoot, Entity.Null);
+            Assert.IsTrue(em.HasComponent<LinkedEntityGroup>(prefabRoot));
+            //Assert.IsTrue(em.HasComponent<PrefabTestMeshComponent>(prefabRoot));
         }
 
         [UnityTest]
@@ -100,12 +163,10 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                     world.Update();
                     yield return null;
                 }
-                var prefabQuery = em.CreateEntityQuery(typeof(PrefabTestComponent));
-                var prefabEntities = prefabQuery.ToEntityArray(Allocator.Temp);
-                Assert.AreEqual(1, prefabEntities.Length);
-                requestEntity = prefabEntities[0];
-                prefabEntities.Dispose();
+                requestEntity = FindPrefabTestEntity(em, 0);
+                Assert.AreNotEqual(requestEntity, Entity.Null);
                 prefabReference = em.GetComponentData<PrefabTestComponent>(requestEntity).PrefabReference;
+                Assert.IsTrue(prefabReference.AssetGUID.IsValid);
 #endif
 
                 Assert.AreNotEqual(Entity.Null, requestEntity);
@@ -173,13 +234,10 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                     world.Update();
                     yield return null;
                 }
-
-                var prefabQuery = em.CreateEntityQuery(typeof(PrefabTestComponent));
-                var prefabEntity = prefabQuery.ToEntityArray(Allocator.Temp);
-                Assert.AreEqual(1, prefabEntity.Length);
-                requestEntity1 = prefabEntity[0];
-                prefabEntity.Dispose();
+                requestEntity1 = FindPrefabTestEntity(em, 0);
+                Assert.AreNotEqual(requestEntity1, Entity.Null);
                 prefabReference = em.GetComponentData<PrefabTestComponent>(requestEntity1).PrefabReference;
+                Assert.IsTrue(prefabReference.AssetGUID.IsValid);
 #endif
 
                 Assert.AreNotEqual(Entity.Null, requestEntity1);

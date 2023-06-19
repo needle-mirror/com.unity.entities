@@ -68,7 +68,11 @@ namespace Unity.Scenes
 
     internal struct SceneHeaderUtility
     {
-        EntityQuery _CleanupHeaderQuery;
+        EntityQuery _CleanupQueryWithoutSceneReference;
+        EntityQuery _CleanupQueryWithoutResolvedSceneHash;
+        EntityQuery _CleanupQueryWithoutRequestSceneLoaded;
+        EntityQuery _CleanupQueryWithDisableSceneResolveAndLoad;
+        EntityQuery _CleanupQueryWithDisabled;
 #if !UNITY_DOTSRUNTIME
         private NativeList<RequestSceneHeader> _PendingCleanups;
 #endif
@@ -77,17 +81,16 @@ namespace Unity.Scenes
 #if !UNITY_DOTSRUNTIME
             _PendingCleanups = new NativeList<RequestSceneHeader>(0, Allocator.Persistent);
 #endif
-            _CleanupHeaderQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<RequestSceneHeader>().WithNone<SceneReference>()
-                .AddAdditionalQuery()
-                .WithAll<RequestSceneHeader>().WithNone<ResolvedSceneHash>()
-                .AddAdditionalQuery()
-                .WithAll<RequestSceneHeader>().WithNone<RequestSceneLoaded>()
-                .AddAdditionalQuery()
-                .WithAll<RequestSceneHeader, DisableSceneResolveAndLoad>()
-                .AddAdditionalQuery()
-                .WithAll<RequestSceneHeader, Disabled>()
-                .Build(system);
+            _CleanupQueryWithoutSceneReference = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<RequestSceneHeader>().WithNone<SceneReference>().Build(system);
+            _CleanupQueryWithoutResolvedSceneHash = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<RequestSceneHeader>().WithNone<ResolvedSceneHash>().Build(system);
+            _CleanupQueryWithoutRequestSceneLoaded = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<RequestSceneHeader>().WithNone<RequestSceneLoaded>().Build(system);
+            _CleanupQueryWithDisableSceneResolveAndLoad = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<RequestSceneHeader, DisableSceneResolveAndLoad>().Build(system);
+            _CleanupQueryWithDisabled = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<RequestSceneHeader, Disabled>().Build(system);
         }
 
         public void Dispose(EntityManager entityManager)
@@ -120,9 +123,18 @@ namespace Unity.Scenes
                 }
             }
 #endif
-            if (!_CleanupHeaderQuery.IsEmptyIgnoreFilter)
+            CleanupQuery(entityManager, _CleanupQueryWithoutSceneReference);
+            CleanupQuery(entityManager, _CleanupQueryWithoutResolvedSceneHash);
+            CleanupQuery(entityManager, _CleanupQueryWithoutRequestSceneLoaded);
+            CleanupQuery(entityManager, _CleanupQueryWithDisableSceneResolveAndLoad);
+            CleanupQuery(entityManager, _CleanupQueryWithDisabled);
+        }
+
+        private void CleanupQuery(EntityManager entityManager, EntityQuery query)
+        {
+            if (!query.IsEmptyIgnoreFilter)
             {
-                using (var requestSceneHeaders = _CleanupHeaderQuery.ToComponentDataArray<RequestSceneHeader>(Allocator.TempJob))
+                using (var requestSceneHeaders = query.ToComponentDataArray<RequestSceneHeader>(Allocator.TempJob))
                 {
                     for (int i = 0; i < requestSceneHeaders.Length; ++i)
                     {
@@ -141,7 +153,8 @@ namespace Unity.Scenes
 #endif
                     }
                 }
-                entityManager.RemoveComponent<RequestSceneHeader>(_CleanupHeaderQuery);
+
+                entityManager.RemoveComponent<RequestSceneHeader>(query);
             }
         }
 

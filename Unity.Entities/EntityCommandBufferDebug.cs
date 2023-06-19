@@ -345,12 +345,30 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddComponentForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommand*)header;
+                FixedString64Bytes commandAction = "Adding";
+                Debug.Log($"{commandAction} component on entity query for component index {cmd->ComponentTypeIndex.ToFixedString()}; recorded from {originSystemDebugName}.");
+                playbackProcessor.AddComponentForEntityQuery(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddComponentForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommand*)header;
                 FixedString64Bytes commandAction = "Adding";
                 LogEntitiesAndComponentCommand(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->ComponentTypeIndex, in commandAction);
                 playbackProcessor.AddComponentForMultipleEntities(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void RemoveComponentForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommand*)header;
+                FixedString64Bytes commandAction = "Removing";
+                Debug.Log($"{commandAction} component on entity query for component index {cmd->ComponentTypeIndex.ToFixedString()}; recorded from {originSystemDebugName}.");
+                playbackProcessor.RemoveComponentForEntityQuery(header);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -372,12 +390,30 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddMultipleComponentsForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentTypeSetCommand*)header;
+                FixedString64Bytes commandAction = "Adding";
+                Debug.Log($"{commandAction} component on entity query for component set {cmd->TypeSet}; recorded from {originSystemDebugName}.");
+                playbackProcessor.AddMultipleComponentsForEntityQuery(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void RemoveMultipleComponentsForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesAndComponentsCommand*)header;
                 FixedString64Bytes commandAction = "Removing";
                 LogEntitiesAndComponentsCommand(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->TypeSet, in commandAction);
                 playbackProcessor.RemoveMultipleComponentsForMultipleEntities(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void RemoveMultipleComponentsForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentTypeSetCommand*)header;
+                FixedString64Bytes commandAction = "Removing";
+                Debug.Log($"{commandAction} component on entity query for component set {cmd->TypeSet}; recorded from {originSystemDebugName}.");
+                playbackProcessor.RemoveMultipleComponentsForEntityQuery(header);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -389,6 +425,15 @@ namespace Unity.Entities
                 playbackProcessor.DestroyMultipleEntities(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void DestroyForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryCommand*)header;
+                Debug.Log($"Destroying entities in EntityQuery recorded from {originSystemDebugName}.");
+                playbackProcessor.DestroyMultipleEntities(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddComponentLinkedEntityGroup(BasicCommand* header)
             {
                 var cmd = (EntityQueryMaskCommand*) header;
@@ -399,6 +444,7 @@ namespace Unity.Entities
                 playbackProcessor.AddComponentLinkedEntityGroup(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetComponentLinkedEntityGroup(BasicCommand* header)
             {
                 var cmd = (EntityQueryMaskCommand*) header;
@@ -409,6 +455,7 @@ namespace Unity.Entities
                 playbackProcessor.SetComponentLinkedEntityGroup(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void ReplaceComponentLinkedEntityGroup(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*) header;
@@ -498,12 +545,32 @@ namespace Unity.Entities
 
             [BurstDiscard]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddSharedComponentWithValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithObject*)header;
+                FixedString64Bytes commandAction = "Adding shared";
+                Debug.Log($"{commandAction} component on entity query for component index {cmd->Header.ComponentTypeIndex.ToFixedString()}; recorded from {originSystemDebugName}.");
+                playbackProcessor.AddSharedComponentWithValueForEntityQuery(header);
+            }
+
+            [BurstDiscard]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommandWithObject*)header;
                 FixedString64Bytes commandAction = "Setting shared";
                 LogEntitiesAndComponentCommand(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->ComponentTypeIndex, in commandAction);
                 playbackProcessor.SetSharedComponentValueForMultipleEntities(header);
+            }
+
+            [BurstDiscard]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void SetSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithObject*)header;
+                FixedString64Bytes commandAction = "Setting shared";
+                Debug.Log($"{commandAction} component on entity query for component index {cmd->Header.ComponentTypeIndex.ToFixedString()}; recorded from {originSystemDebugName}.");
+                playbackProcessor.SetSharedComponentValueForEntityQuery(header);
             }
 
             [BurstDiscard]
@@ -525,6 +592,7 @@ namespace Unity.Entities
                 playbackProcessor.SetUnmanagedSharedComponentData(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*)header;
@@ -533,6 +601,16 @@ namespace Unity.Entities
                 playbackProcessor.AddUnmanagedSharedComponentValueForMultipleEntities(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithUnmanagedSharedComponent*)header;
+                FixedString64Bytes commandAction = "Adding unmanaged shared";
+                Debug.Log($"{commandAction} component on entity query for component index {cmd->Header.ComponentTypeIndex.ToFixedString()}; recorded from {originSystemDebugName}.");
+                playbackProcessor.AddUnmanagedSharedComponentValueForEntityQuery(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*)header;
@@ -541,8 +619,18 @@ namespace Unity.Entities
                 playbackProcessor.SetUnmanagedSharedComponentValueForMultipleEntities(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void SetUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithUnmanagedSharedComponent*)header;
+                FixedString64Bytes commandAction = "Setting unmanaged shared";
+                Debug.Log($"{commandAction} component on entity query for component index {cmd->Header.ComponentTypeIndex.ToFixedString()}; recorded from {originSystemDebugName}.");
+                playbackProcessor.SetUnmanagedSharedComponentValueForEntityQuery(header);
+            }
+
             public ECBProcessorType ProcessorType => ECBProcessorType.PlaybackWithTraceProcessor;
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetSharedComponentData(BasicCommand* header)
             {
                 var cmd = (EntitySharedComponentCommand*)header;
@@ -853,6 +941,20 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddComponentForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommand*)header;
+
+                var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
+                ThrowIfPrefabComponent(componentType);
+
+                // TODO: throw if any matching archetypes have the Prefab component
+                //ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
+
+                playbackProcessor.AddComponentForEntityQuery(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddComponentForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommand*)header;
@@ -863,6 +965,20 @@ namespace Unity.Entities
                 ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
 
                 playbackProcessor.AddComponentForMultipleEntities(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void RemoveComponentForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommand*)header;
+
+                var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
+                ThrowIfPrefabComponent(componentType);
+
+                // TODO: throw if any matching archetypes have the Prefab component
+                //ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
+
+                playbackProcessor.RemoveComponentForEntityQuery(header);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -891,6 +1007,19 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddMultipleComponentsForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentTypeSetCommand*)header;
+
+                ThrowIfPrefabComponentInSet(in cmd->TypeSet);
+
+                // TODO: throw if any matching archetypes have the Prefab component
+                //ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
+
+                playbackProcessor.AddMultipleComponentsForEntityQuery(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void RemoveMultipleComponentsForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesAndComponentsCommand*)header;
@@ -903,6 +1032,19 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void RemoveMultipleComponentsForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentTypeSetCommand*)header;
+
+                ThrowIfPrefabComponentInSet(in cmd->TypeSet);
+
+                // TODO: throw if any matching archetypes have the Prefab component
+                //ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
+
+                playbackProcessor.RemoveMultipleComponentsForEntityQuery(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void DestroyMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesCommand*)header;
@@ -912,6 +1054,18 @@ namespace Unity.Entities
                 playbackProcessor.DestroyMultipleEntities(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void DestroyForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryCommand*)header;
+
+                // TODO: throw if any matching archetypes have the Prefab component
+                //ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
+
+                playbackProcessor.DestroyForEntityQuery(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddComponentLinkedEntityGroup(BasicCommand* header)
             {
                 var cmd = (EntityQueryMaskCommand*) header;
@@ -924,6 +1078,7 @@ namespace Unity.Entities
                 playbackProcessor.AddComponentLinkedEntityGroup(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetComponentLinkedEntityGroup(BasicCommand* header)
             {
                 var cmd = (EntityQueryMaskCommand*) header;
@@ -934,6 +1089,7 @@ namespace Unity.Entities
                 playbackProcessor.SetComponentLinkedEntityGroup(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void ReplaceComponentLinkedEntityGroup(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*) header;
@@ -1018,6 +1174,18 @@ namespace Unity.Entities
 
             [BurstDiscard]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddSharedComponentWithValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithObject*)header;
+
+                // TODO: throw if any matching archetypes have the Prefab component
+                //ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
+
+                playbackProcessor.AddSharedComponentWithValueForEntityQuery(header);
+            }
+
+            [BurstDiscard]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesComponentCommandWithObject*)header;
@@ -1025,6 +1193,18 @@ namespace Unity.Entities
                 ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
 
                 playbackProcessor.SetSharedComponentValueForMultipleEntities(header);
+            }
+
+            [BurstDiscard]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void SetSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithObject*)header;
+
+                // TODO: throw if any matching archetypes have the Prefab component
+                //ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
+
+                playbackProcessor.SetSharedComponentValueForEntityQuery(header);
             }
 
             [BurstDiscard]
@@ -1050,6 +1230,7 @@ namespace Unity.Entities
                 playbackProcessor.SetUnmanagedSharedComponentData(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*)header;
@@ -1059,6 +1240,18 @@ namespace Unity.Entities
                 playbackProcessor.AddUnmanagedSharedComponentValueForMultipleEntities(header);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithUnmanagedSharedComponent*)header;
+
+                // TODO: throw if any matching archetypes have the Prefab component
+                //ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
+
+                playbackProcessor.AddUnmanagedSharedComponentValueForEntityQuery(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header)
             {
                 var cmd = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*)header;
@@ -1066,6 +1259,17 @@ namespace Unity.Entities
                 ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
 
                 playbackProcessor.SetUnmanagedSharedComponentValueForMultipleEntities(header);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void SetUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                var cmd = (EntityQueryComponentCommandWithUnmanagedSharedComponent*)header;
+
+                // TODO: throw if any matching archetypes have the Prefab component
+                //ThrowIfPrefab(cmd->Header.Entities.Ptr, cmd->Header.EntitiesCount, cmd->Header.SkipDeferredEntityLookup != 0);
+
+                playbackProcessor.SetUnmanagedSharedComponentValueForEntityQuery(header);
             }
 
             public ECBProcessorType ProcessorType => ECBProcessorType.PrePlaybackValidationProcessor;
@@ -1190,7 +1394,17 @@ namespace Unity.Entities
                 commands.Add(header);
             }
 
+            public void AddComponentForEntityQuery(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
             public unsafe void AddComponentForMultipleEntities(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
+            public void RemoveComponentForEntityQuery(BasicCommand* header)
             {
                 commands.Add(header);
             }
@@ -1205,12 +1419,27 @@ namespace Unity.Entities
                 commands.Add(header);
             }
 
+            public void AddMultipleComponentsForEntityQuery(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
             public unsafe void RemoveMultipleComponentsForMultipleEntities(BasicCommand* header)
             {
                 commands.Add(header);
             }
 
+            public void RemoveMultipleComponentsForEntityQuery(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
             public unsafe void DestroyMultipleEntities(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
+            public unsafe void DestroyForEntityQuery(BasicCommand* header)
             {
                 commands.Add(header);
             }
@@ -1255,7 +1484,17 @@ namespace Unity.Entities
                 commands.Add(header);
             }
 
+            public unsafe void AddSharedComponentWithValueForEntityQuery(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
             public unsafe void SetSharedComponentValueForMultipleEntities(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
+            public unsafe void SetSharedComponentValueForEntityQuery(BasicCommand* header)
             {
                 commands.Add(header);
             }
@@ -1285,7 +1524,17 @@ namespace Unity.Entities
                 commands.Add(header);
             }
 
+            public void AddUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
             public void SetUnmanagedSharedComponentValueForMultipleEntities(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
+            public void SetUnmanagedSharedComponentValueForEntityQuery(BasicCommand* header)
             {
                 commands.Add(header);
             }
@@ -1362,6 +1611,82 @@ namespace Unity.Entities
             public override string ToString()
             {
                 return (CommandType == ECBCommand.InstantiateEntity) ? $"Instantiate Entity (count={BatchCount})" : "Destroy Entity";
+            }
+        }
+
+        internal class EntityQueryCommandView : BasicCommandView
+        {
+            public EntityQueryImpl* Query;
+
+            public EntityQueryCommandView()
+            {
+                CommandType = 0;
+                SortKey = 0;
+                TotalSizeInBytes = 0;
+                Query = null;
+            }
+
+            public EntityQueryCommandView(ECBCommand commandType, int sortKey, int totalSize, EntityQueryImpl* queryImpl)
+            {
+                CommandType = commandType;
+                SortKey = sortKey;
+                TotalSizeInBytes = totalSize;
+                Query = queryImpl;
+            }
+        }
+
+        internal class EntityQueryComponentCommandView : EntityQueryCommandView
+        {
+            public TypeIndex ComponentTypeIndex;
+
+            public EntityQueryComponentCommandView()
+            {
+                CommandType = 0;
+                SortKey = 0;
+                TotalSizeInBytes = 0;
+                Query = null;
+                ComponentTypeIndex = 0;
+            }
+
+            public EntityQueryComponentCommandView(ECBCommand commandType, int sortKey, int totalSize,
+                EntityQueryImpl* queryImpl, TypeIndex componentTypeIndex)
+            {
+                CommandType = commandType;
+                SortKey = sortKey;
+                TotalSizeInBytes = totalSize;
+                Query = queryImpl;
+                ComponentTypeIndex = componentTypeIndex;
+            }
+
+            public override string ToString()
+            {
+#if !NET_DOTS
+                var type = TypeManager.GetType(ComponentTypeIndex);
+                var typeName = type.Name + " ";
+#else
+                var typeName = "";
+#endif
+                return (CommandType == ECBCommand.AddComponentForEntityQuery) ? $"Add {typeName}Component to EntityQuery" : $"Remove {typeName}Component from EntityQuery";
+            }
+        }
+
+        internal class EntityQueryComponentTypeSetCommandView : EntityQueryCommandView
+        {
+            public ComponentTypeSet TypeSet;
+
+            public EntityQueryComponentTypeSetCommandView(ECBCommand commandType, int sortKey, int totalSize,
+                EntityQueryImpl* queryImpl, in ComponentTypeSet typeSet)
+            {
+                CommandType = commandType;
+                SortKey = sortKey;
+                TotalSizeInBytes = totalSize;
+                Query = queryImpl;
+                TypeSet = typeSet;
+            }
+
+            public override string ToString()
+            {
+                return (CommandType == ECBCommand.AddComponentForEntityQuery) ? $"Add {TypeSet} to EntityQuery" : $"Remove {TypeSet} from EntityQuery";
             }
         }
 
@@ -1479,6 +1804,45 @@ namespace Unity.Entities
                        CommandType == ECBCommand.AddSharedComponentWithValueForMultipleEntities ?
                  $"Add {typeName}Component to {EntitiesCount} Entities" :
                  $"Set {typeName}Component to {EntitiesCount} Entities";
+            }
+        }
+
+        internal class EntityQueryComponentCommandWithObjectView : EntityQueryComponentCommandView
+        {
+            public int HashCode;
+            public EntityComponentGCNode GCNode;
+
+            internal object GetBoxedObject()
+            {
+                if (GCNode.BoxedObject.IsAllocated)
+                    return GCNode.BoxedObject.Target;
+                return null;
+            }
+
+            public EntityQueryComponentCommandWithObjectView(ECBCommand commandType, int sortKey, int totalSize,
+                EntityQueryImpl* queryImpl, TypeIndex componentTypeIndex, int hashCode, EntityComponentGCNode gcNode)
+            {
+                CommandType = commandType;
+                SortKey = sortKey;
+                TotalSizeInBytes = totalSize;
+                Query = queryImpl;
+                ComponentTypeIndex = componentTypeIndex;
+                HashCode = hashCode;
+                GCNode = gcNode;
+            }
+
+            public override string ToString()
+            {
+#if  !NET_DOTS
+                var type = TypeManager.GetType(ComponentTypeIndex);
+                var typeName = type.Name + " ";
+#else
+                var typeName = "";
+#endif
+                return CommandType == ECBCommand.AddSharedComponentWithValueForEntityQuery ||
+                        CommandType == ECBCommand.AddComponentObjectForEntityQuery ?
+                    $"Add {typeName}Component to EntityQuery" :
+                    $"Set {typeName}Component to EntityQuery";
             }
         }
 
@@ -1877,6 +2241,47 @@ namespace Unity.Entities
                     : $"Set {typeName}Unmanaged Shared Component from {EntitiesCount} Entities";
             }
         }
+
+        internal class EntityQueryComponentCommandView_WithUnmanagedSharedValue : EntityQueryComponentCommandView
+        {
+            public int ComponentSize;
+            public object ComponentValue;
+
+            public EntityQueryComponentCommandView_WithUnmanagedSharedValue(
+                ECBCommand commandType,
+                int sortKey,
+                int totalSize,
+                EntityQueryImpl *queryImpl,
+                TypeIndex componentTypeIndex,
+                int componentSize,
+                byte* componentValue)
+            {
+                CommandType = commandType;
+                SortKey = sortKey;
+                TotalSizeInBytes = totalSize;
+                Query = queryImpl;
+                ComponentTypeIndex = componentTypeIndex;
+                ComponentSize = componentSize;
+                if (ComponentSize > 0 && componentValue != null)
+                    ComponentValue = TypeManager.ConstructComponentFromBuffer(componentTypeIndex, componentValue);
+                else
+                    ComponentValue = default;
+            }
+
+            public override string ToString()
+            {
+#if !NET_DOTS
+                var type = TypeManager.GetType(ComponentTypeIndex);
+                var typeName = type.Name + " ";
+#else
+                var typeName = "";
+#endif
+                return (CommandType == ECBCommand.AddUnmanagedSharedComponentValueForEntityQuery)
+                    ? $"Add {typeName}Unmanaged Shared Component to EntityQuery"
+                    : $"Set {typeName}Unmanaged Shared Component from EntityQuery";
+            }
+        }
+
         internal class EntitySharedComponentCommandView : EntityCommandView
         {
             public TypeIndex ComponentTypeIndex;
@@ -1995,6 +2400,14 @@ namespace Unity.Entities
                             entityBufferCommand->Header.BatchCount, entityBufferCommand->ComponentTypeIndex,
                             entityBufferCommand->ComponentSize, &entityBufferCommand->BufferNode);
 
+                    case ECBCommand.AddComponentForEntityQuery:
+                    case ECBCommand.RemoveComponentForEntityQuery:
+                        var entityQueryComponentCommand = (EntityQueryComponentCommand*)header;
+                        return new EntityQueryComponentCommandView(
+                            header->CommandType, header->SortKey, header->TotalSize,
+                            entityQueryComponentCommand->Header.QueryImpl,
+                            entityQueryComponentCommand->ComponentTypeIndex);
+
                     case ECBCommand.AddComponentForMultipleEntities:
                     case ECBCommand.RemoveComponentForMultipleEntities:
                         var multipleEntitiesComponentCommand = (MultipleEntitiesComponentCommand*) header;
@@ -2018,6 +2431,14 @@ namespace Unity.Entities
                             multipleEntitiesAndComponentsCommand->Header.Allocator.ToAllocator,
                             multipleEntitiesAndComponentsCommand->TypeSet);
 
+                    case ECBCommand.AddMultipleComponentsForEntityQuery:
+                    case ECBCommand.RemoveMultipleComponentsForEntityQuery:
+                        var entityQueryComponentTypeSetCommand = (EntityQueryComponentTypeSetCommand*)header;
+                        return new EntityQueryComponentTypeSetCommandView(
+                            header->CommandType, header->SortKey, header->TotalSize,
+                            entityQueryComponentTypeSetCommand->Header.QueryImpl,
+                            entityQueryComponentTypeSetCommand->TypeSet);
+
                     case ECBCommand.DestroyMultipleEntities:
                         var destroyMultipleEntitiesCommand = (MultipleEntitiesCommand*) header;
                         return new MultipleEntitiesCommandView(header->CommandType,
@@ -2025,6 +2446,11 @@ namespace Unity.Entities
                             destroyMultipleEntitiesCommand->EntitiesCount,
                             destroyMultipleEntitiesCommand->SkipDeferredEntityLookup != 0 ? true : false,
                             destroyMultipleEntitiesCommand->Allocator.ToAllocator);
+
+                    case ECBCommand.DestroyForEntityQuery:
+                        var destroyEntityQueryCommand = (EntityQueryCommand*) header;
+                        return new EntityQueryCommandView(header->CommandType, header->SortKey,
+                            header->TotalSize, destroyEntityQueryCommand->QueryImpl);
 
                     case ECBCommand.AddComponentObjectForMultipleEntities:
                     case ECBCommand.SetComponentObjectForMultipleEntities:
@@ -2039,6 +2465,16 @@ namespace Unity.Entities
                             multipleEntitiesComponentCommandWithObject->Header.Allocator.ToAllocator,
                             multipleEntitiesComponentCommandWithObject->ComponentTypeIndex,
                             multipleEntitiesComponentCommandWithObject->HashCode, multipleEntitiesComponentCommandWithObject->GCNode);
+
+                    case ECBCommand.AddSharedComponentWithValueForEntityQuery:
+                    case ECBCommand.SetSharedComponentValueForEntityQuery:
+                        var entityQueryComponentCommandWithObject = (EntityQueryComponentCommandWithObject*) header;
+                        return new EntityQueryComponentCommandWithObjectView(
+                            header->CommandType, header->SortKey, header->TotalSize,
+                            entityQueryComponentCommandWithObject->Header.Header.QueryImpl,
+                            entityQueryComponentCommandWithObject->Header.ComponentTypeIndex,
+                            entityQueryComponentCommandWithObject->HashCode,
+                            entityQueryComponentCommandWithObject->GCNode);
 
                     case ECBCommand.AddManagedComponentData:
                     case ECBCommand.SetManagedComponentData:
@@ -2088,6 +2524,19 @@ namespace Unity.Entities
                             cmd2->ComponentTypeIndex,
                             cmd2->ComponentSize,
                             data2);
+
+                    case ECBCommand.AddUnmanagedSharedComponentValueForEntityQuery:
+                    case ECBCommand.SetUnmanagedSharedComponentValueForEntityQuery:
+                        var entityQueryComponentCommandWithUnmanagedSharedComponent = (EntityQueryComponentCommandWithUnmanagedSharedComponent*) header;
+                        var data3 = (byte*)(entityQueryComponentCommandWithUnmanagedSharedComponent+1);
+                        return new EntityQueryComponentCommandView_WithUnmanagedSharedValue(
+                            header->CommandType,
+                            header->SortKey,
+                            header->TotalSize,
+                            entityQueryComponentCommandWithUnmanagedSharedComponent->Header.Header.QueryImpl,
+                            entityQueryComponentCommandWithUnmanagedSharedComponent->Header.ComponentTypeIndex,
+                            entityQueryComponentCommandWithUnmanagedSharedComponent->ComponentSize,
+                            data3);
 
                     case ECBCommand.AddComponentLinkedEntityGroup:
                     case ECBCommand.SetComponentLinkedEntityGroup:

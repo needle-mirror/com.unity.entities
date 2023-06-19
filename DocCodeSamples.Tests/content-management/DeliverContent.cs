@@ -13,11 +13,11 @@ namespace Doc.CodeSamples.Tests
         void Start()
         {
 #if ENABLE_CONTENT_DELIVERY
-        ContentDeliverySystem.Instance.UpdateContent(remoteUrlRoot, initialContentSet);
-        ContentDeliverySystem.Instance.RegisterForContentUpdateCompletion(s =>
-        {
-            LoadMainScene();
-        });
+            ContentDeliveryGlobalState.Initialize(remoteUrlRoot, Application.persistentDataPath + "/content-cache", initialContentSet, s =>
+            {
+                if (s >= ContentDeliveryGlobalState.ContentUpdateState.ContentReady)
+                    LoadMainScene();
+            });
 #else
             LoadMainScene();
 #endif

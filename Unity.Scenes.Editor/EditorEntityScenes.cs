@@ -917,7 +917,7 @@ namespace Unity.Scenes.Editor
             var dependencies = AssetDatabase.GetDependencies(AssetDatabaseCompatibility.GuidToPath(sceneGUID));
             foreach (var dependency in dependencies)
             {
-                if (dependency.ToLower().EndsWith(".prefab", StringComparison.Ordinal))
+                if (!dependency.ToLower().EndsWith(".unity", StringComparison.Ordinal))
                 {
                     GUID dependencyGUID = AssetDatabaseCompatibility.PathToGUID(dependency);
                     context.DependsOnArtifact(dependencyGUID);

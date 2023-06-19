@@ -11,7 +11,7 @@ Aspects can include items such as the following:
 * Any `ISharedComponent` fields to access the shared component value as read-only.
 * Other aspect types
 
-## Further information
+## Additional resources
 
 * [Create an aspect](aspects-create.md)
 * [`IAspect` API documentation](xref:Unity.Entities.IAspect)

@@ -1775,6 +1775,52 @@ namespace Unity.Entities.Tests
                 var data = data1FromEntity[e];
             });
         }
+
+        partial struct SystemWithSystemEntityData : ISystem
+        {
+            public void OnCreate(ref SystemState state)
+            {
+                state.EntityManager.AddComponentData(state.SystemHandle, new EcsTestData());
+                state.EntityManager.AddComponentData(state.SystemHandle, new EcsTestData2());
+            }
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
+        public unsafe void GetComponentDataRW_Completes_BothDependencies()
+        {
+            var systemWithEntityData = World.CreateSystem<SystemWithSystemEntityData>();
+
+            var scheduleEcsTestDataForWritingSystem = World.CreateSystem<ScheduleEcsTestDataForWritingSystem>();
+            var scheduleEcsTestData2ForReadingSystem = World.CreateSystem<ScheduleEcsTestData2ForReadingSystem>();
+            scheduleEcsTestDataForWritingSystem.Update(World.Unmanaged);
+            scheduleEcsTestData2ForReadingSystem.Update(World.Unmanaged);
+
+            World.EntityManager.GetComponentDataRW<EcsTestData>(systemWithEntityData);
+            World.EntityManager.GetComponentDataRW<EcsTestData2>(systemWithEntityData);
+
+            Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(World.Unmanaged.ResolveSystemStateRef(scheduleEcsTestDataForWritingSystem).Dependency, default));
+            Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(World.Unmanaged.ResolveSystemStateRef(scheduleEcsTestData2ForReadingSystem).Dependency, default));
+        }
+
+        [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
+        public unsafe void GetComponentData_Completes_OnlyWrite_Dependency()
+        {
+            var systemWithEntityData = World.CreateSystem<SystemWithSystemEntityData>();
+
+            var scheduleEcsTestDataForWritingSystem = World.CreateSystem<ScheduleEcsTestDataForWritingSystem>();
+            var scheduleEcsTestData2ForReadingSystem = World.CreateSystem<ScheduleEcsTestData2ForReadingSystem>();
+            scheduleEcsTestDataForWritingSystem.Update(World.Unmanaged);
+            scheduleEcsTestData2ForReadingSystem.Update(World.Unmanaged);
+
+            World.EntityManager.GetComponentData<EcsTestData>(systemWithEntityData);
+            World.EntityManager.GetComponentData<EcsTestData2>(systemWithEntityData);
+
+            Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(World.Unmanaged.ResolveSystemStateRef(scheduleEcsTestDataForWritingSystem).Dependency, default));
+            Assert.IsFalse(JobHandle.CheckFenceIsDependencyOrDidSyncFence(World.Unmanaged.ResolveSystemStateRef(scheduleEcsTestData2ForReadingSystem).Dependency, default));
+        }
+
 #endif // !DOTS_DISABLE_DEBUG_NAMES
 
 #if DOTS_DISABLE_DEBUG_NAMES
